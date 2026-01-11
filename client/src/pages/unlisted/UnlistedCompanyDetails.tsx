@@ -172,6 +172,41 @@ export default function UnlistedCompanyDetails() {
     enabled: !!id && !!company,
   });
 
+  // Fetch MCA Intelligence financial ratios (if company has CIN)
+  interface McaFinancialRatios {
+    cin: string;
+    companyName?: string;
+    hasData: boolean;
+    latestYear?: string;
+    metrics?: {
+      revenue: number | null;
+      profitAfterTax: number | null;
+      netWorth: number | null;
+      totalAssets: number | null;
+      totalLiabilities: number | null;
+      totalBorrowing: number | null;
+    };
+    ratios?: {
+      patMargin: number | null;
+      returnOnEquity: number | null;
+      debtToEquity: number | null;
+      assetTurnover: number | null;
+    };
+    growth?: {
+      revenueCAGR: number | null;
+      patCAGR: number | null;
+      yearsOfData: number;
+    };
+    source: string;
+    attribution: string;
+    lastUpdated?: string;
+  }
+
+  const { data: mcaFinancials, isLoading: isLoadingMca } = useQuery<{ success: boolean; data: McaFinancialRatios }>({
+    queryKey: ['/api/mca/company', company?.cin, 'financials'],
+    enabled: !!company?.cin,
+  });
+
   const isLoading = isLoadingCompany || isLoadingFinancials || isLoadingRatios;
 
   // Set default selected year when ratios are loaded
@@ -483,6 +518,165 @@ export default function UnlistedCompanyDetails() {
             </CardContent>
           </Card>
         </div>
+
+        {/* MCA Intelligence Financial Ratios (Official Filings) */}
+        {company?.cin && (
+          <Card className="bg-white dark:bg-gray-900 border-green-200 dark:border-green-800">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5 text-green-600" />
+                MCA Official Financial Data
+                <Badge variant="outline" className="text-green-600 border-green-300 ml-2">
+                  Government Source
+                </Badge>
+              </CardTitle>
+              <CardDescription>
+                Derived from statutory public filings (AOC-4/XBRL) submitted to Ministry of Corporate Affairs
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingMca ? (
+                <div className="text-center py-4 text-gray-500">Loading MCA data...</div>
+              ) : mcaFinancials?.success && mcaFinancials.data?.hasData ? (
+                <div className="space-y-4">
+                  {/* Key Metrics */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-100 dark:border-green-800">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Revenue</p>
+                      <p className="text-lg font-bold text-gray-900 dark:text-white" data-testid="mca-revenue">
+                        {mcaFinancials.data.metrics?.revenue 
+                          ? formatCurrency(mcaFinancials.data.metrics.revenue)
+                          : 'N/A'}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-100 dark:border-green-800">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Profit After Tax</p>
+                      <p className="text-lg font-bold text-gray-900 dark:text-white" data-testid="mca-pat">
+                        {mcaFinancials.data.metrics?.profitAfterTax 
+                          ? formatCurrency(mcaFinancials.data.metrics.profitAfterTax)
+                          : 'N/A'}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-100 dark:border-green-800">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Net Worth</p>
+                      <p className="text-lg font-bold text-gray-900 dark:text-white" data-testid="mca-networth">
+                        {mcaFinancials.data.metrics?.netWorth 
+                          ? formatCurrency(mcaFinancials.data.metrics.netWorth)
+                          : 'N/A'}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-100 dark:border-green-800">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Total Assets</p>
+                      <p className="text-lg font-bold text-gray-900 dark:text-white" data-testid="mca-total-assets">
+                        {mcaFinancials.data.metrics?.totalAssets 
+                          ? formatCurrency(mcaFinancials.data.metrics.totalAssets)
+                          : 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Computed Ratios */}
+                  <div>
+                    <h4 className="text-sm font-semibold mb-3 text-gray-700 dark:text-gray-300">Computed Ratios</h4>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                      <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">PAT Margin</p>
+                        <p className="text-lg font-bold text-gray-900 dark:text-white" data-testid="mca-pat-margin">
+                          {mcaFinancials.data.ratios?.patMargin !== null 
+                            ? `${mcaFinancials.data.ratios.patMargin}%`
+                            : 'N/A'}
+                        </p>
+                      </div>
+                      <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Return on Equity</p>
+                        <p className="text-lg font-bold text-gray-900 dark:text-white" data-testid="mca-roe">
+                          {mcaFinancials.data.ratios?.returnOnEquity !== null 
+                            ? `${mcaFinancials.data.ratios.returnOnEquity}%`
+                            : 'N/A'}
+                        </p>
+                      </div>
+                      <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Debt to Equity</p>
+                        <p className="text-lg font-bold text-gray-900 dark:text-white" data-testid="mca-debt-equity">
+                          {mcaFinancials.data.ratios?.debtToEquity !== null 
+                            ? mcaFinancials.data.ratios.debtToEquity.toFixed(2)
+                            : 'N/A'}
+                        </p>
+                      </div>
+                      <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Asset Turnover</p>
+                        <p className="text-lg font-bold text-gray-900 dark:text-white" data-testid="mca-asset-turnover">
+                          {mcaFinancials.data.ratios?.assetTurnover !== null 
+                            ? mcaFinancials.data.ratios.assetTurnover.toFixed(2)
+                            : 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Growth Metrics */}
+                  {mcaFinancials.data.growth && mcaFinancials.data.growth.yearsOfData > 1 && (
+                    <div>
+                      <h4 className="text-sm font-semibold mb-3 text-gray-700 dark:text-gray-300">
+                        Growth Metrics ({mcaFinancials.data.growth.yearsOfData} years of data)
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Revenue CAGR</p>
+                          <p className={`text-lg font-bold ${(mcaFinancials.data.growth.revenueCAGR || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`} data-testid="mca-revenue-cagr">
+                            {mcaFinancials.data.growth.revenueCAGR !== null 
+                              ? `${mcaFinancials.data.growth.revenueCAGR >= 0 ? '+' : ''}${mcaFinancials.data.growth.revenueCAGR}%`
+                              : 'N/A'}
+                          </p>
+                        </div>
+                        <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">PAT CAGR</p>
+                          <p className={`text-lg font-bold ${(mcaFinancials.data.growth.patCAGR || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`} data-testid="mca-pat-cagr">
+                            {mcaFinancials.data.growth.patCAGR !== null 
+                              ? `${mcaFinancials.data.growth.patCAGR >= 0 ? '+' : ''}${mcaFinancials.data.growth.patCAGR}%`
+                              : 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Attribution Footer */}
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      FY: {mcaFinancials.data.latestYear} | Source: {mcaFinancials.data.source}
+                    </p>
+                    <TooltipProvider>
+                      <UITooltip>
+                        <TooltipTrigger>
+                          <span className="inline-flex items-center gap-1 text-xs text-green-600 cursor-help">
+                            <Info className="h-3 w-3" />
+                            {mcaFinancials.data.attribution}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs max-w-xs">
+                            This data is derived from official statutory filings submitted to the Ministry of Corporate Affairs (MCA).
+                          </p>
+                        </TooltipContent>
+                      </UITooltip>
+                    </TooltipProvider>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <Database className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {mcaFinancials?.data?.hasData === false 
+                      ? 'No MCA financial data available for this company yet.'
+                      : 'Unable to fetch MCA financial data.'}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">CIN: {company.cin}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Financial Trend Charts */}
         <Card className="bg-white dark:bg-gray-900">

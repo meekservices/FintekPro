@@ -66,7 +66,7 @@ export interface McaQueryResponse {
   timestamp: string;
 }
 
-// Profitable Company Result
+// Profitable Company Result with computed ratios
 export interface ProfitableCompanyResult {
   cin: string;
   companyName: string;
@@ -76,6 +76,12 @@ export interface ProfitableCompanyResult {
   netWorth?: number;
   state?: string;
   industry?: string;
+  // Computed ratios for Profitable Radar
+  ratios?: {
+    patMargin?: number;       // PAT / Revenue * 100
+    returnOnEquity?: number;  // PAT / Net Worth * 100
+    debtToEquity?: number;    // Total Borrowing / Net Worth
+  };
 }
 
 // Filing Status Result
@@ -403,6 +409,133 @@ class McaIntelligenceService {
   }
 
   /**
+   * Get computed financial ratios for a company
+   * Returns derived metrics like PAT Margin, RoE, Debt-to-Equity, Revenue CAGR
+   * Used by Unlisted Shares pages and Profitable Company Radar
+   */
+  async getCompanyFinancialRatios(cin: string): Promise<{
+    cin: string;
+    companyName?: string;
+    hasData: boolean;
+    latestYear?: string;
+    metrics?: {
+      revenue: number | null;
+      profitAfterTax: number | null;
+      netWorth: number | null;
+      totalAssets: number | null;
+      totalLiabilities: number | null;
+      totalBorrowing: number | null;
+    };
+    ratios?: {
+      patMargin: number | null;       // PAT / Revenue * 100
+      returnOnEquity: number | null;  // PAT / Net Worth * 100
+      debtToEquity: number | null;    // Total Borrowing / Net Worth
+      assetTurnover: number | null;   // Revenue / Total Assets
+    };
+    growth?: {
+      revenueCAGR: number | null;     // Compound Annual Growth Rate for Revenue
+      patCAGR: number | null;         // CAGR for PAT
+      yearsOfData: number;
+    };
+    source: string;
+    attribution: string;
+    lastUpdated?: string;
+  }> {
+    // Get company master info
+    const [company] = await db
+      .select()
+      .from(mcaCompanyMaster)
+      .where(eq(mcaCompanyMaster.cin, cin))
+      .limit(1);
+
+    // Get all financial snapshots for CAGR calculation (up to 5 years)
+    const snapshots = await db
+      .select()
+      .from(mcaFinancialSnapshot)
+      .where(eq(mcaFinancialSnapshot.cin, cin))
+      .orderBy(desc(mcaFinancialSnapshot.financialYear))
+      .limit(5);
+
+    if (snapshots.length === 0) {
+      return {
+        cin,
+        companyName: company?.companyName,
+        hasData: false,
+        source: 'MCA_AOC4_XBRL',
+        attribution: this.SOURCE_ATTRIBUTION,
+      };
+    }
+
+    const latest = snapshots[0];
+    
+    // Parse financial values from latest snapshot
+    const revenue = latest.revenue ? parseFloat(latest.revenue) : null;
+    const pat = latest.profitAfterTax ? parseFloat(latest.profitAfterTax) : null;
+    const netWorth = latest.netWorth ? parseFloat(latest.netWorth) : null;
+    const totalAssets = latest.totalAssets ? parseFloat(latest.totalAssets) : null;
+    const totalLiabilities = latest.totalLiabilities ? parseFloat(latest.totalLiabilities) : null;
+    const longTermBorrowing = latest.longTermBorrowing ? parseFloat(latest.longTermBorrowing) : 0;
+    const shortTermBorrowing = latest.shortTermBorrowing ? parseFloat(latest.shortTermBorrowing) : 0;
+    const totalBorrowing = longTermBorrowing + shortTermBorrowing;
+
+    // Calculate ratios
+    const patMargin = (revenue && pat && revenue > 0) ? (pat / revenue) * 100 : null;
+    const returnOnEquity = (netWorth && pat && netWorth > 0) ? (pat / netWorth) * 100 : null;
+    const debtToEquity = (netWorth && netWorth > 0) ? totalBorrowing / netWorth : null;
+    const assetTurnover = (totalAssets && revenue && totalAssets > 0) ? revenue / totalAssets : null;
+
+    // Calculate CAGR if we have multiple years
+    let revenueCAGR: number | null = null;
+    let patCAGR: number | null = null;
+
+    if (snapshots.length >= 2) {
+      const oldest = snapshots[snapshots.length - 1];
+      const years = snapshots.length - 1;
+
+      // Revenue CAGR
+      const oldestRevenue = oldest.revenue ? parseFloat(oldest.revenue) : null;
+      if (oldestRevenue && oldestRevenue > 0 && revenue && revenue > 0) {
+        revenueCAGR = (Math.pow(revenue / oldestRevenue, 1 / years) - 1) * 100;
+      }
+
+      // PAT CAGR (only if both are positive)
+      const oldestPat = oldest.profitAfterTax ? parseFloat(oldest.profitAfterTax) : null;
+      if (oldestPat && oldestPat > 0 && pat && pat > 0) {
+        patCAGR = (Math.pow(pat / oldestPat, 1 / years) - 1) * 100;
+      }
+    }
+
+    return {
+      cin,
+      companyName: company?.companyName,
+      hasData: true,
+      latestYear: latest.financialYear,
+      metrics: {
+        revenue,
+        profitAfterTax: pat,
+        netWorth,
+        totalAssets,
+        totalLiabilities,
+        totalBorrowing,
+      },
+      ratios: {
+        patMargin: patMargin !== null ? Math.round(patMargin * 100) / 100 : null,
+        returnOnEquity: returnOnEquity !== null ? Math.round(returnOnEquity * 100) / 100 : null,
+        debtToEquity: debtToEquity !== null ? Math.round(debtToEquity * 100) / 100 : null,
+        assetTurnover: assetTurnover !== null ? Math.round(assetTurnover * 100) / 100 : null,
+      },
+      growth: {
+        revenueCAGR: revenueCAGR !== null ? Math.round(revenueCAGR * 100) / 100 : null,
+        patCAGR: patCAGR !== null ? Math.round(patCAGR * 100) / 100 : null,
+        yearsOfData: snapshots.length,
+      },
+      source: latest.source || 'MCA_AOC4_XBRL',
+      attribution: this.SOURCE_ATTRIBUTION,
+      lastUpdated: latest.derivedAt?.toISOString(),
+    };
+  }
+
+  /**
    * Get filing status for a company
    */
   async getFilingStatus(cin: string): Promise<FilingStatusResult> {
@@ -471,15 +604,23 @@ class McaIntelligenceService {
 
   /**
    * Get profitable companies (Profitable Company Radar)
+   * Enhanced to include computed financial ratios
    */
   async getProfitableCompanies(params: {
     patMin?: number;
+    patMax?: number;
     state?: string;
     industry?: string;
     limit?: number;
+    offset?: number;
+    sortBy?: 'pat' | 'revenue' | 'patMargin' | 'roe';
   }): Promise<ProfitableCompanyResult[]> {
     const patMin = params.patMin || 10000000; // Default ₹1 Cr
-    const limit = Math.min(params.limit || 100, 500);
+    // Strict pagination caps to prevent resource exhaustion
+    const MAX_LIMIT = 100;
+    const MAX_OFFSET = 10000;
+    const limit = Math.min(Math.max(1, params.limit || 50), MAX_LIMIT);
+    const offset = Math.min(Math.max(0, params.offset || 0), MAX_OFFSET);
 
     let query = db
       .select({
@@ -489,6 +630,8 @@ class McaIntelligenceService {
         financialYear: mcaFinancialSnapshot.financialYear,
         revenue: mcaFinancialSnapshot.revenue,
         netWorth: mcaFinancialSnapshot.netWorth,
+        longTermBorrowing: mcaFinancialSnapshot.longTermBorrowing,
+        shortTermBorrowing: mcaFinancialSnapshot.shortTermBorrowing,
         state: mcaCompanyMaster.registeredState,
         industry: mcaCompanyMaster.industry,
       })
@@ -497,25 +640,46 @@ class McaIntelligenceService {
       .where(
         and(
           gte(mcaFinancialSnapshot.profitAfterTax, patMin.toString()),
+          params.patMax ? lte(mcaFinancialSnapshot.profitAfterTax, params.patMax.toString()) : undefined,
           params.state ? eq(mcaCompanyMaster.registeredState, params.state) : undefined,
           params.industry ? like(mcaCompanyMaster.industry, `%${params.industry}%`) : undefined
         )
       )
       .orderBy(desc(mcaFinancialSnapshot.profitAfterTax))
-      .limit(limit);
+      .limit(limit)
+      .offset(offset);
 
     const results = await query;
 
-    return results.map(r => ({
-      cin: r.cin,
-      companyName: r.companyName || 'Unknown',
-      profitAfterTax: parseFloat(r.profitAfterTax || '0'),
-      financialYear: r.financialYear,
-      revenue: r.revenue ? parseFloat(r.revenue) : undefined,
-      netWorth: r.netWorth ? parseFloat(r.netWorth) : undefined,
-      state: r.state || undefined,
-      industry: r.industry || undefined,
-    }));
+    return results.map(r => {
+      const pat = parseFloat(r.profitAfterTax || '0');
+      const revenue = r.revenue ? parseFloat(r.revenue) : undefined;
+      const netWorth = r.netWorth ? parseFloat(r.netWorth) : undefined;
+      const longTermBorrowing = r.longTermBorrowing ? parseFloat(r.longTermBorrowing) : 0;
+      const shortTermBorrowing = r.shortTermBorrowing ? parseFloat(r.shortTermBorrowing) : 0;
+      const totalBorrowing = longTermBorrowing + shortTermBorrowing;
+
+      // Compute ratios
+      const patMargin = (revenue && revenue > 0) ? Math.round((pat / revenue) * 10000) / 100 : undefined;
+      const returnOnEquity = (netWorth && netWorth > 0) ? Math.round((pat / netWorth) * 10000) / 100 : undefined;
+      const debtToEquity = (netWorth && netWorth > 0) ? Math.round((totalBorrowing / netWorth) * 100) / 100 : undefined;
+
+      return {
+        cin: r.cin,
+        companyName: r.companyName || 'Unknown',
+        profitAfterTax: pat,
+        financialYear: r.financialYear,
+        revenue,
+        netWorth,
+        state: r.state || undefined,
+        industry: r.industry || undefined,
+        ratios: {
+          patMargin,
+          returnOnEquity,
+          debtToEquity,
+        },
+      };
+    });
   }
 
   /**

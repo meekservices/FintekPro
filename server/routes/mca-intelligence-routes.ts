@@ -172,12 +172,15 @@ router.post('/ingest', requireMcaAccess('ingest'), async (req: Request, res: Res
   }
 });
 
-// Profitable companies filter schema
+// Profitable companies filter schema with strict validation
 const profitableSchema = z.object({
-  pat_min: z.coerce.number().optional().default(10000000),
-  state: z.string().optional(),
-  industry: z.string().optional(),
-  limit: z.coerce.number().optional().default(100),
+  pat_min: z.coerce.number().min(0).optional().default(10000000),
+  pat_max: z.coerce.number().min(0).optional(),
+  state: z.string().max(100).optional(),
+  industry: z.string().max(200).optional(),
+  limit: z.coerce.number().min(1).max(100).optional().default(50), // Strict cap at 100
+  offset: z.coerce.number().min(0).max(10000).optional().default(0), // Strict cap at 10000
+  sort_by: z.enum(['pat', 'revenue', 'patMargin', 'roe']).optional().default('pat'),
 });
 
 /**
@@ -208,17 +211,33 @@ router.get('/profitable-companies', requireMcaAccess('read'), async (req: Reques
       success: true,
     });
 
-    // Get results directly from the service method
+    // Get results directly from the service method (now includes computed ratios)
     const companies = await mcaIntelligenceService.getProfitableCompanies({
       patMin: parsed.data.pat_min,
+      patMax: parsed.data.pat_max,
       state: parsed.data.state,
       industry: parsed.data.industry,
       limit: parsed.data.limit,
+      offset: parsed.data.offset,
+      sortBy: parsed.data.sort_by,
     });
 
     res.json({
       success: true,
       result: companies,
+      count: companies.length,
+      pagination: {
+        offset: parsed.data.offset,
+        limit: parsed.data.limit,
+        hasMore: companies.length === parsed.data.limit,
+      },
+      filters: {
+        patMin: parsed.data.pat_min,
+        patMax: parsed.data.pat_max,
+        state: parsed.data.state,
+        industry: parsed.data.industry,
+        sortBy: parsed.data.sort_by,
+      },
       attribution: 'Derived from statutory public filings sourced from MCA.',
     });
   } catch (error: any) {
@@ -261,6 +280,72 @@ router.get('/company/:cin', requireMcaAccess('read'), async (req: Request, res: 
     res.status(500).json({
       success: false,
       error: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/mca/company/:cin/financials
+ * Get computed financial ratios for a company
+ * Used by Unlisted Shares pages and portfolio analysis
+ */
+router.get('/company/:cin/financials', requireMcaAccess('read'), async (req: Request, res: Response) => {
+  const { cin } = req.params;
+  const user = (req as any).user;
+  
+  // Validate CIN format
+  if (!cin || cin.length !== 21) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid CIN format. CIN must be 21 characters.',
+      errorType: 'validation_error',
+    });
+  }
+
+  try {
+    // Get computed financial ratios
+    const financials = await mcaIntelligenceService.getCompanyFinancialRatios(cin);
+
+    // Log the query for audit (after successful fetch)
+    await mcaIntelligenceService.logQuery({
+      userId: user?.id,
+      userName: user?.name || user?.email,
+      userRole: getMcaRole(req),
+      queryType: 'financial_availability',
+      cin,
+      actionTaken: 'Financial ratios lookup for unlisted shares',
+      responseSummary: financials.hasData 
+        ? `Found data for FY ${financials.latestYear}` 
+        : 'No MCA data available',
+      success: true,
+    });
+
+    // Return with explicit status about data availability
+    res.json({
+      success: true,
+      hasData: financials.hasData,
+      data: financials,
+    });
+  } catch (error: any) {
+    console.error('[MCA Routes] Financial ratios error:', { cin, error: error.message });
+    
+    // Log failed query for audit
+    await mcaIntelligenceService.logQuery({
+      userId: user?.id,
+      userName: user?.name || user?.email,
+      userRole: getMcaRole(req),
+      queryType: 'financial_availability',
+      cin,
+      actionTaken: 'Financial ratios lookup for unlisted shares',
+      success: false,
+      errorMessage: error.message,
+    });
+    
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve financial data',
+      errorType: 'internal_error',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 });
