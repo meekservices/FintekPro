@@ -1163,15 +1163,17 @@ function BondMarketplaceManagement() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'sell' | 'buy' | 'deals'>('sell');
 
-  const { data: sellListings, isLoading: loadingSell } = useQuery<BondSellListing[]>({
+  const { data: sellListingsResponse, isLoading: loadingSell } = useQuery<{ success: boolean; data: BondSellListing[] }>({
     queryKey: ['/api/bonds/admin/listings'],
   });
+  const sellListings = sellListingsResponse?.data || [];
 
-  const { data: buyRequests, isLoading: loadingBuy } = useQuery<BondBuyRequest[]>({
+  const { data: buyRequestsResponse, isLoading: loadingBuy } = useQuery<{ success: boolean; data: BondBuyRequest[] }>({
     queryKey: ['/api/bonds/admin/requests'],
   });
+  const buyRequests = buyRequestsResponse?.data || [];
 
-  const { data: stats, isLoading: loadingStats } = useQuery<{
+  const { data: statsResponse, isLoading: loadingStats } = useQuery<{ success: boolean; data: {
     totalSellListings: number;
     totalBuyRequests: number;
     totalDeals: number;
@@ -1179,9 +1181,10 @@ function BondMarketplaceManagement() {
     activeBuyRequests: number;
     pendingDeals: number;
     totalVolume: string;
-  }>({
+  } }>({
     queryKey: ['/api/bonds/admin/stats'],
   });
+  const stats = statsResponse?.data;
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
