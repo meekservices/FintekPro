@@ -53,6 +53,17 @@ The Profit-Optimized AI Recommendation Engine provides multi-mode recommendation
 
 The Agent Knowledge Hub provides comprehensive market intelligence, product knowledge, and client communication tools. Features include a Gemini-powered Daily AI Market Brief Engine, Product Knowledge Cards for various financial instruments, Client Explanation Templates with AI-powered simplification, an optional certification system for agent self-improvement, SEBI-compliant immutable audit logging, and Admin Content Governance with version control. IEX Cloud is integrated for global market insights.
 
+### Payment Security & Regulatory Compliance
+The platform implements comprehensive SEBI/RBI-compliant payment handling across all investment products:
+- **HMAC Signature Verification**: Cashfree and PhonePe webhooks use secure HMAC-SHA256 signature verification with proper Buffer handling to prevent callback spoofing.
+- **Client Money Segregation**: Documentation service covering 10 investment product types (Mutual Funds, Unlisted Shares, AIF, PMS, Bonds, etc.) with compliance status tracking.
+- **Daily Reconciliation System**: Automated cron job at 1:00 AM IST generates SEBI IA-compliant reconciliation reports with discrepancy detection.
+- **External Remittance Tracking**: For AIF/PMS orders where FintekPro doesn't handle funds, tracks investor-to-fund-manager payment proofs with SHA-256 document hashing.
+- **MF Batch Credential Validator**: Validates ARN/EUIN credentials before batch MF transactions, blocks inactive/suspended/expired ARNs, and persists validation logs with 8-year retention.
+- **DIS Verification Service**: Validates Delivery Instruction Slips for unlisted share escrow releases with depository confirmation.
+- **Trustee Escrow Validation**: Unlisted marketplace uses trustee-operated escrow accounts with immutable audit trails.
+- **Compliance Persistence Tables**: `external_remittance_proofs`, `daily_reconciliation_reports`, `mf_batch_validation_logs` with 8-year retention timestamps for regulatory compliance.
+
 ### Offline & Slow-Internet Resilience (SEBI-Compliant)
 The platform implements PWA capabilities for offline and low-connectivity resilience:
 - **Global Network State Manager**: Detects online/offline/slow states.
