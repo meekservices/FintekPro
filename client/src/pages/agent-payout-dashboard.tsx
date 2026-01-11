@@ -96,8 +96,8 @@ export default function AgentPayoutDashboard() {
     queryKey: ['/api/agent/payout-requests'],
   });
 
-  const earnings = earningsData || [];
-  const payoutRequests = payoutRequestsData || [];
+  const earnings = Array.isArray(earningsData) ? earningsData : (earningsData as any)?.earnings || [];
+  const payoutRequests = Array.isArray(payoutRequestsData) ? payoutRequestsData : (payoutRequestsData as any)?.requests || [];
 
   const metrics = useMemo(() => {
     const totalEarnings = earnings.reduce((sum, e) => sum + e.netCommission, 0);
