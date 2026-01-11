@@ -136,10 +136,30 @@ export class CashfreeService {
       }
 
     } catch (error: any) {
-      console.error('Cashfree order creation error:', error.response?.data || error.message);
+      const errorData = error.response?.data;
+      const statusCode = error.response?.status;
+      console.error('Cashfree order creation error:', {
+        status: statusCode,
+        data: errorData,
+        message: error.message,
+        appIdLength: this.appId?.length || 0,
+        secretKeyLength: this.secretKey?.length || 0,
+        environment: this.environment
+      });
+      
+      // Provide more specific error messages
+      let userMessage = 'Failed to create order';
+      if (statusCode === 401 || statusCode === 403) {
+        userMessage = 'Payment gateway authentication failed. Please verify API credentials.';
+      } else if (errorData?.message) {
+        userMessage = errorData.message;
+      } else if (error.message) {
+        userMessage = error.message;
+      }
+      
       return {
         success: false,
-        message: error.response?.data?.message || error.message || 'Failed to create order'
+        message: userMessage
       };
     }
   }

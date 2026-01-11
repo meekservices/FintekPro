@@ -256,6 +256,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       diagnostics.checks.mcaService = { status: 'error', message: error.message };
     }
     
+    // Check Cashfree payment gateway configuration
+    try {
+      const { cashfreeService } = await import('./cashfree-service');
+      const hasCredentials = cashfreeService.hasValidCredentials();
+      diagnostics.checks.cashfree = {
+        status: hasCredentials ? 'configured' : 'missing_credentials',
+        appIdSet: !!process.env.CASHFREE_APP_ID,
+        secretKeySet: !!process.env.CASHFREE_SECRET_KEY,
+        appIdLength: process.env.CASHFREE_APP_ID?.length || 0,
+        secretKeyLength: process.env.CASHFREE_SECRET_KEY?.length || 0,
+        environment: process.env.CASHFREE_ENVIRONMENT || (process.env.NODE_ENV === 'production' ? 'PRODUCTION' : 'SANDBOX')
+      };
+    } catch (error: any) {
+      diagnostics.checks.cashfree = { status: 'error', message: error.message };
+    }
+    
     const hasErrors = Object.values(diagnostics.checks).some((check: any) => check.status === 'error');
     res.status(hasErrors ? 503 : 200).json(diagnostics);
   });

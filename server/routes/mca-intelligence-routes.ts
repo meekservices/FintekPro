@@ -333,9 +333,19 @@ router.post('/wallet/recharge/initiate', requireMcaAccess('full'), async (req: R
     });
 
     if (!orderResponse.success || !orderResponse.orderId) {
+      // Enhanced error message for payment gateway issues
+      let errorMessage = orderResponse.message || 'Failed to create payment order';
+      let troubleshooting = null;
+      
+      if (errorMessage.toLowerCase().includes('authentication')) {
+        troubleshooting = 'Please verify your Cashfree API credentials in the Secrets panel. For sandbox testing, use sandbox credentials from your Cashfree dashboard.';
+        console.error('[MCA Routes] Cashfree authentication failed. Verify CASHFREE_APP_ID and CASHFREE_SECRET_KEY are correct and match the environment (sandbox/production).');
+      }
+      
       return res.status(500).json({
         success: false,
-        error: orderResponse.message || 'Failed to create payment order',
+        error: errorMessage,
+        troubleshooting: troubleshooting,
       });
     }
 
