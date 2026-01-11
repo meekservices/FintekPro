@@ -137,8 +137,10 @@ export default function McaIntelligence() {
       if (params.cin && params.cin.trim().length > 0) {
         cleanParams.cin = params.cin.trim();
       }
-      const res = await apiRequest('POST', '/api/mca/query', cleanParams);
-      return res.json();
+      return await apiRequest('/api/mca/query', {
+        method: 'POST',
+        body: JSON.stringify(cleanParams),
+      });
     },
     onSuccess: (data) => {
       setQueryResult(data);
@@ -156,8 +158,10 @@ export default function McaIntelligence() {
   // Ingest Mutation
   const ingestMutation = useMutation({
     mutationFn: async (params: { cin: string; financialYear: string; xbrlContent: string }) => {
-      const res = await apiRequest('POST', '/api/mca/ingest', params);
-      return res.json();
+      return await apiRequest('/api/mca/ingest', {
+        method: 'POST',
+        body: JSON.stringify(params),
+      });
     },
     onSuccess: (data) => {
       if (data.success) {
@@ -179,8 +183,10 @@ export default function McaIntelligence() {
   // Wallet Recharge Mutation
   const rechargeMutation = useMutation({
     mutationFn: async (amount: number) => {
-      const res = await apiRequest('POST', '/api/mca/wallet/recharge', { amount });
-      return res.json();
+      return await apiRequest('/api/mca/wallet/recharge', {
+        method: 'POST',
+        body: JSON.stringify({ amount }),
+      });
     },
     onSuccess: (data) => {
       if (data.success) {
