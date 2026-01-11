@@ -129,7 +129,9 @@ export default function CommissionMaster() {
   });
 
   const { data: plans = [], isLoading } = useQuery<CommissionPlan[]>({
-    queryKey: ['/api/admin/commission-plans', selectedProductType],
+    queryKey: [selectedProductType === 'all' 
+      ? '/api/admin/commission-plans' 
+      : `/api/admin/commission-plans?product_type=${selectedProductType}`],
     enabled: true,
   });
 
