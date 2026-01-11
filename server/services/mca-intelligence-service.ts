@@ -17,11 +17,14 @@ import {
   mcaFilingTracker, 
   mcaQueryLog,
   mcaWalletStatus,
+  mcaWalletPayments,
   type McaCompanyMaster,
   type McaFinancialSnapshot,
   type McaFilingTracker,
   type McaQueryLog,
   type McaWalletStatus,
+  type McaWalletPayment,
+  type InsertMcaWalletPayment,
 } from '@shared/schema';
 import { mcaService } from './mca-service';
 
@@ -860,6 +863,78 @@ class McaIntelligenceService {
       return latest.financialYear || null;
     }
     return null;
+  }
+
+  /**
+   * Create a new wallet payment record
+   */
+  async createWalletPayment(payment: {
+    orderId: string;
+    paymentSessionId?: string;
+    amount: number;
+    initiatedBy: string;
+    initiatedByUserId?: string;
+    paymentUrl?: string;
+    returnUrl?: string;
+  }): Promise<McaWalletPayment> {
+    const [created] = await db.insert(mcaWalletPayments).values({
+      orderId: payment.orderId,
+      paymentSessionId: payment.paymentSessionId,
+      amount: payment.amount.toString(),
+      status: 'pending',
+      initiatedBy: payment.initiatedBy,
+      initiatedByUserId: payment.initiatedByUserId,
+      paymentUrl: payment.paymentUrl,
+      returnUrl: payment.returnUrl,
+    }).returning();
+    return created;
+  }
+
+  /**
+   * Get wallet payment by order ID
+   */
+  async getWalletPaymentByOrderId(orderId: string): Promise<McaWalletPayment | null> {
+    const [payment] = await db.select()
+      .from(mcaWalletPayments)
+      .where(eq(mcaWalletPayments.orderId, orderId))
+      .limit(1);
+    return payment || null;
+  }
+
+  /**
+   * Update wallet payment status
+   */
+  async updateWalletPaymentStatus(orderId: string, update: {
+    status: 'pending' | 'success' | 'failed';
+    transactionId?: string;
+    paymentMethod?: string;
+    failureReason?: string;
+    creditedAt?: Date;
+    zohoExpenseId?: string;
+  }): Promise<McaWalletPayment | null> {
+    const [updated] = await db.update(mcaWalletPayments)
+      .set({
+        status: update.status,
+        transactionId: update.transactionId,
+        paymentMethod: update.paymentMethod,
+        failureReason: update.failureReason,
+        creditedAt: update.creditedAt,
+        zohoExpenseId: update.zohoExpenseId,
+        updatedAt: new Date(),
+      })
+      .where(eq(mcaWalletPayments.orderId, orderId))
+      .returning();
+    return updated || null;
+  }
+
+  /**
+   * Get recent wallet payments
+   */
+  async getRecentWalletPayments(limit: number = 10): Promise<McaWalletPayment[]> {
+    return db.select()
+      .from(mcaWalletPayments)
+      .orderBy(desc(mcaWalletPayments.createdAt))
+      .limit(limit);
   }
 }
 
