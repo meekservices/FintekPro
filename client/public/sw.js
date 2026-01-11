@@ -1,5 +1,5 @@
-const VERSION = '6';
-const BUILD_TIMESTAMP = '1736525400000';
+const VERSION = '7';
+const BUILD_TIMESTAMP = '1736566200000';
 const CACHE_PREFIX = 'fintekpro';
 const STATIC_CACHE_NAME = `${CACHE_PREFIX}-static-v${VERSION}`;
 const DYNAMIC_CACHE_NAME = `${CACHE_PREFIX}-dynamic-v${VERSION}`;
