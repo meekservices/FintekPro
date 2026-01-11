@@ -532,6 +532,42 @@ export default function UnlistedPreviewPage() {
     }
   };
 
+  const [isAutoFetchingPeers, setIsAutoFetchingPeers] = useState(false);
+
+  const handleAutoFetchPeers = async () => {
+    setIsAutoFetchingPeers(true);
+    try {
+      const result = await apiRequest(`/api/unlisted/admin/companies/${id}/auto-fetch-peers`, {
+        method: 'POST',
+        body: JSON.stringify({ maxPeers: 5 }),
+      });
+      
+      await refetchCompany();
+      
+      const data = result as { peersAdded: number; totalPeers: number; referenceSymbol: string };
+      
+      if (data.peersAdded > 0) {
+        toast({
+          title: 'Peers auto-fetched',
+          description: `Added ${data.peersAdded} peer companies based on sector analysis`,
+        });
+      } else {
+        toast({
+          title: 'No new peers found',
+          description: 'Could not find additional peer companies for this sector',
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Auto-fetch failed',
+        description: error.message || 'Could not auto-fetch peer companies',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsAutoFetchingPeers(false);
+    }
+  };
+
   const handleSaveCIN = async () => {
     if (!manualCIN.trim()) {
       toast({
@@ -1505,15 +1541,36 @@ export default function UnlistedPreviewPage() {
               <Scale className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
               <p className="text-muted-foreground mb-4">No listed peers added yet</p>
               <p className="text-sm text-muted-foreground mb-6">Add comparable publicly-traded companies to show relative valuation metrics</p>
-              <Button
-                variant="outline"
-                onClick={handleAddPeer}
-                className="text-blue-400 border-blue-500/50 hover:bg-blue-500/10"
-                data-testid="button-add-first-peer"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Listed Peer
-              </Button>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <Button
+                  variant="default"
+                  onClick={handleAutoFetchPeers}
+                  disabled={isAutoFetchingPeers}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  data-testid="button-auto-fetch-peers"
+                >
+                  {isAutoFetchingPeers ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Fetching Peers...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-4 h-4 mr-2" />
+                      Auto-Fetch Peers
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleAddPeer}
+                  className="text-blue-400 border-blue-500/50 hover:bg-blue-500/10"
+                  data-testid="button-add-first-peer"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Manually
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

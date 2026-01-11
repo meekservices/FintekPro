@@ -4732,6 +4732,210 @@ router.put('/admin/companies/:id/peers', async (req: Request, res: Response) => 
 });
 
 /**
+ * POST /api/unlisted/admin/companies/:id/auto-fetch-peers
+ * Auto-fetch listed peer companies based on sector/industry using Yahoo Finance (Admin only)
+ */
+router.post('/admin/companies/:id/auto-fetch-peers', async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { id } = req.params;
+    const { referenceSymbol, maxPeers = 5 } = req.body;
+    
+    const company = await storage.getUnlistedCompanyById(id);
+    if (!company) {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+    
+    const companyData = company as any;
+    console.log(`[Auto-Fetch Peers] Starting for ${companyData.name}, sector: ${companyData.sector}, industry: ${companyData.industry}`);
+    
+    // Dynamic import of yahoo-finance2
+    const yahooFinance = await import('yahoo-finance2').then(m => m.default);
+    
+    // Determine reference symbol to use for finding peers
+    // Strategy: Use provided symbol, or find a major company in the same sector
+    let symbolToUse = referenceSymbol;
+    
+    if (!symbolToUse) {
+      // Map common sectors to major Indian listed companies
+      const sectorToSymbolMap: Record<string, string> = {
+        'Technology': 'TCS.NS',
+        'Information Technology': 'TCS.NS',
+        'IT': 'INFY.NS',
+        'Software': 'WIPRO.NS',
+        'Finance': 'HDFCBANK.NS',
+        'Banking': 'HDFCBANK.NS',
+        'Financial Services': 'BAJFINANCE.NS',
+        'NBFC': 'BAJFINANCE.NS',
+        'Fintech': 'PAYTM.NS',
+        'Healthcare': 'SUNPHARMA.NS',
+        'Pharmaceuticals': 'SUNPHARMA.NS',
+        'Consumer': 'HINDUNILVR.NS',
+        'FMCG': 'ITC.NS',
+        'Retail': 'DMART.NS',
+        'E-commerce': 'ZOMATO.NS',
+        'Food Delivery': 'ZOMATO.NS',
+        'Logistics': 'DELHIVERY.NS',
+        'Manufacturing': 'TATAMOTORS.NS',
+        'Auto': 'MARUTI.NS',
+        'Automobile': 'MARUTI.NS',
+        'Real Estate': 'DLF.NS',
+        'Infrastructure': 'LT.NS',
+        'Energy': 'RELIANCE.NS',
+        'Oil & Gas': 'ONGC.NS',
+        'Telecom': 'BHARTIARTL.NS',
+        'Media': 'ZEEL.NS',
+        'Entertainment': 'PVR.NS',
+        'Insurance': 'SBILIFE.NS',
+        'EdTech': 'INFY.NS', // No direct EdTech listing, use proxy
+        'Agriculture': 'UPL.NS',
+        'Chemicals': 'PIDILITIND.NS',
+        'Metals': 'TATASTEEL.NS',
+        'Power': 'NTPC.NS',
+        'Cement': 'ULTRACEMCO.NS',
+      };
+      
+      // Find matching sector/industry
+      const sector = (companyData.sector || '').toLowerCase();
+      const industry = (companyData.industry || '').toLowerCase();
+      
+      for (const [key, symbol] of Object.entries(sectorToSymbolMap)) {
+        if (sector.includes(key.toLowerCase()) || industry.includes(key.toLowerCase()) || 
+            key.toLowerCase().includes(sector) || key.toLowerCase().includes(industry)) {
+          symbolToUse = symbol;
+          break;
+        }
+      }
+      
+      // Default to NIFTY 50 company if no match
+      if (!symbolToUse) {
+        symbolToUse = 'RELIANCE.NS';
+      }
+    }
+    
+    console.log(`[Auto-Fetch Peers] Using reference symbol: ${symbolToUse}`);
+    
+    // Fetch recommended symbols from Yahoo Finance
+    let recommendedSymbols: { symbol: string; score: number }[] = [];
+    try {
+      const recommendations = await yahooFinance.recommendationsBySymbol(symbolToUse);
+      recommendedSymbols = recommendations.recommendedSymbols?.slice(0, maxPeers) || [];
+    } catch (recError: any) {
+      console.log(`[Auto-Fetch Peers] Could not get recommendations: ${recError.message}`);
+      // Fallback: use sector-specific symbols
+      const sectorFallbacks: Record<string, string[]> = {
+        'Technology': ['TCS.NS', 'INFY.NS', 'WIPRO.NS', 'HCLTECH.NS', 'TECHM.NS'],
+        'Finance': ['HDFCBANK.NS', 'ICICIBANK.NS', 'KOTAKBANK.NS', 'SBIN.NS', 'AXISBANK.NS'],
+        'Healthcare': ['SUNPHARMA.NS', 'DRREDDY.NS', 'CIPLA.NS', 'DIVISLAB.NS', 'APOLLOHOSP.NS'],
+        'Consumer': ['HINDUNILVR.NS', 'ITC.NS', 'NESTLEIND.NS', 'DABUR.NS', 'BRITANNIA.NS'],
+      };
+      
+      const sector = (companyData.sector || 'Technology').toLowerCase();
+      const fallbackSymbols = Object.entries(sectorFallbacks).find(([key]) => 
+        sector.includes(key.toLowerCase())
+      )?.[1] || sectorFallbacks['Technology'];
+      
+      recommendedSymbols = fallbackSymbols.slice(0, maxPeers).map((s, i) => ({ symbol: s, score: 0.5 - (i * 0.05) }));
+    }
+    
+    if (recommendedSymbols.length === 0) {
+      return apiResponse.success(res, { 
+        message: 'No peer recommendations found',
+        peersAdded: 0,
+        peers: []
+      });
+    }
+    
+    // Fetch detailed data for each peer
+    const listedPeers: Array<{
+      name: string;
+      ticker: string;
+      exchange: string;
+      marketCap?: number;
+      peRatio?: number;
+      pbRatio?: number;
+      evEbitda?: number;
+      roe?: number;
+      roce?: number;
+      debtEquity?: number;
+      revenueGrowth?: number;
+    }> = [];
+    
+    for (const rec of recommendedSymbols) {
+      try {
+        // Ensure we're using Indian symbols
+        let symbol = rec.symbol;
+        if (!symbol.includes('.NS') && !symbol.includes('.BO')) {
+          symbol = `${symbol}.NS`;
+        }
+        
+        const quote = await yahooFinance.quote(symbol);
+        
+        if (quote) {
+          // Try to get key statistics
+          let keyStats: any = null;
+          try {
+            const quoteSummary = await yahooFinance.quoteSummary(symbol, { modules: ['defaultKeyStatistics', 'financialData'] });
+            keyStats = quoteSummary;
+          } catch (statsErr) {
+            console.log(`[Auto-Fetch Peers] Could not fetch stats for ${symbol}`);
+          }
+          
+          listedPeers.push({
+            name: quote.longName || quote.shortName || symbol.replace('.NS', '').replace('.BO', ''),
+            ticker: symbol.replace('.NS', '').replace('.BO', ''),
+            exchange: symbol.includes('.NS') ? 'NSE' : 'BSE',
+            marketCap: quote.marketCap,
+            peRatio: quote.trailingPE,
+            pbRatio: keyStats?.defaultKeyStatistics?.priceToBook,
+            evEbitda: keyStats?.defaultKeyStatistics?.enterpriseToEbitda,
+            roe: keyStats?.financialData?.returnOnEquity ? keyStats.financialData.returnOnEquity * 100 : undefined,
+            roce: keyStats?.financialData?.returnOnAssets ? keyStats.financialData.returnOnAssets * 100 : undefined,
+            debtEquity: keyStats?.financialData?.debtToEquity ? keyStats.financialData.debtToEquity / 100 : undefined,
+            revenueGrowth: keyStats?.financialData?.revenueGrowth ? keyStats.financialData.revenueGrowth * 100 : undefined,
+          });
+        }
+      } catch (quoteError: any) {
+        console.log(`[Auto-Fetch Peers] Error fetching ${rec.symbol}: ${quoteError.message}`);
+      }
+    }
+    
+    if (listedPeers.length > 0) {
+      // Merge with existing peers if any
+      const existingPeers = Array.isArray(companyData.listedPeers) ? companyData.listedPeers : [];
+      const existingTickers = new Set(existingPeers.map((p: any) => p.ticker?.toUpperCase()));
+      const newPeers = listedPeers.filter(p => !existingTickers.has(p.ticker.toUpperCase()));
+      const mergedPeers = [...existingPeers, ...newPeers];
+      
+      await storage.updateUnlistedCompany(id, { listedPeers: mergedPeers });
+      
+      console.log(`[Auto-Fetch Peers] Added ${newPeers.length} new peers for ${companyData.name}`);
+      
+      return apiResponse.success(res, { 
+        message: `Successfully fetched ${newPeers.length} new peer companies`,
+        referenceSymbol: symbolToUse,
+        peersAdded: newPeers.length,
+        totalPeers: mergedPeers.length,
+        peers: newPeers
+      });
+    }
+    
+    return apiResponse.success(res, { 
+      message: 'Could not fetch peer data',
+      peersAdded: 0,
+      peers: []
+    });
+    
+  } catch (error: any) {
+    console.error('Error auto-fetching peers:', error);
+    return apiResponse.serverError(res, `Failed to auto-fetch peers: ${error.message}`);
+  }
+});
+
+/**
  * POST /api/unlisted/admin/refresh-company-data/:companyId
  * Refresh all company data from external sources (Admin only)
  */
