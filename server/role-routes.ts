@@ -450,15 +450,176 @@ export function registerRoleRoutes(app: Express) {
     }
   });
 
+  const mockLeads = [
+    {
+      id: 'lead-001',
+      name: 'Vikram Mehta',
+      email: 'vikram.mehta@example.com',
+      phone: '+91 98765 43210',
+      stage: 'new' as const,
+      source: 'Website',
+      potentialValue: 500000,
+      score: 85,
+      notes: 'Interested in mutual funds and SIPs',
+      createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+      tags: ['high-value', 'mutual-funds']
+    },
+    {
+      id: 'lead-002',
+      name: 'Anita Desai',
+      email: 'anita.desai@example.com',
+      phone: '+91 87654 32109',
+      stage: 'contacted' as const,
+      source: 'Referral',
+      potentialValue: 300000,
+      score: 72,
+      notes: 'Looking for retirement planning',
+      lastContact: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+      nextFollowUp: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+      createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+      tags: ['retirement', 'pension']
+    },
+    {
+      id: 'lead-003',
+      name: 'Rajan Iyer',
+      email: 'rajan.iyer@example.com',
+      phone: '+91 76543 21098',
+      stage: 'proposal_sent' as const,
+      source: 'LinkedIn',
+      potentialValue: 750000,
+      score: 90,
+      notes: 'Sent proposal for diversified portfolio',
+      lastContact: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+      nextFollowUp: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(),
+      createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+      tags: ['high-value', 'portfolio']
+    },
+    {
+      id: 'lead-004',
+      name: 'Kavitha Nair',
+      email: 'kavitha.nair@example.com',
+      phone: '+91 65432 10987',
+      stage: 'negotiating' as const,
+      source: 'Referral',
+      potentialValue: 450000,
+      score: 78,
+      notes: 'Discussing commission terms and fund selection',
+      lastContact: new Date().toISOString(),
+      nextFollowUp: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+      createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+      tags: ['negotiating', 'sip']
+    },
+    {
+      id: 'lead-005',
+      name: 'Suresh Reddy',
+      email: 'suresh.reddy@example.com',
+      phone: '+91 54321 09876',
+      stage: 'converted' as const,
+      source: 'Event',
+      potentialValue: 600000,
+      score: 95,
+      notes: 'Successfully converted - started SIP',
+      lastContact: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+      tags: ['converted', 'sip']
+    },
+    {
+      id: 'lead-006',
+      name: 'Meera Kapoor',
+      email: 'meera.kapoor@example.com',
+      phone: '+91 43210 98765',
+      stage: 'new' as const,
+      source: 'Cold Call',
+      potentialValue: 200000,
+      score: 60,
+      notes: 'Initial contact made, interested in bonds',
+      createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+      tags: ['bonds']
+    },
+    {
+      id: 'lead-007',
+      name: 'Rahul Sharma',
+      email: 'rahul.sharma@example.com',
+      phone: '+91 32109 87654',
+      stage: 'lost' as const,
+      source: 'Website',
+      potentialValue: 400000,
+      score: 45,
+      notes: 'Chose competitor - price sensitive',
+      lastContact: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
+      createdAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString(),
+      tags: ['lost', 'competitor']
+    }
+  ];
+
   app.get('/api/agent/leads', async (req: any, res: Response) => {
     try {
-      res.json([]);
+      res.json(mockLeads);
     } catch (error: any) {
       res.status(500).json({
         success: false,
         message: 'Failed to fetch agent leads',
         error: error.message
       });
+    }
+  });
+
+  app.get('/api/agent/leads/stats', async (req: any, res: Response) => {
+    try {
+      const stats = {
+        total: mockLeads.length,
+        new: mockLeads.filter(l => l.stage === 'new').length,
+        contacted: mockLeads.filter(l => l.stage === 'contacted').length,
+        proposalSent: mockLeads.filter(l => l.stage === 'proposal_sent').length,
+        negotiating: mockLeads.filter(l => l.stage === 'negotiating').length,
+        converted: mockLeads.filter(l => l.stage === 'converted').length,
+        lost: mockLeads.filter(l => l.stage === 'lost').length,
+        conversionRate: Math.round((mockLeads.filter(l => l.stage === 'converted').length / mockLeads.length) * 100),
+        avgDealValue: Math.round(mockLeads.reduce((sum, l) => sum + l.potentialValue, 0) / mockLeads.length),
+        pipelineValue: mockLeads.filter(l => !['converted', 'lost'].includes(l.stage)).reduce((sum, l) => sum + l.potentialValue, 0)
+      };
+      res.json(stats);
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: 'Failed to fetch lead stats', error: error.message });
+    }
+  });
+
+  app.post('/api/agent/leads', async (req: any, res: Response) => {
+    try {
+      const { name, email, phone, source, potentialValue, notes } = req.body;
+      const newLead = {
+        id: `lead-${Date.now()}`,
+        name,
+        email,
+        phone,
+        stage: 'new' as const,
+        source: source || 'Manual',
+        potentialValue: parseFloat(potentialValue) || 0,
+        score: 50,
+        notes: notes || '',
+        createdAt: new Date().toISOString(),
+        tags: []
+      };
+      mockLeads.push(newLead);
+      res.status(201).json(newLead);
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: 'Failed to create lead', error: error.message });
+    }
+  });
+
+  app.patch('/api/agent/leads/:id/stage', async (req: any, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { stage } = req.body;
+      const lead = mockLeads.find(l => l.id === id);
+      if (!lead) {
+        return res.status(404).json({ success: false, message: 'Lead not found' });
+      }
+      (lead as any).stage = stage;
+      (lead as any).lastContact = new Date().toISOString();
+      res.json(lead);
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: 'Failed to update lead stage', error: error.message });
     }
   });
 
