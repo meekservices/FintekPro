@@ -1504,7 +1504,8 @@ export function registerMarketingRoutes(app: any) {
 
       const eligibleUsers = await db.select({
         id: users.id,
-        fullName: users.fullName,
+        firstName: users.firstName,
+        lastName: users.lastName,
         mobile: users.mobile,
         email: users.email,
         marketingConsent: users.marketingConsent
@@ -1535,24 +1536,24 @@ export function registerMarketingRoutes(app: any) {
       const allUsers = await db.select({
         id: users.id,
         marketingConsent: users.marketingConsent,
-        kycTier: users.kycTier
+        investorType: users.investorType
       }).from(users);
 
       const totalUsers = allUsers.length;
       const consentedUsers = allUsers.filter(u => u.marketingConsent === true).length;
       const optedOutUsers = allUsers.filter(u => u.marketingConsent === false).length;
 
-      const byKycTier: Record<string, number> = {};
+      const byInvestorType: Record<string, number> = {};
       allUsers.forEach(u => {
-        const tier = u.kycTier || 'unknown';
-        byKycTier[tier] = (byKycTier[tier] || 0) + 1;
+        const type = u.investorType || 'unknown';
+        byInvestorType[type] = (byInvestorType[type] || 0) + 1;
       });
 
       res.json({
         totalUsers,
         consentedUsers,
         optedOutUsers,
-        byKycTier
+        byInvestorType
       });
     } catch (error: any) {
       console.error('Error getting audience stats:', error);
@@ -1572,7 +1573,7 @@ export function registerMarketingRoutes(app: any) {
         mobile: users.mobile,
         firstName: users.firstName,
         lastName: users.lastName,
-        kycTier: users.kycTier,
+        investorType: users.investorType,
         marketingConsent: users.marketingConsent
       }).from(users);
 
@@ -1583,7 +1584,7 @@ export function registerMarketingRoutes(app: any) {
       }
 
       if (filter !== 'all') {
-        conditions.push(eq(users.kycTier, filter));
+        conditions.push(eq(users.investorType, filter));
       }
 
       const audience = await query
