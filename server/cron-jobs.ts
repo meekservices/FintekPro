@@ -9,6 +9,7 @@ import { auditIntegrityChecker } from './services/audit-integrity-checker';
 import { errorDigestService } from './services/error-digest-service';
 import { companyDataRefreshScheduler } from './services/company-data-refresh-scheduler';
 import { proactiveCacheWarmingService } from './services/proactive-cache-warming-service';
+import { dailyReconciliationService } from './services/daily-reconciliation-service';
 import { db } from './db';
 import { users, unlistedCompanies } from '@shared/schema';
 import { eq } from 'drizzle-orm';
@@ -617,6 +618,28 @@ export function initializeCronJobs(): void {
   } catch (error: any) {
     console.error('[CRON] Failed to start Proactive Cache Warming Service:', error.message);
   }
+
+  // Daily Reconciliation Job - Run daily at 1:00 AM IST (7:30 PM UTC previous day)
+  // SEBI IA Regulation compliance: daily reconciliation of all client money movements
+  cron.schedule('30 19 * * *', async () => {
+    console.log('[CRON] Starting daily reconciliation...');
+    try {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      
+      const report = await dailyReconciliationService.runDailyReconciliation(yesterday, 'system_cron');
+      
+      console.log(`[CRON] Daily reconciliation completed: ${report.id}`);
+      console.log(`[CRON] Summary: ${report.summary.totalTransactions} transactions, ${report.summary.discrepancyCount} discrepancies`);
+      
+      if (report.summary.discrepancyCount > 0) {
+        console.warn(`[CRON] ATTENTION: ${report.summary.discrepancyCount} discrepancies detected in daily reconciliation`);
+      }
+    } catch (error: any) {
+      console.error('[CRON] Daily reconciliation job failed:', error.message);
+    }
+  });
+  console.log('📊 [DailyReconciliation] Daily reconciliation scheduled (1:00 AM IST)');
   
   console.log('✓ Cron jobs initialized successfully');
 }

@@ -10,8 +10,9 @@ import {
 import { eq, desc, and, gte, lte, like, or, sql, count, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { nanoid } from 'nanoid';
-import { requireAuth } from '../middleware/roleMiddleware';
+import { requireAuth, requireRole } from '../middleware/roleMiddleware';
 import { orderAuditHook } from '../services/order-audit-hook';
+import { mfBatchCredentialValidator } from '../services/mf-batch-credential-validator';
 
 const isAuthenticated = requireAuth;
 
@@ -1450,6 +1451,88 @@ router.get('/api/mf-orders/:id/settlement-status', isAuthenticated, async (req: 
   } catch (error) {
     console.error('[MF Orders] Error fetching settlement status:', error);
     res.status(500).json({ error: 'Failed to fetch settlement status' });
+  }
+});
+
+// ============ ARN/EUIN BATCH CREDENTIAL VALIDATION ============
+// SEBI (Mutual Funds) Regulations Compliance: Validate distributor credentials before batch submission
+
+const batchValidationSchema = z.object({
+  batchId: z.string(),
+  arnCode: z.string(),
+  euinCode: z.string().optional(),
+  transactionCount: z.number().int().positive(),
+  totalAmount: z.number().positive()
+});
+
+router.post('/api/mf/batch/validate-credentials', requireRole(['agent', 'admin', 'compliance_officer']), async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const data = batchValidationSchema.parse(req.body);
+    
+    const result = await mfBatchCredentialValidator.validateBatchCredentials({
+      batchId: data.batchId,
+      agentId: user.id,
+      arnCode: data.arnCode,
+      euinCode: data.euinCode,
+      transactionCount: data.transactionCount,
+      totalAmount: data.totalAmount,
+      productType: 'mutual_fund'
+    });
+    
+    res.json({
+      success: result.canProceed,
+      validation: result,
+      message: result.canProceed 
+        ? 'Credentials validated successfully. Batch can proceed.'
+        : 'Credential validation failed. Please review errors.'
+    });
+  } catch (error: any) {
+    if (error.name === 'ZodError') {
+      return res.status(400).json({ error: 'Invalid batch data', details: error.errors });
+    }
+    console.error('[MF Orders] Batch credential validation error:', error);
+    res.status(500).json({ error: 'Failed to validate batch credentials' });
+  }
+});
+
+router.get('/api/mf/batch/preflight/:agentId', requireRole(['agent', 'admin', 'compliance_officer']), async (req: Request, res: Response) => {
+  try {
+    const { agentId } = req.params;
+    const user = req.user as any;
+    
+    if (user.role !== 'admin' && user.role !== 'compliance_officer' && user.id !== agentId) {
+      return res.status(403).json({ error: 'Cannot check credentials for other agents' });
+    }
+    
+    const preflightResult = await mfBatchCredentialValidator.preflightCheck(agentId);
+    
+    res.json(preflightResult);
+  } catch (error: any) {
+    console.error('[MF Orders] Preflight check error:', error);
+    res.status(500).json({ error: 'Failed to perform preflight check' });
+  }
+});
+
+router.get('/api/admin/mf/batch/validation-status', requireRole(['admin', 'compliance_officer']), async (req: Request, res: Response) => {
+  try {
+    const status = mfBatchCredentialValidator.getValidationStatus();
+    
+    res.json(status);
+  } catch (error: any) {
+    console.error('[MF Orders] Validation status error:', error);
+    res.status(500).json({ error: 'Failed to get validation status' });
+  }
+});
+
+router.post('/api/admin/mf/batch/clear-cache', requireRole(['admin']), async (req: Request, res: Response) => {
+  try {
+    mfBatchCredentialValidator.clearCache();
+    
+    res.json({ success: true, message: 'Validation cache cleared' });
+  } catch (error: any) {
+    console.error('[MF Orders] Clear cache error:', error);
+    res.status(500).json({ error: 'Failed to clear cache' });
   }
 });
 

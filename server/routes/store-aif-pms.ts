@@ -6,6 +6,7 @@ import { z } from "zod";
 import { requireAdmin, requireAuth } from "../middleware/roleMiddleware";
 import { fetchSebiAifListings, SebiAifListing } from "../services/sebi-aif-scraper";
 import { fetchSebiPmsListings, SebiPmsListing } from "../services/sebi-pms-scraper";
+import { externalRemittanceService, RemittanceUploadRequest, RemittanceDocumentUpload } from "../services/external-remittance-service";
 
 const router = Router();
 
@@ -2453,6 +2454,222 @@ router.delete("/fund-managers/:id", requireAdmin, async (req, res) => {
   } catch (error: any) {
     console.error("Error deleting fund manager:", error);
     res.status(500).json({ error: "Failed to delete fund manager" });
+  }
+});
+
+// ============ EXTERNAL REMITTANCE TRACKING (AIF/PMS) ============
+// SEBI Compliance: AIF/PMS payments are made directly by investor to fund/portfolio manager.
+// These routes track proof-of-payment documentation for regulatory compliance.
+
+const remittanceRequestSchema = z.object({
+  orderId: z.string(),
+  productType: z.enum(['aif', 'pms']),
+  productId: z.string(),
+  productName: z.string(),
+  remittanceType: z.enum(['aif_subscription', 'pms_subscription', 'capital_call', 'top_up']),
+  expectedAmount: z.number().positive(),
+  currency: z.string().default('INR'),
+  capitalCallReference: z.string().optional(),
+  subscriptionAgreementId: z.string().optional(),
+  bankDetails: z.object({
+    beneficiaryName: z.string().optional(),
+    bankName: z.string().optional(),
+    accountNumber: z.string().optional(),
+    ifscCode: z.string().optional()
+  }).optional()
+});
+
+const remittanceUploadSchema = z.object({
+  filePath: z.string(),
+  fileName: z.string(),
+  fileSize: z.number().positive(),
+  mimeType: z.string(),
+  bankDetails: z.object({
+    utrNumber: z.string().min(1, "UTR number is required"),
+    transactionDate: z.string(),
+    beneficiaryName: z.string().optional(),
+    bankName: z.string().optional()
+  })
+});
+
+const remittanceVerifySchema = z.object({
+  action: z.enum(['verify', 'reject']),
+  notes: z.string().optional(),
+  rejectionReason: z.string().optional()
+});
+
+// POST /remittance/request - Create a remittance request for an AIF/PMS order
+router.post("/remittance/request", requireAuth, async (req, res) => {
+  try {
+    const user = req.user as any;
+    const data = remittanceRequestSchema.parse(req.body);
+    
+    const remittance = await externalRemittanceService.createRemittanceRequest({
+      ...data,
+      userId: user.id
+    });
+    
+    res.json({ 
+      success: true, 
+      remittance,
+      message: "Remittance request created. Please upload proof of payment."
+    });
+  } catch (error: any) {
+    if (error.name === 'ZodError') {
+      return res.status(400).json({ error: "Invalid request data", details: error.errors });
+    }
+    console.error("Error creating remittance request:", error);
+    res.status(500).json({ error: "Failed to create remittance request" });
+  }
+});
+
+// POST /remittance/:id/upload - Upload proof of payment
+router.post("/remittance/:id/upload", requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = req.user as any;
+    const data = remittanceUploadSchema.parse(req.body);
+    
+    const result = await externalRemittanceService.uploadRemittanceProof({
+      remittanceId: id,
+      userId: user.id,
+      filePath: data.filePath,
+      fileName: data.fileName,
+      fileSize: data.fileSize,
+      mimeType: data.mimeType,
+      bankDetails: data.bankDetails
+    });
+    
+    if (!result.success) {
+      return res.status(400).json({ error: result.message });
+    }
+    
+    res.json({ success: true, message: result.message });
+  } catch (error: any) {
+    if (error.name === 'ZodError') {
+      return res.status(400).json({ error: "Invalid upload data", details: error.errors });
+    }
+    console.error("Error uploading remittance proof:", error);
+    res.status(500).json({ error: "Failed to upload remittance proof" });
+  }
+});
+
+// GET /remittance/my - Get user's remittance requests
+router.get("/remittance/my", requireAuth, async (req, res) => {
+  try {
+    const user = req.user as any;
+    const remittances = await externalRemittanceService.getRemittancesByUser(user.id);
+    
+    res.json({ remittances });
+  } catch (error: any) {
+    console.error("Error fetching remittances:", error);
+    res.status(500).json({ error: "Failed to fetch remittances" });
+  }
+});
+
+// GET /remittance/order/:orderId - Get remittances for a specific order
+router.get("/remittance/order/:orderId", requireAuth, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const remittances = await externalRemittanceService.getRemittancesByOrder(orderId);
+    
+    res.json({ remittances });
+  } catch (error: any) {
+    console.error("Error fetching order remittances:", error);
+    res.status(500).json({ error: "Failed to fetch order remittances" });
+  }
+});
+
+// GET /remittance/:id - Get specific remittance details
+router.get("/remittance/:id", requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const remittance = await externalRemittanceService.getRemittance(id);
+    
+    if (!remittance) {
+      return res.status(404).json({ error: "Remittance not found" });
+    }
+    
+    res.json({ remittance });
+  } catch (error: any) {
+    console.error("Error fetching remittance:", error);
+    res.status(500).json({ error: "Failed to fetch remittance" });
+  }
+});
+
+// GET /remittance/check/:productType/:orderId - Check if remittance proof is required/uploaded
+router.get("/remittance/check/:productType/:orderId", requireAuth, async (req, res) => {
+  try {
+    const { productType, orderId } = req.params;
+    
+    if (productType !== 'aif' && productType !== 'pms') {
+      return res.status(400).json({ error: "Invalid product type. Must be 'aif' or 'pms'" });
+    }
+    
+    const status = await externalRemittanceService.checkRemittanceProofRequired(
+      productType as 'aif' | 'pms',
+      orderId
+    );
+    
+    res.json(status);
+  } catch (error: any) {
+    console.error("Error checking remittance status:", error);
+    res.status(500).json({ error: "Failed to check remittance status" });
+  }
+});
+
+// ============ ADMIN REMITTANCE ROUTES ============
+
+// GET /admin/remittance/pending - Get all pending verification remittances
+router.get("/admin/remittance/pending", requireAdmin, async (req, res) => {
+  try {
+    const pendingRemittances = await externalRemittanceService.getPendingVerifications();
+    
+    res.json({ remittances: pendingRemittances, count: pendingRemittances.length });
+  } catch (error: any) {
+    console.error("Error fetching pending remittances:", error);
+    res.status(500).json({ error: "Failed to fetch pending remittances" });
+  }
+});
+
+// POST /admin/remittance/:id/verify - Verify or reject a remittance
+router.post("/admin/remittance/:id/verify", requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = req.user as any;
+    const data = remittanceVerifySchema.parse(req.body);
+    
+    const result = await externalRemittanceService.verifyRemittance({
+      remittanceId: id,
+      verifierId: user.id,
+      action: data.action,
+      notes: data.notes,
+      rejectionReason: data.rejectionReason
+    });
+    
+    if (!result.success) {
+      return res.status(400).json({ error: result.message });
+    }
+    
+    res.json({ success: true, message: result.message });
+  } catch (error: any) {
+    if (error.name === 'ZodError') {
+      return res.status(400).json({ error: "Invalid verification data", details: error.errors });
+    }
+    console.error("Error verifying remittance:", error);
+    res.status(500).json({ error: "Failed to verify remittance" });
+  }
+});
+
+// GET /admin/remittance/report - Get compliance report
+router.get("/admin/remittance/report", requireAdmin, async (req, res) => {
+  try {
+    const report = await externalRemittanceService.getComplianceReport();
+    
+    res.json(report);
+  } catch (error: any) {
+    console.error("Error generating remittance report:", error);
+    res.status(500).json({ error: "Failed to generate remittance report" });
   }
 });
 

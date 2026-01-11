@@ -16,6 +16,7 @@ import { eq, and, ne } from 'drizzle-orm';
 import { unlistedEscrowService } from './unlisted-escrow-service';
 import { auditLogArchivalService } from './audit-log-archival';
 import { regulatoryReportingService } from './regulatory-reporting-service';
+import { disVerificationService } from './dis-verification-service';
 
 export interface MakerApprovalRequest {
   dealId: string;
@@ -228,6 +229,50 @@ export class EscrowMakerCheckerService {
           status: 'pending_checker',
           message: 'Additional information requested from maker'
         };
+      }
+
+      // DIS Verification Check - MANDATORY for release operations
+      if (approval.requestType === 'release') {
+        const deal = await db.query.unlistedDeals.findFirst({
+          where: eq(unlistedDeals.id, approval.dealId),
+        });
+
+        if (deal) {
+          const disPrerequisites = await disVerificationService.getEscrowReleasePrerequisites(
+            approval.dealId,
+            parseFloat(deal.quantity || '0'),
+            deal.isin || '',
+            deal.buyerDematAccount || ''
+          );
+
+          if (!disPrerequisites.canRelease) {
+            const failureDetails = disPrerequisites.complianceNotes.join('; ');
+            console.warn(`[MakerChecker] DIS verification FAILED for deal ${approval.dealId}: ${failureDetails}`);
+            
+            await db.update(unlistedEscrowApprovals)
+              .set({
+                checkerUserId: request.checkerUserId,
+                checkerNotes: `BLOCKED: DIS verification failed - ${failureDetails}`,
+                checkerAction: 'rejected',
+                status: 'rejected',
+                rejectionReason: `DIS verification failed: ${failureDetails}`,
+                ipAddressChecker: request.ipAddress,
+                userAgentChecker: request.userAgent,
+                updatedAt: new Date(),
+              })
+              .where(eq(unlistedEscrowApprovals.id, request.approvalId));
+
+            return {
+              success: false,
+              approvalId: approval.id,
+              status: 'rejected',
+              error: `Escrow release blocked: DIS/share transfer verification incomplete. ${failureDetails}`,
+              executionResult: { disPrerequisites }
+            };
+          }
+
+          console.log(`[MakerChecker] DIS verification PASSED for deal ${approval.dealId}`);
+        }
       }
 
       // Pre-execution compliance: Archive audit log BEFORE escrow execution attempt

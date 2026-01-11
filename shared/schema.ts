@@ -25657,3 +25657,169 @@ export const mcaWalletPayments = pgTable("mca_wallet_payments", {
 export const insertMcaWalletPaymentSchema = createInsertSchema(mcaWalletPayments).omit({ id: true, createdAt: true, updatedAt: true });
 export type McaWalletPayment = typeof mcaWalletPayments.$inferSelect;
 export type InsertMcaWalletPayment = z.infer<typeof insertMcaWalletPaymentSchema>;
+
+// ============ SEBI COMPLIANCE PERSISTENCE TABLES ============
+
+// External Remittance Proofs - AIF/PMS payment proof tracking for SEBI compliance
+export const externalRemittanceProofs = pgTable("external_remittance_proofs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id", { length: 100 }).notNull(),
+  productType: text("product_type").notNull(), // 'aif', 'pms'
+  productId: varchar("product_id", { length: 100 }).notNull(),
+  productName: text("product_name").notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  remittanceType: text("remittance_type").notNull(), // 'aif_subscription', 'pms_subscription', 'capital_call', 'top_up'
+  
+  expectedAmount: numeric("expected_amount").notNull(),
+  currency: varchar("currency", { length: 10 }).default("INR"),
+  
+  // Document evidence
+  documentPath: text("document_path"),
+  documentHash: varchar("document_hash", { length: 64 }), // SHA-256
+  hashAlgorithm: varchar("hash_algorithm", { length: 20 }).default("sha256"),
+  originalFileName: text("original_file_name"),
+  fileSize: integer("file_size"),
+  mimeType: varchar("mime_type", { length: 100 }),
+  
+  // Bank transfer details
+  beneficiaryName: text("beneficiary_name"),
+  bankName: text("bank_name"),
+  accountNumber: text("account_number"),
+  ifscCode: varchar("ifsc_code", { length: 11 }),
+  utrNumber: varchar("utr_number", { length: 50 }),
+  transactionDate: date("transaction_date"),
+  
+  // Verification workflow
+  status: text("status").default("pending_upload"), // 'pending_upload', 'uploaded', 'under_review', 'verified', 'rejected', 'expired'
+  verifiedBy: varchar("verified_by").references(() => users.id),
+  verifiedAt: timestamp("verified_at"),
+  rejectionReason: text("rejection_reason"),
+  reviewerNotes: text("reviewer_notes"),
+  
+  // Reference links
+  capitalCallReference: varchar("capital_call_reference", { length: 100 }),
+  subscriptionAgreementId: varchar("subscription_agreement_id", { length: 100 }),
+  
+  // Audit metadata
+  uploadedAt: timestamp("uploaded_at"),
+  submittedAt: timestamp("submitted_at").defaultNow().notNull(),
+  retentionExpiresAt: timestamp("retention_expires_at"), // SEBI 8-year retention
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  expiresAt: timestamp("expires_at"), // Upload deadline
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_erp_order").on(table.orderId),
+  index("idx_erp_status").on(table.status, table.submittedAt),
+  index("idx_erp_user").on(table.userId),
+  index("idx_erp_product").on(table.productType, table.productId),
+]);
+
+export const insertExternalRemittanceProofSchema = createInsertSchema(externalRemittanceProofs).omit({ id: true, createdAt: true, updatedAt: true });
+export type ExternalRemittanceProof = typeof externalRemittanceProofs.$inferSelect;
+export type InsertExternalRemittanceProof = z.infer<typeof insertExternalRemittanceProofSchema>;
+
+// Daily Reconciliation Reports - SEBI IA Regulations compliance
+export const dailyReconciliationReports = pgTable("daily_reconciliation_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reportDate: date("report_date").notNull(),
+  productScope: text("product_scope").default("all"), // 'all', 'mutual_fund', 'unlisted', 'aif_pms', 'bonds'
+  
+  // Summary metrics
+  totalTransactions: integer("total_transactions").default(0),
+  totalCredits: numeric("total_credits").default("0"),
+  totalDebits: numeric("total_debits").default("0"),
+  netMovement: numeric("net_movement").default("0"),
+  discrepancyCount: integer("discrepancy_count").default(0),
+  
+  // Discrepancy details (JSON array)
+  discrepancies: jsonb("discrepancies").default([]),
+  
+  // Report status
+  status: text("status").default("generated"), // 'generated', 'reviewed', 'signed_off', 'escalated'
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  signedOffBy: varchar("signed_off_by").references(() => users.id),
+  signedOffAt: timestamp("signed_off_at"),
+  signOffNotes: text("sign_off_notes"),
+  
+  // Artifact storage
+  pdfReportPath: text("pdf_report_path"),
+  csvExportPath: text("csv_export_path"),
+  reportHash: varchar("report_hash", { length: 64 }), // SHA-256 of report content
+  
+  // Execution metadata
+  executedBy: varchar("executed_by", { length: 100 }), // 'system_cron', user id
+  executionDurationMs: integer("execution_duration_ms"),
+  
+  // Retention
+  retentionExpiresAt: timestamp("retention_expires_at"), // 8 years from report date
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_drr_date").on(table.reportDate, table.productScope),
+  index("idx_drr_status").on(table.status),
+  uniqueIndex("idx_drr_date_scope_unique").on(table.reportDate, table.productScope),
+]);
+
+export const insertDailyReconciliationReportSchema = createInsertSchema(dailyReconciliationReports).omit({ id: true, createdAt: true, updatedAt: true });
+export type DailyReconciliationReport = typeof dailyReconciliationReports.$inferSelect;
+export type InsertDailyReconciliationReport = z.infer<typeof insertDailyReconciliationReportSchema>;
+
+// MF Batch Validation Logs - ARN/EUIN credential verification audit trail
+export const mfBatchValidationLogs = pgTable("mf_batch_validation_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  batchId: varchar("batch_id", { length: 100 }).notNull(),
+  agentId: varchar("agent_id").references(() => users.id),
+  
+  // Credentials validated
+  arnCode: varchar("arn_code", { length: 20 }).notNull(),
+  euinCode: varchar("euin_code", { length: 20 }),
+  productType: varchar("product_type", { length: 20 }).default("mutual_fund"),
+  
+  // Batch details
+  transactionCount: integer("transaction_count").default(0),
+  totalAmount: numeric("total_amount").default("0"),
+  
+  // Validation results
+  arnValid: boolean("arn_valid").default(false),
+  arnStatus: text("arn_status"), // 'active', 'inactive', 'suspended', 'expired'
+  arnExpiryDate: date("arn_expiry_date"),
+  euinValid: boolean("euin_valid"),
+  euinActive: boolean("euin_active"),
+  
+  // Decision outcome
+  canProceed: boolean("can_proceed").default(false),
+  requiresManualReview: boolean("requires_manual_review").default(false),
+  blockingReason: text("blocking_reason"),
+  
+  // Warnings and errors (JSON arrays)
+  warnings: jsonb("warnings").default([]),
+  errors: jsonb("errors").default([]),
+  
+  // Raw registry response (for audit)
+  registryResponseHash: varchar("registry_response_hash", { length: 64 }),
+  registryResponseSnapshot: jsonb("registry_response_snapshot"),
+  
+  // Validation source
+  validationSource: varchar("validation_source", { length: 50 }), // 'amfi_live', 'cached', 'mock'
+  
+  // Audit metadata
+  validatedAt: timestamp("validated_at").defaultNow().notNull(),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_mbvl_batch").on(table.batchId),
+  index("idx_mbvl_agent").on(table.agentId, table.createdAt),
+  index("idx_mbvl_arn").on(table.arnCode),
+  index("idx_mbvl_outcome").on(table.canProceed, table.createdAt),
+]);
+
+export const insertMfBatchValidationLogSchema = createInsertSchema(mfBatchValidationLogs).omit({ id: true, createdAt: true });
+export type MfBatchValidationLog = typeof mfBatchValidationLogs.$inferSelect;
+export type InsertMfBatchValidationLog = z.infer<typeof insertMfBatchValidationLogSchema>;
