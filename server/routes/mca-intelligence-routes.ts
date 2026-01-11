@@ -11,6 +11,8 @@
 
 import { Router, Request, Response } from 'express';
 import { mcaIntelligenceService, McaRole, McaQueryType } from '../services/mca-intelligence-service';
+import { cashfreeService } from '../cashfree-service';
+import { getZohoBooksService } from '../zoho/services/books';
 import { z } from 'zod';
 
 const router = Router();
@@ -279,13 +281,14 @@ router.get('/wallet', requireMcaAccess('read'), async (req: Request, res: Respon
 });
 
 /**
- * POST /api/mca/wallet/recharge
- * Recharge MCA wallet (Admin only)
+ * POST /api/mca/wallet/recharge/initiate
+ * Initiate MCA wallet recharge via Cashfree payment (Admin only)
  */
-router.post('/wallet/recharge', requireMcaAccess('full'), async (req: Request, res: Response) => {
-  console.log('[MCA Routes] Recharge request received:', { 
+router.post('/wallet/recharge/initiate', requireMcaAccess('full'), async (req: Request, res: Response) => {
+  const user = (req as any).user;
+  console.log('[MCA Routes] Recharge initiate request:', { 
     body: req.body, 
-    user: (req as any).user?.email,
+    user: user?.email,
     role: getMcaRole(req)
   });
   
@@ -293,23 +296,232 @@ router.post('/wallet/recharge', requireMcaAccess('full'), async (req: Request, r
   
   try {
     const { amount } = req.body;
-    if (!amount || amount <= 0) {
+    if (!amount || amount <= 0 || amount > 500000) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid recharge amount',
+        error: 'Invalid recharge amount (must be between ₹1 and ₹5,00,000)',
       });
     }
 
-    await mcaIntelligenceService.updateWalletBalance(amount, 'recharge');
-    const wallet = await mcaIntelligenceService.getWalletStatus();
+    // Check if Cashfree is configured
+    if (!cashfreeService.hasValidCredentials()) {
+      return res.status(503).json({
+        success: false,
+        error: 'Payment gateway not configured. Please contact support.',
+      });
+    }
+
+    // Get base URL for callback
+    const protocol = req.headers['x-forwarded-proto'] || 'https';
+    const host = req.headers['host'] || process.env.REPLIT_DEV_DOMAIN;
+    const baseUrl = `${protocol}://${host}`;
+    const returnUrl = `${baseUrl}/api/mca/wallet/recharge/callback`;
+
+    // Create Cashfree order
+    const orderResponse = await cashfreeService.createOrder({
+      amount: amount,
+      userId: user?.id || 'mca-admin',
+      email: user?.email || 'admin@fintekpro.com',
+      name: user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'MCA Admin',
+      phone: user?.mobile || '9999999999',
+      returnUrl: returnUrl,
+    });
+
+    if (!orderResponse.success || !orderResponse.orderId) {
+      return res.status(500).json({
+        success: false,
+        error: orderResponse.message || 'Failed to create payment order',
+      });
+    }
+
+    // Save payment record
+    const payment = await mcaIntelligenceService.createWalletPayment({
+      orderId: orderResponse.orderId,
+      paymentSessionId: orderResponse.paymentSessionId,
+      amount: amount,
+      initiatedBy: user?.email || 'unknown',
+      initiatedByUserId: user?.id,
+      paymentUrl: orderResponse.paymentUrl,
+      returnUrl: returnUrl,
+    });
+
+    console.log('[MCA Routes] Payment order created:', { 
+      orderId: orderResponse.orderId, 
+      amount,
+      paymentUrl: orderResponse.paymentUrl 
+    });
 
     res.json({
       success: true,
-      message: `Wallet recharged with ₹${amount}`,
-      data: wallet,
+      message: 'Payment order created',
+      data: {
+        orderId: orderResponse.orderId,
+        paymentSessionId: orderResponse.paymentSessionId,
+        paymentUrl: orderResponse.paymentUrl,
+        amount: amount,
+      },
     });
   } catch (error: any) {
-    console.error('[MCA Routes] Wallet recharge error:', error);
+    console.error('[MCA Routes] Wallet recharge initiate error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/mca/wallet/recharge/callback
+ * Cashfree payment callback - verify and credit wallet
+ */
+router.get('/wallet/recharge/callback', async (req: Request, res: Response) => {
+  const { order_id } = req.query;
+  
+  console.log('[MCA Routes] Payment callback received:', { order_id, query: req.query });
+  
+  try {
+    if (!order_id || typeof order_id !== 'string') {
+      return res.redirect('/admin/mca-intelligence?payment=error&message=Invalid order');
+    }
+
+    // Get payment record
+    const payment = await mcaIntelligenceService.getWalletPaymentByOrderId(order_id);
+    if (!payment) {
+      return res.redirect('/admin/mca-intelligence?payment=error&message=Payment not found');
+    }
+
+    // Already processed?
+    if (payment.status === 'success') {
+      return res.redirect('/admin/mca-intelligence?payment=success&message=Already credited');
+    }
+
+    // Verify with Cashfree
+    const orderStatus = await cashfreeService.getOrderStatus(order_id);
+    console.log('[MCA Routes] Cashfree order status:', orderStatus);
+
+    if (orderStatus.orderStatus === 'PAID') {
+      // Credit wallet
+      const amount = parseFloat(payment.amount);
+      await mcaIntelligenceService.updateWalletBalance(amount, 'recharge');
+
+      // Update payment record
+      await mcaIntelligenceService.updateWalletPaymentStatus(order_id, {
+        status: 'success',
+        transactionId: orderStatus.transactionId,
+        paymentMethod: orderStatus.paymentMethod,
+        creditedAt: new Date(),
+      });
+
+      // Create Zoho expense bill for MCA API credits (operational expense)
+      try {
+        const zohoService = await getZohoBooksService();
+        if (zohoService) {
+          const expense = await zohoService.createExpense({
+            account_name: 'MCA API Credits',
+            amount: amount,
+            date: new Date().toISOString().split('T')[0],
+            description: `MCA wallet recharge - Order: ${order_id}`,
+            reference_number: order_id,
+          });
+          
+          if (expense?.expense_id) {
+            await mcaIntelligenceService.updateWalletPaymentStatus(order_id, {
+              status: 'success',
+              zohoExpenseId: expense.expense_id,
+            });
+            console.log('[MCA Routes] Zoho expense created:', expense.expense_id);
+          }
+        }
+      } catch (zohoError: any) {
+        console.error('[MCA Routes] Zoho expense creation failed:', zohoError.message);
+        // Don't fail the payment - just log the error
+      }
+
+      console.log('[MCA Routes] Wallet credited:', { order_id, amount });
+      return res.redirect('/admin/mca-intelligence?payment=success&amount=' + amount);
+    } else if (orderStatus.orderStatus === 'FAILED' || orderStatus.orderStatus === 'CANCELLED') {
+      await mcaIntelligenceService.updateWalletPaymentStatus(order_id, {
+        status: 'failed',
+        failureReason: orderStatus.orderStatus,
+      });
+      return res.redirect('/admin/mca-intelligence?payment=failed&message=' + orderStatus.orderStatus);
+    } else {
+      // Still pending
+      return res.redirect('/admin/mca-intelligence?payment=pending&order_id=' + order_id);
+    }
+  } catch (error: any) {
+    console.error('[MCA Routes] Payment callback error:', error);
+    return res.redirect('/admin/mca-intelligence?payment=error&message=' + encodeURIComponent(error.message));
+  }
+});
+
+/**
+ * GET /api/mca/wallet/payments/:orderId
+ * Check payment status
+ */
+router.get('/wallet/payments/:orderId', requireMcaAccess('read'), async (req: Request, res: Response) => {
+  try {
+    const { orderId } = req.params;
+    const payment = await mcaIntelligenceService.getWalletPaymentByOrderId(orderId);
+    
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        error: 'Payment not found',
+      });
+    }
+
+    // If still pending, check with Cashfree
+    if (payment.status === 'pending') {
+      try {
+        const orderStatus = await cashfreeService.getOrderStatus(orderId);
+        if (orderStatus.orderStatus === 'PAID' && payment.status !== 'success') {
+          // Process the payment
+          const amount = parseFloat(payment.amount);
+          await mcaIntelligenceService.updateWalletBalance(amount, 'recharge');
+          await mcaIntelligenceService.updateWalletPaymentStatus(orderId, {
+            status: 'success',
+            transactionId: orderStatus.transactionId,
+            paymentMethod: orderStatus.paymentMethod,
+            creditedAt: new Date(),
+          });
+          
+          return res.json({
+            success: true,
+            data: { ...payment, status: 'success' },
+          });
+        }
+      } catch (e) {
+        // Ignore Cashfree check errors
+      }
+    }
+
+    res.json({
+      success: true,
+      data: payment,
+    });
+  } catch (error: any) {
+    console.error('[MCA Routes] Payment status error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/mca/wallet/payments
+ * Get recent wallet payments
+ */
+router.get('/wallet/payments', requireMcaAccess('read'), async (req: Request, res: Response) => {
+  try {
+    const payments = await mcaIntelligenceService.getRecentWalletPayments(20);
+    res.json({
+      success: true,
+      data: payments,
+    });
+  } catch (error: any) {
+    console.error('[MCA Routes] Payments list error:', error);
     res.status(500).json({
       success: false,
       error: error.message,
