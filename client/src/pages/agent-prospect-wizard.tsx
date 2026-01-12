@@ -874,7 +874,24 @@ export default function AgentProspectWizard() {
     }
   });
 
-  // Portfolio upload mutation
+  // Helper function to reload holdings from server
+  const reloadHoldingsFromServer = async () => {
+    if (!prospectId) return;
+    try {
+      const response = await fetch(`/api/agent-wizard/prospects/${prospectId}/holdings`, {
+        credentials: 'include'
+      });
+      if (response.ok) {
+        const payload = await response.json();
+        const serverHoldings = payload.data?.holdings ?? [];
+        setHoldings(serverHoldings);
+      }
+    } catch (error) {
+      console.error('Error reloading holdings:', error);
+    }
+  };
+
+  // Portfolio upload mutation with merge and persist functionality
   const uploadPortfolioMutation = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
@@ -886,7 +903,7 @@ export default function AgentProspectWizard() {
       });
       return res.json();
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       if (data.success) {
         setImportResult(data);
         if (data.holdings && data.holdings.length > 0) {
@@ -898,19 +915,60 @@ export default function AgentProspectWizard() {
             isin: h.isin,
             category: h.category
           }));
-          setHoldings(prev => [...prev, ...mappedHoldings]);
           
-          // Show appropriate toast based on whether all funds were imported
-          if (data.unimportedCount && data.unimportedCount > 0) {
-            toast({ 
-              title: "Partial Import - Manual Entry Needed", 
-              description: `Imported ${data.importedCount} of ${data.expectedCount} holdings. ${data.unimportedCount} fund(s) need manual entry.`,
-              variant: "default"
+          // Persist merged holdings to backend using bulk merge endpoint
+          try {
+            const mergeRes = await fetch(`/api/agent-wizard/prospects/${prospectId}/holdings/merge`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ holdings: mappedHoldings })
             });
-          } else {
+            
+            const mergeData = await mergeRes.json();
+            
+            if (mergeRes.ok && mergeData.success) {
+              // Update local state with authoritative merged holdings from server
+              setHoldings(mergeData.holdings);
+              
+              // Invalidate holdings cache
+              queryClient.invalidateQueries({ 
+                predicate: (query) => {
+                  const key = query.queryKey;
+                  return Array.isArray(key) && typeof key[0] === 'string' && key[0].includes('holdings');
+                }
+              });
+              
+              // Show appropriate toast based on whether all funds were imported
+              if (data.unimportedCount && data.unimportedCount > 0) {
+                toast({ 
+                  title: "Partial Import - Manual Entry Needed", 
+                  description: `Imported ${data.importedCount} of ${data.expectedCount} holdings. ${data.unimportedCount} fund(s) need manual entry.`,
+                  variant: "default"
+                });
+              } else {
+                toast({ 
+                  title: "Portfolio Imported & Saved", 
+                  description: `Detected ${data.brokerDetected || 'portfolio'}: ${mergeData.addedCount || data.holdings.length} holdings imported and saved.` 
+                });
+              }
+            } else {
+              // Merge failed - reload from server to show authoritative data
+              await reloadHoldingsFromServer();
+              toast({ 
+                title: "Import Failed to Save", 
+                description: `Could not save holdings: ${mergeData.message || 'Validation error'}. Please try again.`,
+                variant: "destructive"
+              });
+            }
+          } catch (err) {
+            console.error('Failed to persist imported holdings:', err);
+            // Reload from server to ensure UI matches saved state
+            await reloadHoldingsFromServer();
             toast({ 
-              title: "Portfolio Imported", 
-              description: `Detected ${data.brokerDetected || 'portfolio'}: ${data.holdings.length} holdings imported with ${data.confidenceScore}% confidence.` 
+              title: "Import Failed to Save", 
+              description: "Could not save holdings. Please try again.",
+              variant: "destructive"
             });
           }
         }
@@ -923,7 +981,7 @@ export default function AgentProspectWizard() {
     }
   });
 
-  // Portfolio URL import mutation
+  // Portfolio URL import mutation with merge and persist functionality
   const importUrlMutation = useMutation({
     mutationFn: async (url: string) => {
       const res = await apiRequest(`/api/agent/prospects/${prospectId}/portfolio/import-url`, {
@@ -932,7 +990,7 @@ export default function AgentProspectWizard() {
       });
       return res.json();
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       if (data.success) {
         setImportResult(data);
         if (data.holdings && data.holdings.length > 0) {
@@ -944,11 +1002,52 @@ export default function AgentProspectWizard() {
             isin: h.isin,
             category: h.category
           }));
-          setHoldings(prev => [...prev, ...mappedHoldings]);
-          toast({ 
-            title: "Portfolio Imported", 
-            description: `${data.holdings.length} holdings imported from ${data.brokerDetected || 'URL'}.` 
-          });
+          
+          // Persist merged holdings to backend using bulk merge endpoint
+          try {
+            const mergeRes = await fetch(`/api/agent-wizard/prospects/${prospectId}/holdings/merge`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ holdings: mappedHoldings })
+            });
+            
+            const mergeData = await mergeRes.json();
+            
+            if (mergeRes.ok && mergeData.success) {
+              // Update local state with authoritative merged holdings from server
+              setHoldings(mergeData.holdings);
+              
+              queryClient.invalidateQueries({ 
+                predicate: (query) => {
+                  const key = query.queryKey;
+                  return Array.isArray(key) && typeof key[0] === 'string' && key[0].includes('holdings');
+                }
+              });
+              
+              toast({ 
+                title: "Portfolio Imported & Saved", 
+                description: `${mergeData.addedCount || data.holdings.length} holdings imported from ${data.brokerDetected || 'URL'} and saved.` 
+              });
+            } else {
+              // Merge failed - reload from server to show authoritative data
+              await reloadHoldingsFromServer();
+              toast({ 
+                title: "Import Failed to Save", 
+                description: `Could not save holdings: ${mergeData.message || 'Validation error'}. Please try again.`,
+                variant: "destructive"
+              });
+            }
+          } catch (err) {
+            console.error('Failed to persist imported holdings:', err);
+            // Reload from server to ensure UI matches saved state
+            await reloadHoldingsFromServer();
+            toast({ 
+              title: "Import Failed to Save", 
+              description: "Could not save holdings. Please try again.",
+              variant: "destructive"
+            });
+          }
         }
       } else {
         toast({ title: "Import Failed", description: data.error || "Could not parse portfolio from URL.", variant: "destructive" });
