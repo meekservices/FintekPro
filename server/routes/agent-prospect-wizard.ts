@@ -56,6 +56,57 @@ const backendHoldingSchema = z.object({
   category: z.string().optional()
 });
 
+// Flexible schema that accepts both frontend (productName/productType) and backend (name/assetType) formats
+const flexibleHoldingSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().optional(),
+  productName: z.string().optional(),
+  isin: z.string().optional(),
+  symbol: z.string().optional(),
+  assetType: z.enum(['equity', 'mutual_fund', 'etf', 'bond', 'gold', 'fd', 'other']).optional(),
+  productType: z.string().optional(),
+  quantity: z.number(),
+  averageCost: z.number().optional(),
+  currentValue: z.number(),
+  currentNav: z.number().optional(),
+  investedValue: z.number().optional(),
+  unrealizedGain: z.number().optional(),
+  unrealizedGainPercent: z.number().optional(),
+  purchasePrice: z.number().optional(),
+  purchaseDate: z.string().optional(),
+  folioNumber: z.string().optional(),
+  broker: z.string().optional(),
+  confidenceScore: z.number().optional(),
+  category: z.string().optional()
+});
+
+// Helper to normalize holdings to backend format
+function normalizeHoldings(holdings: any[]): any[] {
+  return holdings.map(h => {
+    const name = h.name || h.productName || 'Unknown';
+    let assetType = h.assetType;
+    if (!assetType && h.productType) {
+      const typeMap: Record<string, string> = {
+        'mutual_fund': 'mutual_fund',
+        'equity': 'equity',
+        'stock': 'equity',
+        'etf': 'etf',
+        'bond': 'bond',
+        'gold': 'gold',
+        'fd': 'fd'
+      };
+      assetType = typeMap[h.productType.toLowerCase()] || 'other';
+    }
+    return {
+      ...h,
+      name,
+      assetType: assetType || 'other',
+      quantity: h.quantity || 0,
+      currentValue: h.currentValue || 0
+    };
+  });
+}
+
 const customAllocationsSchema = z.object({
   equity: z.number().min(0).max(100),
   debt: z.number().min(0).max(100),
@@ -232,7 +283,8 @@ router.put("/prospects/:id/portfolio", async (req: Request, res: Response) => {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
-    const holdings = z.array(backendHoldingSchema).parse(req.body.holdings);
+    const flexibleHoldings = z.array(flexibleHoldingSchema).parse(req.body.holdings);
+    const holdings = normalizeHoldings(flexibleHoldings);
     await agentProspectWizardService.updateProspectPortfolio(req.params.id, holdings);
     res.json({ success: true });
   } catch (error: any) {
@@ -270,10 +322,11 @@ router.post("/analyze-portfolio", async (req: Request, res: Response) => {
     }
 
     const { holdings, riskProfile } = req.body;
-    const parsedHoldings = z.array(backendHoldingSchema).parse(holdings);
+    const flexibleHoldings = z.array(flexibleHoldingSchema).parse(holdings);
+    const normalizedHoldings = normalizeHoldings(flexibleHoldings);
     const parsedRiskProfile = riskProfileSchema.parse(riskProfile);
     
-    const analysis = agentProspectWizardService.analyzePortfolio(parsedHoldings, parsedRiskProfile);
+    const analysis = agentProspectWizardService.analyzePortfolio(normalizedHoldings, parsedRiskProfile);
     res.json({ success: true, analysis });
   } catch (error: any) {
     console.error("[Agent Wizard] Error analyzing portfolio:", error);
@@ -289,11 +342,12 @@ router.post("/rebalancing-suggestions", async (req: Request, res: Response) => {
     }
 
     const { holdings, riskProfile, analysis } = req.body;
-    const parsedHoldings = z.array(backendHoldingSchema).parse(holdings);
+    const flexibleHoldings = z.array(flexibleHoldingSchema).parse(holdings);
+    const normalizedHoldings = normalizeHoldings(flexibleHoldings);
     const parsedRiskProfile = riskProfileSchema.parse(riskProfile);
     
     const suggestions = agentProspectWizardService.generateRebalancingRecommendations(
-      parsedHoldings, 
+      normalizedHoldings, 
       parsedRiskProfile, 
       analysis
     );
@@ -313,7 +367,7 @@ router.post("/fresh-investment-suggestions", async (req: Request, res: Response)
 
     const { riskProfile, investmentAmount, existingHoldings, customAllocations, selectedCategories } = req.body;
     const parsedRiskProfile = riskProfileSchema.parse(riskProfile);
-    const parsedHoldings = existingHoldings ? z.array(backendHoldingSchema).parse(existingHoldings) : [];
+    const parsedHoldings = existingHoldings ? normalizeHoldings(z.array(flexibleHoldingSchema).parse(existingHoldings)) : [];
     const parsedAllocations = customAllocations ? customAllocationsSchema.parse(customAllocations) : undefined;
     
     const suggestions = await agentProspectWizardService.generateFreshInvestmentSuggestions(
@@ -553,7 +607,8 @@ router.post("/prospects/:id/holdings/merge", async (req: Request, res: Response)
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
-    const newHoldings = z.array(backendHoldingSchema).parse(req.body.holdings);
+    const flexibleHoldings = z.array(flexibleHoldingSchema).parse(req.body.holdings);
+    const newHoldings = normalizeHoldings(flexibleHoldings);
     const currentHoldings = (prospect.currentPortfolio as any[]) || [];
     
     // Merge: add new holdings with timestamp
