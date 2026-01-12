@@ -818,6 +818,69 @@ router.post("/portfolio/:clientId/upload", upload.single('file'), async (req, re
   }
 });
 
+// POST endpoint for bulk import (paste from Excel)
+router.post("/portfolio/:clientId/bulk-import", async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const { holdings, skipValidation } = req.body;
+    
+    if (!holdings || !Array.isArray(holdings) || holdings.length === 0) {
+      return res.status(400).json({ error: "No holdings provided" });
+    }
+
+    const validHoldings = holdings.filter((h: any) => {
+      const symbol = h.symbol?.toString().trim();
+      const quantity = parseFloat(h.quantity);
+      return symbol && symbol.length > 0 && quantity > 0;
+    });
+
+    if (validHoldings.length === 0) {
+      return res.status(400).json({ error: "No valid holdings found. Each holding must have a symbol and quantity > 0." });
+    }
+
+    const invalidCount = holdings.length - validHoldings.length;
+    const missingPriceCount = validHoldings.filter((h: any) => !h.averagePrice || parseFloat(h.averagePrice) <= 0).length;
+
+    let [portfolio] = await db
+      .select()
+      .from(portfolios)
+      .where(eq(portfolios.userId, clientId))
+      .limit(1);
+
+    if (!portfolio) {
+      [portfolio] = await db.insert(portfolios).values({
+        userId: clientId,
+        name: "Imported Portfolio",
+        isDefault: true,
+      }).returning();
+    }
+
+    let imported = 0;
+    for (const holding of validHoldings) {
+      const { symbol, name, quantity, averagePrice, assetType } = holding;
+      
+      await db.insert(portfolioHoldings).values({
+        portfolioId: portfolio.id,
+        symbol: symbol.toString().toUpperCase().replace(/[^A-Z0-9]/g, ''),
+        quantity: String(parseFloat(quantity) || 0),
+        avgPrice: String(parseFloat(averagePrice) || 0),
+        assetType: assetType || 'EQUITY',
+      });
+      imported++;
+    }
+
+    res.json({ 
+      success: true, 
+      imported,
+      skipped: invalidCount,
+      warnings: missingPriceCount > 0 ? [`${missingPriceCount} holdings imported with price = 0`] : []
+    });
+  } catch (error) {
+    console.error("Error bulk importing holdings:", error);
+    res.status(500).json({ error: "Failed to import holdings" });
+  }
+});
+
 // GET endpoint for portfolio analysis
 router.get("/analyze/:clientId", async (req, res) => {
   try {

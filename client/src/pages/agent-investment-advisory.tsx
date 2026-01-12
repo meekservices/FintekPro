@@ -66,7 +66,11 @@ import {
   Unlock,
   Check,
   ChevronsUpDown,
-  User
+  User,
+  ClipboardPaste,
+  Table2,
+  FileSpreadsheet,
+  FileText as FileTextIcon
 } from "lucide-react";
 
 interface Portfolio {
@@ -198,6 +202,11 @@ export default function AgentInvestmentAdvisory() {
   const [selectedProductTypes, setSelectedProductTypes] = useState<string[]>(["stocks", "mutual_funds", "bonds", "etfs"]);
   const [showAddHoldingDialog, setShowAddHoldingDialog] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [showPasteDialog, setShowPasteDialog] = useState(false);
+  const [showCASUploadDialog, setShowCASUploadDialog] = useState(false);
+  const [pastedText, setPastedText] = useState("");
+  const [parsedHoldings, setParsedHoldings] = useState<Array<{symbol: string; name: string; quantity: number; averagePrice: number; assetType: string}>>([]);
+  const [parseError, setParseError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedProductCategories, setSelectedProductCategories] = useState<string[]>([]);
   const [unifiedAdvisoryLoading, setUnifiedAdvisoryLoading] = useState(false);
@@ -335,6 +344,110 @@ export default function AgentInvestmentAdvisory() {
       toast({ title: "Error", description: "Failed to create proposal", variant: "destructive" });
     }
   });
+
+  const bulkImportMutation = useMutation({
+    mutationFn: async (holdings: typeof parsedHoldings) => {
+      return apiRequest(`/api/ai-investment/portfolio/${selectedClientId}/bulk-import`, {
+        method: 'POST',
+        body: JSON.stringify({ holdings })
+      });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/ai-investment/portfolio', selectedClientId] });
+      setShowPasteDialog(false);
+      setPastedText("");
+      setParsedHoldings([]);
+      setParseError(null);
+      toast({ title: "Portfolio imported", description: `${data?.imported || parsedHoldings.length} holdings added successfully` });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to import holdings", variant: "destructive" });
+    }
+  });
+
+  const parseClipboardData = useCallback((text: string) => {
+    if (!text.trim()) {
+      setParsedHoldings([]);
+      setParseError(null);
+      return;
+    }
+
+    try {
+      const lines = text.trim().split('\n').filter(line => line.trim());
+      if (lines.length === 0) {
+        setParseError("No data found");
+        return;
+      }
+
+      const delimiter = lines[0].includes('\t') ? '\t' : ',';
+      const rows = lines.map(line => line.split(delimiter).map(cell => cell.trim()));
+      
+      const headerRow = rows[0].map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
+      
+      const matchColumn = (patterns: string[]) => 
+        headerRow.findIndex(h => patterns.some(p => h.includes(p)));
+      
+      const symbolIdx = matchColumn(['symbol', 'ticker', 'stock', 'scrip', 'isin', 'code']);
+      const nameIdx = matchColumn(['name', 'company', 'scheme', 'fund', 'security']);
+      const qtyIdx = matchColumn(['qty', 'quantity', 'units', 'shares', 'holding', 'balance']);
+      const priceIdx = matchColumn(['price', 'avg', 'average', 'cost', 'nav', 'buy']);
+      const typeIdx = matchColumn(['type', 'asset', 'category', 'class']);
+
+      const hasHeader = symbolIdx !== -1 || qtyIdx !== -1 || priceIdx !== -1;
+      const dataRows = hasHeader ? rows.slice(1) : rows;
+      const numCols = rows[0].length;
+
+      if (dataRows.length === 0) {
+        setParseError("No data rows found");
+        return;
+      }
+
+      const parsed = dataRows.map((row) => {
+        const safeGet = (index: number, fallbackIdx: number) => {
+          if (index !== -1 && index < row.length) return row[index];
+          if (fallbackIdx < row.length) return row[fallbackIdx];
+          return '';
+        };
+        
+        const rawSymbol = safeGet(symbolIdx, 0);
+        const rawName = safeGet(nameIdx, numCols >= 4 ? 1 : -1);
+        const rawQty = safeGet(qtyIdx, numCols >= 3 ? (numCols >= 4 ? 2 : 1) : -1);
+        const rawPrice = safeGet(priceIdx, numCols >= 3 ? (numCols >= 4 ? 3 : 2) : -1);
+        const rawType = safeGet(typeIdx, -1);
+        
+        const symbol = rawSymbol.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const quantity = parseFloat(rawQty.replace(/,/g, '')) || 0;
+        const averagePrice = parseFloat(rawPrice.replace(/[₹,Rs.\s]/g, '').trim()) || 0;
+        
+        return {
+          symbol,
+          name: rawName || rawSymbol,
+          quantity,
+          averagePrice,
+          assetType: rawType.toUpperCase() || 'EQUITY',
+          _hasValidPrice: averagePrice > 0
+        };
+      }).filter(h => h.symbol && h.quantity > 0);
+
+      if (parsed.length === 0) {
+        setParseError("Could not parse any valid holdings. Ensure data has symbol and quantity columns.");
+        return;
+      }
+
+      const missingPriceCount = parsed.filter(h => !h._hasValidPrice).length;
+      if (missingPriceCount === parsed.length) {
+        setParseError(`Warning: No prices detected. Check that your data includes a price/cost column.`);
+      } else if (missingPriceCount > 0) {
+        setParseError(`Note: ${missingPriceCount} of ${parsed.length} holdings have no price. They will be imported with price = 0.`);
+      } else {
+        setParseError(null);
+      }
+
+      setParsedHoldings(parsed.map(({ _hasValidPrice, ...rest }) => rest));
+    } catch (err) {
+      setParseError("Failed to parse data. Try copying from Excel or use CSV format.");
+    }
+  }, []);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
@@ -631,6 +744,168 @@ export default function AgentInvestmentAdvisory() {
                 </div>
               </DialogContent>
             </Dialog>
+
+            <Dialog open={showPasteDialog} onOpenChange={(open) => {
+              setShowPasteDialog(open);
+              if (!open) {
+                setPastedText("");
+                setParsedHoldings([]);
+                setParseError(null);
+              }
+            }}>
+              <DialogTrigger asChild>
+                <Button variant="outline" data-testid="button-paste-excel">
+                  <ClipboardPaste className="h-4 w-4 mr-2" />
+                  Paste from Excel
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+                <DialogHeader>
+                  <DialogTitle>Paste Portfolio Data</DialogTitle>
+                  <DialogDescription>
+                    Copy data from Excel, Google Sheets, or any spreadsheet and paste below. 
+                    Auto-detects columns like Symbol, Quantity, Price, etc.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="flex-1 overflow-auto py-4 space-y-4">
+                  <Textarea 
+                    placeholder="Paste your portfolio data here...
+
+Example format:
+Symbol  Name    Quantity        Avg Price
+RELIANCE        Reliance Industries     100     2450.50
+INFY    Infosys Limited 50      1520.00
+TCS     Tata Consultancy        25      3850.00"
+                    className="min-h-[150px] font-mono text-sm"
+                    value={pastedText}
+                    onChange={(e) => {
+                      setPastedText(e.target.value);
+                      parseClipboardData(e.target.value);
+                    }}
+                    data-testid="textarea-paste"
+                  />
+                  
+                  {parseError && (
+                    <Alert variant="destructive">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>Parse Error</AlertTitle>
+                      <AlertDescription>{parseError}</AlertDescription>
+                    </Alert>
+                  )}
+                  
+                  {parsedHoldings.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-green-600" />
+                        <span className="text-sm font-medium text-green-600">
+                          Parsed {parsedHoldings.length} holdings
+                        </span>
+                      </div>
+                      <div className="border rounded-lg max-h-[200px] overflow-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Symbol</TableHead>
+                              <TableHead>Name</TableHead>
+                              <TableHead className="text-right">Qty</TableHead>
+                              <TableHead className="text-right">Avg Price</TableHead>
+                              <TableHead>Type</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {parsedHoldings.slice(0, 10).map((h, idx) => (
+                              <TableRow key={idx}>
+                                <TableCell className="font-medium">{h.symbol}</TableCell>
+                                <TableCell className="max-w-[150px] truncate">{h.name}</TableCell>
+                                <TableCell className="text-right">{h.quantity}</TableCell>
+                                <TableCell className="text-right">{formatCurrency(h.averagePrice)}</TableCell>
+                                <TableCell>{h.assetType}</TableCell>
+                              </TableRow>
+                            ))}
+                            {parsedHoldings.length > 10 && (
+                              <TableRow>
+                                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                                  ... and {parsedHoldings.length - 10} more holdings
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowPasteDialog(false)}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={() => bulkImportMutation.mutate(parsedHoldings)}
+                    disabled={parsedHoldings.length === 0 || bulkImportMutation.isPending}
+                    data-testid="button-import-parsed"
+                  >
+                    {bulkImportMutation.isPending ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Importing...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Import {parsedHoldings.length} Holdings
+                      </>
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={showCASUploadDialog} onOpenChange={setShowCASUploadDialog}>
+              <DialogTrigger asChild>
+                <Button variant="outline" data-testid="button-import-cas">
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Import CAS/Statement
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Import Account Statement</DialogTitle>
+                  <DialogDescription>
+                    Upload your CAMS/KFintech CAS PDF or NSDL/CDSL Demat statement to automatically import your portfolio
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <Card className="cursor-pointer hover:border-primary transition-colors">
+                      <CardContent className="p-4 text-center">
+                        <FileTextIcon className="h-8 w-8 mx-auto mb-2 text-blue-600" />
+                        <h4 className="font-medium">CAMS/KFintech CAS</h4>
+                        <p className="text-xs text-muted-foreground">Mutual Fund Statement</p>
+                      </CardContent>
+                    </Card>
+                    <Card className="cursor-pointer hover:border-primary transition-colors">
+                      <CardContent className="p-4 text-center">
+                        <FileSpreadsheet className="h-8 w-8 mx-auto mb-2 text-green-600" />
+                        <h4 className="font-medium">NSDL/CDSL</h4>
+                        <p className="text-xs text-muted-foreground">Demat Statement</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                  <Alert>
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Coming Soon</AlertTitle>
+                    <AlertDescription>
+                      PDF statement parsing is under development. For now, please use CSV upload or paste from Excel.
+                    </AlertDescription>
+                  </Alert>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowCASUploadDialog(false)}>
+                    Close
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
 
           {portfolioLoading ? (
@@ -701,16 +976,24 @@ export default function AgentInvestmentAdvisory() {
                 <Briefcase className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <h3 className="text-lg font-medium mb-2">No Portfolio Data</h3>
                 <p className="text-muted-foreground mb-4">
-                  Add holdings manually or upload a CSV to get started
+                  Import your client's existing portfolio to get started
                 </p>
-                <div className="flex justify-center gap-2">
+                <div className="flex flex-wrap justify-center gap-2">
                   <Button variant="outline" onClick={() => setShowAddHoldingDialog(true)}>
                     <Plus className="h-4 w-4 mr-2" />
                     Add Holding
                   </Button>
+                  <Button variant="outline" onClick={() => setShowPasteDialog(true)}>
+                    <ClipboardPaste className="h-4 w-4 mr-2" />
+                    Paste from Excel
+                  </Button>
                   <Button variant="outline" onClick={() => setShowUploadDialog(true)}>
                     <Upload className="h-4 w-4 mr-2" />
                     Upload CSV
+                  </Button>
+                  <Button variant="outline" onClick={() => setShowCASUploadDialog(true)}>
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Import Statement
                   </Button>
                 </div>
               </CardContent>
