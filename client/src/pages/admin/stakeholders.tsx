@@ -218,7 +218,10 @@ export default function StakeholdersPage() {
       const res = await fetch(url, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to fetch agents');
       const json = await res.json();
-      return json.data || { data: [], total: 0 };
+      // Handle multiple response formats from different endpoints
+      const agentsList = json.agents || json.data?.data || json.data || [];
+      const totalCount = json.total || json.data?.total || agentsList.length;
+      return { data: Array.isArray(agentsList) ? agentsList : [], total: totalCount };
     },
     enabled: activeTab === "agents",
   });
