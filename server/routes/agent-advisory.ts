@@ -16,6 +16,7 @@ import {
   portfolios,
   partners,
   agentPartnerMappings,
+  prospectProposals,
   insertAdvisorySessionSchema,
   insertSuitabilityCheckSchema,
   insertProposalNoteSchema,
@@ -652,6 +653,7 @@ export function registerAgentAdvisoryRoutes(app: Express) {
     try {
       const agentId = (req.user as any).id;
       
+      // Fetch from investment_proposals table
       const rawProposals = await db
         .select()
         .from(investmentProposals)
@@ -669,7 +671,37 @@ export function registerAgentAdvisoryRoutes(app: Express) {
         investmentAmount: p.totalInvestmentAmount,
         createdAt: p.createdAt,
         updatedAt: p.updatedAt,
-        expiresAt: p.validUntil
+        expiresAt: p.validUntil,
+        source: 'proposal_builder'
+      }));
+      
+      // Also fetch from prospect_proposals table (wizard proposals)
+      const wizardProposals = await db
+        .select()
+        .from(prospectProposals)
+        .where(eq(prospectProposals.agentId, agentId))
+        .orderBy(desc(prospectProposals.createdAt))
+        .limit(100);
+      
+      const formattedWizardProposals = wizardProposals.map((p: any) => ({
+        id: p.id,
+        clientId: null,
+        title: p.proposalTitle || p.title || `Investment Proposal for ${p.prospectName}`,
+        description: p.executiveSummary,
+        isDemo: false,
+        status: p.status === 'shared' ? 'shared' : p.status === 'viewed' ? 'client_viewed' : p.status === 'converted' ? 'executed' : 'draft',
+        investmentAmount: p.totalInvestmentAmount || p.investmentAmount || 0,
+        createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
+        expiresAt: p.validUntil || p.expiresAt,
+        clientName: p.prospectName,
+        prospectEmail: p.prospectEmail,
+        prospectMobile: p.prospectMobile,
+        shareToken: p.shareToken,
+        sharedAt: p.sharedAt,
+        viewedAt: p.viewedAt,
+        viewCount: p.viewCount || 0,
+        source: 'wizard'
       }));
 
       const proposalsWithDetails = await Promise.all(
@@ -729,8 +761,12 @@ export function registerAgentAdvisoryRoutes(app: Express) {
           };
         })
       );
+      
+      // Combine both sources and sort by createdAt
+      const allProposals = [...proposalsWithDetails, ...formattedWizardProposals];
+      allProposals.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-      res.json(proposalsWithDetails);
+      res.json(allProposals);
     } catch (error) {
       console.error("Error fetching proposals:", error);
       res.status(500).json({ error: "Failed to fetch proposals" });
