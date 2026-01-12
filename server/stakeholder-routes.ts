@@ -309,10 +309,10 @@ router.patch('/api/admin/partners/:id/status', requireAdmin, async (req, res) =>
 const createAgentSchema = insertAgentSchema;
 const updateAgentSchema = insertAgentSchema.partial();
 
-// GET /api/admin/agents - List all agents with pagination and search
+// GET /api/admin/agents - List all agents with pagination and search (uses customerCareAgents table)
 router.get('/api/admin/agents', requireAdmin, async (req, res) => {
   try {
-    const { search, status, agentType, page = '1', limit = '20' } = req.query;
+    const { search, status, page = '1', limit = '20' } = req.query;
     
     const pageNum = parseInt(page as string) || 1;
     const limitNum = parseInt(limit as string) || 20;
@@ -323,49 +323,44 @@ router.get('/api/admin/agents', requireAdmin, async (req, res) => {
     if (search && typeof search === 'string') {
       conditions.push(
         or(
-          ilike(agents.fullName, `%${search}%`),
-          ilike(agents.email, `%${search}%`),
-          ilike(agents.employeeId, `%${search}%`),
-          ilike(agents.phone, `%${search}%`)
+          ilike(customerCareAgents.fullName, `%${search}%`),
+          ilike(customerCareAgents.email, `%${search}%`),
+          ilike(customerCareAgents.phone, `%${search}%`)
         )
       );
     }
 
     if (status === 'active') {
-      conditions.push(eq(agents.isActive, true));
+      conditions.push(eq(customerCareAgents.verificationStatus, 'approved'));
     } else if (status === 'inactive') {
-      conditions.push(eq(agents.isActive, false));
+      conditions.push(eq(customerCareAgents.verificationStatus, 'pending'));
     }
 
-    if (agentType && typeof agentType === 'string') {
-      conditions.push(eq(agents.agentType, agentType));
-    }
-
-    const whereClause = conditions.length > 0 ? sql`${sql.join(conditions, sql` AND `)}` : undefined;
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
     const countQuery = whereClause
-      ? db.select({ count: sql<number>`count(*)` }).from(agents).where(whereClause)
-      : db.select({ count: sql<number>`count(*)` }).from(agents);
+      ? db.select({ count: sql<number>`count(*)` }).from(customerCareAgents).where(whereClause)
+      : db.select({ count: sql<number>`count(*)` }).from(customerCareAgents);
     
     const [{ count: totalCount }] = await countQuery;
 
     const query = db.select({
-      id: agents.id,
-      fullName: agents.fullName,
-      email: agents.email,
-      phone: agents.phone,
-      employeeId: agents.employeeId,
-      agentType: agents.agentType,
-      status: agents.status,
-      isActive: agents.isActive,
-      activeClients: agents.activeClients,
-      totalRevenue: agents.totalRevenue,
-      createdAt: agents.createdAt,
-    }).from(agents);
+      id: customerCareAgents.id,
+      fullName: customerCareAgents.fullName,
+      email: customerCareAgents.email,
+      phone: customerCareAgents.phone,
+      employeeId: customerCareAgents.employeeId,
+      agentType: customerCareAgents.agentLevel,
+      status: customerCareAgents.verificationStatus,
+      isActive: sql<boolean>`${customerCareAgents.verificationStatus} = 'approved'`,
+      activeClients: sql<number>`0`,
+      totalRevenue: sql<string>`'0.00'`,
+      createdAt: customerCareAgents.createdAt,
+    }).from(customerCareAgents);
 
     const results = whereClause
-      ? await query.where(whereClause).limit(limitNum).offset(offset).orderBy(sql`${agents.createdAt} DESC`)
-      : await query.limit(limitNum).offset(offset).orderBy(sql`${agents.createdAt} DESC`);
+      ? await query.where(whereClause).limit(limitNum).offset(offset).orderBy(sql`${customerCareAgents.createdAt} DESC`)
+      : await query.limit(limitNum).offset(offset).orderBy(sql`${customerCareAgents.createdAt} DESC`);
 
     return apiResponse.success(res, { data: results, total: totalCount, page: pageNum, limit: limitNum });
   } catch (error: any) {
@@ -374,11 +369,11 @@ router.get('/api/admin/agents', requireAdmin, async (req, res) => {
   }
 });
 
-// GET /api/admin/agents/:id - Get single agent
+// GET /api/admin/agents/:id - Get single agent (uses customerCareAgents table)
 router.get('/api/admin/agents/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const [agent] = await db.select().from(agents).where(eq(agents.id, id)).limit(1);
+    const [agent] = await db.select().from(customerCareAgents).where(eq(customerCareAgents.id, id)).limit(1);
 
     if (!agent) {
       return apiResponse.notFound(res, 'Agent not found');
@@ -391,58 +386,68 @@ router.get('/api/admin/agents/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// POST /api/admin/agents - Create new agent
+// POST /api/admin/agents - Create new agent (uses customerCareAgents table)
 router.post('/api/admin/agents', requireAdmin, async (req, res) => {
   try {
-    const validatedData = createAgentSchema.parse(req.body);
+    const { fullName, email, phone } = req.body;
+    
+    if (!fullName || !email) {
+      return apiResponse.badRequest(res, 'Full name and email are required');
+    }
 
     // Check for duplicate email
-    const [existing] = await db.select().from(agents).where(eq(agents.email, validatedData.email)).limit(1);
+    const [existing] = await db.select().from(customerCareAgents).where(eq(customerCareAgents.email, email)).limit(1);
     if (existing) {
       return apiResponse.badRequest(res, 'Agent with this email already exists');
     }
 
-    const [newAgent] = await db.insert(agents).values(validatedData).returning();
+    const [newAgent] = await db.insert(customerCareAgents).values({
+      fullName,
+      email,
+      phone: phone || null,
+      verificationStatus: 'pending',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
 
     return apiResponse.created(res, newAgent, 'Agent created successfully');
   } catch (error: any) {
-    if (error instanceof z.ZodError) {
-      return apiResponse.badRequest(res, 'Validation error', error.errors);
-    }
     console.error('Error creating agent:', error);
     return apiResponse.error(res, 'Failed to create agent', error.message);
   }
 });
 
-// PATCH /api/admin/agents/:id - Update agent
+// PATCH /api/admin/agents/:id - Update agent (uses customerCareAgents table)
 router.patch('/api/admin/agents/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const validatedData = updateAgentSchema.parse(req.body);
+    const { fullName, email, phone } = req.body;
 
-    const [existing] = await db.select().from(agents).where(eq(agents.id, id)).limit(1);
+    const [existing] = await db.select().from(customerCareAgents).where(eq(customerCareAgents.id, id)).limit(1);
     if (!existing) {
       return apiResponse.notFound(res, 'Agent not found');
     }
 
     // Check email uniqueness if email is being updated
-    if (validatedData.email && validatedData.email !== existing.email) {
-      const [duplicate] = await db.select().from(agents).where(eq(agents.email, validatedData.email)).limit(1);
+    if (email && email !== existing.email) {
+      const [duplicate] = await db.select().from(customerCareAgents).where(eq(customerCareAgents.email, email)).limit(1);
       if (duplicate) {
         return apiResponse.badRequest(res, 'Agent with this email already exists');
       }
     }
 
-    const [updated] = await db.update(agents)
-      .set({ ...validatedData, updatedAt: new Date() })
-      .where(eq(agents.id, id))
+    const updateData: any = { updatedAt: new Date() };
+    if (fullName) updateData.fullName = fullName;
+    if (email) updateData.email = email;
+    if (phone !== undefined) updateData.phone = phone;
+
+    const [updated] = await db.update(customerCareAgents)
+      .set(updateData)
+      .where(eq(customerCareAgents.id, id))
       .returning();
 
     return apiResponse.success(res, updated, 'Agent updated successfully');
   } catch (error: any) {
-    if (error instanceof z.ZodError) {
-      return apiResponse.badRequest(res, 'Validation error', error.errors);
-    }
     console.error('Error updating agent:', error);
     return apiResponse.error(res, 'Failed to update agent', error.message);
   }
@@ -467,24 +472,26 @@ router.delete('/api/admin/agents/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// PATCH /api/admin/agents/:id/status - Toggle agent status
+// PATCH /api/admin/agents/:id/status - Toggle agent status (uses customerCareAgents table)
 router.patch('/api/admin/agents/:id/status', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
 
-    const [existing] = await db.select().from(agents).where(eq(agents.id, id)).limit(1);
+    const [existing] = await db.select().from(customerCareAgents).where(eq(customerCareAgents.id, id)).limit(1);
     if (!existing) {
       return apiResponse.notFound(res, 'Agent not found');
     }
 
-    const [updated] = await db.update(agents)
+    // Map status to verificationStatus for customerCareAgents table
+    const verificationStatus = status === 'active' ? 'approved' : 'pending';
+
+    const [updated] = await db.update(customerCareAgents)
       .set({ 
-        status: status,
-        isActive: status === 'active',
+        verificationStatus: verificationStatus,
         updatedAt: new Date() 
       })
-      .where(eq(agents.id, id))
+      .where(eq(customerCareAgents.id, id))
       .returning();
 
     return apiResponse.success(res, updated, 'Agent status updated');
