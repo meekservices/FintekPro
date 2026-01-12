@@ -181,9 +181,28 @@ async function throwIfResNotOk(res: Response, url?: string) {
 
 export async function apiRequest(
   url: string,
-  options?: RequestInit
+  methodOrOptions?: string | RequestInit,
+  additionalOptions?: { body?: any; headers?: Record<string, string> }
 ): Promise<any> {
-  const { method = "GET", body, headers = {}, ...restOptions } = options || {};
+  // Support both calling patterns:
+  // apiRequest(url, { method: "POST", body: data })
+  // apiRequest(url, "POST", { body: data })
+  let options: RequestInit;
+  
+  if (typeof methodOrOptions === 'string') {
+    // Called as apiRequest(url, "METHOD", { body: ... })
+    const bodyData = additionalOptions?.body;
+    options = {
+      method: methodOrOptions,
+      body: bodyData !== undefined ? JSON.stringify(bodyData) : undefined,
+      headers: additionalOptions?.headers || {},
+    };
+  } else {
+    // Called as apiRequest(url, { method: "METHOD", body: ... })
+    options = methodOrOptions || {};
+  }
+  
+  const { method = "GET", body, headers = {}, ...restOptions } = options;
   
   // Don't send body for GET requests
   const shouldSendBody = method !== "GET" && body !== undefined;
