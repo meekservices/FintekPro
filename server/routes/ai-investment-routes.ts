@@ -881,7 +881,92 @@ router.post("/portfolio/:clientId/bulk-import", async (req, res) => {
   }
 });
 
-// POST endpoint for CAS PDF upload
+// POST endpoint for CAS PDF preview (parse only, no import)
+router.post("/portfolio/preview-pdf", upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    const { parsePDFPortfolio } = await import("../services/portfolio-parser");
+    const result = await parsePDFPortfolio(req.file.buffer, req.file.originalname || 'statement.pdf');
+
+    res.json({
+      success: result.success,
+      holdings: result.holdings.map(h => ({
+        id: h.id,
+        name: h.name,
+        symbol: h.symbol || h.isin,
+        isin: h.isin,
+        quantity: h.quantity,
+        averagePrice: h.averageCost || (h.currentValue / (h.quantity || 1)) || 0,
+        currentValue: h.currentValue,
+        assetType: h.assetType,
+        folioNumber: h.folioNumber,
+        confidenceScore: h.confidenceScore,
+        broker: h.broker
+      })),
+      brokerDetected: result.brokerDetected,
+      confidenceScore: result.confidenceScore,
+      errors: result.errors,
+      needsManualReview: result.needsManualReview
+    });
+  } catch (error: any) {
+    console.error("Error previewing PDF:", error);
+    res.status(500).json({ error: error.message || "Failed to parse PDF" });
+  }
+});
+
+// POST endpoint for importing previewed CAS holdings
+router.post("/portfolio/:clientId/import-previewed", async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const { holdings } = req.body;
+    
+    if (!holdings || !Array.isArray(holdings) || holdings.length === 0) {
+      return res.status(400).json({ error: "No holdings provided" });
+    }
+
+    let [portfolio] = await db
+      .select()
+      .from(portfolios)
+      .where(eq(portfolios.userId, clientId))
+      .limit(1);
+
+    if (!portfolio) {
+      [portfolio] = await db.insert(portfolios).values({
+        userId: clientId,
+        name: "Imported Portfolio",
+        isDefault: true,
+      }).returning();
+    }
+
+    let imported = 0;
+    for (const holding of holdings) {
+      const symbol = holding.symbol || holding.name?.replace(/[^A-Za-z0-9]/g, '').substring(0, 20) || 'UNKNOWN';
+      
+      await db.insert(portfolioHoldings).values({
+        portfolioId: portfolio.id,
+        symbol: symbol.toUpperCase(),
+        quantity: String(holding.quantity || 0),
+        avgPrice: String(holding.averagePrice || 0),
+        assetType: holding.assetType === 'mutual_fund' ? 'MF' : (holding.assetType || 'EQUITY'),
+        sector: holding.folioNumber ? `Folio: ${holding.folioNumber}` : undefined,
+      });
+      imported++;
+    }
+
+    res.json({
+      success: true,
+      imported
+    });
+  } catch (error: any) {
+    console.error("Error importing previewed holdings:", error);
+    res.status(500).json({ error: error.message || "Failed to import holdings" });
+  }
+});
+
+// POST endpoint for CAS PDF upload (direct without preview)
 router.post("/portfolio/:clientId/upload-cas", upload.single('file'), async (req, res) => {
   try {
     const { clientId } = req.params;

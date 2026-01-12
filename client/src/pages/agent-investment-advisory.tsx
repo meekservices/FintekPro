@@ -208,6 +208,21 @@ export default function AgentInvestmentAdvisory() {
   const [showCASUploadDialog, setShowCASUploadDialog] = useState(false);
   const [casFile, setCasFile] = useState<File | null>(null);
   const [casUploadType, setCasUploadType] = useState<'cas' | 'demat' | null>(null);
+  const [casPreviewHoldings, setCasPreviewHoldings] = useState<Array<{
+    id: string;
+    name: string;
+    symbol: string;
+    isin?: string;
+    quantity: number;
+    averagePrice: number;
+    currentValue: number;
+    assetType: string;
+    folioNumber?: string;
+    confidenceScore?: number;
+    broker?: string;
+  }>>([]);
+  const [casPreviewError, setCasPreviewError] = useState<string | null>(null);
+  const [casPreviewMode, setCasPreviewMode] = useState(false);
   const [pastedText, setPastedText] = useState("");
   const [parsedHoldings, setParsedHoldings] = useState<Array<{symbol: string; name: string; quantity: number; averagePrice: number; assetType: string}>>([]);
   const [parseError, setParseError] = useState<string | null>(null);
@@ -369,40 +384,60 @@ export default function AgentInvestmentAdvisory() {
     }
   });
 
-  const casUploadMutation = useMutation({
+  const casPreviewMutation = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append('file', file);
-      const response = await fetch(`/api/ai-investment/portfolio/${selectedClientId}/upload-cas`, {
+      const response = await fetch('/api/ai-investment/portfolio/preview-pdf', {
         method: 'POST',
         body: formData,
         credentials: 'include'
       });
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Upload failed');
+        throw new Error(error.error || 'Preview failed');
       }
       return response.json();
+    },
+    onSuccess: (data: any) => {
+      if (data.holdings && data.holdings.length > 0) {
+        setCasPreviewHoldings(data.holdings);
+        setCasPreviewMode(true);
+        setCasPreviewError(null);
+        if (data.needsManualReview) {
+          setCasPreviewError(`Some holdings have low confidence. Please review before importing.`);
+        }
+      } else {
+        setCasPreviewError(data.errors?.join('; ') || 'No holdings found in the PDF');
+      }
+    },
+    onError: (error: any) => {
+      setCasPreviewError(error.message || "Failed to parse PDF");
+    }
+  });
+
+  const casUploadMutation = useMutation({
+    mutationFn: async (holdings: typeof casPreviewHoldings) => {
+      return apiRequest(`/api/ai-investment/portfolio/${selectedClientId}/import-previewed`, {
+        method: 'POST',
+        body: JSON.stringify({ holdings })
+      });
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/ai-investment/portfolio', selectedClientId] });
       setShowCASUploadDialog(false);
       setCasFile(null);
       setCasUploadType(null);
+      setCasPreviewHoldings([]);
+      setCasPreviewMode(false);
+      setCasPreviewError(null);
       toast({ 
-        title: "CAS imported successfully", 
-        description: `${data.imported} mutual fund holdings imported${data.brokerDetected ? ` from ${data.brokerDetected}` : ''}` 
+        title: "Portfolio imported successfully", 
+        description: `${data.imported} holdings imported` 
       });
-      if (data.needsManualReview) {
-        toast({
-          title: "Review recommended",
-          description: "Some holdings may need manual verification",
-          variant: "default"
-        });
-      }
     },
     onError: (error: any) => {
-      toast({ title: "Import failed", description: error.message || "Failed to parse CAS PDF", variant: "destructive" });
+      toast({ title: "Import failed", description: error.message || "Failed to import holdings", variant: "destructive" });
     }
   });
 
@@ -906,6 +941,9 @@ TCS     Tata Consultancy        25      3850.00"
               if (!open) {
                 setCasFile(null);
                 setCasUploadType(null);
+                setCasPreviewHoldings([]);
+                setCasPreviewMode(false);
+                setCasPreviewError(null);
               }
             }}>
               <DialogTrigger asChild>
@@ -914,15 +952,80 @@ TCS     Tata Consultancy        25      3850.00"
                   Import CAS/Statement
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-lg">
+              <DialogContent className={casPreviewMode ? "max-w-4xl max-h-[85vh] overflow-hidden flex flex-col" : "max-w-lg"}>
                 <DialogHeader>
-                  <DialogTitle>Import Account Statement</DialogTitle>
+                  <DialogTitle>
+                    {casPreviewMode ? 'Review Holdings Before Import' : 'Import Account Statement'}
+                  </DialogTitle>
                   <DialogDescription>
-                    Upload your CAMS/KFintech CAS PDF or NSDL/CDSL Demat statement to automatically import your portfolio
+                    {casPreviewMode 
+                      ? `${casPreviewHoldings.length} holdings found. Review and edit as needed before importing.`
+                      : 'Upload your CAMS/KFintech CAS PDF or NSDL/CDSL Demat statement to automatically import your portfolio'
+                    }
                   </DialogDescription>
                 </DialogHeader>
-                <div className="py-4 space-y-4">
-                  {!casUploadType ? (
+                
+                <div className="py-4 space-y-4 flex-1 overflow-auto">
+                  {casPreviewMode ? (
+                    <div className="space-y-4">
+                      {casPreviewError && (
+                        <Alert variant="default">
+                          <AlertTriangle className="h-4 w-4" />
+                          <AlertTitle>Review Required</AlertTitle>
+                          <AlertDescription>{casPreviewError}</AlertDescription>
+                        </Alert>
+                      )}
+                      
+                      <div className="border rounded-lg overflow-auto max-h-[400px]">
+                        <Table>
+                          <TableHeader className="sticky top-0 bg-background">
+                            <TableRow>
+                              <TableHead>Scheme/Stock Name</TableHead>
+                              <TableHead className="text-right">Units</TableHead>
+                              <TableHead className="text-right">Avg Price</TableHead>
+                              <TableHead className="text-right">Value</TableHead>
+                              <TableHead>Type</TableHead>
+                              <TableHead className="w-[60px]">Status</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {casPreviewHoldings.map((holding, idx) => (
+                              <TableRow key={holding.id || idx}>
+                                <TableCell className="max-w-[250px]">
+                                  <div className="truncate font-medium">{holding.name}</div>
+                                  {holding.folioNumber && (
+                                    <div className="text-xs text-muted-foreground">Folio: {holding.folioNumber}</div>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right">{holding.quantity.toFixed(3)}</TableCell>
+                                <TableCell className="text-right">{formatCurrency(holding.averagePrice)}</TableCell>
+                                <TableCell className="text-right font-medium">{formatCurrency(holding.currentValue)}</TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className="text-xs">
+                                    {holding.assetType === 'mutual_fund' ? 'MF' : holding.assetType.toUpperCase()}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  {(holding.confidenceScore || 100) >= 70 ? (
+                                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                  ) : (
+                                    <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      
+                      <div className="flex items-center justify-between text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+                        <span>{casPreviewHoldings.length} holdings ready to import</span>
+                        <span className="font-medium">
+                          Total Value: {formatCurrency(casPreviewHoldings.reduce((sum, h) => sum + h.currentValue, 0))}
+                        </span>
+                      </div>
+                    </div>
+                  ) : !casUploadType ? (
                     <div className="grid grid-cols-2 gap-4">
                       <Card 
                         className="cursor-pointer hover:border-primary transition-colors"
@@ -948,7 +1051,11 @@ TCS     Tata Consultancy        25      3850.00"
                   ) : (
                     <div className="space-y-4">
                       <div className="flex items-center gap-2 mb-4">
-                        <Button variant="ghost" size="sm" onClick={() => setCasUploadType(null)}>
+                        <Button variant="ghost" size="sm" onClick={() => {
+                          setCasUploadType(null);
+                          setCasFile(null);
+                          setCasPreviewError(null);
+                        }}>
                           <ArrowLeft className="h-4 w-4 mr-1" />
                           Back
                         </Button>
@@ -967,7 +1074,10 @@ TCS     Tata Consultancy        25      3850.00"
                           accept=".pdf"
                           className="hidden"
                           id="cas-file-input"
-                          onChange={(e) => setCasFile(e.target.files?.[0] || null)}
+                          onChange={(e) => {
+                            setCasFile(e.target.files?.[0] || null);
+                            setCasPreviewError(null);
+                          }}
                         />
                         <label htmlFor="cas-file-input" className="cursor-pointer block">
                           {casFile ? (
@@ -990,7 +1100,15 @@ TCS     Tata Consultancy        25      3850.00"
                         </label>
                       </div>
                       
-                      {casUploadType === 'cas' && (
+                      {casPreviewError && !casPreviewMode && (
+                        <Alert variant="destructive">
+                          <XCircle className="h-4 w-4" />
+                          <AlertTitle>Parsing Failed</AlertTitle>
+                          <AlertDescription>{casPreviewError}</AlertDescription>
+                        </Alert>
+                      )}
+                      
+                      {casUploadType === 'cas' && !casPreviewError && (
                         <Alert>
                           <AlertCircle className="h-4 w-4" />
                           <AlertTitle>Tip</AlertTitle>
@@ -1000,7 +1118,7 @@ TCS     Tata Consultancy        25      3850.00"
                         </Alert>
                       )}
                       
-                      {casUploadType === 'demat' && (
+                      {casUploadType === 'demat' && !casPreviewError && (
                         <Alert>
                           <AlertTriangle className="h-4 w-4" />
                           <AlertTitle>Beta Feature</AlertTitle>
@@ -1012,31 +1130,64 @@ TCS     Tata Consultancy        25      3850.00"
                     </div>
                   )}
                 </div>
+                
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => {
-                    setShowCASUploadDialog(false);
-                    setCasFile(null);
-                    setCasUploadType(null);
-                  }}>
-                    Cancel
-                  </Button>
-                  {casUploadType && casFile && (
-                    <Button 
-                      onClick={() => casUploadMutation.mutate(casFile)}
-                      disabled={casUploadMutation.isPending}
-                    >
-                      {casUploadMutation.isPending ? (
-                        <>
-                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                          Processing...
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="h-4 w-4 mr-2" />
-                          Import Statement
-                        </>
+                  {casPreviewMode ? (
+                    <>
+                      <Button variant="outline" onClick={() => {
+                        setCasPreviewMode(false);
+                        setCasPreviewHoldings([]);
+                        setCasPreviewError(null);
+                      }}>
+                        <ArrowLeft className="h-4 w-4 mr-2" />
+                        Back to Upload
+                      </Button>
+                      <Button 
+                        onClick={() => casUploadMutation.mutate(casPreviewHoldings)}
+                        disabled={casUploadMutation.isPending || casPreviewHoldings.length === 0}
+                      >
+                        {casUploadMutation.isPending ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Importing...
+                          </>
+                        ) : (
+                          <>
+                            <Check className="h-4 w-4 mr-2" />
+                            Confirm Import ({casPreviewHoldings.length})
+                          </>
+                        )}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button variant="outline" onClick={() => {
+                        setShowCASUploadDialog(false);
+                        setCasFile(null);
+                        setCasUploadType(null);
+                        setCasPreviewError(null);
+                      }}>
+                        Cancel
+                      </Button>
+                      {casUploadType && casFile && (
+                        <Button 
+                          onClick={() => casPreviewMutation.mutate(casFile)}
+                          disabled={casPreviewMutation.isPending}
+                        >
+                          {casPreviewMutation.isPending ? (
+                            <>
+                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                              Parsing...
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="h-4 w-4 mr-2" />
+                              Preview Holdings
+                            </>
+                          )}
+                        </Button>
                       )}
-                    </Button>
+                    </>
                   )}
                 </DialogFooter>
               </DialogContent>
