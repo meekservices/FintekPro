@@ -448,17 +448,17 @@ router.patch('/api/admin/agents/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// DELETE /api/admin/agents/:id - Delete agent
+// DELETE /api/admin/agents/:id - Delete agent (uses customerCareAgents table)
 router.delete('/api/admin/agents/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const [existing] = await db.select().from(agents).where(eq(agents.id, id)).limit(1);
+    const [existing] = await db.select().from(customerCareAgents).where(eq(customerCareAgents.id, id)).limit(1);
     if (!existing) {
       return apiResponse.notFound(res, 'Agent not found');
     }
 
-    await db.delete(agents).where(eq(agents.id, id));
+    await db.delete(customerCareAgents).where(eq(customerCareAgents.id, id));
 
     return apiResponse.success(res, null, 'Agent deleted successfully');
   } catch (error: any) {
