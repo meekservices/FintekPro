@@ -554,6 +554,11 @@ export default function AgentProspectWizard() {
         return `Rs. ${num.toLocaleString('en-IN')}`;
       };
       
+      const sanitizeText = (text: string) => {
+        if (!text) return '';
+        return text.replace(/₹/g, 'Rs. ').replace(/\*\*/g, '');
+      };
+      
       const checkPageBreak = (neededHeight: number) => {
         if (yPos + neededHeight > pageHeight - 20) {
           pdf.addPage();
@@ -580,7 +585,7 @@ export default function AgentProspectWizard() {
       pdf.setTextColor(30, 30, 30);
       pdf.setFontSize(16);
       pdf.setFont('helvetica', 'bold');
-      const title = storedProposal.proposalTitle || `Investment Proposal for ${prospectData.name}`;
+      const title = sanitizeText(storedProposal.proposalTitle || `Investment Proposal for ${prospectData.name}`);
       pdf.text(title, margin, yPos);
       yPos += 8;
       
@@ -589,7 +594,8 @@ export default function AgentProspectWizard() {
         pdf.setFontSize(9);
         pdf.setFont('helvetica', 'normal');
         pdf.setTextColor(80, 80, 80);
-        const summaryLines = pdf.splitTextToSize(storedProposal.executiveSummary, pageWidth - (margin * 2));
+        const summaryText = sanitizeText(storedProposal.executiveSummary);
+        const summaryLines = pdf.splitTextToSize(summaryText, pageWidth - (margin * 2));
         pdf.text(summaryLines, margin, yPos);
         yPos += summaryLines.length * 4 + 8;
       }
@@ -823,7 +829,7 @@ export default function AgentProspectWizard() {
         rebalancingRecs.forEach((rec: any) => {
           const hasTargetFund = rec.action === 'SWITCH' && rec.targetFund;
           const hasRationale = rec.rationale?.length > 0;
-          const rationaleLines = hasRationale ? pdf.splitTextToSize(rec.rationale, pageWidth - (margin * 2) - 12) : [];
+          const rationaleLines = hasRationale ? pdf.splitTextToSize(sanitizeText(rec.rationale), pageWidth - (margin * 2) - 12) : [];
           const showLines = Math.min(rationaleLines.length, 4);
           const boxHeight = hasTargetFund ? 48 : (22 + (showLines * 4));
           
@@ -907,7 +913,7 @@ export default function AgentProspectWizard() {
         
         freshInvestmentRecs.forEach((inv: any) => {
           const hasRationale = inv.rationale?.length > 0;
-          const rationaleLines = hasRationale ? pdf.splitTextToSize(inv.rationale, pageWidth - (margin * 2) - 12) : [];
+          const rationaleLines = hasRationale ? pdf.splitTextToSize(sanitizeText(inv.rationale), pageWidth - (margin * 2) - 12) : [];
           const showLines = Math.min(rationaleLines.length, 4);
           const boxHeight = 24 + (showLines * 4);
           
