@@ -1,6 +1,6 @@
 import { Router, type Express } from 'express';
 import { db } from './db';
-import { partners, agents, suppliers, users, insertPartnerSchema, insertAgentSchema, insertSupplierSchema } from '@shared/schema';
+import { partners, agents, suppliers, users, customerCareAgents, insertPartnerSchema, insertAgentSchema, insertSupplierSchema } from '@shared/schema';
 import { eq, ilike, or, sql, and } from 'drizzle-orm';
 import { z } from 'zod';
 import { apiResponse } from './utils/responses';
@@ -32,10 +32,10 @@ router.get('/api/admin/stakeholders/stats', requireAdmin, async (req, res) => {
     const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const { lt } = await import('drizzle-orm');
 
-    // Get total counts
+    // Get total counts - use customerCareAgents for agents count to match list endpoint
     const [{ count: clientsTotal }] = await db.select({ count: sql<number>`count(*)` }).from(users);
     const [{ count: partnersTotal }] = await db.select({ count: sql<number>`count(*)` }).from(partners);
-    const [{ count: agentsTotal }] = await db.select({ count: sql<number>`count(*)` }).from(agents);
+    const [{ count: agentsTotal }] = await db.select({ count: sql<number>`count(*)` }).from(customerCareAgents);
     const [{ count: suppliersTotal }] = await db.select({ count: sql<number>`count(*)` }).from(suppliers);
 
     // Get counts from last month for growth calculation (records that existed before oneMonthAgo)
@@ -48,8 +48,8 @@ router.get('/api/admin/stakeholders/stats', requireAdmin, async (req, res) => {
       .where(lt(partners.createdAt, oneMonthAgo));
     
     const [{ count: agentsLastMonth }] = await db.select({ count: sql<number>`count(*)` })
-      .from(agents)
-      .where(lt(agents.createdAt, oneMonthAgo));
+      .from(customerCareAgents)
+      .where(lt(customerCareAgents.createdAt, oneMonthAgo));
     
     const [{ count: suppliersLastMonth }] = await db.select({ count: sql<number>`count(*)` })
       .from(suppliers)
