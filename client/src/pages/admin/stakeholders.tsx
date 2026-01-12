@@ -116,6 +116,8 @@ interface Agent {
   isActive: boolean;
   activeClients: number;
   totalRevenue: string;
+  commissionSplitModel: string | null;
+  defaultCommissionShare: string | null;
   createdAt: string;
 }
 
@@ -546,8 +548,10 @@ export default function StakeholdersPage() {
     if (!editingAgent) return;
 
     const formData = new FormData(e.currentTarget);
+    const commissionModel = formData.get("commissionSplitModel") as string;
+    const commissionShare = formData.get("defaultCommissionShare") as string;
     
-    const data = {
+    const data: any = {
       fullName: formData.get("fullName") as string,
       email: formData.get("email") as string,
       phone: formData.get("phone") as string || undefined,
@@ -556,7 +560,16 @@ export default function StakeholdersPage() {
       euinNumber: formData.get("euinNumber") as string || undefined,
       agentType: formData.get("agentType") as string,
       status: formData.get("status") as string,
+      commissionSplitModel: commissionModel,
     };
+
+    // Only include commission share if using custom model and value is provided
+    if (commissionModel === "custom" && commissionShare && commissionShare.trim() !== "") {
+      data.defaultCommissionShare = commissionShare;
+    } else if (commissionModel === "standard") {
+      // Clear commission share when switching to standard
+      data.defaultCommissionShare = null;
+    }
 
     updateAgentMutation.mutate({ id: editingAgent.id, data });
   };
@@ -995,6 +1008,7 @@ export default function StakeholdersPage() {
                     <TableHead>Name</TableHead>
                     <TableHead>Contact</TableHead>
                     <TableHead>Employee ID</TableHead>
+                    <TableHead>Commission %</TableHead>
                     <TableHead>Active Clients</TableHead>
                     <TableHead>Revenue</TableHead>
                     <TableHead>Status</TableHead>
@@ -1004,13 +1018,13 @@ export default function StakeholdersPage() {
                 <TableBody>
                   {loadingAgents ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                         Loading...
                       </TableCell>
                     </TableRow>
                   ) : (agentsData?.data || []).length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                         No agents found
                       </TableCell>
                     </TableRow>
@@ -1034,6 +1048,18 @@ export default function StakeholdersPage() {
                         </TableCell>
                         <TableCell>
                           <span className="font-mono text-sm">{agent.employeeId || "N/A"}</span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            {agent.commissionSplitModel === "custom" && agent.defaultCommissionShare ? (
+                              <>
+                                <span className="font-medium">{agent.defaultCommissionShare}%</span>
+                                <Badge variant="outline" className="ml-2 text-xs">Custom</Badge>
+                              </>
+                            ) : (
+                              <span className="text-muted-foreground">Plan Default</span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Badge variant="secondary">{agent.activeClients || 0}</Badge>
@@ -1500,6 +1526,56 @@ export default function StakeholdersPage() {
                       <SelectItem value="terminated">Terminated</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+              <div className="border-t pt-4 mt-4">
+                <h4 className="font-medium mb-3">Commission Configuration</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-commissionSplitModel">Commission Model</Label>
+                    <Select 
+                      name="commissionSplitModel" 
+                      defaultValue={editingAgent.commissionSplitModel || "standard"}
+                      onValueChange={(value) => {
+                        const shareInput = document.getElementById('edit-defaultCommissionShare') as HTMLInputElement;
+                        if (shareInput) {
+                          shareInput.disabled = value !== 'custom';
+                          if (value === 'standard') {
+                            shareInput.value = '';
+                          }
+                        }
+                      }}
+                    >
+                      <SelectTrigger data-testid="select-edit-agent-commissionSplitModel">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="standard">Standard (Use Plan Rates)</SelectItem>
+                        <SelectItem value="custom">Custom (Agent-Specific Rate)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Standard uses global plan rates, Custom allows agent-specific percentage</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-defaultCommissionShare">Commission Share (%)</Label>
+                    <Input 
+                      id="edit-defaultCommissionShare" 
+                      name="defaultCommissionShare" 
+                      type="number" 
+                      step="0.01" 
+                      min="0" 
+                      max="100" 
+                      defaultValue={editingAgent.commissionSplitModel === "custom" ? (editingAgent.defaultCommissionShare || "") : ""} 
+                      disabled={editingAgent.commissionSplitModel !== "custom"}
+                      placeholder={editingAgent.commissionSplitModel !== "custom" ? "Using plan default" : "Enter percentage"}
+                      data-testid="input-edit-agent-defaultCommissionShare" 
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {editingAgent.commissionSplitModel === "custom" 
+                        ? "Percentage of commission this agent receives (0-100%)" 
+                        : "Select 'Custom' model to set agent-specific rate"}
+                    </p>
+                  </div>
                 </div>
               </div>
               <div className="flex justify-end gap-2">

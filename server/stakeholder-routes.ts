@@ -355,6 +355,8 @@ router.get('/api/admin/agents', requireAdmin, async (req, res) => {
       isActive: sql<boolean>`${customerCareAgents.verificationStatus} = 'approved'`,
       activeClients: sql<number>`0`,
       totalRevenue: sql<string>`'0.00'`,
+      commissionSplitModel: customerCareAgents.commissionSplitModel,
+      defaultCommissionShare: customerCareAgents.defaultCommissionShare,
       createdAt: customerCareAgents.createdAt,
     }).from(customerCareAgents);
 
@@ -421,7 +423,7 @@ router.post('/api/admin/agents', requireAdmin, async (req, res) => {
 router.patch('/api/admin/agents/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { fullName, email, phone } = req.body;
+    const { fullName, email, phone, commissionSplitModel, defaultCommissionShare } = req.body;
 
     const [existing] = await db.select().from(customerCareAgents).where(eq(customerCareAgents.id, id)).limit(1);
     if (!existing) {
@@ -436,10 +438,21 @@ router.patch('/api/admin/agents/:id', requireAdmin, async (req, res) => {
       }
     }
 
+    // Validate commission share percentage if provided and not null
+    if (defaultCommissionShare !== undefined && defaultCommissionShare !== null) {
+      const shareValue = parseFloat(defaultCommissionShare);
+      if (isNaN(shareValue) || shareValue < 0 || shareValue > 100) {
+        return apiResponse.badRequest(res, 'Commission share must be between 0 and 100');
+      }
+    }
+
     const updateData: any = { updatedAt: new Date() };
     if (fullName) updateData.fullName = fullName;
     if (email) updateData.email = email;
     if (phone !== undefined) updateData.phone = phone;
+    if (commissionSplitModel !== undefined) updateData.commissionSplitModel = commissionSplitModel;
+    // Allow setting commission share to null (for standard model) or a specific value (for custom model)
+    if (defaultCommissionShare !== undefined) updateData.defaultCommissionShare = defaultCommissionShare;
 
     const [updated] = await db.update(customerCareAgents)
       .set(updateData)
