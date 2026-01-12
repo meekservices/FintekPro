@@ -202,259 +202,436 @@ export default function PublicProposalPage() {
       const pdf = new jsPDF('p', 'mm', 'a4');
       const proposal = data.proposal;
       const pageWidth = pdf.internal.pageSize.getWidth();
-      const margin = 20;
-      let yPos = 20;
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 15;
+      let yPos = 0;
+      
+      const formatRs = (val: number | string) => {
+        const num = typeof val === 'string' ? parseFloat(val) : val;
+        if (isNaN(num)) return 'Rs. 0';
+        if (num >= 10000000) return `Rs. ${(num / 10000000).toFixed(2)} Cr`;
+        if (num >= 100000) return `Rs. ${(num / 100000).toFixed(2)} L`;
+        return `Rs. ${num.toLocaleString('en-IN')}`;
+      };
+      
+      const checkPageBreak = (neededHeight: number) => {
+        if (yPos + neededHeight > pageHeight - 20) {
+          pdf.addPage();
+          yPos = 20;
+          return true;
+        }
+        return false;
+      };
 
+      // Header
       pdf.setFillColor(79, 70, 229);
-      pdf.rect(0, 0, pageWidth, 40, 'F');
-      
+      pdf.rect(0, 0, pageWidth, 35, 'F');
       pdf.setTextColor(255, 255, 255);
-      pdf.setFontSize(24);
+      pdf.setFontSize(22);
       pdf.setFont('helvetica', 'bold');
-      pdf.text('FintekPro', margin, 25);
-      
+      pdf.text('FintekPro', margin, 22);
       pdf.setFontSize(10);
       pdf.setFont('helvetica', 'normal');
-      pdf.text('Investment Proposal', pageWidth - margin - 40, 25);
+      pdf.text('Investment Proposal', pageWidth - margin - 35, 22);
       
-      yPos = 55;
-      pdf.setTextColor(0, 0, 0);
-      pdf.setFontSize(18);
+      yPos = 45;
+      
+      // Title
+      pdf.setTextColor(30, 30, 30);
+      pdf.setFontSize(16);
       pdf.setFont('helvetica', 'bold');
       pdf.text(proposal.proposalTitle || 'Investment Proposal', margin, yPos);
+      yPos += 8;
       
+      // Executive Summary
       if (proposal.executiveSummary) {
-        yPos += 12;
-        pdf.setFontSize(10);
+        pdf.setFontSize(9);
         pdf.setFont('helvetica', 'normal');
-        pdf.setTextColor(100, 100, 100);
+        pdf.setTextColor(80, 80, 80);
         const summaryLines = pdf.splitTextToSize(proposal.executiveSummary, pageWidth - (margin * 2));
         pdf.text(summaryLines, margin, yPos);
-        yPos += summaryLines.length * 5 + 10;
+        yPos += summaryLines.length * 4 + 8;
       }
       
-      yPos += 5;
-      pdf.setFillColor(245, 245, 245);
-      pdf.rect(margin, yPos, pageWidth - (margin * 2), 30, 'F');
+      // Key Metrics Box
+      const metricsBoxHeight = 28;
+      pdf.setFillColor(248, 250, 252);
+      pdf.roundedRect(margin, yPos, pageWidth - (margin * 2), metricsBoxHeight, 3, 3, 'F');
+      pdf.setDrawColor(226, 232, 240);
+      pdf.roundedRect(margin, yPos, pageWidth - (margin * 2), metricsBoxHeight, 3, 3, 'S');
       
-      pdf.setTextColor(0, 0, 0);
-      pdf.setFontSize(9);
+      const col3Width = (pageWidth - (margin * 2)) / 3;
+      
+      // Total Investment
+      pdf.setFontSize(8);
       pdf.setFont('helvetica', 'normal');
-      
-      const colWidth = (pageWidth - (margin * 2)) / 3;
-      
-      pdf.text('Total Investment', margin + 5, yPos + 10);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text('Total Investment', margin + 8, yPos + 9);
       pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(14);
-      pdf.text(`₹${parseFloat(proposal.totalInvestmentAmount || '0').toLocaleString('en-IN')}`, margin + 5, yPos + 20);
+      pdf.setFontSize(12);
+      pdf.setTextColor(30, 30, 30);
+      pdf.text(formatRs(proposal.totalInvestmentAmount || 0), margin + 8, yPos + 20);
       
-      pdf.setFontSize(9);
+      // Expected Returns
+      pdf.setFontSize(8);
       pdf.setFont('helvetica', 'normal');
-      pdf.text('Expected Returns', margin + colWidth + 5, yPos + 10);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text('Expected Returns', margin + col3Width + 5, yPos + 9);
       pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(14);
-      pdf.setTextColor(34, 197, 94);
-      pdf.text(`${proposal.projectedReturns || '12'}% p.a.`, margin + colWidth + 5, yPos + 20);
+      pdf.setFontSize(12);
+      pdf.setTextColor(22, 163, 74);
+      pdf.text(`${proposal.projectedReturns || '12'}% p.a.`, margin + col3Width + 5, yPos + 20);
       
-      pdf.setTextColor(0, 0, 0);
-      pdf.setFontSize(9);
+      // Projected Value
+      pdf.setFontSize(8);
       pdf.setFont('helvetica', 'normal');
-      pdf.text('Projected Value (5Y)', margin + (colWidth * 2) + 5, yPos + 10);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text('5-Year Value', margin + (col3Width * 2) + 5, yPos + 9);
       pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(14);
-      pdf.setTextColor(147, 51, 234);
-      pdf.text(`₹${parseFloat(proposal.projectedValue || '0').toLocaleString('en-IN')}`, margin + (colWidth * 2) + 5, yPos + 20);
+      pdf.setFontSize(12);
+      pdf.setTextColor(124, 58, 237);
+      pdf.text(formatRs(proposal.projectedValue || 0), margin + (col3Width * 2) + 5, yPos + 20);
       
-      yPos += 45;
+      yPos += metricsBoxHeight + 12;
       
-      // Portfolio Analysis Section
+      // Portfolio Health Section
       const pdfAnalysis = parseAnalysis(proposal.currentAnalysis);
       if (pdfAnalysis) {
-        pdf.setTextColor(0, 0, 0);
-        pdf.setFontSize(14);
+        checkPageBreak(70);
+        
+        pdf.setTextColor(30, 30, 30);
+        pdf.setFontSize(13);
         pdf.setFont('helvetica', 'bold');
         pdf.text('Portfolio Health Analysis', margin, yPos);
-        yPos += 12;
+        yPos += 10;
         
-        // Risk and Diversification Scores
-        pdf.setFillColor(245, 245, 245);
-        pdf.rect(margin, yPos, (pageWidth - (margin * 2)) / 2 - 5, 25, 'F');
-        pdf.rect(margin + (pageWidth - (margin * 2)) / 2 + 5, yPos, (pageWidth - (margin * 2)) / 2 - 5, 25, 'F');
+        const halfWidth = (pageWidth - (margin * 2) - 10) / 2;
         
-        pdf.setFontSize(9);
-        pdf.setFont('helvetica', 'normal');
-        pdf.setTextColor(100, 100, 100);
-        pdf.text('Risk Score', margin + 5, yPos + 8);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(14);
-        pdf.setTextColor(pdfAnalysis.riskScore > 70 ? 220 : pdfAnalysis.riskScore > 50 ? 234 : 34, 
-                        pdfAnalysis.riskScore > 70 ? 38 : pdfAnalysis.riskScore > 50 ? 179 : 197, 
-                        pdfAnalysis.riskScore > 70 ? 38 : pdfAnalysis.riskScore > 50 ? 8 : 94);
-        pdf.text(`${pdfAnalysis.riskScore}/100`, margin + 5, yPos + 18);
+        // Risk Score Card
+        const riskScore = pdfAnalysis.riskScore || 0;
+        pdf.setFillColor(riskScore > 70 ? 254 : riskScore > 50 ? 254 : 240, 
+                        riskScore > 70 ? 242 : riskScore > 50 ? 249 : 253, 
+                        riskScore > 70 ? 242 : riskScore > 50 ? 235 : 244);
+        pdf.roundedRect(margin, yPos, halfWidth, 35, 2, 2, 'F');
         
         pdf.setFontSize(9);
         pdf.setFont('helvetica', 'normal');
         pdf.setTextColor(100, 100, 100);
-        pdf.text('Diversification Score', margin + (pageWidth - (margin * 2)) / 2 + 10, yPos + 8);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(14);
-        pdf.setTextColor(pdfAnalysis.diversificationScore >= 70 ? 34 : pdfAnalysis.diversificationScore >= 50 ? 234 : 220, 
-                        pdfAnalysis.diversificationScore >= 70 ? 197 : pdfAnalysis.diversificationScore >= 50 ? 179 : 38, 
-                        pdfAnalysis.diversificationScore >= 70 ? 94 : pdfAnalysis.diversificationScore >= 50 ? 8 : 38);
-        pdf.text(`${pdfAnalysis.diversificationScore}/100`, margin + (pageWidth - (margin * 2)) / 2 + 10, yPos + 18);
+        pdf.text('Risk Score', margin + 8, yPos + 10);
         
-        yPos += 35;
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(20);
+        pdf.setTextColor(riskScore > 70 ? 185 : riskScore > 50 ? 202 : 22, 
+                        riskScore > 70 ? 28 : riskScore > 50 ? 138 : 163, 
+                        riskScore > 70 ? 28 : riskScore > 50 ? 4 : 74);
+        pdf.text(`${riskScore}`, margin + 8, yPos + 25);
+        pdf.setFontSize(10);
+        pdf.text('/100', margin + 25, yPos + 25);
+        
+        const riskLabel = riskScore > 70 ? 'High Risk' : riskScore > 50 ? 'Moderate' : 'Low Risk';
+        pdf.setFontSize(8);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(riskLabel, margin + 8, yPos + 32);
+        
+        // Diversification Score Card
+        const divScore = pdfAnalysis.diversificationScore || 0;
+        pdf.setFillColor(divScore >= 70 ? 240 : divScore >= 50 ? 254 : 254, 
+                        divScore >= 70 ? 253 : divScore >= 50 ? 249 : 242, 
+                        divScore >= 70 ? 244 : divScore >= 50 ? 235 : 242);
+        pdf.roundedRect(margin + halfWidth + 10, yPos, halfWidth, 35, 2, 2, 'F');
+        
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(100, 100, 100);
+        pdf.text('Diversification Score', margin + halfWidth + 18, yPos + 10);
+        
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(20);
+        pdf.setTextColor(divScore >= 70 ? 22 : divScore >= 50 ? 202 : 185, 
+                        divScore >= 70 ? 163 : divScore >= 50 ? 138 : 28, 
+                        divScore >= 70 ? 74 : divScore >= 50 ? 4 : 28);
+        pdf.text(`${divScore}`, margin + halfWidth + 18, yPos + 25);
+        pdf.setFontSize(10);
+        pdf.text('/100', margin + halfWidth + 35, yPos + 25);
+        
+        const divLabel = divScore >= 70 ? 'Well Diversified' : divScore >= 50 ? 'Moderate' : 'Needs Work';
+        pdf.setFontSize(8);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(divLabel, margin + halfWidth + 18, yPos + 32);
+        
+        yPos += 42;
+        
+        // Asset Allocation Bar
+        if (pdfAnalysis.assetAllocation) {
+          checkPageBreak(45);
+          
+          pdf.setFontSize(11);
+          pdf.setFont('helvetica', 'bold');
+          pdf.setTextColor(30, 30, 30);
+          pdf.text('Current Asset Allocation', margin, yPos);
+          yPos += 8;
+          
+          const allocationColors: Record<string, number[]> = {
+            equity: [79, 70, 229],
+            debt: [34, 197, 94],
+            hybrid: [245, 158, 11],
+            gold: [234, 179, 8],
+            silver: [148, 163, 184],
+            others: [107, 114, 128]
+          };
+          
+          const allocEntries = Object.entries(pdfAnalysis.assetAllocation)
+            .filter(([_, data]: [string, any]) => data.percentage > 0)
+            .sort((a: any, b: any) => b[1].percentage - a[1].percentage);
+          
+          const barWidth = pageWidth - (margin * 2);
+          const barHeight = 12;
+          let xOffset = margin;
+          
+          allocEntries.forEach(([key, data]: [string, any]) => {
+            const segmentWidth = (data.percentage / 100) * barWidth;
+            const color = allocationColors[key] || [107, 114, 128];
+            pdf.setFillColor(color[0], color[1], color[2]);
+            pdf.rect(xOffset, yPos, segmentWidth, barHeight, 'F');
+            xOffset += segmentWidth;
+          });
+          
+          yPos += barHeight + 6;
+          
+          // Legend
+          let legendX = margin;
+          allocEntries.forEach(([key, data]: [string, any]) => {
+            const color = allocationColors[key] || [107, 114, 128];
+            pdf.setFillColor(color[0], color[1], color[2]);
+            pdf.rect(legendX, yPos, 8, 8, 'F');
+            pdf.setFontSize(8);
+            pdf.setFont('helvetica', 'normal');
+            pdf.setTextColor(60, 60, 60);
+            const label = `${key.charAt(0).toUpperCase() + key.slice(1)}: ${data.percentage.toFixed(1)}%`;
+            pdf.text(label, legendX + 10, yPos + 6);
+            legendX += 45;
+            if (legendX > pageWidth - 60) {
+              legendX = margin;
+              yPos += 10;
+            }
+          });
+          
+          yPos += 15;
+        }
         
         // Key Insights
-        if (pdfAnalysis.recommendations && pdfAnalysis.recommendations.length > 0) {
-          if (yPos > 240) {
-            pdf.addPage();
-            yPos = 20;
-          }
+        if (pdfAnalysis.recommendations?.length > 0) {
+          checkPageBreak(30);
           
-          pdf.setTextColor(0, 0, 0);
-          pdf.setFontSize(12);
+          pdf.setFontSize(11);
           pdf.setFont('helvetica', 'bold');
+          pdf.setTextColor(30, 30, 30);
           pdf.text('Key Insights', margin, yPos);
           yPos += 8;
           
-          pdfAnalysis.recommendations.forEach((insight) => {
-            if (yPos > 270) {
-              pdf.addPage();
-              yPos = 20;
-            }
-            pdf.setFontSize(9);
+          pdfAnalysis.recommendations.slice(0, 4).forEach((insight) => {
+            checkPageBreak(15);
+            const iconColor = insight.type === 'warning' ? [234, 88, 12] : insight.type === 'opportunity' ? [22, 163, 74] : [59, 130, 246];
+            pdf.setFillColor(iconColor[0], iconColor[1], iconColor[2]);
+            pdf.circle(margin + 3, yPos + 2, 2, 'F');
+            
+            pdf.setFontSize(8);
             pdf.setFont('helvetica', 'normal');
-            pdf.setTextColor(100, 100, 100);
-            const icon = insight.type === 'warning' ? '⚠' : insight.type === 'opportunity' ? '✓' : '💡';
-            const insightLines = pdf.splitTextToSize(`${icon} ${insight.message}`, pageWidth - (margin * 2) - 10);
-            pdf.text(insightLines, margin + 5, yPos);
-            yPos += insightLines.length * 4 + 4;
+            pdf.setTextColor(60, 60, 60);
+            const insightLines = pdf.splitTextToSize(insight.message, pageWidth - (margin * 2) - 12);
+            pdf.text(insightLines.slice(0, 2), margin + 10, yPos + 3);
+            yPos += Math.min(insightLines.length, 2) * 4 + 4;
           });
           
-          yPos += 10;
-        }
-        
-        // Top Performers
-        if (pdfAnalysis.topPerformers && pdfAnalysis.topPerformers.length > 0) {
-          if (yPos > 220) {
-            pdf.addPage();
-            yPos = 20;
-          }
-          
-          pdf.setTextColor(0, 0, 0);
-          pdf.setFontSize(12);
-          pdf.setFont('helvetica', 'bold');
-          pdf.text('Top Performing Holdings', margin, yPos);
           yPos += 8;
-          
-          pdfAnalysis.topPerformers.slice(0, 3).forEach((holding) => {
-            if (yPos > 270) {
-              pdf.addPage();
-              yPos = 20;
-            }
-            pdf.setFontSize(9);
-            pdf.setFont('helvetica', 'normal');
-            pdf.setTextColor(34, 197, 94);
-            pdf.text(`▲ ${holding.productName}`, margin + 5, yPos);
-            pdf.setTextColor(100, 100, 100);
-            pdf.text(`₹${holding.currentValue.toLocaleString('en-IN')}`, pageWidth - margin - 30, yPos);
-            yPos += 6;
-          });
-          
-          yPos += 10;
         }
       }
       
+      // Recommendations
       const recommendations = proposal.recommendations || [];
-      if (recommendations.length > 0) {
-        if (yPos > 200) {
-          pdf.addPage();
-          yPos = 20;
-        }
+      const rebalancingRecs = recommendations.filter((r: any) => r.action === 'SELL' || r.action === 'BUY' || r.action === 'SWITCH' || r.action === 'HOLD');
+      const freshInvestmentRecs = recommendations.filter((r: any) => r.suggestedAmount !== undefined && !r.action);
+      
+      // Rebalancing Section
+      if (rebalancingRecs.length > 0) {
+        checkPageBreak(25);
         
-        pdf.setTextColor(0, 0, 0);
-        pdf.setFontSize(14);
+        pdf.setTextColor(30, 30, 30);
+        pdf.setFontSize(13);
         pdf.setFont('helvetica', 'bold');
-        pdf.text('Investment Recommendations', margin, yPos);
+        pdf.text('Rebalancing Recommendations', margin, yPos);
         yPos += 10;
         
-        recommendations.forEach((rec: any, index: number) => {
-          if (yPos > 260) {
-            pdf.addPage();
-            yPos = 20;
-          }
+        rebalancingRecs.forEach((rec: any) => {
+          const hasTargetFund = rec.action === 'SWITCH' && rec.targetFund;
+          const hasRationale = rec.rationale?.length > 0;
+          const rationaleLines = hasRationale ? pdf.splitTextToSize(rec.rationale, pageWidth - (margin * 2) - 12) : [];
+          const showLines = Math.min(rationaleLines.length, 4);
+          const boxHeight = hasTargetFund ? 48 : (22 + (showLines * 4));
           
-          pdf.setFillColor(250, 250, 250);
-          pdf.rect(margin, yPos, pageWidth - (margin * 2), 25, 'F');
+          checkPageBreak(boxHeight + 5);
           
+          pdf.setFillColor(250, 250, 252);
+          pdf.roundedRect(margin, yPos, pageWidth - (margin * 2), boxHeight, 2, 2, 'F');
+          
+          const actionColor = rec.action === 'SELL' ? [220, 38, 38] : rec.action === 'BUY' ? [22, 163, 74] : [234, 88, 12];
+          pdf.setFillColor(actionColor[0], actionColor[1], actionColor[2]);
+          pdf.rect(margin, yPos, 4, boxHeight, 'F');
+          
+          // Action badge
+          pdf.setFillColor(actionColor[0], actionColor[1], actionColor[2]);
+          pdf.roundedRect(margin + 8, yPos + 4, 28, 10, 2, 2, 'F');
+          pdf.setTextColor(255, 255, 255);
+          pdf.setFontSize(7);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text(rec.action, margin + 12, yPos + 11);
+          
+          // Product name
+          pdf.setTextColor(30, 30, 30);
           pdf.setFontSize(10);
           pdf.setFont('helvetica', 'bold');
-          pdf.setTextColor(0, 0, 0);
-          pdf.text(rec.productName || rec.name || `Investment ${index + 1}`, margin + 5, yPos + 8);
+          const productName = rec.productName?.length > 45 ? rec.productName.substring(0, 45) + '...' : rec.productName;
+          pdf.text(productName || '', margin + 40, yPos + 11);
           
+          // Current value
+          if (rec.currentValue) {
+            pdf.setFontSize(9);
+            pdf.setFont('helvetica', 'normal');
+            pdf.setTextColor(100, 100, 100);
+            pdf.text(`Current: ${formatRs(rec.currentValue)}`, pageWidth - margin - 45, yPos + 11);
+          }
+          
+          // Amount change
+          pdf.setTextColor(actionColor[0], actionColor[1], actionColor[2]);
           pdf.setFontSize(9);
-          pdf.setFont('helvetica', 'normal');
-          pdf.setTextColor(100, 100, 100);
-          const amount = rec.suggestedAmount || rec.amount || 0;
-          pdf.text(`Amount: ₹${parseFloat(amount).toLocaleString('en-IN')}`, margin + 5, yPos + 18);
-          
-          if (rec.expectedReturn || rec.returns) {
-            pdf.text(`Expected: ${rec.expectedReturn || rec.returns}`, margin + 80, yPos + 18);
+          pdf.setFont('helvetica', 'bold');
+          if (rec.action === 'SWITCH' && rec.switchAmount) {
+            pdf.text(`Switch: ${formatRs(rec.switchAmount)}`, margin + 8, yPos + 20);
+          } else if (rec.changeAmount !== undefined) {
+            const sign = rec.changeAmount < 0 ? '-' : '+';
+            pdf.text(`${sign} ${formatRs(Math.abs(rec.changeAmount))}`, margin + 8, yPos + 20);
           }
           
-          // Add AMC and category info
-          if (rec.amc || rec.category) {
-            pdf.text(`${rec.amc || ''} ${rec.category ? '• ' + rec.category : ''}`, pageWidth - margin - 60, yPos + 18);
+          // Target fund for SWITCH
+          if (hasTargetFund) {
+            pdf.setTextColor(22, 163, 74);
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(9);
+            const targetName = rec.targetFund.name?.length > 50 ? rec.targetFund.name.substring(0, 50) + '...' : rec.targetFund.name;
+            pdf.text(`-> ${targetName}`, margin + 8, yPos + 30);
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(8);
+            pdf.setTextColor(100, 100, 100);
+            pdf.text(`${rec.targetFund.returns3Y}% 3Y returns | ${rec.targetFund.risk} risk`, margin + 8, yPos + 38);
+          } else if (hasRationale) {
+            pdf.setFontSize(8);
+            pdf.setFont('helvetica', 'normal');
+            pdf.setTextColor(80, 80, 80);
+            pdf.text(rationaleLines.slice(0, showLines), margin + 8, yPos + 28);
           }
           
-          yPos += 30;
+          yPos += boxHeight + 4;
         });
       }
       
-      if (proposal.agentName || proposal.agentEmail) {
-        if (yPos > 240) {
-          pdf.addPage();
-          yPos = 20;
-        }
+      // Fresh Investments Section
+      if (freshInvestmentRecs.length > 0) {
+        yPos += 6;
+        checkPageBreak(25);
         
-        yPos += 10;
-        pdf.setTextColor(0, 0, 0);
-        pdf.setFontSize(12);
+        pdf.setTextColor(30, 30, 30);
+        pdf.setFontSize(13);
         pdf.setFont('helvetica', 'bold');
-        pdf.text('Your Financial Advisor', margin, yPos);
-        yPos += 8;
+        pdf.text('Fresh Investment Suggestions', margin, yPos);
+        yPos += 10;
         
-        pdf.setFontSize(10);
-        pdf.setFont('helvetica', 'normal');
-        if (proposal.agentName) {
-          pdf.text(proposal.agentName, margin, yPos);
-          yPos += 6;
-        }
-        if (proposal.agentEmail) {
-          pdf.text(`Email: ${proposal.agentEmail}`, margin, yPos);
-          yPos += 6;
-        }
-        if (proposal.agentMobile) {
-          pdf.text(`Mobile: ${proposal.agentMobile}`, margin, yPos);
-        }
+        freshInvestmentRecs.forEach((inv: any) => {
+          const hasRationale = inv.rationale?.length > 0;
+          const rationaleLines = hasRationale ? pdf.splitTextToSize(inv.rationale, pageWidth - (margin * 2) - 12) : [];
+          const showLines = Math.min(rationaleLines.length, 4);
+          const boxHeight = 24 + (showLines * 4);
+          
+          checkPageBreak(boxHeight + 5);
+          
+          pdf.setFillColor(250, 250, 252);
+          pdf.roundedRect(margin, yPos, pageWidth - (margin * 2), boxHeight, 2, 2, 'F');
+          
+          pdf.setFillColor(79, 70, 229);
+          pdf.rect(margin, yPos, 4, boxHeight, 'F');
+          
+          // Product name
+          pdf.setTextColor(30, 30, 30);
+          pdf.setFontSize(10);
+          pdf.setFont('helvetica', 'bold');
+          const productName = inv.productName?.length > 50 ? inv.productName.substring(0, 50) + '...' : inv.productName;
+          pdf.text(productName || '', margin + 8, yPos + 10);
+          
+          // Amount
+          pdf.setTextColor(22, 163, 74);
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(10);
+          pdf.text(formatRs(inv.suggestedAmount), pageWidth - margin - 35, yPos + 10);
+          
+          // Metrics row
+          pdf.setFontSize(8);
+          pdf.setFont('helvetica', 'normal');
+          pdf.setTextColor(100, 100, 100);
+          const riskLevel = inv.riskLevel?.toLowerCase().includes('high') ? 'High' : inv.riskLevel?.toLowerCase().includes('low') ? 'Low' : 'Moderate';
+          pdf.text(`Expected: ${inv.expectedReturn} | Risk: ${riskLevel} | Match: ${inv.matchScore}%`, margin + 8, yPos + 18);
+          
+          // Rationale
+          if (hasRationale) {
+            pdf.setFontSize(8);
+            pdf.setFont('helvetica', 'normal');
+            pdf.setTextColor(80, 80, 80);
+            pdf.text(rationaleLines.slice(0, showLines), margin + 8, yPos + 26);
+          }
+          
+          yPos += boxHeight + 4;
+        });
       }
       
+      // Agent Contact Footer
+      if (proposal.agentName || proposal.agentMobile || proposal.agentEmail) {
+        checkPageBreak(35);
+        yPos += 10;
+        
+        pdf.setFillColor(248, 250, 252);
+        pdf.roundedRect(margin, yPos, pageWidth - (margin * 2), 28, 3, 3, 'F');
+        pdf.setDrawColor(226, 232, 240);
+        pdf.roundedRect(margin, yPos, pageWidth - (margin * 2), 28, 3, 3, 'S');
+        
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(30, 30, 30);
+        pdf.text('Your Financial Advisor', margin + 8, yPos + 10);
+        
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(60, 60, 60);
+        const contactInfo = [
+          proposal.agentName,
+          proposal.agentMobile ? `Tel: ${proposal.agentMobile}` : null,
+          proposal.agentEmail ? `Email: ${proposal.agentEmail}` : null
+        ].filter(Boolean).join(' | ');
+        pdf.text(contactInfo, margin + 8, yPos + 20);
+      }
+      
+      // Footer on all pages
       const pageCount = pdf.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
         pdf.setPage(i);
-        pdf.setFontSize(8);
+        
+        pdf.setDrawColor(226, 232, 240);
+        pdf.line(margin, pageHeight - 15, pageWidth - margin, pageHeight - 15);
+        
+        pdf.setFontSize(7);
+        pdf.setFont('helvetica', 'normal');
         pdf.setTextColor(150, 150, 150);
-        pdf.text(
-          'This proposal is for informational purposes only. Past performance is not indicative of future results.',
-          margin, 
-          pdf.internal.pageSize.getHeight() - 10
-        );
-        pdf.text(
-          `Generated on ${new Date().toLocaleDateString('en-IN')} | Page ${i} of ${pageCount}`,
-          pageWidth - margin - 50,
-          pdf.internal.pageSize.getHeight() - 10
-        );
+        pdf.text('This proposal is for informational purposes only. Investment in securities market are subject to market risks.', margin, pageHeight - 10);
+        
+        const dateStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+        pdf.text(`Generated: ${dateStr} | Page ${i} of ${pageCount}`, pageWidth - margin - 45, pageHeight - 10);
       }
       
       pdf.save(`Investment_Proposal_${proposal.id || shareToken}.pdf`);
