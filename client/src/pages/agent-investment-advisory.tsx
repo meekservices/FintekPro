@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
@@ -16,9 +16,12 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useDropzone } from "react-dropzone";
+import { cn } from "@/lib/utils";
 import { 
   Brain,
   TrendingUp,
@@ -60,7 +63,10 @@ import {
   Building2,
   Globe,
   Lock,
-  Unlock
+  Unlock,
+  Check,
+  ChevronsUpDown,
+  User
 } from "lucide-react";
 
 interface Portfolio {
@@ -148,6 +154,15 @@ interface TalkingPoint {
   supportingData?: string;
 }
 
+interface Client {
+  id: number;
+  uuid: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+}
+
 const SIGNAL_COLORS = {
   BUY: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
   SELL: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
@@ -176,7 +191,9 @@ const CATEGORY_ICONS = {
 export default function AgentInvestmentAdvisory() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("portfolio");
-  const [selectedClientId, setSelectedClientId] = useState<string>("demo-client-1");
+  const [selectedClientId, setSelectedClientId] = useState<string>("");
+  const [clientSearchOpen, setClientSearchOpen] = useState(false);
+  const [clientSearchQuery, setClientSearchQuery] = useState("");
   const [selectedHorizon, setSelectedHorizon] = useState<string>("3M");
   const [selectedProductTypes, setSelectedProductTypes] = useState<string[]>(["stocks", "mutual_funds", "bonds", "etfs"]);
   const [showAddHoldingDialog, setShowAddHoldingDialog] = useState(false);
@@ -194,6 +211,27 @@ export default function AgentInvestmentAdvisory() {
     averagePrice: 0,
     assetType: "EQUITY"
   });
+
+  // Fetch clients for searchable dropdown
+  const { data: clients = [], isLoading: clientsLoading } = useQuery<Client[]>({
+    queryKey: ['/api/agent/clients'],
+  });
+
+  // Filter clients based on search query (search by name or UUID)
+  const filteredClients = useMemo(() => {
+    if (!clientSearchQuery.trim()) return clients;
+    const query = clientSearchQuery.toLowerCase();
+    return clients.filter(client => {
+      const fullName = `${client.firstName} ${client.lastName}`.toLowerCase();
+      const uuid = client.uuid?.toLowerCase() || '';
+      return fullName.includes(query) || uuid.includes(query);
+    });
+  }, [clients, clientSearchQuery]);
+
+  // Get the selected client display name
+  const selectedClient = useMemo(() => {
+    return clients.find(c => c.uuid === selectedClientId || String(c.id) === selectedClientId);
+  }, [clients, selectedClientId]);
 
   const { data: portfolio, isLoading: portfolioLoading } = useQuery<Portfolio>({
     queryKey: ['/api/ai-investment/portfolio', selectedClientId],
@@ -349,15 +387,67 @@ export default function AgentInvestmentAdvisory() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Select value={selectedClientId} onValueChange={setSelectedClientId}>
-            <SelectTrigger className="w-48" data-testid="select-client">
-              <SelectValue placeholder="Select client" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="demo-client-1">Demo Client 1</SelectItem>
-              <SelectItem value="demo-client-2">Demo Client 2</SelectItem>
-            </SelectContent>
-          </Select>
+          <Popover open={clientSearchOpen} onOpenChange={setClientSearchOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={clientSearchOpen}
+                className="w-64 justify-between"
+                data-testid="select-client"
+              >
+                {selectedClient ? (
+                  <span className="flex items-center gap-2 truncate">
+                    <User className="h-4 w-4 shrink-0" />
+                    {selectedClient.firstName} {selectedClient.lastName}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">Select client...</span>
+                )}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-0" align="start">
+              <Command shouldFilter={false}>
+                <CommandInput 
+                  placeholder="Search by name or ID..." 
+                  value={clientSearchQuery}
+                  onValueChange={setClientSearchQuery}
+                />
+                <CommandList>
+                  <CommandEmpty>
+                    {clientsLoading ? "Loading clients..." : "No clients found."}
+                  </CommandEmpty>
+                  <CommandGroup>
+                    {filteredClients.map((client) => (
+                      <CommandItem
+                        key={client.id}
+                        value={client.uuid}
+                        onSelect={() => {
+                          setSelectedClientId(client.uuid);
+                          setClientSearchOpen(false);
+                          setClientSearchQuery("");
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            selectedClientId === client.uuid ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        <div className="flex flex-col">
+                          <span>{client.firstName} {client.lastName}</span>
+                          <span className="text-xs text-muted-foreground truncate">
+                            {client.uuid?.slice(0, 8)}...
+                          </span>
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
           <Button 
             onClick={handleRunAnalysis} 
             disabled={isAnalyzing || !portfolio}
