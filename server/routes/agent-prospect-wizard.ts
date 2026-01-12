@@ -433,7 +433,7 @@ router.post("/prospects/:id/holdings", async (req: Request, res: Response) => {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
-    const newHolding = portfolioHoldingSchema.parse(req.body);
+    const newHolding = backendHoldingSchema.parse(req.body);
     const currentHoldings = (prospect.currentPortfolio as any[]) || [];
     const updatedHoldings = [...currentHoldings, { ...newHolding, addedAt: new Date().toISOString() }];
 
@@ -468,7 +468,7 @@ router.put("/prospects/:id/holdings/:holdingIndex", async (req: Request, res: Re
       return res.status(404).json({ success: false, message: "Holding not found" });
     }
 
-    const updatedHolding = portfolioHoldingSchema.parse(req.body);
+    const updatedHolding = backendHoldingSchema.parse(req.body);
     const updatedHoldings = [...currentHoldings];
     updatedHoldings[holdingIndex] = { ...updatedHolding, updatedAt: new Date().toISOString() };
 
