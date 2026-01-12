@@ -895,97 +895,8 @@ export function registerAdminPanelRoutes(app: Express): void {
     }
   });
 
-  // Admin Agent Management - Get all agents
-  app.get("/api/admin/agents", requireAdmin, async (req, res) => {
-    try {
-      const agents = await storage.getAllCustomerCareAgents();
-      res.json(agents);
-    } catch (error) {
-      console.error("Error fetching agents:", error);
-      res.status(500).json({ error: "Failed to fetch agents" });
-    }
-  });
-
-  // Admin Agent Management - Create new agent
-  app.post("/api/admin/agents", requireAdmin, async (req, res) => {
-    try {
-      const agentData = req.body;
-      const newAgent = await storage.createCustomerCareAgent(agentData);
-      
-      await adminService.logActivity({
-        userId: req.user?.id || 'unknown',
-        action: 'admin_agent_created',
-        resource: `agent:${newAgent.id}`,
-        details: { fullName: newAgent.fullName, email: newAgent.email },
-        ipAddress: req.ip
-      });
-      
-      platformStatsCache.invalidate();
-      res.status(201).json(newAgent);
-    } catch (error) {
-      console.error("Error creating agent:", error);
-      res.status(500).json({ error: "Failed to create agent" });
-    }
-  });
-
-  // Admin Agent Management - Update agent
-  app.patch("/api/admin/agents/:id", requireAdmin, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const updates = req.body;
-      const updatedAgent = await storage.updateCustomerCareAgent(id, updates);
-      
-      if (!updatedAgent) {
-        return res.status(404).json({ error: "Agent not found" });
-      }
-      
-      await adminService.logActivity({
-        userId: req.user?.id || 'unknown',
-        action: 'admin_agent_updated',
-        resource: `agent:${id}`,
-        details: updates,
-        ipAddress: req.ip
-      });
-      
-      res.json(updatedAgent);
-    } catch (error) {
-      console.error("Error updating agent:", error);
-      res.status(500).json({ error: "Failed to update agent" });
-    }
-  });
-
-  // Admin Agent Management - Delete agent
-  app.delete("/api/admin/agents/:id", requireAdmin, async (req, res) => {
-    try {
-      const { id } = req.params;
-      
-      // Get agent info before deletion for logging
-      const agent = await storage.getCustomerCareAgent(id);
-      if (!agent) {
-        return res.status(404).json({ error: "Agent not found" });
-      }
-      
-      const deleted = await storage.deleteCustomerCareAgent(id);
-      
-      if (!deleted) {
-        return res.status(404).json({ error: "Agent not found or could not be deleted" });
-      }
-      
-      await adminService.logActivity({
-        userId: req.user?.id || 'unknown',
-        action: 'admin_agent_deleted',
-        resource: `agent:${id}`,
-        details: { fullName: agent.fullName, email: agent.email },
-        ipAddress: req.ip
-      });
-      
-      platformStatsCache.invalidate();
-      res.json({ success: true, message: "Agent deleted successfully" });
-    } catch (error) {
-      console.error("Error deleting agent:", error);
-      res.status(500).json({ error: "Failed to delete agent" });
-    }
-  });
+  // NOTE: Agent CRUD routes moved to server/stakeholder-routes.ts
+  // The /api/admin/agents endpoints are now handled there to avoid duplication
 
   // Admin System Monitoring - Get platform insights
   app.get("/api/admin/insights", requireAdmin, async (req, res) => {
@@ -2525,84 +2436,9 @@ System Security Data:`;
   });
 
   // ============ CUSTOMER CARE AGENT ROUTES ============
-  
-  // Get all agents
-  app.get("/api/admin/agents", requireAdmin, async (req, res) => {
-    try {
-      const agents = await storage.getAllCustomerCareAgents();
-      
-      // Get partner mappings and mapping counts for each agent
-      const agentsWithMappings = await Promise.all(agents.map(async (agent) => {
-        const [mappings, mappingCounts] = await Promise.all([
-          storage.getAgentPartnerMappings(agent.id),
-          storage.getAgentMappingCounts(agent.id)
-        ]);
-        
-        return {
-          ...agent,
-          partnerMappings: mappings,
-          partnerCount: mappingCounts.partnerCount,
-          clientCount: mappingCounts.clientCount
-        };
-      }));
-      
-      res.json(agentsWithMappings);
-    } catch (error) {
-      console.error("Error fetching agents:", error);
-      res.status(500).json({ error: "Failed to fetch agents" });
-    }
-  });
-
-  // Create new customer care agent
-  app.post("/api/admin/agents", requireAdmin, async (req, res) => {
-    try {
-      const agent = await storage.createCustomerCareAgent(req.body);
-      platformStatsCache.invalidate();
-      res.status(201).json(agent);
-    } catch (error) {
-      console.error("Error creating customer care agent:", error);
-      res.status(500).json({ error: "Failed to create agent" });
-    }
-  });
-
-  // Update customer care agent
-  app.patch("/api/admin/agents/:agentId", requireAdmin, async (req, res) => {
-    try {
-      const { agentId } = req.params;
-      const updated = await storage.updateCustomerCareAgent(agentId, req.body);
-      
-      if (!updated) {
-        return res.status(404).json({ error: "Agent not found" });
-      }
-      
-      res.json(updated);
-    } catch (error) {
-      console.error("Error updating customer care agent:", error);
-      res.status(500).json({ error: "Failed to update agent" });
-    }
-  });
-
-  // Delete customer care agent
-  app.delete("/api/admin/agents/:agentId", requireAdmin, async (req, res) => {
-    try {
-      const { agentId } = req.params;
-      const deleted = await storage.deleteCustomerCareAgent(agentId);
-      
-      if (!deleted) {
-        return res.status(404).json({ error: "Agent not found" });
-      }
-      
-      // Also delete all partner mappings for this agent
-      const mappings = await storage.getAgentPartnerMappings(agentId);
-      await Promise.all(mappings.map(m => storage.deleteAgentPartnerMapping(m.id)));
-      
-      platformStatsCache.invalidate();
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting customer care agent:", error);
-      res.status(500).json({ error: "Failed to delete agent" });
-    }
-  });
+  // NOTE: Agent CRUD routes (GET, POST, PATCH, DELETE /api/admin/agents) 
+  // are now handled in server/stakeholder-routes.ts to avoid duplication.
+  // Only the agent-partner mapping routes remain here.
 
   // Get agent-partner mappings
   app.get("/api/admin/agent-mappings", requireAdmin, async (req, res) => {
