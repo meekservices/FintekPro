@@ -777,20 +777,20 @@ export default function StakeholdersPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {isLoading ? (
+                  {loadingClients ? (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         Loading...
                       </TableCell>
                     </TableRow>
-                  ) : items.length === 0 ? (
+                  ) : (clientsData?.data || []).length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         No clients found
                       </TableCell>
                     </TableRow>
                   ) : (
-                    items.map((user: User) => (
+                    (clientsData?.data || []).map((user: User) => (
                       <TableRow key={user.id} data-testid={`row-client-${user.id}`}>
                         <TableCell className="font-mono text-sm">{user.userId}</TableCell>
                         <TableCell className="font-medium">{user.fullName}</TableCell>
@@ -810,7 +810,7 @@ export default function StakeholdersPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
-                            {user.roles.map((role) => (
+                            {(user.roles || []).map((role) => (
                               <Badge key={role} variant="secondary" className="text-xs">
                                 {role}
                               </Badge>
@@ -881,20 +881,20 @@ export default function StakeholdersPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {isLoading ? (
+                  {loadingPartners ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                         Loading...
                       </TableCell>
                     </TableRow>
-                  ) : items.length === 0 ? (
+                  ) : (partnersData?.data || []).length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                         No partners found
                       </TableCell>
                     </TableRow>
                   ) : (
-                    items.map((partner: Partner) => (
+                    (partnersData?.data || []).map((partner: Partner) => (
                       <TableRow key={partner.id} data-testid={`row-partner-${partner.id}`}>
                         <TableCell className="font-medium">{partner.companyName}</TableCell>
                         <TableCell>
@@ -978,20 +978,20 @@ export default function StakeholdersPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {isLoading ? (
+                  {loadingAgents ? (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         Loading...
                       </TableCell>
                     </TableRow>
-                  ) : items.length === 0 ? (
+                  ) : (agentsData?.data || []).length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         No agents found
                       </TableCell>
                     </TableRow>
                   ) : (
-                    items.map((agent: Agent) => (
+                    (agentsData?.data || []).map((agent: Agent) => (
                       <TableRow key={agent.id} data-testid={`row-agent-${agent.id}`}>
                         <TableCell className="font-medium">{agent.fullName}</TableCell>
                         <TableCell>
@@ -1078,20 +1078,20 @@ export default function StakeholdersPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {isLoading ? (
+                  {loadingSuppiers ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                         Loading...
                       </TableCell>
                     </TableRow>
-                  ) : items.length === 0 ? (
+                  ) : (suppliersData?.data || []).length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                         No suppliers found
                       </TableCell>
                     </TableRow>
                   ) : (
-                    items.map((supplier: Supplier) => (
+                    (suppliersData?.data || []).map((supplier: Supplier) => (
                       <TableRow key={supplier.id} data-testid={`row-supplier-${supplier.id}`}>
                         <TableCell className="font-medium">{supplier.name}</TableCell>
                         <TableCell>
