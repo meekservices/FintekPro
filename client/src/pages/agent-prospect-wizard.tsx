@@ -1351,8 +1351,8 @@ export default function AgentProspectWizard() {
     setNewHolding({
       productType: holdingToEdit.productType,
       productName: holdingToEdit.productName,
-      quantity: holdingToEdit.quantity,
-      currentValue: holdingToEdit.currentValue
+      quantity: holdingToEdit.quantity ?? 1,
+      currentValue: holdingToEdit.currentValue ?? 0
     });
     setImportMode('manual');
   };
