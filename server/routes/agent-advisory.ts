@@ -16,7 +16,6 @@ import {
   portfolios,
   partners,
   agentPartnerMappings,
-  prospectProposals,
   insertAdvisorySessionSchema,
   insertSuitabilityCheckSchema,
   insertProposalNoteSchema,
@@ -675,32 +674,36 @@ export function registerAgentAdvisoryRoutes(app: Express) {
         source: 'proposal_builder'
       }));
       
-      // Also fetch from prospect_proposals table (wizard proposals)
-      const wizardProposals = await db
-        .select()
-        .from(prospectProposals)
-        .where(eq(prospectProposals.agentId, agentId))
-        .orderBy(desc(prospectProposals.createdAt))
-        .limit(100);
+      // Also fetch from prospect_proposals table (wizard proposals) using raw SQL
+      const wizardProposalsResult = await db.execute(sql`
+        SELECT id, agent_id, prospect_name, prospect_email, prospect_mobile,
+               proposal_title, executive_summary, status, investment_amount,
+               total_investment_amount, created_at, updated_at, valid_until,
+               expires_at, share_token, shared_at, viewed_at, view_count
+        FROM prospect_proposals
+        WHERE agent_id = ${agentId}
+        ORDER BY created_at DESC
+        LIMIT 100
+      `);
       
-      const formattedWizardProposals = wizardProposals.map((p: any) => ({
+      const formattedWizardProposals = (wizardProposalsResult.rows || []).map((p: any) => ({
         id: p.id,
         clientId: null,
-        title: p.proposalTitle || p.title || `Investment Proposal for ${p.prospectName}`,
-        description: p.executiveSummary,
+        title: p.proposal_title || `Investment Proposal for ${p.prospect_name}`,
+        description: p.executive_summary,
         isDemo: false,
         status: p.status === 'shared' ? 'shared' : p.status === 'viewed' ? 'client_viewed' : p.status === 'converted' ? 'executed' : 'draft',
-        investmentAmount: p.totalInvestmentAmount || p.investmentAmount || 0,
-        createdAt: p.createdAt,
-        updatedAt: p.updatedAt,
-        expiresAt: p.validUntil || p.expiresAt,
-        clientName: p.prospectName,
-        prospectEmail: p.prospectEmail,
-        prospectMobile: p.prospectMobile,
-        shareToken: p.shareToken,
-        sharedAt: p.sharedAt,
-        viewedAt: p.viewedAt,
-        viewCount: p.viewCount || 0,
+        investmentAmount: p.total_investment_amount || p.investment_amount || 0,
+        createdAt: p.created_at,
+        updatedAt: p.updated_at,
+        expiresAt: p.valid_until || p.expires_at,
+        clientName: p.prospect_name,
+        prospectEmail: p.prospect_email,
+        prospectMobile: p.prospect_mobile,
+        shareToken: p.share_token,
+        sharedAt: p.shared_at,
+        viewedAt: p.viewed_at,
+        viewCount: p.view_count || 0,
         source: 'wizard'
       }));
 
