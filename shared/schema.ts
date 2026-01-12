@@ -18815,6 +18815,26 @@ export const prospectClients = pgTable("prospect_clients", {
     totalValue: number;
   }>(),
   
+  // Current portfolio (canonical working copy for prospect wizard)
+  currentPortfolio: jsonb("current_portfolio").$type<Array<{
+    id?: string;
+    name: string;
+    isin?: string;
+    symbol?: string;
+    assetType: string;
+    productType?: string; // Preserves original type (pms, aif, insurance, etc.)
+    quantity: number;
+    averageCost?: number;
+    currentValue: number;
+    currentNav?: number;
+    investedValue?: number;
+    unrealizedGain?: number;
+    unrealizedGainPercent?: number;
+    folioNumber?: string;
+    broker?: string;
+    confidenceScore?: number;
+  }>>(),
+  
   // AI Portfolio Analysis
   portfolioAnalysis: jsonb("portfolio_analysis").$type<{
     analyzedAt: string;
@@ -18873,6 +18893,8 @@ export const portfolioHoldingSchema = z.object({
   isin: z.string().optional(),
   symbol: z.string().optional(),
   assetType: z.enum(['equity', 'mutual_fund', 'etf', 'bond', 'gold', 'fd', 'other']),
+  // Preserve original productType for lossless round-trip (PMS, AIF, insurance, etc.)
+  productType: z.string().optional(),
   quantity: z.number(),
   averageCost: z.number().optional(),
   currentValue: z.number(),

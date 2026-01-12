@@ -353,14 +353,31 @@ const TARGET_ALLOCATIONS = {
 };
 
 export interface ProspectPortfolioHolding {
-  productType: string;
-  productName: string;
+  // Frontend format (deprecated, for backward compatibility)
+  productType?: string;
+  productName?: string;
+  // Backend format (canonical)
+  name?: string;
+  assetType?: string;
+  // Shared fields
   quantity: number;
   currentValue: number;
   purchasePrice?: number;
   purchaseDate?: string;
+  averageCost?: number;
+  currentNav?: number;
+  investedValue?: number;
+  unrealizedGain?: number;
+  unrealizedGainPercent?: number;
   isin?: string;
+  symbol?: string;
+  folioNumber?: string;
+  broker?: string;
+  confidenceScore?: number;
   category?: string;
+  id?: string;
+  addedAt?: string;
+  source?: string;
 }
 
 export interface ProspectRiskProfile {
@@ -1086,8 +1103,9 @@ class AgentProspectWizardService {
     
     // Map holdings to asset categories (expanded)
     const categorizeHolding = (h: ProspectPortfolioHolding): string => {
-      const type = h.productType?.toLowerCase() || '';
-      const name = h.productName?.toLowerCase() || '';
+      // Support both frontend (productType) and backend (assetType/productType) formats
+      const type = (h.productType || h.assetType)?.toLowerCase() || '';
+      const name = (h.name || (h.name || h.productName))?.toLowerCase() || '';
       const category = h.category?.toLowerCase() || '';
       
       // Check for PMS/AIF first (specific product types)
@@ -1235,12 +1253,12 @@ class AgentProspectWizardService {
       const type = h.productType?.toLowerCase() || '';
       if (!['equity', 'mutual_fund', 'mf', 'bond', 'fd', 'gold', 'etf', 'stock', 'debt'].includes(type)) {
         // Check if we already have a recommendation for this holding
-        const existing = recommendations.find(r => r.productName === h.productName);
+        const existing = recommendations.find(r => r.productName === (h.name || h.productName));
         if (!existing && h.currentValue > 1000) {
           recommendations.push({
             action: 'SELL',
             productType: h.productType,
-            productName: h.productName,
+            productName: (h.name || h.productName),
             currentValue: h.currentValue,
             changeAmount: -h.currentValue,
             rationale: 'Consider switching to regulated products (mutual funds, bonds) for better liquidity, transparency, and professional management.',

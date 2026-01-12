@@ -41,6 +41,58 @@ interface PortfolioHolding {
   category?: string;
 }
 
+// Map frontend productType to backend assetType (backend schema has limited enum values)
+function mapToAssetType(productType: string): string {
+  const assetTypeMap: Record<string, string> = {
+    'mutual_fund': 'mutual_fund',
+    'equity': 'equity',
+    'etf': 'etf',
+    'bond': 'bond',
+    'fd': 'fd',
+    'gold': 'gold',
+    // These map to 'other' for schema validation, but we preserve original in productType field
+    'pms': 'other',
+    'aif': 'other',
+    'insurance': 'other',
+    'other': 'other'
+  };
+  return assetTypeMap[productType] || 'other';
+}
+
+// Transform frontend holding to backend schema format
+// Preserves productType as a separate field for lossless round-trip
+function toBackendHolding(holding: PortfolioHolding): any {
+  return {
+    name: holding.productName,
+    assetType: mapToAssetType(holding.productType),
+    quantity: holding.quantity ?? 1,
+    currentValue: holding.currentValue ?? 0,
+    isin: holding.isin,
+    category: holding.category,
+    purchasePrice: holding.purchasePrice,
+    purchaseDate: holding.purchaseDate,
+    // Preserve original productType for lossless round-trip (PMS, AIF, insurance, etc.)
+    productType: holding.productType
+  };
+}
+
+// Transform backend holding to frontend format
+// Uses preserved productType if available, otherwise falls back to assetType
+function toFrontendHolding(holding: any): PortfolioHolding {
+  // Prefer preserved productType, fallback to assetType
+  const productType = holding.productType || holding.assetType || 'mutual_fund';
+  return {
+    productType: productType,
+    productName: holding.name || holding.productName || '',
+    quantity: holding.quantity ?? 1,
+    currentValue: holding.currentValue ?? 0,
+    isin: holding.isin,
+    category: holding.category,
+    purchasePrice: holding.purchasePrice || holding.averageCost,
+    purchaseDate: holding.purchaseDate
+  };
+}
+
 interface RiskProfile {
   riskTolerance: 'conservative' | 'moderate' | 'aggressive' | 'very_aggressive';
   investmentHorizon: 'short_term' | 'medium_term' | 'long_term';
@@ -774,13 +826,16 @@ export default function AgentProspectWizard() {
           if (response.ok) {
             const payload = await response.json();
             // API returns { success: true, holdings: [...] }
-            const savedHoldings = payload.holdings ?? [];
-            console.log('[Holdings] Loaded saved holdings:', savedHoldings.length);
-            if (savedHoldings.length > 0) {
-              setHoldings(savedHoldings);
+            const backendHoldings = payload.holdings ?? [];
+            console.log('[Holdings] Loaded saved holdings (backend):', backendHoldings.length);
+            if (backendHoldings.length > 0) {
+              // Transform backend holdings to frontend format
+              const frontendHoldings = backendHoldings.map(toFrontendHolding);
+              console.log('[Holdings] Transformed to frontend format:', frontendHoldings.length);
+              setHoldings(frontendHoldings);
               toast({ 
                 title: "Portfolio Loaded", 
-                description: `${savedHoldings.length} saved holdings loaded from previous session` 
+                description: `${frontendHoldings.length} saved holdings loaded from previous session` 
               });
             }
           }
@@ -896,9 +951,11 @@ export default function AgentProspectWizard() {
       if (response.ok) {
         const payload = await response.json();
         // API returns { success: true, holdings: [...] }
-        const serverHoldings = payload.holdings ?? [];
-        console.log('[Holdings] Reloaded from server:', serverHoldings.length);
-        setHoldings(serverHoldings);
+        const backendHoldings = payload.holdings ?? [];
+        console.log('[Holdings] Reloaded from server (backend):', backendHoldings.length);
+        // Transform backend holdings to frontend format
+        const frontendHoldings = backendHoldings.map(toFrontendHolding);
+        setHoldings(frontendHoldings);
       }
     } catch (error) {
       console.error('Error reloading holdings:', error);
@@ -921,14 +978,20 @@ export default function AgentProspectWizard() {
       if (data.success) {
         setImportResult(data);
         if (data.holdings && data.holdings.length > 0) {
-          const mappedHoldings: PortfolioHolding[] = data.holdings.map((h: any) => ({
-            productType: h.assetType || 'mutual_fund',
-            productName: h.name,
-            quantity: h.units || 1,
-            currentValue: h.currentValue,
-            isin: h.isin,
-            category: h.category
-          }));
+          // Convert imported holdings to frontend format first, then transform to backend
+          // This ensures proper handling of special types (pms, aif, insurance)
+          const backendHoldings = data.holdings.map((h: any) => {
+            const frontendHolding: PortfolioHolding = {
+              id: h.id || crypto.randomUUID(),
+              productName: h.name || h.productName || '',
+              productType: h.assetType || h.productType || 'mutual_fund',
+              quantity: h.units || h.quantity || 1,
+              currentValue: h.currentValue || 0,
+              isin: h.isin,
+              symbol: h.symbol
+            };
+            return toBackendHolding(frontendHolding);
+          });
           
           // Persist merged holdings to backend using bulk merge endpoint
           try {
@@ -936,14 +999,15 @@ export default function AgentProspectWizard() {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               credentials: 'include',
-              body: JSON.stringify({ holdings: mappedHoldings })
+              body: JSON.stringify({ holdings: backendHoldings })
             });
             
             const mergeData = await mergeRes.json();
             
             if (mergeRes.ok && mergeData.success) {
-              // Update local state with authoritative merged holdings from server
-              setHoldings(mergeData.holdings);
+              // Transform backend holdings to frontend format and update local state
+              const frontendHoldings = (mergeData.holdings || []).map(toFrontendHolding);
+              setHoldings(frontendHoldings);
               
               // Invalidate holdings cache
               queryClient.invalidateQueries({ 
@@ -1008,14 +1072,20 @@ export default function AgentProspectWizard() {
       if (data.success) {
         setImportResult(data);
         if (data.holdings && data.holdings.length > 0) {
-          const mappedHoldings: PortfolioHolding[] = data.holdings.map((h: any) => ({
-            productType: h.assetType || 'mutual_fund',
-            productName: h.name,
-            quantity: h.units || 1,
-            currentValue: h.currentValue,
-            isin: h.isin,
-            category: h.category
-          }));
+          // Convert imported holdings to frontend format first, then transform to backend
+          // This ensures proper handling of special types (pms, aif, insurance)
+          const backendHoldings = data.holdings.map((h: any) => {
+            const frontendHolding: PortfolioHolding = {
+              id: h.id || crypto.randomUUID(),
+              productName: h.name || h.productName || '',
+              productType: h.assetType || h.productType || 'mutual_fund',
+              quantity: h.units || h.quantity || 1,
+              currentValue: h.currentValue || 0,
+              isin: h.isin,
+              symbol: h.symbol
+            };
+            return toBackendHolding(frontendHolding);
+          });
           
           // Persist merged holdings to backend using bulk merge endpoint
           try {
@@ -1023,14 +1093,15 @@ export default function AgentProspectWizard() {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               credentials: 'include',
-              body: JSON.stringify({ holdings: mappedHoldings })
+              body: JSON.stringify({ holdings: backendHoldings })
             });
             
             const mergeData = await mergeRes.json();
             
             if (mergeRes.ok && mergeData.success) {
-              // Update local state with authoritative merged holdings from server
-              setHoldings(mergeData.holdings);
+              // Transform backend holdings to frontend format and update local state
+              const frontendHoldings = (mergeData.holdings || []).map(toFrontendHolding);
+              setHoldings(frontendHoldings);
               
               queryClient.invalidateQueries({ 
                 predicate: (query) => {
@@ -1219,10 +1290,11 @@ export default function AgentProspectWizard() {
   const addHoldingMutation = useMutation({
     mutationFn: async (holding: PortfolioHolding) => {
       if (!prospectId) throw new Error("No prospect selected");
-      console.log('[Holdings] Adding holding:', holding);
+      const backendHolding = toBackendHolding(holding);
+      console.log('[Holdings] Adding holding:', holding, '-> backend format:', backendHolding);
       const result = await apiRequest(`/api/agent-wizard/prospects/${prospectId}/holdings`, {
         method: "POST",
-        body: JSON.stringify(holding)
+        body: JSON.stringify(backendHolding)
       });
       console.log('[Holdings] Add result:', result);
       return result;
@@ -1230,7 +1302,9 @@ export default function AgentProspectWizard() {
     onSuccess: (data) => {
       console.log('[Holdings] Add success:', data);
       if (data.success) {
-        setHoldings(data.holdings);
+        // Transform backend holdings to frontend format
+        const frontendHoldings = (data.holdings || []).map(toFrontendHolding);
+        setHoldings(frontendHoldings);
         toast({ title: "Holding Added", description: "Investment saved to portfolio" });
       } else {
         toast({ title: "Save Failed", description: data.message || "Could not save holding", variant: "destructive" });
@@ -1245,10 +1319,11 @@ export default function AgentProspectWizard() {
   const updateHoldingMutation = useMutation({
     mutationFn: async ({ index, holding }: { index: number; holding: PortfolioHolding }) => {
       if (!prospectId) throw new Error("No prospect selected");
-      console.log('[Holdings] Updating holding at index:', index, holding);
+      const backendHolding = toBackendHolding(holding);
+      console.log('[Holdings] Updating holding at index:', index, holding, '-> backend format:', backendHolding);
       const result = await apiRequest(`/api/agent-wizard/prospects/${prospectId}/holdings/${index}`, {
         method: "PUT",
-        body: JSON.stringify(holding)
+        body: JSON.stringify(backendHolding)
       });
       console.log('[Holdings] Update result:', result);
       return result;
@@ -1256,7 +1331,9 @@ export default function AgentProspectWizard() {
     onSuccess: (data) => {
       console.log('[Holdings] Update success:', data);
       if (data.success) {
-        setHoldings(data.holdings);
+        // Transform backend holdings to frontend format
+        const frontendHoldings = (data.holdings || []).map(toFrontendHolding);
+        setHoldings(frontendHoldings);
         setEditingHoldingIndex(null);
         toast({ title: "Holding Updated", description: "Investment updated successfully" });
       } else {
@@ -1286,7 +1363,9 @@ export default function AgentProspectWizard() {
     onSuccess: (data) => {
       console.log('[Holdings] Delete success:', data);
       if (data.success) {
-        setHoldings(data.holdings);
+        // Transform backend holdings to frontend format
+        const frontendHoldings = (data.holdings || []).map(toFrontendHolding);
+        setHoldings(frontendHoldings);
         toast({ title: "Holding Removed", description: "Investment removed from portfolio" });
       } else {
         // Reload from server on failure

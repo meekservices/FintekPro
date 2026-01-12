@@ -35,6 +35,27 @@ const portfolioHoldingSchema = z.object({
   category: z.string().optional()
 });
 
+// Backend format schema for holdings persistence (uses name/assetType/productType)
+const backendHoldingSchema = z.object({
+  id: z.string().optional(),
+  name: z.string(),
+  isin: z.string().optional(),
+  symbol: z.string().optional(),
+  assetType: z.enum(['equity', 'mutual_fund', 'etf', 'bond', 'gold', 'fd', 'other']),
+  productType: z.string().optional(), // Preserves original type (pms, aif, insurance)
+  quantity: z.number(),
+  averageCost: z.number().optional(),
+  currentValue: z.number(),
+  currentNav: z.number().optional(),
+  investedValue: z.number().optional(),
+  unrealizedGain: z.number().optional(),
+  unrealizedGainPercent: z.number().optional(),
+  folioNumber: z.string().optional(),
+  broker: z.string().optional(),
+  confidenceScore: z.number().optional(),
+  category: z.string().optional()
+});
+
 const customAllocationsSchema = z.object({
   equity: z.number().min(0).max(100),
   debt: z.number().min(0).max(100),
@@ -54,7 +75,7 @@ const generateProposalSchema = z.object({
     mobile: z.string().optional(),
     pan: z.string().optional()
   }),
-  holdings: z.array(portfolioHoldingSchema),
+  holdings: z.array(backendHoldingSchema),
   riskProfile: riskProfileSchema,
   freshInvestmentAmount: z.number().min(0),
   customAllocations: customAllocationsSchema.optional(),
@@ -211,7 +232,7 @@ router.put("/prospects/:id/portfolio", async (req: Request, res: Response) => {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
-    const holdings = z.array(portfolioHoldingSchema).parse(req.body.holdings);
+    const holdings = z.array(backendHoldingSchema).parse(req.body.holdings);
     await agentProspectWizardService.updateProspectPortfolio(req.params.id, holdings);
     res.json({ success: true });
   } catch (error: any) {
@@ -249,7 +270,7 @@ router.post("/analyze-portfolio", async (req: Request, res: Response) => {
     }
 
     const { holdings, riskProfile } = req.body;
-    const parsedHoldings = z.array(portfolioHoldingSchema).parse(holdings);
+    const parsedHoldings = z.array(backendHoldingSchema).parse(holdings);
     const parsedRiskProfile = riskProfileSchema.parse(riskProfile);
     
     const analysis = agentProspectWizardService.analyzePortfolio(parsedHoldings, parsedRiskProfile);
@@ -268,7 +289,7 @@ router.post("/rebalancing-suggestions", async (req: Request, res: Response) => {
     }
 
     const { holdings, riskProfile, analysis } = req.body;
-    const parsedHoldings = z.array(portfolioHoldingSchema).parse(holdings);
+    const parsedHoldings = z.array(backendHoldingSchema).parse(holdings);
     const parsedRiskProfile = riskProfileSchema.parse(riskProfile);
     
     const suggestions = agentProspectWizardService.generateRebalancingRecommendations(
@@ -292,7 +313,7 @@ router.post("/fresh-investment-suggestions", async (req: Request, res: Response)
 
     const { riskProfile, investmentAmount, existingHoldings, customAllocations, selectedCategories } = req.body;
     const parsedRiskProfile = riskProfileSchema.parse(riskProfile);
-    const parsedHoldings = existingHoldings ? z.array(portfolioHoldingSchema).parse(existingHoldings) : [];
+    const parsedHoldings = existingHoldings ? z.array(backendHoldingSchema).parse(existingHoldings) : [];
     const parsedAllocations = customAllocations ? customAllocationsSchema.parse(customAllocations) : undefined;
     
     const suggestions = await agentProspectWizardService.generateFreshInvestmentSuggestions(
@@ -532,7 +553,7 @@ router.post("/prospects/:id/holdings/merge", async (req: Request, res: Response)
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
-    const newHoldings = z.array(portfolioHoldingSchema).parse(req.body.holdings);
+    const newHoldings = z.array(backendHoldingSchema).parse(req.body.holdings);
     const currentHoldings = (prospect.currentPortfolio as any[]) || [];
     
     // Merge: add new holdings with timestamp
