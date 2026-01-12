@@ -242,6 +242,7 @@ export default function StakeholdersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/partners"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stakeholders/stats"] });
       setIsAddPartnerOpen(false);
       toast({ title: "Partner created successfully" });
     },
@@ -260,6 +261,7 @@ export default function StakeholdersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/partners"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stakeholders/stats"] });
       setEditingPartner(null);
       toast({ title: "Partner updated successfully" });
     },
@@ -279,6 +281,7 @@ export default function StakeholdersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/agents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stakeholders/stats"] });
       setIsAddAgentOpen(false);
       toast({ title: "Agent created successfully" });
     },
@@ -297,6 +300,7 @@ export default function StakeholdersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/agents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stakeholders/stats"] });
       setEditingAgent(null);
       toast({ title: "Agent updated successfully" });
     },
@@ -316,6 +320,7 @@ export default function StakeholdersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/suppliers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stakeholders/stats"] });
       setIsAddSupplierOpen(false);
       toast({ title: "Supplier created successfully" });
     },
@@ -334,6 +339,7 @@ export default function StakeholdersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/suppliers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stakeholders/stats"] });
       setEditingSupplier(null);
       toast({ title: "Supplier updated successfully" });
     },
@@ -359,6 +365,7 @@ export default function StakeholdersPage() {
                       variables.type === "agents" ? ["/api/admin/agents"] :
                       ["/api/admin/suppliers"];
       queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stakeholders/stats"] });
       setDeletingItem(null);
       toast({ title: "Deleted successfully" });
     },
