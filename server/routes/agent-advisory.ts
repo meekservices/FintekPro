@@ -652,25 +652,27 @@ export function registerAgentAdvisoryRoutes(app: Express) {
     try {
       const agentId = (req.user as any).id;
       
-      // Fetch from investment_proposals table
-      const rawProposals = await db
-        .select()
-        .from(investmentProposals)
-        .where(eq(investmentProposals.agentId, agentId))
-        .orderBy(desc(investmentProposals.createdAt))
-        .limit(100);
+      // Fetch from investment_proposals table using raw SQL
+      const rawProposalsResult = await db.execute(sql`
+        SELECT id, client_id, agent_id, title, description, is_demo, status,
+               total_investment_amount, created_at, updated_at, valid_until
+        FROM investment_proposals
+        WHERE agent_id = ${agentId}
+        ORDER BY created_at DESC
+        LIMIT 100
+      `);
 
-      const proposals = rawProposals.map((p: any) => ({
+      const proposals = (rawProposalsResult.rows || []).map((p: any) => ({
         id: p.id,
-        clientId: p.clientId,
+        clientId: p.client_id,
         title: p.title,
         description: p.description,
-        isDemo: p.isDemo,
+        isDemo: p.is_demo,
         status: p.status,
-        investmentAmount: p.totalInvestmentAmount,
-        createdAt: p.createdAt,
-        updatedAt: p.updatedAt,
-        expiresAt: p.validUntil,
+        investmentAmount: p.total_investment_amount,
+        createdAt: p.created_at,
+        updatedAt: p.updated_at,
+        expiresAt: p.valid_until,
         source: 'proposal_builder'
       }));
       
@@ -711,16 +713,15 @@ export function registerAgentAdvisoryRoutes(app: Express) {
         proposals.map(async (proposal: any) => {
           let clientName = 'Unknown';
           
-          // Try to get client from users table
+          // Try to get client from users table using raw SQL
           if (proposal.clientId) {
-            const [client] = await db
-              .select({ firstName: users.firstName, lastName: users.lastName, name: users.name })
-              .from(users)
-              .where(eq(users.id, proposal.clientId))
-              .limit(1);
+            const clientResult = await db.execute(sql`
+              SELECT first_name, last_name, name FROM users WHERE id = ${proposal.clientId} LIMIT 1
+            `);
+            const client = clientResult.rows?.[0];
             
             if (client) {
-              clientName = client.name || `${client.firstName || ''} ${client.lastName || ''}`.trim() || 'Unknown';
+              clientName = (client as any).name || `${(client as any).first_name || ''} ${(client as any).last_name || ''}`.trim() || 'Unknown';
             }
           }
           
@@ -741,26 +742,25 @@ export function registerAgentAdvisoryRoutes(app: Express) {
             }
           }
 
-          const [session] = await db
-            .select({ sessionPurpose: advisorySessions.sessionPurpose, workflowState: advisorySessions.workflowState })
-            .from(advisorySessions)
-            .where(eq(advisorySessions.proposalId, proposal.id))
-            .limit(1);
+          // Get session info using raw SQL
+          const sessionResult = await db.execute(sql`
+            SELECT session_purpose, workflow_state FROM advisory_sessions WHERE proposal_id = ${proposal.id} LIMIT 1
+          `);
+          const session = sessionResult.rows?.[0] as any;
 
-          const [share] = await db
-            .select({ sharedAt: proposalShares.createdAt, clientAction: proposalShares.clientAction })
-            .from(proposalShares)
-            .where(eq(proposalShares.proposalId, proposal.id))
-            .orderBy(desc(proposalShares.createdAt))
-            .limit(1);
+          // Get share info using raw SQL
+          const shareResult = await db.execute(sql`
+            SELECT created_at, client_action FROM proposal_shares WHERE proposal_id = ${proposal.id} ORDER BY created_at DESC LIMIT 1
+          `);
+          const share = shareResult.rows?.[0] as any;
 
           return {
             ...proposal,
             clientName,
-            sessionPurpose: session?.sessionPurpose,
-            workflowState: session?.workflowState || 'draft',
+            sessionPurpose: session?.session_purpose,
+            workflowState: session?.workflow_state || 'draft',
             suitabilityPassed: true,
-            sharedAt: share?.sharedAt
+            sharedAt: share?.created_at
           };
         })
       );
