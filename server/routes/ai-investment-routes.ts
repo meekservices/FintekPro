@@ -881,6 +881,68 @@ router.post("/portfolio/:clientId/bulk-import", async (req, res) => {
   }
 });
 
+// POST endpoint for CAS PDF upload
+router.post("/portfolio/:clientId/upload-cas", upload.single('file'), async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    const { parsePDFPortfolio } = await import("../services/portfolio-parser");
+    const result = await parsePDFPortfolio(req.file.buffer, req.file.originalname || 'cas.pdf');
+
+    if (!result.success || result.holdings.length === 0) {
+      return res.status(400).json({
+        error: result.errors?.join('; ') || "Could not parse any holdings from the PDF",
+        rawText: result.rawText?.substring(0, 500)
+      });
+    }
+
+    let [portfolio] = await db
+      .select()
+      .from(portfolios)
+      .where(eq(portfolios.userId, clientId))
+      .limit(1);
+
+    if (!portfolio) {
+      [portfolio] = await db.insert(portfolios).values({
+        userId: clientId,
+        name: "CAS Portfolio",
+        isDefault: true,
+      }).returning();
+    }
+
+    let imported = 0;
+    for (const holding of result.holdings) {
+      const symbol = holding.isin || holding.symbol || holding.name.replace(/[^A-Za-z0-9]/g, '').substring(0, 20);
+      
+      await db.insert(portfolioHoldings).values({
+        portfolioId: portfolio.id,
+        symbol: symbol.toUpperCase(),
+        quantity: String(holding.quantity || 0),
+        avgPrice: String(holding.averageCost || (holding.currentValue / (holding.quantity || 1)) || 0),
+        assetType: holding.assetType === 'mutual_fund' ? 'MF' : 'EQUITY',
+        sector: holding.folioNumber ? `Folio: ${holding.folioNumber}` : undefined,
+      });
+      imported++;
+    }
+
+    res.json({
+      success: true,
+      imported,
+      brokerDetected: result.brokerDetected,
+      confidenceScore: result.confidenceScore,
+      warnings: result.errors,
+      needsManualReview: result.needsManualReview
+    });
+  } catch (error: any) {
+    console.error("Error uploading CAS PDF:", error);
+    res.status(500).json({ error: error.message || "Failed to process PDF" });
+  }
+});
+
 // GET endpoint for portfolio analysis
 router.get("/analyze/:clientId", async (req, res) => {
   try {

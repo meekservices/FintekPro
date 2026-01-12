@@ -30,6 +30,7 @@ import {
   PieChart,
   Target,
   AlertTriangle,
+  AlertCircle,
   CheckCircle2,
   XCircle,
   Clock,
@@ -44,6 +45,7 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowRight,
+  ArrowLeft,
   Calculator,
   Scale,
   Briefcase,
@@ -204,6 +206,8 @@ export default function AgentInvestmentAdvisory() {
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showPasteDialog, setShowPasteDialog] = useState(false);
   const [showCASUploadDialog, setShowCASUploadDialog] = useState(false);
+  const [casFile, setCasFile] = useState<File | null>(null);
+  const [casUploadType, setCasUploadType] = useState<'cas' | 'demat' | null>(null);
   const [pastedText, setPastedText] = useState("");
   const [parsedHoldings, setParsedHoldings] = useState<Array<{symbol: string; name: string; quantity: number; averagePrice: number; assetType: string}>>([]);
   const [parseError, setParseError] = useState<string | null>(null);
@@ -362,6 +366,43 @@ export default function AgentInvestmentAdvisory() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to import holdings", variant: "destructive" });
+    }
+  });
+
+  const casUploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await fetch(`/api/ai-investment/portfolio/${selectedClientId}/upload-cas`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Upload failed');
+      }
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/ai-investment/portfolio', selectedClientId] });
+      setShowCASUploadDialog(false);
+      setCasFile(null);
+      setCasUploadType(null);
+      toast({ 
+        title: "CAS imported successfully", 
+        description: `${data.imported} mutual fund holdings imported${data.brokerDetected ? ` from ${data.brokerDetected}` : ''}` 
+      });
+      if (data.needsManualReview) {
+        toast({
+          title: "Review recommended",
+          description: "Some holdings may need manual verification",
+          variant: "default"
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: "Import failed", description: error.message || "Failed to parse CAS PDF", variant: "destructive" });
     }
   });
 
@@ -860,14 +901,20 @@ TCS     Tata Consultancy        25      3850.00"
               </DialogContent>
             </Dialog>
 
-            <Dialog open={showCASUploadDialog} onOpenChange={setShowCASUploadDialog}>
+            <Dialog open={showCASUploadDialog} onOpenChange={(open) => {
+              setShowCASUploadDialog(open);
+              if (!open) {
+                setCasFile(null);
+                setCasUploadType(null);
+              }
+            }}>
               <DialogTrigger asChild>
                 <Button variant="outline" data-testid="button-import-cas">
                   <FileSpreadsheet className="h-4 w-4 mr-2" />
                   Import CAS/Statement
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-w-lg">
                 <DialogHeader>
                   <DialogTitle>Import Account Statement</DialogTitle>
                   <DialogDescription>
@@ -875,34 +922,122 @@ TCS     Tata Consultancy        25      3850.00"
                   </DialogDescription>
                 </DialogHeader>
                 <div className="py-4 space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <Card className="cursor-pointer hover:border-primary transition-colors">
-                      <CardContent className="p-4 text-center">
-                        <FileTextIcon className="h-8 w-8 mx-auto mb-2 text-blue-600" />
-                        <h4 className="font-medium">CAMS/KFintech CAS</h4>
-                        <p className="text-xs text-muted-foreground">Mutual Fund Statement</p>
-                      </CardContent>
-                    </Card>
-                    <Card className="cursor-pointer hover:border-primary transition-colors">
-                      <CardContent className="p-4 text-center">
-                        <FileSpreadsheet className="h-8 w-8 mx-auto mb-2 text-green-600" />
-                        <h4 className="font-medium">NSDL/CDSL</h4>
-                        <p className="text-xs text-muted-foreground">Demat Statement</p>
-                      </CardContent>
-                    </Card>
-                  </div>
-                  <Alert>
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Coming Soon</AlertTitle>
-                    <AlertDescription>
-                      PDF statement parsing is under development. For now, please use CSV upload or paste from Excel.
-                    </AlertDescription>
-                  </Alert>
+                  {!casUploadType ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      <Card 
+                        className="cursor-pointer hover:border-primary transition-colors"
+                        onClick={() => setCasUploadType('cas')}
+                      >
+                        <CardContent className="p-4 text-center">
+                          <FileTextIcon className="h-8 w-8 mx-auto mb-2 text-blue-600" />
+                          <h4 className="font-medium">CAMS/KFintech CAS</h4>
+                          <p className="text-xs text-muted-foreground">Mutual Fund Statement</p>
+                        </CardContent>
+                      </Card>
+                      <Card 
+                        className="cursor-pointer hover:border-primary transition-colors opacity-60"
+                        onClick={() => setCasUploadType('demat')}
+                      >
+                        <CardContent className="p-4 text-center">
+                          <FileSpreadsheet className="h-8 w-8 mx-auto mb-2 text-green-600" />
+                          <h4 className="font-medium">NSDL/CDSL</h4>
+                          <p className="text-xs text-muted-foreground">Demat Statement (Beta)</p>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Button variant="ghost" size="sm" onClick={() => setCasUploadType(null)}>
+                          <ArrowLeft className="h-4 w-4 mr-1" />
+                          Back
+                        </Button>
+                        <span className="font-medium">
+                          {casUploadType === 'cas' ? 'CAMS/KFintech CAS' : 'NSDL/CDSL Statement'}
+                        </span>
+                      </div>
+                      
+                      <div 
+                        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                          casFile ? 'border-green-500 bg-green-50 dark:bg-green-950' : 'border-muted-foreground/25 hover:border-primary'
+                        }`}
+                      >
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          className="hidden"
+                          id="cas-file-input"
+                          onChange={(e) => setCasFile(e.target.files?.[0] || null)}
+                        />
+                        <label htmlFor="cas-file-input" className="cursor-pointer block">
+                          {casFile ? (
+                            <>
+                              <CheckCircle2 className="h-10 w-10 mx-auto mb-2 text-green-600" />
+                              <p className="font-medium">{casFile.name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {(casFile.size / 1024).toFixed(1)} KB · Click to change
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
+                              <p className="font-medium">Drop your PDF here or click to browse</p>
+                              <p className="text-sm text-muted-foreground">
+                                Supports {casUploadType === 'cas' ? 'CAMS and KFintech CAS' : 'NSDL and CDSL'} PDF statements
+                              </p>
+                            </>
+                          )}
+                        </label>
+                      </div>
+                      
+                      {casUploadType === 'cas' && (
+                        <Alert>
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertTitle>Tip</AlertTitle>
+                          <AlertDescription>
+                            You can download your CAS from MFCentral, CAMSOnline, or KFintech portal. Make sure it's the detailed statement with unit balance.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                      
+                      {casUploadType === 'demat' && (
+                        <Alert>
+                          <AlertTriangle className="h-4 w-4" />
+                          <AlertTitle>Beta Feature</AlertTitle>
+                          <AlertDescription>
+                            Demat statement parsing is in beta. Some holdings may require manual verification after import.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setShowCASUploadDialog(false)}>
-                    Close
+                  <Button variant="outline" onClick={() => {
+                    setShowCASUploadDialog(false);
+                    setCasFile(null);
+                    setCasUploadType(null);
+                  }}>
+                    Cancel
                   </Button>
+                  {casUploadType && casFile && (
+                    <Button 
+                      onClick={() => casUploadMutation.mutate(casFile)}
+                      disabled={casUploadMutation.isPending}
+                    >
+                      {casUploadMutation.isPending ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-2" />
+                          Import Statement
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </DialogFooter>
               </DialogContent>
             </Dialog>

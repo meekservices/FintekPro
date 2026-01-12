@@ -58,6 +58,17 @@ interface ParseResult {
 }
 
 const BROKER_PATTERNS: Record<string, { name: string; patterns: RegExp[] }> = {
+  cas: {
+    name: 'CAMS/KFintech CAS',
+    patterns: [
+      /consolidated\s*account\s*statement/i,
+      /cams.*statement/i,
+      /kfintech.*statement/i,
+      /mutual\s*fund.*statement/i,
+      /CAS\s*Report/i,
+      /CAS\s*Summary/i
+    ]
+  },
   zerodha: {
     name: 'Zerodha',
     patterns: [/zerodha/i, /kite/i, /console\.zerodha/i, /holdings.*zerodha/i]
@@ -202,6 +213,110 @@ function parseMFCentralFormat(text: string): ImportedHolding[] {
         broker: 'MF Central',
         confidenceScore: 85
       });
+    }
+  }
+  
+  return holdings;
+}
+
+// CAS (Consolidated Account Statement) PDF parser for CAMS/KFintech statements
+function parseCASFormat(text: string): ImportedHolding[] {
+  const holdings: ImportedHolding[] = [];
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  
+  let currentAMC = '';
+  let currentFolio = '';
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    
+    // Detect AMC headers (e.g., "AXIS MUTUAL FUND", "SBI MUTUAL FUND")
+    if (/^[A-Z\s]+MUTUAL FUND$/i.test(line) || /^[A-Z\s]+AMC/i.test(line)) {
+      currentAMC = line.trim();
+      continue;
+    }
+    
+    // Detect folio number (e.g., "Folio No: 1234567890")
+    const folioMatch = line.match(/Folio\s*(?:No\.?|Number)?[:\s]+(\d+(?:\/\d+)?)/i);
+    if (folioMatch) {
+      currentFolio = folioMatch[1];
+      continue;
+    }
+    
+    // CAS format: Fund Name, Units, NAV, Market Value
+    // Pattern 1: "Scheme Name | Units: X.XXX | NAV: ₹Y.YY | Value: ₹Z,ZZZ.ZZ"
+    const casPattern1 = /([A-Za-z0-9\s\-&()]+(?:Fund|Scheme|Plan|Growth|IDCW|Direct|Regular)[A-Za-z0-9\s\-&()]*)\s*[\|:]\s*Units?[:\s]+(\d+(?:\.\d+)?)\s*[\|:]\s*NAV[:\s]+₹?(\d+(?:,?\d+)*(?:\.\d+)?)\s*[\|:]\s*(?:Value|Market\s*Value)[:\s]+₹?(\d+(?:,?\d+)*(?:\.\d+)?)/i;
+    
+    // Pattern 2: Multi-line format
+    // Line 1: Scheme name
+    // Line 2: Units: X.XXX NAV: ₹Y.YY
+    // Line 3: Value: ₹Z,ZZZ.ZZ
+    
+    // Pattern 3: Table format with columns (common in CAS PDFs)
+    // "Scheme Name    Units    NAV    Value"
+    const casPattern3 = /^(.+?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:,\d+)*(?:\.\d+)?)\s*$/;
+    
+    let match = line.match(casPattern1);
+    if (match) {
+      const [, name, units, nav, value] = match;
+      holdings.push({
+        id: `cas-${Date.now()}-${holdings.length}`,
+        name: name.trim(),
+        assetType: 'mutual_fund',
+        quantity: parseFloat(units),
+        currentNav: parseFloat(nav.replace(/,/g, '')),
+        currentValue: parseFloat(value.replace(/,/g, '')),
+        folioNumber: currentFolio,
+        broker: 'CAMS/KFintech',
+        confidenceScore: 90
+      });
+      continue;
+    }
+    
+    // Try pattern 3 for table rows
+    match = line.match(casPattern3);
+    if (match) {
+      const [, name, units, nav, value] = match;
+      const schemeName = name.trim();
+      // Skip header rows and non-fund lines
+      if (/^(scheme|fund|name|units|nav|value|balance|date)/i.test(schemeName)) continue;
+      if (parseFloat(units) > 0 && parseFloat(value.replace(/,/g, '')) > 0) {
+        holdings.push({
+          id: `cas-${Date.now()}-${holdings.length}`,
+          name: schemeName,
+          assetType: 'mutual_fund',
+          quantity: parseFloat(units),
+          currentNav: parseFloat(nav),
+          currentValue: parseFloat(value.replace(/,/g, '')),
+          folioNumber: currentFolio,
+          broker: 'CAMS/KFintech',
+          confidenceScore: 85
+        });
+      }
+      continue;
+    }
+    
+    // Pattern for CAS value extraction (scheme name on one line, values below)
+    const schemeMatch = line.match(/^([A-Za-z0-9\s\-&()]+(?:Fund|Scheme|Plan|Growth|IDCW|Direct|Regular)[A-Za-z0-9\s\-&()]*)$/i);
+    if (schemeMatch && i + 2 < lines.length) {
+      const schemeName = schemeMatch[1].trim();
+      const nextLines = lines.slice(i + 1, i + 4).join(' ');
+      
+      const valuesMatch = nextLines.match(/(?:Units?|Balance)[:\s]+(\d+(?:\.\d+)?)\s*.*?NAV[:\s]+₹?(\d+(?:\.\d+)?)\s*.*?(?:Value|Market|Amount)[:\s]+₹?(\d+(?:,?\d+)*(?:\.\d+)?)/i);
+      if (valuesMatch) {
+        const [, units, nav, value] = valuesMatch;
+        holdings.push({
+          id: `cas-${Date.now()}-${holdings.length}`,
+          name: schemeName,
+          assetType: 'mutual_fund',
+          quantity: parseFloat(units),
+          currentNav: parseFloat(nav),
+          currentValue: parseFloat(value.replace(/,/g, '')),
+          folioNumber: currentFolio,
+          broker: 'CAMS/KFintech',
+          confidenceScore: 80
+        });
+      }
     }
   }
   
@@ -480,7 +595,9 @@ export async function parsePDFPortfolio(buffer: Buffer, fileName: string): Promi
     const expectedCountMatch = text.match(/MUTUAL FUNDS\s*\((\d+)\)/i);
     const expectedCount = expectedCountMatch ? parseInt(expectedCountMatch[1], 10) : undefined;
     
-    if (broker === 'Wealthy.in') {
+    if (broker === 'CAMS/KFintech CAS') {
+      holdings = parseCASFormat(text);
+    } else if (broker === 'Wealthy.in') {
       holdings = parseWealthyPDFFormat(text);
     } else if (broker === 'Zerodha') {
       holdings = parseZerodhaFormat(text);
@@ -490,7 +607,12 @@ export async function parsePDFPortfolio(buffer: Buffer, fileName: string): Promi
       holdings = parseMFCentralFormat(text);
     }
     
-    // If no holdings found with specific parser, try Wealthy format (common PDF format)
+    // If no holdings found with specific parser, try CAS format first (common for MF statements)
+    if (holdings.length === 0) {
+      holdings = parseCASFormat(text);
+    }
+    
+    // If still no holdings, try Wealthy format (common PDF format)
     if (holdings.length === 0) {
       holdings = parseWealthyPDFFormat(text);
     }
