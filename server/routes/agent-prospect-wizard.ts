@@ -370,4 +370,189 @@ router.get("/public/proposal/:token", async (req: Request, res: Response) => {
   }
 });
 
+// ============ PORTFOLIO HOLDINGS CRUD ============
+
+// GET saved holdings for a prospect
+router.get("/prospects/:id/holdings", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const prospect = await agentProspectWizardService.getProspect(req.params.id);
+    if (!prospect) {
+      return res.status(404).json({ success: false, message: "Prospect not found" });
+    }
+    if (prospect.agentId !== agentId) {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+
+    const holdings = (prospect.currentPortfolio as any[]) || [];
+    res.json({ success: true, holdings });
+  } catch (error: any) {
+    console.error("[Agent Wizard] Error fetching holdings:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ADD a single holding to prospect's portfolio
+router.post("/prospects/:id/holdings", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const prospect = await agentProspectWizardService.getProspect(req.params.id);
+    if (!prospect) {
+      return res.status(404).json({ success: false, message: "Prospect not found" });
+    }
+    if (prospect.agentId !== agentId) {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+
+    const newHolding = portfolioHoldingSchema.parse(req.body);
+    const currentHoldings = (prospect.currentPortfolio as any[]) || [];
+    const updatedHoldings = [...currentHoldings, { ...newHolding, addedAt: new Date().toISOString() }];
+
+    await agentProspectWizardService.updateProspectPortfolio(req.params.id, updatedHoldings);
+    res.json({ success: true, holdings: updatedHoldings, message: "Holding added successfully" });
+  } catch (error: any) {
+    console.error("[Agent Wizard] Error adding holding:", error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+// EDIT a specific holding by index
+router.put("/prospects/:id/holdings/:holdingIndex", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const prospect = await agentProspectWizardService.getProspect(req.params.id);
+    if (!prospect) {
+      return res.status(404).json({ success: false, message: "Prospect not found" });
+    }
+    if (prospect.agentId !== agentId) {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+
+    const holdingIndex = parseInt(req.params.holdingIndex);
+    const currentHoldings = (prospect.currentPortfolio as any[]) || [];
+    
+    if (holdingIndex < 0 || holdingIndex >= currentHoldings.length) {
+      return res.status(404).json({ success: false, message: "Holding not found" });
+    }
+
+    const updatedHolding = portfolioHoldingSchema.parse(req.body);
+    const updatedHoldings = [...currentHoldings];
+    updatedHoldings[holdingIndex] = { ...updatedHolding, updatedAt: new Date().toISOString() };
+
+    await agentProspectWizardService.updateProspectPortfolio(req.params.id, updatedHoldings);
+    res.json({ success: true, holdings: updatedHoldings, message: "Holding updated successfully" });
+  } catch (error: any) {
+    console.error("[Agent Wizard] Error updating holding:", error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+// DELETE a specific holding by index
+router.delete("/prospects/:id/holdings/:holdingIndex", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const prospect = await agentProspectWizardService.getProspect(req.params.id);
+    if (!prospect) {
+      return res.status(404).json({ success: false, message: "Prospect not found" });
+    }
+    if (prospect.agentId !== agentId) {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+
+    const holdingIndex = parseInt(req.params.holdingIndex);
+    const currentHoldings = (prospect.currentPortfolio as any[]) || [];
+    
+    if (holdingIndex < 0 || holdingIndex >= currentHoldings.length) {
+      return res.status(404).json({ success: false, message: "Holding not found" });
+    }
+
+    const updatedHoldings = currentHoldings.filter((_, index) => index !== holdingIndex);
+
+    await agentProspectWizardService.updateProspectPortfolio(req.params.id, updatedHoldings);
+    res.json({ success: true, holdings: updatedHoldings, message: "Holding deleted successfully" });
+  } catch (error: any) {
+    console.error("[Agent Wizard] Error deleting holding:", error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+// RESET all holdings (clear portfolio)
+router.delete("/prospects/:id/holdings", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const prospect = await agentProspectWizardService.getProspect(req.params.id);
+    if (!prospect) {
+      return res.status(404).json({ success: false, message: "Prospect not found" });
+    }
+    if (prospect.agentId !== agentId) {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+
+    await agentProspectWizardService.updateProspectPortfolio(req.params.id, []);
+    res.json({ success: true, holdings: [], message: "Portfolio reset successfully" });
+  } catch (error: any) {
+    console.error("[Agent Wizard] Error resetting portfolio:", error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+// MERGE uploaded holdings with existing portfolio
+router.post("/prospects/:id/holdings/merge", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const prospect = await agentProspectWizardService.getProspect(req.params.id);
+    if (!prospect) {
+      return res.status(404).json({ success: false, message: "Prospect not found" });
+    }
+    if (prospect.agentId !== agentId) {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+
+    const newHoldings = z.array(portfolioHoldingSchema).parse(req.body.holdings);
+    const currentHoldings = (prospect.currentPortfolio as any[]) || [];
+    
+    // Merge: add new holdings with timestamp
+    const mergedHoldings = [
+      ...currentHoldings,
+      ...newHoldings.map(h => ({ ...h, addedAt: new Date().toISOString(), source: 'upload' }))
+    ];
+
+    await agentProspectWizardService.updateProspectPortfolio(req.params.id, mergedHoldings);
+    res.json({ 
+      success: true, 
+      holdings: mergedHoldings, 
+      message: `${newHoldings.length} holdings merged successfully`,
+      addedCount: newHoldings.length,
+      totalCount: mergedHoldings.length
+    });
+  } catch (error: any) {
+    console.error("[Agent Wizard] Error merging holdings:", error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
 export default router;

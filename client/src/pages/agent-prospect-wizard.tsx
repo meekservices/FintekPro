@@ -24,8 +24,10 @@ import {
   TrendingUp, TrendingDown, Sparkles, Share2, Mail, MessageSquare, 
   Copy, ExternalLink, Plus, Trash2, Loader2, CheckCircle, AlertTriangle,
   IndianRupee, Percent, Clock, Shield, Zap, RefreshCw, Search, Users, Download,
-  Upload, Link, FileText, AlertCircle, Settings2, Globe, ChevronUp, ChevronDown, Info
+  Upload, Link, FileText, AlertCircle, Settings2, Globe, ChevronUp, ChevronDown, Info,
+  Pencil, RotateCcw, Save, X
 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import jsPDF from "jspdf";
 
 interface PortfolioHolding {
@@ -323,6 +325,9 @@ export default function AgentProspectWizard() {
     quantity: 1,
     currentValue: 0
   });
+  const [editingHoldingIndex, setEditingHoldingIndex] = useState<number | null>(null);
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [savedHoldingsLoaded, setSavedHoldingsLoaded] = useState(false);
 
   const [freshInvestmentAmount, setFreshInvestmentAmount] = useState(0);
   const [analysis, setAnalysis] = useState<PortfolioAnalysis | null>(null);
@@ -747,6 +752,39 @@ export default function AgentProspectWizard() {
     }
   }, [urlProspectId, existingProspects]);
 
+  // Load saved holdings when prospect is selected
+  useEffect(() => {
+    const loadSavedHoldings = async () => {
+      if (prospectId && !savedHoldingsLoaded) {
+        try {
+          const response = await fetch(`/api/agent-wizard/prospects/${prospectId}/holdings`, {
+            credentials: 'include'
+          });
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.holdings && data.holdings.length > 0) {
+              setHoldings(data.holdings);
+              toast({ 
+                title: "Portfolio Loaded", 
+                description: `${data.holdings.length} saved holdings loaded from previous session` 
+              });
+            }
+          }
+          setSavedHoldingsLoaded(true);
+        } catch (error) {
+          console.error("Error loading saved holdings:", error);
+          setSavedHoldingsLoaded(true);
+        }
+      }
+    };
+    loadSavedHoldings();
+  }, [prospectId, savedHoldingsLoaded]);
+
+  // Reset savedHoldingsLoaded when prospect changes
+  useEffect(() => {
+    setSavedHoldingsLoaded(false);
+  }, [prospectId]);
+
   useEffect(() => {
     // When risk profile changes, reset both allocations AND categories to defaults
     const defaultAllocations = DEFAULT_ALLOCATIONS[riskProfile.riskTolerance];
@@ -1062,17 +1100,142 @@ export default function AgentProspectWizard() {
     }
   });
 
+  // Portfolio CRUD Mutations
+  const addHoldingMutation = useMutation({
+    mutationFn: async (holding: PortfolioHolding) => {
+      if (!prospectId) throw new Error("No prospect selected");
+      return await apiRequest(`/api/agent-wizard/prospects/${prospectId}/holdings`, {
+        method: "POST",
+        body: JSON.stringify(holding)
+      });
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        setHoldings(data.holdings);
+        toast({ title: "Holding Added", description: "Investment saved to portfolio" });
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const updateHoldingMutation = useMutation({
+    mutationFn: async ({ index, holding }: { index: number; holding: PortfolioHolding }) => {
+      if (!prospectId) throw new Error("No prospect selected");
+      return await apiRequest(`/api/agent-wizard/prospects/${prospectId}/holdings/${index}`, {
+        method: "PUT",
+        body: JSON.stringify(holding)
+      });
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        setHoldings(data.holdings);
+        setEditingHoldingIndex(null);
+        toast({ title: "Holding Updated", description: "Investment updated successfully" });
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const deleteHoldingMutation = useMutation({
+    mutationFn: async (index: number) => {
+      if (!prospectId) throw new Error("No prospect selected");
+      return await apiRequest(`/api/agent-wizard/prospects/${prospectId}/holdings/${index}`, {
+        method: "DELETE"
+      });
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        setHoldings(data.holdings);
+        toast({ title: "Holding Removed", description: "Investment removed from portfolio" });
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const resetPortfolioMutation = useMutation({
+    mutationFn: async () => {
+      if (!prospectId) throw new Error("No prospect selected");
+      return await apiRequest(`/api/agent-wizard/prospects/${prospectId}/holdings`, {
+        method: "DELETE"
+      });
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        setHoldings([]);
+        setShowResetDialog(false);
+        toast({ title: "Portfolio Reset", description: "All holdings cleared. You can now upload a fresh portfolio." });
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  });
+
   const addHolding = () => {
     if (!newHolding.productName || !newHolding.currentValue) {
       toast({ title: "Missing Fields", description: "Enter product name and value.", variant: "destructive" });
       return;
     }
-    setHoldings([...holdings, newHolding as PortfolioHolding]);
+    
+    const holdingToAdd = newHolding as PortfolioHolding;
+    
+    if (prospectId) {
+      addHoldingMutation.mutate(holdingToAdd);
+    } else {
+      setHoldings([...holdings, holdingToAdd]);
+    }
     setNewHolding({ productType: "mutual_fund", productName: "", quantity: 1, currentValue: 0 });
   };
 
   const removeHolding = (index: number) => {
-    setHoldings(holdings.filter((_, i) => i !== index));
+    if (prospectId) {
+      deleteHoldingMutation.mutate(index);
+    } else {
+      setHoldings(holdings.filter((_, i) => i !== index));
+    }
+  };
+
+  const startEditHolding = (index: number) => {
+    const holdingToEdit = holdings[index];
+    setEditingHoldingIndex(index);
+    setNewHolding({
+      productType: holdingToEdit.productType,
+      productName: holdingToEdit.productName,
+      quantity: holdingToEdit.quantity,
+      currentValue: holdingToEdit.currentValue
+    });
+    setImportMode('manual');
+  };
+
+  const saveEditHolding = () => {
+    if (editingHoldingIndex === null) return;
+    if (!newHolding.productName || !newHolding.currentValue) {
+      toast({ title: "Missing Fields", description: "Enter product name and value.", variant: "destructive" });
+      return;
+    }
+    
+    const updatedHolding = newHolding as PortfolioHolding;
+    
+    if (prospectId) {
+      updateHoldingMutation.mutate({ index: editingHoldingIndex, holding: updatedHolding });
+    } else {
+      const updatedHoldings = [...holdings];
+      updatedHoldings[editingHoldingIndex] = updatedHolding;
+      setHoldings(updatedHoldings);
+      setEditingHoldingIndex(null);
+    }
+    setNewHolding({ productType: "mutual_fund", productName: "", quantity: 1, currentValue: 0 });
+  };
+
+  const cancelEditHolding = () => {
+    setEditingHoldingIndex(null);
+    setNewHolding({ productType: "mutual_fund", productName: "", quantity: 1, currentValue: 0 });
   };
 
   const steps = [
@@ -1578,78 +1741,147 @@ export default function AgentProspectWizard() {
 
             {/* Manual Entry Section */}
             {importMode === 'manual' && (
-            <div className="grid md:grid-cols-5 gap-3 items-end p-4 bg-muted/30 rounded-lg">
-              <div className="space-y-2">
-                <Label>Product Type</Label>
-                <Select value={newHolding.productType} onValueChange={(v) => setNewHolding({ ...newHolding, productType: v })}>
-                  <SelectTrigger data-testid="product-type-select">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PRODUCT_TYPES.map(type => (
-                      <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="p-4 bg-muted/30 rounded-lg space-y-3">
+              {editingHoldingIndex !== null && (
+                <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-2 rounded">
+                  <Pencil className="h-4 w-4" />
+                  Editing holding #{editingHoldingIndex + 1}
+                </div>
+              )}
+              <div className="grid md:grid-cols-5 gap-3 items-end">
+                <div className="space-y-2">
+                  <Label>Product Type</Label>
+                  <Select value={newHolding.productType} onValueChange={(v) => setNewHolding({ ...newHolding, productType: v })}>
+                    <SelectTrigger data-testid="product-type-select">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PRODUCT_TYPES.map(type => (
+                        <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Product Name</Label>
+                  <Input 
+                    placeholder="HDFC Flexi Cap Fund"
+                    value={newHolding.productName}
+                    onChange={(e) => setNewHolding({ ...newHolding, productName: e.target.value })}
+                    data-testid="product-name-input"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Current Value (₹)</Label>
+                  <Input 
+                    type="number"
+                    placeholder="100000"
+                    value={newHolding.currentValue || ''}
+                    onChange={(e) => setNewHolding({ ...newHolding, currentValue: parseFloat(e.target.value) || 0 })}
+                    data-testid="product-value-input"
+                  />
+                </div>
+                {editingHoldingIndex !== null ? (
+                  <div className="flex gap-2">
+                    <Button onClick={saveEditHolding} size="sm" data-testid="save-holding-btn" disabled={updateHoldingMutation.isPending}>
+                      {updateHoldingMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    </Button>
+                    <Button onClick={cancelEditHolding} size="sm" variant="outline" data-testid="cancel-edit-btn">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <Button onClick={addHolding} data-testid="add-holding-btn" disabled={addHoldingMutation.isPending}>
+                    {addHoldingMutation.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />} Add
+                  </Button>
+                )}
               </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label>Product Name</Label>
-                <Input 
-                  placeholder="HDFC Flexi Cap Fund"
-                  value={newHolding.productName}
-                  onChange={(e) => setNewHolding({ ...newHolding, productName: e.target.value })}
-                  data-testid="product-name-input"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Current Value (₹)</Label>
-                <Input 
-                  type="number"
-                  placeholder="100000"
-                  value={newHolding.currentValue || ''}
-                  onChange={(e) => setNewHolding({ ...newHolding, currentValue: parseFloat(e.target.value) || 0 })}
-                  data-testid="product-value-input"
-                />
-              </div>
-              <Button onClick={addHolding} data-testid="add-holding-btn">
-                <Plus className="h-4 w-4 mr-1" /> Add
-              </Button>
             </div>
             )}
 
             {/* Holdings Table - Always visible */}
             {holdings.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Product</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Value</TableHead>
-                    <TableHead className="w-12"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {holdings.map((holding, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell className="font-medium">{holding.productName}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{PRODUCT_TYPES.find(t => t.value === holding.productType)?.label}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right">{formatCurrency(holding.currentValue)}</TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="icon" onClick={() => removeHolding(idx)} data-testid={`remove-holding-${idx}`}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </TableCell>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    {holdings.length} investment{holdings.length !== 1 ? 's' : ''} saved
+                  </p>
+                  <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" data-testid="reset-portfolio-btn">
+                        <RotateCcw className="h-4 w-4 mr-1" /> Reset Portfolio
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Reset Portfolio?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will clear all {holdings.length} holdings from the portfolio. You can then upload a fresh portfolio or add new holdings manually. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={() => resetPortfolioMutation.mutate()}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          disabled={resetPortfolioMutation.isPending}
+                        >
+                          {resetPortfolioMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                          Reset All Holdings
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Product</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead className="text-right">Value</TableHead>
+                      <TableHead className="w-24 text-center">Actions</TableHead>
                     </TableRow>
-                  ))}
-                  <TableRow className="bg-muted/50">
-                    <TableCell colSpan={2} className="font-semibold">Total Portfolio Value</TableCell>
-                    <TableCell className="text-right font-bold text-lg">{formatCurrency(totalPortfolioValue)}</TableCell>
-                    <TableCell></TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {holdings.map((holding, idx) => (
+                      <TableRow key={idx} className={editingHoldingIndex === idx ? 'bg-amber-50 dark:bg-amber-900/20' : ''}>
+                        <TableCell className="font-medium">{holding.productName}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{PRODUCT_TYPES.find(t => t.value === holding.productType)?.label}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">{formatCurrency(holding.currentValue)}</TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => startEditHolding(idx)} 
+                              data-testid={`edit-holding-${idx}`}
+                              disabled={editingHoldingIndex !== null}
+                            >
+                              <Pencil className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => removeHolding(idx)} 
+                              data-testid={`remove-holding-${idx}`}
+                              disabled={deleteHoldingMutation.isPending || editingHoldingIndex !== null}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="bg-muted/50">
+                      <TableCell colSpan={2} className="font-semibold">Total Portfolio Value</TableCell>
+                      <TableCell className="text-right font-bold text-lg">{formatCurrency(totalPortfolioValue)}</TableCell>
+                      <TableCell></TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 <PieChart className="h-12 w-12 mx-auto mb-3 opacity-30" />
