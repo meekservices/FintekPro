@@ -19,7 +19,8 @@ import {
   X,
   RefreshCw,
   Pencil,
-  Trash2
+  Trash2,
+  Eye
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -162,6 +163,8 @@ export default function StakeholdersPage() {
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [viewingClient, setViewingClient] = useState<User | null>(null);
+  const [editingClient, setEditingClient] = useState<User | null>(null);
   const [deletingItem, setDeletingItem] = useState<{ id: string; type: StakeholderType; name: string } | null>(null);
 
   const queryParams = useMemo(() => ({
@@ -358,13 +361,15 @@ export default function StakeholdersPage() {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async ({ id, type }: { id: string; type: StakeholderType }) => {
-      const endpoint = type === "partners" ? `/api/admin/partners/${id}` :
+      const endpoint = type === "clients" ? `/api/admin/users/${id}` :
+                      type === "partners" ? `/api/admin/partners/${id}` :
                       type === "agents" ? `/api/admin/agents/${id}` :
                       `/api/admin/suppliers/${id}`;
       return apiRequest(endpoint, "DELETE");
     },
     onSuccess: (_, variables) => {
-      const queryKey = variables.type === "partners" ? ["/api/admin/partners"] :
+      const queryKey = variables.type === "clients" ? ["/api/stakeholders/clients"] :
+                      variables.type === "partners" ? ["/api/admin/partners"] :
                       variables.type === "agents" ? ["/api/admin/agents"] :
                       ["/api/admin/suppliers"];
       queryClient.invalidateQueries({ queryKey });
@@ -844,15 +849,34 @@ export default function StakeholdersPage() {
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem>View Details</DropdownMenuItem>
-                              <DropdownMenuItem>Edit Profile</DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => setViewingClient(user)}
+                                data-testid={`button-view-client-${user.id}`}
+                              >
+                                <Eye className="h-4 w-4 mr-2" />
+                                View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => setEditingClient(user)}
+                                data-testid={`button-edit-client-${user.id}`}
+                              >
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Edit Profile
+                              </DropdownMenuItem>
                               <DropdownMenuItem 
                                 onClick={() => handleStatusToggle(user.id, "clients", user.status)}
                               >
                                 {user.status === "active" ? "Deactivate" : "Activate"}
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
+                              <DropdownMenuItem 
+                                className="text-red-600"
+                                onClick={() => setDeletingItem({ id: user.id, type: "clients", name: user.fullName })}
+                                data-testid={`button-delete-client-${user.id}`}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -1610,6 +1634,145 @@ export default function StakeholdersPage() {
                 </Button>
                 <Button type="submit" disabled={updateSupplierMutation.isPending} data-testid="button-submit-edit-supplier">
                   {updateSupplierMutation.isPending ? "Updating..." : "Update Supplier"}
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Client Dialog */}
+      <Dialog open={!!viewingClient} onOpenChange={(open) => !open && setViewingClient(null)}>
+        <DialogContent className="max-w-md" data-testid="dialog-view-client">
+          <DialogHeader>
+            <DialogTitle>Client Details</DialogTitle>
+            <DialogDescription>View client information</DialogDescription>
+          </DialogHeader>
+          {viewingClient && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm text-muted-foreground">User ID</Label>
+                  <p className="font-mono text-sm">{viewingClient.userId}</p>
+                </div>
+                <div>
+                  <Label className="text-sm text-muted-foreground">Full Name</Label>
+                  <p className="font-medium">{viewingClient.fullName}</p>
+                </div>
+                <div>
+                  <Label className="text-sm text-muted-foreground">Email</Label>
+                  <p className="text-sm">{viewingClient.email}</p>
+                </div>
+                <div>
+                  <Label className="text-sm text-muted-foreground">Mobile</Label>
+                  <p className="text-sm">{viewingClient.mobile || "N/A"}</p>
+                </div>
+                <div>
+                  <Label className="text-sm text-muted-foreground">Status</Label>
+                  <Badge variant={viewingClient.status === "active" ? "default" : "secondary"}>
+                    {viewingClient.status}
+                  </Badge>
+                </div>
+                <div>
+                  <Label className="text-sm text-muted-foreground">KYC Status</Label>
+                  <Badge 
+                    variant={viewingClient.kycStatus === "approved" ? "default" : "secondary"}
+                    className={
+                      viewingClient.kycStatus === "approved" ? "bg-green-100 text-green-800" :
+                      viewingClient.kycStatus === "pending" ? "bg-yellow-100 text-yellow-800" :
+                      "bg-muted"
+                    }
+                  >
+                    {viewingClient.kycStatus || "Not Started"}
+                  </Badge>
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-sm text-muted-foreground">Roles</Label>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {(viewingClient.roles || []).map((role) => (
+                      <Badge key={role} variant="outline" className="text-xs">
+                        {role}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => setViewingClient(null)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Client Dialog */}
+      <Dialog open={!!editingClient} onOpenChange={(open) => !open && setEditingClient(null)}>
+        <DialogContent className="max-w-md" data-testid="dialog-edit-client">
+          <DialogHeader>
+            <DialogTitle>Edit Client</DialogTitle>
+            <DialogDescription>Update client information</DialogDescription>
+          </DialogHeader>
+          {editingClient && (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const data = {
+                  fullName: formData.get("fullName") as string,
+                  email: formData.get("email") as string,
+                  mobile: formData.get("mobile") as string,
+                };
+                try {
+                  await apiRequest(`/api/admin/users/${editingClient.id}`, "PATCH", { body: data });
+                  queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/stakeholders/clients"] });
+                  setEditingClient(null);
+                  toast({ title: "Client updated successfully" });
+                } catch (error: any) {
+                  toast({
+                    title: "Failed to update client",
+                    description: error.message || "An error occurred",
+                    variant: "destructive",
+                  });
+                }
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <Label htmlFor="fullName">Full Name</Label>
+                <Input
+                  id="fullName"
+                  name="fullName"
+                  defaultValue={editingClient.fullName}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  defaultValue={editingClient.email}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="mobile">Mobile</Label>
+                <Input
+                  id="mobile"
+                  name="mobile"
+                  defaultValue={editingClient.mobile || ""}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setEditingClient(null)}>
+                  Cancel
+                </Button>
+                <Button type="submit">
+                  Update Client
                 </Button>
               </div>
             </form>
