@@ -716,12 +716,12 @@ export function registerAgentAdvisoryRoutes(app: Express) {
           // Try to get client from users table using raw SQL
           if (proposal.clientId) {
             const clientResult = await db.execute(sql`
-              SELECT first_name, last_name, name FROM users WHERE id = ${proposal.clientId} LIMIT 1
+              SELECT first_name, last_name FROM users WHERE id = ${proposal.clientId} LIMIT 1
             `);
             const client = clientResult.rows?.[0];
             
             if (client) {
-              clientName = (client as any).name || `${(client as any).first_name || ''} ${(client as any).last_name || ''}`.trim() || 'Unknown';
+              clientName = `${(client as any).first_name || ''} ${(client as any).last_name || ''}`.trim() || 'Unknown';
             }
           }
           
