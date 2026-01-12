@@ -427,6 +427,61 @@ export interface FreshInvestmentSuggestion {
   highlights: string[];
 }
 
+// Server-side asset type mapping (mirrors frontend mapToAssetType)
+function serverMapToAssetType(productType: string): string {
+  const assetTypeMap: Record<string, string> = {
+    'mutual_fund': 'mutual_fund',
+    'equity': 'equity',
+    'etf': 'etf',
+    'bond': 'bond',
+    'fd': 'fd',
+    'gold': 'gold',
+    'pms': 'other',
+    'aif': 'other',
+    'insurance': 'other',
+    'other': 'other'
+  };
+  return assetTypeMap[productType] || 'other';
+}
+
+// Normalize a holding to canonical format: {name, assetType, productType, ...}
+// This ensures consistent field naming regardless of whether data comes from
+// frontend (productName/productType) or backend (name/assetType)
+function normalizeHolding(raw: any): ProspectPortfolioHolding {
+  const name = raw.name || raw.productName || 'Unknown';
+  const productType = raw.productType || raw.assetType || 'other';
+  const assetType = raw.assetType || serverMapToAssetType(productType);
+  
+  return {
+    name,
+    assetType,
+    productType,
+    quantity: raw.quantity ?? 1,
+    currentValue: raw.currentValue ?? 0,
+    purchasePrice: raw.purchasePrice,
+    purchaseDate: raw.purchaseDate,
+    averageCost: raw.averageCost,
+    currentNav: raw.currentNav,
+    investedValue: raw.investedValue,
+    unrealizedGain: raw.unrealizedGain,
+    unrealizedGainPercent: raw.unrealizedGainPercent,
+    isin: raw.isin,
+    symbol: raw.symbol,
+    folioNumber: raw.folioNumber,
+    broker: raw.broker,
+    confidenceScore: raw.confidenceScore,
+    category: raw.category,
+    id: raw.id,
+    addedAt: raw.addedAt,
+    source: raw.source
+  };
+}
+
+// Normalize an array of holdings
+function normalizeHoldings(holdings: any[]): ProspectPortfolioHolding[] {
+  return (holdings || []).map(normalizeHolding);
+}
+
 export interface PortfolioMetrics {
   totalValue: number;
   expectedReturn: number;
@@ -726,9 +781,12 @@ class AgentProspectWizardService {
   }
 
   async updateProspectPortfolio(prospectId: string, holdings: ProspectPortfolioHolding[]) {
+    // Normalize holdings before persisting to ensure consistent storage format
+    const normalizedHoldings = normalizeHoldings(holdings);
+    
     await db.update(prospectClients)
       .set({ 
-        currentPortfolio: holdings,
+        currentPortfolio: normalizedHoldings,
         updatedAt: new Date()
       })
       .where(eq(prospectClients.id, prospectId));
@@ -746,14 +804,19 @@ class AgentProspectWizardService {
   }
 
   analyzePortfolio(holdings: ProspectPortfolioHolding[], riskProfile: ProspectRiskProfile): PortfolioAnalysis {
-    const totalValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
+    // Normalize holdings to canonical format at entry point
+    const normalizedHoldings = normalizeHoldings(holdings);
+    
+    const totalValue = normalizedHoldings.reduce((sum, h) => sum + h.currentValue, 0);
     
     const assetAllocation: Record<string, { value: number; percentage: number }> = {};
-    holdings.forEach(h => {
-      if (!assetAllocation[h.productType]) {
-        assetAllocation[h.productType] = { value: 0, percentage: 0 };
+    normalizedHoldings.forEach(h => {
+      // Use productType for categorization (preserved original type for PMS/AIF/insurance)
+      const categoryKey = h.productType || h.assetType || 'other';
+      if (!assetAllocation[categoryKey]) {
+        assetAllocation[categoryKey] = { value: 0, percentage: 0 };
       }
-      assetAllocation[h.productType].value += h.currentValue;
+      assetAllocation[categoryKey].value += h.currentValue;
     });
     Object.keys(assetAllocation).forEach(key => {
       assetAllocation[key].percentage = totalValue > 0 
@@ -795,7 +858,7 @@ class AgentProspectWizardService {
       });
     }
 
-    const sortedByValue = [...holdings].sort((a, b) => b.currentValue - a.currentValue);
+    const sortedByValue = [...normalizedHoldings].sort((a, b) => b.currentValue - a.currentValue);
     
     return {
       totalValue,
@@ -817,16 +880,21 @@ class AgentProspectWizardService {
     
     holdings.forEach(h => {
       const weight = h.currentValue / totalValue;
-      const category = (h.category || h.productType || '').toLowerCase();
+      // Support both frontend (productType) and backend (assetType) formats with fallbacks
+      const category = (h.category || h.productType || h.assetType || '').toLowerCase();
+      const productType = (h.productType || h.assetType || '').toLowerCase();
       // Asset class volatility estimates (annualized)
       let assetVolatility = 15; // default
-      if (category.includes('small') || category.includes('micro')) assetVolatility = 28;
+      // Check for PMS/AIF first (high volatility asset classes)
+      if (productType === 'pms' || productType === 'aif') assetVolatility = 25;
+      else if (category.includes('small') || category.includes('micro')) assetVolatility = 28;
       else if (category.includes('mid')) assetVolatility = 22;
       else if (category.includes('large') || category.includes('blue')) assetVolatility = 16;
       else if (category.includes('debt') || category.includes('bond')) assetVolatility = 5;
       else if (category.includes('gold') || category.includes('silver')) assetVolatility = 18;
       else if (category.includes('hybrid')) assetVolatility = 12;
       else if (category.includes('liquid') || category.includes('money')) assetVolatility = 2;
+      else if (productType === 'insurance') assetVolatility = 8; // Insurance products typically lower volatility
       
       weightedVolatility += weight * assetVolatility;
     });
@@ -841,10 +909,14 @@ class AgentProspectWizardService {
     
     holdings.forEach(h => {
       const weight = h.currentValue / totalValue;
-      const category = (h.category || h.productType || '').toLowerCase();
+      // Support both frontend (productType) and backend (assetType) formats with fallbacks
+      const category = (h.category || h.productType || h.assetType || '').toLowerCase();
+      const productType = (h.productType || h.assetType || '').toLowerCase();
       // Asset class beta estimates
       let assetBeta = 1.0;
-      if (category.includes('small')) assetBeta = 1.3;
+      // Check for PMS/AIF first
+      if (productType === 'pms' || productType === 'aif') assetBeta = 1.2;
+      else if (category.includes('small')) assetBeta = 1.3;
       else if (category.includes('mid')) assetBeta = 1.15;
       else if (category.includes('large')) assetBeta = 0.95;
       else if (category.includes('debt') || category.includes('bond')) assetBeta = 0.15;
@@ -852,6 +924,7 @@ class AgentProspectWizardService {
       else if (category.includes('silver')) assetBeta = 0.1;
       else if (category.includes('hybrid')) assetBeta = 0.65;
       else if (category.includes('index')) assetBeta = 1.0;
+      else if (productType === 'insurance') assetBeta = 0.3; // Insurance products lower correlation
       
       weightedBeta += weight * assetBeta;
     });
@@ -914,9 +987,16 @@ class AgentProspectWizardService {
     
     holdings.forEach(h => {
       const weight = (h.currentValue / totalValue) * 100;
-      const category = (h.category || h.productType || '').toLowerCase();
+      // Support both frontend (productType) and backend (assetType) formats with fallbacks
+      const category = (h.category || h.productType || h.assetType || '').toLowerCase();
+      const productType = (h.productType || h.assetType || '').toLowerCase();
       
-      if (category.includes('equity') || category.includes('small') || category.includes('mid') || 
+      // Check for special product types first (PMS/AIF/insurance) that need specific categorization
+      if (productType === 'pms' || productType === 'aif') {
+        allocation.equity += weight; // PMS/AIF typically equity-like for allocation purposes
+      } else if (productType === 'insurance') {
+        allocation.others += weight; // Insurance products counted as others
+      } else if (category.includes('equity') || category.includes('small') || category.includes('mid') || 
           category.includes('large') || category.includes('flexi') || category.includes('multi')) {
         allocation.equity += weight;
       } else if (category.includes('debt') || category.includes('bond') || category.includes('liquid') || 
@@ -937,19 +1017,22 @@ class AgentProspectWizardService {
   }
 
   calculatePortfolioMetrics(holdings: ProspectPortfolioHolding[], expectedReturn: number): PortfolioMetrics {
-    const totalValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
-    const volatility = this.calculateVolatility(holdings);
-    const beta = this.calculateBeta(holdings);
+    // Normalize holdings to canonical format at entry point
+    const normalizedHoldings = normalizeHoldings(holdings);
+    
+    const totalValue = normalizedHoldings.reduce((sum, h) => sum + h.currentValue, 0);
+    const volatility = this.calculateVolatility(normalizedHoldings);
+    const beta = this.calculateBeta(normalizedHoldings);
     const alpha = this.calculateAlpha(expectedReturn, beta);
     const sharpeRatio = this.calculateSharpeRatio(expectedReturn, volatility);
     const treynorRatio = this.calculateTreynorRatio(expectedReturn, beta);
-    const sortinoRatio = this.calculateSortinoRatio(expectedReturn, holdings);
+    const sortinoRatio = this.calculateSortinoRatio(expectedReturn, normalizedHoldings);
     const informationRatio = this.calculateInformationRatio(expectedReturn, 12, beta);
     const maxDrawdown = this.calculateMaxDrawdown(beta, volatility);
-    const assetAllocation = this.calculateAssetAllocationBreakdown(holdings);
+    const assetAllocation = this.calculateAssetAllocationBreakdown(normalizedHoldings);
     
     const numAssetClasses = Object.values(assetAllocation).filter(v => v > 5).length;
-    const diversificationScore = Math.min(100, numAssetClasses * 15 + holdings.length * 3 + 20);
+    const diversificationScore = Math.min(100, numAssetClasses * 15 + normalizedHoldings.length * 3 + 20);
     
     const equityWeight = assetAllocation.equity + assetAllocation.hybrid * 0.6;
     const riskScore = Math.min(100, Math.max(0, 30 + equityWeight * 0.7));
@@ -1000,12 +1083,15 @@ class AgentProspectWizardService {
     freshInvestments: FreshInvestmentSuggestion[],
     riskProfile: ProspectRiskProfile
   ): PortfolioComparison {
+    // Normalize holdings to canonical format
+    const normalizedHoldings = normalizeHoldings(holdings);
+    
     // Calculate current portfolio expected return based on category
-    const totalValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
+    const totalValue = normalizedHoldings.reduce((sum, h) => sum + h.currentValue, 0);
     let currentExpectedReturn = 10; // Default assumption
     
     // Estimate based on asset mix
-    holdings.forEach(h => {
+    normalizedHoldings.forEach(h => {
       const weight = h.currentValue / totalValue;
       const category = (h.category || '').toLowerCase();
       let assetReturn = 10;
@@ -1018,7 +1104,7 @@ class AgentProspectWizardService {
       currentExpectedReturn = currentExpectedReturn * (1 - weight) + assetReturn * weight;
     });
     
-    const currentMetrics = this.calculatePortfolioMetrics(holdings, currentExpectedReturn);
+    const currentMetrics = this.calculatePortfolioMetrics(normalizedHoldings, currentExpectedReturn);
     const proposedMetrics = this.calculateProposedPortfolioMetrics(freshInvestments, riskProfile);
     
     // Generate improvement analysis
@@ -1074,8 +1160,12 @@ class AgentProspectWizardService {
     },
     freshInvestmentAmount: number = 0
   ): RebalanceRecommendation[] {
+    // Normalize holdings to canonical format at entry point
+    const normalizedHoldings = normalizeHoldings(holdings);
+    
     const recommendations: RebalanceRecommendation[] = [];
-    const totalValue = analysis.totalValue;
+    // Recalculate totalValue from normalized holdings to ensure PMS/AIF/insurance data is correctly accounted
+    const totalValue = normalizedHoldings.reduce((sum, h) => sum + h.currentValue, 0) || analysis.totalValue;
     
     if (totalValue === 0) {
       return recommendations;
@@ -1103,10 +1193,10 @@ class AgentProspectWizardService {
     
     // Map holdings to asset categories (expanded)
     const categorizeHolding = (h: ProspectPortfolioHolding): string => {
-      // Support both frontend (productType) and backend (assetType/productType) formats
-      const type = (h.productType || h.assetType)?.toLowerCase() || '';
-      const name = (h.name || (h.name || h.productName))?.toLowerCase() || '';
-      const category = h.category?.toLowerCase() || '';
+      // Support both frontend (productType) and backend (assetType/productType) formats - canonical fields first
+      const type = (h.productType || h.assetType || '').toLowerCase();
+      const name = (h.name || h.productName || '').toLowerCase();
+      const category = (h.category || '').toLowerCase();
       
       // Check for PMS/AIF first (specific product types)
       if (type === 'pms') return 'pms';
@@ -1184,7 +1274,7 @@ class AgentProspectWizardService {
       others: { value: 0, holdings: [] }
     };
     
-    holdings.forEach(h => {
+    normalizedHoldings.forEach(h => {
       const category = categorizeHolding(h);
       if (!currentByCategory[category]) {
         currentByCategory[category] = { value: 0, holdings: [] };
@@ -1231,8 +1321,8 @@ class AgentProspectWizardService {
             
             recommendations.push({
               action: 'SELL',
-              productType: holding.productType,
-              productName: holding.productName,
+              productType: holding.productType || holding.assetType || 'other',
+              productName: holding.name || holding.productName || 'Unknown',
               currentValue: holding.currentValue,
               suggestedValue: isPartialSell ? holding.currentValue - sellAmount : 0,
               changeAmount: -sellAmount,
@@ -1249,16 +1339,16 @@ class AgentProspectWizardService {
     });
     
     // Handle non-standard/illiquid assets
-    holdings.forEach(h => {
-      const type = h.productType?.toLowerCase() || '';
+    normalizedHoldings.forEach(h => {
+      const type = (h.productType || h.assetType || '').toLowerCase();
       if (!['equity', 'mutual_fund', 'mf', 'bond', 'fd', 'gold', 'etf', 'stock', 'debt'].includes(type)) {
         // Check if we already have a recommendation for this holding
         const existing = recommendations.find(r => r.productName === (h.name || h.productName));
         if (!existing && h.currentValue > 1000) {
           recommendations.push({
             action: 'SELL',
-            productType: h.productType,
-            productName: (h.name || h.productName),
+            productType: h.productType || h.assetType || 'other',
+            productName: h.name || h.productName || 'Unknown',
             currentValue: h.currentValue,
             changeAmount: -h.currentValue,
             rationale: 'Consider switching to regulated products (mutual funds, bonds) for better liquidity, transparency, and professional management.',
@@ -1271,9 +1361,12 @@ class AgentProspectWizardService {
     
     // Add SWITCH recommendations for underperformers (if analysis has them)
     if (analysis.underperformers && analysis.underperformers.length > 0) {
-      analysis.underperformers.slice(0, 3).forEach(underperformer => {
+      // Normalize underperformers for consistent field access
+      const normalizedUnderperformers = normalizeHoldings(analysis.underperformers);
+      normalizedUnderperformers.slice(0, 3).forEach(underperformer => {
         // Check if not already in recommendations
-        const existing = recommendations.find(r => r.productName === underperformer.productName);
+        const upName = underperformer.name || underperformer.productName || '';
+        const existing = recommendations.find(r => r.productName === upName);
         if (!existing && underperformer.currentValue > 5000) {
           // Find a better performing fund in the same category
           const category = categorizeHolding(underperformer);
@@ -1283,8 +1376,8 @@ class AgentProspectWizardService {
           
           recommendations.push({
             action: 'SWITCH',
-            productType: underperformer.productType,
-            productName: underperformer.productName,
+            productType: underperformer.productType || underperformer.assetType || 'other',
+            productName: underperformer.name || underperformer.productName || 'Unknown',
             currentValue: underperformer.currentValue,
             suggestedValue: underperformer.currentValue, // Switch maintains the value
             changeAmount: 0, // Net zero - switch is value-neutral
