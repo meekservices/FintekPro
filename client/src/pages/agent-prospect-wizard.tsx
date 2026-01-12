@@ -761,12 +761,14 @@ export default function AgentProspectWizard() {
             credentials: 'include'
           });
           if (response.ok) {
-            const data = await response.json();
-            if (data.success && data.holdings && data.holdings.length > 0) {
-              setHoldings(data.holdings);
+            const payload = await response.json();
+            // API returns { success: true, data: { holdings: [...] } }
+            const savedHoldings = payload.data?.holdings ?? [];
+            if (savedHoldings.length > 0) {
+              setHoldings(savedHoldings);
               toast({ 
                 title: "Portfolio Loaded", 
-                description: `${data.holdings.length} saved holdings loaded from previous session` 
+                description: `${savedHoldings.length} saved holdings loaded from previous session` 
               });
             }
           }
