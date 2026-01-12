@@ -126,7 +126,7 @@ const generateProposalSchema = z.object({
     mobile: z.string().optional(),
     pan: z.string().optional()
   }),
-  holdings: z.array(backendHoldingSchema),
+  holdings: z.array(flexibleHoldingSchema),
   riskProfile: riskProfileSchema,
   freshInvestmentAmount: z.number().min(0),
   customAllocations: customAllocationsSchema.optional(),
@@ -392,12 +392,13 @@ router.post("/generate-proposal", async (req: Request, res: Response) => {
     }
 
     const data = generateProposalSchema.parse(req.body);
+    const normalizedHoldings = normalizeHoldings(data.holdings);
     
     const proposal = await agentProspectWizardService.createCombinedProposal(
       agentId,
       data.prospectId,
       data.prospectData,
-      data.holdings,
+      normalizedHoldings,
       data.riskProfile,
       data.freshInvestmentAmount,
       data.customAllocations,
