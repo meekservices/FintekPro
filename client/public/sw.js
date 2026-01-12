@@ -1,5 +1,5 @@
-const VERSION = '7';
-const BUILD_TIMESTAMP = '1736566200000';
+const VERSION = '8';
+const BUILD_TIMESTAMP = '1736700000000';
 const CACHE_PREFIX = 'fintekpro';
 const STATIC_CACHE_NAME = `${CACHE_PREFIX}-static-v${VERSION}`;
 const DYNAMIC_CACHE_NAME = `${CACHE_PREFIX}-dynamic-v${VERSION}`;
@@ -117,6 +117,11 @@ function shouldCacheApi(url) {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
+
+  // Skip non-http/https requests (e.g., chrome-extension://, data:, etc.)
+  if (!url.protocol.startsWith('http')) {
+    return;
+  }
 
   // CRITICAL: Never intercept API routes - let them pass through to the server
   // This prevents the service worker from returning cached HTML for API calls
