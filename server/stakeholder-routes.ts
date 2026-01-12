@@ -83,7 +83,7 @@ router.get('/api/admin/stakeholders/stats', requireAdmin, async (req, res) => {
     return apiResponse.success(res, stats);
   } catch (error: any) {
     console.error('Error fetching stakeholder stats:', error);
-    return apiResponse.error(res, 'Failed to fetch stakeholder stats', error.message);
+    return apiResponse.error(res, 'Failed to fetch stakeholder stats', 500, error.message);
   }
 });
 
@@ -165,7 +165,7 @@ router.get('/api/admin/partners', requireAdmin, async (req, res) => {
     return apiResponse.success(res, { data, total: totalCount, page: pageNum, limit: limitNum });
   } catch (error: any) {
     console.error('Error fetching partners:', error);
-    return apiResponse.error(res, 'Failed to fetch partners', error.message);
+    return apiResponse.error(res, 'Failed to fetch partners', 500, error.message);
   }
 });
 
@@ -182,7 +182,7 @@ router.get('/api/admin/partners/:id', requireAdmin, async (req, res) => {
     return apiResponse.success(res, partner);
   } catch (error: any) {
     console.error('Error fetching partner:', error);
-    return apiResponse.error(res, 'Failed to fetch partner', error.message);
+    return apiResponse.error(res, 'Failed to fetch partner', 500, error.message);
   }
 });
 
@@ -212,7 +212,7 @@ router.post('/api/admin/partners', requireAdmin, async (req, res) => {
       return apiResponse.badRequest(res, 'Validation error', error.errors);
     }
     console.error('Error creating partner:', error);
-    return apiResponse.error(res, 'Failed to create partner', error.message);
+    return apiResponse.error(res, 'Failed to create partner', 500, error.message);
   }
 });
 
@@ -254,7 +254,7 @@ router.patch('/api/admin/partners/:id', requireAdmin, async (req, res) => {
       return apiResponse.badRequest(res, 'Validation error', error.errors);
     }
     console.error('Error updating partner:', error);
-    return apiResponse.error(res, 'Failed to update partner', error.message);
+    return apiResponse.error(res, 'Failed to update partner', 500, error.message);
   }
 });
 
@@ -273,7 +273,7 @@ router.delete('/api/admin/partners/:id', requireAdmin, async (req, res) => {
     return apiResponse.success(res, null, 'Partner deleted successfully');
   } catch (error: any) {
     console.error('Error deleting partner:', error);
-    return apiResponse.error(res, 'Failed to delete partner', error.message);
+    return apiResponse.error(res, 'Failed to delete partner', 500, error.message);
   }
 });
 
@@ -296,7 +296,7 @@ router.patch('/api/admin/partners/:id/status', requireAdmin, async (req, res) =>
     return apiResponse.success(res, updated, 'Partner status updated');
   } catch (error: any) {
     console.error('Error updating partner status:', error);
-    return apiResponse.error(res, 'Failed to update partner status', error.message);
+    return apiResponse.error(res, 'Failed to update partner status', 500, error.message);
   }
 });
 
@@ -365,7 +365,7 @@ router.get('/api/admin/agents', requireAdmin, async (req, res) => {
     return apiResponse.success(res, { data: results, total: totalCount, page: pageNum, limit: limitNum });
   } catch (error: any) {
     console.error('Error fetching agents:', error);
-    return apiResponse.error(res, 'Failed to fetch agents', error.message);
+    return apiResponse.error(res, 'Failed to fetch agents', 500, error.message);
   }
 });
 
@@ -382,7 +382,7 @@ router.get('/api/admin/agents/:id', requireAdmin, async (req, res) => {
     return apiResponse.success(res, agent);
   } catch (error: any) {
     console.error('Error fetching agent:', error);
-    return apiResponse.error(res, 'Failed to fetch agent', error.message);
+    return apiResponse.error(res, 'Failed to fetch agent', 500, error.message);
   }
 });
 
@@ -413,7 +413,7 @@ router.post('/api/admin/agents', requireAdmin, async (req, res) => {
     return apiResponse.created(res, newAgent, 'Agent created successfully');
   } catch (error: any) {
     console.error('Error creating agent:', error);
-    return apiResponse.error(res, 'Failed to create agent', error.message);
+    return apiResponse.error(res, 'Failed to create agent', 500, error.message);
   }
 });
 
@@ -449,7 +449,7 @@ router.patch('/api/admin/agents/:id', requireAdmin, async (req, res) => {
     return apiResponse.success(res, updated, 'Agent updated successfully');
   } catch (error: any) {
     console.error('Error updating agent:', error);
-    return apiResponse.error(res, 'Failed to update agent', error.message);
+    return apiResponse.error(res, 'Failed to update agent', 500, error.message);
   }
 });
 
@@ -468,7 +468,7 @@ router.delete('/api/admin/agents/:id', requireAdmin, async (req, res) => {
     return apiResponse.success(res, null, 'Agent deleted successfully');
   } catch (error: any) {
     console.error('Error deleting agent:', error);
-    return apiResponse.error(res, 'Failed to delete agent', error.message);
+    return apiResponse.error(res, 'Failed to delete agent', 500, error.message);
   }
 });
 
@@ -497,7 +497,7 @@ router.patch('/api/admin/agents/:id/status', requireAdmin, async (req, res) => {
     return apiResponse.success(res, updated, 'Agent status updated');
   } catch (error: any) {
     console.error('Error updating agent status:', error);
-    return apiResponse.error(res, 'Failed to update agent status', error.message);
+    return apiResponse.error(res, 'Failed to update agent status', 500, error.message);
   }
 });
 
@@ -564,7 +564,7 @@ router.get('/api/admin/suppliers', requireAdmin, async (req, res) => {
     return apiResponse.success(res, { data, total: totalCount, page: pageNum, limit: limitNum });
   } catch (error: any) {
     console.error('Error fetching suppliers:', error);
-    return apiResponse.error(res, 'Failed to fetch suppliers', error.message);
+    return apiResponse.error(res, 'Failed to fetch suppliers', 500, error.message);
   }
 });
 
@@ -581,7 +581,7 @@ router.get('/api/admin/suppliers/:id', requireAdmin, async (req, res) => {
     return apiResponse.success(res, supplier);
   } catch (error: any) {
     console.error('Error fetching supplier:', error);
-    return apiResponse.error(res, 'Failed to fetch supplier', error.message);
+    return apiResponse.error(res, 'Failed to fetch supplier', 500, error.message);
   }
 });
 
@@ -598,7 +598,7 @@ router.post('/api/admin/suppliers', requireAdmin, async (req, res) => {
       return apiResponse.badRequest(res, 'Validation error', error.errors);
     }
     console.error('Error creating supplier:', error);
-    return apiResponse.error(res, 'Failed to create supplier', error.message);
+    return apiResponse.error(res, 'Failed to create supplier', 500, error.message);
   }
 });
 
@@ -624,7 +624,7 @@ router.patch('/api/admin/suppliers/:id', requireAdmin, async (req, res) => {
       return apiResponse.badRequest(res, 'Validation error', error.errors);
     }
     console.error('Error updating supplier:', error);
-    return apiResponse.error(res, 'Failed to update supplier', error.message);
+    return apiResponse.error(res, 'Failed to update supplier', 500, error.message);
   }
 });
 
@@ -643,7 +643,7 @@ router.delete('/api/admin/suppliers/:id', requireAdmin, async (req, res) => {
     return apiResponse.success(res, null, 'Supplier deleted successfully');
   } catch (error: any) {
     console.error('Error deleting supplier:', error);
-    return apiResponse.error(res, 'Failed to delete supplier', error.message);
+    return apiResponse.error(res, 'Failed to delete supplier', 500, error.message);
   }
 });
 
@@ -666,7 +666,7 @@ router.patch('/api/admin/suppliers/:id/status', requireAdmin, async (req, res) =
     return apiResponse.success(res, updated, 'Supplier status updated');
   } catch (error: any) {
     console.error('Error updating supplier status:', error);
-    return apiResponse.error(res, 'Failed to update supplier status', error.message);
+    return apiResponse.error(res, 'Failed to update supplier status', 500, error.message);
   }
 });
 
