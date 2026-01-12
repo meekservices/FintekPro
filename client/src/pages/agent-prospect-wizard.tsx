@@ -278,6 +278,14 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
+// PDF-safe currency formatter (jsPDF's Helvetica doesn't support ₹ Unicode)
+const formatCurrencyForPdf = (amount: number) => {
+  const formatted = new Intl.NumberFormat('en-IN', {
+    maximumFractionDigits: 0
+  }).format(amount);
+  return `Rs. ${formatted}`;
+};
+
 interface ExistingProspect {
   id: string;
   name: string;
@@ -521,7 +529,7 @@ export default function AgentProspectWizard() {
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(12);
       pdf.setTextColor(220, 38, 38);
-      pdf.text(formatCurrency(proposal.totalSellAmount), margin + 5, yPos + 20);
+      pdf.text(formatCurrencyForPdf(proposal.totalSellAmount), margin + 5, yPos + 20);
       
       pdf.setTextColor(0, 0, 0);
       pdf.setFontSize(9);
@@ -530,7 +538,7 @@ export default function AgentProspectWizard() {
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(12);
       pdf.setTextColor(34, 197, 94);
-      pdf.text(formatCurrency(proposal.totalBuyAmount), margin + colWidth + 5, yPos + 20);
+      pdf.text(formatCurrencyForPdf(proposal.totalBuyAmount), margin + colWidth + 5, yPos + 20);
       
       pdf.setTextColor(0, 0, 0);
       pdf.setFontSize(9);
@@ -538,7 +546,7 @@ export default function AgentProspectWizard() {
       pdf.text('Net Investment', margin + (colWidth * 2) + 5, yPos + 10);
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(12);
-      pdf.text(formatCurrency(proposal.netInvestmentRequired), margin + (colWidth * 2) + 5, yPos + 20);
+      pdf.text(formatCurrencyForPdf(proposal.netInvestmentRequired), margin + (colWidth * 2) + 5, yPos + 20);
       
       pdf.setFontSize(9);
       pdf.setFont('helvetica', 'normal');
@@ -546,7 +554,7 @@ export default function AgentProspectWizard() {
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(12);
       pdf.setTextColor(79, 70, 229);
-      pdf.text(formatCurrency(proposal.projectedValue), margin + (colWidth * 3) + 5, yPos + 20);
+      pdf.text(formatCurrencyForPdf(proposal.projectedValue), margin + (colWidth * 3) + 5, yPos + 20);
       pdf.setFontSize(8);
       pdf.setFont('helvetica', 'normal');
       pdf.text(proposal.projectedReturn, margin + (colWidth * 3) + 5, yPos + 28);
@@ -564,7 +572,10 @@ export default function AgentProspectWizard() {
           // Calculate dynamic height based on content
           const hasTargetFund = rec.action === 'SWITCH' && rec.targetFund;
           const hasRationale = rec.rationale && rec.rationale.length > 0;
-          const boxHeight = hasTargetFund ? 45 : hasRationale ? 35 : 25;
+          // Calculate rationale lines for dynamic height
+          const recRationaleLines = hasRationale ? pdf.splitTextToSize(rec.rationale, pageWidth - (margin * 2) - 16) : [];
+          const recRationaleLineCount = Math.min(recRationaleLines.length, 2);
+          const boxHeight = hasTargetFund ? 45 : hasRationale ? 25 + (recRationaleLineCount * 5) : 25;
           
           if (yPos > 250) {
             pdf.addPage();
@@ -588,15 +599,15 @@ export default function AgentProspectWizard() {
           pdf.setFont('helvetica', 'normal');
           pdf.setTextColor(100, 100, 100);
           if (rec.currentValue) {
-            pdf.text(`Current: ${formatCurrency(rec.currentValue)}`, pageWidth - margin - 40, yPos + 8);
+            pdf.text(`Current: ${formatCurrencyForPdf(rec.currentValue)}`, pageWidth - margin - 40, yPos + 8);
           }
           
           // Show amount change (use switchAmount for SWITCH actions)
           pdf.setTextColor(actionColor[0], actionColor[1], actionColor[2]);
           if (rec.action === 'SWITCH' && rec.switchAmount) {
-            pdf.text(`Switch: ${formatCurrency(rec.switchAmount)}`, margin + 8, yPos + 16);
+            pdf.text(`Switch: ${formatCurrencyForPdf(rec.switchAmount)}`, margin + 8, yPos + 16);
           } else {
-            const changeText = rec.changeAmount < 0 ? `-${formatCurrency(Math.abs(rec.changeAmount))}` : `+${formatCurrency(Math.abs(rec.changeAmount))}`;
+            const changeText = rec.changeAmount < 0 ? `- ${formatCurrencyForPdf(Math.abs(rec.changeAmount))}` : `+ ${formatCurrencyForPdf(Math.abs(rec.changeAmount))}`;
             pdf.text(changeText, margin + 8, yPos + 16);
           }
           
@@ -611,12 +622,11 @@ export default function AgentProspectWizard() {
             pdf.text(`${rec.targetFund.returns3Y}% 3Y returns | ${rec.targetFund.risk} risk`, margin + 8, yPos + 32);
           }
           
-          // Show rationale
-          if (hasRationale && !hasTargetFund) {
+          // Show rationale (up to 2 lines)
+          if (hasRationale && !hasTargetFund && recRationaleLines.length > 0) {
             pdf.setFontSize(8);
             pdf.setTextColor(100, 100, 100);
-            const rationaleLines = pdf.splitTextToSize(rec.rationale, pageWidth - (margin * 2) - 16);
-            pdf.text(rationaleLines.slice(0, 2), margin + 8, yPos + 24);
+            pdf.text(recRationaleLines.slice(0, recRationaleLineCount), margin + 8, yPos + 24);
           }
           
           yPos += boxHeight + 5;
@@ -638,7 +648,10 @@ export default function AgentProspectWizard() {
         
         proposal.freshInvestments.forEach((inv: any) => {
           const hasRationale = inv.rationale && inv.rationale.length > 0;
-          const boxHeight = hasRationale ? 40 : 28;
+          // Calculate box height based on rationale length
+          const rationaleLines = hasRationale ? pdf.splitTextToSize(inv.rationale, pageWidth - (margin * 2) - 16) : [];
+          const rationaleLineCount = Math.min(rationaleLines.length, 3); // Show up to 3 lines
+          const boxHeight = hasRationale ? 28 + (rationaleLineCount * 4) : 28;
           
           if (yPos > 250) {
             pdf.addPage();
@@ -658,20 +671,18 @@ export default function AgentProspectWizard() {
           // Show amount on right
           pdf.setFont('helvetica', 'bold');
           pdf.setTextColor(34, 197, 94);
-          pdf.text(formatCurrency(inv.suggestedAmount), pageWidth - margin - 30, yPos + 8);
+          pdf.text(formatCurrencyForPdf(inv.suggestedAmount), pageWidth - margin - 30, yPos + 8);
           
           pdf.setFontSize(9);
           pdf.setFont('helvetica', 'normal');
           pdf.setTextColor(100, 100, 100);
-          const riskColor = inv.riskLevel?.includes('high') ? [220, 38, 38] : inv.riskLevel?.includes('low') ? [34, 197, 94] : [100, 100, 100];
           pdf.text(`Expected: ${inv.expectedReturn} | Risk: ${inv.riskLevel || 'Moderate'} | Match: ${inv.matchScore}%`, margin + 8, yPos + 18);
           
-          // Show rationale
-          if (hasRationale) {
+          // Show rationale (up to 3 lines)
+          if (hasRationale && rationaleLines.length > 0) {
             pdf.setFontSize(8);
             pdf.setTextColor(120, 120, 120);
-            const rationaleLines = pdf.splitTextToSize(inv.rationale, pageWidth - (margin * 2) - 16);
-            pdf.text(rationaleLines.slice(0, 2), margin + 8, yPos + 28);
+            pdf.text(rationaleLines.slice(0, rationaleLineCount), margin + 8, yPos + 28);
           }
           
           yPos += boxHeight + 5;
@@ -762,8 +773,9 @@ export default function AgentProspectWizard() {
           });
           if (response.ok) {
             const payload = await response.json();
-            // API returns { success: true, data: { holdings: [...] } }
-            const savedHoldings = payload.data?.holdings ?? [];
+            // API returns { success: true, holdings: [...] }
+            const savedHoldings = payload.holdings ?? [];
+            console.log('[Holdings] Loaded saved holdings:', savedHoldings.length);
             if (savedHoldings.length > 0) {
               setHoldings(savedHoldings);
               toast({ 
@@ -883,7 +895,9 @@ export default function AgentProspectWizard() {
       });
       if (response.ok) {
         const payload = await response.json();
-        const serverHoldings = payload.data?.holdings ?? [];
+        // API returns { success: true, holdings: [...] }
+        const serverHoldings = payload.holdings ?? [];
+        console.log('[Holdings] Reloaded from server:', serverHoldings.length);
         setHoldings(serverHoldings);
       }
     } catch (error) {
@@ -1205,57 +1219,86 @@ export default function AgentProspectWizard() {
   const addHoldingMutation = useMutation({
     mutationFn: async (holding: PortfolioHolding) => {
       if (!prospectId) throw new Error("No prospect selected");
-      return await apiRequest(`/api/agent-wizard/prospects/${prospectId}/holdings`, {
+      console.log('[Holdings] Adding holding:', holding);
+      const result = await apiRequest(`/api/agent-wizard/prospects/${prospectId}/holdings`, {
         method: "POST",
         body: JSON.stringify(holding)
       });
+      console.log('[Holdings] Add result:', result);
+      return result;
     },
     onSuccess: (data) => {
+      console.log('[Holdings] Add success:', data);
       if (data.success) {
         setHoldings(data.holdings);
         toast({ title: "Holding Added", description: "Investment saved to portfolio" });
+      } else {
+        toast({ title: "Save Failed", description: data.message || "Could not save holding", variant: "destructive" });
       }
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      console.error('[Holdings] Add error:', error);
+      toast({ title: "Error Saving", description: error.message || "Failed to save holding", variant: "destructive" });
     }
   });
 
   const updateHoldingMutation = useMutation({
     mutationFn: async ({ index, holding }: { index: number; holding: PortfolioHolding }) => {
       if (!prospectId) throw new Error("No prospect selected");
-      return await apiRequest(`/api/agent-wizard/prospects/${prospectId}/holdings/${index}`, {
+      console.log('[Holdings] Updating holding at index:', index, holding);
+      const result = await apiRequest(`/api/agent-wizard/prospects/${prospectId}/holdings/${index}`, {
         method: "PUT",
         body: JSON.stringify(holding)
       });
+      console.log('[Holdings] Update result:', result);
+      return result;
     },
     onSuccess: (data) => {
+      console.log('[Holdings] Update success:', data);
       if (data.success) {
         setHoldings(data.holdings);
         setEditingHoldingIndex(null);
         toast({ title: "Holding Updated", description: "Investment updated successfully" });
+      } else {
+        // Reload from server on failure
+        reloadHoldingsFromServer();
+        toast({ title: "Update Failed", description: data.message || "Could not update holding", variant: "destructive" });
       }
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      console.error('[Holdings] Update error:', error);
+      // Reload from server on error to stay in sync
+      reloadHoldingsFromServer();
+      toast({ title: "Error Updating", description: error.message || "Failed to update holding", variant: "destructive" });
     }
   });
 
   const deleteHoldingMutation = useMutation({
     mutationFn: async (index: number) => {
       if (!prospectId) throw new Error("No prospect selected");
-      return await apiRequest(`/api/agent-wizard/prospects/${prospectId}/holdings/${index}`, {
+      console.log('[Holdings] Deleting holding at index:', index);
+      const result = await apiRequest(`/api/agent-wizard/prospects/${prospectId}/holdings/${index}`, {
         method: "DELETE"
       });
+      console.log('[Holdings] Delete result:', result);
+      return result;
     },
     onSuccess: (data) => {
+      console.log('[Holdings] Delete success:', data);
       if (data.success) {
         setHoldings(data.holdings);
         toast({ title: "Holding Removed", description: "Investment removed from portfolio" });
+      } else {
+        // Reload from server on failure
+        reloadHoldingsFromServer();
+        toast({ title: "Delete Failed", description: data.message || "Could not delete holding", variant: "destructive" });
       }
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      console.error('[Holdings] Delete error:', error);
+      // Reload from server on error to stay in sync
+      reloadHoldingsFromServer();
+      toast({ title: "Error Deleting", description: error.message || "Failed to delete holding", variant: "destructive" });
     }
   });
 
