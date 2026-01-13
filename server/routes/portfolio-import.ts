@@ -460,4 +460,68 @@ router.delete(
   }
 );
 
+// CAS/Statement parsing endpoint (preview before import)
+router.post(
+  '/portfolio/parse-cas',
+  isAuthenticated,
+  upload.single('file'),
+  async (req: Request, res: Response) => {
+    try {
+      const agentId = req.user?.id;
+      
+      if (!agentId) {
+        return res.status(401).json({ success: false, error: 'Authentication required' });
+      }
+      
+      if (!req.file) {
+        return res.status(400).json({ success: false, error: 'No file uploaded' });
+      }
+      
+      const statementType = req.body.type || 'cas'; // 'cas' or 'demat'
+      
+      // Parse the PDF
+      const parseResult = await parsePDFPortfolio(req.file.buffer, req.file.originalname);
+      
+      if (!parseResult.success || parseResult.holdings.length === 0) {
+        return res.json({
+          success: false,
+          error: parseResult.errors?.[0] || 'No holdings found in the PDF',
+          errors: parseResult.errors
+        });
+      }
+      
+      // Transform holdings to expected format with confidence scores
+      const holdings = parseResult.holdings.map((h, idx) => ({
+        id: `cas-${idx}-${Date.now()}`,
+        name: h.name || 'Unknown Fund',
+        symbol: h.symbol || '',
+        isin: h.isin || '',
+        quantity: h.quantity || 0,
+        averagePrice: h.averageCost || 0,
+        currentValue: h.currentValue || 0,
+        assetType: h.assetType || 'mutual_fund',
+        folioNumber: h.folioNumber || '',
+        confidenceScore: h.confidenceScore || 85,
+        broker: parseResult.brokerDetected || (statementType === 'cas' ? 'CAMS/KFintech' : 'NSDL/CDSL')
+      }));
+      
+      res.json({
+        success: true,
+        holdings,
+        brokerDetected: parseResult.brokerDetected || (statementType === 'cas' ? 'CAMS/KFintech CAS' : 'NSDL/CDSL Demat'),
+        confidenceScore: parseResult.confidenceScore,
+        totalValue: holdings.reduce((sum, h) => sum + h.currentValue, 0),
+        holdingsCount: holdings.length
+      });
+    } catch (error: any) {
+      console.error('CAS parsing error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: error.message || 'Failed to parse statement',
+        errors: [error.message || 'Unknown error']
+      });
+    }
+  }
+);
+
 export default router;
