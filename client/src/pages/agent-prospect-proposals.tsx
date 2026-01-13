@@ -28,6 +28,7 @@ import {
   Copy,
   ExternalLink,
   Trash2,
+  Pencil,
   TrendingUp,
   Target,
   Wallet,
@@ -193,7 +194,17 @@ export default function AgentProspectProposalsPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [proposalToDelete, setProposalToDelete] = useState<ProspectProposal | null>(null);
   const [selectedProposal, setSelectedProposal] = useState<ProspectProposal | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    prospectName: "",
+    prospectEmail: "",
+    prospectMobile: "",
+    proposalTitle: "",
+    totalInvestmentAmount: "",
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   
@@ -400,11 +411,65 @@ const RECOMMENDATION_CATEGORIES = [
     onSuccess: () => {
       toast({ title: "Proposal Deleted" });
       queryClient.invalidateQueries({ queryKey: ["/api/agent/prospect-proposals"] });
+      setShowDeleteConfirm(false);
+      setProposalToDelete(null);
     },
     onError: (error: any) => {
       toast({ title: "Delete Failed", description: error.message, variant: "destructive" });
     }
   });
+
+  const updateProposalMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      return await apiRequest(`/api/agent/prospect-proposals/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" }
+      });
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        toast({ title: "Proposal Updated", description: "Changes saved successfully" });
+        queryClient.invalidateQueries({ queryKey: ["/api/agent/prospect-proposals"] });
+        setShowEditDialog(false);
+        setSelectedProposal(null);
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: "Update Failed", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const openEditDialog = (proposal: ProspectProposal) => {
+    setSelectedProposal(proposal);
+    setEditFormData({
+      prospectName: proposal.prospectName || "",
+      prospectEmail: proposal.prospectEmail || "",
+      prospectMobile: proposal.prospectMobile || "",
+      proposalTitle: proposal.proposalTitle || "",
+      totalInvestmentAmount: proposal.totalInvestmentAmount || "",
+    });
+    setShowEditDialog(true);
+  };
+
+  const handleEditSubmit = () => {
+    if (!selectedProposal) return;
+    updateProposalMutation.mutate({
+      id: selectedProposal.id,
+      data: editFormData
+    });
+  };
+
+  const openDeleteConfirm = (proposal: ProspectProposal) => {
+    setProposalToDelete(proposal);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = () => {
+    if (proposalToDelete) {
+      deleteProposalMutation.mutate(proposalToDelete.id);
+    }
+  };
 
   const resetForm = () => {
     setProposalType("fresh_investment");
@@ -950,48 +1015,92 @@ const RECOMMENDATION_CATEGORIES = [
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950"
-                          onClick={() => {
-                            setSelectedProposal(proposal);
-                            setShowPreviewDialog(true);
-                          }}
-                          data-testid={`btn-preview-${proposal.id}`}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-green-600 hover:text-green-800 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950"
-                          onClick={() => {
-                            setSelectedProposal(proposal);
-                            setShowShareDialog(true);
-                          }}
-                          data-testid={`btn-share-${proposal.id}`}
-                        >
-                          <Send className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-muted-foreground hover:text-foreground hover:bg-muted dark:text-muted-foreground dark:hover:bg-muted"
-                          onClick={() => copyToClipboard(`${baseUrl}/proposal/${proposal.shareToken}`, "Proposal link")}
-                          data-testid={`btn-copy-${proposal.id}`}
-                        >
-                          <Copy className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-600 hover:text-red-800 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
-                          onClick={() => deleteProposalMutation.mutate(proposal.id)}
-                          data-testid={`btn-delete-${proposal.id}`}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950"
+                                onClick={() => {
+                                  setSelectedProposal(proposal);
+                                  setShowPreviewDialog(true);
+                                }}
+                                data-testid={`btn-preview-${proposal.id}`}
+                              >
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Preview</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-amber-600 hover:text-amber-800 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950"
+                                onClick={() => openEditDialog(proposal)}
+                                data-testid={`btn-edit-${proposal.id}`}
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Edit</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-green-600 hover:text-green-800 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950"
+                                onClick={() => {
+                                  setSelectedProposal(proposal);
+                                  setShowShareDialog(true);
+                                }}
+                                data-testid={`btn-share-${proposal.id}`}
+                              >
+                                <Send className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Share</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-muted-foreground hover:text-foreground hover:bg-muted dark:text-muted-foreground dark:hover:bg-muted"
+                                onClick={() => copyToClipboard(`${baseUrl}/proposal/${proposal.shareToken}`, "Proposal link")}
+                                data-testid={`btn-copy-${proposal.id}`}
+                              >
+                                <Copy className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Copy Link</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-600 hover:text-red-800 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
+                                onClick={() => openDeleteConfirm(proposal)}
+                                data-testid={`btn-delete-${proposal.id}`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Delete</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -2178,6 +2287,128 @@ const RECOMMENDATION_CATEGORIES = [
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowShareDialog(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Proposal Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="w-5 h-5 text-amber-600" />
+              Edit Proposal
+            </DialogTitle>
+            <DialogDescription>
+              Update proposal details. Only draft proposals can be fully edited.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Prospect Name</Label>
+              <Input
+                value={editFormData.prospectName}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, prospectName: e.target.value }))}
+                placeholder="Enter prospect name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input
+                type="email"
+                value={editFormData.prospectEmail}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, prospectEmail: e.target.value }))}
+                placeholder="prospect@email.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Mobile</Label>
+              <Input
+                value={editFormData.prospectMobile}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, prospectMobile: e.target.value }))}
+                placeholder="+91 XXXXXXXXXX"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Proposal Title</Label>
+              <Input
+                value={editFormData.proposalTitle}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, proposalTitle: e.target.value }))}
+                placeholder="Investment Proposal"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Investment Amount (₹)</Label>
+              <Input
+                type="number"
+                value={editFormData.totalInvestmentAmount}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, totalInvestmentAmount: e.target.value }))}
+                placeholder="1000000"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleEditSubmit}
+              disabled={updateProposalMutation.isPending}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {updateProposalMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="w-5 h-5" />
+              Delete Proposal
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this proposal? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          {proposalToDelete && (
+            <div className="py-4 border rounded-lg px-4 bg-muted/50">
+              <p className="font-medium">{proposalToDelete.prospectName}</p>
+              <p className="text-sm text-muted-foreground">{proposalToDelete.proposalTitle}</p>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={deleteProposalMutation.isPending}
+            >
+              {deleteProposalMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Proposal"
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
