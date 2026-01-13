@@ -18172,31 +18172,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Add new client
   app.post("/api/agent/clients", requireAgent, async (req, res) => {
     try {
-      // Validate request body with Zod
+      // Validate request body with Zod - flexible validation for quick client creation
       const clientSchema = z.object({
         firstName: z.string().min(1, "First name is required"),
         lastName: z.string().min(1, "Last name is required"),
-        email: z.string().email("Valid email is required"),
-        mobile: z.string().min(10, "Valid mobile number is required"),
-        panNumber: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Valid PAN number is required"),
+        email: z.string().email("Valid email is required").optional().or(z.literal("")),
+        mobile: z.string().optional().or(z.literal("")),
+        panNumber: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Valid PAN number is required").optional().or(z.literal("")),
         assignedAgent: z.string().optional(),
         masterAgentEuin: z.string().optional()
       });
 
       const clientData = clientSchema.parse(req.body);
       
-      // In production, implement client creation and agent assignment
-      const client = {
-        id: Date.now().toString(),
-        ...clientData,
-        agentId: req.user.id,
+      // Generate a unique ID for the new client
+      const uuid = `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Create new client in the database
+      const [newClient] = await db.insert(users).values({
+        email: clientData.email || `${uuid}@placeholder.fintekpro.com`,
+        firstName: clientData.firstName,
+        lastName: clientData.lastName,
+        mobile: clientData.mobile || null,
+        panNumber: clientData.panNumber || null,
+        passwordHash: "placeholder-pending-onboarding",
+        roles: ["client"],
         isActive: true,
-        createdAt: new Date().toISOString()
-      };
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }).returning();
+      
+      // Create agent-client relationship
+      await db.insert(agentClientRelationships).values({
+        agentId: req.user.id,
+        clientId: newClient.id,
+        relationshipType: "assigned",
+        status: "active",
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
 
-      res.json({ success: true, client });
-    } catch (error) {
+      res.json({ 
+        success: true, 
+        uuid: newClient.id,
+        id: newClient.id,
+        firstName: newClient.firstName,
+        lastName: newClient.lastName,
+        email: newClient.email,
+        mobile: newClient.mobile
+      });
+    } catch (error: any) {
       console.error("Error creating client:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: error.errors[0]?.message || "Validation failed" });
+      }
       res.status(500).json({ error: "Failed to create client" });
     }
   });

@@ -69,6 +69,7 @@ import {
   Check,
   ChevronsUpDown,
   User,
+  UserPlus,
   ClipboardPaste,
   Table2,
   FileSpreadsheet,
@@ -200,6 +201,8 @@ export default function AgentInvestmentAdvisory() {
   const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [clientSearchOpen, setClientSearchOpen] = useState(false);
   const [clientSearchQuery, setClientSearchQuery] = useState("");
+  const [showNewClientDialog, setShowNewClientDialog] = useState(false);
+  const [newClientData, setNewClientData] = useState({ firstName: "", lastName: "", email: "", mobile: "" });
   const [selectedHorizon, setSelectedHorizon] = useState<string>("3M");
   const [selectedProductTypes, setSelectedProductTypes] = useState<string[]>(["stocks", "mutual_funds", "bonds", "etfs"]);
   const [showAddHoldingDialog, setShowAddHoldingDialog] = useState(false);
@@ -306,6 +309,27 @@ export default function AgentInvestmentAdvisory() {
   const { data: talkingPoints, isLoading: talkingPointsLoading, refetch: refetchTalkingPoints } = useQuery<TalkingPoint[]>({
     queryKey: ['/api/ai-investment/talking-points', selectedClientId],
     enabled: !!selectedClientId && !!portfolio
+  });
+
+  const createClientMutation = useMutation({
+    mutationFn: async (clientData: typeof newClientData) => {
+      return apiRequest('/api/agent/clients', {
+        method: 'POST',
+        body: JSON.stringify(clientData)
+      });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/agent/clients'] });
+      setShowNewClientDialog(false);
+      setNewClientData({ firstName: "", lastName: "", email: "", mobile: "" });
+      if (data?.uuid) {
+        setSelectedClientId(data.uuid);
+      }
+      toast({ title: "Client created", description: "New client added successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to create client", variant: "destructive" });
+    }
   });
 
   const addHoldingMutation = useMutation({
@@ -605,7 +629,22 @@ export default function AgentInvestmentAdvisory() {
                 />
                 <CommandList>
                   <CommandEmpty>
-                    {clientsLoading ? "Loading clients..." : "No clients found."}
+                    {clientsLoading ? "Loading clients..." : (
+                      <div className="py-2">
+                        <p className="text-sm text-muted-foreground mb-2">No clients found.</p>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => {
+                            setClientSearchOpen(false);
+                            setShowNewClientDialog(true);
+                          }}
+                        >
+                          <UserPlus className="h-4 w-4 mr-2" />
+                          Add New Client
+                        </Button>
+                      </div>
+                    )}
                   </CommandEmpty>
                   <CommandGroup>
                     {filteredClients.map((client) => (
@@ -632,6 +671,18 @@ export default function AgentInvestmentAdvisory() {
                         </div>
                       </CommandItem>
                     ))}
+                  </CommandGroup>
+                  <CommandGroup>
+                    <CommandItem
+                      onSelect={() => {
+                        setClientSearchOpen(false);
+                        setShowNewClientDialog(true);
+                      }}
+                      className="border-t"
+                    >
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      Add New Client
+                    </CommandItem>
                   </CommandGroup>
                 </CommandList>
               </Command>
@@ -2060,6 +2111,79 @@ TCS     Tata Consultancy        25      3850.00"
           <ItrServicesTab clientId={selectedClientId} />
         </TabsContent>
       </Tabs>
+
+      <Dialog open={showNewClientDialog} onOpenChange={setShowNewClientDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Client</DialogTitle>
+            <DialogDescription>
+              Create a new client to manage their portfolio and provide investment recommendations.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">First Name *</Label>
+                <Input
+                  id="firstName"
+                  placeholder="Enter first name"
+                  value={newClientData.firstName}
+                  onChange={(e) => setNewClientData(prev => ({ ...prev, firstName: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last Name *</Label>
+                <Input
+                  id="lastName"
+                  placeholder="Enter last name"
+                  value={newClientData.lastName}
+                  onChange={(e) => setNewClientData(prev => ({ ...prev, lastName: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="client@example.com"
+                value={newClientData.email}
+                onChange={(e) => setNewClientData(prev => ({ ...prev, email: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="mobile">Mobile Number</Label>
+              <Input
+                id="mobile"
+                placeholder="9876543210"
+                value={newClientData.mobile}
+                onChange={(e) => setNewClientData(prev => ({ ...prev, mobile: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNewClientDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => createClientMutation.mutate(newClientData)}
+              disabled={createClientMutation.isPending || !newClientData.firstName || !newClientData.lastName}
+            >
+              {createClientMutation.isPending ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Create Client
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
