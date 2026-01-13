@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { agentProspectWizardService, ProspectPortfolioHolding, ProspectRiskProfile, DuplicateCheckResult } from "../services/agent-prospect-wizard-service";
 import { z } from "zod";
 import { ZohoCRMService } from "../zoho/services/crm";
+import { ZohoConnectionResolver } from "../zoho/connection-resolver";
 
 const router = Router();
 
@@ -157,10 +158,30 @@ router.post("/prospects", async (req: Request, res: Response) => {
       });
     }
     
-    // Zoho CRM sync disabled - connection not configured
-    // Uncomment when Zoho connection is set up in zoho_connections table
+    // Zoho CRM sync - auto-push new prospect to Zoho as Lead
+    let zohoLeadId: string | null = null;
+    try {
+      const connection = await ZohoConnectionResolver.resolveForAgent(agentId);
+      if (connection) {
+        const crmService = new ZohoCRMService(connection.connectionId, connection.zohoDataCenter);
+        const masterZohoAccountId = await ZohoConnectionResolver.getMasterAgentZohoAccountId(connection.connectionId);
+        
+        zohoLeadId = await crmService.syncProspectToLead({
+          name: data.name,
+          email: data.email,
+          phone: data.mobile,
+          agentId,
+          prospectId: result as string,
+          notes: data.notes,
+          masterAgentZohoAccountId: masterZohoAccountId || undefined
+        });
+        console.log(`[Zoho CRM] Synced prospect ${result} to Zoho Lead ${zohoLeadId}`);
+      }
+    } catch (zohoError) {
+      console.warn("[Zoho CRM] Sync failed (non-blocking):", zohoError);
+    }
     
-    res.json({ success: true, prospectId: result });
+    res.json({ success: true, prospectId: result, zohoLeadId });
   } catch (error: any) {
     console.error("[Agent Wizard] Error creating prospect:", error);
     res.status(400).json({ success: false, message: error.message });
@@ -634,6 +655,465 @@ router.post("/prospects/:id/holdings/merge", async (req: Request, res: Response)
   } catch (error: any) {
     console.error("[Agent Wizard] Error merging holdings:", error);
     res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+// ============ ZOHO CRM TWO-WAY SYNC ROUTES ============
+
+// Get Zoho sync status for an agent
+router.get("/zoho/status", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const connection = await ZohoConnectionResolver.resolveForAgent(agentId);
+    const isAvailable = await ZohoConnectionResolver.isZohoSyncAvailable();
+    
+    res.json({
+      success: true,
+      isConnected: !!connection,
+      isAvailable,
+      connectionId: connection?.connectionId || null,
+      isMaster: connection?.isMaster || false
+    });
+  } catch (error: any) {
+    console.error("[Zoho Sync] Error checking status:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Import leads from Zoho CRM as prospects
+router.post("/zoho/import/leads", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const { limit = 50, skipExisting = true } = req.body;
+
+    const connection = await ZohoConnectionResolver.resolveForAgent(agentId);
+    if (!connection) {
+      return res.status(400).json({ success: false, message: "No Zoho CRM connection available" });
+    }
+
+    const crmService = new ZohoCRMService(connection.connectionId, connection.zohoDataCenter);
+    const leads = await crmService.getLeads(limit);
+
+    if (!leads || leads.length === 0) {
+      return res.json({ success: true, imported: 0, skipped: 0, message: "No leads found in Zoho CRM" });
+    }
+
+    let imported = 0;
+    let skipped = 0;
+    const importedProspects: any[] = [];
+
+    for (const lead of leads) {
+      const name = [lead.First_Name, lead.Last_Name].filter(Boolean).join(' ') || 'Unknown';
+      const email = lead.Email?.toLowerCase();
+      const mobile = lead.Phone || lead.Mobile;
+
+      // Check for existing prospect with same email/phone
+      if (skipExisting) {
+        const existingCheck = await agentProspectWizardService.checkForExistingProspect(
+          agentId,
+          undefined,
+          email,
+          mobile
+        );
+        if (existingCheck.isDuplicate) {
+          skipped++;
+          continue;
+        }
+      }
+
+      // Create prospect from Zoho lead
+      const prospectData = {
+        name,
+        email,
+        mobile,
+        notes: `Imported from Zoho CRM (Lead ID: ${lead.id})\n${lead.Description || ''}`
+      };
+
+      const prospectId = await agentProspectWizardService.createProspect(agentId, prospectData);
+      
+      if (typeof prospectId === 'string') {
+        // Create entity mapping for two-way sync
+        const { db } = await import('../db');
+        const { zohoEntityMappings } = await import('@shared/schema');
+        
+        await db.insert(zohoEntityMappings).values({
+          connectionId: connection.connectionId,
+          fintekproEntityType: 'prospect',
+          fintekproEntityId: prospectId,
+          zohoService: 'CRM',
+          zohoModule: 'Leads',
+          zohoRecordId: lead.id!,
+          zohoRecordData: lead,
+          owningAgentId: agentId,
+          syncDirection: 'from_zoho',
+          lastSyncedAt: new Date(),
+          syncStatus: 'synced'
+        });
+
+        imported++;
+        importedProspects.push({ prospectId, zohoLeadId: lead.id, name });
+      }
+    }
+
+    console.log(`[Zoho Import] Agent ${agentId} imported ${imported} leads, skipped ${skipped}`);
+    res.json({
+      success: true,
+      imported,
+      skipped,
+      total: leads.length,
+      prospects: importedProspects,
+      message: `Successfully imported ${imported} leads from Zoho CRM`
+    });
+  } catch (error: any) {
+    console.error("[Zoho Import] Error importing leads:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Import contacts from Zoho CRM as prospects
+router.post("/zoho/import/contacts", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const { limit = 50, skipExisting = true } = req.body;
+
+    const connection = await ZohoConnectionResolver.resolveForAgent(agentId);
+    if (!connection) {
+      return res.status(400).json({ success: false, message: "No Zoho CRM connection available" });
+    }
+
+    const crmService = new ZohoCRMService(connection.connectionId, connection.zohoDataCenter);
+    const contacts = await crmService.getContacts(limit);
+
+    if (!contacts || contacts.length === 0) {
+      return res.json({ success: true, imported: 0, skipped: 0, message: "No contacts found in Zoho CRM" });
+    }
+
+    let imported = 0;
+    let skipped = 0;
+    const importedProspects: any[] = [];
+
+    for (const contact of contacts) {
+      const name = [contact.First_Name, contact.Last_Name].filter(Boolean).join(' ') || 'Unknown';
+      const email = contact.Email?.toLowerCase();
+      const mobile = contact.Phone || contact.Mobile;
+
+      if (skipExisting) {
+        const existingCheck = await agentProspectWizardService.checkForExistingProspect(
+          agentId,
+          undefined,
+          email,
+          mobile
+        );
+        if (existingCheck.isDuplicate) {
+          skipped++;
+          continue;
+        }
+      }
+
+      const prospectData = {
+        name,
+        email,
+        mobile,
+        notes: `Imported from Zoho CRM (Contact ID: ${contact.id})\n${contact.Description || ''}`
+      };
+
+      const prospectId = await agentProspectWizardService.createProspect(agentId, prospectData);
+      
+      if (typeof prospectId === 'string') {
+        const { db } = await import('../db');
+        const { zohoEntityMappings } = await import('@shared/schema');
+        
+        await db.insert(zohoEntityMappings).values({
+          connectionId: connection.connectionId,
+          fintekproEntityType: 'prospect',
+          fintekproEntityId: prospectId,
+          zohoService: 'CRM',
+          zohoModule: 'Contacts',
+          zohoRecordId: contact.id!,
+          zohoRecordData: contact,
+          owningAgentId: agentId,
+          syncDirection: 'from_zoho',
+          lastSyncedAt: new Date(),
+          syncStatus: 'synced'
+        });
+
+        imported++;
+        importedProspects.push({ prospectId, zohoContactId: contact.id, name });
+      }
+    }
+
+    console.log(`[Zoho Import] Agent ${agentId} imported ${imported} contacts, skipped ${skipped}`);
+    res.json({
+      success: true,
+      imported,
+      skipped,
+      total: contacts.length,
+      prospects: importedProspects,
+      message: `Successfully imported ${imported} contacts from Zoho CRM`
+    });
+  } catch (error: any) {
+    console.error("[Zoho Import] Error importing contacts:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Sync prospect updates back to Zoho CRM
+router.post("/prospects/:id/sync-to-zoho", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const prospect = await agentProspectWizardService.getProspect(req.params.id);
+    if (!prospect) {
+      return res.status(404).json({ success: false, message: "Prospect not found" });
+    }
+    if (prospect.agentId !== agentId) {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+
+    const connection = await ZohoConnectionResolver.resolveForAgent(agentId);
+    if (!connection) {
+      return res.status(400).json({ success: false, message: "No Zoho CRM connection available" });
+    }
+
+    const { db } = await import('../db');
+    const { zohoEntityMappings } = await import('@shared/schema');
+    const { eq, and } = await import('drizzle-orm');
+
+    // Check for existing mapping
+    const [existingMapping] = await db
+      .select()
+      .from(zohoEntityMappings)
+      .where(
+        and(
+          eq(zohoEntityMappings.connectionId, connection.connectionId),
+          eq(zohoEntityMappings.fintekproEntityType, 'prospect'),
+          eq(zohoEntityMappings.fintekproEntityId, req.params.id)
+        )
+      )
+      .limit(1);
+
+    const crmService = new ZohoCRMService(connection.connectionId, connection.zohoDataCenter);
+
+    if (existingMapping) {
+      // Update existing Zoho record
+      const nameParts = prospect.name?.split(' ') || ['Prospect', 'Client'];
+      const updateData = {
+        First_Name: nameParts[0],
+        Last_Name: nameParts.slice(1).join(' ') || 'Client',
+        Email: prospect.email || undefined,
+        Phone: prospect.mobile || undefined,
+        Mobile: prospect.mobile || undefined
+      };
+
+      if (existingMapping.zohoModule === 'Leads') {
+        await crmService.updateLead(existingMapping.zohoRecordId, updateData);
+      } else if (existingMapping.zohoModule === 'Contacts') {
+        await crmService.updateContact(existingMapping.zohoRecordId, updateData);
+      }
+
+      await db
+        .update(zohoEntityMappings)
+        .set({
+          zohoRecordData: { ...existingMapping.zohoRecordData, ...updateData },
+          lastSyncedAt: new Date(),
+          syncStatus: 'synced',
+          updatedAt: new Date()
+        })
+        .where(eq(zohoEntityMappings.id, existingMapping.id));
+
+      res.json({ success: true, zohoRecordId: existingMapping.zohoRecordId, action: 'updated' });
+    } else {
+      // Create new Zoho Lead
+      const masterZohoAccountId = await ZohoConnectionResolver.getMasterAgentZohoAccountId(connection.connectionId);
+      
+      const zohoLeadId = await crmService.syncProspectToLead({
+        name: prospect.name || 'Unknown',
+        email: prospect.email || undefined,
+        phone: prospect.mobile || undefined,
+        agentId,
+        prospectId: req.params.id,
+        masterAgentZohoAccountId: masterZohoAccountId || undefined
+      });
+
+      res.json({ success: true, zohoRecordId: zohoLeadId, action: 'created' });
+    }
+  } catch (error: any) {
+    console.error("[Zoho Sync] Error syncing to Zoho:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Get Zoho sync info for a prospect
+router.get("/prospects/:id/zoho-info", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const prospect = await agentProspectWizardService.getProspect(req.params.id);
+    if (!prospect) {
+      return res.status(404).json({ success: false, message: "Prospect not found" });
+    }
+    if (prospect.agentId !== agentId) {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+
+    const connection = await ZohoConnectionResolver.resolveForAgent(agentId);
+    if (!connection) {
+      return res.json({ success: true, isSynced: false, zohoConnection: false });
+    }
+
+    const { db } = await import('../db');
+    const { zohoEntityMappings } = await import('@shared/schema');
+    const { eq, and } = await import('drizzle-orm');
+
+    const [mapping] = await db
+      .select()
+      .from(zohoEntityMappings)
+      .where(
+        and(
+          eq(zohoEntityMappings.connectionId, connection.connectionId),
+          eq(zohoEntityMappings.fintekproEntityType, 'prospect'),
+          eq(zohoEntityMappings.fintekproEntityId, req.params.id)
+        )
+      )
+      .limit(1);
+
+    res.json({
+      success: true,
+      isSynced: !!mapping,
+      zohoConnection: true,
+      zohoModule: mapping?.zohoModule || null,
+      zohoRecordId: mapping?.zohoRecordId || null,
+      lastSyncedAt: mapping?.lastSyncedAt || null,
+      syncDirection: mapping?.syncDirection || null
+    });
+  } catch (error: any) {
+    console.error("[Zoho Info] Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Zoho CRM Webhook Handler - receives updates when leads/contacts change in Zoho
+// Note: This endpoint is called by Zoho CRM and doesn't require auth
+router.post("/zoho/webhook", async (req: Request, res: Response) => {
+  try {
+    const { module, operation, ids, data } = req.body;
+    
+    console.log(`[Zoho Webhook] Received: module=${module}, operation=${operation}, ids=${JSON.stringify(ids)}`);
+
+    // Validate webhook (basic validation - in production, use signature validation)
+    if (!module || !operation) {
+      return res.status(400).json({ success: false, message: "Invalid webhook payload" });
+    }
+
+    // Only process Lead and Contact updates
+    if (!['Leads', 'Contacts'].includes(module)) {
+      return res.json({ success: true, message: "Module not tracked" });
+    }
+
+    const { db } = await import('../db');
+    const { zohoEntityMappings, agentProspects } = await import('@shared/schema');
+    const { eq, and } = await import('drizzle-orm');
+
+    // Process each record
+    const recordIds = ids || (data ? data.map((d: any) => d.id) : []);
+    
+    for (const zohoRecordId of recordIds) {
+      // Find matching prospect mapping
+      const [mapping] = await db
+        .select()
+        .from(zohoEntityMappings)
+        .where(
+          and(
+            eq(zohoEntityMappings.zohoRecordId, zohoRecordId),
+            eq(zohoEntityMappings.fintekproEntityType, 'prospect'),
+            eq(zohoEntityMappings.zohoModule, module)
+          )
+        )
+        .limit(1);
+
+      if (!mapping) {
+        console.log(`[Zoho Webhook] No mapping found for ${module}/${zohoRecordId}`);
+        continue;
+      }
+
+      // Handle different operations
+      if (operation === 'update' || operation === 'edit') {
+        // Fetch updated data from Zoho
+        const connection = await ZohoConnectionResolver.resolveForAgent(mapping.owningAgentId || '');
+        if (connection) {
+          const crmService = new ZohoCRMService(connection.connectionId, connection.zohoDataCenter);
+          let updatedRecord: any = null;
+
+          if (module === 'Leads') {
+            updatedRecord = await crmService.getLead(zohoRecordId);
+          } else if (module === 'Contacts') {
+            updatedRecord = await crmService.getContact(zohoRecordId);
+          }
+
+          if (updatedRecord) {
+            // Update prospect with data from Zoho
+            const name = [updatedRecord.First_Name, updatedRecord.Last_Name].filter(Boolean).join(' ');
+            
+            await db
+              .update(agentProspects)
+              .set({
+                name: name || undefined,
+                email: updatedRecord.Email?.toLowerCase() || undefined,
+                mobile: updatedRecord.Phone || updatedRecord.Mobile || undefined,
+                updatedAt: new Date()
+              })
+              .where(eq(agentProspects.id, mapping.fintekproEntityId));
+
+            // Update mapping with latest sync time
+            await db
+              .update(zohoEntityMappings)
+              .set({
+                zohoRecordData: updatedRecord,
+                lastSyncedAt: new Date(),
+                syncStatus: 'synced',
+                updatedAt: new Date()
+              })
+              .where(eq(zohoEntityMappings.id, mapping.id));
+
+            console.log(`[Zoho Webhook] Updated prospect ${mapping.fintekproEntityId} from ${module}/${zohoRecordId}`);
+          }
+        }
+      } else if (operation === 'delete') {
+        // Mark mapping as deleted but don't delete the prospect
+        await db
+          .update(zohoEntityMappings)
+          .set({
+            syncStatus: 'deleted',
+            updatedAt: new Date()
+          })
+          .where(eq(zohoEntityMappings.id, mapping.id));
+
+        console.log(`[Zoho Webhook] Marked mapping as deleted for prospect ${mapping.fintekproEntityId}`);
+      }
+    }
+
+    res.json({ success: true, message: "Webhook processed" });
+  } catch (error: any) {
+    console.error("[Zoho Webhook] Error:", error);
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 

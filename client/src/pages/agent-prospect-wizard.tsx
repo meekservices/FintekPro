@@ -1578,6 +1578,58 @@ export default function AgentProspectWizard() {
     }
   });
 
+  // Zoho CRM Two-Way Sync
+  const { data: zohoStatus } = useQuery<{ success: boolean; isConnected: boolean; isAvailable: boolean }>({
+    queryKey: ['/api/agent-wizard/zoho/status'],
+    staleTime: 60000
+  });
+
+  const [showZohoImportDialog, setShowZohoImportDialog] = useState(false);
+
+  const importZohoLeadsMutation = useMutation({
+    mutationFn: async ({ limit = 50, skipExisting = true }: { limit?: number; skipExisting?: boolean }) => {
+      return await apiRequest("/api/agent-wizard/zoho/import/leads", {
+        method: "POST",
+        body: JSON.stringify({ limit, skipExisting })
+      });
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        toast({ 
+          title: "Leads Imported", 
+          description: `Imported ${data.imported} leads, skipped ${data.skipped} duplicates` 
+        });
+        queryClient.invalidateQueries({ queryKey: ['/api/agent-wizard/prospects'] });
+        setShowZohoImportDialog(false);
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: "Import Failed", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const importZohoContactsMutation = useMutation({
+    mutationFn: async ({ limit = 50, skipExisting = true }: { limit?: number; skipExisting?: boolean }) => {
+      return await apiRequest("/api/agent-wizard/zoho/import/contacts", {
+        method: "POST",
+        body: JSON.stringify({ limit, skipExisting })
+      });
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        toast({ 
+          title: "Contacts Imported", 
+          description: `Imported ${data.imported} contacts, skipped ${data.skipped} duplicates` 
+        });
+        queryClient.invalidateQueries({ queryKey: ['/api/agent-wizard/prospects'] });
+        setShowZohoImportDialog(false);
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: "Import Failed", description: error.message, variant: "destructive" });
+    }
+  });
+
   const generateProposalMutation = useMutation({
     mutationFn: async () => {
       return await apiRequest("/api/agent-wizard/generate-proposal", {
@@ -1886,15 +1938,29 @@ export default function AgentProspectWizard() {
               </TabsList>
               
               <TabsContent value="existing" className="mt-4 space-y-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    placeholder="Search by name, email, or PAN..."
-                    value={prospectSearch}
-                    onChange={(e) => setProspectSearch(e.target.value)}
-                    className="pl-10"
-                    data-testid="prospect-search-input"
-                  />
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      placeholder="Search by name, email, or PAN..."
+                      value={prospectSearch}
+                      onChange={(e) => setProspectSearch(e.target.value)}
+                      className="pl-10"
+                      data-testid="prospect-search-input"
+                    />
+                  </div>
+                  {zohoStatus?.isConnected && (
+                    <Button 
+                      variant="outline" 
+                      size="default"
+                      onClick={() => setShowZohoImportDialog(true)}
+                      className="flex items-center gap-2"
+                      data-testid="zoho-import-btn"
+                    >
+                      <Download className="h-4 w-4" />
+                      <span className="hidden sm:inline">Import from Zoho</span>
+                    </Button>
+                  )}
                 </div>
                 
                 {loadingProspects ? (
@@ -3629,6 +3695,60 @@ export default function AgentProspectWizard() {
               <span>Copy Link</span>
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showZohoImportDialog} onOpenChange={setShowZohoImportDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Globe className="h-5 w-5" />
+              Import from Zoho CRM
+            </DialogTitle>
+            <DialogDescription>
+              Import leads or contacts from your connected Zoho CRM account
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <Button
+                variant="outline"
+                className="flex flex-col h-24 gap-2"
+                onClick={() => importZohoLeadsMutation.mutate({ limit: 50, skipExisting: true })}
+                disabled={importZohoLeadsMutation.isPending || importZohoContactsMutation.isPending}
+                data-testid="import-zoho-leads-btn"
+              >
+                {importZohoLeadsMutation.isPending ? (
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                ) : (
+                  <Users className="h-8 w-8" />
+                )}
+                <span>Import Leads</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="flex flex-col h-24 gap-2"
+                onClick={() => importZohoContactsMutation.mutate({ limit: 50, skipExisting: true })}
+                disabled={importZohoLeadsMutation.isPending || importZohoContactsMutation.isPending}
+                data-testid="import-zoho-contacts-btn"
+              >
+                {importZohoContactsMutation.isPending ? (
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                ) : (
+                  <User className="h-8 w-8" />
+                )}
+                <span>Import Contacts</span>
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground text-center">
+              Existing duplicates will be automatically skipped. Imports up to 50 records at a time.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowZohoImportDialog(false)}>
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

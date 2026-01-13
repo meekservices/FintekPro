@@ -390,6 +390,36 @@ export class ZohoCRMService {
   }
 
   /**
+   * Update lead in Zoho CRM
+   */
+  async updateLead(leadId: string, leadData: Partial<ZohoCRMLead>): Promise<boolean> {
+    try {
+      await this.apiClient.put(`/Leads/${leadId}`, {
+        data: [leadData]
+      });
+      return true;
+    } catch (error) {
+      console.error('Error updating lead in Zoho CRM:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Update contact in Zoho CRM
+   */
+  async updateContact(contactId: string, contactData: Partial<ZohoCRMContact>): Promise<boolean> {
+    try {
+      await this.apiClient.put(`/Contacts/${contactId}`, {
+        data: [contactData]
+      });
+      return true;
+    } catch (error) {
+      console.error('Error updating contact in Zoho CRM:', error);
+      return false;
+    }
+  }
+
+  /**
    * Bulk sync partners to accounts
    */
   async bulkSyncPartnersToAccounts(partnerIds: string[]): Promise<void> {
