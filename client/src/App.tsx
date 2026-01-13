@@ -550,6 +550,8 @@ function AdminRoutes() {
       {/* Public auth routes - no AdminLayout wrapper */}
       <Route path="/auth" component={AuthPage} />
       <Route path="/admin/auth" component={AuthPage} />
+      {/* Public proposal preview - accessible on all subdomains */}
+      <Route path="/proposal/:shareToken" component={PublicProposalPage} />
       
       {/* Protected admin routes - wrapped in AdminLayout */}
       <Route path="/" component={AdminRoot} />
@@ -1201,6 +1203,8 @@ function PartnerRoutes() {
     <Switch>
       <Route path="/auth" component={AuthPage} />
       <Route path="/partner/auth" component={AuthPage} />
+      {/* Public proposal preview - accessible on all subdomains */}
+      <Route path="/proposal/:shareToken" component={PublicProposalPage} />
       <Route path="/">
         {() => (
           <PartnerLayout>
@@ -1274,6 +1278,8 @@ function AgentRoutes() {
     <Switch>
       <Route path="/auth" component={AuthPage} />
       <Route path="/agent/auth" component={AuthPage} />
+      {/* Public proposal preview - accessible on all subdomains */}
+      <Route path="/proposal/:shareToken" component={PublicProposalPage} />
       <Route path="/">
         {() => (
           <AgentLayout>
