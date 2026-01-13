@@ -523,6 +523,26 @@ export default function AgentProspectWizard() {
     unimportedCount?: number;
     needsManualReview?: boolean;
   } | null>(null);
+  
+  // CAS/Statement Import State
+  const [showCASUploadDialog, setShowCASUploadDialog] = useState(false);
+  const [casFile, setCasFile] = useState<File | null>(null);
+  const [casUploadType, setCasUploadType] = useState<'cas' | 'demat' | null>(null);
+  const [casPreviewHoldings, setCasPreviewHoldings] = useState<Array<{
+    id: string;
+    name: string;
+    symbol?: string;
+    isin?: string;
+    quantity: number;
+    averagePrice: number;
+    currentValue: number;
+    assetType: string;
+    folioNumber?: string;
+    confidenceScore?: number;
+    broker?: string;
+  }>>([]);
+  const [casPreviewError, setCasPreviewError] = useState<string | null>(null);
+  const [casPreviewMode, setCasPreviewMode] = useState(false);
   const [rebalancing, setRebalancing] = useState<RebalanceRecommendation[]>([]);
   const [taxSummary, setTaxSummary] = useState<any>(null);
   const [freshInvestments, setFreshInvestments] = useState<FreshInvestmentSuggestion[]>([]);
@@ -1389,6 +1409,92 @@ export default function AgentProspectWizard() {
     }
   });
 
+  // CAS/Statement Preview Mutation
+  const casPreviewMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', casUploadType || 'cas');
+      const res = await fetch(`/api/agent/portfolio/parse-cas`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (data.success && data.holdings?.length > 0) {
+        setCasPreviewHoldings(data.holdings);
+        setCasPreviewMode(true);
+        setCasPreviewError(null);
+        if (data.holdings.some((h: any) => (h.confidenceScore || 100) < 70)) {
+          setCasPreviewError(`Some holdings have low confidence. Please review before importing.`);
+        }
+      } else {
+        setCasPreviewError(data.errors?.join('; ') || data.error || 'No holdings found in the PDF');
+      }
+    },
+    onError: (error: any) => {
+      setCasPreviewError(error.message || "Failed to parse PDF");
+    }
+  });
+
+  // CAS Import Mutation (after preview confirmation)
+  const casImportMutation = useMutation({
+    mutationFn: async (holdings: typeof casPreviewHoldings) => {
+      const backendHoldings = holdings.map(h => ({
+        name: h.name,
+        assetType: h.assetType || 'mutual_fund',
+        quantity: h.quantity,
+        currentValue: h.currentValue,
+        isin: h.isin,
+        averageCost: h.averagePrice,
+        productType: h.assetType
+      }));
+      
+      const res = await fetch(`/api/agent-wizard/prospects/${prospectId}/holdings/merge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ holdings: backendHoldings })
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        const frontendHoldings = (data.holdings || []).map(toFrontendHolding);
+        setHoldings(frontendHoldings);
+        setShowCASUploadDialog(false);
+        setCasFile(null);
+        setCasUploadType(null);
+        setCasPreviewHoldings([]);
+        setCasPreviewMode(false);
+        setCasPreviewError(null);
+        
+        queryClient.invalidateQueries({ 
+          predicate: (query) => {
+            const key = query.queryKey;
+            return Array.isArray(key) && typeof key[0] === 'string' && key[0].includes('holdings');
+          }
+        });
+        
+        toast({ 
+          title: "Portfolio Imported", 
+          description: `${data.addedCount || casPreviewHoldings.length} holdings imported from statement.` 
+        });
+      } else {
+        toast({ 
+          title: "Import Failed", 
+          description: data.message || "Could not save holdings.", 
+          variant: "destructive" 
+        });
+      }
+    },
+    onError: () => {
+      toast({ title: "Import Error", description: "Failed to import holdings.", variant: "destructive" });
+    }
+  });
+
   const analyzePortfolioMutation = useMutation({
     mutationFn: async () => {
       return await apiRequest("/api/agent-wizard/analyze-portfolio", {
@@ -2094,6 +2200,230 @@ export default function AgentProspectWizard() {
               >
                 <Link className="h-4 w-4 mr-1" /> Import from URL
               </Button>
+              <Dialog open={showCASUploadDialog} onOpenChange={(open) => {
+                setShowCASUploadDialog(open);
+                if (!open) {
+                  setCasFile(null);
+                  setCasUploadType(null);
+                  setCasPreviewHoldings([]);
+                  setCasPreviewMode(false);
+                  setCasPreviewError(null);
+                }
+              }}>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setShowCASUploadDialog(true)}
+                  data-testid="mode-cas-btn"
+                >
+                  <FileText className="h-4 w-4 mr-1" /> Import CAS/Statement
+                </Button>
+                <DialogContent className={casPreviewMode ? "max-w-4xl max-h-[85vh] overflow-hidden flex flex-col" : "max-w-lg"}>
+                  <DialogHeader>
+                    <DialogTitle>
+                      {casPreviewMode ? 'Review Holdings Before Import' : 'Import Account Statement'}
+                    </DialogTitle>
+                    <DialogDescription>
+                      {casPreviewMode 
+                        ? `${casPreviewHoldings.length} holdings found. Review and edit as needed before importing.`
+                        : 'Upload your CAMS/KFintech CAS PDF or NSDL/CDSL Demat statement to automatically import portfolio'
+                      }
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="flex-1 overflow-auto">
+                    {casPreviewMode ? (
+                      <div className="space-y-4">
+                        {casPreviewError && (
+                          <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-sm flex items-center gap-2">
+                            <AlertTriangle className="h-4 w-4" />
+                            {casPreviewError}
+                          </div>
+                        )}
+                        
+                        <div className="rounded-lg border overflow-hidden">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-muted/50">
+                                <TableHead>Fund Name</TableHead>
+                                <TableHead className="text-right">Units</TableHead>
+                                <TableHead className="text-right">Avg Cost</TableHead>
+                                <TableHead className="text-right">Value</TableHead>
+                                <TableHead>Type</TableHead>
+                                <TableHead className="text-center">Confidence</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {casPreviewHoldings.map((holding, idx) => (
+                                <TableRow key={idx}>
+                                  <TableCell className="max-w-[200px]">
+                                    <div className="truncate font-medium text-sm">{holding.name}</div>
+                                    {holding.folioNumber && (
+                                      <div className="text-xs text-muted-foreground">Folio: {holding.folioNumber}</div>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-right">{holding.quantity.toFixed(3)}</TableCell>
+                                  <TableCell className="text-right">{formatCurrency(holding.averagePrice)}</TableCell>
+                                  <TableCell className="text-right font-medium">{formatCurrency(holding.currentValue)}</TableCell>
+                                  <TableCell>
+                                    <Badge variant="outline" className="text-xs">
+                                      {holding.assetType === 'mutual_fund' ? 'MF' : holding.assetType.toUpperCase()}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    {(holding.confidenceScore || 100) >= 70 ? (
+                                      <CheckCircle className="h-4 w-4 text-green-600 mx-auto" />
+                                    ) : (
+                                      <AlertTriangle className="h-4 w-4 text-yellow-600 mx-auto" />
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                        
+                        <div className="flex items-center justify-between text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+                          <span>{casPreviewHoldings.length} holdings ready to import</span>
+                          <span className="font-medium">
+                            Total Value: {formatCurrency(casPreviewHoldings.reduce((sum, h) => sum + h.currentValue, 0))}
+                          </span>
+                        </div>
+                      </div>
+                    ) : !casUploadType ? (
+                      <div className="grid grid-cols-2 gap-4">
+                        <Card 
+                          className="cursor-pointer hover:border-primary transition-colors"
+                          onClick={() => setCasUploadType('cas')}
+                        >
+                          <CardContent className="p-4 text-center">
+                            <FileText className="h-8 w-8 mx-auto mb-2 text-blue-600" />
+                            <h4 className="font-medium">CAMS/KFintech CAS</h4>
+                            <p className="text-xs text-muted-foreground">Mutual Fund Statement</p>
+                          </CardContent>
+                        </Card>
+                        <Card 
+                          className="cursor-pointer hover:border-primary transition-colors opacity-60"
+                          onClick={() => setCasUploadType('demat')}
+                        >
+                          <CardContent className="p-4 text-center">
+                            <FileText className="h-8 w-8 mx-auto mb-2 text-green-600" />
+                            <h4 className="font-medium">NSDL/CDSL</h4>
+                            <p className="text-xs text-muted-foreground">Demat Statement (Beta)</p>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Button variant="ghost" size="sm" onClick={() => {
+                            setCasUploadType(null);
+                            setCasFile(null);
+                            setCasPreviewError(null);
+                          }}>
+                            <ArrowLeft className="h-4 w-4 mr-1" />
+                            Back
+                          </Button>
+                          <span className="font-medium">
+                            {casUploadType === 'cas' ? 'CAMS/KFintech CAS' : 'NSDL/CDSL Statement'}
+                          </span>
+                        </div>
+                        
+                        <div 
+                          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                            casFile ? 'border-green-500 bg-green-50 dark:bg-green-950' : 'border-muted-foreground/25 hover:border-primary'
+                          }`}
+                        >
+                          <input
+                            type="file"
+                            accept=".pdf"
+                            className="hidden"
+                            id="cas-file-input"
+                            onChange={(e) => {
+                              setCasFile(e.target.files?.[0] || null);
+                              setCasPreviewError(null);
+                            }}
+                          />
+                          <label htmlFor="cas-file-input" className="cursor-pointer block">
+                            {casFile ? (
+                              <>
+                                <CheckCircle className="h-10 w-10 mx-auto mb-2 text-green-600" />
+                                <p className="font-medium">{casFile.name}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {(casFile.size / 1024).toFixed(1)} KB - Click to change
+                                </p>
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
+                                <p className="font-medium">Drop your PDF here or click to browse</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Supports {casUploadType === 'cas' ? 'CAMS and KFintech CAS' : 'NSDL and CDSL'} PDF statements
+                                </p>
+                              </>
+                            )}
+                          </label>
+                        </div>
+                        
+                        {casPreviewError && !casPreviewMode && (
+                          <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-sm flex items-center gap-2">
+                            <AlertCircle className="h-4 w-4" />
+                            {casPreviewError}
+                          </div>
+                        )}
+                        
+                        {casUploadType === 'cas' && !casPreviewError && (
+                          <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-sm flex items-center gap-2">
+                            <Info className="h-4 w-4 flex-shrink-0" />
+                            <span>You can download your CAS from MFCentral, CAMSOnline, or KFintech portal. Make sure it's the detailed statement with unit balance.</span>
+                          </div>
+                        )}
+                        
+                        {casUploadType === 'demat' && !casPreviewError && (
+                          <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-sm flex items-center gap-2">
+                            <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                            <span>Demat statement parsing is in beta. Some holdings may require manual verification after import.</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <DialogFooter className="gap-2 sm:gap-0">
+                    {casPreviewMode ? (
+                      <>
+                        <Button variant="outline" onClick={() => {
+                          setCasPreviewMode(false);
+                          setCasFile(null);
+                        }}>
+                          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Upload
+                        </Button>
+                        <Button 
+                          onClick={() => casImportMutation.mutate(casPreviewHoldings)}
+                          disabled={casImportMutation.isPending}
+                        >
+                          {casImportMutation.isPending ? (
+                            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Importing...</>
+                          ) : (
+                            <><CheckCircle className="h-4 w-4 mr-2" /> Import {casPreviewHoldings.length} Holdings</>
+                          )}
+                        </Button>
+                      </>
+                    ) : casUploadType ? (
+                      <Button 
+                        onClick={() => casFile && casPreviewMutation.mutate(casFile)}
+                        disabled={!casFile || casPreviewMutation.isPending}
+                      >
+                        {casPreviewMutation.isPending ? (
+                          <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Parsing PDF...</>
+                        ) : (
+                          <>Preview Holdings</>
+                        )}
+                      </Button>
+                    ) : null}
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
 
             {/* Upload PDF Section */}
