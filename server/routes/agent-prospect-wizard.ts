@@ -17,7 +17,7 @@ const createProspectSchema = z.object({
 
 const riskProfileSchema = z.object({
   riskTolerance: z.enum(['conservative', 'moderate', 'aggressive', 'very_aggressive']),
-  investmentHorizon: z.enum(['short_term', 'medium_term', 'long_term']),
+  investmentHorizon: z.enum(['3_months', '6_months', '9_months', '1_year', 'short_term', 'medium_term', 'long_term']),
   primaryGoal: z.string(),
   monthlyIncome: z.number().optional(),
   existingInvestments: z.number().optional(),

@@ -1156,8 +1156,11 @@ export default function AgentProspectWizard() {
         body: JSON.stringify(data)
       });
       const result = await res.json();
-      if (!res.ok && result.isDuplicate) {
-        throw { isDuplicate: true, ...result };
+      if (!res.ok) {
+        if (result.isDuplicate) {
+          throw { isDuplicate: true, ...result };
+        }
+        throw new Error(result.message || "Failed to create prospect");
       }
       return result;
     },
@@ -1180,7 +1183,11 @@ export default function AgentProspectWizard() {
           });
         }
       } else {
-        toast({ title: "Error", description: "Failed to create prospect.", variant: "destructive" });
+        toast({ 
+          title: "Error", 
+          description: error?.message || "Failed to create prospect.", 
+          variant: "destructive" 
+        });
       }
     }
   });
