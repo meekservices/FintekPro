@@ -10800,6 +10800,19 @@ export const unifiedOrders = pgTable("unified_orders", {
   index("idx_unified_orders_order_number").on(table.orderNumber),
 ]);
 
+// Order Refunds - Track refund requests and processing
+export const orderRefunds = pgTable("order_refunds", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").references(() => unifiedOrders.id).notNull(),
+  amount: decimal("amount", { precision: 18, scale: 2 }).notNull(),
+  reason: text("reason").notNull(),
+  status: varchar("status").notNull().default("pending"), // pending, processing, completed, failed
+  gatewayRefundId: varchar("gateway_refund_id"),
+  initiatedBy: varchar("initiated_by").notNull(),
+  processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Order Lifecycle Events - Track all state changes and events
 export const orderLifecycleEvents = pgTable("order_lifecycle_events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

@@ -23325,7 +23325,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: req.session.user.id,
         ipAddress: req.ip,
         userAgent: req.get('User-Agent'),
-        outcome: 'success', riskLevel: 'low',
+        outcome: 'success', 
         riskLevel: 'low'
       });
       
@@ -23367,7 +23367,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: req.session.user.id,
         ipAddress: req.ip,
         userAgent: req.get('User-Agent'),
-        outcome: 'success', riskLevel: 'low',
+        outcome: 'success', 
         riskLevel: 'low'
       });
       
@@ -23702,7 +23702,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       complianceMonitor.logEvent({ 
         eventType: 'data_access', action: 'read_popular_recommendations', 
-        outcome: 'success', riskLevel: 'low',
+        outcome: 'success', 
         riskLevel: 'low'
       });
       

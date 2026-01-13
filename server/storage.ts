@@ -3275,26 +3275,6 @@ export class DatabaseStorage implements IStorage {
     return [];
   }
 
-  async createLoanApplication(application: any): Promise<any> {
-    return application;
-  }
-
-  async getLoanApplication(id: string): Promise<any | undefined> {
-    return undefined;
-  }
-
-  async getUserLoans(userId: string): Promise<any[]> {
-    return [];
-  }
-
-  async updateLoanStatus(id: string, updates: any): Promise<any | undefined> {
-    return undefined;
-  }
-
-  async getCollateralValuation(loanId: string): Promise<any | undefined> {
-    return undefined;
-  }
-
   // Loan Marketplace Storage Implementation
 
   // Credit Profile methods
