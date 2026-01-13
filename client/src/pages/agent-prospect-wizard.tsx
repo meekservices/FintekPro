@@ -95,7 +95,7 @@ function toFrontendHolding(holding: any): PortfolioHolding {
 
 interface RiskProfile {
   riskTolerance: 'conservative' | 'moderate' | 'aggressive' | 'very_aggressive';
-  investmentHorizon: 'short_term' | 'medium_term' | 'long_term';
+  investmentHorizon: '3_months' | '6_months' | '9_months' | '1_year' | 'short_term' | 'medium_term' | 'long_term';
   primaryGoal: string;
   monthlyIncome?: number;
   existingInvestments?: number;
@@ -2119,22 +2119,26 @@ export default function AgentProspectWizard() {
               <RadioGroup 
                 value={riskProfile.investmentHorizon}
                 onValueChange={(v: any) => setRiskProfile({ ...riskProfile, investmentHorizon: v })}
-                className="grid grid-cols-3 gap-3"
+                className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2"
               >
                 {[
-                  { value: 'short_term', label: 'Short Term', desc: '< 3 years' },
-                  { value: 'medium_term', label: 'Medium Term', desc: '3-7 years' },
-                  { value: 'long_term', label: 'Long Term', desc: '7+ years' }
+                  { value: '3_months', label: '3M', desc: '0-3 months' },
+                  { value: '6_months', label: '6M', desc: '3-6 months' },
+                  { value: '9_months', label: '9M', desc: '6-9 months' },
+                  { value: '1_year', label: '1Y', desc: '9-12 months' },
+                  { value: 'short_term', label: 'Short', desc: '1-3 years' },
+                  { value: 'medium_term', label: 'Medium', desc: '3-7 years' },
+                  { value: 'long_term', label: 'Long', desc: '7+ years' }
                 ].map(horizon => (
                   <Label 
                     key={horizon.value} 
                     htmlFor={`horizon_${horizon.value}`} 
-                    className={`flex items-center gap-2 p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted ${riskProfile.investmentHorizon === horizon.value ? 'border-primary bg-primary/5' : ''}`}
+                    className={`flex items-center gap-2 p-2.5 border rounded-lg cursor-pointer transition-colors hover:bg-muted ${riskProfile.investmentHorizon === horizon.value ? 'border-primary bg-primary/5' : ''}`}
                     data-testid={`horizon-${horizon.value.replace('_', '-')}`}
                   >
                     <RadioGroupItem value={horizon.value} id={`horizon_${horizon.value}`} />
                     <div className="flex flex-col">
-                      <span className="font-medium">{horizon.label}</span>
+                      <span className="font-medium text-sm">{horizon.label}</span>
                       <span className="text-xs text-muted-foreground">{horizon.desc}</span>
                     </div>
                   </Label>
