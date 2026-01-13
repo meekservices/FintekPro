@@ -2937,7 +2937,12 @@ export default function AgentProspectWizard() {
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-amber-800 dark:text-amber-200">
                             <div>
                               <span className="text-amber-600 dark:text-amber-400">Type:</span>{' '}
-                              {rec.taxImplications.taxType}
+                              {rec.taxImplications.taxType === 'SLAB' 
+                                ? 'Slab Rate (30%)'
+                                : rec.taxImplications.taxType}
+                              {rec.taxImplications.isSlabBased && (
+                                <span className="ml-1 text-amber-500">(no LTCG benefit)</span>
+                              )}
                             </div>
                             <div>
                               <span className="text-amber-600 dark:text-amber-400">Est. Gain:</span>{' '}
@@ -2996,7 +3001,7 @@ export default function AgentProspectWizard() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       {/* Tax Breakdown */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                         <div className="p-2 bg-white dark:bg-gray-800 rounded-lg">
                           <p className="text-xs text-muted-foreground">Short-Term Gains</p>
                           <p className="font-semibold text-amber-700 dark:text-amber-300">{formatCurrency(taxSummary.totalSTCG)}</p>
@@ -3007,6 +3012,13 @@ export default function AgentProspectWizard() {
                           <p className="font-semibold text-amber-700 dark:text-amber-300">{formatCurrency(taxSummary.totalLTCG)}</p>
                           <p className="text-xs text-muted-foreground">Tax: {formatCurrency(taxSummary.ltcgTax)}</p>
                         </div>
+                        {taxSummary.totalSlabGains > 0 && (
+                          <div className="p-2 bg-white dark:bg-gray-800 rounded-lg border border-orange-200 dark:border-orange-700">
+                            <p className="text-xs text-muted-foreground">Debt Fund Gains</p>
+                            <p className="font-semibold text-orange-600 dark:text-orange-400">{formatCurrency(taxSummary.totalSlabGains)}</p>
+                            <p className="text-xs text-muted-foreground">Tax (30%): {formatCurrency(taxSummary.slabTax)}</p>
+                          </div>
+                        )}
                         <div className="p-2 bg-white dark:bg-gray-800 rounded-lg">
                           <p className="text-xs text-muted-foreground">Exit Loads</p>
                           <p className="font-semibold text-red-600">{formatCurrency(taxSummary.totalExitLoad)}</p>

@@ -6,8 +6,12 @@
  */
 
 // Tax Regime Constants
+// Note: Debt MF taxation changed significantly:
+// - Pre-April 2023: 3-year LTCG at 20% with indexation
+// - Post-April 2023 to July 2024: ALL gains taxed at investor's slab rate (no STCG/LTCG distinction)
+// - Post-July 2024: Proposed 20% STCG / 12.5% LTCG with 2-year threshold (awaiting final rules)
 const TAX_REGIMES = {
-  // Pre-July 23, 2024 Budget
+  // Pre-July 23, 2024 Budget (includes post-April 2023 debt fund rules)
   PRE_BUDGET_2024: {
     effectiveUntil: new Date('2024-07-22'),
     equity: {
@@ -15,17 +19,19 @@ const TAX_REGIMES = {
       ltcg: { rate: 0.10, thresholdDays: 365, exemption: 100000 }
     },
     debt: {
-      // Post April 2023 - taxed at slab rate, no indexation
-      stcg: { rate: 0.30, thresholdDays: 1095 }, // 3 years
-      ltcg: { rate: 0.30, thresholdDays: 1095, exemption: 0 }
+      // Post April 2023 - ALL gains taxed at slab rate regardless of holding period
+      // Using 30% as conservative estimate for high-income investors
+      // Note: No STCG/LTCG distinction - both taxed at slab
+      stcg: { rate: 0.30, thresholdDays: Infinity, slabBased: true }, // Always slab-rate
+      ltcg: { rate: 0.30, thresholdDays: Infinity, exemption: 0, slabBased: true } // No LTCG benefit
     },
     hybrid_equity: { // Equity-oriented hybrid (>65% equity)
       stcg: { rate: 0.15, thresholdDays: 365 },
       ltcg: { rate: 0.10, thresholdDays: 365, exemption: 100000 }
     },
-    hybrid_debt: { // Debt-oriented hybrid (<65% equity)
-      stcg: { rate: 0.30, thresholdDays: 1095 },
-      ltcg: { rate: 0.30, thresholdDays: 1095, exemption: 0 }
+    hybrid_debt: { // Debt-oriented hybrid (<65% equity) - same as debt post-April 2023
+      stcg: { rate: 0.30, thresholdDays: Infinity, slabBased: true },
+      ltcg: { rate: 0.30, thresholdDays: Infinity, exemption: 0, slabBased: true }
     },
     gold_silver: {
       stcg: { rate: 0.30, thresholdDays: 1095 },
@@ -40,7 +46,8 @@ const TAX_REGIMES = {
       ltcg: { rate: 0.125, thresholdDays: 365, exemption: 125000 }
     },
     debt: {
-      stcg: { rate: 0.30, thresholdDays: 730 }, // Changed to 2 years
+      // Post-July 2024: 20% STCG, 12.5% LTCG with 2-year threshold
+      stcg: { rate: 0.20, thresholdDays: 730 }, // 2 years
       ltcg: { rate: 0.125, thresholdDays: 730, exemption: 0 }
     },
     hybrid_equity: {
@@ -48,7 +55,7 @@ const TAX_REGIMES = {
       ltcg: { rate: 0.125, thresholdDays: 365, exemption: 125000 }
     },
     hybrid_debt: {
-      stcg: { rate: 0.30, thresholdDays: 730 },
+      stcg: { rate: 0.20, thresholdDays: 730 },
       ltcg: { rate: 0.125, thresholdDays: 730, exemption: 0 }
     },
     gold_silver: {
@@ -58,9 +65,13 @@ const TAX_REGIMES = {
   }
 };
 
-// Grandfathering date for equity funds
+// Grandfathering date for equity funds (SEBI circular dated Jan 31, 2018)
 const GRANDFATHERING_DATE = new Date('2018-01-31');
-const GRANDFATHERING_NAV_MULTIPLIER = 1.0; // Assume NAV on Jan 31, 2018 equals cost for older holdings
+// PLACEHOLDER: Grandfathering FMV estimation
+// Without actual NAV data from Jan 31, 2018, we use a conservative 40% appreciation estimate
+// This is clearly an approximation - actual grandfathering benefit may differ significantly
+// Users should verify with actual NAV data or consult a tax professional
+const GRANDFATHERING_FMV_APPRECIATION_ESTIMATE = 0.40; // Estimated 40% appreciation since purchase to Jan 2018
 
 // Cess rate
 const CESS_RATE = 0.04; // 4% Health & Education Cess
@@ -93,7 +104,8 @@ export interface HoldingWithTax {
   quantity?: number;
   unrealizedGain: number;
   holdingPeriodDays: number;
-  taxType: 'STCG' | 'LTCG' | 'UNKNOWN';
+  taxType: 'STCG' | 'LTCG' | 'SLAB' | 'UNKNOWN';
+  isSlabBased: boolean;
   applicableTaxRate: number;
   estimatedTax: number;
   estimatedTaxWithCess: number;
@@ -116,8 +128,10 @@ export interface TaxAlert {
 export interface TaxSummary {
   totalSTCG: number;
   totalLTCG: number;
+  totalSlabGains: number; // For slab-based taxation (debt funds)
   stcgTax: number;
   ltcgTax: number;
+  slabTax: number; // Tax on slab-based gains
   surcharge: number;
   cess: number;
   totalTaxLiability: number;
@@ -135,8 +149,10 @@ export interface FYTaxBreakdown {
   financialYear: string;
   stcgAmount: number;
   ltcgAmount: number;
+  slabAmount: number; // For slab-based taxation (debt funds)
   stcgTax: number;
   ltcgTax: number;
+  slabTax: number; // Tax on slab-based gains
   totalTax: number;
 }
 
@@ -148,7 +164,8 @@ export interface RebalanceRecommendationWithTax {
   changeAmount?: number;
   suggestedValue?: number;
   taxImplications?: {
-    taxType: 'STCG' | 'LTCG' | 'UNKNOWN';
+    taxType: 'STCG' | 'LTCG' | 'SLAB' | 'UNKNOWN';
+    isSlabBased?: boolean;
     estimatedGain: number;
     estimatedTax: number;
     exitLoad: number;
@@ -246,9 +263,10 @@ class ProposalCapitalGainsService {
       return { applies: false, adjustedCost: investedAmount, benefit: 0 };
     }
     
-    // Estimate NAV on Jan 31, 2018 (simplified - in production, fetch actual NAV)
-    // Assume fair market value (FMV) on Jan 31, 2018 is higher than purchase cost
-    const estimatedFMV = investedAmount * 1.4; // Assume 40% appreciation till Jan 2018
+    // PLACEHOLDER: Estimate FMV on Jan 31, 2018 using appreciation estimate
+    // In production, should fetch actual NAV from historical data
+    // Current implementation uses conservative 40% appreciation estimate
+    const estimatedFMV = investedAmount * (1 + GRANDFATHERING_FMV_APPRECIATION_ESTIMATE);
     
     // Cost of acquisition = Higher of (actual cost, lower of (FMV on 31/1/18, sale price))
     const lowerOfFMVAndSale = Math.min(estimatedFMV, currentValue);
@@ -309,6 +327,15 @@ class ProposalCapitalGainsService {
   }
 
   /**
+   * Check if asset category is slab-based (no STCG/LTCG distinction)
+   */
+  isSlabBasedTaxation(assetCategory: string, taxRegime: 'PRE_BUDGET_2024' | 'POST_BUDGET_2024'): boolean {
+    const regime = TAX_REGIMES[taxRegime];
+    const rules = regime[assetCategory as keyof typeof regime] as any;
+    return rules?.stcg?.slabBased === true || rules?.ltcg?.slabBased === true;
+  }
+
+  /**
    * Generate tax alerts for a holding
    */
   generateAlerts(
@@ -324,40 +351,54 @@ class ProposalCapitalGainsService {
     
     if (!rules) return alerts;
     
-    const stcgThreshold = rules.stcg.thresholdDays;
+    // Check if this asset is taxed at slab rate (no STCG/LTCG benefit)
+    const isSlabBased = rules.stcg?.slabBased === true;
     
-    // Holding Period Alert - close to LTCG threshold
-    if (holdingPeriodDays >= stcgThreshold - 90 && holdingPeriodDays < stcgThreshold) {
-      const daysToWait = stcgThreshold - holdingPeriodDays;
-      const stcgRate = rules.stcg.rate;
-      const ltcgRate = rules.ltcg.rate;
-      const potentialSavings = unrealizedGain * (stcgRate - ltcgRate);
+    if (isSlabBased) {
+      // For slab-based assets (debt funds post-April 2023), no LTCG wait benefit
+      if (unrealizedGain > 0) {
+        alerts.push({
+          type: 'STP_RECOMMENDED' as any,
+          severity: 'info',
+          message: 'Debt fund gains are taxed at slab rate (no LTCG benefit). Consider STP to spread gains across FYs.'
+        });
+      }
+    } else {
+      const stcgThreshold = rules.stcg.thresholdDays;
       
-      alerts.push({
-        type: 'WAIT_FOR_LTCG',
-        severity: 'opportunity',
-        message: `Wait ${daysToWait} days to convert STCG (${(stcgRate * 100).toFixed(0)}%) to LTCG (${(ltcgRate * 100).toFixed(1)}%)`,
-        potentialSavings: Math.max(0, potentialSavings),
-        daysToWait
-      });
+      // Holding Period Alert - close to LTCG threshold (only for non-slab-based)
+      if (holdingPeriodDays >= stcgThreshold - 90 && holdingPeriodDays < stcgThreshold) {
+        const daysToWait = stcgThreshold - holdingPeriodDays;
+        const stcgRate = rules.stcg.rate;
+        const ltcgRate = rules.ltcg.rate;
+        const potentialSavings = unrealizedGain * (stcgRate - ltcgRate);
+        
+        alerts.push({
+          type: 'WAIT_FOR_LTCG',
+          severity: 'opportunity',
+          message: `Wait ${daysToWait} days to convert STCG (${(stcgRate * 100).toFixed(0)}%) to LTCG (${(ltcgRate * 100).toFixed(1)}%)`,
+          potentialSavings: Math.max(0, potentialSavings),
+          daysToWait
+        });
+      }
+      
+      // STP recommendation for large redemptions (only for non-slab-based with LTCG exemption)
+      if (unrealizedGain > 500000 && rules.ltcg?.exemption > 0) {
+        alerts.push({
+          type: 'STP_RECOMMENDED',
+          severity: 'info',
+          message: 'Consider STP over 2-3 FYs to spread tax liability and utilize LTCG exemption each year'
+        });
+      }
     }
     
-    // Tax Loss Harvesting opportunity
+    // Tax Loss Harvesting opportunity (applies to all asset types)
     if (unrealizedGain < 0) {
       alerts.push({
         type: 'TAX_LOSS_HARVEST',
         severity: 'opportunity',
         message: `Loss of ₹${Math.abs(unrealizedGain).toLocaleString('en-IN')} can offset gains from other holdings`,
         potentialSavings: Math.abs(unrealizedGain) * rules.stcg.rate
-      });
-    }
-    
-    // STP recommendation for large redemptions
-    if (unrealizedGain > 500000) { // More than 5L gains
-      alerts.push({
-        type: 'STP_RECOMMENDED',
-        severity: 'info',
-        message: 'Consider STP over 2-3 FYs to spread tax liability and utilize LTCG exemption each year'
       });
     }
     
@@ -404,17 +445,32 @@ class ProposalCapitalGainsService {
       unrealizedGain = currentValue - grandfathering.adjustedCost;
     }
     
-    // Determine STCG or LTCG
-    const isSTCG = holdingPeriodDays < (rules?.stcg?.thresholdDays || 365);
-    const taxType: 'STCG' | 'LTCG' = isSTCG ? 'STCG' : 'LTCG';
+    // Check if this is slab-based taxation (debt funds post-April 2023)
+    const isSlabBased = rules?.stcg?.slabBased === true;
     
-    // Get applicable rate
-    let applicableTaxRate = isSTCG ? rules?.stcg?.rate || 0.20 : rules?.ltcg?.rate || 0.125;
-    
-    // Calculate taxable gain after exemption
+    let taxType: 'STCG' | 'LTCG' | 'SLAB' | 'UNKNOWN';
+    let applicableTaxRate: number;
     let taxableGain = unrealizedGain;
-    if (!isSTCG && rules?.ltcg?.exemption) {
-      taxableGain = Math.max(0, unrealizedGain - rules.ltcg.exemption);
+    
+    if (isSlabBased) {
+      // Slab-based taxation - no STCG/LTCG distinction
+      // All gains taxed at investor's slab rate (using 30% as conservative estimate)
+      taxType = 'SLAB';
+      applicableTaxRate = rules?.stcg?.rate || 0.30; // Use the slab rate (30%)
+      // No exemption for slab-based taxation
+      taxableGain = unrealizedGain;
+    } else {
+      // Normal STCG/LTCG classification
+      const isSTCG = holdingPeriodDays < (rules?.stcg?.thresholdDays || 365);
+      taxType = isSTCG ? 'STCG' : 'LTCG';
+      
+      // Get applicable rate
+      applicableTaxRate = isSTCG ? rules?.stcg?.rate || 0.20 : rules?.ltcg?.rate || 0.125;
+      
+      // Calculate taxable gain after exemption (only for LTCG)
+      if (!isSTCG && rules?.ltcg?.exemption) {
+        taxableGain = Math.max(0, unrealizedGain - rules.ltcg.exemption);
+      }
     }
     
     // Calculate base tax
@@ -441,6 +497,7 @@ class ProposalCapitalGainsService {
       unrealizedGain,
       holdingPeriodDays,
       taxType,
+      isSlabBased,
       applicableTaxRate,
       estimatedTax,
       estimatedTaxWithCess,
@@ -473,8 +530,10 @@ class ProposalCapitalGainsService {
     const holdingsWithTax: HoldingWithTax[] = [];
     let totalSTCG = 0;
     let totalLTCG = 0;
+    let totalSlabGains = 0; // For slab-based taxation (debt funds)
     let stcgTax = 0;
     let ltcgTax = 0;
+    let slabTax = 0; // Tax on slab-based gains
     let totalExitLoad = 0;
     let taxLossHarvestingOpportunity = 0;
     let grandfatheringBenefitTotal = 0;
@@ -495,10 +554,14 @@ class ProposalCapitalGainsService {
       holdingsWithTax.push(taxInfo);
       
       if (taxInfo.unrealizedGain > 0) {
-        if (taxInfo.taxType === 'STCG') {
+        if (taxInfo.taxType === 'SLAB' || taxInfo.isSlabBased) {
+          // Slab-based taxation (debt funds post-April 2023)
+          totalSlabGains += taxInfo.unrealizedGain;
+          slabTax += taxInfo.estimatedTax;
+        } else if (taxInfo.taxType === 'STCG') {
           totalSTCG += taxInfo.unrealizedGain;
           stcgTax += taxInfo.estimatedTax;
-        } else {
+        } else if (taxInfo.taxType === 'LTCG') {
           totalLTCG += taxInfo.unrealizedGain;
           ltcgTax += taxInfo.estimatedTax;
         }
@@ -511,9 +574,9 @@ class ProposalCapitalGainsService {
       allAlerts.push(...taxInfo.alerts);
     }
     
-    // Calculate surcharge on total gains
-    const totalGains = totalSTCG + totalLTCG;
-    const totalBaseTax = stcgTax + ltcgTax;
+    // Calculate surcharge on total gains (including slab-based)
+    const totalGains = totalSTCG + totalLTCG + totalSlabGains;
+    const totalBaseTax = stcgTax + ltcgTax + slabTax;
     const surcharge = this.calculateSurcharge(totalBaseTax, totalGains);
     
     // Calculate cess on (tax + surcharge)
@@ -531,8 +594,10 @@ class ProposalCapitalGainsService {
     return {
       totalSTCG,
       totalLTCG,
+      totalSlabGains,
       stcgTax,
       ltcgTax,
+      slabTax,
       surcharge,
       cess,
       totalTaxLiability,
@@ -556,31 +621,39 @@ class ProposalCapitalGainsService {
     
     // All transactions in current request assumed in current FY
     const currentFYTotal = holdings.reduce((acc, h) => {
-      if (h.taxType === 'STCG') {
+      if (h.taxType === 'SLAB' || h.isSlabBased) {
+        // Slab-based taxation (debt funds)
+        acc.slabAmount += h.unrealizedGain;
+        acc.slabTax += h.estimatedTax;
+      } else if (h.taxType === 'STCG') {
         acc.stcgAmount += h.unrealizedGain;
         acc.stcgTax += h.estimatedTax;
-      } else {
+      } else if (h.taxType === 'LTCG') {
         acc.ltcgAmount += h.unrealizedGain;
         acc.ltcgTax += h.estimatedTax;
       }
       return acc;
-    }, { stcgAmount: 0, ltcgAmount: 0, stcgTax: 0, ltcgTax: 0 });
+    }, { stcgAmount: 0, ltcgAmount: 0, slabAmount: 0, stcgTax: 0, ltcgTax: 0, slabTax: 0 });
     
     return [
       {
         financialYear: currentFY,
         stcgAmount: currentFYTotal.stcgAmount,
         ltcgAmount: currentFYTotal.ltcgAmount,
+        slabAmount: currentFYTotal.slabAmount,
         stcgTax: currentFYTotal.stcgTax,
         ltcgTax: currentFYTotal.ltcgTax,
-        totalTax: currentFYTotal.stcgTax + currentFYTotal.ltcgTax
+        slabTax: currentFYTotal.slabTax,
+        totalTax: currentFYTotal.stcgTax + currentFYTotal.ltcgTax + currentFYTotal.slabTax
       },
       {
         financialYear: nextFY,
         stcgAmount: 0,
         ltcgAmount: 0,
+        slabAmount: 0,
         stcgTax: 0,
         ltcgTax: 0,
+        slabTax: 0,
         totalTax: 0
       }
     ];
@@ -629,9 +702,13 @@ The tax estimates provided are based on the ${isPostBudget ? 'Union Budget 2024 
 • Long-Term Capital Gains (LTCG): ${isPostBudget ? '12.5%' : '10%'} (holding period ≥ 1 year)
 • LTCG Exemption: ₹${isPostBudget ? '1.25 Lakh' : '1 Lakh'} per financial year
 
-**Debt Funds (purchased after April 1, 2023):**
-• Taxed as per individual income tax slab rate
-• Holding period for LTCG: ${isPostBudget ? '2 years' : '3 years'}
+**Debt Funds:**
+${isPostBudget ? 
+`• STCG: 20% (holding period < 2 years)
+• LTCG: 12.5% (holding period ≥ 2 years)` : 
+`• For funds purchased after April 1, 2023: ALL gains taxed at investor's slab rate
+• No STCG/LTCG distinction - estimated at 30% (highest slab) for conservative calculation
+• Indexation benefit removed for debt funds`}
 
 **Gold/Silver Funds:**
 • STCG: ${isPostBudget ? '20%' : 'As per slab'} (holding period < ${isPostBudget ? '2' : '3'} years)
@@ -642,15 +719,16 @@ The tax estimates provided are based on the ${isPostBudget ? 'Union Budget 2024 
 • Health & Education Cess: 4% on tax + surcharge
 • Exit Load: As per fund scheme (typically 1% within 1 year)
 
-**Grandfathering Benefit:**
-For equity funds purchased before January 31, 2018, the cost of acquisition is the higher of actual cost or fair market value on that date.
+**Grandfathering Benefit (PLACEHOLDER):**
+For equity funds purchased before January 31, 2018, a grandfathering benefit applies. **Note:** Without actual NAV data from Jan 31, 2018, we use an estimated 40% appreciation from purchase date as a placeholder. Actual benefit may differ significantly - verify with your fund house or tax advisor.
 
 **Important Notes:**
-1. These are estimated calculations based on available data
+1. These are ESTIMATED calculations based on available data and assumptions
 2. Actual tax liability may vary based on your overall income and tax situation
-3. Purchase dates are assumed where not provided (conservative STCG assumption)
-4. Please consult a qualified tax advisor before making investment decisions
-5. Tax laws are subject to change
+3. Purchase dates are assumed where not provided (conservative 6-month STCG assumption)
+4. Debt fund taxation uses 30% slab rate estimate for high-income investors
+5. Please consult a qualified tax advisor before making investment decisions
+6. Tax laws are subject to change
 
 _This is not tax advice. Consult your CA/Tax Advisor for personalized guidance._
     `.trim();
