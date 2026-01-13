@@ -25,7 +25,7 @@ import {
   Copy, ExternalLink, Plus, Trash2, Loader2, CheckCircle, AlertTriangle,
   IndianRupee, Percent, Clock, Shield, Zap, RefreshCw, Search, Users, Download,
   Upload, Link, FileText, AlertCircle, Settings2, Globe, ChevronUp, ChevronDown, Info,
-  Pencil, RotateCcw, Save, X
+  Pencil, RotateCcw, Save, X, Lightbulb, Calculator
 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import jsPDF from "jspdf";
@@ -524,6 +524,7 @@ export default function AgentProspectWizard() {
     needsManualReview?: boolean;
   } | null>(null);
   const [rebalancing, setRebalancing] = useState<RebalanceRecommendation[]>([]);
+  const [taxSummary, setTaxSummary] = useState<any>(null);
   const [freshInvestments, setFreshInvestments] = useState<FreshInvestmentSuggestion[]>([]);
   const [proposal, setProposal] = useState<CombinedProposal | null>(null);
   const [prospectId, setProspectId] = useState<string | null>(urlProspectId);
@@ -1420,6 +1421,7 @@ export default function AgentProspectWizard() {
     onSuccess: (data) => {
       if (data.success) {
         setRebalancing(data.suggestions);
+        setTaxSummary(data.taxSummary || null);
         setCurrentStep(6);
       }
     }
@@ -2216,7 +2218,7 @@ export default function AgentProspectWizard() {
                   Editing holding #{editingHoldingIndex + 1}
                 </div>
               )}
-              <div className="grid md:grid-cols-5 gap-3 items-end">
+              <div className="grid md:grid-cols-6 gap-3 items-end">
                 <div className="space-y-2">
                   <Label>Product Type</Label>
                   <Select value={newHolding.productType} onValueChange={(v) => setNewHolding({ ...newHolding, productType: v })}>
@@ -2247,6 +2249,19 @@ export default function AgentProspectWizard() {
                     value={newHolding.currentValue || ''}
                     onChange={(e) => setNewHolding({ ...newHolding, currentValue: parseFloat(e.target.value) || 0 })}
                     data-testid="product-value-input"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1">
+                    Purchase Date
+                    <span className="text-xs text-muted-foreground">(for tax)</span>
+                  </Label>
+                  <Input 
+                    type="date"
+                    value={newHolding.purchaseDate || ''}
+                    onChange={(e) => setNewHolding({ ...newHolding, purchaseDate: e.target.value })}
+                    data-testid="purchase-date-input"
+                    max={new Date().toISOString().split('T')[0]}
                   />
                 </div>
                 {editingHoldingIndex !== null ? (
@@ -2913,12 +2928,146 @@ export default function AgentProspectWizard() {
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground">{rec.rationale}</p>
-                      {rec.taxImplications && (
+                      {rec.taxImplications && typeof rec.taxImplications === 'object' && (
+                        <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-md text-xs space-y-1">
+                          <div className="flex items-center gap-1 text-amber-700 dark:text-amber-300 font-medium">
+                            <AlertTriangle className="h-3 w-3" />
+                            Tax Implications
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-amber-800 dark:text-amber-200">
+                            <div>
+                              <span className="text-amber-600 dark:text-amber-400">Type:</span>{' '}
+                              {rec.taxImplications.taxType}
+                            </div>
+                            <div>
+                              <span className="text-amber-600 dark:text-amber-400">Est. Gain:</span>{' '}
+                              <span className={rec.taxImplications.estimatedGain >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                {rec.taxImplications.estimatedGain >= 0 ? '+' : ''}{formatCurrency(rec.taxImplications.estimatedGain)}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-amber-600 dark:text-amber-400">Est. Tax:</span>{' '}
+                              {formatCurrency(rec.taxImplications.estimatedTax || 0)}
+                            </div>
+                            {rec.taxImplications.exitLoad > 0 && (
+                              <div>
+                                <span className="text-amber-600 dark:text-amber-400">Exit Load:</span>{' '}
+                                {formatCurrency(rec.taxImplications.exitLoad)}
+                              </div>
+                            )}
+                          </div>
+                          {rec.taxImplications.grandfatheringBenefit > 0 && (
+                            <div className="text-green-600 dark:text-green-400">
+                              Grandfathering Benefit: {formatCurrency(rec.taxImplications.grandfatheringBenefit)} (pre-2018 holding)
+                            </div>
+                          )}
+                          {rec.taxImplications.alerts?.length > 0 && (
+                            <div className="space-y-1">
+                              {rec.taxImplications.alerts.map((alert: any, aIdx: number) => (
+                                <div key={aIdx} className={`flex items-start gap-1 ${
+                                  alert.type === 'warning' ? 'text-red-600' : 
+                                  alert.type === 'opportunity' ? 'text-blue-600' : 'text-amber-600'
+                                }`}>
+                                  {alert.type === 'warning' ? <AlertTriangle className="h-3 w-3 mt-0.5" /> : 
+                                   alert.type === 'opportunity' ? <Lightbulb className="h-3 w-3 mt-0.5" /> : 
+                                   <Info className="h-3 w-3 mt-0.5" />}
+                                  <span>{alert.message}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {rec.taxImplications && typeof rec.taxImplications === 'string' && (
                         <p className="text-xs text-amber-600 mt-1">Tax Note: {rec.taxImplications}</p>
                       )}
                     </CardContent>
                   </Card>
                 ))}
+                
+                {/* Comprehensive Tax Summary */}
+                {taxSummary && (
+                  <Card className="mt-4 border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/20">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2 text-amber-800 dark:text-amber-200">
+                        <Calculator className="h-5 w-5" />
+                        Tax Impact Summary ({taxSummary.currentFY})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Tax Breakdown */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="p-2 bg-white dark:bg-gray-800 rounded-lg">
+                          <p className="text-xs text-muted-foreground">Short-Term Gains</p>
+                          <p className="font-semibold text-amber-700 dark:text-amber-300">{formatCurrency(taxSummary.totalSTCG)}</p>
+                          <p className="text-xs text-muted-foreground">Tax: {formatCurrency(taxSummary.stcgTax)}</p>
+                        </div>
+                        <div className="p-2 bg-white dark:bg-gray-800 rounded-lg">
+                          <p className="text-xs text-muted-foreground">Long-Term Gains</p>
+                          <p className="font-semibold text-amber-700 dark:text-amber-300">{formatCurrency(taxSummary.totalLTCG)}</p>
+                          <p className="text-xs text-muted-foreground">Tax: {formatCurrency(taxSummary.ltcgTax)}</p>
+                        </div>
+                        <div className="p-2 bg-white dark:bg-gray-800 rounded-lg">
+                          <p className="text-xs text-muted-foreground">Exit Loads</p>
+                          <p className="font-semibold text-red-600">{formatCurrency(taxSummary.totalExitLoad)}</p>
+                        </div>
+                        <div className="p-2 bg-white dark:bg-gray-800 rounded-lg border-2 border-amber-300">
+                          <p className="text-xs text-muted-foreground">Net Rebalancing Cost</p>
+                          <p className="font-bold text-lg text-amber-800 dark:text-amber-200">{formatCurrency(taxSummary.netRebalancingCost)}</p>
+                          <p className="text-xs text-muted-foreground">(Tax + Exit Load)</p>
+                        </div>
+                      </div>
+
+                      {/* Tax Loss Harvesting & Benefits */}
+                      {(taxSummary.taxLossHarvestingOpportunity > 0 || taxSummary.grandfatheringBenefitTotal > 0) && (
+                        <div className="flex flex-wrap gap-3">
+                          {taxSummary.taxLossHarvestingOpportunity > 0 && (
+                            <div className="flex items-center gap-2 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 rounded-full">
+                              <Lightbulb className="h-4 w-4 text-blue-600" />
+                              <span className="text-sm text-blue-700 dark:text-blue-300">
+                                Tax Loss Offset: {formatCurrency(taxSummary.taxLossHarvestingOpportunity)}
+                              </span>
+                            </div>
+                          )}
+                          {taxSummary.grandfatheringBenefitTotal > 0 && (
+                            <div className="flex items-center gap-2 px-3 py-1 bg-green-100 dark:bg-green-900/30 rounded-full">
+                              <Shield className="h-4 w-4 text-green-600" />
+                              <span className="text-sm text-green-700 dark:text-green-300">
+                                Grandfathering Benefit: {formatCurrency(taxSummary.grandfatheringBenefitTotal)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Alerts */}
+                      {taxSummary.alerts?.length > 0 && (
+                        <div className="space-y-2">
+                          {taxSummary.alerts.map((alert: any, idx: number) => (
+                            <div key={idx} className={`flex items-start gap-2 p-2 rounded-lg ${
+                              alert.type === 'warning' ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300' : 
+                              alert.type === 'opportunity' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' : 
+                              'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300'
+                            }`}>
+                              {alert.type === 'warning' ? <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" /> : 
+                               alert.type === 'opportunity' ? <Lightbulb className="h-4 w-4 mt-0.5 flex-shrink-0" /> : 
+                               <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />}
+                              <span className="text-sm">{alert.message}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Disclosure */}
+                      {taxSummary.disclosure && (
+                        <div className="text-xs text-muted-foreground bg-gray-50 dark:bg-gray-800/50 p-2 rounded-lg border">
+                          <p className="font-medium mb-1">Tax Calculation Disclosure:</p>
+                          <p>{taxSummary.disclosure}</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             )}
           </CardContent>

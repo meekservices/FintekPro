@@ -346,12 +346,17 @@ router.post("/rebalancing-suggestions", async (req: Request, res: Response) => {
     const normalizedHoldings = normalizeHoldings(flexibleHoldings);
     const parsedRiskProfile = riskProfileSchema.parse(riskProfile);
     
-    const suggestions = agentProspectWizardService.generateRebalancingRecommendations(
+    const result = agentProspectWizardService.generateRebalancingRecommendations(
       normalizedHoldings, 
       parsedRiskProfile, 
       analysis
     );
-    res.json({ success: true, suggestions });
+    
+    // Handle both old array format and new object format
+    const suggestions = Array.isArray(result) ? result : result.recommendations;
+    const taxSummary = Array.isArray(result) ? null : result.taxSummary;
+    
+    res.json({ success: true, suggestions, taxSummary });
   } catch (error: any) {
     console.error("[Agent Wizard] Error generating rebalancing:", error);
     res.status(400).json({ success: false, message: error.message });
