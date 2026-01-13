@@ -267,15 +267,16 @@ export default function PublicProposalPage() {
       
       const col3Width = (pageWidth - (margin * 2)) / 3;
       
-      // Total Investment
+      // Portfolio Value
       pdf.setFontSize(8);
       pdf.setFont('helvetica', 'normal');
       pdf.setTextColor(100, 100, 100);
-      pdf.text('Total Investment', margin + 8, yPos + 9);
+      pdf.text('Portfolio Value', margin + 8, yPos + 9);
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(12);
       pdf.setTextColor(30, 30, 30);
-      pdf.text(formatRs(proposal.totalInvestmentAmount || 0), margin + 8, yPos + 20);
+      const pdfAnalysis2 = parseAnalysis(proposal.currentAnalysis);
+      pdf.text(formatRs(pdfAnalysis2?.totalValue || 0), margin + 8, yPos + 20);
       
       // Expected Returns
       pdf.setFontSize(8);
@@ -765,17 +766,34 @@ export default function PublicProposalPage() {
         </div>
 
         {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <Card className="bg-gradient-to-br from-indigo-500 to-indigo-600 text-white border-0">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-12">
+          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0">
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
                   <Wallet className="w-6 h-6" />
                 </div>
                 <div>
-                  <p className="text-indigo-100 text-sm">Total Investment</p>
+                  <p className="text-blue-100 text-sm">Portfolio Value</p>
                   <p className="text-2xl font-bold">
-                    ₹{parseFloat(proposal.totalInvestmentAmount || '0').toLocaleString('en-IN')}
+                    ₹{(analysis?.totalValue || 0).toLocaleString('en-IN')}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-indigo-500 to-indigo-600 text-white border-0">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                  <ArrowRight className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className="text-indigo-100 text-sm">Net Investment Needed</p>
+                  <p className="text-2xl font-bold">
+                    {parseFloat(proposal.totalInvestmentAmount || '0') >= 0 ? '₹' : '-₹'}
+                    {Math.abs(parseFloat(proposal.totalInvestmentAmount || '0')).toLocaleString('en-IN')}
                   </p>
                 </div>
               </div>
@@ -813,39 +831,121 @@ export default function PublicProposalPage() {
           </Card>
         </div>
 
-        {/* Investment Goals / Sample Portfolio Info */}
-        {proposal.proposalType === 'fresh_investment' && proposal.investmentGoals && (
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="w-5 h-5 text-indigo-600" />
-                Your Investment Profile
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-muted dark:bg-muted rounded-lg p-4">
-                  <p className="text-xs text-muted-foreground mb-1">Goal</p>
-                  <p className="font-medium">{GOAL_TYPE_LABELS[proposal.investmentGoals.goalType] || proposal.investmentGoals.goalType}</p>
-                </div>
-                <div className="bg-muted dark:bg-muted rounded-lg p-4">
-                  <p className="text-xs text-muted-foreground mb-1">Time Horizon</p>
-                  <p className="font-medium capitalize">{proposal.investmentGoals.timeHorizon?.replace('_', ' ')}</p>
-                </div>
-                <div className="bg-muted dark:bg-muted rounded-lg p-4">
-                  <p className="text-xs text-muted-foreground mb-1">Risk Tolerance</p>
-                  <p className="font-medium capitalize">{proposal.investmentGoals.riskTolerance}</p>
-                </div>
-                {proposal.investmentGoals.targetAmount && (
+        {/* ============ SECTION 1: WHERE YOU ARE ============ */}
+        <div className="mb-12">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold">
+              1
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Where You Are Now</h2>
+              <p className="text-sm text-muted-foreground">Your current portfolio analysis and health assessment</p>
+            </div>
+          </div>
+
+          {/* Investment Goals / Sample Portfolio Info */}
+          {proposal.proposalType === 'fresh_investment' && proposal.investmentGoals && (
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="w-5 h-5 text-indigo-600" />
+                  Your Investment Profile
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="bg-muted dark:bg-muted rounded-lg p-4">
-                    <p className="text-xs text-muted-foreground mb-1">Target Amount</p>
-                    <p className="font-medium">₹{parseFloat(proposal.investmentGoals.targetAmount).toLocaleString('en-IN')}</p>
+                    <p className="text-xs text-muted-foreground mb-1">Goal</p>
+                    <p className="font-medium">{GOAL_TYPE_LABELS[proposal.investmentGoals.goalType] || proposal.investmentGoals.goalType}</p>
+                  </div>
+                  <div className="bg-muted dark:bg-muted rounded-lg p-4">
+                    <p className="text-xs text-muted-foreground mb-1">Time Horizon</p>
+                    <p className="font-medium capitalize">{proposal.investmentGoals.timeHorizon?.replace('_', ' ')}</p>
+                  </div>
+                  <div className="bg-muted dark:bg-muted rounded-lg p-4">
+                    <p className="text-xs text-muted-foreground mb-1">Risk Tolerance</p>
+                    <p className="font-medium capitalize">{proposal.investmentGoals.riskTolerance}</p>
+                  </div>
+                  {proposal.investmentGoals.targetAmount && (
+                    <div className="bg-muted dark:bg-muted rounded-lg p-4">
+                      <p className="text-xs text-muted-foreground mb-1">Target Amount</p>
+                      <p className="font-medium">₹{parseFloat(proposal.investmentGoals.targetAmount).toLocaleString('en-IN')}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Goal Progress Tracking */}
+                {proposal.investmentGoals.targetAmount && analysis && (
+                  <div className="mt-6 pt-6 border-t">
+                    <h4 className="font-medium mb-4 flex items-center gap-2">
+                      <Target className="w-4 h-4 text-indigo-600" />
+                      Goal Progress
+                    </h4>
+                    {(() => {
+                      const targetAmount = parseFloat(proposal.investmentGoals.targetAmount) || 0;
+                      const currentValue = analysis.totalValue || 0;
+                      const projectedValue = parseFloat(proposal.projectedValue || '0') || 0;
+                      
+                      // Guard against division by zero
+                      if (targetAmount <= 0) {
+                        return (
+                          <div className="text-sm text-muted-foreground">
+                            Set a target amount to track your goal progress
+                          </div>
+                        );
+                      }
+                      
+                      const currentProgress = Math.min(100, Math.max(0, (currentValue / targetAmount) * 100));
+                      const projectedProgress = Math.min(100, Math.max(0, (projectedValue / targetAmount) * 100));
+                      
+                      return (
+                        <div className="space-y-4">
+                          {/* Current Progress */}
+                          <div>
+                            <div className="flex justify-between text-sm mb-1">
+                              <span className="text-muted-foreground">Current Progress</span>
+                              <span className="font-medium">{currentProgress.toFixed(0)}%</span>
+                            </div>
+                            <div className="h-3 bg-muted rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-500"
+                                style={{ width: `${currentProgress}%` }}
+                              />
+                            </div>
+                            <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                              <span>₹{currentValue.toLocaleString('en-IN')}</span>
+                              <span>Target: ₹{targetAmount.toLocaleString('en-IN')}</span>
+                            </div>
+                          </div>
+                          
+                          {/* Projected Progress */}
+                          <div>
+                            <div className="flex justify-between text-sm mb-1">
+                              <span className="text-muted-foreground">Projected (5Y)</span>
+                              <span className="font-medium text-green-600">{projectedProgress.toFixed(0)}%</span>
+                            </div>
+                            <div className="h-3 bg-muted rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-gradient-to-r from-green-400 to-emerald-500 rounded-full transition-all duration-500"
+                                style={{ width: `${projectedProgress}%` }}
+                              />
+                            </div>
+                            <div className="flex justify-between text-xs mt-1">
+                              <span className="text-green-600">₹{projectedValue.toLocaleString('en-IN')} projected</span>
+                              {projectedProgress >= 100 && (
+                                <Badge className="bg-green-100 text-green-700">Goal Achievable!</Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
 
         {/* Portfolio Analysis Section */}
         {analysis && (
@@ -1056,6 +1156,19 @@ export default function PublicProposalPage() {
               </Card>
             )}
 
+            {/* ============ SECTION 2: WHAT WE RECOMMEND ============ */}
+            <div className="mb-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center text-green-600 dark:text-green-400 font-bold">
+                  2
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">What We Recommend</h2>
+                  <p className="text-sm text-muted-foreground">Optimized portfolio strategy tailored to your goals</p>
+                </div>
+              </div>
+            </div>
+
             {/* Portfolio Comparison Section - Current vs Proposed */}
             {analysis.portfolioComparison && (
               <Card className="mb-8" data-testid="card-portfolio-comparison">
@@ -1239,26 +1352,94 @@ export default function PublicProposalPage() {
           </>
         )}
 
-        {/* Target Allocation */}
-        {Object.keys(targetAllocation).length > 0 && (
+        {/* Recommended Asset Allocation - Calculated from actual recommendations */}
+        {recommendations.length > 0 && (
           <Card className="mb-8">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <PieChart className="w-5 h-5 text-indigo-600" />
                 Recommended Asset Allocation
               </CardTitle>
+              <CardDescription>
+                Allocation based on your recommended investments
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                {Object.entries(targetAllocation).map(([asset, percentage]) => (
-                  <div key={asset} className="text-center">
-                    <div className="w-16 h-16 mx-auto mb-2 rounded-full bg-gradient-to-br from-indigo-100 to-blue-100 dark:from-indigo-900 dark:to-blue-900 flex items-center justify-center">
-                      <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">{percentage}%</span>
+              {(() => {
+                // Calculate actual allocation from recommendations
+                const allocationMap: Record<string, { value: number; percentage: number }> = {};
+                let totalRecommendedAmount = 0;
+                
+                recommendations.forEach((rec: any) => {
+                  const amount = rec.recommendedAmount || rec.suggestedAmount || rec.changeAmount || 0;
+                  if (amount > 0) {
+                    totalRecommendedAmount += amount;
+                    // Map category to asset class
+                    const category = (rec.category || rec.productType || 'Other').toLowerCase();
+                    let assetClass = 'Other';
+                    if (category.includes('equity') || category.includes('large cap') || category.includes('mid cap') || category.includes('small cap') || category.includes('flexi') || category.includes('multi')) {
+                      assetClass = 'Equity';
+                    } else if (category.includes('debt') || category.includes('liquid') || category.includes('overnight') || category.includes('money market') || category.includes('gilt') || category.includes('bond')) {
+                      assetClass = 'Debt';
+                    } else if (category.includes('hybrid') || category.includes('balanced') || category.includes('aggressive')) {
+                      assetClass = 'Hybrid';
+                    } else if (category.includes('gold') || category.includes('silver') || category.includes('commodity')) {
+                      assetClass = 'Gold/Commodities';
+                    } else if (category.includes('international') || category.includes('global') || category.includes('overseas')) {
+                      assetClass = 'International';
+                    } else if (category.includes('index') || category.includes('etf')) {
+                      assetClass = 'Index/ETF';
+                    }
+                    
+                    if (!allocationMap[assetClass]) {
+                      allocationMap[assetClass] = { value: 0, percentage: 0 };
+                    }
+                    allocationMap[assetClass].value += amount;
+                  }
+                });
+                
+                // Calculate percentages
+                Object.keys(allocationMap).forEach(key => {
+                  allocationMap[key].percentage = totalRecommendedAmount > 0 
+                    ? Math.round((allocationMap[key].value / totalRecommendedAmount) * 100) 
+                    : 0;
+                });
+                
+                const sortedAllocations = Object.entries(allocationMap).sort((a, b) => b[1].percentage - a[1].percentage);
+                
+                if (sortedAllocations.length === 0) {
+                  return (
+                    <div className="text-center text-muted-foreground py-4">
+                      No allocation data available
                     </div>
-                    <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">{asset}</p>
+                  );
+                }
+                
+                return (
+                  <div className="space-y-4">
+                    {sortedAllocations.map(([asset, data]) => (
+                      <div key={asset} className="flex items-center gap-4">
+                        <div className="w-32 text-sm font-medium">{asset}</div>
+                        <div className="flex-1">
+                          <Progress value={data.percentage} className="h-3" />
+                        </div>
+                        <div className="w-32 text-right">
+                          <span className="font-bold text-indigo-600">{data.percentage}%</span>
+                          <span className="text-sm text-muted-foreground ml-2">
+                            (₹{data.value.toLocaleString('en-IN')})
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="pt-4 border-t mt-4">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium">Total Recommended Investment</span>
+                        <span className="font-bold">₹{totalRecommendedAmount.toLocaleString('en-IN')}</span>
+                      </div>
+                    </div>
                   </div>
-                ))}
-              </div>
+                );
+              })()}
             </CardContent>
           </Card>
         )}
@@ -1323,6 +1504,86 @@ export default function PublicProposalPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* ============ SECTION 3: EXPECTED IMPACT ============ */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold">
+              3
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Expected Impact</h2>
+              <p className="text-sm text-muted-foreground">Projected outcomes and next steps</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Implementation Timeline */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-indigo-600" />
+              Implementation Timeline
+            </CardTitle>
+            <CardDescription>
+              Simple steps to optimize your portfolio
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="relative">
+              {/* Timeline line */}
+              <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gradient-to-b from-indigo-500 via-blue-500 to-green-500" />
+              
+              {/* Step 1 */}
+              <div className="relative flex items-start gap-4 pb-8">
+                <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold z-10 flex-shrink-0">
+                  1
+                </div>
+                <div className="flex-1 pt-1">
+                  <h4 className="font-semibold text-gray-900 dark:text-white">Review & Approve</h4>
+                  <p className="text-sm text-muted-foreground mt-1">Review this proposal and connect with your advisor for any questions</p>
+                  <Badge variant="outline" className="mt-2">Today</Badge>
+                </div>
+              </div>
+              
+              {/* Step 2 */}
+              <div className="relative flex items-start gap-4 pb-8">
+                <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold z-10 flex-shrink-0">
+                  2
+                </div>
+                <div className="flex-1 pt-1">
+                  <h4 className="font-semibold text-gray-900 dark:text-white">Complete KYC & Setup</h4>
+                  <p className="text-sm text-muted-foreground mt-1">Quick digital onboarding process with e-KYC verification</p>
+                  <Badge variant="outline" className="mt-2">Day 1-2</Badge>
+                </div>
+              </div>
+              
+              {/* Step 3 */}
+              <div className="relative flex items-start gap-4 pb-8">
+                <div className="w-8 h-8 rounded-full bg-cyan-500 flex items-center justify-center text-white font-bold z-10 flex-shrink-0">
+                  3
+                </div>
+                <div className="flex-1 pt-1">
+                  <h4 className="font-semibold text-gray-900 dark:text-white">Execute Investments</h4>
+                  <p className="text-sm text-muted-foreground mt-1">Fund your account and execute the recommended investments</p>
+                  <Badge variant="outline" className="mt-2">Day 3-5</Badge>
+                </div>
+              </div>
+              
+              {/* Step 4 */}
+              <div className="relative flex items-start gap-4">
+                <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white font-bold z-10 flex-shrink-0">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <div className="flex-1 pt-1">
+                  <h4 className="font-semibold text-gray-900 dark:text-white">Monitor & Grow</h4>
+                  <p className="text-sm text-muted-foreground mt-1">Track your portfolio performance and receive regular updates</p>
+                  <Badge variant="outline" className="mt-2 bg-green-50 text-green-700 border-green-200">Ongoing</Badge>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* CTA Section */}
         <Card className="bg-gradient-to-br from-indigo-600 to-blue-600 text-white border-0 mb-8">
@@ -1404,11 +1665,73 @@ export default function PublicProposalPage() {
         </div>
       </section>
 
+      {/* SEBI Compliance Disclosure */}
+      <section className="max-w-5xl mx-auto px-4 pb-8">
+        <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2 text-amber-700 dark:text-amber-400">
+              <Shield className="w-4 h-4" />
+              Important Disclosures (SEBI Compliance)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-xs text-amber-700/80 dark:text-amber-400/80 space-y-2">
+            <p><strong>Regulatory Status:</strong> This proposal is prepared by a SEBI-registered Investment Adviser / Mutual Fund Distributor. Registration does not guarantee performance.</p>
+            <p><strong>Risk Disclosure:</strong> Investments in securities market are subject to market risks. Read all scheme-related documents carefully before investing. Past performance is not indicative of future returns.</p>
+            <p><strong>Suitability:</strong> The recommendations are based on the information provided by you regarding your risk profile, investment horizon, and financial goals. Any change in these parameters may affect the suitability of recommendations.</p>
+            <p><strong>No Guarantee:</strong> The projected returns and values shown are estimates based on historical data and market assumptions. Actual results may vary significantly.</p>
+            <p><strong>Conflict of Interest:</strong> The advisor may receive commissions or trail fees from mutual fund houses. Full disclosure of compensation is available upon request.</p>
+            
+            {/* Data Provenance Section */}
+            <div className="pt-2 border-t border-amber-200 dark:border-amber-800 mt-3">
+              <p className="font-medium text-amber-800 dark:text-amber-300 mb-1">Data Sources & Provenance:</p>
+              <ul className="list-disc list-inside space-y-1 text-xs">
+                <li title="NAV data from AMFI, fund details from scheme documents">
+                  <span className="cursor-help border-b border-dotted border-amber-500">Fund NAVs:</span> AMFI official NAV feed (updated daily)
+                </li>
+                <li title="Risk metrics calculated using standard deviation, Sharpe ratio, and beta">
+                  <span className="cursor-help border-b border-dotted border-amber-500">Risk Scores:</span> Calculated from historical volatility & benchmark correlation
+                </li>
+                <li title="Returns are annualized based on point-to-point NAV changes">
+                  <span className="cursor-help border-b border-dotted border-amber-500">Performance Data:</span> SEBI-mandated standardized returns methodology
+                </li>
+                <li title="Projections use historical returns with no guarantee of future performance">
+                  <span className="cursor-help border-b border-dotted border-amber-500">Projections:</span> Based on historical averages, not guaranteed
+                </li>
+              </ul>
+            </div>
+            
+            <div className="pt-2 border-t border-amber-200 dark:border-amber-800 mt-3">
+              <p className="text-xs">Proposal generated on: {new Date(proposal.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} | 
+              Valid until: {proposal.validUntil ? new Date(proposal.validUntil).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '30 days from generation'}</p>
+            </div>
+          </CardContent>
+        </Card>
+        
+        {/* Client Acknowledgement */}
+        <Card className="mt-4 border-indigo-200 dark:border-indigo-800">
+          <CardContent className="pt-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-1">
+                <input 
+                  type="checkbox" 
+                  id="client-acknowledgement"
+                  className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+              </div>
+              <label htmlFor="client-acknowledgement" className="text-sm text-muted-foreground cursor-pointer">
+                <strong className="text-foreground">Client Acknowledgement:</strong> I have read and understood the above disclosures, risk factors, and data sources. I understand that investments are subject to market risks and past performance does not guarantee future returns. I confirm that the information I provided for this analysis is accurate.
+              </label>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
       {/* Footer */}
       <footer className="bg-muted dark:bg-card border-t py-8">
         <div className="max-w-5xl mx-auto px-4 text-center text-sm text-muted-foreground dark:text-muted-foreground">
           <p className="mb-2">This proposal is generated for informational purposes only and does not constitute investment advice.</p>
           <p>Past performance is not indicative of future results. Please read all scheme-related documents carefully before investing.</p>
+          <p className="mt-4 text-xs">Mutual fund investments are subject to market risks. Please read scheme information documents carefully.</p>
           <p className="mt-4">© {new Date().getFullYear()} FintekPro. All rights reserved.</p>
         </div>
       </footer>

@@ -455,6 +455,7 @@ function normalizeHolding(raw: any): ProspectPortfolioHolding {
   
   return {
     name,
+    productName: name, // Also set productName for frontend compatibility
     assetType,
     productType,
     quantity: raw.quantity ?? 1,
