@@ -1424,12 +1424,17 @@ TCS     Tata Consultancy        25      3850.00"
                 <PieChart className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <h3 className="text-lg font-medium mb-2">No Analysis Available</h3>
                 <p className="text-muted-foreground mb-4">
-                  Add portfolio holdings and run AI analysis to see insights
+                  {!selectedClientId 
+                    ? "Please select a client from the dropdown above to view or run portfolio analysis"
+                    : "Add portfolio holdings and run AI analysis to see insights"
+                  }
                 </p>
-                <Button onClick={handleRunAnalysis} disabled={!portfolio}>
-                  <Brain className="h-4 w-4 mr-2" />
-                  Run Analysis
-                </Button>
+                {selectedClientId && (
+                  <Button onClick={handleRunAnalysis} disabled={!portfolio}>
+                    <Brain className="h-4 w-4 mr-2" />
+                    Run Analysis
+                  </Button>
+                )}
               </CardContent>
             </Card>
           )}
