@@ -12,6 +12,7 @@ import { eq, and, desc, or } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { aiInvestmentOrchestrator } from "./ai-investment-orchestrator";
 import { aiResponseCacheService } from "./ai-response-cache-service";
+import { proposalCapitalGainsService } from "./proposal-capital-gains-service";
 
 // Format amount in Indian currency format (₹X.XX L for lakhs, ₹X.XX Cr for crores)
 const formatAmount = (amount: number): string => {
@@ -1319,6 +1320,17 @@ class AgentProspectWizardService {
           if (sellAmount > 1000) {
             const isPartialSell = sellAmount < holding.currentValue;
             
+            // Calculate detailed tax implications
+            const taxInfo = proposalCapitalGainsService.calculateHoldingTax({
+              name: holding.name || holding.productName || 'Unknown',
+              productType: holding.productType || holding.assetType || 'mutual_fund',
+              category: holding.category,
+              currentValue: sellAmount,
+              investedAmount: holding.investedAmount || (sellAmount * 0.85),
+              purchaseDate: holding.purchaseDate,
+              quantity: holding.quantity
+            });
+            
             recommendations.push({
               action: 'SELL',
               productType: holding.productType || holding.assetType || 'other',
@@ -1328,8 +1340,21 @@ class AgentProspectWizardService {
               changeAmount: -sellAmount,
               rationale: `Reduce ${category} allocation from ${currentPercent.toFixed(1)}% to target ${targetPercent}%. ${isPartialSell ? 'Partial redemption recommended.' : 'Full redemption recommended.'}`,
               priority: percentDiff > 15 ? 'high' : 'medium',
-              taxImplications: category === 'equity' ? 'LTCG tax @12.5% if held >1 year, STCG @20% otherwise' : 
-                              category === 'debt' ? 'Taxed as per income slab' : undefined
+              taxImplications: {
+                taxType: taxInfo.taxType,
+                holdingPeriodDays: taxInfo.holdingPeriodDays,
+                estimatedGain: taxInfo.unrealizedGain,
+                estimatedTax: taxInfo.estimatedTaxWithCess,
+                exitLoad: taxInfo.exitLoad,
+                totalCost: taxInfo.totalCost,
+                taxRate: `${(taxInfo.applicableTaxRate * 100).toFixed(1)}%`,
+                grandfatheringApplied: taxInfo.grandfatheringApplied,
+                grandfatheringBenefit: taxInfo.grandfatheringBenefit,
+                alerts: taxInfo.alerts,
+                summary: taxInfo.taxType === 'STCG' 
+                  ? `STCG @${(taxInfo.applicableTaxRate * 100).toFixed(0)}% + 4% cess = ₹${taxInfo.estimatedTaxWithCess.toLocaleString('en-IN')}`
+                  : `LTCG @${(taxInfo.applicableTaxRate * 100).toFixed(1)}% + 4% cess = ₹${taxInfo.estimatedTaxWithCess.toLocaleString('en-IN')}`
+              }
             });
             
             remainingToSell -= sellAmount;
@@ -1345,6 +1370,17 @@ class AgentProspectWizardService {
         // Check if we already have a recommendation for this holding
         const existing = recommendations.find(r => r.productName === (h.name || h.productName));
         if (!existing && h.currentValue > 1000) {
+          // Calculate tax implications
+          const taxInfo = proposalCapitalGainsService.calculateHoldingTax({
+            name: h.name || h.productName || 'Unknown',
+            productType: h.productType || h.assetType || 'other',
+            category: h.category,
+            currentValue: h.currentValue,
+            investedAmount: h.investedAmount || (h.currentValue * 0.85),
+            purchaseDate: h.purchaseDate,
+            quantity: h.quantity
+          });
+          
           recommendations.push({
             action: 'SELL',
             productType: h.productType || h.assetType || 'other',
@@ -1353,7 +1389,17 @@ class AgentProspectWizardService {
             changeAmount: -h.currentValue,
             rationale: 'Consider switching to regulated products (mutual funds, bonds) for better liquidity, transparency, and professional management.',
             priority: 'low',
-            taxImplications: 'Tax treatment depends on holding period and asset type'
+            taxImplications: {
+              taxType: taxInfo.taxType,
+              holdingPeriodDays: taxInfo.holdingPeriodDays,
+              estimatedGain: taxInfo.unrealizedGain,
+              estimatedTax: taxInfo.estimatedTaxWithCess,
+              exitLoad: taxInfo.exitLoad,
+              totalCost: taxInfo.totalCost,
+              taxRate: `${(taxInfo.applicableTaxRate * 100).toFixed(1)}%`,
+              alerts: taxInfo.alerts,
+              summary: `Estimated tax: ₹${taxInfo.estimatedTaxWithCess.toLocaleString('en-IN')} (${taxInfo.taxType})`
+            }
           });
         }
       }
@@ -1374,6 +1420,17 @@ class AgentProspectWizardService {
                              (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category]?.moderate || [];
           const targetFund = targetFunds[0];
           
+          // Calculate tax implications for switch (treated as redemption + purchase)
+          const taxInfo = proposalCapitalGainsService.calculateHoldingTax({
+            name: underperformer.name || underperformer.productName || 'Unknown',
+            productType: underperformer.productType || underperformer.assetType || 'mutual_fund',
+            category: underperformer.category,
+            currentValue: underperformer.currentValue,
+            investedAmount: underperformer.investedAmount || (underperformer.currentValue * 0.85),
+            purchaseDate: underperformer.purchaseDate,
+            quantity: underperformer.quantity
+          });
+          
           recommendations.push({
             action: 'SWITCH',
             productType: underperformer.productType || underperformer.assetType || 'other',
@@ -1393,7 +1450,21 @@ class AgentProspectWizardService {
             rationale: targetFund 
               ? `Switch to ${targetFund.name} (${targetFund.amc}) with ${targetFund.returns3Y}% 3-year returns. Current fund has underperformed peers by 2-5% annually.`
               : `Consider switching to a better-performing fund in the same category. This fund has underperformed relative to peers.`,
-            priority: 'medium'
+            priority: 'medium',
+            taxImplications: {
+              taxType: taxInfo.taxType,
+              holdingPeriodDays: taxInfo.holdingPeriodDays,
+              estimatedGain: taxInfo.unrealizedGain,
+              estimatedTax: taxInfo.estimatedTaxWithCess,
+              exitLoad: taxInfo.exitLoad,
+              totalCost: taxInfo.totalCost,
+              taxRate: `${(taxInfo.applicableTaxRate * 100).toFixed(1)}%`,
+              grandfatheringApplied: taxInfo.grandfatheringApplied,
+              grandfatheringBenefit: taxInfo.grandfatheringBenefit,
+              alerts: taxInfo.alerts,
+              summary: `Switch triggers ${taxInfo.taxType}: ₹${taxInfo.estimatedTaxWithCess.toLocaleString('en-IN')}`,
+              note: 'Switches within same AMC may be tax-neutral if within same fund family'
+            }
           });
         }
       });
@@ -1483,7 +1554,107 @@ class AgentProspectWizardService {
     console.log('[Rebalancing] Generated', recommendations.length, 'recommendations:', 
       recommendations.map(r => `${r.action}: ${r.productName} (${r.changeAmount})`).join(', '));
 
-    return recommendations;
+    // Calculate comprehensive tax summary for SELL/SWITCH recommendations
+    const sellSwitchRecs = recommendations.filter(r => r.action === 'SELL' || r.action === 'SWITCH');
+    const taxSummary = this.calculateTaxSummary(sellSwitchRecs);
+
+    // Add tax summary to each recommendation object (for frontend display)
+    return {
+      recommendations,
+      taxSummary
+    };
+  }
+
+  /**
+   * Calculate comprehensive tax summary for SELL/SWITCH recommendations
+   */
+  private calculateTaxSummary(recommendations: any[]): any {
+    if (!recommendations || recommendations.length === 0) {
+      return null;
+    }
+
+    let totalSTCG = 0;
+    let totalLTCG = 0;
+    let stcgTax = 0;
+    let ltcgTax = 0;
+    let totalExitLoad = 0;
+    let taxLossHarvestingOpportunity = 0;
+    let grandfatheringBenefitTotal = 0;
+    const alerts: any[] = [];
+    const holdingsWithTax: any[] = [];
+
+    for (const rec of recommendations) {
+      if (!rec.taxImplications) continue;
+      
+      const tax = rec.taxImplications;
+      holdingsWithTax.push({
+        name: rec.productName,
+        action: rec.action,
+        ...tax
+      });
+
+      if (tax.estimatedGain > 0) {
+        if (tax.taxType === 'STCG') {
+          totalSTCG += tax.estimatedGain;
+          stcgTax += tax.estimatedTax || 0;
+        } else if (tax.taxType === 'LTCG') {
+          totalLTCG += tax.estimatedGain;
+          ltcgTax += tax.estimatedTax || 0;
+        }
+      } else if (tax.estimatedGain < 0) {
+        taxLossHarvestingOpportunity += Math.abs(tax.estimatedGain);
+      }
+
+      totalExitLoad += tax.exitLoad || 0;
+      grandfatheringBenefitTotal += tax.grandfatheringBenefit || 0;
+
+      if (tax.alerts) {
+        alerts.push(...tax.alerts);
+      }
+    }
+
+    // Apply 4% cess on total tax
+    const baseTax = stcgTax + ltcgTax;
+    const cess = baseTax * 0.04;
+    const totalTaxLiability = baseTax + cess;
+    const netRebalancingCost = totalTaxLiability + totalExitLoad;
+
+    // Get current FY
+    const now = new Date();
+    const fyYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+    const currentFY = `FY ${fyYear}-${(fyYear + 1).toString().slice(-2)}`;
+
+    const disclosure = proposalCapitalGainsService.generateTaxDisclosure();
+
+    return {
+      totalSTCG: Math.round(totalSTCG),
+      totalLTCG: Math.round(totalLTCG),
+      stcgTax: Math.round(stcgTax),
+      ltcgTax: Math.round(ltcgTax),
+      cess: Math.round(cess),
+      totalTaxLiability: Math.round(totalTaxLiability),
+      totalExitLoad: Math.round(totalExitLoad),
+      netRebalancingCost: Math.round(netRebalancingCost),
+      taxLossHarvestingOpportunity: Math.round(taxLossHarvestingOpportunity),
+      grandfatheringBenefitTotal: Math.round(grandfatheringBenefitTotal),
+      holdings: holdingsWithTax,
+      alerts: this.deduplicateAlerts(alerts),
+      currentFY,
+      disclosure
+    };
+  }
+
+  /**
+   * Deduplicate similar alerts
+   */
+  private deduplicateAlerts(alerts: any[]): any[] {
+    const seen = new Set<string>();
+    return alerts.filter(alert => {
+      const key = `${alert.type}-${alert.message}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }
 
   async generateFreshInvestmentSuggestions(
@@ -1814,13 +1985,17 @@ class AgentProspectWizardService {
     globalAdvisorySelections?: Record<string, string[]>
   ): Promise<CombinedProposal> {
     const analysis = this.analyzePortfolio(holdings, riskProfile);
-    const rebalancing = this.generateRebalancingRecommendations(
+    const rebalancingResult = this.generateRebalancingRecommendations(
       holdings, 
       riskProfile, 
       analysis,
       customAllocations,
       freshInvestmentAmount
     );
+    
+    // Handle both old array format and new object format for backwards compatibility
+    const rebalancing = Array.isArray(rebalancingResult) ? rebalancingResult : rebalancingResult.recommendations;
+    const taxSummary = Array.isArray(rebalancingResult) ? null : rebalancingResult.taxSummary;
     
     // Calculate sell proceeds and how much was already allocated to rebalancing BUY recommendations
     const sellProceeds = rebalancing
@@ -1972,7 +2147,8 @@ class AgentProspectWizardService {
       executiveSummary: this.generateExecutiveSummary(analysis, rebalancing, freshInvestments, riskProfile, globalAdvisorySelections),
       portfolioComparison,
       fundingSummary,
-      detailedRecommendations
+      detailedRecommendations,
+      taxSummary
     };
   }
 
