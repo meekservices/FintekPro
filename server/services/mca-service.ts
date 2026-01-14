@@ -20,6 +20,14 @@ const SANDBOX_API_SECRET = process.env.SANDBOX_API_SECRET || '';
 // Test endpoints use /test/ prefix on paths, not a different domain
 const SANDBOX_BASE_URL = 'https://api.sandbox.co.in';
 
+export interface MCAShareholding {
+  financialYear: string;
+  promoterHolding?: number;
+  publicHolding?: number;
+  institutionalHolding?: number;
+  foreignHolding?: number;
+}
+
 export interface MCACompanyMasterData {
   cin: string;
   companyName: string;
@@ -43,6 +51,7 @@ export interface MCACompanyMasterData {
   charges: MCACharge[];
   balanceSheets: MCABalanceSheet[];
   annualReturns: MCAAnnualReturn[];
+  shareholding?: MCAShareholding[];
 }
 
 export interface MCADirector {
@@ -364,6 +373,34 @@ class MCAService {
       status: c.status || '',
     }));
 
+    // Parse shareholding patterns (from Sandbox API or balance sheet data)
+    const shareholding: MCAShareholding[] = [];
+    const shareholdingData = fullData.shareholding_pattern || fullData.shareholding || [];
+    for (const sh of shareholdingData) {
+      shareholding.push({
+        financialYear: sh.financial_year || sh.financialYear || '',
+        promoterHolding: parseNumber(sh.promoter_holding || sh.promoterHolding),
+        publicHolding: parseNumber(sh.public_holding || sh.publicHolding),
+        institutionalHolding: parseNumber(sh.institutional_holding || sh.institutionalHolding),
+        foreignHolding: parseNumber(sh.foreign_holding || sh.foreignHolding),
+      });
+    }
+    
+    // If no shareholding data from API, derive from balance sheet years (placeholder)
+    if (shareholding.length === 0 && masterData.whether_listed_or_not?.toLowerCase() === 'unlisted') {
+      const latestFY = masterData.date_of_balance_sheet ? 
+        masterData.date_of_balance_sheet.split('/').pop() : 
+        new Date().getFullYear().toString();
+      // For unlisted companies, typically 100% promoter holding
+      shareholding.push({
+        financialYear: latestFY ? `${parseInt(latestFY)-1}-${latestFY.slice(-2)}` : '',
+        promoterHolding: 100,
+        publicHolding: 0,
+        institutionalHolding: 0,
+        foreignHolding: 0,
+      });
+    }
+
     return {
       cin: masterData.cin || '',
       companyName: masterData.company_name || '',
@@ -387,6 +424,7 @@ class MCAService {
       charges,
       balanceSheets: masterData.balance_sheets || [],
       annualReturns: masterData.annual_returns || [],
+      shareholding,
     };
   }
 

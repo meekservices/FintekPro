@@ -17,12 +17,14 @@ import {
   mcaDirectorCompanyMap,
   mcaCharges,
   mcaFinancialSnapshot,
+  mcaShareholdingPattern,
   mcaVersionHistory,
   mcaIngestionLogs,
   type McaCompanyMaster,
   type McaDirector,
   type McaCharge,
   type McaFinancialSnapshot,
+  type McaShareholdingPattern,
 } from '@shared/schema';
 import { mcaService, type MCACompanyMasterData } from './mca-service';
 import { nanoid } from 'nanoid';
@@ -35,6 +37,7 @@ export interface CachedCompanyData {
   directors: McaDirector[];
   charges: McaCharge[];
   financials: McaFinancialSnapshot[];
+  shareholding: McaShareholdingPattern[];
   fromCache: boolean;
   cacheAge?: number; // hours since last refresh
 }
@@ -193,11 +196,19 @@ class McaDataCacheService {
         .where(eq(mcaFinancialSnapshot.cin, cin))
         .orderBy(desc(mcaFinancialSnapshot.financialYear));
 
+      // Get shareholding patterns
+      const shareholding = await db
+        .select()
+        .from(mcaShareholdingPattern)
+        .where(eq(mcaShareholdingPattern.cin, cin))
+        .orderBy(desc(mcaShareholdingPattern.financialYear));
+
       return {
         company,
         directors,
         charges,
         financials,
+        shareholding,
       };
     } catch (error: any) {
       console.error(`[MCA Cache] Error fetching cached data for ${cin}:`, error.message);
@@ -272,7 +283,14 @@ class McaDataCacheService {
         await this.persistFinancialSnapshot(cin, bs.financialYear, userId, runId);
       }
 
-      console.log(`[MCA Cache] Persisted data for ${cin}: ${data.directors?.length || 0} directors, ${data.charges?.length || 0} charges`);
+      // 5. Persist shareholding patterns if available
+      if (data.shareholding && Array.isArray(data.shareholding)) {
+        for (const sh of data.shareholding) {
+          await this.persistShareholding(cin, sh, userId, runId);
+        }
+      }
+
+      console.log(`[MCA Cache] Persisted data for ${cin}: ${data.directors?.length || 0} directors, ${data.charges?.length || 0} charges, ${data.shareholding?.length || 0} shareholding records`);
     } catch (error: any) {
       console.error(`[MCA Cache] Error persisting data for ${cin}:`, error.message);
       throw error;
@@ -430,6 +448,61 @@ class McaDataCacheService {
       }
     } catch (error: any) {
       console.error(`[MCA Cache] Error persisting financial snapshot:`, error.message);
+    }
+  }
+
+  /**
+   * Persist shareholding pattern data
+   */
+  private async persistShareholding(
+    cin: string,
+    shareholding: {
+      financialYear: string;
+      promoterHolding?: number;
+      publicHolding?: number;
+      institutionalHolding?: number;
+      foreignHolding?: number;
+    },
+    userId?: string,
+    runId?: string
+  ): Promise<void> {
+    if (!shareholding?.financialYear) return;
+
+    try {
+      const existing = await db
+        .select()
+        .from(mcaShareholdingPattern)
+        .where(and(
+          eq(mcaShareholdingPattern.cin, cin),
+          eq(mcaShareholdingPattern.financialYear, shareholding.financialYear)
+        ))
+        .limit(1);
+
+      const shareholdingData = {
+        cin,
+        financialYear: shareholding.financialYear,
+        promoterHolding: shareholding.promoterHolding?.toString() || null,
+        publicHolding: shareholding.publicHolding?.toString() || null,
+        institutionalHolding: shareholding.institutionalHolding?.toString() || null,
+        foreignHolding: shareholding.foreignHolding?.toString() || null,
+        source: 'sandbox_mca',
+        derivedBy: userId,
+        updatedAt: new Date(),
+      };
+
+      if (existing.length === 0) {
+        await db.insert(mcaShareholdingPattern).values({
+          ...shareholdingData,
+          createdAt: new Date(),
+        });
+      } else {
+        await db
+          .update(mcaShareholdingPattern)
+          .set(shareholdingData)
+          .where(eq(mcaShareholdingPattern.id, existing[0].id));
+      }
+    } catch (error: any) {
+      console.error(`[MCA Cache] Error persisting shareholding:`, error.message);
     }
   }
 

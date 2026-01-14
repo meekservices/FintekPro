@@ -41,7 +41,9 @@ export type McaQueryType =
   | 'wallet_check'
   | 'profitable_filter'
   | 'director_search'
-  | 'charges_analysis';
+  | 'charges_analysis'
+  | 'sensitive_access'
+  | 'audit_export';
 
 // Parsed XBRL Financial Data
 export interface XBRLFinancials {
