@@ -227,6 +227,7 @@ import WhatsAppCampaigns from "@/pages/admin/whatsapp-campaigns";
 import SMSCampaigns from "@/pages/admin/sms-campaigns";
 import LeadProspecting from "@/pages/admin/lead-prospecting";
 import McaIntelligence from "@/pages/admin/mca-intelligence";
+import McaCompanyProfile from "@/pages/admin/mca-company-profile";
 import ProspectAnalytics from "@/pages/admin/prospect-analytics";
 import ClientIntelligence from "@/pages/admin/client-intelligence";
 import MarketingAnalytics from "@/pages/admin/marketing-analytics";
@@ -700,6 +701,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <McaIntelligence />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/mca-company/:cin?">
+        {() => (
+          <AdminLayout>
+            <McaCompanyProfile />
           </AdminLayout>
         )}
       </Route>

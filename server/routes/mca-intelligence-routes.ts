@@ -743,4 +743,249 @@ router.get('/charges/:cin', requireMcaAccess('read'), async (req: Request, res: 
   }
 });
 
+// ============ COMPANY PROFILE API (Phase 1.3) ============
+import { mcaDataCacheService } from '../services/mca-data-cache-service';
+
+/**
+ * GET /api/mca/company/:cin
+ * Get complete company profile with caching
+ * Aggregates master + directors + charges + financials
+ */
+router.get('/company/:cin', requireMcaAccess('read'), async (req: Request, res: Response) => {
+  try {
+    const { cin } = req.params;
+    const forceRefresh = req.query.refresh === 'true';
+    const user = (req as any).user;
+
+    if (!cin || cin.length !== 21) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid CIN format. CIN must be exactly 21 characters.',
+      });
+    }
+
+    console.log(`[MCA Profile] Fetching company profile for ${cin} (forceRefresh: ${forceRefresh})`);
+
+    const result = await mcaDataCacheService.getCompanyWithCache(cin, {
+      forceRefresh,
+      userId: user?.id,
+    });
+
+    if (!result.success || !result.data) {
+      return res.status(404).json({
+        success: false,
+        error: result.error || 'Company not found',
+        apiCallMade: result.apiCallMade,
+      });
+    }
+
+    const { company, directors, charges, financials, fromCache, cacheAge } = result.data;
+
+    res.json({
+      success: true,
+      data: {
+        company: {
+          cin: company.cin,
+          name: company.companyName,
+          status: company.companyStatus,
+          category: company.companyCategory,
+          subCategory: company.companySubCategory,
+          class: company.companyClass,
+          incorporationDate: company.incorporationDate,
+          registeredAddress: company.registeredAddress,
+          registeredState: company.registeredState,
+          registeredCity: company.registeredCity,
+          email: company.email,
+          industry: company.industry,
+          authorizedCapital: company.authorizedCapital,
+          paidUpCapital: company.paidUpCapital,
+          lastAnnualReturn: company.lastAnnualReturn,
+          lastBalanceSheet: company.lastBalanceSheet,
+          lastFilingYear: company.lastFilingYear,
+        },
+        directors: directors.map(d => ({
+          din: d.din,
+          name: d.name,
+          designation: d.designation,
+          status: d.dinStatus,
+          totalAppointments: d.totalAppointments,
+          activeAppointments: d.activeAppointments,
+        })),
+        charges: charges.map(c => ({
+          chargeId: c.chargeId,
+          holder: c.chargeHolder,
+          holderType: c.chargeHolderType,
+          amount: c.chargeAmount,
+          type: c.chargeType,
+          creationDate: c.creationDate,
+          satisfactionDate: c.satisfactionDate,
+          status: c.status,
+        })),
+        financials: financials.map(f => ({
+          financialYear: f.financialYear,
+          revenue: f.revenue,
+          profitBeforeTax: f.profitBeforeTax,
+          profitAfterTax: f.profitAfterTax,
+          netWorth: f.netWorth,
+          totalAssets: f.totalAssets,
+          totalLiabilities: f.totalLiabilities,
+          shareCapital: f.shareCapital,
+          reserves: f.reserves,
+          longTermBorrowing: f.longTermBorrowing,
+          shortTermBorrowing: f.shortTermBorrowing,
+          source: f.source,
+          isVerified: f.isVerified,
+        })),
+        summary: {
+          totalDirectors: directors.length,
+          activeCharges: charges.filter(c => c.status === 'active').length,
+          financialYears: financials.length,
+        },
+      },
+      meta: {
+        fromCache,
+        cacheAgeHours: cacheAge?.toFixed(1),
+        apiCallMade: result.apiCallMade,
+        dataSource: 'FintekPro MCA Database',
+        lastUpdated: company.updatedAt,
+      },
+      attribution: 'Derived from statutory public filings sourced from MCA via Sandbox.co.in',
+    });
+  } catch (error: any) {
+    console.error('[MCA Profile] Error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/mca/company/:cin/financials
+ * Get financial history API with FY-wise data series
+ */
+router.get('/company/:cin/financials', requireMcaAccess('read'), async (req: Request, res: Response) => {
+  try {
+    const { cin } = req.params;
+    const maxYears = parseInt(req.query.years as string) || 10;
+
+    if (!cin || cin.length !== 21) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid CIN format',
+      });
+    }
+
+    const cachedData = await mcaDataCacheService.getCachedCompany(cin);
+    
+    if (!cachedData) {
+      return res.status(404).json({
+        success: false,
+        error: 'Company not found in cache. Use /company/:cin to fetch first.',
+      });
+    }
+
+    const financials = cachedData.financials.slice(0, maxYears);
+
+    res.json({
+      success: true,
+      data: {
+        cin,
+        companyName: cachedData.company.companyName,
+        financials: financials.map(f => ({
+          financialYear: f.financialYear,
+          revenue: f.revenue,
+          profitBeforeTax: f.profitBeforeTax,
+          profitAfterTax: f.profitAfterTax,
+          netWorth: f.netWorth,
+          totalAssets: f.totalAssets,
+          totalLiabilities: f.totalLiabilities,
+          shareCapital: f.shareCapital,
+          reserves: f.reserves,
+          longTermBorrowing: f.longTermBorrowing,
+          shortTermBorrowing: f.shortTermBorrowing,
+        })),
+      },
+      meta: {
+        totalYears: financials.length,
+        dataSource: 'FintekPro MCA Database',
+      },
+    });
+  } catch (error: any) {
+    console.error('[MCA Financials] Error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/mca/search
+ * Search companies in local cache
+ */
+router.get('/search', requireMcaAccess('read'), async (req: Request, res: Response) => {
+  try {
+    const query = req.query.q as string;
+    const limit = parseInt(req.query.limit as string) || 20;
+
+    if (!query || query.length < 2) {
+      return res.status(400).json({
+        success: false,
+        error: 'Search query must be at least 2 characters',
+      });
+    }
+
+    const results = await mcaDataCacheService.searchCachedCompanies(query, limit);
+
+    res.json({
+      success: true,
+      data: results.map(c => ({
+        cin: c.cin,
+        name: c.companyName,
+        status: c.companyStatus,
+        category: c.companyCategory,
+        state: c.registeredState,
+        authorizedCapital: c.authorizedCapital,
+        paidUpCapital: c.paidUpCapital,
+        lastUpdated: c.updatedAt,
+      })),
+      meta: {
+        count: results.length,
+        query,
+      },
+    });
+  } catch (error: any) {
+    console.error('[MCA Search] Error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/mca/cache-stats
+ * Get cache statistics
+ */
+router.get('/cache-stats', requireMcaAccess('read'), async (req: Request, res: Response) => {
+  try {
+    const stats = await mcaDataCacheService.getCacheStats();
+
+    res.json({
+      success: true,
+      data: {
+        ...stats,
+        cacheTtlHours: 24,
+      },
+    });
+  } catch (error: any) {
+    console.error('[MCA Cache Stats] Error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
 export default router;
