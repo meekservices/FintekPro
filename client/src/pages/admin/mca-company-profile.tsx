@@ -179,6 +179,116 @@ interface FinancialRatiosData {
   };
 }
 
+interface RiskScoreData {
+  cin: string;
+  companyName?: string;
+  hasData: boolean;
+  overallScore: number;
+  riskGrade: 'A' | 'B' | 'C' | 'D' | 'F';
+  components: {
+    profitConsistency: { score: number; weight: number; details: string };
+    leverage: { score: number; weight: number; details: string };
+    complianceFreshness: { score: number; weight: number; details: string };
+    companyStatus: { score: number; weight: number; details: string };
+    operatingMargins: { score: number; weight: number; details: string };
+  };
+  calculatedAt: string;
+}
+
+function getRiskGradeStyle(grade: string): { bg: string; text: string; label: string } {
+  switch (grade) {
+    case 'A': return { bg: 'bg-green-100', text: 'text-green-700', label: 'Low Risk' };
+    case 'B': return { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Moderate' };
+    case 'C': return { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Medium' };
+    case 'D': return { bg: 'bg-orange-100', text: 'text-orange-700', label: 'High' };
+    case 'F': return { bg: 'bg-red-100', text: 'text-red-700', label: 'Very High' };
+    default: return { bg: 'bg-muted', text: 'text-muted-foreground', label: 'Unknown' };
+  }
+}
+
+function RiskScoreCard({ cin }: { cin: string }) {
+  const { data, isLoading } = useQuery<{ success: boolean; hasData: boolean; data: RiskScoreData }>({
+    queryKey: ['/api/mca/company', cin, 'risk-score'],
+    enabled: !!cin && cin.length === 21,
+  });
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-6 w-32" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-24 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!data?.hasData || !data?.data) {
+    return null;
+  }
+
+  const { overallScore, riskGrade, components } = data.data;
+  const gradeStyle = getRiskGradeStyle(riskGrade);
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg flex items-center gap-2">
+          <Shield className="w-5 h-5 text-primary" />
+          Risk Assessment
+        </CardTitle>
+        <CardDescription>Composite risk score based on financial and compliance metrics</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center gap-6 mb-6">
+          <div className={`w-24 h-24 rounded-full flex items-center justify-center ${gradeStyle.bg}`}>
+            <div className="text-center">
+              <div className={`text-3xl font-bold ${gradeStyle.text}`}>{riskGrade}</div>
+              <div className={`text-xs ${gradeStyle.text}`}>{overallScore}/100</div>
+            </div>
+          </div>
+          <div>
+            <div className={`text-lg font-semibold ${gradeStyle.text}`}>{gradeStyle.label} Risk</div>
+            <div className="text-sm text-muted-foreground">
+              Lower score indicates safer investment
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          {Object.entries(components).map(([key, comp]) => {
+            const label = {
+              profitConsistency: 'Profit Consistency',
+              leverage: 'Leverage Risk',
+              complianceFreshness: 'Filing Freshness',
+              companyStatus: 'Company Status',
+              operatingMargins: 'Operating Margins',
+            }[key] || key;
+
+            return (
+              <div key={key} className="space-y-1">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">{label}</span>
+                  <span className={
+                    comp.score <= 30 ? 'text-green-600' : 
+                    comp.score <= 60 ? 'text-yellow-600' : 'text-red-600'
+                  }>
+                    {comp.score}/100 ({(comp.weight * 100).toFixed(0)}% weight)
+                  </span>
+                </div>
+                <Progress value={100 - comp.score} className="h-2" />
+                <div className="text-xs text-muted-foreground">{comp.details}</div>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function FinancialRatiosCard({ cin }: { cin: string }) {
   const { data, isLoading } = useQuery<{ success: boolean; hasData: boolean; data: FinancialRatiosData }>({
     queryKey: ['/api/mca/company', cin, 'financials'],
@@ -629,6 +739,8 @@ export default function McaCompanyProfile() {
                 </div>
               </CardContent>
             </Card>
+
+            <RiskScoreCard cin={cin} />
           </TabsContent>
 
           <TabsContent value="directors">

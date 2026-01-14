@@ -399,6 +399,52 @@ router.get('/company/:cin/history', requireMcaAccess('read'), async (req: Reques
 });
 
 /**
+ * GET /api/mca/company/:cin/risk-score
+ * Calculate composite risk score for a company
+ * Components: profit consistency, leverage, compliance freshness, status, margins
+ */
+router.get('/company/:cin/risk-score', requireMcaAccess('read'), async (req: Request, res: Response) => {
+  const { cin } = req.params;
+  const user = (req as any).user;
+
+  if (!cin || cin.length !== 21) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid CIN format. CIN must be 21 characters.',
+    });
+  }
+
+  try {
+    const riskScore = await mcaIntelligenceService.calculateRiskScore(cin);
+
+    await mcaIntelligenceService.logQuery({
+      userId: user?.id,
+      userName: user?.name || user?.email,
+      userRole: getMcaRole(req),
+      queryType: 'risk_assessment',
+      cin,
+      actionTaken: 'Risk score calculation',
+      responseSummary: riskScore.hasData 
+        ? `Grade ${riskScore.riskGrade} (Score: ${riskScore.overallScore}/100)` 
+        : 'Insufficient data for risk assessment',
+      success: true,
+    });
+
+    res.json({
+      success: true,
+      hasData: riskScore.hasData,
+      data: riskScore,
+    });
+  } catch (error: any) {
+    console.error('[MCA Routes] Risk score error:', { cin, error: error.message });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to calculate risk score',
+    });
+  }
+});
+
+/**
  * GET /api/mca/wallet
  * Get MCA wallet status
  */

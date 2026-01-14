@@ -685,6 +685,223 @@ class McaIntelligenceService {
   }
 
   /**
+   * Calculate Risk Score for a company (0-100, lower = safer)
+   * Composite scoring based on profit consistency, leverage, compliance freshness
+   */
+  async calculateRiskScore(cin: string): Promise<{
+    cin: string;
+    companyName?: string;
+    hasData: boolean;
+    overallScore: number; // 0-100, lower = safer
+    riskGrade: 'A' | 'B' | 'C' | 'D' | 'F';
+    components: {
+      profitConsistency: { score: number; weight: number; details: string };
+      leverage: { score: number; weight: number; details: string };
+      complianceFreshness: { score: number; weight: number; details: string };
+      companyStatus: { score: number; weight: number; details: string };
+      operatingMargins: { score: number; weight: number; details: string };
+    };
+    calculatedAt: string;
+  }> {
+    const [company] = await db
+      .select()
+      .from(mcaCompanyMaster)
+      .where(eq(mcaCompanyMaster.cin, cin))
+      .limit(1);
+
+    const snapshots = await db
+      .select()
+      .from(mcaFinancialSnapshot)
+      .where(eq(mcaFinancialSnapshot.cin, cin))
+      .orderBy(desc(mcaFinancialSnapshot.financialYear))
+      .limit(10);
+
+    if (!company) {
+      return {
+        cin,
+        hasData: false,
+        overallScore: 100,
+        riskGrade: 'F',
+        components: {
+          profitConsistency: { score: 100, weight: 0.30, details: 'No data' },
+          leverage: { score: 100, weight: 0.30, details: 'No data' },
+          complianceFreshness: { score: 100, weight: 0.20, details: 'No data' },
+          companyStatus: { score: 100, weight: 0.10, details: 'No data' },
+          operatingMargins: { score: 100, weight: 0.10, details: 'No data' },
+        },
+        calculatedAt: new Date().toISOString(),
+      };
+    }
+
+    // 1. Profit Consistency Score (30% weight) - lower volatility = lower score
+    let profitScore = 50;
+    let profitDetails = 'Insufficient data';
+    if (snapshots.length >= 2) {
+      const patValues = snapshots
+        .map(s => parseFloat(s.profitAfterTax || '0'))
+        .filter(v => !isNaN(v));
+      
+      if (patValues.length >= 2) {
+        const profitableYears = patValues.filter(v => v > 0).length;
+        const profitRatio = profitableYears / patValues.length;
+        
+        // Calculate volatility (standard deviation / mean)
+        const mean = patValues.reduce((a, b) => a + b, 0) / patValues.length;
+        const variance = patValues.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / patValues.length;
+        const stdDev = Math.sqrt(variance);
+        const volatility = mean !== 0 ? Math.abs(stdDev / mean) : 1;
+        
+        // Lower volatility = lower risk, more profitable years = lower risk
+        profitScore = Math.min(100, Math.max(0, Math.round(
+          (1 - profitRatio) * 50 + volatility * 50
+        )));
+        
+        profitDetails = `${profitableYears}/${patValues.length} profitable years, volatility: ${(volatility * 100).toFixed(0)}%`;
+      }
+    }
+
+    // 2. Leverage Score (30% weight) - higher D/E = higher score
+    let leverageScore = 50;
+    let leverageDetails = 'No borrowing data';
+    if (snapshots.length > 0) {
+      const latest = snapshots[0];
+      const netWorth = parseFloat(latest.netWorth || '0');
+      const longTerm = parseFloat(latest.longTermBorrowing || '0');
+      const shortTerm = parseFloat(latest.shortTermBorrowing || '0');
+      const totalBorrowing = longTerm + shortTerm;
+      
+      if (netWorth > 0) {
+        const debtToEquity = totalBorrowing / netWorth;
+        // D/E <= 0.5 = 0-20, 0.5-1 = 20-40, 1-2 = 40-60, 2-3 = 60-80, >3 = 80-100
+        if (debtToEquity <= 0.5) {
+          leverageScore = Math.round(debtToEquity * 40);
+        } else if (debtToEquity <= 1) {
+          leverageScore = Math.round(20 + (debtToEquity - 0.5) * 40);
+        } else if (debtToEquity <= 2) {
+          leverageScore = Math.round(40 + (debtToEquity - 1) * 20);
+        } else if (debtToEquity <= 3) {
+          leverageScore = Math.round(60 + (debtToEquity - 2) * 20);
+        } else {
+          leverageScore = Math.min(100, Math.round(80 + (debtToEquity - 3) * 10));
+        }
+        leverageDetails = `Debt/Equity: ${debtToEquity.toFixed(2)}`;
+      } else if (totalBorrowing > 0) {
+        leverageScore = 90;
+        leverageDetails = 'Negative net worth with borrowing';
+      } else {
+        leverageScore = 10;
+        leverageDetails = 'No debt';
+      }
+    }
+
+    // 3. Compliance Freshness Score (20% weight) - older filing = higher score
+    let complianceScore = 50;
+    let complianceDetails = 'No filing data';
+    const currentYear = new Date().getFullYear();
+    if (company.lastBalanceSheet || company.lastFilingYear) {
+      let yearsAgo = 2;
+      if (company.lastBalanceSheet) {
+        yearsAgo = currentYear - company.lastBalanceSheet.getFullYear();
+      } else if (company.lastFilingYear) {
+        const fyMatch = company.lastFilingYear.match(/(\d{4})/);
+        if (fyMatch) {
+          yearsAgo = currentYear - parseInt(fyMatch[1]) - 1;
+        }
+      }
+      
+      // 0-1 years = 0-20, 1-2 = 20-40, 2-3 = 40-60, 3+ = 60-100
+      if (yearsAgo <= 1) {
+        complianceScore = yearsAgo * 20;
+      } else if (yearsAgo <= 2) {
+        complianceScore = 20 + (yearsAgo - 1) * 20;
+      } else if (yearsAgo <= 3) {
+        complianceScore = 40 + (yearsAgo - 2) * 20;
+      } else {
+        complianceScore = Math.min(100, 60 + (yearsAgo - 3) * 20);
+      }
+      
+      complianceDetails = `Last filing: ${yearsAgo <= 1 ? 'Current' : `${yearsAgo} years ago`}`;
+    }
+
+    // 4. Company Status Score (10% weight)
+    let statusScore = 50;
+    let statusDetails = 'Unknown status';
+    const status = (company.companyStatus || '').toLowerCase();
+    if (status.includes('active')) {
+      statusScore = 0;
+      statusDetails = 'Active company';
+    } else if (status.includes('dormant')) {
+      statusScore = 60;
+      statusDetails = 'Dormant company';
+    } else if (status.includes('strike') || status.includes('under')) {
+      statusScore = 90;
+      statusDetails = 'Under strike-off or similar';
+    } else if (status) {
+      statusScore = 40;
+      statusDetails = status;
+    }
+
+    // 5. Operating Margins Score (10% weight)
+    let marginScore = 50;
+    let marginDetails = 'No margin data';
+    if (snapshots.length > 0) {
+      const latest = snapshots[0];
+      const revenue = parseFloat(latest.revenue || '0');
+      const pat = parseFloat(latest.profitAfterTax || '0');
+      
+      if (revenue > 0) {
+        const patMargin = (pat / revenue) * 100;
+        // >20% = 0-10, 10-20% = 10-30, 5-10% = 30-50, 0-5% = 50-70, <0% = 70-100
+        if (patMargin >= 20) {
+          marginScore = 0;
+        } else if (patMargin >= 10) {
+          marginScore = Math.round(10 + (20 - patMargin));
+        } else if (patMargin >= 5) {
+          marginScore = Math.round(30 + (10 - patMargin) * 4);
+        } else if (patMargin >= 0) {
+          marginScore = Math.round(50 + (5 - patMargin) * 4);
+        } else {
+          marginScore = Math.min(100, Math.round(70 + Math.abs(patMargin) * 0.5));
+        }
+        marginDetails = `PAT Margin: ${patMargin.toFixed(1)}%`;
+      }
+    }
+
+    // Calculate overall weighted score
+    const overallScore = Math.round(
+      profitScore * 0.30 +
+      leverageScore * 0.30 +
+      complianceScore * 0.20 +
+      statusScore * 0.10 +
+      marginScore * 0.10
+    );
+
+    // Determine risk grade
+    let riskGrade: 'A' | 'B' | 'C' | 'D' | 'F';
+    if (overallScore <= 20) riskGrade = 'A';
+    else if (overallScore <= 40) riskGrade = 'B';
+    else if (overallScore <= 60) riskGrade = 'C';
+    else if (overallScore <= 80) riskGrade = 'D';
+    else riskGrade = 'F';
+
+    return {
+      cin,
+      companyName: company.companyName,
+      hasData: true,
+      overallScore,
+      riskGrade,
+      components: {
+        profitConsistency: { score: profitScore, weight: 0.30, details: profitDetails },
+        leverage: { score: leverageScore, weight: 0.30, details: leverageDetails },
+        complianceFreshness: { score: complianceScore, weight: 0.20, details: complianceDetails },
+        companyStatus: { score: statusScore, weight: 0.10, details: statusDetails },
+        operatingMargins: { score: marginScore, weight: 0.10, details: marginDetails },
+      },
+      calculatedAt: new Date().toISOString(),
+    };
+  }
+
+  /**
    * Get filing status for a company
    */
   async getFilingStatus(cin: string): Promise<FilingStatusResult> {
