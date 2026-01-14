@@ -549,6 +549,63 @@ class McaDataCacheService {
   }
 
   /**
+   * Get data freshness statistics for compliance dashboard
+   */
+  async getDataFreshnessStats(): Promise<{
+    currentFilingCount: number;
+    delayedFilingCount: number;
+    missingFilingCount: number;
+    averageFilingAgeDays: number;
+  }> {
+    try {
+      const currentYear = new Date().getFullYear();
+      const expectedFY = `${currentYear - 1}-${currentYear.toString().slice(-2)}`;
+      const previousFY = `${currentYear - 2}-${(currentYear - 1).toString().slice(-2)}`;
+      
+      // Count companies with current filing
+      const [current] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(mcaCompanyMaster)
+        .where(eq(mcaCompanyMaster.lastFilingYear, expectedFY));
+      
+      // Count companies with delayed filing (previous year)
+      const [delayed] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(mcaCompanyMaster)
+        .where(eq(mcaCompanyMaster.lastFilingYear, previousFY));
+      
+      // Count companies with missing/very old filing
+      const [missing] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(mcaCompanyMaster)
+        .where(sql`${mcaCompanyMaster.lastFilingYear} IS NULL OR ${mcaCompanyMaster.lastFilingYear} NOT IN (${expectedFY}, ${previousFY})`);
+      
+      // Calculate average filing age in days
+      const [avgAge] = await db
+        .select({
+          avgDays: sql<number>`COALESCE(AVG(EXTRACT(EPOCH FROM (NOW() - ${mcaCompanyMaster.lastBalanceSheet})) / 86400), 0)`,
+        })
+        .from(mcaCompanyMaster)
+        .where(sql`${mcaCompanyMaster.lastBalanceSheet} IS NOT NULL`);
+      
+      return {
+        currentFilingCount: Number(current?.count || 0),
+        delayedFilingCount: Number(delayed?.count || 0),
+        missingFilingCount: Number(missing?.count || 0),
+        averageFilingAgeDays: Math.round(Number(avgAge?.avgDays || 0)),
+      };
+    } catch (error: any) {
+      console.error('[MCA Cache] Error getting data freshness stats:', error.message);
+      return {
+        currentFilingCount: 0,
+        delayedFilingCount: 0,
+        missingFilingCount: 0,
+        averageFilingAgeDays: 0,
+      };
+    }
+  }
+
+  /**
    * Search companies in local cache
    */
   async searchCachedCompanies(query: string, limit: number = 20): Promise<McaCompanyMaster[]> {

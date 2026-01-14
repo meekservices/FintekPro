@@ -168,6 +168,70 @@ class McaIntelligenceService {
   }
 
   /**
+   * Get audit logs for export/compliance
+   */
+  async getAuditLogs(params: {
+    startDate?: Date;
+    endDate?: Date;
+    userId?: string;
+    queryType?: string;
+    limit?: number;
+  }): Promise<Array<{
+    id: number;
+    userId?: string;
+    userName?: string;
+    userRole?: string;
+    queryType: string;
+    cin?: string;
+    actionTaken?: string;
+    responseSummary?: string;
+    success: boolean;
+    createdAt: string;
+  }>> {
+    try {
+      let query = db.select().from(mcaQueryLog);
+      
+      const conditions = [];
+      if (params.startDate) {
+        conditions.push(gte(mcaQueryLog.createdAt, params.startDate));
+      }
+      if (params.endDate) {
+        conditions.push(lte(mcaQueryLog.createdAt, params.endDate));
+      }
+      if (params.userId) {
+        conditions.push(eq(mcaQueryLog.userId, params.userId));
+      }
+      if (params.queryType) {
+        conditions.push(eq(mcaQueryLog.queryType, params.queryType));
+      }
+      
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions)) as typeof query;
+      }
+      
+      const logs = await query
+        .orderBy(desc(mcaQueryLog.createdAt))
+        .limit(params.limit || 1000);
+      
+      return logs.map(log => ({
+        id: log.id,
+        userId: log.userId || undefined,
+        userName: log.userName || undefined,
+        userRole: log.userRole || undefined,
+        queryType: log.queryType,
+        cin: log.cin || undefined,
+        actionTaken: log.actionTaken || undefined,
+        responseSummary: log.responseSummary || undefined,
+        success: log.success ?? true,
+        createdAt: log.createdAt?.toISOString() || new Date().toISOString(),
+      }));
+    } catch (error) {
+      console.error('[MCA Intelligence] Failed to get audit logs:', error);
+      return [];
+    }
+  }
+
+  /**
    * Handle MCA query console requests
    */
   async handleQuery(
