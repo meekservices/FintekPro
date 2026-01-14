@@ -18237,28 +18237,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get agent's clients
+  // Get agent's clients (includes both registered clients and prospects/leads)
   app.get("/api/agent/clients", requireAgent, async (req, res) => {
     try {
-
       const { searchTerm } = req.query;
 
-      // Get clients assigned to this agent
+      // Get clients assigned to this agent from users table
       const clientRelationships = await storage.getClientsForAgent(req.user.id);
       
+      // Get prospects/leads entered by this agent from prospect_clients table
+      const prospects = await db.select()
+        .from(prospectClients)
+        .where(eq(prospectClients.agentId, req.user.id));
+      
+      // Map prospects to match the client interface format
+      const prospectsMapped = prospects.map(prospect => {
+        const nameParts = (prospect.name || '').split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+        
+        return {
+          id: 0, // Placeholder numeric ID
+          uuid: prospect.id,
+          firstName: firstName,
+          lastName: lastName,
+          email: prospect.email || '',
+          phone: prospect.mobile || '',
+          mobile: prospect.mobile || '',
+          panNumber: prospect.pan || '',
+          isProspect: true, // Flag to identify as prospect/lead
+          prospectState: prospect.state,
+          clientType: prospect.clientType
+        };
+      });
+      
+      // Combine clients and prospects
+      let allClientsAndProspects = [
+        ...clientRelationships.map(c => ({ ...c, isProspect: false })),
+        ...prospectsMapped
+      ];
+      
       // Filter by search term if provided
-      let filteredClients = clientRelationships;
       if (searchTerm) {
         const term = (searchTerm as string).toLowerCase();
-        filteredClients = clientRelationships.filter(client => 
+        allClientsAndProspects = allClientsAndProspects.filter(client => 
           client.firstName?.toLowerCase().includes(term) ||
           client.lastName?.toLowerCase().includes(term) ||
           client.email?.toLowerCase().includes(term) ||
-          client.panNumber?.toLowerCase().includes(term)
+          (client.panNumber && client.panNumber.toLowerCase().includes(term))
         );
       }
 
-      res.json(filteredClients);
+      res.json(allClientsAndProspects);
     } catch (error) {
       console.error("Error fetching agent clients:", error);
       res.status(500).json({ error: "Failed to fetch clients" });

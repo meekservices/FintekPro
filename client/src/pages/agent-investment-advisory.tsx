@@ -168,6 +168,9 @@ interface Client {
   lastName: string;
   email: string;
   phone?: string;
+  isProspect?: boolean;
+  prospectState?: string;
+  clientType?: string;
 }
 
 const SIGNAL_COLORS = {
@@ -613,9 +616,14 @@ export default function AgentInvestmentAdvisory() {
                   <span className="flex items-center gap-2 truncate">
                     <User className="h-4 w-4 shrink-0" />
                     {selectedClient.firstName} {selectedClient.lastName}
+                    {selectedClient.isProspect && (
+                      <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800">
+                        {selectedClient.prospectState === 'prospect' ? 'Lead' : 'Prospect'}
+                      </Badge>
+                    )}
                   </span>
                 ) : (
-                  <span className="text-muted-foreground">Select client...</span>
+                  <span className="text-muted-foreground">Select client or prospect...</span>
                 )}
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
@@ -649,7 +657,7 @@ export default function AgentInvestmentAdvisory() {
                   <CommandGroup>
                     {filteredClients.map((client) => (
                       <CommandItem
-                        key={client.id}
+                        key={client.uuid || client.id}
                         value={client.uuid}
                         onSelect={() => {
                           setSelectedClientId(client.uuid);
@@ -663,10 +671,17 @@ export default function AgentInvestmentAdvisory() {
                             selectedClientId === client.uuid ? "opacity-100" : "opacity-0"
                           )}
                         />
-                        <div className="flex flex-col">
-                          <span>{client.firstName} {client.lastName}</span>
+                        <div className="flex flex-col flex-1">
+                          <div className="flex items-center gap-2">
+                            <span>{client.firstName} {client.lastName}</span>
+                            {client.isProspect && (
+                              <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800">
+                                {client.prospectState === 'prospect' ? 'Lead' : client.prospectState === 'onboarded' ? 'Prospect' : 'Prospect'}
+                              </Badge>
+                            )}
+                          </div>
                           <span className="text-xs text-muted-foreground truncate">
-                            {client.uuid?.slice(0, 8)}...
+                            {client.email || client.uuid?.slice(0, 8) + '...'}
                           </span>
                         </div>
                       </CommandItem>
