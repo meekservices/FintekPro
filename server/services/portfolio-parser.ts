@@ -219,44 +219,225 @@ function parseMFCentralFormat(text: string): ImportedHolding[] {
   return holdings;
 }
 
-// CAS (Consolidated Account Statement) PDF parser for CAMS/KFintech statements
+// CAS (Consolidated Account Statement) PDF parser for CAMS/KFintech/MFCentral statements
 function parseCASFormat(text: string): ImportedHolding[] {
   const holdings: ImportedHolding[] = [];
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
   
+  console.log('[CAS Parser] Starting parse, total lines:', lines.length);
+  
   let currentAMC = '';
   let currentFolio = '';
+  let currentSchemeName = '';
+  let currentISIN = '';
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     
-    // Detect AMC headers (e.g., "AXIS MUTUAL FUND", "SBI MUTUAL FUND")
-    if (/^[A-Z\s]+MUTUAL FUND$/i.test(line) || /^[A-Z\s]+AMC/i.test(line)) {
+    // Detect AMC headers (e.g., "Aditya Birla Sun Life Mutual Fund", "ICICI Prudential Mutual Fund")
+    if (/Mutual\s*Fund\s*$/i.test(line) && !line.includes('ISIN') && !line.includes('Folio')) {
       currentAMC = line.trim();
+      console.log('[CAS Parser] Found AMC:', currentAMC);
       continue;
     }
     
-    // Detect folio number (e.g., "Folio No: 1234567890")
-    const folioMatch = line.match(/Folio\s*(?:No\.?|Number)?[:\s]+(\d+(?:\/\d+)?)/i);
+    // Detect folio number (e.g., "Folio No: 1036594120" or "Folio No : 16888427")
+    const folioMatch = line.match(/Folio\s*(?:No\.?|Number)?\s*[:\s]+\s*(\d+(?:\/\d+)?)/i);
     if (folioMatch) {
       currentFolio = folioMatch[1];
+      console.log('[CAS Parser] Found Folio:', currentFolio);
       continue;
     }
     
-    // CAS format: Fund Name, Units, NAV, Market Value
+    // MFCentral Format - Scheme name with ISIN on same or adjacent lines
+    // Pattern: "Aditya Birla Sun Life Small Cap Fund Growth-Regular Plan (Advisor: ARN-28612)"
+    // followed by: "ISIN: INF209K01EN2"
+    // Key patterns to detect scheme names:
+    // - Contains "Fund" or "Plan" or "FOF" or "ETF" or "Growth" or "IDCW"
+    // - May have "(Advisor: ARN-XXXXX)" suffix
+    // - NOT just "Mutual Fund" header lines
+    
+    const schemeNamePattern = /^(.+?(?:Fund|Plan|FOF|ETF|Growth|IDCW|Dividend)[A-Za-z0-9\s\-&()]*?)(?:\s*\(Advisor[:\s]+ARN[^\)]*\))?$/i;
+    const schemeMatch = line.match(schemeNamePattern);
+    
+    if (schemeMatch && !line.includes('Mutual Fund$') && line.length > 20) {
+      const potentialScheme = schemeMatch[1].trim();
+      // Verify this looks like a scheme name and not just noise
+      // Exclude: date-prefixed lines, "Scheme Name Change", transaction dates, notes
+      const isValidSchemeName = potentialScheme.length > 15 && 
+          !potentialScheme.match(/^(scheme|fund|name|units|nav|value|balance|date|registrar|isin)/i) &&
+          !potentialScheme.match(/^Mutual\s*Fund$/i) &&
+          !potentialScheme.match(/^\d{1,2}[-\/][A-Z]{3}[-\/]\d{2,4}/i) &&  // Date prefix like "30-JUN-2025"
+          !potentialScheme.match(/Scheme\s*Name\s*Change/i) &&  // Footnotes about scheme changes
+          !potentialScheme.match(/^(Transaction|Folio|Registrar|ISIN|Advisor|PAN|Email|Mobile|Address|Nominee)/i) &&
+          !potentialScheme.match(/^(formerly|previously|erstwhile)\s/i);  // Avoid partial matches on footnotes
+      
+      if (isValidSchemeName) {
+        currentSchemeName = potentialScheme;
+        console.log('[CAS Parser] Found potential scheme name:', currentSchemeName);
+      }
+    }
+    
+    // Extract ISIN - often on its own line with scheme name at the start
+    // Format: "Scheme Name (Advisor: ARN-...) ISIN: INF209K01PF4"
+    const isinMatch = line.match(/ISIN[:\s]+([A-Z]{2}[A-Z0-9]{10})/i);
+    if (isinMatch) {
+      currentISIN = isinMatch[1];
+      console.log('[CAS Parser] Found ISIN:', currentISIN);
+      
+      // Extract scheme name from before ISIN on the same line
+      // This is the most reliable way to get scheme names in MFCentral format
+      const schemeFromISINLine = line.replace(/\s*ISIN[:\s]+[A-Z0-9]+.*$/i, '')
+                                      .replace(/\s*\(Advisor[:\s]+ARN[^\)]*\)/i, '')
+                                      .replace(/\s*\(Erstwhile[^\)]*\)/i, '')
+                                      .trim();
+      
+      if (schemeFromISINLine.length > 15 && 
+          (schemeFromISINLine.match(/Fund|Plan|FOF|ETF/i) || schemeFromISINLine.includes('-'))) {
+        currentSchemeName = schemeFromISINLine;
+        console.log('[CAS Parser] Extracted scheme from ISIN line:', currentSchemeName);
+      }
+    }
+    
+    // MFCentral MAIN PATTERN - "Closing Unit Balance: X.XXX    Nav as on DD-MMM-YYYY: INR Y.YY    Valuation on DD-Mmm-YYYY : INR Z,ZZZ.ZZ"
+    // This is the key line that contains the actual holding data
+    const mfCentralPattern = /Closing\s*Unit\s*Balance[:\s]+([0-9,]+(?:\.\d+)?)\s+(?:Nav\s*(?:as\s*on)?[:\s]+)?(?:\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{2,4})?[:\s]*(?:INR\s*)?([0-9,]+(?:\.\d+)?)\s+(?:Valuation\s*(?:on)?[:\s]+)?(?:\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{2,4})?[:\s]*(?:INR\s*)?([0-9,]+(?:\.\d+)?)/i;
+    
+    let match = line.match(mfCentralPattern);
+    if (match) {
+      const units = parseFloat(match[1].replace(/,/g, ''));
+      const nav = parseFloat(match[2].replace(/,/g, ''));
+      const valuation = parseFloat(match[3].replace(/,/g, ''));
+      
+      console.log('[CAS Parser] MFCentral pattern matched! Units:', units, 'NAV:', nav, 'Valuation:', valuation);
+      
+      if (units > 0 && valuation > 0) {
+        // Try to find scheme name from previous lines if not already captured
+        let schemeName = currentSchemeName;
+        if (!schemeName || schemeName.length < 10) {
+          // Look back up to 10 lines to find scheme name
+          for (let j = i - 1; j >= Math.max(0, i - 10); j--) {
+            const prevLine = lines[j];
+            // Must contain fund keywords and pass same validation as scheme name detection
+            if (prevLine.match(/Fund|Plan|FOF|ETF|Growth|IDCW/i) && 
+                !prevLine.includes('Mutual Fund$') &&
+                !prevLine.includes('Closing Unit') &&
+                !prevLine.includes('Opening Unit') &&
+                !prevLine.match(/^\d{1,2}[-\/][A-Z]{3}[-\/]\d{2,4}/i) &&  // No date prefix
+                !prevLine.match(/Scheme\s*Name\s*Change/i) &&  // No footnotes
+                !prevLine.match(/^(Transaction|Folio|Registrar|ISIN|Advisor)/i) &&
+                prevLine.length > 20) {
+              schemeName = prevLine.replace(/\s*\(Advisor[:\s]+ARN[^\)]*\)/i, '').trim();
+              break;
+            }
+          }
+        }
+        
+        if (!schemeName) schemeName = `Unknown Scheme (ISIN: ${currentISIN || 'N/A'})`;
+        
+        holdings.push({
+          id: `cas-${Date.now()}-${holdings.length}`,
+          name: schemeName,
+          isin: currentISIN || undefined,
+          assetType: 'mutual_fund',
+          quantity: units,
+          currentNav: nav,
+          currentValue: valuation,
+          folioNumber: currentFolio,
+          broker: 'MFCentral/CAMS',
+          confidenceScore: 95
+        });
+        
+        console.log('[CAS Parser] Added holding:', schemeName, '- Value:', valuation);
+        
+        // Reset for next fund
+        currentSchemeName = '';
+        currentISIN = '';
+      }
+      continue;
+    }
+    
+    // Alternative MFCentral pattern - sometimes on separate lines or with different formatting
+    // "Closing Unit Balance: 2,214.675" on one line
+    const closingBalanceMatch = line.match(/Closing\s*Unit\s*Balance[:\s]+([0-9,]+(?:\.\d+)?)/i);
+    if (closingBalanceMatch) {
+      const units = parseFloat(closingBalanceMatch[1].replace(/,/g, ''));
+      
+      // Look for NAV and Valuation in the same line or next lines
+      let navValue = 0;
+      let valuation = 0;
+      
+      // Check rest of current line for Nav and Valuation
+      const navMatch = line.match(/Nav[:\s]+(?:INR\s*)?([0-9,]+(?:\.\d+)?)/i) || 
+                       line.match(/Nav\s*as\s*on[^:]*:[:\s]*(?:INR\s*)?([0-9,]+(?:\.\d+)?)/i);
+      const valuationMatch = line.match(/Valuation[^:]*:[:\s]*(?:INR\s*)?([0-9,]+(?:\.\d+)?)/i);
+      
+      if (navMatch) navValue = parseFloat(navMatch[1].replace(/,/g, ''));
+      if (valuationMatch) valuation = parseFloat(valuationMatch[1].replace(/,/g, ''));
+      
+      // If not found in current line, check next few lines
+      if (navValue === 0 || valuation === 0) {
+        for (let j = i + 1; j < Math.min(i + 3, lines.length); j++) {
+          const nextLine = lines[j];
+          if (navValue === 0) {
+            const navNextMatch = nextLine.match(/Nav[:\s]+(?:INR\s*)?([0-9,]+(?:\.\d+)?)/i);
+            if (navNextMatch) navValue = parseFloat(navNextMatch[1].replace(/,/g, ''));
+          }
+          if (valuation === 0) {
+            const valNextMatch = nextLine.match(/Valuation[^:]*:[:\s]*(?:INR\s*)?([0-9,]+(?:\.\d+)?)/i);
+            if (valNextMatch) valuation = parseFloat(valNextMatch[1].replace(/,/g, ''));
+          }
+        }
+      }
+      
+      if (units > 0 && valuation > 0) {
+        let schemeName = currentSchemeName;
+        if (!schemeName || schemeName.length < 10) {
+          for (let j = i - 1; j >= Math.max(0, i - 10); j--) {
+            const prevLine = lines[j];
+            // Must contain fund keywords and pass same validation as scheme name detection
+            if (prevLine.match(/Fund|Plan|FOF|ETF|Growth|IDCW/i) && 
+                !prevLine.includes('Mutual Fund$') &&
+                !prevLine.includes('Closing Unit') &&
+                !prevLine.includes('Opening Unit') &&
+                !prevLine.match(/^\d{1,2}[-\/][A-Z]{3}[-\/]\d{2,4}/i) &&  // No date prefix
+                !prevLine.match(/Scheme\s*Name\s*Change/i) &&  // No footnotes
+                !prevLine.match(/^(Transaction|Folio|Registrar|ISIN|Advisor)/i) &&
+                prevLine.length > 20) {
+              schemeName = prevLine.replace(/\s*\(Advisor[:\s]+ARN[^\)]*\)/i, '').trim();
+              break;
+            }
+          }
+        }
+        
+        if (!schemeName) schemeName = `Unknown Scheme (ISIN: ${currentISIN || 'N/A'})`;
+        
+        holdings.push({
+          id: `cas-${Date.now()}-${holdings.length}`,
+          name: schemeName,
+          isin: currentISIN || undefined,
+          assetType: 'mutual_fund',
+          quantity: units,
+          currentNav: navValue,
+          currentValue: valuation,
+          folioNumber: currentFolio,
+          broker: 'MFCentral/CAMS',
+          confidenceScore: 90
+        });
+        
+        console.log('[CAS Parser] Added holding (alt pattern):', schemeName, '- Value:', valuation);
+        
+        currentSchemeName = '';
+        currentISIN = '';
+      }
+      continue;
+    }
+    
+    // Legacy patterns for other CAS formats
     // Pattern 1: "Scheme Name | Units: X.XXX | NAV: ₹Y.YY | Value: ₹Z,ZZZ.ZZ"
     const casPattern1 = /([A-Za-z0-9\s\-&()]+(?:Fund|Scheme|Plan|Growth|IDCW|Direct|Regular)[A-Za-z0-9\s\-&()]*)\s*[\|:]\s*Units?[:\s]+(\d+(?:\.\d+)?)\s*[\|:]\s*NAV[:\s]+₹?(\d+(?:,?\d+)*(?:\.\d+)?)\s*[\|:]\s*(?:Value|Market\s*Value)[:\s]+₹?(\d+(?:,?\d+)*(?:\.\d+)?)/i;
     
-    // Pattern 2: Multi-line format
-    // Line 1: Scheme name
-    // Line 2: Units: X.XXX NAV: ₹Y.YY
-    // Line 3: Value: ₹Z,ZZZ.ZZ
-    
-    // Pattern 3: Table format with columns (common in CAS PDFs)
-    // "Scheme Name    Units    NAV    Value"
-    const casPattern3 = /^(.+?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:,\d+)*(?:\.\d+)?)\s*$/;
-    
-    let match = line.match(casPattern1);
+    match = line.match(casPattern1);
     if (match) {
       const [, name, units, nav, value] = match;
       holdings.push({
@@ -273,12 +454,12 @@ function parseCASFormat(text: string): ImportedHolding[] {
       continue;
     }
     
-    // Try pattern 3 for table rows
+    // Pattern 3: Table format with columns (common in CAS PDFs)
+    const casPattern3 = /^(.+?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:,\d+)*(?:\.\d+)?)\s*$/;
     match = line.match(casPattern3);
     if (match) {
       const [, name, units, nav, value] = match;
       const schemeName = name.trim();
-      // Skip header rows and non-fund lines
       if (/^(scheme|fund|name|units|nav|value|balance|date)/i.test(schemeName)) continue;
       if (parseFloat(units) > 0 && parseFloat(value.replace(/,/g, '')) > 0) {
         holdings.push({
@@ -295,30 +476,10 @@ function parseCASFormat(text: string): ImportedHolding[] {
       }
       continue;
     }
-    
-    // Pattern for CAS value extraction (scheme name on one line, values below)
-    const schemeMatch = line.match(/^([A-Za-z0-9\s\-&()]+(?:Fund|Scheme|Plan|Growth|IDCW|Direct|Regular)[A-Za-z0-9\s\-&()]*)$/i);
-    if (schemeMatch && i + 2 < lines.length) {
-      const schemeName = schemeMatch[1].trim();
-      const nextLines = lines.slice(i + 1, i + 4).join(' ');
-      
-      const valuesMatch = nextLines.match(/(?:Units?|Balance)[:\s]+(\d+(?:\.\d+)?)\s*.*?NAV[:\s]+₹?(\d+(?:\.\d+)?)\s*.*?(?:Value|Market|Amount)[:\s]+₹?(\d+(?:,?\d+)*(?:\.\d+)?)/i);
-      if (valuesMatch) {
-        const [, units, nav, value] = valuesMatch;
-        holdings.push({
-          id: `cas-${Date.now()}-${holdings.length}`,
-          name: schemeName,
-          assetType: 'mutual_fund',
-          quantity: parseFloat(units),
-          currentNav: parseFloat(nav),
-          currentValue: parseFloat(value.replace(/,/g, '')),
-          folioNumber: currentFolio,
-          broker: 'CAMS/KFintech',
-          confidenceScore: 80
-        });
-      }
-    }
   }
+  
+  console.log('[CAS Parser] Total holdings found:', holdings.length);
+  console.log('[CAS Parser] Total value:', holdings.reduce((sum, h) => sum + h.currentValue, 0));
   
   return holdings;
 }
