@@ -456,26 +456,38 @@ function parseCASFormat(text: string): ImportedHolding[] {
     }
     
     // Pattern 3: Table format with columns (common in CAS PDFs)
-    const casPattern3 = /^(.+?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:,\d+)*(?:\.\d+)?)\s*$/;
-    match = line.match(casPattern3);
-    if (match) {
-      const [, name, units, nav, value] = match;
-      const schemeName = name.trim();
-      if (/^(scheme|fund|name|units|nav|value|balance|date)/i.test(schemeName)) continue;
-      if (parseFloat(units) > 0 && parseFloat(value.replace(/,/g, '')) > 0) {
-        holdings.push({
-          id: `cas-${Date.now()}-${holdings.length}`,
-          name: schemeName,
-          assetType: 'mutual_fund',
-          quantity: parseFloat(units),
-          currentNav: parseFloat(nav),
-          currentValue: parseFloat(value.replace(/,/g, '')),
-          folioNumber: currentFolio,
-          broker: 'CAMS/KFintech',
-          confidenceScore: 85
-        });
+    // IMPORTANT: Skip transaction lines that start with dates (e.g., "20-JUN-2025 Purchase SIP...")
+    // These are individual transactions, not holdings summaries
+    const isTransactionLine = line.match(/^\d{1,2}[-\/][A-Z]{3}[-\/]\d{2,4}/i) ||  // Date prefix
+                              line.includes('Purchase') || 
+                              line.includes('Redemption') ||
+                              line.includes('SIP') ||
+                              line.includes('Switch In') ||
+                              line.includes('Switch Out') ||
+                              line.includes('Dividend');
+    
+    if (!isTransactionLine) {
+      const casPattern3 = /^(.+?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:,\d+)*(?:\.\d+)?)\s*$/;
+      match = line.match(casPattern3);
+      if (match) {
+        const [, name, units, nav, value] = match;
+        const schemeName = name.trim();
+        if (/^(scheme|fund|name|units|nav|value|balance|date|transaction|folio)/i.test(schemeName)) continue;
+        if (parseFloat(units) > 0 && parseFloat(value.replace(/,/g, '')) > 0) {
+          holdings.push({
+            id: `cas-${Date.now()}-${holdings.length}`,
+            name: schemeName,
+            assetType: 'mutual_fund',
+            quantity: parseFloat(units),
+            currentNav: parseFloat(nav),
+            currentValue: parseFloat(value.replace(/,/g, '')),
+            folioNumber: currentFolio,
+            broker: 'CAMS/KFintech',
+            confidenceScore: 85
+          });
+        }
+        continue;
       }
-      continue;
     }
   }
   
