@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio';
 import { PDFParse } from 'pdf-parse';
+import { liveMFDataService } from './live-mf-data-service';
 
 export interface ImportedHolding {
   id?: string;
@@ -484,6 +485,41 @@ function parseCASFormat(text: string): ImportedHolding[] {
   return holdings;
 }
 
+async function enrichHoldingsWithDatabaseLookup(holdings: ImportedHolding[]): Promise<ImportedHolding[]> {
+  const isins = holdings
+    .filter(h => h.isin && h.isin.length === 12)
+    .map(h => h.isin!);
+  
+  if (isins.length === 0) {
+    console.log('[CAS Parser] No ISINs to lookup for enrichment');
+    return holdings;
+  }
+  
+  console.log(`[CAS Parser] Looking up ${isins.length} ISINs in database for fund name enrichment`);
+  
+  const fundLookup = await liveMFDataService.getFundsByIsinBatch(isins);
+  console.log(`[CAS Parser] Found ${fundLookup.size} funds in database`);
+  
+  return holdings.map(holding => {
+    if (holding.isin && fundLookup.has(holding.isin)) {
+      const dbFund = fundLookup.get(holding.isin)!;
+      const needsEnrichment = holding.name.includes('Unknown') || 
+                              holding.name.includes('ISIN:') ||
+                              holding.name.length < 20;
+      
+      if (needsEnrichment) {
+        console.log(`[CAS Parser] Enriched "${holding.name}" -> "${dbFund.schemeName}" from database`);
+        return {
+          ...holding,
+          name: dbFund.schemeName,
+          broker: holding.broker || dbFund.fundHouse
+        };
+      }
+    }
+    return holding;
+  });
+}
+
 function parseWealthyPDFFormat(text: string): ImportedHolding[] {
   const holdings: ImportedHolding[] = [];
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
@@ -804,6 +840,9 @@ export async function parsePDFPortfolio(buffer: Buffer, fileName: string): Promi
     const avgConfidence = holdings.length > 0 
       ? holdings.reduce((sum, h) => sum + (h.confidenceScore || 50), 0) / holdings.length
       : 30;
+    
+    // Enrich holdings with proper fund names from database using ISIN lookup
+    holdings = await enrichHoldingsWithDatabaseLookup(holdings);
     
     return {
       success: holdings.length > 0,

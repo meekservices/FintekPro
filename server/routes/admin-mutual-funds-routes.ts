@@ -459,6 +459,96 @@ router.get("/source-funds", async (req: Request, res: Response) => {
   }
 });
 
+router.get("/fund-search", async (req: Request, res: Response) => {
+  try {
+    const { q, limit = '20' } = req.query;
+    
+    if (!q || String(q).length < 2) {
+      return res.json({ success: true, funds: [] });
+    }
+    
+    const searchPattern = `%${String(q).toLowerCase()}%`;
+    
+    const funds = await db.select({
+      schemeCode: mutualFunds.schemeCode,
+      schemeName: mutualFunds.schemeName,
+      fundHouse: mutualFunds.fundHouse,
+      category: mutualFunds.category,
+      nav: mutualFunds.nav,
+      planType: mutualFunds.planType,
+      extendedData: mutualFunds.extendedData
+    })
+    .from(mutualFunds)
+    .where(
+      or(
+        sql`LOWER(${mutualFunds.schemeName}) LIKE ${searchPattern}`,
+        sql`LOWER(${mutualFunds.fundHouse}) LIKE ${searchPattern}`,
+        sql`${mutualFunds.extendedData}->>'isin' LIKE ${searchPattern.toUpperCase()}`
+      )
+    )
+    .limit(parseInt(limit as string));
+    
+    const results = funds.map(fund => ({
+      schemeCode: fund.schemeCode,
+      schemeName: fund.schemeName,
+      fundHouse: fund.fundHouse || '',
+      category: fund.category || '',
+      nav: parseFloat(fund.nav || '0'),
+      planType: fund.planType || 'Regular',
+      isin: (fund.extendedData as any)?.isin || ''
+    }));
+    
+    res.json({ success: true, funds: results });
+  } catch (error: any) {
+    console.error("[Admin MF] Error searching funds:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/fund-by-isin/:isin", async (req: Request, res: Response) => {
+  try {
+    const { isin } = req.params;
+    
+    if (!isin || isin.length !== 12) {
+      return res.status(400).json({ success: false, error: 'Invalid ISIN format' });
+    }
+    
+    const funds = await db.select({
+      schemeCode: mutualFunds.schemeCode,
+      schemeName: mutualFunds.schemeName,
+      fundHouse: mutualFunds.fundHouse,
+      category: mutualFunds.category,
+      nav: mutualFunds.nav,
+      planType: mutualFunds.planType,
+      extendedData: mutualFunds.extendedData
+    })
+    .from(mutualFunds)
+    .where(sql`${mutualFunds.extendedData}->>'isin' = ${isin}`)
+    .limit(1);
+    
+    if (funds.length === 0) {
+      return res.status(404).json({ success: false, error: 'Fund not found' });
+    }
+    
+    const fund = funds[0];
+    res.json({
+      success: true,
+      fund: {
+        schemeCode: fund.schemeCode,
+        schemeName: fund.schemeName,
+        fundHouse: fund.fundHouse || '',
+        category: fund.category || '',
+        nav: parseFloat(fund.nav || '0'),
+        planType: fund.planType || 'Regular',
+        isin: (fund.extendedData as any)?.isin || ''
+      }
+    });
+  } catch (error: any) {
+    console.error("[Admin MF] Error fetching fund by ISIN:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 router.get("/advisory-subscriptions", async (req: Request, res: Response) => {
   try {
     const { status, page = '1', limit = '20' } = req.query;

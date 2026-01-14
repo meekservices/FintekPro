@@ -12108,6 +12108,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/mutual-funds/autocomplete", async (req, res) => {
+    try {
+      const { q, limit = '20' } = req.query;
+      
+      if (!q || String(q).length < 2) {
+        return res.json({ success: true, funds: [] });
+      }
+      
+      const searchPattern = `%${String(q).toLowerCase()}%`;
+      
+      const funds = await db.select({
+        schemeCode: mutualFunds.schemeCode,
+        schemeName: mutualFunds.schemeName,
+        fundHouse: mutualFunds.fundHouse,
+        category: mutualFunds.category,
+        nav: mutualFunds.nav,
+        planType: mutualFunds.planType,
+        extendedData: mutualFunds.extendedData
+      })
+      .from(mutualFunds)
+      .where(
+        or(
+          sql`LOWER(${mutualFunds.schemeName}) LIKE ${searchPattern}`,
+          sql`LOWER(${mutualFunds.fundHouse}) LIKE ${searchPattern}`
+        )
+      )
+      .limit(parseInt(limit as string));
+      
+      const results = funds.map(fund => ({
+        schemeCode: fund.schemeCode,
+        schemeName: fund.schemeName,
+        fundHouse: fund.fundHouse || '',
+        category: fund.category || '',
+        nav: parseFloat(fund.nav || '0'),
+        planType: fund.planType || 'Regular',
+        isin: (fund.extendedData as any)?.isin || ''
+      }));
+      
+      res.json({ success: true, funds: results });
+    } catch (error) {
+      console.error("Error in autocomplete search:", error);
+      res.status(500).json({ success: false, error: "Search failed" });
+    }
+  });
+
+  app.get("/api/mutual-funds/by-isin/:isin", async (req, res) => {
+    try {
+      const { isin } = req.params;
+      
+      if (!isin || isin.length !== 12) {
+        return res.status(400).json({ success: false, error: 'Invalid ISIN format' });
+      }
+      
+      const funds = await db.select({
+        schemeCode: mutualFunds.schemeCode,
+        schemeName: mutualFunds.schemeName,
+        fundHouse: mutualFunds.fundHouse,
+        category: mutualFunds.category,
+        nav: mutualFunds.nav,
+        planType: mutualFunds.planType,
+        extendedData: mutualFunds.extendedData
+      })
+      .from(mutualFunds)
+      .where(sql`${mutualFunds.extendedData}->>'isin' = ${isin}`)
+      .limit(1);
+      
+      if (funds.length === 0) {
+        return res.status(404).json({ success: false, error: 'Fund not found for this ISIN' });
+      }
+      
+      const fund = funds[0];
+      res.json({
+        success: true,
+        fund: {
+          schemeCode: fund.schemeCode,
+          schemeName: fund.schemeName,
+          fundHouse: fund.fundHouse || '',
+          category: fund.category || '',
+          nav: parseFloat(fund.nav || '0'),
+          planType: fund.planType || 'Regular',
+          isin: (fund.extendedData as any)?.isin || ''
+        }
+      });
+    } catch (error) {
+      console.error("Error looking up fund by ISIN:", error);
+      res.status(500).json({ success: false, error: "Lookup failed" });
+    }
+  });
+
   app.get("/api/mutual-funds/:schemeCode", async (req, res) => {
     try {
       const { schemeCode } = req.params;

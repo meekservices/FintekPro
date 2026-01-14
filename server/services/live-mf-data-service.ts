@@ -351,6 +351,135 @@ class LiveMFDataService {
       isLive: !!liveData
     };
   }
+
+  async getFundByIsin(isin: string): Promise<{
+    schemeCode: string;
+    schemeName: string;
+    fundHouse: string;
+    category: string;
+    nav: number;
+    planType: string;
+  } | null> {
+    try {
+      const fund = await db
+        .select({
+          schemeCode: mutualFunds.schemeCode,
+          schemeName: mutualFunds.schemeName,
+          fundHouse: mutualFunds.fundHouse,
+          category: mutualFunds.category,
+          nav: mutualFunds.nav,
+          planType: mutualFunds.planType,
+          extendedData: mutualFunds.extendedData
+        })
+        .from(mutualFunds)
+        .where(sql`${mutualFunds.extendedData}->>'isin' = ${isin}`)
+        .limit(1);
+
+      if (fund.length > 0) {
+        return {
+          schemeCode: fund[0].schemeCode,
+          schemeName: fund[0].schemeName,
+          fundHouse: fund[0].fundHouse || '',
+          category: fund[0].category || '',
+          nav: parseFloat(fund[0].nav || '0'),
+          planType: fund[0].planType || 'Regular'
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error(`[LiveMFData] Error fetching fund by ISIN ${isin}:`, error);
+      return null;
+    }
+  }
+
+  async getFundsByIsinBatch(isins: string[]): Promise<Map<string, {
+    schemeCode: string;
+    schemeName: string;
+    fundHouse: string;
+    category: string;
+    nav: number;
+    planType: string;
+  }>> {
+    const result = new Map();
+    
+    if (isins.length === 0) return result;
+
+    try {
+      const funds = await db
+        .select({
+          schemeCode: mutualFunds.schemeCode,
+          schemeName: mutualFunds.schemeName,
+          fundHouse: mutualFunds.fundHouse,
+          category: mutualFunds.category,
+          nav: mutualFunds.nav,
+          planType: mutualFunds.planType,
+          extendedData: mutualFunds.extendedData
+        })
+        .from(mutualFunds)
+        .where(sql`${mutualFunds.extendedData}->>'isin' = ANY(${isins})`);
+
+      for (const fund of funds) {
+        const isin = (fund.extendedData as any)?.isin;
+        if (isin) {
+          result.set(isin, {
+            schemeCode: fund.schemeCode,
+            schemeName: fund.schemeName,
+            fundHouse: fund.fundHouse || '',
+            category: fund.category || '',
+            nav: parseFloat(fund.nav || '0'),
+            planType: fund.planType || 'Regular'
+          });
+        }
+      }
+    } catch (error) {
+      console.error(`[LiveMFData] Error fetching funds by ISIN batch:`, error);
+    }
+
+    return result;
+  }
+
+  async searchFunds(query: string, limit: number = 20): Promise<Array<{
+    schemeCode: string;
+    schemeName: string;
+    fundHouse: string;
+    category: string;
+    nav: number;
+    planType: string;
+    isin: string;
+  }>> {
+    try {
+      if (!query || query.length < 2) return [];
+
+      const searchPattern = `%${query.toLowerCase()}%`;
+      
+      const funds = await db
+        .select({
+          schemeCode: mutualFunds.schemeCode,
+          schemeName: mutualFunds.schemeName,
+          fundHouse: mutualFunds.fundHouse,
+          category: mutualFunds.category,
+          nav: mutualFunds.nav,
+          planType: mutualFunds.planType,
+          extendedData: mutualFunds.extendedData
+        })
+        .from(mutualFunds)
+        .where(sql`LOWER(${mutualFunds.schemeName}) LIKE ${searchPattern}`)
+        .limit(limit);
+
+      return funds.map(fund => ({
+        schemeCode: fund.schemeCode,
+        schemeName: fund.schemeName,
+        fundHouse: fund.fundHouse || '',
+        category: fund.category || '',
+        nav: parseFloat(fund.nav || '0'),
+        planType: fund.planType || 'Regular',
+        isin: (fund.extendedData as any)?.isin || ''
+      }));
+    } catch (error) {
+      console.error(`[LiveMFData] Error searching funds:`, error);
+      return [];
+    }
+  }
 }
 
 export const liveMFDataService = new LiveMFDataService();
