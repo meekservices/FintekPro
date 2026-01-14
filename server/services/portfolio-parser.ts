@@ -485,7 +485,7 @@ function parseCASFormat(text: string): ImportedHolding[] {
   return holdings;
 }
 
-async function enrichHoldingsWithDatabaseLookup(holdings: ImportedHolding[]): Promise<ImportedHolding[]> {
+export async function enrichHoldingsWithDatabaseLookup(holdings: ImportedHolding[]): Promise<ImportedHolding[]> {
   const isins = holdings
     .filter(h => h.isin && h.isin.length === 12)
     .map(h => h.isin!);
