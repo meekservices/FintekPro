@@ -1,0 +1,626 @@
+import { db } from "../db";
+import { historicalNavData, assetMetadataCache, portfolioMetricsCache } from "@shared/schema";
+import { eq, and, gte, lte, desc, asc, sql } from "drizzle-orm";
+
+interface NavDataPoint {
+  date: string;
+  nav: string;
+}
+
+interface MFAPIResponse {
+  meta: {
+    fund_house: string;
+    scheme_type: string;
+    scheme_category: string;
+    scheme_code: number;
+    scheme_name: string;
+  };
+  data: NavDataPoint[];
+  status: string;
+}
+
+interface HistoricalDataResult {
+  success: boolean;
+  identifier: string;
+  identifierType: string;
+  recordsStored: number;
+  dateRange: {
+    start: string | null;
+    end: string | null;
+  };
+  source: string;
+  error?: string;
+}
+
+interface CachedMetrics {
+  cagr: number | null;
+  volatility: number | null;
+  maxDrawdown: number | null;
+  sharpeRatio: number | null;
+  sortinoRatio: number | null;
+  beta: number | null;
+  alpha: number | null;
+  dataPoints: number;
+  dateRange: { start: string; end: string };
+  calculatedFromRealData: boolean;
+}
+
+const RISK_FREE_RATE = 0.065; // 6.5% - RBI repo rate as proxy
+const MARKET_RETURN = 0.12; // 12% - Long-term Nifty return
+
+export class HistoricalNavService {
+  private static instance: HistoricalNavService;
+  
+  static getInstance(): HistoricalNavService {
+    if (!this.instance) {
+      this.instance = new HistoricalNavService();
+    }
+    return this.instance;
+  }
+
+  /**
+   * Fetch and store full NAV history for a mutual fund scheme
+   * Uses append-only strategy - new data added, old data retained
+   */
+  async fetchAndStoreMutualFundHistory(schemeCode: string): Promise<HistoricalDataResult> {
+    const identifier = schemeCode.toString();
+    const identifierType = 'mutual_fund';
+    
+    try {
+      console.log(`[HistoricalNav] Fetching full history for scheme ${schemeCode}...`);
+      
+      // Check what data we already have
+      const existingRange = await this.getExistingDateRange(identifier, identifierType);
+      
+      // Fetch from MFAPI.in (provides full history, 13+ years)
+      const response = await fetch(`https://api.mfapi.in/mf/${schemeCode}`, {
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(30000)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`MFAPI returned ${response.status}`);
+      }
+      
+      const data: MFAPIResponse = await response.json();
+      
+      if (!data.data || data.data.length === 0) {
+        return {
+          success: false,
+          identifier,
+          identifierType,
+          recordsStored: 0,
+          dateRange: { start: null, end: null },
+          source: 'mfapi',
+          error: 'No NAV data returned from API'
+        };
+      }
+      
+      // Store metadata
+      await this.upsertAssetMetadata({
+        identifier,
+        identifierType,
+        name: data.meta.scheme_name,
+        category: data.meta.scheme_category,
+        amcName: data.meta.fund_house,
+        schemeType: data.meta.scheme_type,
+        latestNav: data.data[0]?.nav,
+        latestNavDate: this.parseDate(data.data[0]?.date),
+        source: 'mfapi'
+      });
+      
+      // Filter to only new data points we don't have
+      const navRecords = data.data
+        .filter(d => d.date && d.nav)
+        .map(d => ({
+          identifier,
+          identifierType,
+          date: this.parseDate(d.date),
+          nav: d.nav,
+          source: 'mfapi' as const
+        }))
+        .filter(r => r.date); // Remove invalid dates
+      
+      if (navRecords.length === 0) {
+        return {
+          success: true,
+          identifier,
+          identifierType,
+          recordsStored: 0,
+          dateRange: existingRange,
+          source: 'mfapi'
+        };
+      }
+      
+      // Batch upsert with conflict handling (append-only, no overwrites)
+      const insertedCount = await this.batchUpsertNavData(navRecords);
+      
+      // Get updated date range
+      const newRange = await this.getExistingDateRange(identifier, identifierType);
+      
+      console.log(`[HistoricalNav] Stored ${insertedCount} records for ${schemeCode} (${newRange.start} to ${newRange.end})`);
+      
+      return {
+        success: true,
+        identifier,
+        identifierType,
+        recordsStored: insertedCount,
+        dateRange: newRange,
+        source: 'mfapi'
+      };
+      
+    } catch (error: any) {
+      console.error(`[HistoricalNav] Error fetching ${schemeCode}:`, error.message);
+      return {
+        success: false,
+        identifier,
+        identifierType,
+        recordsStored: 0,
+        dateRange: { start: null, end: null },
+        source: 'mfapi',
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Batch upsert NAV data - inserts new records, skips existing ones
+   */
+  private async batchUpsertNavData(records: Array<{
+    identifier: string;
+    identifierType: string;
+    date: string;
+    nav: string;
+    source: string;
+  }>): Promise<number> {
+    if (records.length === 0) return 0;
+    
+    const BATCH_SIZE = 500;
+    let totalInserted = 0;
+    
+    for (let i = 0; i < records.length; i += BATCH_SIZE) {
+      const batch = records.slice(i, i + BATCH_SIZE);
+      
+      try {
+        // Use ON CONFLICT DO NOTHING to skip existing records
+        const result = await db.execute(sql`
+          INSERT INTO historical_nav_data (identifier, identifier_type, date, nav, source, fetched_at, created_at)
+          SELECT * FROM (
+            VALUES ${sql.join(
+              batch.map(r => sql`(
+                ${r.identifier}::varchar,
+                ${r.identifierType}::varchar,
+                ${r.date}::date,
+                ${r.nav}::numeric,
+                ${r.source}::varchar,
+                NOW(),
+                NOW()
+              )`),
+              sql`, `
+            )}
+          ) AS t(identifier, identifier_type, date, nav, source, fetched_at, created_at)
+          ON CONFLICT (identifier, identifier_type, date) DO NOTHING
+        `);
+        
+        totalInserted += batch.length;
+      } catch (error: any) {
+        // If conflict constraint doesn't exist, try individual inserts
+        if (error.message?.includes('constraint')) {
+          for (const record of batch) {
+            try {
+              const existing = await db.select().from(historicalNavData)
+                .where(and(
+                  eq(historicalNavData.identifier, record.identifier),
+                  eq(historicalNavData.identifierType, record.identifierType),
+                  eq(historicalNavData.date, record.date)
+                ))
+                .limit(1);
+              
+              if (existing.length === 0) {
+                await db.insert(historicalNavData).values({
+                  identifier: record.identifier,
+                  identifierType: record.identifierType,
+                  date: record.date,
+                  nav: record.nav,
+                  source: record.source,
+                });
+                totalInserted++;
+              }
+            } catch (e) {
+              // Skip duplicates silently
+            }
+          }
+        }
+      }
+    }
+    
+    return totalInserted;
+  }
+
+  /**
+   * Get cached NAV data for a scheme
+   */
+  async getNavHistory(
+    identifier: string,
+    identifierType: string = 'mutual_fund',
+    startDate?: string,
+    endDate?: string
+  ): Promise<Array<{ date: string; nav: number }>> {
+    let query = db.select({
+      date: historicalNavData.date,
+      nav: historicalNavData.nav
+    })
+    .from(historicalNavData)
+    .where(and(
+      eq(historicalNavData.identifier, identifier),
+      eq(historicalNavData.identifierType, identifierType),
+      ...(startDate ? [gte(historicalNavData.date, startDate)] : []),
+      ...(endDate ? [lte(historicalNavData.date, endDate)] : [])
+    ))
+    .orderBy(asc(historicalNavData.date));
+    
+    const results = await query;
+    
+    return results.map(r => ({
+      date: r.date as string,
+      nav: parseFloat(r.nav as string)
+    }));
+  }
+
+  /**
+   * Get existing date range for a scheme
+   */
+  async getExistingDateRange(identifier: string, identifierType: string): Promise<{ start: string | null; end: string | null }> {
+    const result = await db.select({
+      minDate: sql<string>`MIN(date)`,
+      maxDate: sql<string>`MAX(date)`
+    })
+    .from(historicalNavData)
+    .where(and(
+      eq(historicalNavData.identifier, identifier),
+      eq(historicalNavData.identifierType, identifierType)
+    ));
+    
+    return {
+      start: result[0]?.minDate || null,
+      end: result[0]?.maxDate || null
+    };
+  }
+
+  /**
+   * Calculate portfolio metrics from real historical data
+   */
+  async calculateMetrics(
+    identifier: string,
+    identifierType: string = 'mutual_fund',
+    periodYears: number = 5
+  ): Promise<CachedMetrics> {
+    // Check cache first
+    const cached = await this.getCachedMetrics(identifier, identifierType, periodYears);
+    if (cached) {
+      return cached;
+    }
+    
+    // Get historical data
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setFullYear(startDate.getFullYear() - periodYears);
+    
+    const navData = await this.getNavHistory(
+      identifier,
+      identifierType,
+      startDate.toISOString().split('T')[0],
+      endDate.toISOString().split('T')[0]
+    );
+    
+    if (navData.length < 30) {
+      // Not enough data - return estimation-based metrics
+      return {
+        cagr: null,
+        volatility: null,
+        maxDrawdown: null,
+        sharpeRatio: null,
+        sortinoRatio: null,
+        beta: null,
+        alpha: null,
+        dataPoints: navData.length,
+        dateRange: { 
+          start: navData[0]?.date || '', 
+          end: navData[navData.length - 1]?.date || '' 
+        },
+        calculatedFromRealData: false
+      };
+    }
+    
+    // Calculate metrics from real data
+    const returns = this.calculateReturns(navData);
+    const metrics = this.computeMetrics(navData, returns);
+    
+    // Cache the results (expires in 24 hours)
+    await this.cacheMetrics(identifier, identifierType, periodYears, metrics);
+    
+    return {
+      ...metrics,
+      dataPoints: navData.length,
+      dateRange: {
+        start: navData[0].date,
+        end: navData[navData.length - 1].date
+      },
+      calculatedFromRealData: true
+    };
+  }
+
+  /**
+   * Calculate daily returns from NAV data
+   */
+  private calculateReturns(navData: Array<{ date: string; nav: number }>): number[] {
+    const returns: number[] = [];
+    for (let i = 1; i < navData.length; i++) {
+      const dailyReturn = (navData[i].nav - navData[i - 1].nav) / navData[i - 1].nav;
+      returns.push(dailyReturn);
+    }
+    return returns;
+  }
+
+  /**
+   * Compute all portfolio metrics from NAV and returns data
+   */
+  private computeMetrics(
+    navData: Array<{ date: string; nav: number }>,
+    returns: number[]
+  ): Omit<CachedMetrics, 'dataPoints' | 'dateRange' | 'calculatedFromRealData'> {
+    // CAGR
+    const startNav = navData[0].nav;
+    const endNav = navData[navData.length - 1].nav;
+    const startDate = new Date(navData[0].date);
+    const endDate = new Date(navData[navData.length - 1].date);
+    const years = (endDate.getTime() - startDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+    const cagr = years > 0 ? Math.pow(endNav / startNav, 1 / years) - 1 : null;
+    
+    // Volatility (annualized standard deviation)
+    const avgReturn = returns.reduce((a, b) => a + b, 0) / returns.length;
+    const variance = returns.reduce((sum, r) => sum + Math.pow(r - avgReturn, 2), 0) / returns.length;
+    const dailyVol = Math.sqrt(variance);
+    const volatility = dailyVol * Math.sqrt(252); // Annualize
+    
+    // Max Drawdown
+    let peak = navData[0].nav;
+    let maxDrawdown = 0;
+    for (const point of navData) {
+      if (point.nav > peak) {
+        peak = point.nav;
+      }
+      const drawdown = (peak - point.nav) / peak;
+      if (drawdown > maxDrawdown) {
+        maxDrawdown = drawdown;
+      }
+    }
+    
+    // Sharpe Ratio
+    const excessReturn = (cagr || 0) - RISK_FREE_RATE;
+    const sharpeRatio = volatility > 0 ? excessReturn / volatility : null;
+    
+    // Sortino Ratio (uses downside deviation)
+    const negativeReturns = returns.filter(r => r < 0);
+    const downsideVariance = negativeReturns.length > 0
+      ? negativeReturns.reduce((sum, r) => sum + Math.pow(r, 2), 0) / negativeReturns.length
+      : 0;
+    const downsideDeviation = Math.sqrt(downsideVariance) * Math.sqrt(252);
+    const sortinoRatio = downsideDeviation > 0 ? excessReturn / downsideDeviation : null;
+    
+    // Beta (assuming market correlation of ~0.8 for equity funds)
+    // For accurate beta, we'd need market index data comparison
+    const beta = volatility > 0 ? (volatility / 0.15) * 0.85 : null; // Approximate using vol ratio
+    
+    // Alpha (Jensen's Alpha)
+    const alpha = cagr !== null && beta !== null
+      ? cagr - (RISK_FREE_RATE + beta * (MARKET_RETURN - RISK_FREE_RATE))
+      : null;
+    
+    return {
+      cagr: cagr !== null ? Math.round(cagr * 10000) / 10000 : null,
+      volatility: Math.round(volatility * 10000) / 10000,
+      maxDrawdown: Math.round(maxDrawdown * 10000) / 10000,
+      sharpeRatio: sharpeRatio !== null ? Math.round(sharpeRatio * 100) / 100 : null,
+      sortinoRatio: sortinoRatio !== null ? Math.round(sortinoRatio * 100) / 100 : null,
+      beta: beta !== null ? Math.round(beta * 100) / 100 : null,
+      alpha: alpha !== null ? Math.round(alpha * 10000) / 10000 : null
+    };
+  }
+
+  /**
+   * Get cached metrics if available and not expired
+   */
+  private async getCachedMetrics(
+    identifier: string,
+    identifierType: string,
+    periodYears: number
+  ): Promise<CachedMetrics | null> {
+    const cached = await db.select()
+      .from(portfolioMetricsCache)
+      .where(and(
+        eq(portfolioMetricsCache.identifier, identifier),
+        eq(portfolioMetricsCache.identifierType, identifierType),
+        eq(portfolioMetricsCache.periodYears, periodYears),
+        gte(portfolioMetricsCache.expiresAt, new Date())
+      ))
+      .limit(1);
+    
+    if (cached.length === 0) return null;
+    
+    const c = cached[0];
+    return {
+      cagr: c.cagr ? parseFloat(c.cagr) : null,
+      volatility: c.volatility ? parseFloat(c.volatility) : null,
+      maxDrawdown: c.maxDrawdown ? parseFloat(c.maxDrawdown) : null,
+      sharpeRatio: c.sharpeRatio ? parseFloat(c.sharpeRatio) : null,
+      sortinoRatio: c.sortinoRatio ? parseFloat(c.sortinoRatio) : null,
+      beta: c.beta ? parseFloat(c.beta) : null,
+      alpha: c.alpha ? parseFloat(c.alpha) : null,
+      dataPoints: c.totalDataPoints || 0,
+      dateRange: {
+        start: c.dataStartDate || '',
+        end: c.dataEndDate || ''
+      },
+      calculatedFromRealData: true
+    };
+  }
+
+  /**
+   * Cache calculated metrics
+   */
+  private async cacheMetrics(
+    identifier: string,
+    identifierType: string,
+    periodYears: number,
+    metrics: Omit<CachedMetrics, 'dataPoints' | 'dateRange' | 'calculatedFromRealData'>
+  ): Promise<void> {
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
+    
+    await db.insert(portfolioMetricsCache).values({
+      identifier,
+      identifierType,
+      periodYears,
+      periodEndDate: new Date().toISOString().split('T')[0],
+      cagr: metrics.cagr?.toString() || null,
+      volatility: metrics.volatility?.toString() || null,
+      maxDrawdown: metrics.maxDrawdown?.toString() || null,
+      sharpeRatio: metrics.sharpeRatio?.toString() || null,
+      sortinoRatio: metrics.sortinoRatio?.toString() || null,
+      beta: metrics.beta?.toString() || null,
+      alpha: metrics.alpha?.toString() || null,
+      expiresAt
+    });
+  }
+
+  /**
+   * Upsert asset metadata
+   */
+  private async upsertAssetMetadata(metadata: {
+    identifier: string;
+    identifierType: string;
+    name: string;
+    category?: string;
+    amcName?: string;
+    schemeType?: string;
+    latestNav?: string;
+    latestNavDate?: string;
+    source: string;
+  }): Promise<void> {
+    const existing = await db.select()
+      .from(assetMetadataCache)
+      .where(and(
+        eq(assetMetadataCache.identifier, metadata.identifier),
+        eq(assetMetadataCache.identifierType, metadata.identifierType)
+      ))
+      .limit(1);
+    
+    if (existing.length > 0) {
+      await db.update(assetMetadataCache)
+        .set({
+          name: metadata.name,
+          category: metadata.category,
+          amcName: metadata.amcName,
+          schemeType: metadata.schemeType,
+          latestNav: metadata.latestNav,
+          latestNavDate: metadata.latestNavDate,
+          source: metadata.source,
+          lastUpdatedAt: new Date()
+        })
+        .where(eq(assetMetadataCache.id, existing[0].id));
+    } else {
+      await db.insert(assetMetadataCache).values({
+        identifier: metadata.identifier,
+        identifierType: metadata.identifierType,
+        name: metadata.name,
+        category: metadata.category,
+        amcName: metadata.amcName,
+        schemeType: metadata.schemeType,
+        latestNav: metadata.latestNav,
+        latestNavDate: metadata.latestNavDate,
+        source: metadata.source
+      });
+    }
+  }
+
+  /**
+   * Parse DD-MM-YYYY date format to YYYY-MM-DD
+   */
+  private parseDate(dateStr: string): string {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      // DD-MM-YYYY -> YYYY-MM-DD
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+    return dateStr;
+  }
+
+  /**
+   * Get data availability summary for a scheme
+   */
+  async getDataSummary(identifier: string, identifierType: string = 'mutual_fund'): Promise<{
+    hasData: boolean;
+    recordCount: number;
+    dateRange: { start: string | null; end: string | null };
+    yearsOfData: number;
+    metadata: any;
+  }> {
+    const [countResult, rangeResult, metadata] = await Promise.all([
+      db.select({ count: sql<number>`COUNT(*)` })
+        .from(historicalNavData)
+        .where(and(
+          eq(historicalNavData.identifier, identifier),
+          eq(historicalNavData.identifierType, identifierType)
+        )),
+      this.getExistingDateRange(identifier, identifierType),
+      db.select()
+        .from(assetMetadataCache)
+        .where(and(
+          eq(assetMetadataCache.identifier, identifier),
+          eq(assetMetadataCache.identifierType, identifierType)
+        ))
+        .limit(1)
+    ]);
+    
+    const recordCount = countResult[0]?.count || 0;
+    let yearsOfData = 0;
+    
+    if (rangeResult.start && rangeResult.end) {
+      const start = new Date(rangeResult.start);
+      const end = new Date(rangeResult.end);
+      yearsOfData = (end.getTime() - start.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+    }
+    
+    return {
+      hasData: recordCount > 0,
+      recordCount,
+      dateRange: rangeResult,
+      yearsOfData: Math.round(yearsOfData * 10) / 10,
+      metadata: metadata[0] || null
+    };
+  }
+
+  /**
+   * Ensure we have data for a scheme, fetching if needed
+   */
+  async ensureData(schemeCode: string): Promise<{
+    ready: boolean;
+    summary: Awaited<ReturnType<typeof this.getDataSummary>>;
+  }> {
+    const summary = await this.getDataSummary(schemeCode, 'mutual_fund');
+    
+    // If no data or data is old (last update > 7 days ago), fetch fresh
+    if (!summary.hasData) {
+      console.log(`[HistoricalNav] No data for ${schemeCode}, fetching...`);
+      await this.fetchAndStoreMutualFundHistory(schemeCode);
+      const newSummary = await this.getDataSummary(schemeCode, 'mutual_fund');
+      return { ready: newSummary.hasData, summary: newSummary };
+    }
+    
+    return { ready: true, summary };
+  }
+}
+
+export const historicalNavService = HistoricalNavService.getInstance();

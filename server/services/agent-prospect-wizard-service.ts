@@ -13,6 +13,7 @@ import { nanoid } from "nanoid";
 import { aiInvestmentOrchestrator } from "./ai-investment-orchestrator";
 import { aiResponseCacheService } from "./ai-response-cache-service";
 import { proposalCapitalGainsService } from "./proposal-capital-gains-service";
+import { historicalNavService } from "./historical-nav-service";
 
 // Format amount in Indian currency format (₹X.XX L for lakhs, ₹X.XX Cr for crores)
 const formatAmount = (amount: number): string => {
@@ -1080,6 +1081,171 @@ class AgentProspectWizardService {
     return this.calculatePortfolioMetrics(pseudoHoldings, weightedReturn);
   }
 
+  /**
+   * Calculate portfolio metrics using real historical data when available
+   * Falls back to estimation formulas when historical data is not available
+   */
+  async calculatePortfolioMetricsWithRealData(
+    holdings: ProspectPortfolioHolding[],
+    expectedReturn: number
+  ): Promise<PortfolioMetrics & { dataSource: 'historical' | 'estimated' }> {
+    const normalizedHoldings = normalizeHoldings(holdings);
+    const totalValue = normalizedHoldings.reduce((sum, h) => sum + h.currentValue, 0);
+    
+    if (totalValue === 0) {
+      return {
+        ...this.calculatePortfolioMetrics(normalizedHoldings, expectedReturn),
+        dataSource: 'estimated'
+      };
+    }
+    
+    // Attempt to get real metrics for each holding with an ISIN or scheme code
+    let realVolatility = 0;
+    let realMaxDrawdown = 0;
+    let weightedCagr = 0;
+    let totalRealWeight = 0;
+    let realDataCount = 0;
+    
+    const metricsPromises = normalizedHoldings.map(async (holding) => {
+      const weight = holding.currentValue / totalValue;
+      
+      // Try to identify scheme code from ISIN or name
+      const schemeCode = this.extractSchemeCode(holding);
+      
+      if (schemeCode) {
+        try {
+          const metrics = await historicalNavService.calculateMetrics(schemeCode, 'mutual_fund', 5);
+          
+          if (metrics.calculatedFromRealData && metrics.volatility !== null) {
+            return {
+              weight,
+              volatility: metrics.volatility,
+              maxDrawdown: metrics.maxDrawdown || 0,
+              cagr: metrics.cagr || 0,
+              sharpeRatio: metrics.sharpeRatio,
+              sortinoRatio: metrics.sortinoRatio,
+              hasRealData: true
+            };
+          }
+        } catch (error) {
+          // Fall through to estimation
+        }
+      }
+      
+      // Fallback to estimation
+      const category = (holding.category || holding.productType || '').toLowerCase();
+      let estVolatility = 15;
+      let estMaxDrawdown = 20;
+      
+      if (category.includes('small')) { estVolatility = 25; estMaxDrawdown = 40; }
+      else if (category.includes('mid')) { estVolatility = 20; estMaxDrawdown = 35; }
+      else if (category.includes('large') || category.includes('equity')) { estVolatility = 15; estMaxDrawdown = 25; }
+      else if (category.includes('debt') || category.includes('bond')) { estVolatility = 5; estMaxDrawdown = 5; }
+      else if (category.includes('hybrid')) { estVolatility = 12; estMaxDrawdown = 18; }
+      
+      return {
+        weight,
+        volatility: estVolatility / 100,
+        maxDrawdown: estMaxDrawdown / 100,
+        cagr: expectedReturn / 100,
+        sharpeRatio: null,
+        sortinoRatio: null,
+        hasRealData: false
+      };
+    });
+    
+    const holdingMetrics = await Promise.all(metricsPromises);
+    
+    // Aggregate metrics using portfolio weights
+    holdingMetrics.forEach(m => {
+      realVolatility += m.weight * (m.volatility || 0);
+      realMaxDrawdown = Math.max(realMaxDrawdown, m.maxDrawdown || 0);
+      weightedCagr += m.weight * (m.cagr || 0);
+      if (m.hasRealData) realDataCount++;
+    });
+    
+    const useRealData = realDataCount > 0;
+    const dataSource = useRealData && realDataCount >= normalizedHoldings.length / 2 ? 'historical' : 'estimated';
+    
+    // If we have real data, use it; otherwise fall back to estimation
+    const baseMetrics = this.calculatePortfolioMetrics(normalizedHoldings, expectedReturn);
+    
+    if (useRealData) {
+      // Override with real data where available
+      const riskFreeRate = 0.065;
+      const effectiveReturn = weightedCagr || (expectedReturn / 100);
+      const effectiveSharpe = realVolatility > 0 ? (effectiveReturn - riskFreeRate) / realVolatility : null;
+      
+      return {
+        ...baseMetrics,
+        volatility: realVolatility * 100, // Convert to percentage
+        maxDrawdown: realMaxDrawdown * 100,
+        sharpeRatio: effectiveSharpe,
+        dataSource
+      };
+    }
+    
+    return { ...baseMetrics, dataSource };
+  }
+
+  /**
+   * Extract scheme code from holding metadata
+   */
+  private extractSchemeCode(holding: ProspectPortfolioHolding): string | null {
+    // Check for direct scheme code
+    if ((holding as any).schemeCode) {
+      return (holding as any).schemeCode.toString();
+    }
+    
+    // Try to extract from ISIN (not reliable but worth a try)
+    if (holding.isin) {
+      // ISIN format: INF followed by scheme details
+      // We'd need a mapping table for accurate conversion
+      return null;
+    }
+    
+    // Could add name-based lookup from assetMetadataCache in future
+    return null;
+  }
+
+  /**
+   * Generate portfolio comparison with real historical data when available
+   * Falls back to estimation formulas when historical data is not available
+   */
+  async generatePortfolioComparisonWithRealData(
+    holdings: ProspectPortfolioHolding[],
+    freshInvestments: FreshInvestmentSuggestion[],
+    riskProfile: ProspectRiskProfile
+  ): Promise<PortfolioComparison & { dataSource: 'historical' | 'estimated' }> {
+    const normalizedHoldings = normalizeHoldings(holdings);
+    const totalValue = normalizedHoldings.reduce((sum, h) => sum + h.currentValue, 0);
+    let currentExpectedReturn = 10;
+    
+    normalizedHoldings.forEach(h => {
+      const weight = h.currentValue / totalValue;
+      const category = (h.category || '').toLowerCase();
+      let assetReturn = 10;
+      if (category.includes('small')) assetReturn = 18;
+      else if (category.includes('mid')) assetReturn = 15;
+      else if (category.includes('large') || category.includes('equity')) assetReturn = 12;
+      else if (category.includes('debt') || category.includes('bond')) assetReturn = 7;
+      else if (category.includes('gold') || category.includes('silver')) assetReturn = 10;
+      else if (category.includes('hybrid')) assetReturn = 11;
+      currentExpectedReturn = currentExpectedReturn * (1 - weight) + assetReturn * weight;
+    });
+    
+    // Use real historical data for current portfolio metrics
+    const currentMetricsResult = await this.calculatePortfolioMetricsWithRealData(normalizedHoldings, currentExpectedReturn);
+    const proposedMetrics = this.calculateProposedPortfolioMetrics(freshInvestments, riskProfile);
+    
+    const comparison = this.buildComparisonFromMetrics(currentMetricsResult, proposedMetrics);
+    
+    return {
+      ...comparison,
+      dataSource: currentMetricsResult.dataSource
+    };
+  }
+
   generatePortfolioComparison(
     holdings: ProspectPortfolioHolding[],
     freshInvestments: FreshInvestmentSuggestion[],
@@ -1110,6 +1276,55 @@ class AgentProspectWizardService {
     const proposedMetrics = this.calculateProposedPortfolioMetrics(freshInvestments, riskProfile);
     
     // Generate improvement analysis
+    const improvements: PortfolioComparison['improvements'] = [];
+    
+    const addImprovement = (
+      metric: string, 
+      current: number | null, 
+      proposed: number | null, 
+      higherIsBetter: boolean,
+      interpretation: string
+    ) => {
+      const change = (current !== null && proposed !== null) ? proposed - current : null;
+      const isImprovement = change !== null ? (higherIsBetter ? change > 0 : change < 0) : false;
+      improvements.push({ metric, current, proposed, change, interpretation, isImprovement });
+    };
+    
+    addImprovement('Expected Return (%)', currentMetrics.expectedReturn, proposedMetrics.expectedReturn, true,
+      'Higher returns mean more wealth creation over time');
+    addImprovement('Alpha (Jensen\'s)', currentMetrics.alpha, proposedMetrics.alpha, true,
+      'Positive alpha indicates outperformance vs the market');
+    addImprovement('Beta', currentMetrics.beta, proposedMetrics.beta, false,
+      'Lower beta means less sensitivity to market swings');
+    addImprovement('Sharpe Ratio', currentMetrics.sharpeRatio, proposedMetrics.sharpeRatio, true,
+      'Higher Sharpe means better risk-adjusted returns');
+    addImprovement('Treynor Ratio', currentMetrics.treynorRatio, proposedMetrics.treynorRatio, true,
+      'Higher Treynor means better return per unit of market risk');
+    addImprovement('Sortino Ratio', currentMetrics.sortinoRatio, proposedMetrics.sortinoRatio, true,
+      'Higher Sortino means better return for downside risk taken');
+    addImprovement('Information Ratio', currentMetrics.informationRatio, proposedMetrics.informationRatio, true,
+      'Higher IR indicates consistent outperformance vs benchmark');
+    addImprovement('Max Drawdown (%)', currentMetrics.maxDrawdown, proposedMetrics.maxDrawdown, false,
+      'Lower drawdown means smaller potential losses in bad markets');
+    addImprovement('Volatility (%)', currentMetrics.volatility, proposedMetrics.volatility, false,
+      'Lower volatility means more stable returns');
+    addImprovement('Diversification Score', currentMetrics.diversificationScore, proposedMetrics.diversificationScore, true,
+      'Higher score means better spread across asset classes');
+    
+    return {
+      currentPortfolio: currentMetrics,
+      proposedPortfolio: proposedMetrics,
+      improvements
+    };
+  }
+
+  /**
+   * Helper method to build comparison from metrics objects
+   */
+  private buildComparisonFromMetrics(
+    currentMetrics: PortfolioMetrics,
+    proposedMetrics: PortfolioMetrics
+  ): PortfolioComparison {
     const improvements: PortfolioComparison['improvements'] = [];
     
     const addImprovement = (
@@ -2066,10 +2281,23 @@ class AgentProspectWizardService {
     // Get target allocation based on risk profile
     const targetAllocation = TARGET_ALLOCATIONS[riskProfile.riskTolerance] || TARGET_ALLOCATIONS.moderate;
     
-    // Generate portfolio comparison with risk-adjusted metrics
-    const portfolioComparison = holdings.length > 0 && freshInvestments.length > 0
-      ? this.generatePortfolioComparison(holdings, freshInvestments, riskProfile)
-      : undefined;
+    // Generate portfolio comparison with risk-adjusted metrics (using real historical data when available)
+    let portfolioComparison: PortfolioComparison | undefined;
+    let metricsDataSource: 'historical' | 'estimated' | undefined;
+    
+    if (holdings.length > 0 && freshInvestments.length > 0) {
+      try {
+        const comparisonWithData = await this.generatePortfolioComparisonWithRealData(holdings, freshInvestments, riskProfile);
+        portfolioComparison = comparisonWithData;
+        metricsDataSource = comparisonWithData.dataSource;
+        console.log(`[ProposalGen] Portfolio metrics calculated using ${metricsDataSource} data`);
+      } catch (error) {
+        // Fallback to estimation-based comparison if real data fails
+        console.log('[ProposalGen] Using estimation-based metrics (real data unavailable)');
+        portfolioComparison = this.generatePortfolioComparison(holdings, freshInvestments, riskProfile);
+        metricsDataSource = 'estimated';
+      }
+    }
     
     const [proposal] = await db.insert(prospectProposals).values({
       shareToken,

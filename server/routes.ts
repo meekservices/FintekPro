@@ -167,6 +167,8 @@ import unifiedProposalsRoutes from "./routes/unified-proposals-routes";
 import globalAdvisoryRoutes from "./routes/global-advisory";
 import feeModeRoutes from "./routes/fee-mode";
 import cacheAdminRoutes from "./routes/cache-admin";
+import historicalNavRoutes from "./routes/historical-nav";
+import { historicalNavRefreshJob } from "./services/historical-nav-refresh-job";
 import { cacheCleanupScheduler } from "./services/cache-cleanup-scheduler";
 import exchangeFilingsRoutes from "./routes/exchange-filings-routes";
 
@@ -611,6 +613,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   console.log("✅ Exchange Filings routes registered (admin-only)");
   cacheCleanupScheduler.initialize();
   console.log("✅ Cache Admin routes registered");
+
+  // Historical NAV Data Service (Portfolio Metrics from Real Data)
+  app.use("/api/historical-nav", historicalNavRoutes);
+  historicalNavRefreshJob.initialize();
+  console.log("✅ Historical NAV Data routes registered (with daily refresh job)");
 
   // Global Advisory Routes (EPIC 1 & 2)
   app.use("/api/global-advisory", globalAdvisoryRoutes);
