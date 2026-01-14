@@ -351,6 +351,54 @@ router.get('/company/:cin/financials', requireMcaAccess('read'), async (req: Req
 });
 
 /**
+ * GET /api/mca/company/:cin/history
+ * Get financial history with FY-wise data and YoY growth
+ * Used by Company Profile page for trend visualization
+ */
+router.get('/company/:cin/history', requireMcaAccess('read'), async (req: Request, res: Response) => {
+  const { cin } = req.params;
+  const limit = parseInt(req.query.limit as string) || 10;
+  const user = (req as any).user;
+
+  if (!cin || cin.length !== 21) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid CIN format. CIN must be 21 characters.',
+    });
+  }
+
+  try {
+    const history = await mcaIntelligenceService.getFinancialHistory(cin, Math.min(limit, 20));
+
+    await mcaIntelligenceService.logQuery({
+      userId: user?.id,
+      userName: user?.name || user?.email,
+      userRole: getMcaRole(req),
+      queryType: 'financial_availability',
+      cin,
+      actionTaken: 'Financial history lookup',
+      responseSummary: history.hasData 
+        ? `Found ${history.financialYears.length} years of data` 
+        : 'No financial history available',
+      resultCount: history.financialYears.length,
+      success: true,
+    });
+
+    res.json({
+      success: true,
+      hasData: history.hasData,
+      data: history,
+    });
+  } catch (error: any) {
+    console.error('[MCA Routes] Financial history error:', { cin, error: error.message });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve financial history',
+    });
+  }
+});
+
+/**
  * GET /api/mca/wallet
  * Get MCA wallet status
  */

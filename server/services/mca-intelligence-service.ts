@@ -429,12 +429,15 @@ class McaIntelligenceService {
     ratios?: {
       patMargin: number | null;       // PAT / Revenue * 100
       returnOnEquity: number | null;  // PAT / Net Worth * 100
+      returnOnAssets: number | null;  // PAT / Total Assets * 100
       debtToEquity: number | null;    // Total Borrowing / Net Worth
       assetTurnover: number | null;   // Revenue / Total Assets
     };
     growth?: {
       revenueCAGR: number | null;     // Compound Annual Growth Rate for Revenue
       patCAGR: number | null;         // CAGR for PAT
+      revenueYoY: number | null;      // Year-over-Year Revenue Growth
+      patYoY: number | null;          // Year-over-Year PAT Growth
       yearsOfData: number;
     };
     source: string;
@@ -481,15 +484,19 @@ class McaIntelligenceService {
     // Calculate ratios
     const patMargin = (revenue && pat && revenue > 0) ? (pat / revenue) * 100 : null;
     const returnOnEquity = (netWorth && pat && netWorth > 0) ? (pat / netWorth) * 100 : null;
+    const returnOnAssets = (totalAssets && pat && totalAssets > 0) ? (pat / totalAssets) * 100 : null;
     const debtToEquity = (netWorth && netWorth > 0) ? totalBorrowing / netWorth : null;
     const assetTurnover = (totalAssets && revenue && totalAssets > 0) ? revenue / totalAssets : null;
 
-    // Calculate CAGR if we have multiple years
+    // Calculate CAGR and YoY if we have multiple years
     let revenueCAGR: number | null = null;
     let patCAGR: number | null = null;
+    let revenueYoY: number | null = null;
+    let patYoY: number | null = null;
 
     if (snapshots.length >= 2) {
       const oldest = snapshots[snapshots.length - 1];
+      const previousYear = snapshots[1]; // Second most recent
       const years = snapshots.length - 1;
 
       // Revenue CAGR
@@ -502,6 +509,17 @@ class McaIntelligenceService {
       const oldestPat = oldest.profitAfterTax ? parseFloat(oldest.profitAfterTax) : null;
       if (oldestPat && oldestPat > 0 && pat && pat > 0) {
         patCAGR = (Math.pow(pat / oldestPat, 1 / years) - 1) * 100;
+      }
+
+      // YoY Growth (year-over-year from previous year)
+      const prevRevenue = previousYear.revenue ? parseFloat(previousYear.revenue) : null;
+      if (prevRevenue && prevRevenue > 0 && revenue) {
+        revenueYoY = ((revenue - prevRevenue) / prevRevenue) * 100;
+      }
+
+      const prevPat = previousYear.profitAfterTax ? parseFloat(previousYear.profitAfterTax) : null;
+      if (prevPat && prevPat > 0 && pat) {
+        patYoY = ((pat - prevPat) / prevPat) * 100;
       }
     }
 
@@ -521,17 +539,148 @@ class McaIntelligenceService {
       ratios: {
         patMargin: patMargin !== null ? Math.round(patMargin * 100) / 100 : null,
         returnOnEquity: returnOnEquity !== null ? Math.round(returnOnEquity * 100) / 100 : null,
+        returnOnAssets: returnOnAssets !== null ? Math.round(returnOnAssets * 100) / 100 : null,
         debtToEquity: debtToEquity !== null ? Math.round(debtToEquity * 100) / 100 : null,
         assetTurnover: assetTurnover !== null ? Math.round(assetTurnover * 100) / 100 : null,
       },
       growth: {
         revenueCAGR: revenueCAGR !== null ? Math.round(revenueCAGR * 100) / 100 : null,
         patCAGR: patCAGR !== null ? Math.round(patCAGR * 100) / 100 : null,
+        revenueYoY: revenueYoY !== null ? Math.round(revenueYoY * 100) / 100 : null,
+        patYoY: patYoY !== null ? Math.round(patYoY * 100) / 100 : null,
         yearsOfData: snapshots.length,
       },
       source: latest.source || 'MCA_AOC4_XBRL',
       attribution: this.SOURCE_ATTRIBUTION,
       lastUpdated: latest.derivedAt?.toISOString(),
+    };
+  }
+
+  /**
+   * Get financial history with FY-wise data and YoY calculations
+   * Used by the Company Profile page for trend visualization
+   */
+  async getFinancialHistory(cin: string, limit: number = 10): Promise<{
+    cin: string;
+    companyName?: string;
+    hasData: boolean;
+    financialYears: Array<{
+      financialYear: string;
+      revenue: number | null;
+      profitAfterTax: number | null;
+      netWorth: number | null;
+      totalAssets: number | null;
+      totalLiabilities: number | null;
+      totalBorrowing: number | null;
+      ratios: {
+        patMargin: number | null;
+        returnOnEquity: number | null;
+        returnOnAssets: number | null;
+        debtToEquity: number | null;
+        assetTurnover: number | null;
+      };
+      yoyGrowth: {
+        revenueGrowth: number | null;
+        patGrowth: number | null;
+        netWorthGrowth: number | null;
+      };
+    }>;
+    source: string;
+    attribution: string;
+  }> {
+    const [company] = await db
+      .select()
+      .from(mcaCompanyMaster)
+      .where(eq(mcaCompanyMaster.cin, cin))
+      .limit(1);
+
+    const snapshots = await db
+      .select()
+      .from(mcaFinancialSnapshot)
+      .where(eq(mcaFinancialSnapshot.cin, cin))
+      .orderBy(desc(mcaFinancialSnapshot.financialYear))
+      .limit(limit);
+
+    if (snapshots.length === 0) {
+      return {
+        cin,
+        companyName: company?.companyName,
+        hasData: false,
+        financialYears: [],
+        source: 'MCA_AOC4_XBRL',
+        attribution: this.SOURCE_ATTRIBUTION,
+      };
+    }
+
+    const financialYears = snapshots.map((snapshot, index) => {
+      const revenue = snapshot.revenue ? parseFloat(snapshot.revenue) : null;
+      const pat = snapshot.profitAfterTax ? parseFloat(snapshot.profitAfterTax) : null;
+      const netWorth = snapshot.netWorth ? parseFloat(snapshot.netWorth) : null;
+      const totalAssets = snapshot.totalAssets ? parseFloat(snapshot.totalAssets) : null;
+      const totalLiabilities = snapshot.totalLiabilities ? parseFloat(snapshot.totalLiabilities) : null;
+      const longTermBorrowing = snapshot.longTermBorrowing ? parseFloat(snapshot.longTermBorrowing) : 0;
+      const shortTermBorrowing = snapshot.shortTermBorrowing ? parseFloat(snapshot.shortTermBorrowing) : 0;
+      const totalBorrowing = longTermBorrowing + shortTermBorrowing;
+
+      // Calculate ratios
+      const patMargin = (revenue && pat && revenue > 0) ? Math.round((pat / revenue) * 10000) / 100 : null;
+      const returnOnEquity = (netWorth && pat && netWorth > 0) ? Math.round((pat / netWorth) * 10000) / 100 : null;
+      const returnOnAssets = (totalAssets && pat && totalAssets > 0) ? Math.round((pat / totalAssets) * 10000) / 100 : null;
+      const debtToEquity = (netWorth && netWorth > 0) ? Math.round((totalBorrowing / netWorth) * 100) / 100 : null;
+      const assetTurnover = (totalAssets && revenue && totalAssets > 0) ? Math.round((revenue / totalAssets) * 100) / 100 : null;
+
+      // Calculate YoY growth (compare with next item which is the previous year)
+      let revenueGrowth: number | null = null;
+      let patGrowth: number | null = null;
+      let netWorthGrowth: number | null = null;
+
+      if (index < snapshots.length - 1) {
+        const prevSnapshot = snapshots[index + 1];
+        const prevRevenue = prevSnapshot.revenue ? parseFloat(prevSnapshot.revenue) : null;
+        const prevPat = prevSnapshot.profitAfterTax ? parseFloat(prevSnapshot.profitAfterTax) : null;
+        const prevNetWorth = prevSnapshot.netWorth ? parseFloat(prevSnapshot.netWorth) : null;
+
+        if (prevRevenue && prevRevenue > 0 && revenue) {
+          revenueGrowth = Math.round(((revenue - prevRevenue) / prevRevenue) * 10000) / 100;
+        }
+        if (prevPat && prevPat > 0 && pat) {
+          patGrowth = Math.round(((pat - prevPat) / prevPat) * 10000) / 100;
+        }
+        if (prevNetWorth && prevNetWorth > 0 && netWorth) {
+          netWorthGrowth = Math.round(((netWorth - prevNetWorth) / prevNetWorth) * 10000) / 100;
+        }
+      }
+
+      return {
+        financialYear: snapshot.financialYear,
+        revenue,
+        profitAfterTax: pat,
+        netWorth,
+        totalAssets,
+        totalLiabilities,
+        totalBorrowing,
+        ratios: {
+          patMargin,
+          returnOnEquity,
+          returnOnAssets,
+          debtToEquity,
+          assetTurnover,
+        },
+        yoyGrowth: {
+          revenueGrowth,
+          patGrowth,
+          netWorthGrowth,
+        },
+      };
+    });
+
+    return {
+      cin,
+      companyName: company?.companyName,
+      hasData: true,
+      financialYears,
+      source: 'MCA_AOC4_XBRL',
+      attribution: this.SOURCE_ATTRIBUTION,
     };
   }
 

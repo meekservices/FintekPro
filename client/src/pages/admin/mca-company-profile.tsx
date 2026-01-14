@@ -124,6 +124,190 @@ function getStatusBadge(status: string): { variant: 'default' | 'secondary' | 'd
   return { variant: 'outline', label: status || 'Unknown' };
 }
 
+function getRatioBadge(value: number | null, type: 'margin' | 'roe' | 'roa' | 'de' | 'cagr'): { color: string; label: string } {
+  if (value === null) return { color: 'text-muted-foreground', label: '—' };
+  
+  switch (type) {
+    case 'margin':
+    case 'roe':
+    case 'roa':
+      if (value >= 20) return { color: 'text-green-600', label: 'Excellent' };
+      if (value >= 10) return { color: 'text-blue-600', label: 'Good' };
+      if (value >= 0) return { color: 'text-yellow-600', label: 'Moderate' };
+      return { color: 'text-red-600', label: 'Poor' };
+    case 'de':
+      if (value <= 0.5) return { color: 'text-green-600', label: 'Low Risk' };
+      if (value <= 1) return { color: 'text-blue-600', label: 'Moderate' };
+      if (value <= 2) return { color: 'text-yellow-600', label: 'High' };
+      return { color: 'text-red-600', label: 'Very High' };
+    case 'cagr':
+      if (value >= 20) return { color: 'text-green-600', label: 'Strong Growth' };
+      if (value >= 10) return { color: 'text-blue-600', label: 'Good Growth' };
+      if (value >= 0) return { color: 'text-yellow-600', label: 'Slow Growth' };
+      return { color: 'text-red-600', label: 'Declining' };
+    default:
+      return { color: 'text-muted-foreground', label: '—' };
+  }
+}
+
+interface FinancialRatiosData {
+  cin: string;
+  companyName?: string;
+  hasData: boolean;
+  latestYear?: string;
+  metrics?: {
+    revenue: number | null;
+    profitAfterTax: number | null;
+    netWorth: number | null;
+    totalAssets: number | null;
+    totalLiabilities: number | null;
+    totalBorrowing: number | null;
+  };
+  ratios?: {
+    patMargin: number | null;
+    returnOnEquity: number | null;
+    returnOnAssets: number | null;
+    debtToEquity: number | null;
+    assetTurnover: number | null;
+  };
+  growth?: {
+    revenueCAGR: number | null;
+    patCAGR: number | null;
+    revenueYoY: number | null;
+    patYoY: number | null;
+    yearsOfData: number;
+  };
+}
+
+function FinancialRatiosCard({ cin }: { cin: string }) {
+  const { data, isLoading } = useQuery<{ success: boolean; hasData: boolean; data: FinancialRatiosData }>({
+    queryKey: ['/api/mca/company', cin, 'financials'],
+    enabled: !!cin && cin.length === 21,
+  });
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-6 w-48" />
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map(i => (
+              <Skeleton key={i} className="h-20" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!data?.hasData || !data?.data?.ratios) {
+    return null;
+  }
+
+  const { ratios, growth, latestYear } = data.data;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg flex items-center gap-2">
+          <TrendingUp className="w-5 h-5 text-primary" />
+          Financial Ratios
+          {latestYear && <Badge variant="outline" className="ml-2 text-xs">FY {latestYear}</Badge>}
+        </CardTitle>
+        <CardDescription>Key performance metrics and growth indicators</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="p-4 bg-muted rounded-lg text-center">
+            <div className="text-sm text-muted-foreground mb-1">PAT Margin</div>
+            <div className={`text-2xl font-bold ${getRatioBadge(ratios.patMargin, 'margin').color}`}>
+              {ratios.patMargin !== null ? `${ratios.patMargin.toFixed(1)}%` : '—'}
+            </div>
+            <Badge variant="outline" className={`text-xs mt-1 ${getRatioBadge(ratios.patMargin, 'margin').color}`}>
+              {getRatioBadge(ratios.patMargin, 'margin').label}
+            </Badge>
+          </div>
+
+          <div className="p-4 bg-muted rounded-lg text-center">
+            <div className="text-sm text-muted-foreground mb-1">Return on Equity</div>
+            <div className={`text-2xl font-bold ${getRatioBadge(ratios.returnOnEquity, 'roe').color}`}>
+              {ratios.returnOnEquity !== null ? `${ratios.returnOnEquity.toFixed(1)}%` : '—'}
+            </div>
+            <Badge variant="outline" className={`text-xs mt-1 ${getRatioBadge(ratios.returnOnEquity, 'roe').color}`}>
+              {getRatioBadge(ratios.returnOnEquity, 'roe').label}
+            </Badge>
+          </div>
+
+          <div className="p-4 bg-muted rounded-lg text-center">
+            <div className="text-sm text-muted-foreground mb-1">Return on Assets</div>
+            <div className={`text-2xl font-bold ${getRatioBadge(ratios.returnOnAssets, 'roa').color}`}>
+              {ratios.returnOnAssets !== null ? `${ratios.returnOnAssets.toFixed(1)}%` : '—'}
+            </div>
+            <Badge variant="outline" className={`text-xs mt-1 ${getRatioBadge(ratios.returnOnAssets, 'roa').color}`}>
+              {getRatioBadge(ratios.returnOnAssets, 'roa').label}
+            </Badge>
+          </div>
+
+          <div className="p-4 bg-muted rounded-lg text-center">
+            <div className="text-sm text-muted-foreground mb-1">Debt/Equity</div>
+            <div className={`text-2xl font-bold ${getRatioBadge(ratios.debtToEquity, 'de').color}`}>
+              {ratios.debtToEquity !== null ? ratios.debtToEquity.toFixed(2) : '—'}
+            </div>
+            <Badge variant="outline" className={`text-xs mt-1 ${getRatioBadge(ratios.debtToEquity, 'de').color}`}>
+              {getRatioBadge(ratios.debtToEquity, 'de').label}
+            </Badge>
+          </div>
+        </div>
+
+        {growth && (growth.revenueCAGR !== null || growth.patCAGR !== null) && (
+          <div className="mt-4 pt-4 border-t">
+            <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Growth Metrics ({growth.yearsOfData} years of data)
+            </h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {growth.revenueCAGR !== null && (
+                <div className="flex items-center gap-2">
+                  <div className={`text-lg font-semibold ${getRatioBadge(growth.revenueCAGR, 'cagr').color}`}>
+                    {growth.revenueCAGR >= 0 ? '▲' : '▼'} {Math.abs(growth.revenueCAGR).toFixed(1)}%
+                  </div>
+                  <span className="text-sm text-muted-foreground">Revenue CAGR</span>
+                </div>
+              )}
+              {growth.patCAGR !== null && (
+                <div className="flex items-center gap-2">
+                  <div className={`text-lg font-semibold ${getRatioBadge(growth.patCAGR, 'cagr').color}`}>
+                    {growth.patCAGR >= 0 ? '▲' : '▼'} {Math.abs(growth.patCAGR).toFixed(1)}%
+                  </div>
+                  <span className="text-sm text-muted-foreground">PAT CAGR</span>
+                </div>
+              )}
+              {growth.revenueYoY !== null && (
+                <div className="flex items-center gap-2">
+                  <div className={`text-lg font-semibold ${growth.revenueYoY >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {growth.revenueYoY >= 0 ? '▲' : '▼'} {Math.abs(growth.revenueYoY).toFixed(1)}%
+                  </div>
+                  <span className="text-sm text-muted-foreground">Revenue YoY</span>
+                </div>
+              )}
+              {growth.patYoY !== null && (
+                <div className="flex items-center gap-2">
+                  <div className={`text-lg font-semibold ${growth.patYoY >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {growth.patYoY >= 0 ? '▲' : '▼'} {Math.abs(growth.patYoY).toFixed(1)}%
+                  </div>
+                  <span className="text-sm text-muted-foreground">PAT YoY</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function McaCompanyProfile() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -542,11 +726,14 @@ export default function McaCompanyProfile() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="financials">
+          <TabsContent value="financials" className="space-y-4">
+            {financials.length > 0 && (
+              <FinancialRatiosCard cin={cin} />
+            )}
             <Card>
               <CardHeader>
                 <CardTitle>Financial History</CardTitle>
-                <CardDescription>Year-wise financial performance data</CardDescription>
+                <CardDescription>Year-wise financial performance data with YoY growth</CardDescription>
               </CardHeader>
               <CardContent>
                 {financials.length === 0 ? (
@@ -569,24 +756,50 @@ export default function McaCompanyProfile() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {financials.map((f, idx) => (
-                          <TableRow key={f.financialYear || idx}>
-                            <TableCell className="font-medium">{f.financialYear}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(f.revenue)}</TableCell>
-                            <TableCell className="text-right">
-                              <span className={parseFloat(f.profitAfterTax || '0') >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                {formatCurrency(f.profitAfterTax)}
-                              </span>
-                            </TableCell>
-                            <TableCell className="text-right">{formatCurrency(f.netWorth)}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(f.totalAssets)}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className="text-xs">
-                                {f.source || 'MCA'}
-                              </Badge>
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                        {financials.map((f, idx) => {
+                          const prevF = financials[idx + 1];
+                          const revenueGrowth = prevF && parseFloat(prevF.revenue || '0') > 0
+                            ? ((parseFloat(f.revenue || '0') - parseFloat(prevF.revenue || '0')) / parseFloat(prevF.revenue || '1')) * 100
+                            : null;
+                          const patGrowth = prevF && parseFloat(prevF.profitAfterTax || '0') > 0
+                            ? ((parseFloat(f.profitAfterTax || '0') - parseFloat(prevF.profitAfterTax || '0')) / parseFloat(prevF.profitAfterTax || '1')) * 100
+                            : null;
+                          
+                          return (
+                            <TableRow key={f.financialYear || idx}>
+                              <TableCell className="font-medium">{f.financialYear}</TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex flex-col items-end">
+                                  <span>{formatCurrency(f.revenue)}</span>
+                                  {revenueGrowth !== null && (
+                                    <span className={`text-xs ${revenueGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                      {revenueGrowth >= 0 ? '▲' : '▼'} {Math.abs(revenueGrowth).toFixed(1)}%
+                                    </span>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex flex-col items-end">
+                                  <span className={parseFloat(f.profitAfterTax || '0') >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                    {formatCurrency(f.profitAfterTax)}
+                                  </span>
+                                  {patGrowth !== null && (
+                                    <span className={`text-xs ${patGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                      {patGrowth >= 0 ? '▲' : '▼'} {Math.abs(patGrowth).toFixed(1)}%
+                                    </span>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right">{formatCurrency(f.netWorth)}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(f.totalAssets)}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="text-xs">
+                                  {f.source || 'MCA'}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>
