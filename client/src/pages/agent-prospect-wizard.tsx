@@ -2026,7 +2026,7 @@ export default function AgentProspectWizard() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>PAN</Label>
+                    <Label>PAN <span className="text-muted-foreground font-normal">(Optional)</span></Label>
                     <Input 
                       placeholder="ABCDE1234F"
                       value={prospectData.pan}

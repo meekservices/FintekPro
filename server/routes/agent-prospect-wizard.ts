@@ -8,9 +8,14 @@ const router = Router();
 
 const createProspectSchema = z.object({
   name: z.string().min(2),
-  email: z.string().email().optional(),
-  mobile: z.string().optional(),
-  pan: z.string().length(10).optional(),
+  email: z.string().email().optional().or(z.literal('')).transform(v => v || undefined),
+  mobile: z.string().optional().transform(v => v?.trim() || undefined),
+  pan: z.string().optional().transform(v => {
+    const trimmed = v?.trim().toUpperCase();
+    if (!trimmed || trimmed.length === 0) return undefined;
+    if (trimmed.length !== 10) return undefined; // Invalid PAN length, treat as no PAN
+    return trimmed;
+  }),
   clientType: z.string().optional(),
   indicativeRiskProfile: z.string().optional(),
   notes: z.string().optional()
