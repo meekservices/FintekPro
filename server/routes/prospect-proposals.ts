@@ -10,9 +10,11 @@ import {
   aifMaster,
   pmsMaster,
   mldMaster,
-  listedStocks
+  listedStocks,
+  aiRecommendationTracking
 } from "@shared/schema";
 import { eq, desc, and, sql, ilike, or } from "drizzle-orm";
+import { aiRecommendationTrackingService } from "../services/ai-recommendation-tracking-service";
 
 // Helper functions to fetch store-eligible products
 async function getStoreEligibleMutualFunds(options: {
@@ -1176,6 +1178,57 @@ async function logProposalEvent(
   });
 }
 
+async function trackProposalRecommendations(
+  proposalId: string,
+  agentId: string,
+  recommendations: any[],
+  prospectName: string
+) {
+  if (!recommendations || !Array.isArray(recommendations)) return;
+  
+  const trackableRecs = recommendations.filter(rec => 
+    rec.action === 'BUY' || 
+    rec.recommendedAmount || 
+    rec.suggestedAmount ||
+    (rec.productName && rec.matchScore)
+  );
+  
+  for (const rec of trackableRecs) {
+    try {
+      const productName = rec.productName || rec.name || 'Unknown';
+      const productType = rec.productType || 'mutual_fund';
+      const category = rec.category || rec.fundMetrics?.category || 'Other';
+      const amount = rec.recommendedAmount || rec.suggestedAmount || rec.changeAmount || 0;
+      const returns3Y = rec.returns3Y || rec.fundMetrics?.returns3Y || '0';
+      const confidence = rec.matchScore || rec.confidenceScore || 85;
+      
+      const expectedReturn = parseFloat(returns3Y) || 0;
+      const targetPrice = amount * (1 + expectedReturn / 100);
+      
+      await aiRecommendationTrackingService.recordRecommendation({
+        symbol: productName.substring(0, 50),
+        assetName: productName,
+        assetType: productType,
+        sector: category,
+        recommendationType: 'buy',
+        entryPrice: amount.toString(),
+        targetPrice: targetPrice.toFixed(2),
+        confidenceScore: confidence.toString(),
+        timeframeInDays: 365,
+        expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        aiModel: 'gemini-1.5-flash',
+        reasoning: `[Proposal: ${proposalId}] ${rec.rationale || rec.selectionReason || `AI recommendation for ${prospectName}`}`,
+        source: 'prospect_proposal',
+        agentId: agentId,
+      });
+      
+      console.log(`[AI Tracking] Recorded recommendation: ${productName} for proposal ${proposalId}`);
+    } catch (error) {
+      console.error(`[AI Tracking] Failed to record recommendation:`, error);
+    }
+  }
+}
+
 // ============ AGENT ROUTES ============
 
 // Create prospect proposal
@@ -1278,6 +1331,12 @@ router.post("/api/agent/prospect-proposals", async (req: Request, res: Response)
       prospectName,
       prospectEmail,
     }, req.ip, req.headers["user-agent"] as string);
+
+    // Track AI recommendations for analytics
+    if (recommendations && Array.isArray(recommendations) && recommendations.length > 0) {
+      trackProposalRecommendations(proposal.id, user.id, recommendations, prospectName)
+        .catch(err => console.error("[AI Tracking] Background tracking failed:", err));
+    }
 
     const baseUrl = process.env.REPLIT_DEV_DOMAIN 
       ? `https://${process.env.REPLIT_DEV_DOMAIN}`
