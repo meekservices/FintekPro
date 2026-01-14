@@ -25980,3 +25980,113 @@ export const lrsLimitAlerts = pgTable("lrs_limit_alerts", {
 export const insertLrsLimitAlertSchema = createInsertSchema(lrsLimitAlerts).omit({ id: true, createdAt: true });
 export type LrsLimitAlert = typeof lrsLimitAlerts.$inferSelect;
 export type InsertLrsLimitAlert = z.infer<typeof insertLrsLimitAlertSchema>;
+
+// Historical NAV/Price Data Cache - Ensures API failures never break portfolio metrics
+export const historicalNavData = pgTable("historical_nav_data", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Identifier - scheme code for MF, ticker symbol for stocks
+  identifier: varchar("identifier", { length: 50 }).notNull(),
+  identifierType: varchar("identifier_type", { length: 20 }).notNull(), // 'mutual_fund' | 'stock' | 'etf' | 'index'
+  
+  // NAV/Price data
+  date: date("date").notNull(),
+  nav: numeric("nav").notNull(),
+  open: numeric("open"),
+  high: numeric("high"),
+  low: numeric("low"),
+  close: numeric("close"),
+  volume: numeric("volume"),
+  
+  // Data source tracking
+  source: varchar("source", { length: 30 }).notNull(), // 'mfapi' | 'yahoo_finance' | 'amfi' | 'manual'
+  
+  // Metadata
+  fetchedAt: timestamp("fetched_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_historical_nav_identifier").on(table.identifier, table.identifierType),
+  index("idx_historical_nav_date").on(table.identifier, table.date),
+  index("idx_historical_nav_lookup").on(table.identifier, table.identifierType, table.date),
+]);
+
+export const insertHistoricalNavDataSchema = createInsertSchema(historicalNavData).omit({ id: true, createdAt: true, fetchedAt: true });
+export type HistoricalNavData = typeof historicalNavData.$inferSelect;
+export type InsertHistoricalNavData = z.infer<typeof insertHistoricalNavDataSchema>;
+
+// Scheme/Stock Metadata Cache - Store fund/stock info for quick lookups
+export const assetMetadataCache = pgTable("asset_metadata_cache", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  identifier: varchar("identifier", { length: 50 }).notNull(),
+  identifierType: varchar("identifier_type", { length: 20 }).notNull(),
+  
+  // Common metadata
+  name: varchar("name", { length: 300 }).notNull(),
+  category: varchar("category", { length: 100 }),
+  subCategory: varchar("sub_category", { length: 100 }),
+  
+  // MF specific
+  amcName: varchar("amc_name", { length: 200 }),
+  schemeType: varchar("scheme_type", { length: 50 }),
+  isin: varchar("isin", { length: 20 }),
+  
+  // Stock specific
+  exchange: varchar("exchange", { length: 20 }),
+  sector: varchar("sector", { length: 100 }),
+  industry: varchar("industry", { length: 100 }),
+  
+  // Current data
+  latestNav: numeric("latest_nav"),
+  latestNavDate: date("latest_nav_date"),
+  
+  // Cache management
+  source: varchar("source", { length: 30 }).notNull(),
+  lastUpdatedAt: timestamp("last_updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_asset_metadata_identifier").on(table.identifier, table.identifierType),
+  index("idx_asset_metadata_name").on(table.name),
+]);
+
+export const insertAssetMetadataCacheSchema = createInsertSchema(assetMetadataCache).omit({ id: true, createdAt: true, lastUpdatedAt: true });
+export type AssetMetadataCache = typeof assetMetadataCache.$inferSelect;
+export type InsertAssetMetadataCache = z.infer<typeof insertAssetMetadataCacheSchema>;
+
+// Pre-calculated Portfolio Metrics Cache - Store computed metrics to avoid recalculation
+export const portfolioMetricsCache = pgTable("portfolio_metrics_cache", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  identifier: varchar("identifier", { length: 50 }).notNull(),
+  identifierType: varchar("identifier_type", { length: 20 }).notNull(),
+  
+  // Time period for metrics
+  periodYears: integer("period_years").notNull(), // 1, 3, 5, 10
+  periodEndDate: date("period_end_date").notNull(),
+  
+  // Calculated metrics
+  cagr: numeric("cagr"),
+  volatility: numeric("volatility"),
+  maxDrawdown: numeric("max_drawdown"),
+  sharpeRatio: numeric("sharpe_ratio"),
+  sortinoRatio: numeric("sortino_ratio"),
+  beta: numeric("beta"),
+  alpha: numeric("alpha"),
+  
+  // Supporting data
+  totalDataPoints: integer("total_data_points"),
+  dataStartDate: date("data_start_date"),
+  dataEndDate: date("data_end_date"),
+  
+  // Cache validity
+  calculatedAt: timestamp("calculated_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_portfolio_metrics_lookup").on(table.identifier, table.identifierType, table.periodYears),
+  index("idx_portfolio_metrics_expiry").on(table.expiresAt),
+]);
+
+export const insertPortfolioMetricsCacheSchema = createInsertSchema(portfolioMetricsCache).omit({ id: true, createdAt: true, calculatedAt: true });
+export type PortfolioMetricsCache = typeof portfolioMetricsCache.$inferSelect;
+export type InsertPortfolioMetricsCache = z.infer<typeof insertPortfolioMetricsCacheSchema>;
