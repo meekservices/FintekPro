@@ -25693,6 +25693,295 @@ export const insertMcaWalletPaymentSchema = createInsertSchema(mcaWalletPayments
 export type McaWalletPayment = typeof mcaWalletPayments.$inferSelect;
 export type InsertMcaWalletPayment = z.infer<typeof insertMcaWalletPaymentSchema>;
 
+// ============ MCA ENHANCED TABLES - PHASE 1-4 IMPLEMENTATION ============
+
+// MCA Data Sources - Configurable data sources for ingestion (Epic 1)
+export const mcaDataSources = pgTable("mca_data_sources", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sourceName: varchar("source_name", { length: 100 }).notNull().unique(),
+  displayName: varchar("display_name", { length: 200 }).notNull(),
+  formTypes: jsonb("form_types").default([]),
+  refreshCycle: varchar("refresh_cycle", { length: 50 }).default("daily"),
+  isEnabled: boolean("is_enabled").default(true).notNull(),
+  priority: integer("priority").default(1).notNull(),
+  apiEndpoint: varchar("api_endpoint", { length: 500 }),
+  authType: varchar("auth_type", { length: 50 }),
+  rateLimitPerMinute: integer("rate_limit_per_minute").default(60),
+  costPerQuery: numeric("cost_per_query").default("0"),
+  lastSyncAt: timestamp("last_sync_at"),
+  status: varchar("status", { length: 30 }).default("active"),
+  errorMessage: text("error_message"),
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertMcaDataSourcesSchema = createInsertSchema(mcaDataSources).omit({ id: true, createdAt: true, updatedAt: true });
+export type McaDataSource = typeof mcaDataSources.$inferSelect;
+export type InsertMcaDataSource = z.infer<typeof insertMcaDataSourcesSchema>;
+
+// MCA Directors Registry - Director master data (Epic 3)
+export const mcaDirectors = pgTable("mca_directors", {
+  din: varchar("din", { length: 20 }).primaryKey(),
+  name: varchar("name", { length: 500 }).notNull(),
+  designation: varchar("designation", { length: 100 }),
+  nationality: varchar("nationality", { length: 100 }),
+  dateOfBirth: date("date_of_birth"),
+  fatherName: varchar("father_name", { length: 500 }),
+  address: text("address"),
+  email: varchar("email", { length: 255 }),
+  pan: varchar("pan", { length: 15 }),
+  totalAppointments: integer("total_appointments").default(0),
+  activeAppointments: integer("active_appointments").default(0),
+  dinStatus: varchar("din_status", { length: 50 }).default("active"),
+  disqualificationDate: date("disqualification_date"),
+  disqualificationReason: text("disqualification_reason"),
+  sourceAttribution: varchar("source_attribution", { length: 100 }).default("MCA Public Data"),
+  dataLastRefreshed: timestamp("data_last_refreshed"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_mca_directors_name").on(table.name),
+  index("idx_mca_directors_status").on(table.dinStatus),
+]);
+
+export const insertMcaDirectorsSchema = createInsertSchema(mcaDirectors).omit({ createdAt: true, updatedAt: true });
+export type McaDirector = typeof mcaDirectors.$inferSelect;
+export type InsertMcaDirector = z.infer<typeof insertMcaDirectorsSchema>;
+
+// MCA Director-Company Mapping - Many-to-many relationship (Epic 3)
+export const mcaDirectorCompanyMap = pgTable("mca_director_company_map", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  din: varchar("din", { length: 20 }).references(() => mcaDirectors.din).notNull(),
+  cin: varchar("cin", { length: 21 }).references(() => mcaCompanyMaster.cin).notNull(),
+  designation: varchar("designation", { length: 100 }).notNull(),
+  appointmentDate: date("appointment_date"),
+  cessationDate: date("cessation_date"),
+  isCurrentlyActive: boolean("is_currently_active").default(true),
+  shareholding: numeric("shareholding"),
+  remuneration: numeric("remuneration"),
+  isIndependent: boolean("is_independent").default(false),
+  isExecutive: boolean("is_executive").default(false),
+  sourceDocument: varchar("source_document", { length: 100 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_mca_dcm_din").on(table.din),
+  index("idx_mca_dcm_cin").on(table.cin),
+  index("idx_mca_dcm_active").on(table.isCurrentlyActive),
+]);
+
+export const insertMcaDirectorCompanyMapSchema = createInsertSchema(mcaDirectorCompanyMap).omit({ id: true, createdAt: true, updatedAt: true });
+export type McaDirectorCompanyMap = typeof mcaDirectorCompanyMap.$inferSelect;
+export type InsertMcaDirectorCompanyMap = z.infer<typeof insertMcaDirectorCompanyMapSchema>;
+
+// MCA Charges & Borrowings - Leverage tracking (Epic 4)
+export const mcaCharges = pgTable("mca_charges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  cin: varchar("cin", { length: 21 }).references(() => mcaCompanyMaster.cin).notNull(),
+  chargeId: varchar("charge_id", { length: 50 }).notNull(),
+  chargeHolder: varchar("charge_holder", { length: 500 }).notNull(),
+  chargeHolderType: varchar("charge_holder_type", { length: 100 }),
+  chargeAmount: numeric("charge_amount"),
+  chargeType: varchar("charge_type", { length: 100 }),
+  creationDate: date("creation_date").notNull(),
+  modificationDate: date("modification_date"),
+  satisfactionDate: date("satisfaction_date"),
+  status: varchar("status", { length: 50 }).default("active"),
+  assetDescription: text("asset_description"),
+  documentNumber: varchar("document_number", { length: 100 }),
+  filingDate: date("filing_date"),
+  daysOverdue: integer("days_overdue").default(0),
+  sourceDocument: varchar("source_document", { length: 100 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_mca_charges_cin").on(table.cin),
+  index("idx_mca_charges_status").on(table.status),
+  index("idx_mca_charges_holder").on(table.chargeHolder),
+  index("idx_mca_charges_creation").on(table.creationDate),
+]);
+
+export const insertMcaChargesSchema = createInsertSchema(mcaCharges).omit({ id: true, createdAt: true, updatedAt: true });
+export type McaCharge = typeof mcaCharges.$inferSelect;
+export type InsertMcaCharge = z.infer<typeof insertMcaChargesSchema>;
+
+// MCA Shareholding Pattern - Ownership structure (Epic 4)
+export const mcaShareholdingPattern = pgTable("mca_shareholding_pattern", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  cin: varchar("cin", { length: 21 }).references(() => mcaCompanyMaster.cin).notNull(),
+  reportingDate: date("reporting_date").notNull(),
+  financialYear: varchar("financial_year", { length: 10 }).notNull(),
+  quarter: varchar("quarter", { length: 5 }),
+  promoterIndividual: numeric("promoter_individual").default("0"),
+  promoterBodies: numeric("promoter_bodies").default("0"),
+  promoterTotal: numeric("promoter_total").default("0"),
+  publicInstitutional: numeric("public_institutional").default("0"),
+  publicNonInstitutional: numeric("public_non_institutional").default("0"),
+  publicTotal: numeric("public_total").default("0"),
+  mutualFunds: numeric("mutual_funds").default("0"),
+  fiisFpis: numeric("fiis_fpis").default("0"),
+  insuranceCompanies: numeric("insurance_companies").default("0"),
+  banks: numeric("banks").default("0"),
+  aifsPms: numeric("aifs_pms").default("0"),
+  nbfcs: numeric("nbfcs").default("0"),
+  employees: numeric("employees").default("0"),
+  retailIndividuals: numeric("retail_individuals").default("0"),
+  hni: numeric("hni").default("0"),
+  trusts: numeric("trusts").default("0"),
+  totalShareCapital: numeric("total_share_capital"),
+  totalShares: numeric("total_shares"),
+  pledgedShares: numeric("pledged_shares").default("0"),
+  pledgedPercentage: numeric("pledged_percentage").default("0"),
+  sourceDocument: varchar("source_document", { length: 100 }),
+  isLatest: boolean("is_latest").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_mca_shp_cin").on(table.cin),
+  index("idx_mca_shp_date").on(table.reportingDate),
+  index("idx_mca_shp_fy").on(table.financialYear),
+  index("idx_mca_shp_latest").on(table.isLatest),
+]);
+
+export const insertMcaShareholdingPatternSchema = createInsertSchema(mcaShareholdingPattern).omit({ id: true, createdAt: true, updatedAt: true });
+export type McaShareholdingPattern = typeof mcaShareholdingPattern.$inferSelect;
+export type InsertMcaShareholdingPattern = z.infer<typeof insertMcaShareholdingPatternSchema>;
+
+// MCA Derived Financial Metrics - Computed ratios and trends (Epic 5)
+export const mcaDerivedMetrics = pgTable("mca_derived_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  cin: varchar("cin", { length: 21 }).references(() => mcaCompanyMaster.cin).notNull(),
+  financialYear: varchar("financial_year", { length: 10 }).notNull(),
+  revenueGrowthYoy: numeric("revenue_growth_yoy"),
+  patGrowthYoy: numeric("pat_growth_yoy"),
+  netWorthGrowthYoy: numeric("net_worth_growth_yoy"),
+  assetGrowthYoy: numeric("asset_growth_yoy"),
+  patMargin: numeric("pat_margin"),
+  ebitdaMargin: numeric("ebitda_margin"),
+  grossMargin: numeric("gross_margin"),
+  operatingMargin: numeric("operating_margin"),
+  returnOnEquity: numeric("return_on_equity"),
+  returnOnAssets: numeric("return_on_assets"),
+  returnOnCapitalEmployed: numeric("return_on_capital_employed"),
+  debtToEquity: numeric("debt_to_equity"),
+  debtToAssets: numeric("debt_to_assets"),
+  interestCoverageRatio: numeric("interest_coverage_ratio"),
+  currentRatio: numeric("current_ratio"),
+  quickRatio: numeric("quick_ratio"),
+  cashRatio: numeric("cash_ratio"),
+  assetTurnover: numeric("asset_turnover"),
+  inventoryTurnover: numeric("inventory_turnover"),
+  receivablesTurnover: numeric("receivables_turnover"),
+  revenueTrend: varchar("revenue_trend", { length: 20 }),
+  profitTrend: varchar("profit_trend", { length: 20 }),
+  debtTrend: varchar("debt_trend", { length: 20 }),
+  computedAt: timestamp("computed_at").defaultNow().notNull(),
+  dataCompleteness: numeric("data_completeness").default("0"),
+  notes: text("notes"),
+}, (table) => [
+  index("idx_mca_dm_cin").on(table.cin),
+  index("idx_mca_dm_fy").on(table.financialYear),
+  index("idx_mca_dm_roe").on(table.returnOnEquity),
+]);
+
+export const insertMcaDerivedMetricsSchema = createInsertSchema(mcaDerivedMetrics).omit({ id: true, computedAt: true });
+export type McaDerivedMetrics = typeof mcaDerivedMetrics.$inferSelect;
+export type InsertMcaDerivedMetrics = z.infer<typeof insertMcaDerivedMetricsSchema>;
+
+// MCA Risk Scores - Composite risk assessment (Epic 5)
+export const mcaRiskScores = pgTable("mca_risk_scores", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  cin: varchar("cin", { length: 21 }).references(() => mcaCompanyMaster.cin).notNull(),
+  assessmentDate: date("assessment_date").notNull(),
+  profitConsistencyScore: integer("profit_consistency_score"),
+  leverageRiskScore: integer("leverage_risk_score"),
+  complianceFreshnessScore: integer("compliance_freshness_score"),
+  chargesRiskScore: integer("charges_risk_score"),
+  ownershipRiskScore: integer("ownership_risk_score"),
+  governanceRiskScore: integer("governance_risk_score"),
+  overallRiskScore: integer("overall_risk_score").notNull(),
+  riskGrade: varchar("risk_grade", { length: 20 }).notNull(),
+  scoreBreakdown: jsonb("score_breakdown").default({}),
+  riskFactors: jsonb("risk_factors").default([]),
+  recommendations: text("recommendations"),
+  watchlistFlags: jsonb("watchlist_flags").default([]),
+  computedBy: varchar("computed_by", { length: 100 }),
+  methodology: varchar("methodology", { length: 50 }).default("v1"),
+  isLatest: boolean("is_latest").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_mca_rs_cin").on(table.cin),
+  index("idx_mca_rs_date").on(table.assessmentDate),
+  index("idx_mca_rs_grade").on(table.riskGrade),
+  index("idx_mca_rs_overall").on(table.overallRiskScore),
+  index("idx_mca_rs_latest").on(table.isLatest),
+]);
+
+export const insertMcaRiskScoresSchema = createInsertSchema(mcaRiskScores).omit({ id: true, createdAt: true });
+export type McaRiskScore = typeof mcaRiskScores.$inferSelect;
+export type InsertMcaRiskScore = z.infer<typeof insertMcaRiskScoresSchema>;
+
+// MCA Ingestion Logs - ETL pipeline tracking (Epic 9)
+export const mcaIngestionLogs = pgTable("mca_ingestion_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  runId: varchar("run_id", { length: 100 }).notNull(),
+  sourceId: varchar("source_id"),
+  sourceName: varchar("source_name", { length: 100 }).notNull(),
+  operationType: varchar("operation_type", { length: 50 }).notNull(),
+  targetCins: jsonb("target_cins").default([]),
+  formTypes: jsonb("form_types").default([]),
+  status: varchar("status", { length: 30 }).default("running"),
+  totalRecords: integer("total_records").default(0),
+  processedRecords: integer("processed_records").default(0),
+  failedRecords: integer("failed_records").default(0),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+  durationMs: integer("duration_ms"),
+  errorMessages: jsonb("error_messages").default([]),
+  retryCount: integer("retry_count").default(0),
+  apiCallsMade: integer("api_calls_made").default(0),
+  walletCost: numeric("wallet_cost").default("0"),
+  triggeredBy: varchar("triggered_by", { length: 100 }),
+  metadata: jsonb("metadata").default({}),
+}, (table) => [
+  index("idx_mca_il_run").on(table.runId),
+  index("idx_mca_il_source").on(table.sourceName),
+  index("idx_mca_il_status").on(table.status),
+  index("idx_mca_il_started").on(table.startedAt),
+]);
+
+export const insertMcaIngestionLogsSchema = createInsertSchema(mcaIngestionLogs).omit({ id: true, startedAt: true });
+export type McaIngestionLog = typeof mcaIngestionLogs.$inferSelect;
+export type InsertMcaIngestionLog = z.infer<typeof insertMcaIngestionLogsSchema>;
+
+// MCA Version History - Track all data changes for audit (Epic 8)
+export const mcaVersionHistory = pgTable("mca_version_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  entityType: varchar("entity_type", { length: 50 }).notNull(),
+  entityId: varchar("entity_id", { length: 100 }).notNull(),
+  changeType: varchar("change_type", { length: 30 }).notNull(),
+  previousData: jsonb("previous_data"),
+  newData: jsonb("new_data"),
+  changedFields: jsonb("changed_fields").default([]),
+  sourceDocument: varchar("source_document", { length: 100 }),
+  sourceFilingDate: date("source_filing_date"),
+  ingestionRunId: varchar("ingestion_run_id", { length: 100 }),
+  changedBy: varchar("changed_by", { length: 100 }),
+  changeReason: text("change_reason"),
+  ipAddress: varchar("ip_address", { length: 50 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_mca_vh_entity").on(table.entityType, table.entityId),
+  index("idx_mca_vh_change").on(table.changeType),
+  index("idx_mca_vh_created").on(table.createdAt),
+]);
+
+export const insertMcaVersionHistorySchema = createInsertSchema(mcaVersionHistory).omit({ id: true, createdAt: true });
+export type McaVersionHistory = typeof mcaVersionHistory.$inferSelect;
+export type InsertMcaVersionHistory = z.infer<typeof insertMcaVersionHistorySchema>;
+
+
 // ============ SEBI COMPLIANCE PERSISTENCE TABLES ============
 
 // External Remittance Proofs - AIF/PMS payment proof tracking for SEBI compliance
