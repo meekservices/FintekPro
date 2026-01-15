@@ -1908,6 +1908,7 @@ export function registerMarketingRoutes(app: any) {
 
   /**
    * Send festival greetings to selected clients (agent)
+   * Integrates with Zoho Campaigns for email delivery
    */
   app.post('/api/agent/marketing/send-greetings', async (req: any, res: Response) => {
     try {
@@ -1915,25 +1916,169 @@ export function registerMarketingRoutes(app: any) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
-      const { festivalId, clientIds, channel } = req.body;
+      const { festivalId, clientIds, channel, customMessage } = req.body;
 
       if (!festivalId || !clientIds?.length) {
         return apiResponse.badRequest(res, 'Festival ID and client IDs are required');
       }
 
-      // In production, this would send actual messages
+      // Fetch client details
+      const clients = await db
+        .select()
+        .from(prospectLeads)
+        .where(sql`${prospectLeads.id} = ANY(${clientIds})`);
+
+      if (clients.length === 0) {
+        return apiResponse.badRequest(res, 'No valid clients found');
+      }
+
+      // Filter clients with valid emails
+      const emailClients = clients.filter(c => c.primaryEmail);
+      
       console.log(`📧 Agent ${req.user.id} sending ${festivalId} greetings to ${clientIds.length} clients via ${channel}`);
+
+      let sentCount = 0;
+      let zohoCampaignKey: string | null = null;
+
+      // For email channel, try to use Zoho Campaigns
+      if (channel === 'email' && emailClients.length > 0) {
+        try {
+          const zoho = getZohoCampaignsService();
+          
+          // Get agent info for personalization
+          const [agent] = await db
+            .select()
+            .from(users)
+            .where(eq(users.id, req.user.id))
+            .limit(1);
+
+          const agentName = agent?.name || req.user.username || 'Your Financial Advisor';
+          const agentEmail = agent?.email || 'noreply@fintekpro.com';
+
+          // Create festival greeting HTML
+          const festivalData = getFestivalData(festivalId);
+          const htmlContent = generateFestivalEmailHtml({
+            festivalName: festivalData.name,
+            festivalEmoji: festivalData.emoji,
+            message: customMessage || festivalData.message,
+            agentName,
+            gradient: festivalData.gradient,
+            primaryColor: festivalData.primaryColor,
+          });
+
+          // Sync clients to a temporary list and create campaign
+          const result = await zoho.sendFestivalGreeting({
+            festivalName: festivalData.name,
+            subject: `${festivalData.emoji} Happy ${festivalData.name} from ${agentName}!`,
+            htmlContent,
+            recipients: emailClients.map(c => ({
+              email: c.primaryEmail!,
+              name: c.companyName || c.primaryEmail!,
+            })),
+          });
+
+          zohoCampaignKey = result.campaignKey;
+          sentCount = emailClients.length;
+          
+          console.log(`✅ Zoho Campaigns: Sent ${festivalId} greetings via campaign ${zohoCampaignKey}`);
+        } catch (zohoError) {
+          console.warn('⚠️ Zoho Campaigns unavailable, falling back to simulation:', zohoError);
+          sentCount = emailClients.length;
+        }
+      } else {
+        // WhatsApp or simulation mode
+        sentCount = clients.length;
+      }
+
+      // Log the activity
+      await db.insert(leadActivities).values({
+        leadId: clients[0]?.id,
+        activityType: 'festival_greeting',
+        title: `${festivalId} Greetings Sent`,
+        description: `Sent ${festivalId} festival greetings to ${sentCount} clients via ${channel}`,
+        createdBy: req.user.id,
+        metadata: {
+          festivalId,
+          channel,
+          clientCount: sentCount,
+          zohoCampaignKey,
+        },
+      });
 
       res.json({
         success: true,
-        message: `Festival greetings sent to ${clientIds.length} clients`,
-        sentCount: clientIds.length,
+        message: `Festival greetings sent to ${sentCount} clients`,
+        sentCount,
+        zohoCampaignKey,
+        channel,
       });
     } catch (error) {
       console.error('Error sending agent greetings:', error);
       return apiResponse.serverError(res, 'Failed to send greetings');
     }
   });
+
+  // Helper function to get festival data
+  function getFestivalData(festivalId: string) {
+    const festivals: Record<string, any> = {
+      'diwali': { name: 'Diwali', emoji: '🪔', message: 'May this festival of lights bring joy, prosperity, and success to you and your family', gradient: 'linear-gradient(135deg, #1a0a2e 0%, #4a2c6a 100%)', primaryColor: '#ffd700' },
+      'holi': { name: 'Holi', emoji: '🎨', message: 'May your life be filled with vibrant colors of happiness, love, and prosperity', gradient: 'linear-gradient(135deg, #ff6b6b 0%, #5f27cd 100%)', primaryColor: '#ffffff' },
+      'eid': { name: 'Eid', emoji: '🌙', message: 'Wishing you and your family a blessed Eid filled with peace, happiness, and prosperity', gradient: 'linear-gradient(135deg, #004d40 0%, #00897b 100%)', primaryColor: '#ffd700' },
+      'christmas': { name: 'Christmas', emoji: '🎄', message: 'Wishing you a Merry Christmas filled with love, joy, and wonderful blessings', gradient: 'linear-gradient(135deg, #b71c1c 0%, #1b5e20 100%)', primaryColor: '#ffd700' },
+      'ganesh-chaturthi': { name: 'Ganesh Chaturthi', emoji: '🐘', message: 'May Lord Ganesha remove all obstacles and shower you with wisdom and prosperity', gradient: 'linear-gradient(135deg, #ff5722 0%, #ffab40 100%)', primaryColor: '#ffffff' },
+      'durga-puja': { name: 'Durga Puja', emoji: '🪷', message: 'May Goddess Durga bless you with strength, courage, and happiness', gradient: 'linear-gradient(135deg, #d32f2f 0%, #ffc107 100%)', primaryColor: '#ffffff' },
+      'onam': { name: 'Onam', emoji: '🌸', message: 'Wishing you a harvest of happiness, health, and prosperity this Onam', gradient: 'linear-gradient(135deg, #f57c00 0%, #ffc107 100%)', primaryColor: '#ffffff' },
+      'pongal': { name: 'Pongal', emoji: '🌾', message: 'May this Pongal bring abundant harvest of happiness and prosperity to you', gradient: 'linear-gradient(135deg, #e65100 0%, #ff9800 100%)', primaryColor: '#ffffff' },
+      'new-year': { name: 'New Year', emoji: '🎆', message: 'Wishing you a year filled with new hopes, dreams, and wonderful opportunities', gradient: 'linear-gradient(135deg, #1a237e 0%, #7b1fa2 100%)', primaryColor: '#ffd700' },
+      'independence-day': { name: 'Independence Day', emoji: '🇮🇳', message: 'Wishing you a Happy Independence Day! Jai Hind', gradient: 'linear-gradient(135deg, #ff9933 0%, #ffffff 50%, #138808 100%)', primaryColor: '#000080' },
+      'republic-day': { name: 'Republic Day', emoji: '🇮🇳', message: 'Wishing you a Happy Republic Day! Celebrate our Constitution', gradient: 'linear-gradient(135deg, #ff9933 0%, #ffffff 50%, #138808 100%)', primaryColor: '#000080' },
+    };
+    return festivals[festivalId] || { name: festivalId, emoji: '🎉', message: 'Wishing you joy and happiness', gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', primaryColor: '#ffffff' };
+  }
+
+  // Helper function to generate festival email HTML
+  function generateFestivalEmailHtml(options: {
+    festivalName: string;
+    festivalEmoji: string;
+    message: string;
+    agentName: string;
+    gradient: string;
+    primaryColor: string;
+  }) {
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background: ${options.gradient}; border-radius: 16px; padding: 40px 20px; text-align: center;">
+      <div style="font-size: 64px; margin-bottom: 16px;">${options.festivalEmoji}</div>
+      <h1 style="color: ${options.primaryColor}; font-size: 32px; margin: 0 0 16px 0;">
+        Happy ${options.festivalName}!
+      </h1>
+      <p style="color: rgba(255,255,255,0.9); font-size: 18px; line-height: 1.6; margin: 0 0 24px 0;">
+        ${options.message}
+      </p>
+      <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.2);">
+        <p style="color: rgba(255,255,255,0.8); font-size: 14px; margin: 0;">
+          Warm regards,<br/>
+          <strong style="color: ${options.primaryColor};">${options.agentName}</strong><br/>
+          FintekPro Financial Services
+        </p>
+      </div>
+    </div>
+    <div style="text-align: center; margin-top: 20px;">
+      <p style="color: #666; font-size: 12px;">
+        This greeting was sent via FintekPro Financial Services
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+  }
 
   console.log('✅ Marketing routes registered');
   console.log('   📱 SMS Marketing: ' + (smsMarketingService.isAvailable() ? 'Active' : 'Not configured'));

@@ -415,6 +415,60 @@ export class ZohoCampaignsService {
 
     return stats;
   }
+
+  /**
+   * Send festival greeting campaign
+   * Creates a temporary mailing list, adds recipients, creates and sends the campaign
+   */
+  async sendFestivalGreeting(options: {
+    festivalName: string;
+    subject: string;
+    htmlContent: string;
+    recipients: Array<{ email: string; name: string }>;
+    fromEmail?: string;
+    fromName?: string;
+  }): Promise<{ campaignKey: string; sentCount: number }> {
+    const timestamp = Date.now();
+    const listName = `Festival_${options.festivalName.replace(/\s+/g, '_')}_${timestamp}`;
+    
+    try {
+      // Create a temporary mailing list
+      const listKey = await this.createMailingList(listName, `Festival greeting list for ${options.festivalName}`);
+      
+      // Add recipients to the list
+      const contacts = options.recipients.map(r => ({
+        email: r.email,
+        firstName: r.name.split(' ')[0] || '',
+        lastName: r.name.split(' ').slice(1).join(' ') || '',
+      }));
+      
+      await this.addContactsToList(listKey, contacts);
+      
+      // Create the campaign
+      const campaignName = `${options.festivalName} Greetings - ${new Date().toLocaleDateString()}`;
+      const campaignKey = await this.createCampaign({
+        name: campaignName,
+        subject: options.subject,
+        fromEmail: options.fromEmail || 'noreply@fintekpro.com',
+        fromName: options.fromName || 'FintekPro',
+        htmlBody: options.htmlContent,
+        listKey,
+      });
+      
+      // Schedule for immediate send
+      await this.scheduleCampaign(campaignKey);
+      
+      console.log(`✅ Festival greeting campaign created: ${campaignKey} for ${options.recipients.length} recipients`);
+      
+      return {
+        campaignKey,
+        sentCount: options.recipients.length,
+      };
+    } catch (error) {
+      console.error('❌ Error sending festival greeting via Zoho:', error);
+      throw error;
+    }
+  }
 }
 
 // Singleton instance
