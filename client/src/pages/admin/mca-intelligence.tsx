@@ -121,11 +121,46 @@ export default function McaIntelligence() {
   const [stateFilter, setStateFilter] = useState('');
   const [industryFilter, setIndustryFilter] = useState('');
   
-  // Ingest State
+  // Ingest State (legacy XBRL)
   const [ingestCin, setIngestCin] = useState('');
   const [ingestYear, setIngestYear] = useState('');
   const [ingestXbrl, setIngestXbrl] = useState('');
   const [showIngestDialog, setShowIngestDialog] = useState(false);
+  
+  // Direct Data Ingest State
+  const [ingestSubTab, setIngestSubTab] = useState('company');
+  
+  // Company Ingest Form
+  const [companyForm, setCompanyForm] = useState({
+    cin: '',
+    companyName: '',
+    companyStatus: 'Active',
+    registeredState: '',
+    registeredCity: '',
+    industry: '',
+    authorizedCapital: '',
+    paidUpCapital: '',
+    lastFilingYear: '',
+  });
+  
+  // Financial Ingest Form
+  const [financialForm, setFinancialForm] = useState({
+    cin: '',
+    financialYear: '',
+    revenue: '',
+    profitBeforeTax: '',
+    profitAfterTax: '',
+    netWorth: '',
+    totalAssets: '',
+    totalLiabilities: '',
+    longTermBorrowing: '',
+    shortTermBorrowing: '',
+  });
+  
+  // Bulk Ingest State
+  const [bulkJson, setBulkJson] = useState('');
+  const [bulkPreview, setBulkPreview] = useState<any>(null);
+  const [bulkError, setBulkError] = useState('');
   
   // Wallet State
   const [rechargeAmount, setRechargeAmount] = useState('');
@@ -195,7 +230,7 @@ export default function McaIntelligence() {
     },
   });
 
-  // Ingest Mutation
+  // Ingest Mutation (legacy XBRL)
   const ingestMutation = useMutation({
     mutationFn: async (params: { cin: string; financialYear: string; xbrlContent: string }) => {
       return await apiRequest('/api/mca/ingest', {
@@ -219,6 +254,125 @@ export default function McaIntelligence() {
       toast({ title: 'Ingestion error', description: error.message, variant: 'destructive' });
     },
   });
+
+  // Company Master Ingest Mutation
+  const companyIngestMutation = useMutation({
+    mutationFn: async (params: typeof companyForm) => {
+      return await apiRequest('/api/mca/ingest-company', {
+        method: 'POST',
+        body: JSON.stringify(params),
+      });
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        toast({ title: 'Company ingested successfully', description: `${data.data?.companyName} added to database` });
+        setCompanyForm({
+          cin: '',
+          companyName: '',
+          companyStatus: 'Active',
+          registeredState: '',
+          registeredCity: '',
+          industry: '',
+          authorizedCapital: '',
+          paidUpCapital: '',
+          lastFilingYear: '',
+        });
+        queryClient.invalidateQueries({ queryKey: ['/api/mca/dashboard'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/mca/profitable-companies'] });
+      } else {
+        toast({ title: 'Company ingest failed', description: data.error, variant: 'destructive' });
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: 'Company ingest error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  // Financial Data Ingest Mutation
+  const financialIngestMutation = useMutation({
+    mutationFn: async (params: typeof financialForm) => {
+      return await apiRequest('/api/mca/ingest-financials', {
+        method: 'POST',
+        body: JSON.stringify(params),
+      });
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        toast({ title: 'Financial data ingested', description: `FY ${data.data?.financialYear} added` });
+        setFinancialForm({
+          cin: '',
+          financialYear: '',
+          revenue: '',
+          profitBeforeTax: '',
+          profitAfterTax: '',
+          netWorth: '',
+          totalAssets: '',
+          totalLiabilities: '',
+          longTermBorrowing: '',
+          shortTermBorrowing: '',
+        });
+        queryClient.invalidateQueries({ queryKey: ['/api/mca/dashboard'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/mca/profitable-companies'] });
+      } else {
+        toast({ title: 'Financial ingest failed', description: data.error, variant: 'destructive' });
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: 'Financial ingest error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  // Bulk Ingest Mutation
+  const bulkIngestMutation = useMutation({
+    mutationFn: async (params: any) => {
+      return await apiRequest('/api/mca/ingest-bulk', {
+        method: 'POST',
+        body: JSON.stringify(params),
+      });
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        const r = data.results;
+        toast({ 
+          title: 'Bulk ingest completed', 
+          description: `Companies: ${r.companiesIngested}/${r.companiesIngested + r.companiesFailed}, Financials: ${r.financialsIngested}/${r.financialsIngested + r.financialsFailed + r.financialsSkipped}`,
+        });
+        setBulkJson('');
+        setBulkPreview(null);
+        queryClient.invalidateQueries({ queryKey: ['/api/mca/dashboard'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/mca/profitable-companies'] });
+      } else {
+        toast({ title: 'Bulk ingest failed', description: data.error, variant: 'destructive' });
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: 'Bulk ingest error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  // Handle bulk JSON preview
+  const handleBulkJsonChange = (value: string) => {
+    setBulkJson(value);
+    setBulkError('');
+    setBulkPreview(null);
+    
+    if (value.trim()) {
+      try {
+        const parsed = JSON.parse(value);
+        if (parsed.companies || parsed.financials) {
+          setBulkPreview({
+            companiesCount: parsed.companies?.length || 0,
+            financialsCount: parsed.financials?.length || 0,
+            data: parsed,
+          });
+        } else {
+          setBulkError('JSON must contain "companies" and/or "financials" arrays');
+        }
+      } catch (e) {
+        setBulkError('Invalid JSON format');
+      }
+    }
+  };
 
   // Wallet Recharge Mutation - initiates Cashfree payment
   const rechargeMutation = useMutation({
@@ -292,7 +446,7 @@ export default function McaIntelligence() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="dashboard" className="flex items-center gap-1">
             <BarChart3 className="h-4 w-4" />
             Dashboard
@@ -304,6 +458,10 @@ export default function McaIntelligence() {
           <TabsTrigger value="radar" className="flex items-center gap-1">
             <TrendingUp className="h-4 w-4" />
             Profitable Radar
+          </TabsTrigger>
+          <TabsTrigger value="ingest" className="flex items-center gap-1">
+            <Database className="h-4 w-4" />
+            Data Ingest
           </TabsTrigger>
           <TabsTrigger value="filings" className="flex items-center gap-1">
             <FileText className="h-4 w-4" />
@@ -410,18 +568,22 @@ export default function McaIntelligence() {
                 <CardHeader>
                   <CardTitle>Quick Actions</CardTitle>
                 </CardHeader>
-                <CardContent className="flex gap-4">
+                <CardContent className="flex flex-wrap gap-4">
                   <Button onClick={() => setActiveTab('query')}>
                     <Search className="h-4 w-4 mr-2" />
                     New Query
                   </Button>
-                  <Button variant="outline" onClick={() => setShowIngestDialog(true)}>
-                    <Upload className="h-4 w-4 mr-2" />
-                    Ingest XBRL
+                  <Button variant="outline" onClick={() => setActiveTab('ingest')}>
+                    <Database className="h-4 w-4 mr-2" />
+                    Data Ingest
                   </Button>
                   <Button variant="outline" onClick={() => setActiveTab('radar')}>
                     <TrendingUp className="h-4 w-4 mr-2" />
                     Profitable Radar
+                  </Button>
+                  <Button variant="ghost" onClick={() => setShowIngestDialog(true)}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    XBRL (Legacy)
                   </Button>
                 </CardContent>
               </Card>
@@ -599,6 +761,422 @@ export default function McaIntelligence() {
                   </Table>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Data Ingest Tab */}
+        <TabsContent value="ingest" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5" />
+                Data Ingest Console
+              </CardTitle>
+              <CardDescription>
+                Ingest company and financial data directly via JSON. No XBRL parsing required.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Tabs value={ingestSubTab} onValueChange={setIngestSubTab}>
+                <TabsList className="grid w-full grid-cols-3 mb-6">
+                  <TabsTrigger value="company" className="flex items-center gap-1">
+                    <Building2 className="h-4 w-4" />
+                    Company Master
+                  </TabsTrigger>
+                  <TabsTrigger value="financial" className="flex items-center gap-1">
+                    <TrendingUp className="h-4 w-4" />
+                    Financial Data
+                  </TabsTrigger>
+                  <TabsTrigger value="bulk" className="flex items-center gap-1">
+                    <Upload className="h-4 w-4" />
+                    Bulk Import
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* Company Master Form */}
+                <TabsContent value="company" className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>CIN (21 characters) *</Label>
+                      <Input 
+                        value={companyForm.cin} 
+                        onChange={(e) => setCompanyForm({...companyForm, cin: e.target.value.toUpperCase()})}
+                        placeholder="L12345MH1990PLC123456"
+                        maxLength={21}
+                      />
+                    </div>
+                    <div>
+                      <Label>Company Name *</Label>
+                      <Input 
+                        value={companyForm.companyName} 
+                        onChange={(e) => setCompanyForm({...companyForm, companyName: e.target.value})}
+                        placeholder="Acme Corporation Limited"
+                      />
+                    </div>
+                    <div>
+                      <Label>Status</Label>
+                      <Select 
+                        value={companyForm.companyStatus} 
+                        onValueChange={(v) => setCompanyForm({...companyForm, companyStatus: v})}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Active">Active</SelectItem>
+                          <SelectItem value="Strike Off">Strike Off</SelectItem>
+                          <SelectItem value="Under Liquidation">Under Liquidation</SelectItem>
+                          <SelectItem value="Dormant">Dormant</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Registered State</Label>
+                      <Input 
+                        value={companyForm.registeredState} 
+                        onChange={(e) => setCompanyForm({...companyForm, registeredState: e.target.value})}
+                        placeholder="Maharashtra"
+                      />
+                    </div>
+                    <div>
+                      <Label>Registered City</Label>
+                      <Input 
+                        value={companyForm.registeredCity} 
+                        onChange={(e) => setCompanyForm({...companyForm, registeredCity: e.target.value})}
+                        placeholder="Mumbai"
+                      />
+                    </div>
+                    <div>
+                      <Label>Industry</Label>
+                      <Input 
+                        value={companyForm.industry} 
+                        onChange={(e) => setCompanyForm({...companyForm, industry: e.target.value})}
+                        placeholder="Information Technology Services"
+                      />
+                    </div>
+                    <div>
+                      <Label>Authorized Capital</Label>
+                      <Input 
+                        type="number"
+                        value={companyForm.authorizedCapital} 
+                        onChange={(e) => setCompanyForm({...companyForm, authorizedCapital: e.target.value})}
+                        placeholder="100000000"
+                      />
+                    </div>
+                    <div>
+                      <Label>Paid-up Capital</Label>
+                      <Input 
+                        type="number"
+                        value={companyForm.paidUpCapital} 
+                        onChange={(e) => setCompanyForm({...companyForm, paidUpCapital: e.target.value})}
+                        placeholder="50000000"
+                      />
+                    </div>
+                    <div>
+                      <Label>Last Filing Year</Label>
+                      <Input 
+                        value={companyForm.lastFilingYear} 
+                        onChange={(e) => setCompanyForm({...companyForm, lastFilingYear: e.target.value})}
+                        placeholder="2024-25"
+                      />
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={() => companyIngestMutation.mutate(companyForm)}
+                    disabled={companyIngestMutation.isPending || !companyForm.cin || !companyForm.companyName || companyForm.cin.length !== 21}
+                    className="mt-4"
+                  >
+                    {companyIngestMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                    )}
+                    Ingest Company
+                  </Button>
+                </TabsContent>
+
+                {/* Financial Data Form */}
+                <TabsContent value="financial" className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>CIN (21 characters) *</Label>
+                      <Input 
+                        value={financialForm.cin} 
+                        onChange={(e) => setFinancialForm({...financialForm, cin: e.target.value.toUpperCase()})}
+                        placeholder="L12345MH1990PLC123456"
+                        maxLength={21}
+                      />
+                    </div>
+                    <div>
+                      <Label>Financial Year (YYYY-YY) *</Label>
+                      <Input 
+                        value={financialForm.financialYear} 
+                        onChange={(e) => setFinancialForm({...financialForm, financialYear: e.target.value})}
+                        placeholder="2023-24"
+                      />
+                    </div>
+                    <div>
+                      <Label>Revenue</Label>
+                      <Input 
+                        type="number"
+                        value={financialForm.revenue} 
+                        onChange={(e) => setFinancialForm({...financialForm, revenue: e.target.value})}
+                        placeholder="1000000000"
+                      />
+                    </div>
+                    <div>
+                      <Label>Profit Before Tax</Label>
+                      <Input 
+                        type="number"
+                        value={financialForm.profitBeforeTax} 
+                        onChange={(e) => setFinancialForm({...financialForm, profitBeforeTax: e.target.value})}
+                        placeholder="100000000"
+                      />
+                    </div>
+                    <div>
+                      <Label>Profit After Tax *</Label>
+                      <Input 
+                        type="number"
+                        value={financialForm.profitAfterTax} 
+                        onChange={(e) => setFinancialForm({...financialForm, profitAfterTax: e.target.value})}
+                        placeholder="75000000"
+                      />
+                    </div>
+                    <div>
+                      <Label>Net Worth</Label>
+                      <Input 
+                        type="number"
+                        value={financialForm.netWorth} 
+                        onChange={(e) => setFinancialForm({...financialForm, netWorth: e.target.value})}
+                        placeholder="500000000"
+                      />
+                    </div>
+                    <div>
+                      <Label>Total Assets</Label>
+                      <Input 
+                        type="number"
+                        value={financialForm.totalAssets} 
+                        onChange={(e) => setFinancialForm({...financialForm, totalAssets: e.target.value})}
+                        placeholder="800000000"
+                      />
+                    </div>
+                    <div>
+                      <Label>Total Liabilities</Label>
+                      <Input 
+                        type="number"
+                        value={financialForm.totalLiabilities} 
+                        onChange={(e) => setFinancialForm({...financialForm, totalLiabilities: e.target.value})}
+                        placeholder="300000000"
+                      />
+                    </div>
+                    <div>
+                      <Label>Long-term Borrowing</Label>
+                      <Input 
+                        type="number"
+                        value={financialForm.longTermBorrowing} 
+                        onChange={(e) => setFinancialForm({...financialForm, longTermBorrowing: e.target.value})}
+                        placeholder="150000000"
+                      />
+                    </div>
+                    <div>
+                      <Label>Short-term Borrowing</Label>
+                      <Input 
+                        type="number"
+                        value={financialForm.shortTermBorrowing} 
+                        onChange={(e) => setFinancialForm({...financialForm, shortTermBorrowing: e.target.value})}
+                        placeholder="50000000"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-muted rounded-lg text-sm">
+                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    <span>Company must exist in database before adding financial data.</span>
+                  </div>
+                  <Button 
+                    onClick={() => financialIngestMutation.mutate(financialForm)}
+                    disabled={financialIngestMutation.isPending || !financialForm.cin || !financialForm.financialYear || financialForm.cin.length !== 21 || !/^\d{4}-\d{2}$/.test(financialForm.financialYear)}
+                    className="mt-4"
+                  >
+                    {financialIngestMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                    )}
+                    Ingest Financial Data
+                  </Button>
+                </TabsContent>
+
+                {/* Bulk Import Form */}
+                <TabsContent value="bulk" className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Upload JSON File</Label>
+                      <Input 
+                        type="file"
+                        accept=".json"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                              const content = event.target?.result as string;
+                              handleBulkJsonChange(content);
+                            };
+                            reader.readAsText(file);
+                          }
+                        }}
+                        className="cursor-pointer"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">Or paste JSON below</p>
+                    </div>
+                    <div className="flex items-end">
+                      <Button 
+                        variant="outline"
+                        onClick={() => {
+                          setBulkJson('');
+                          setBulkPreview(null);
+                          setBulkError('');
+                        }}
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label>Bulk JSON Data</Label>
+                    <Textarea 
+                      value={bulkJson} 
+                      onChange={(e) => handleBulkJsonChange(e.target.value)}
+                      placeholder={`{
+  "companies": [
+    {
+      "cin": "L12345MH1990PLC123456",
+      "companyName": "Acme Corp Ltd",
+      "registeredState": "Maharashtra",
+      "industry": "IT Services"
+    }
+  ],
+  "financials": [
+    {
+      "cin": "L12345MH1990PLC123456",
+      "financialYear": "2023-24",
+      "revenue": "1000000000",
+      "profitAfterTax": "75000000"
+    }
+  ]
+}`}
+                      rows={12}
+                      className="font-mono text-sm"
+                    />
+                  </div>
+
+                  {bulkError && (
+                    <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-950 rounded-lg text-sm text-red-600 dark:text-red-400">
+                      <AlertCircle className="h-4 w-4" />
+                      <span>{bulkError}</span>
+                    </div>
+                  )}
+
+                  {bulkPreview && (
+                    <div className="p-4 bg-muted rounded-lg space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="font-medium">Preview:</p>
+                        <Badge variant="default" className="bg-green-500">Ready to Import</Badge>
+                      </div>
+                      <div className="flex gap-4 text-sm">
+                        <Badge variant="outline" className="flex items-center gap-1">
+                          <Building2 className="h-3 w-3" />
+                          {bulkPreview.companiesCount} Companies
+                        </Badge>
+                        <Badge variant="outline" className="flex items-center gap-1">
+                          <TrendingUp className="h-3 w-3" />
+                          {bulkPreview.financialsCount} Financial Records
+                        </Badge>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Data Quality: <Badge variant="secondary" className="text-xs">DIRECT_INGEST</Badge>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 p-3 bg-muted rounded-lg text-sm">
+                    <Activity className="h-4 w-4 text-blue-500" />
+                    <span>Bulk ingest processes companies first, then financials. Partial success is possible.</span>
+                  </div>
+
+                  <Button 
+                    onClick={() => bulkPreview?.data && bulkIngestMutation.mutate(bulkPreview.data)}
+                    disabled={bulkIngestMutation.isPending || !bulkPreview}
+                    className="mt-4"
+                  >
+                    {bulkIngestMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Upload className="h-4 w-4 mr-2" />
+                    )}
+                    Execute Bulk Import
+                  </Button>
+                </TabsContent>
+              </Tabs>
+
+              {/* Recent Ingest History */}
+              <div className="mt-6 pt-6 border-t">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-medium flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    Recent Ingest Activity
+                  </h3>
+                  <Badge variant="outline" className="text-xs">Last 24 hours</Badge>
+                </div>
+                {auditData?.data ? (
+                  <div className="space-y-2">
+                    {auditData.data
+                      .filter((log: any) => 
+                        log.queryType === 'ingest_company' || 
+                        log.queryType === 'ingest_financials' || 
+                        log.queryType === 'bulk_ingest'
+                      )
+                      .slice(0, 5)
+                      .map((log: any, idx: number) => (
+                        <div key={idx} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg text-sm">
+                          <div className="flex items-center gap-2">
+                            {log.queryType === 'bulk_ingest' ? (
+                              <Upload className="h-4 w-4 text-blue-500" />
+                            ) : log.queryType === 'ingest_company' ? (
+                              <Building2 className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <TrendingUp className="h-4 w-4 text-purple-500" />
+                            )}
+                            <span>{log.cin || 'Bulk Import'}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={log.status === 'success' ? 'default' : 'destructive'} className="text-xs">
+                              {log.status}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(log.createdAt).toLocaleTimeString()}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    {auditData.data.filter((log: any) => 
+                      log.queryType === 'ingest_company' || 
+                      log.queryType === 'ingest_financials' || 
+                      log.queryType === 'bulk_ingest'
+                    ).length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        No recent ingest activity. Use the forms above to add data.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Loading ingest history...
+                  </p>
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
