@@ -18176,6 +18176,121 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // Get agent marketing profile for festival greetings
+  app.get("/api/agent/marketing-profile", requireAgent, async (req, res) => {
+    try {
+      // Get agent from agents table (uses new marketing profile fields)
+      const [agent] = await db
+        .select()
+        .from(schema.agents)
+        .where(eq(schema.agents.userId, req.user.id))
+        .limit(1);
+
+      if (agent) {
+        return res.json({
+          id: agent.id,
+          fullName: agent.fullName,
+          email: agent.email,
+          phone: agent.phone,
+          marketingName: agent.marketingName,
+          marketingDesignation: agent.marketingDesignation,
+          marketingEmail: agent.marketingEmail,
+          marketingPhone: agent.marketingPhone,
+        });
+      }
+
+      // Fallback to customer care agents if no agent record
+      const agents = await storage.getAgents();
+      const ccAgent = agents.find(a => a.employeeId === req.user.id);
+      
+      if (ccAgent) {
+        return res.json({
+          id: ccAgent.id,
+          fullName: ccAgent.fullName,
+          email: ccAgent.email,
+          phone: ccAgent.phone,
+          marketingName: null,
+          marketingDesignation: null,
+          marketingEmail: null,
+          marketingPhone: null,
+        });
+      }
+
+      // Return user info as fallback
+      res.json({
+        id: req.user.id,
+        fullName: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim(),
+        email: req.user.email,
+        phone: req.user.mobile || req.user.phone,
+        marketingName: null,
+        marketingDesignation: null,
+        marketingEmail: null,
+        marketingPhone: null,
+      });
+    } catch (error) {
+      console.error("Error fetching agent marketing profile:", error);
+      res.status(500).json({ error: "Failed to fetch marketing profile" });
+    }
+  });
+
+  // Save agent marketing profile
+  app.post("/api/agent/marketing-profile", requireAgent, async (req, res) => {
+    try {
+      const { marketingName, marketingDesignation, marketingEmail, marketingPhone } = req.body;
+
+      // Try to update agents table first
+      const [existingAgent] = await db
+        .select()
+        .from(schema.agents)
+        .where(eq(schema.agents.userId, req.user.id))
+        .limit(1);
+
+      if (existingAgent) {
+        // Update existing agent record
+        const [updated] = await db
+          .update(schema.agents)
+          .set({
+            marketingName,
+            marketingDesignation,
+            marketingEmail,
+            marketingPhone,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.agents.id, existingAgent.id))
+          .returning();
+
+        return res.json({
+          success: true,
+          profile: updated,
+        });
+      }
+
+      // Create new agent record if doesn't exist
+      const [newAgent] = await db
+        .insert(schema.agents)
+        .values({
+          userId: req.user.id,
+          fullName: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || 'Agent',
+          email: req.user.email,
+          phone: req.user.mobile || req.user.phone,
+          marketingName,
+          marketingDesignation,
+          marketingEmail,
+          marketingPhone,
+        })
+        .returning();
+
+      res.json({
+        success: true,
+        profile: newAgent,
+      });
+    } catch (error) {
+      console.error("Error saving agent marketing profile:", error);
+      res.status(500).json({ error: "Failed to save marketing profile" });
+    }
+  });
+
   // Get agent's partners
   app.get("/api/agent/partners", requireAgent, async (req, res) => {
     try {

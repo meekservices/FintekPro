@@ -2162,6 +2162,12 @@ export const agents = pgTable("agents", {
   commissionTier: varchar("commission_tier").default("standard"), // standard, silver, gold, platinum
   baseCommissionRate: decimal("base_commission_rate", { precision: 5, scale: 2 }).default("0.00"), // Base % commission
   
+  // Marketing Profile - for festival greetings and marketing materials
+  marketingName: varchar("marketing_name"), // Display name for marketing materials
+  marketingDesignation: varchar("marketing_designation"), // Display designation
+  marketingEmail: varchar("marketing_email"), // Contact email for marketing
+  marketingPhone: varchar("marketing_phone"), // Contact phone for marketing
+  
   // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
