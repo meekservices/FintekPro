@@ -513,6 +513,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // Public Feature Flag Check endpoint
+  app.get("/api/feature-flags/check/:flagKey", async (req, res) => {
+    try {
+      const { flagKey } = req.params;
+      const userId = (req as any).user?.id;
+      
+      const result = await db.execute(sql`
+        SELECT id, flag_key, flag_name, is_enabled,
+               COALESCE((targeting_rules->>'percentRollout')::int, 100) as rollout_percentage
+        FROM platform_feature_flags
+        WHERE flag_key = ${flagKey}
+        LIMIT 1
+      `);
+      
+      if (result.rows.length === 0) {
+        return res.json({ enabled: false, reason: "flag_not_found" });
+      }
+      
+      const flag = result.rows[0] as any;
+      const isEnabled = flag.is_enabled || false;
+      const rolloutPercentage = flag.rollout_percentage || 100;
+      
+      // Simple hash-based rollout for consistent user experience
+      let inRollout = true;
+      if (rolloutPercentage < 100 && userId) {
+        const hash = userId.split("").reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
+        inRollout = (hash % 100) < rolloutPercentage;
+      }
+      
+      res.json({
+        enabled: isEnabled && inRollout,
+        flagKey: flag.flag_key,
+        rolloutPercentage
+      });
+    } catch (error: any) {
+      console.error("[Feature Flags] Check error:", error.message);
+      res.json({ enabled: false, error: "check_failed" });
+    }
+  });
   // GDPR Consent endpoint
   app.post("/api/consent", async (req, res) => {
     try {

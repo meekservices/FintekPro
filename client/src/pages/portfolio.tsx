@@ -1,3 +1,5 @@
+import { PortfolioV3Dashboard } from "@/components/portfolio/PortfolioV3Dashboard";
+import { useFeatureFlag } from "@/hooks/use-feature-flags";
 import { PortfolioSummary } from "@/components/dashboard/portfolio-summary";
 import { AssetAllocation } from "@/components/dashboard/asset-allocation";
 import { RebalanceDashboard } from "@/components/dashboard/rebalance-dashboard";
@@ -182,6 +184,9 @@ export default function Portfolio() {
   const portfolioId = portfolios?.[0]?.id;
   const { user, isAuthenticated } = useAuth();
 
+
+  // Feature flag for Portfolio V3
+  const { enabled: portfolioV3Enabled } = useFeatureFlag("portfolio_v3");
   // Consent management state
   const [consentDialogOpen, setConsentDialogOpen] = useState(false);
   const [currentSchemeType, setCurrentSchemeType] = useState<SchemeType>("epf");
@@ -355,6 +360,25 @@ export default function Portfolio() {
 
   const { state: networkState } = useNetworkState();
 
+
+  // Portfolio V3 Dashboard (feature flag controlled)
+  if (portfolioV3Enabled) {
+    return (
+      <div className="space-y-8 p-4 lg:p-6" data-testid="portfolio-page">
+        <NetworkStatusBanner />
+        <PortfolioV3Dashboard
+          portfolioId={portfolioId || ""}
+          performance={performance}
+          holdings={enhancedHoldings || []}
+          isLoading={isLoading}
+          onRefresh={() => {
+            refetchHoldings();
+            refetchPerformance();
+          }}
+        />
+      </div>
+    );
+  }
   return (
     <div className="space-y-8" data-testid="portfolio-page">
       {/* Network Status Banner for Offline Resilience */}
