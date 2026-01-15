@@ -3,6 +3,7 @@ import { db } from "../db";
 import { recommendationProducts, listedStocks, reits, preIpoCompanies } from "@shared/schema";
 import { eq, and, desc, asc, sql, ilike, or } from "drizzle-orm";
 import { requireAdmin } from "../middleware/roleMiddleware";
+import { generateRecommendationRationale, RecommendationProductData } from "../services/recommendation-products-service";
 
 const router = Router();
 
@@ -541,6 +542,66 @@ publicRouter.get("/all-active", async (req, res) => {
     res.json(grouped);
   } catch (error: any) {
     console.error("[RecommendationProducts] Error fetching all active:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Public: Get recommendations with full rationale
+publicRouter.get("/with-rationale", async (req, res) => {
+  try {
+    const { productType, riskProfile } = req.query;
+    
+    if (!productType || !riskProfile) {
+      return res.status(400).json({ error: "productType and riskProfile are required" });
+    }
+    
+    const products = await db
+      .select()
+      .from(recommendationProducts)
+      .where(
+        and(
+          eq(recommendationProducts.productType, productType as string),
+          eq(recommendationProducts.riskProfile, riskProfile as string),
+          eq(recommendationProducts.isActive, true)
+        )
+      )
+      .orderBy(desc(recommendationProducts.priority), asc(recommendationProducts.name));
+    
+    // Transform products with rationale
+    const withRationale = products.map(p => {
+      const productData: RecommendationProductData = {
+        name: p.name,
+        amc: p.amc || "NSE/BSE",
+        category: p.category || `${p.productType} - General`,
+        sector: p.sector || undefined,
+        returns1Y: p.returns1Y || "0",
+        returns3Y: p.returns3Y || "0",
+        returns5Y: p.returns5Y || undefined,
+        risk: p.riskLevel || "Moderate",
+        productType: p.productType,
+        ticker: p.symbol || undefined,
+        symbol: p.symbol || undefined,
+        selectionRationale: p.selectionRationale || undefined,
+        investmentThesis: p.investmentThesis || undefined,
+        requiresEnhancedKYC: p.requiresEnhancedKYC || false,
+      };
+      
+      const rationale = generateRecommendationRationale(productData, riskProfile as string);
+      
+      return {
+        ...p,
+        rationale: {
+          summary: rationale.summary,
+          whyRecommended: rationale.whyRecommended,
+          riskConsideration: rationale.riskConsideration,
+          suitabilityNote: rationale.suitabilityNote,
+        }
+      };
+    });
+    
+    res.json(withRationale);
+  } catch (error: any) {
+    console.error("[RecommendationProducts] Error fetching with rationale:", error);
     res.status(500).json({ error: error.message });
   }
 });
