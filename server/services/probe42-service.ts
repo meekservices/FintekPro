@@ -660,8 +660,8 @@ class Probe42Service {
 
   /**
    * Get company financial statements for multiple years
-   * Uses v2 API: GET /entities/{identifier}/kyc
-   * Includes request deduplication to prevent duplicate in-flight requests
+   * NOTE: /kyc endpoint requires higher API tier - disabled to avoid auth errors
+   * Financial data should be fetched from MCA Intelligence Service instead
    */
   async getCompanyFinancials(
     probe42CompanyId: string,
@@ -671,68 +671,12 @@ class Probe42Service {
       throw new ValidationError('Company ID is required');
     }
 
-    if (!this.isConfigured) {
-      return this.getMockFinancials(probe42CompanyId, years);
-    }
-
-    const dedupeKey = requestDedupeService.createKey('probe42', 'kyc', probe42CompanyId, years.toString());
+    // Skip Probe42 /kyc endpoint - subscription tier does not include access
+    // Financial data will be fetched from MCA Intelligence Service instead
+    console.log(`[Probe42] Skipping /kyc endpoint for ${probe42CompanyId} - using MCA for financial data`);
     
-    return requestDedupeService.dedupe(dedupeKey, async () => {
-      try {
-        console.log(`[Probe42] Fetching v2 kyc (financials) for: ${probe42CompanyId}`);
-        const response = await this.client.get(`/entities/${probe42CompanyId}/kyc`);
-        
-        // v2 response wrapped in { data: { ... } }
-        const data = response.data?.data || response.data;
-        if (!data) return [];
-        
-        // v2 financials are in the data object; map to our format
-        const financials = data.financials || data.financial_data || [];
-        
-        if (Array.isArray(financials)) {
-          return financials.slice(0, years).map((fin: any) => ({
-            company_id: probe42CompanyId,
-            financial_year: fin.financial_year || fin.year,
-            period_start: fin.period_start || fin.start_date,
-            period_end: fin.period_end || fin.end_date,
-            revenue: fin.revenue || fin.total_revenue,
-            ebitda: fin.ebitda,
-            ebit: fin.ebit,
-            pbt: fin.pbt || fin.profit_before_tax,
-            pat: fin.pat || fin.profit_after_tax,
-            net_profit: fin.net_profit || fin.pat,
-            total_assets: fin.total_assets,
-            total_liabilities: fin.total_liabilities,
-            networth: fin.networth || fin.net_worth,
-            share_capital: fin.share_capital,
-            reserves: fin.reserves,
-            total_debt: fin.total_debt,
-            long_term_debt: fin.long_term_debt,
-            short_term_debt: fin.short_term_debt,
-            operating_cash_flow: fin.operating_cash_flow,
-            investing_cash_flow: fin.investing_cash_flow,
-            financing_cash_flow: fin.financing_cash_flow,
-            free_cash_flow: fin.free_cash_flow,
-          }));
-        }
-        
-        return [];
-      } catch (error: any) {
-        // Handle authentication errors gracefully - fall back to mock data in development
-        if (error.response?.status === 401 || error.response?.status === 403) {
-          console.warn('⚠️ Probe42 API authentication failed (token may be expired). Using mock data.');
-          if (process.env.NODE_ENV === 'development') {
-            return this.getMockFinancials(probe42CompanyId, years);
-          }
-        }
-        throw new ExternalServiceError(
-          'Probe42',
-          `Failed to fetch company financials: ${error.message}`,
-          error,
-          true
-        );
-      }
-    });
+    // Return empty array - callers should use MCA service for financial data
+    return [];
   }
 
   /**
