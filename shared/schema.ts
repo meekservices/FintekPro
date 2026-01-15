@@ -26437,3 +26437,68 @@ export const inboundMessages = pgTable("inbound_messages", {
 export const insertInboundMessageSchema = createInsertSchema(inboundMessages).omit({ id: true, createdAt: true });
 export type InboundMessage = typeof inboundMessages.$inferSelect;
 export type InsertInboundMessage = z.infer<typeof insertInboundMessageSchema>;
+
+// Call Logs Table - For tracking incoming voice calls
+export const callLogs = pgTable("call_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Twilio call details
+  callSid: varchar("call_sid", { length: 100 }).notNull().unique(),
+  accountSid: varchar("account_sid", { length: 100 }),
+  
+  // Call direction and status
+  direction: varchar("direction", { length: 20 }).notNull().default('inbound'), // 'inbound' | 'outbound'
+  status: varchar("status", { length: 30 }).notNull().default('received'), // 'received', 'in-progress', 'completed', 'busy', 'failed', 'no-answer', 'canceled'
+  
+  // Contact info
+  callerNumber: varchar("caller_number", { length: 50 }).notNull(),
+  calledNumber: varchar("called_number", { length: 50 }).notNull(),
+  callerCity: varchar("caller_city", { length: 100 }),
+  callerState: varchar("caller_state", { length: 100 }),
+  callerCountry: varchar("caller_country", { length: 100 }),
+  
+  // Call duration (in seconds)
+  duration: integer("duration").default(0),
+  
+  // User association (auto-detected from phone number)
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Agent assignment (if user has an assigned agent)
+  assignedAgentId: varchar("assigned_agent_id").references(() => users.id),
+  
+  // Callback tracking
+  callbackRequested: boolean("callback_requested").default(true),
+  callbackStatus: varchar("callback_status", { length: 30 }).default('pending'), // 'pending', 'scheduled', 'completed', 'cancelled'
+  callbackScheduledAt: timestamp("callback_scheduled_at"),
+  callbackCompletedAt: timestamp("callback_completed_at"),
+  callbackCompletedBy: varchar("callback_completed_by").references(() => users.id),
+  
+  // Recording (if enabled)
+  recordingUrl: text("recording_url"),
+  recordingSid: varchar("recording_sid", { length: 100 }),
+  
+  // Admin notes
+  adminNotes: text("admin_notes"),
+  isRead: boolean("is_read").default(false),
+  readAt: timestamp("read_at"),
+  readBy: varchar("read_by"),
+  
+  // Greeting played
+  greetingPlayed: text("greeting_played"),
+  
+  // Timestamps
+  callStartedAt: timestamp("call_started_at").defaultNow().notNull(),
+  callEndedAt: timestamp("call_ended_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_call_logs_caller").on(table.callerNumber),
+  index("idx_call_logs_user").on(table.userId),
+  index("idx_call_logs_agent").on(table.assignedAgentId),
+  index("idx_call_logs_callback").on(table.callbackStatus),
+  index("idx_call_logs_started").on(table.callStartedAt),
+  index("idx_call_logs_unread").on(table.isRead, table.callStartedAt),
+]);
+
+export const insertCallLogSchema = createInsertSchema(callLogs).omit({ id: true, createdAt: true });
+export type CallLog = typeof callLogs.$inferSelect;
+export type InsertCallLog = z.infer<typeof insertCallLogSchema>;
