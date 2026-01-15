@@ -506,9 +506,34 @@ Reply HELP for available commands.`;
 
       const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-      const [messages, countResult] = await Promise.all([
-        db.select()
+      const [rawMessages, countResult] = await Promise.all([
+        db.select({
+          id: inboundMessages.id,
+          messageSid: inboundMessages.messageSid,
+          channel: inboundMessages.channel,
+          direction: inboundMessages.direction,
+          fromNumber: inboundMessages.fromNumber,
+          toNumber: inboundMessages.toNumber,
+          body: inboundMessages.body,
+          numMedia: inboundMessages.numMedia,
+          mediaUrls: inboundMessages.mediaUrls,
+          userId: inboundMessages.userId,
+          parsedCommand: inboundMessages.parsedCommand,
+          commandArgs: inboundMessages.commandArgs,
+          autoReplyResponse: inboundMessages.autoReplyResponse,
+          processed: inboundMessages.processed,
+          adminNotes: inboundMessages.adminNotes,
+          isRead: inboundMessages.isRead,
+          readAt: inboundMessages.readAt,
+          readBy: inboundMessages.readBy,
+          receivedAt: inboundMessages.receivedAt,
+          createdAt: inboundMessages.createdAt,
+          userFirstName: users.firstName,
+          userLastName: users.lastName,
+          userEmail: users.email,
+        })
           .from(inboundMessages)
+          .leftJoin(users, eq(inboundMessages.userId, users.id))
           .where(whereClause)
           .orderBy(desc(inboundMessages.receivedAt))
           .limit(limit)
@@ -519,7 +544,7 @@ Reply HELP for available commands.`;
       ]);
 
       return {
-        messages,
+        messages: rawMessages,
         total: countResult[0]?.count || 0,
       };
     } catch (error) {

@@ -44,6 +44,9 @@ interface InboundMessage {
   numMedia: number;
   mediaUrls: string[];
   userId: string | null;
+  userFirstName: string | null;
+  userLastName: string | null;
+  userEmail: string | null;
   parsedCommand: string | null;
   commandArgs: string[];
   autoReplyResponse: string | null;
@@ -423,7 +426,16 @@ export default function SmsInbox() {
                             <label className="text-sm font-medium text-muted-foreground">Associated User</label>
                             <div className="flex items-center gap-2 mt-1">
                               <User className="h-4 w-4" />
-                              <span>{selectedMessage.userId}</span>
+                              <div className="flex flex-col">
+                                <span className="font-medium">
+                                  {selectedMessage.userFirstName || selectedMessage.userLastName 
+                                    ? `${selectedMessage.userFirstName || ''} ${selectedMessage.userLastName || ''}`.trim()
+                                    : 'Unknown User'}
+                                </span>
+                                {selectedMessage.userEmail && (
+                                  <span className="text-sm text-muted-foreground">{selectedMessage.userEmail}</span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         )}
