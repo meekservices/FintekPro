@@ -87,8 +87,9 @@ export interface EnrichmentConfig {
 }
 
 const DEFAULT_CONFIG: EnrichmentConfig = {
-  // Indian market priority: Probe42 (primary) → MCA → NSE → BSE → Finnhub → Yahoo
-  sourcePriority: ['probe42', 'mca', 'nse', 'bse', 'nse_bse', 'finnhub', 'yahoo'],
+  // Indian market priority: MCA Intelligence (primary) → NSE → BSE → Finnhub → Yahoo
+  // Note: Probe42 /kyc endpoint disabled (requires higher subscription tier)
+  sourcePriority: ['mca', 'nse', 'bse', 'nse_bse', 'finnhub', 'yahoo', 'probe42'],
   minConfidenceThreshold: 0.6,
   allowMixedSources: true,
   aiAllowed: true,
@@ -217,8 +218,9 @@ class DataEnrichmentService {
   }
 
   /**
-   * Fetch financial data from MCA (Ministry of Corporate Affairs) via Sandbox API
-   * Second fallback after Probe42 for Indian unlisted companies
+   * Fetch financial data from MCA (Ministry of Corporate Affairs) 
+   * Primary source for financial data since Probe42 /kyc endpoint is not accessible
+   * Uses MCA Intelligence Service for comprehensive financial history
    */
   async fetchFromMCA(
     companyId: string,
@@ -248,6 +250,115 @@ class DataEnrichmentService {
 
     try {
       console.log(`[DataEnrichment] Fetching MCA data for CIN: ${cin}`);
+      
+      // First try MCA Intelligence Service for comprehensive financial data
+      const { mcaIntelligenceService } = await import('./mca-intelligence-service');
+      const financialHistory = await mcaIntelligenceService.getFinancialHistory(cin, 3);
+      
+      if (financialHistory.hasData && financialHistory.financialYears.length > 0) {
+        const latestYear = financialHistory.financialYears[0];
+        const confidenceScore = this.getSourceConfidence('mca');
+        
+        // Extract metrics from MCA Intelligence Service
+        if (latestYear.revenue !== null && latestYear.revenue > 0) {
+          metrics['revenue'] = {
+            value: latestYear.revenue,
+            source: 'mca',
+            retrievedAt: now,
+            confidenceScore,
+          };
+        }
+        
+        if (latestYear.profitAfterTax !== null) {
+          metrics['pat'] = {
+            value: latestYear.profitAfterTax,
+            source: 'mca',
+            retrievedAt: now,
+            confidenceScore,
+          };
+          metrics['netProfit'] = {
+            value: latestYear.profitAfterTax,
+            source: 'mca',
+            retrievedAt: now,
+            confidenceScore,
+          };
+        }
+        
+        if (latestYear.netWorth !== null && latestYear.netWorth > 0) {
+          metrics['networth'] = {
+            value: latestYear.netWorth,
+            source: 'mca',
+            retrievedAt: now,
+            confidenceScore,
+          };
+        }
+        
+        if (latestYear.totalAssets !== null && latestYear.totalAssets > 0) {
+          metrics['totalAssets'] = {
+            value: latestYear.totalAssets,
+            source: 'mca',
+            retrievedAt: now,
+            confidenceScore,
+          };
+        }
+        
+        if (latestYear.totalLiabilities !== null && latestYear.totalLiabilities > 0) {
+          metrics['totalLiabilities'] = {
+            value: latestYear.totalLiabilities,
+            source: 'mca',
+            retrievedAt: now,
+            confidenceScore,
+          };
+        }
+        
+        if (latestYear.totalBorrowing !== null && latestYear.totalBorrowing > 0) {
+          metrics['totalDebt'] = {
+            value: latestYear.totalBorrowing,
+            source: 'mca',
+            retrievedAt: now,
+            confidenceScore,
+          };
+        }
+        
+        // Add computed ratios (use schema-compliant key names)
+        if (latestYear.ratios.patMargin !== null) {
+          metrics['marginPat'] = {
+            value: latestYear.ratios.patMargin,
+            source: 'mca',
+            retrievedAt: now,
+            confidenceScore: confidenceScore * 0.95,
+          };
+        }
+        
+        if (latestYear.ratios.returnOnEquity !== null) {
+          metrics['roe'] = {
+            value: latestYear.ratios.returnOnEquity,
+            source: 'mca',
+            retrievedAt: now,
+            confidenceScore: confidenceScore * 0.95,
+          };
+        }
+        
+        if (latestYear.ratios.debtToEquity !== null) {
+          metrics['debtEquity'] = {
+            value: latestYear.ratios.debtToEquity,
+            source: 'mca',
+            retrievedAt: now,
+            confidenceScore: confidenceScore * 0.95,
+          };
+        }
+        
+        const metricsCount = Object.keys(metrics).length;
+        console.log(`[DataEnrichment] Fetched ${metricsCount} metrics from MCA Intelligence Service for ${cin}`);
+        
+        return { 
+          metrics, 
+          confidence: metricsCount > 0 ? confidenceScore : 0 
+        };
+      }
+      
+      // Fallback to basic MCA service if no financial history available
+      console.log(`[DataEnrichment] No MCA Intelligence data, falling back to basic MCA service for ${cin}`);
       const mcaData = await mcaService.getCompanyByCIN(cin);
       
       if (!mcaData) {
@@ -255,7 +366,7 @@ class DataEnrichmentService {
         return { metrics: {}, confidence: 0 };
       }
 
-      // Extract financial metrics from MCA data
+      // Extract financial metrics from basic MCA data
       const confidenceScore = this.getSourceConfidence('mca');
       
       // Normalize capital values (API may return strings)
@@ -320,7 +431,7 @@ class DataEnrichmentService {
 
       const metricsCount = Object.keys(metrics).length;
       if (metricsCount > 0) {
-        console.log(`[DataEnrichment] Fetched ${metricsCount} metrics from MCA for ${cin}`);
+        console.log(`[DataEnrichment] Fetched ${metricsCount} metrics from basic MCA for ${cin}`);
       } else {
         console.log(`[DataEnrichment] MCA data found but no usable metrics for ${cin} (capital values may be zero or invalid)`);
       }
@@ -1034,77 +1145,13 @@ class DataEnrichmentService {
 
     // ============================================================
     // INDIAN MARKET FALLBACK CHAIN
-    // Priority: Probe42 → MCA → NSE/BSE → Finnhub → Yahoo
+    // Priority: MCA Intelligence → NSE/BSE → Finnhub → Yahoo
+    // Note: Probe42 /kyc endpoint disabled (requires higher subscription tier)
+    // Probe42 /base-details still used for company identification
     // ============================================================
 
-    // 1. PROBE42 - Primary Source (0.98 confidence)
-    // Best source for Indian unlisted companies with comprehensive financials
-    if (company.probe42CompanyId) {
-      try {
-        auditTrail.push({
-          id: crypto.randomUUID(),
-          timestamp: new Date(),
-          action: 'fetch',
-          source: 'probe42',
-          reason: 'Fetching primary data from Probe42 (Indian market primary source)',
-        });
-
-        const financials = await probe42Service.getCompanyFinancials(company.probe42CompanyId, 1);
-        const yearData = financials.find(f => f.financial_year === financialYear) || financials[0];
-        
-        if (yearData) {
-          enriched.sources.push('probe42');
-          
-          const probe42Metrics: Record<string, number | undefined> = {
-            revenue: yearData.revenue,
-            ebitda: yearData.ebitda,
-            ebit: yearData.ebit,
-            pat: yearData.pat,
-            netProfit: yearData.net_profit,
-            totalAssets: yearData.total_assets,
-            totalLiabilities: yearData.total_liabilities,
-            networth: yearData.networth,
-            totalDebt: yearData.total_debt,
-            operatingCashFlow: yearData.operating_cash_flow,
-            freeCashFlow: yearData.free_cash_flow,
-          };
-
-          for (const [key, value] of Object.entries(probe42Metrics)) {
-            if (value !== undefined && value !== null) {
-              const existing = collectedMetrics.get(key) || [];
-              existing.push({
-                value,
-                source: 'probe42',
-                retrievedAt: now,
-                confidenceScore: this.getSourceConfidence('probe42'),
-              });
-              collectedMetrics.set(key, existing);
-            }
-          }
-
-          auditTrail.push({
-            id: crypto.randomUUID(),
-            timestamp: new Date(),
-            action: 'fetch',
-            source: 'probe42',
-            confidence: this.getSourceConfidence('probe42'),
-            reason: `Fetched ${Object.keys(probe42Metrics).filter(k => probe42Metrics[k] !== undefined).length} metrics from Probe42`,
-          });
-        }
-      } catch (error: any) {
-        console.error(`[DataEnrichment] Probe42 fetch failed: ${error.message}`);
-        auditTrail.push({
-          id: crypto.randomUUID(),
-          timestamp: new Date(),
-          action: 'fetch',
-          source: 'probe42',
-          reason: `Fetch failed: ${error.message}`,
-        });
-      }
-    }
-
-    // 2. MCA - Secondary Source (0.95 confidence)
-    // Ministry of Corporate Affairs - official government source for all Indian companies
+    // 1. MCA Intelligence Service - Primary Financial Source (0.95 confidence)
+    // Uses internal database with XBRL-extracted financial data from MCA filings
     if (effectiveCIN) {
       try {
         auditTrail.push({
@@ -1112,7 +1159,7 @@ class DataEnrichmentService {
           timestamp: new Date(),
           action: 'fetch',
           source: 'mca',
-          reason: `Fetching MCA data (Ministry of Corporate Affairs) using CIN: ${effectiveCIN}`,
+          reason: `Fetching primary financial data from MCA Intelligence Service for CIN: ${effectiveCIN}`,
         });
 
         const mcaResult = await this.fetchFromMCA(companyId, effectiveCIN);
@@ -1132,7 +1179,7 @@ class DataEnrichmentService {
             action: 'fetch',
             source: 'mca',
             confidence: mcaResult.confidence,
-            reason: `Fetched ${Object.keys(mcaResult.metrics).length} metrics from MCA`,
+            reason: `Fetched ${Object.keys(mcaResult.metrics).length} metrics from MCA Intelligence Service`,
           });
         }
       } catch (error: any) {
@@ -1142,12 +1189,12 @@ class DataEnrichmentService {
           timestamp: new Date(),
           action: 'fetch',
           source: 'mca',
-          reason: `Fetch failed: ${error.message}`,
+          reason: `MCA fetch failed: ${error.message}`,
         });
       }
     }
 
-    // 3. NSE/BSE - Tertiary Source (0.90 confidence)
+    // 2. NSE/BSE - Secondary Source (0.90 confidence)
     // Exchange filings (only for listed or partially listed companies)
     try {
       auditTrail.push({
@@ -1189,7 +1236,7 @@ class DataEnrichmentService {
       });
     }
 
-    // 4. BSE - Separate BSE API (0.90 confidence)
+    // 3. BSE - Separate BSE API (0.90 confidence)
     // Good for SME/StartUp segment and companies not on NSE
     if (company.symbol || options.externalSymbols?.bse) {
       try {
@@ -1246,7 +1293,7 @@ class DataEnrichmentService {
       }
     }
 
-    // 5. FINNHUB - Fifth Source (0.75 confidence)
+    // 4. FINNHUB - Fallback Source (0.75 confidence)
     // Limited Indian coverage but good for listed stocks with international presence
     if (options.externalSymbols?.finnhub && finnhubService.isReady()) {
       try {
@@ -1307,7 +1354,7 @@ class DataEnrichmentService {
       }
     }
 
-    // 6. YAHOO FINANCE - Last Resort (0.65 confidence)
+    // 5. YAHOO FINANCE - Last Resort (0.65 confidence)
     // Uses .NS (NSE) or .BO (BSE) suffix for Indian stocks
     if (company.symbol || options.externalSymbols?.yahoo) {
       try {
