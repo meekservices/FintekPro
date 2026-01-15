@@ -227,6 +227,7 @@ import FestivalMarketing from "@/pages/admin/festival-marketing";
 import EmailCampaigns from "@/pages/admin/email-campaigns";
 import WhatsAppCampaigns from "@/pages/admin/whatsapp-campaigns";
 import SMSCampaigns from "@/pages/admin/sms-campaigns";
+import SmsInbox from "@/pages/admin/sms-inbox";
 import LeadProspecting from "@/pages/admin/lead-prospecting";
 import McaIntelligence from "@/pages/admin/mca-intelligence";
 import McaCompanyProfile from "@/pages/admin/mca-company-profile";
@@ -697,6 +698,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <SMSCampaigns />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/sms-inbox">
+        {() => (
+          <AdminLayout>
+            <SmsInbox />
           </AdminLayout>
         )}
       </Route>

@@ -26385,3 +26385,55 @@ export const portfolioMetricsCache = pgTable("portfolio_metrics_cache", {
 export const insertPortfolioMetricsCacheSchema = createInsertSchema(portfolioMetricsCache).omit({ id: true, createdAt: true, calculatedAt: true });
 export type PortfolioMetricsCache = typeof portfolioMetricsCache.$inferSelect;
 export type InsertPortfolioMetricsCache = z.infer<typeof insertPortfolioMetricsCacheSchema>;
+
+// Inbound SMS/WhatsApp Message Logs
+export const inboundMessages = pgTable("inbound_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Message details
+  messageSid: varchar("message_sid", { length: 100 }).notNull(),
+  channel: varchar("channel", { length: 20 }).notNull(), // 'sms' | 'whatsapp'
+  direction: varchar("direction", { length: 20 }).notNull().default('inbound'), // 'inbound' | 'outbound'
+  
+  // Contact info
+  fromNumber: varchar("from_number", { length: 50 }).notNull(),
+  toNumber: varchar("to_number", { length: 50 }).notNull(),
+  
+  // Message content
+  body: text("body").notNull(),
+  
+  // Media attachments
+  numMedia: integer("num_media").default(0),
+  mediaUrls: text("media_urls").array(),
+  
+  // User association
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Command parsing
+  parsedCommand: varchar("parsed_command", { length: 50 }),
+  commandArgs: text("command_args").array(),
+  
+  // Response tracking
+  autoReplyResponse: text("auto_reply_response"),
+  processed: boolean("processed").default(false),
+  
+  // Admin notes
+  adminNotes: text("admin_notes"),
+  isRead: boolean("is_read").default(false),
+  readAt: timestamp("read_at"),
+  readBy: varchar("read_by"),
+  
+  // Timestamps
+  receivedAt: timestamp("received_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_inbound_messages_channel").on(table.channel),
+  index("idx_inbound_messages_from").on(table.fromNumber),
+  index("idx_inbound_messages_user").on(table.userId),
+  index("idx_inbound_messages_received").on(table.receivedAt),
+  index("idx_inbound_messages_unread").on(table.isRead, table.receivedAt),
+]);
+
+export const insertInboundMessageSchema = createInsertSchema(inboundMessages).omit({ id: true, createdAt: true });
+export type InboundMessage = typeof inboundMessages.$inferSelect;
+export type InsertInboundMessage = z.infer<typeof insertInboundMessageSchema>;

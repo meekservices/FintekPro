@@ -1,10 +1,11 @@
 import twilio from 'twilio';
 import { Request, Response, Router } from 'express';
 import { db } from '../db';
-import { users, userNotifications, whatsappContacts } from '@shared/schema';
-import { eq, sql } from 'drizzle-orm';
+import { users, userNotifications, whatsappContacts, inboundMessages } from '@shared/schema';
+import { eq, sql, desc, and, gte, lte, like } from 'drizzle-orm';
 import { twilioWhatsAppService } from './twilio-whatsapp-service';
 import { smsService } from './sms-service';
+import { requireAdmin } from '../middleware/roleMiddleware';
 
 interface IncomingMessage {
   MessageSid: string;
@@ -182,6 +183,27 @@ class TwilioWebhookService {
     const user = await this.findUserByPhone(phoneNumber);
     const { command, args } = this.parseCommand(message.Body);
 
+    // Generate auto-reply response
+    const autoReply = await this.generateResponse(command, args, user, 'sms');
+
+    // Save to database
+    await this.saveInboundMessage({
+      messageSid: message.MessageSid,
+      channel: 'sms',
+      direction: 'inbound',
+      fromNumber: message.From,
+      toNumber: message.To,
+      body: message.Body,
+      numMedia: parseInt(message.NumMedia || '0'),
+      mediaUrls: message.MediaUrl0 ? [message.MediaUrl0] : [],
+      userId: user?.id,
+      parsedCommand: command || null,
+      commandArgs: args.length > 0 ? args : null,
+      autoReplyResponse: autoReply,
+      processed: true,
+    });
+
+    // Also keep in-memory log for quick access
     this.logMessage({
       id: message.MessageSid,
       direction: 'inbound',
@@ -197,7 +219,7 @@ class TwilioWebhookService {
 
     console.log(`📥 Incoming SMS from ${phoneNumber}: ${message.Body.substring(0, 50)}...`);
 
-    return this.generateResponse(command, args, user, 'sms');
+    return autoReply;
   }
 
   async handleIncomingWhatsApp(message: IncomingMessage): Promise<string> {
@@ -207,6 +229,27 @@ class TwilioWebhookService {
 
     await this.markWhatsAppContact(phoneNumber, user?.id);
 
+    // Generate auto-reply response
+    const autoReply = await this.generateResponse(command, args, user, 'whatsapp');
+
+    // Save to database
+    await this.saveInboundMessage({
+      messageSid: message.MessageSid,
+      channel: 'whatsapp',
+      direction: 'inbound',
+      fromNumber: message.From,
+      toNumber: message.To,
+      body: message.Body,
+      numMedia: parseInt(message.NumMedia || '0'),
+      mediaUrls: message.MediaUrl0 ? [message.MediaUrl0] : [],
+      userId: user?.id,
+      parsedCommand: command || null,
+      commandArgs: args.length > 0 ? args : null,
+      autoReplyResponse: autoReply,
+      processed: true,
+    });
+
+    // Also keep in-memory log for quick access
     this.logMessage({
       id: message.MessageSid,
       direction: 'inbound',
@@ -222,7 +265,7 @@ class TwilioWebhookService {
 
     console.log(`📥 Incoming WhatsApp from ${phoneNumber}: ${message.Body.substring(0, 50)}...`);
 
-    return this.generateResponse(command, args, user, 'whatsapp');
+    return autoReply;
   }
 
   private async generateResponse(
@@ -392,6 +435,164 @@ Reply HELP for available commands.`;
     }
   }
 
+  private async saveInboundMessage(data: {
+    messageSid: string;
+    channel: string;
+    direction: string;
+    fromNumber: string;
+    toNumber: string;
+    body: string;
+    numMedia?: number;
+    mediaUrls?: string[];
+    userId?: string;
+    parsedCommand?: string | null;
+    commandArgs?: string[] | null;
+    autoReplyResponse?: string;
+    processed?: boolean;
+  }): Promise<void> {
+    try {
+      await db.insert(inboundMessages).values({
+        messageSid: data.messageSid,
+        channel: data.channel,
+        direction: data.direction,
+        fromNumber: data.fromNumber,
+        toNumber: data.toNumber,
+        body: data.body,
+        numMedia: data.numMedia || 0,
+        mediaUrls: data.mediaUrls || [],
+        userId: data.userId || null,
+        parsedCommand: data.parsedCommand || null,
+        commandArgs: data.commandArgs || [],
+        autoReplyResponse: data.autoReplyResponse || null,
+        processed: data.processed ?? false,
+        isRead: false,
+        receivedAt: new Date(),
+      });
+      console.log(`💾 Saved inbound ${data.channel} message from ${data.fromNumber}`);
+    } catch (error) {
+      console.error('Error saving inbound message to database:', error);
+    }
+  }
+
+  async getInboundMessages(options: {
+    channel?: string;
+    fromNumber?: string;
+    isRead?: boolean;
+    limit?: number;
+    offset?: number;
+    startDate?: Date;
+    endDate?: Date;
+  } = {}): Promise<{ messages: any[]; total: number }> {
+    const { channel, fromNumber, isRead, limit = 50, offset = 0, startDate, endDate } = options;
+
+    try {
+      const conditions = [];
+      
+      if (channel) {
+        conditions.push(eq(inboundMessages.channel, channel));
+      }
+      if (fromNumber) {
+        conditions.push(like(inboundMessages.fromNumber, `%${fromNumber}%`));
+      }
+      if (isRead !== undefined) {
+        conditions.push(eq(inboundMessages.isRead, isRead));
+      }
+      if (startDate) {
+        conditions.push(gte(inboundMessages.receivedAt, startDate));
+      }
+      if (endDate) {
+        conditions.push(lte(inboundMessages.receivedAt, endDate));
+      }
+
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+      const [messages, countResult] = await Promise.all([
+        db.select()
+          .from(inboundMessages)
+          .where(whereClause)
+          .orderBy(desc(inboundMessages.receivedAt))
+          .limit(limit)
+          .offset(offset),
+        db.select({ count: sql<number>`count(*)::int` })
+          .from(inboundMessages)
+          .where(whereClause),
+      ]);
+
+      return {
+        messages,
+        total: countResult[0]?.count || 0,
+      };
+    } catch (error) {
+      console.error('Error fetching inbound messages:', error);
+      return { messages: [], total: 0 };
+    }
+  }
+
+  async markMessageAsRead(messageId: string, readBy: string): Promise<boolean> {
+    try {
+      await db.update(inboundMessages)
+        .set({ 
+          isRead: true, 
+          readAt: new Date(),
+          readBy: readBy,
+        })
+        .where(eq(inboundMessages.id, messageId));
+      return true;
+    } catch (error) {
+      console.error('Error marking message as read:', error);
+      return false;
+    }
+  }
+
+  async markAllAsRead(readBy: string): Promise<number> {
+    try {
+      // Get count of unread messages first
+      const countResult = await db.select({ count: sql<number>`count(*)::int` })
+        .from(inboundMessages)
+        .where(eq(inboundMessages.isRead, false));
+      const unreadCount = countResult[0]?.count || 0;
+      
+      if (unreadCount > 0) {
+        await db.update(inboundMessages)
+          .set({ 
+            isRead: true, 
+            readAt: new Date(),
+            readBy: readBy,
+          })
+          .where(eq(inboundMessages.isRead, false));
+      }
+      
+      return unreadCount;
+    } catch (error) {
+      console.error('Error marking all messages as read:', error);
+      return 0;
+    }
+  }
+
+  async getUnreadCount(): Promise<number> {
+    try {
+      const result = await db.select({ count: sql<number>`count(*)::int` })
+        .from(inboundMessages)
+        .where(eq(inboundMessages.isRead, false));
+      return result[0]?.count || 0;
+    } catch (error) {
+      console.error('Error getting unread count:', error);
+      return 0;
+    }
+  }
+
+  async addAdminNote(messageId: string, note: string): Promise<boolean> {
+    try {
+      await db.update(inboundMessages)
+        .set({ adminNotes: note })
+        .where(eq(inboundMessages.id, messageId));
+      return true;
+    } catch (error) {
+      console.error('Error adding admin note:', error);
+      return false;
+    }
+  }
+
   getMessageLogs(limit: number = 50): MessageLogEntry[] {
     return this.messageLogs.slice(-limit);
   }
@@ -533,6 +734,89 @@ export function createTwilioWebhookRouter(): Router {
     res.json({
       logs: twilioWebhookService.getMessageLogs(limit),
     });
+  });
+
+  // Admin routes for inbound message management (protected)
+  router.get('/admin/messages', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { channel, fromNumber, isRead, limit, offset, startDate, endDate } = req.query;
+      
+      const result = await twilioWebhookService.getInboundMessages({
+        channel: channel as string,
+        fromNumber: fromNumber as string,
+        isRead: isRead === 'true' ? true : isRead === 'false' ? false : undefined,
+        limit: limit ? parseInt(limit as string) : 50,
+        offset: offset ? parseInt(offset as string) : 0,
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined,
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error fetching inbound messages:', error);
+      res.status(500).json({ error: 'Failed to fetch messages' });
+    }
+  });
+
+  router.get('/admin/messages/unread-count', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const count = await twilioWebhookService.getUnreadCount();
+      res.json({ unreadCount: count });
+    } catch (error) {
+      console.error('Error getting unread count:', error);
+      res.status(500).json({ error: 'Failed to get unread count' });
+    }
+  });
+
+  router.post('/admin/messages/:messageId/read', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { messageId } = req.params;
+      const readBy = req.body.readBy || 'admin';
+      
+      const success = await twilioWebhookService.markMessageAsRead(messageId, readBy);
+      
+      if (success) {
+        res.json({ success: true });
+      } else {
+        res.status(400).json({ error: 'Failed to mark message as read' });
+      }
+    } catch (error) {
+      console.error('Error marking message as read:', error);
+      res.status(500).json({ error: 'Failed to mark message as read' });
+    }
+  });
+
+  router.post('/admin/messages/mark-all-read', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const readBy = req.body.readBy || 'admin';
+      const count = await twilioWebhookService.markAllAsRead(readBy);
+      res.json({ success: true, markedCount: count });
+    } catch (error) {
+      console.error('Error marking all messages as read:', error);
+      res.status(500).json({ error: 'Failed to mark all as read' });
+    }
+  });
+
+  router.post('/admin/messages/:messageId/note', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { messageId } = req.params;
+      const { note } = req.body;
+      
+      if (!note) {
+        return res.status(400).json({ error: 'Note is required' });
+      }
+      
+      const success = await twilioWebhookService.addAdminNote(messageId, note);
+      
+      if (success) {
+        res.json({ success: true });
+      } else {
+        res.status(400).json({ error: 'Failed to add note' });
+      }
+    } catch (error) {
+      console.error('Error adding admin note:', error);
+      res.status(500).json({ error: 'Failed to add note' });
+    }
   });
 
   return router;
