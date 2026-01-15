@@ -152,6 +152,27 @@ export default function WhatsAppCampaigns() {
     }
   });
 
+  const sendSingleWhatsAppMutation = useMutation({
+    mutationFn: async (data: { to: string; templateType: string; variables: Record<string, string> }) => {
+      return apiRequest('/api/admin/marketing/multi-channel/bulk', 'POST', {
+        recipients: [{ mobile: data.to, name: 'Customer' }],
+        templateType: data.templateType,
+        variables: data.variables,
+        channels: { whatsapp: true, sms: false, email: false }
+      });
+    },
+    onSuccess: () => {
+      toast({ title: 'Message sent successfully' });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: 'Failed to send message',
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
+  });
+
   const handleSendMultiChannel = () => {
     if (!audienceContacts || audienceContacts.length === 0) {
       toast({ title: 'No recipients selected', variant: 'destructive' });
