@@ -2054,10 +2054,9 @@ TCS     Tata Consultancy        25      3850.00"
                     }
                     setUnifiedAdvisoryLoading(true);
                     try {
-                      const response = await apiRequest('/api/unified-advisory/recommendations', {
+                      const response = await apiRequest(`/api/unified-advisory/recommendations/${selectedClientId}`, {
                         method: 'POST',
                         body: JSON.stringify({
-                          clientId: selectedClientId,
                           productTypes: selectedProductCategories
                         })
                       });
