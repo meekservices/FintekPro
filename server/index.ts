@@ -534,6 +534,11 @@ app.use((req, res, next) => {
   app.use('/api/reit-invit', reitInvitRoutes.default);
   console.log('✅ REIT/InvIT investment routes registered');
   
+  // Register Admin Database Management routes
+  const adminDatabaseRoutes = await import('./routes/admin-database');
+  app.use('/api/admin/database', adminDatabaseRoutes.default);
+  console.log('✅ Admin Database Management routes registered');
+
   // Register error testing routes (development only)
   if (process.env.NODE_ENV === 'development') {
     const testErrorRoutes = await import('./test-error-handling');
