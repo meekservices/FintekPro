@@ -1389,22 +1389,67 @@ class AgentProspectWizardService {
       return recommendations;
     }
     
-    // Default allocations by risk profile (expanded with new asset classes)
+    // Default allocations by risk profile (expanded with new asset classes including stocks)
     const defaultAllocations: Record<string, { 
       equity: number; debt: number; hybrid: number; gold: number; silver: number; index: number;
       international: number; reit: number; invit: number; bonds: number; mld: number; pms: number; aif: number;
+      listed_stocks: number; unlisted_stocks: number;
     }> = {
-      conservative: { equity: 20, debt: 35, hybrid: 15, gold: 8, silver: 0, index: 5, international: 2, reit: 5, invit: 5, bonds: 5, mld: 0, pms: 0, aif: 0 },
-      moderate: { equity: 30, debt: 20, hybrid: 12, gold: 8, silver: 0, index: 8, international: 5, reit: 5, invit: 5, bonds: 5, mld: 2, pms: 0, aif: 0 },
-      aggressive: { equity: 40, debt: 8, hybrid: 8, gold: 6, silver: 3, index: 10, international: 8, reit: 5, invit: 5, bonds: 4, mld: 3, pms: 0, aif: 0 },
-      very_aggressive: { equity: 45, debt: 5, hybrid: 5, gold: 5, silver: 3, index: 10, international: 10, reit: 5, invit: 5, bonds: 4, mld: 3, pms: 0, aif: 0 }
+      conservative: { equity: 20, debt: 35, hybrid: 15, gold: 8, silver: 0, index: 5, international: 2, reit: 5, invit: 5, bonds: 5, mld: 0, pms: 0, aif: 0, listed_stocks: 5, unlisted_stocks: 0 },
+      moderate: { equity: 25, debt: 20, hybrid: 12, gold: 8, silver: 0, index: 8, international: 5, reit: 5, invit: 5, bonds: 5, mld: 2, pms: 0, aif: 0, listed_stocks: 8, unlisted_stocks: 2 },
+      aggressive: { equity: 32, debt: 8, hybrid: 8, gold: 6, silver: 3, index: 10, international: 8, reit: 5, invit: 5, bonds: 4, mld: 3, pms: 0, aif: 0, listed_stocks: 12, unlisted_stocks: 6 },
+      very_aggressive: { equity: 30, debt: 5, hybrid: 5, gold: 5, silver: 3, index: 10, international: 10, reit: 5, invit: 5, bonds: 4, mld: 3, pms: 0, aif: 0, listed_stocks: 15, unlisted_stocks: 10 }
     };
     
     // Use custom allocations if provided
-    const targetAllocations = customAllocations && 
+    let targetAllocations = customAllocations && 
       (customAllocations.equity > 0 || customAllocations.debt > 0 || customAllocations.hybrid > 0)
       ? { ...defaultAllocations.moderate, ...customAllocations }
       : defaultAllocations[riskProfile.riskTolerance] || defaultAllocations.moderate;
+    
+    // Map frontend category IDs to backend allocation keys
+    const categoryToAllocationKey: Record<string, string> = {
+      equity: 'equity',
+      debt: 'debt',
+      hybrid: 'hybrid',
+      gold_fof: 'gold',
+      silver_fof: 'silver',
+      index_fund: 'index',
+      international: 'international',
+      reit: 'reit',
+      invit: 'invit',
+      bonds: 'bonds',
+      mld: 'mld',
+      listed_stocks: 'listed_stocks',
+      unlisted_stocks: 'unlisted_stocks',
+      pms: 'pms',
+      aif: 'aif'
+    };
+    
+    // If selectedCategories is provided, recalculate target allocations to distribute only among selected categories
+    if (selectedCategories && selectedCategories.length > 0) {
+      // Calculate the total current allocation for selected categories
+      let totalSelectedAllocation = 0;
+      selectedCategories.forEach(cat => {
+        const allocationKey = categoryToAllocationKey[cat] || cat;
+        totalSelectedAllocation += (targetAllocations as any)[allocationKey] || 0;
+      });
+      
+      // If selected categories have 0% total allocation, distribute 100% equally among them
+      if (totalSelectedAllocation === 0) {
+        const equalAllocation = Math.floor(100 / selectedCategories.length);
+        const newAllocations = { ...targetAllocations };
+        selectedCategories.forEach((cat, idx) => {
+          const allocationKey = categoryToAllocationKey[cat] || cat;
+          (newAllocations as any)[allocationKey] = idx === 0 
+            ? equalAllocation + (100 % selectedCategories.length) 
+            : equalAllocation;
+        });
+        targetAllocations = newAllocations;
+        console.log('[Rebalancing] No allocations for selected categories, distributed equally:', 
+          selectedCategories.map(c => `${c}: ${(targetAllocations as any)[categoryToAllocationKey[c] || c]}%`).join(', '));
+      }
+    }
     
     console.log('[Rebalancing] Target allocations:', JSON.stringify(targetAllocations));
     console.log('[Rebalancing] Current portfolio value:', totalValue);
@@ -1474,7 +1519,7 @@ class AgentProspectWizardService {
       return 'others';
     };
     
-    // Calculate current allocation by category (expanded)
+    // Calculate current allocation by category (expanded with stocks)
     const currentByCategory: Record<string, { value: number; holdings: ProspectPortfolioHolding[] }> = {
       equity: { value: 0, holdings: [] },
       debt: { value: 0, holdings: [] },
@@ -1489,6 +1534,8 @@ class AgentProspectWizardService {
       mld: { value: 0, holdings: [] },
       pms: { value: 0, holdings: [] },
       aif: { value: 0, holdings: [] },
+      listed_stocks: { value: 0, holdings: [] },
+      unlisted_stocks: { value: 0, holdings: [] },
       others: { value: 0, holdings: [] }
     };
     
