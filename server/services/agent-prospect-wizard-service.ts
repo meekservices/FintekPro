@@ -1375,7 +1375,8 @@ class AgentProspectWizardService {
       equity: number; debt: number; hybrid: number; gold: number; silver?: number; index?: number;
       international?: number; reit?: number; invit?: number; bonds?: number; mld?: number; pms?: number; aif?: number;
     },
-    freshInvestmentAmount: number = 0
+    freshInvestmentAmount: number = 0,
+    selectedCategories?: string[]
   ): RebalanceRecommendation[] {
     // Normalize holdings to canonical format at entry point
     const normalizedHoldings = normalizeHoldings(holdings);
@@ -1625,6 +1626,35 @@ class AgentProspectWizardService {
     if (analysis.underperformers && analysis.underperformers.length > 0) {
       // Normalize underperformers for consistent field access
       const normalizedUnderperformers = normalizeHoldings(analysis.underperformers);
+      
+      // Build allowed categories set for SWITCH filtering
+      const switchCategoryMapping: Record<string, string[]> = {
+        'equity': ['equity'],
+        'debt': ['debt'],
+        'hybrid': ['hybrid'],
+        'gold_fof': ['gold'],
+        'silver_fof': ['silver'],
+        'index_fund': ['index'],
+        'international': ['international'],
+        'reit': ['reit'],
+        'invit': ['invit'],
+        'bonds': ['bonds'],
+        'mld': ['mld'],
+        'listed_stocks': ['listed_stocks'],
+        'unlisted_stocks': ['unlisted_stocks'],
+        'pms': ['pms'],
+        'aif': ['aif']
+      };
+      
+      const allowedSwitchCategories = new Set<string>();
+      if (selectedCategories && selectedCategories.length > 0) {
+        selectedCategories.forEach(cat => {
+          const mappedCats = switchCategoryMapping[cat] || [cat];
+          mappedCats.forEach(c => allowedSwitchCategories.add(c));
+        });
+        console.log('[Rebalancing] Filtering SWITCH recs to categories:', Array.from(allowedSwitchCategories));
+      }
+      
       normalizedUnderperformers.slice(0, 3).forEach(underperformer => {
         // Check if not already in recommendations
         const upName = underperformer.name || underperformer.productName || '';
@@ -1632,6 +1662,12 @@ class AgentProspectWizardService {
         if (!existing && underperformer.currentValue > 5000) {
           // Find a better performing fund in the same category
           const category = categorizeHolding(underperformer);
+          
+          // Skip SWITCH if category is not in selectedCategories
+          if (selectedCategories && selectedCategories.length > 0 && !allowedSwitchCategories.has(category)) {
+            console.log(`[Rebalancing] Skipping SWITCH for ${upName} - category ${category} not in selected categories`);
+            return;
+          }
           const targetFunds = (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category]?.[riskProfile.riskTolerance] || 
                              (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category]?.moderate || [];
           const targetFund = targetFunds[0];
@@ -1697,7 +1733,41 @@ class AgentProspectWizardService {
       // Find underweight categories
       const underweightCategories: { category: string; gap: number; targetPercent: number }[] = [];
       
+      // Map frontend category names to rebalancing category names for filtering
+      const categoryMapping: Record<string, string[]> = {
+        'equity': ['equity'],
+        'debt': ['debt'],
+        'hybrid': ['hybrid'],
+        'gold_fof': ['gold'],
+        'silver_fof': ['silver'],
+        'index_fund': ['index'],
+        'international': ['international'],
+        'reit': ['reit'],
+        'invit': ['invit'],
+        'bonds': ['bonds'],
+        'mld': ['mld'],
+        'listed_stocks': ['listed_stocks'],
+        'unlisted_stocks': ['unlisted_stocks'],
+        'pms': ['pms'],
+        'aif': ['aif']
+      };
+      
+      // Build list of allowed rebalancing categories based on selectedCategories
+      const allowedCategories = new Set<string>();
+      if (selectedCategories && selectedCategories.length > 0) {
+        selectedCategories.forEach(cat => {
+          const mappedCats = categoryMapping[cat] || [cat];
+          mappedCats.forEach(c => allowedCategories.add(c));
+        });
+        console.log('[Rebalancing] Filtering BUY recs to selected categories:', Array.from(allowedCategories));
+      }
+      
       categories.forEach(category => {
+        // Skip if selectedCategories is provided and this category isn't in it
+        if (selectedCategories && selectedCategories.length > 0 && !allowedCategories.has(category)) {
+          return;
+        }
+        
         const targetPercent = targetAllocations[category as keyof typeof targetAllocations] || 0;
         const currentValue = currentByCategory[category]?.value || 0;
         const currentPercent = (currentValue / totalValue) * 100;
@@ -2206,7 +2276,8 @@ class AgentProspectWizardService {
       riskProfile, 
       analysis,
       customAllocations,
-      freshInvestmentAmount
+      freshInvestmentAmount,
+      selectedCategories
     );
     
     // Handle both old array format and new object format for backwards compatibility
