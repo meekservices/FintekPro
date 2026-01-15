@@ -433,16 +433,20 @@ export class ZohoCampaignsService {
     
     try {
       // Create a temporary mailing list
-      const listKey = await this.createMailingList(listName, `Festival greeting list for ${options.festivalName}`);
+      const listKey = await this.createContactList(listName, `Festival greeting list for ${options.festivalName}`);
       
-      // Add recipients to the list
-      const contacts = options.recipients.map(r => ({
-        email: r.email,
+      if (!listKey) {
+        throw new Error('Failed to create mailing list');
+      }
+      
+      // Add recipients to the list using bulk add
+      const contacts: Contact[] = options.recipients.map(r => ({
+        emailAddress: r.email,
         firstName: r.name.split(' ')[0] || '',
         lastName: r.name.split(' ').slice(1).join(' ') || '',
       }));
       
-      await this.addContactsToList(listKey, contacts);
+      await this.addContactsBulk(listKey, contacts);
       
       // Create the campaign
       const campaignName = `${options.festivalName} Greetings - ${new Date().toLocaleDateString()}`;
@@ -451,12 +455,17 @@ export class ZohoCampaignsService {
         subject: options.subject,
         fromEmail: options.fromEmail || 'noreply@fintekpro.com',
         fromName: options.fromName || 'FintekPro',
-        htmlBody: options.htmlContent,
-        listKey,
+        htmlContent: options.htmlContent,
+        listKeys: [listKey],
       });
       
-      // Schedule for immediate send
-      await this.scheduleCampaign(campaignKey);
+      if (!campaignKey) {
+        throw new Error('Failed to create campaign');
+      }
+      
+      // Schedule for immediate send (1 minute from now)
+      const sendTime = new Date(Date.now() + 60000);
+      await this.scheduleCampaign(campaignKey, sendTime);
       
       console.log(`✅ Festival greeting campaign created: ${campaignKey} for ${options.recipients.length} recipients`);
       
