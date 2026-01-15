@@ -64,19 +64,63 @@ interface MessagesResponse {
   total: number;
 }
 
+interface CallLog {
+  id: string;
+  callSid: string;
+  direction: string;
+  status: string;
+  callerNumber: string;
+  calledNumber: string;
+  callerCity: string | null;
+  callerState: string | null;
+  callerCountry: string | null;
+  duration: number | null;
+  userId: string | null;
+  assignedAgentId: string | null;
+  callbackRequested: boolean;
+  callbackStatus: string | null;
+  callbackScheduledAt: string | null;
+  callbackCompletedAt: string | null;
+  recordingUrl: string | null;
+  adminNotes: string | null;
+  isRead: boolean;
+  readAt: string | null;
+  readBy: string | null;
+  greetingPlayed: string | null;
+  callStartedAt: string;
+  callEndedAt: string | null;
+  userFirstName: string | null;
+  userLastName: string | null;
+  userEmail: string | null;
+}
+
+interface CallsResponse {
+  calls: CallLog[];
+  total: number;
+}
+
+interface CombinedUnreadCount {
+  unreadCount: number;
+  messageCount: number;
+  callCount: number;
+}
+
 export default function SmsInbox() {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'all' | 'sms' | 'whatsapp'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'sms' | 'whatsapp' | 'calls'>('all');
   const [filterUnread, setFilterUnread] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMessage, setSelectedMessage] = useState<InboundMessage | null>(null);
+  const [selectedCall, setSelectedCall] = useState<CallLog | null>(null);
   const [noteDialogOpen, setNoteDialogOpen] = useState(false);
   const [adminNote, setAdminNote] = useState('');
   const [page, setPage] = useState(0);
+  const [callbackDialogOpen, setCallbackDialogOpen] = useState(false);
+  const [callbackStatus, setCallbackStatus] = useState('');
   const pageSize = 20;
 
-  const { data: unreadCount, refetch: refetchUnread } = useQuery<{ unreadCount: number }>({
-    queryKey: ['/api/twilio/admin/messages/unread-count'],
+  const { data: combinedUnreadCount, refetch: refetchUnread } = useQuery<CombinedUnreadCount>({
+    queryKey: ['/api/twilio/admin/inbox/unread-count'],
     refetchInterval: 30000,
   });
 
@@ -84,7 +128,7 @@ export default function SmsInbox() {
     queryKey: ['/api/twilio/admin/messages', activeTab, filterUnread, searchQuery, page],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (activeTab !== 'all') params.set('channel', activeTab);
+      if (activeTab !== 'all' && activeTab !== 'calls') params.set('channel', activeTab);
       if (filterUnread) params.set('isRead', 'false');
       if (searchQuery) params.set('fromNumber', searchQuery);
       params.set('limit', pageSize.toString());
@@ -94,6 +138,22 @@ export default function SmsInbox() {
       if (!response.ok) throw new Error('Failed to fetch messages');
       return response.json();
     },
+    enabled: activeTab !== 'calls',
+  });
+
+  const { data: callsData, isLoading: isLoadingCalls, refetch: refetchCalls } = useQuery<CallsResponse>({
+    queryKey: ['/api/twilio/admin/calls', filterUnread, page],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (filterUnread) params.set('isRead', 'false');
+      params.set('limit', pageSize.toString());
+      params.set('offset', (page * pageSize).toString());
+      
+      const response = await fetch(`/api/twilio/admin/calls?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch calls');
+      return response.json();
+    },
+    enabled: activeTab === 'calls',
   });
 
   const markReadMutation = useMutation({
@@ -138,11 +198,80 @@ export default function SmsInbox() {
     },
   });
 
+  const markCallReadMutation = useMutation({
+    mutationFn: async (callId: string) => {
+      return apiRequest(`/api/twilio/admin/calls/${callId}/read`, {
+        method: 'POST',
+        body: JSON.stringify({ readBy: 'admin' }),
+      });
+    },
+    onSuccess: () => {
+      refetchCalls();
+      refetchUnread();
+    },
+  });
+
+  const updateCallbackMutation = useMutation({
+    mutationFn: async ({ callId, status, notes }: { callId: string; status: string; notes?: string }) => {
+      return apiRequest(`/api/twilio/admin/calls/${callId}/callback`, {
+        method: 'POST',
+        body: JSON.stringify({ status, notes }),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: 'Callback status updated' });
+      setCallbackDialogOpen(false);
+      setCallbackStatus('');
+      refetchCalls();
+    },
+  });
+
+  const addCallNoteMutation = useMutation({
+    mutationFn: async ({ callId, note }: { callId: string; note: string }) => {
+      return apiRequest(`/api/twilio/admin/calls/${callId}/note`, {
+        method: 'POST',
+        body: JSON.stringify({ note }),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: 'Note added successfully' });
+      setNoteDialogOpen(false);
+      setAdminNote('');
+      refetchCalls();
+    },
+  });
+
   const handleMessageClick = (message: InboundMessage) => {
     setSelectedMessage(message);
+    setSelectedCall(null);
     if (!message.isRead) {
       markReadMutation.mutate(message.id);
     }
+  };
+
+  const handleCallClick = (call: CallLog) => {
+    setSelectedCall(call);
+    setSelectedMessage(null);
+    if (!call.isRead) {
+      markCallReadMutation.mutate(call.id);
+    }
+  };
+
+  const getCallbackStatusBadge = (status: string | null) => {
+    switch (status) {
+      case 'pending': return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">Pending</Badge>;
+      case 'scheduled': return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Scheduled</Badge>;
+      case 'completed': return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Completed</Badge>;
+      case 'cancelled': return <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">Cancelled</Badge>;
+      default: return <Badge variant="outline">Unknown</Badge>;
+    }
+  };
+
+  const formatDuration = (seconds: number | null) => {
+    if (!seconds) return '0s';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
   };
 
   const getChannelIcon = (channel: string) => {
@@ -161,7 +290,9 @@ export default function SmsInbox() {
     }
   };
 
-  const totalPages = Math.ceil((messagesData?.total || 0) / pageSize);
+  const totalPages = activeTab === 'calls' 
+    ? Math.ceil((callsData?.total || 0) / pageSize)
+    : Math.ceil((messagesData?.total || 0) / pageSize);
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -169,27 +300,27 @@ export default function SmsInbox() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-3">
             <Inbox className="h-8 w-8 text-primary" />
-            Message Inbox
+            Communication Inbox
           </h1>
           <p className="text-muted-foreground mt-1">
-            View and manage incoming SMS and WhatsApp messages
+            View and manage incoming SMS, WhatsApp messages, and voice calls
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {(unreadCount?.unreadCount ?? 0) > 0 && (
+          {(combinedUnreadCount?.unreadCount ?? 0) > 0 && (
             <Badge variant="destructive" className="flex items-center gap-1">
               <Bell className="h-3 w-3" />
-              {unreadCount?.unreadCount} unread
+              {combinedUnreadCount?.unreadCount} unread
             </Badge>
           )}
-          <Button variant="outline" onClick={() => refetch()}>
+          <Button variant="outline" onClick={() => { refetch(); refetchCalls(); }}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
           <Button 
             variant="outline" 
             onClick={() => markAllReadMutation.mutate()}
-            disabled={markAllReadMutation.isPending || (unreadCount?.unreadCount ?? 0) === 0}
+            disabled={markAllReadMutation.isPending || (combinedUnreadCount?.messageCount ?? 0) === 0}
           >
             <CheckCheck className="h-4 w-4 mr-2" />
             Mark All Read
@@ -197,7 +328,7 @@ export default function SmsInbox() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Messages</CardTitle>
@@ -208,10 +339,10 @@ export default function SmsInbox() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Unread</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Unread Messages</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{unreadCount?.unreadCount || 0}</div>
+            <div className="text-2xl font-bold text-orange-600">{combinedUnreadCount?.messageCount || 0}</div>
           </CardContent>
         </Card>
         <Card>
@@ -235,6 +366,21 @@ export default function SmsInbox() {
           <CardContent>
             <div className="text-2xl font-bold">
               {messagesData?.messages.filter(m => m.channel === 'whatsapp').length || 0}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Phone className="h-4 w-4 text-purple-500" /> Calls
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-600">
+              {callsData?.total || 0}
+              {(combinedUnreadCount?.callCount || 0) > 0 && (
+                <span className="text-sm text-orange-600 ml-2">({combinedUnreadCount?.callCount} new)</span>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -269,14 +415,24 @@ export default function SmsInbox() {
           </div>
         </CardHeader>
         <CardContent>
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
-            <TabsList className="grid w-full max-w-md grid-cols-3">
+          <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as any); setPage(0); setSelectedMessage(null); setSelectedCall(null); }}>
+            <TabsList className="grid w-full max-w-xl grid-cols-4">
               <TabsTrigger value="all">All Messages</TabsTrigger>
               <TabsTrigger value="sms">SMS Only</TabsTrigger>
               <TabsTrigger value="whatsapp">WhatsApp Only</TabsTrigger>
+              <TabsTrigger value="calls" className="flex items-center gap-1">
+                <Phone className="h-3.5 w-3.5" />
+                Calls
+                {(combinedUnreadCount?.callCount || 0) > 0 && (
+                  <Badge variant="destructive" className="h-5 px-1.5 text-xs">
+                    {combinedUnreadCount?.callCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
             </TabsList>
 
-            <TabsContent value={activeTab} className="mt-4">
+            {activeTab !== 'calls' && ( <>
+              <TabsContent value={activeTab} className="mt-4">
               {isLoading ? (
                 <LoadingState variant="list" count={5} />
               ) : !messagesData?.messages.length ? (
@@ -474,6 +630,271 @@ export default function SmsInbox() {
                 </div>
               )}
             </TabsContent>
+            </> )}
+
+            {activeTab === 'calls' && ( <>
+              <TabsContent value="calls" className="mt-4">
+                {isLoadingCalls ? (
+                  <LoadingState variant="list" count={5} />
+                ) : !callsData?.calls.length ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Phone className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No calls found</p>
+                    <p className="text-sm mt-2">When users call your Twilio number, they will appear here.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <ScrollArea className="h-[500px] border rounded-lg">
+                      <div className="divide-y">
+                        {callsData.calls.map((call) => (
+                          <div
+                            key={call.id}
+                            onClick={() => handleCallClick(call)}
+                            className={`p-4 cursor-pointer hover:bg-muted/50 transition-colors ${
+                              selectedCall?.id === call.id ? 'bg-muted' : ''
+                            } ${!call.isRead ? 'bg-purple-50 dark:bg-purple-950' : ''}`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="mt-1">
+                                <Phone className="h-4 w-4 text-purple-500" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">
+                                    {call.userFirstName || call.userLastName 
+                                      ? `${call.userFirstName || ''} ${call.userLastName || ''}`.trim()
+                                      : call.callerNumber}
+                                  </span>
+                                  {!call.isRead && (
+                                    <Badge variant="default" className="text-xs">New</Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  {call.callerCity && call.callerState ? `${call.callerCity}, ${call.callerState}` : 'Unknown location'}
+                                  {call.duration ? ` - ${formatDuration(call.duration)}` : ''}
+                                </p>
+                                <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                                  <Clock className="h-3 w-3" />
+                                  {formatDistanceToNow(new Date(call.callStartedAt), { addSuffix: true })}
+                                  {call.callbackRequested && getCallbackStatusBadge(call.callbackStatus)}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+
+                    <div className="border rounded-lg p-4">
+                      {selectedCall ? (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">Voice Call</Badge>
+                              {selectedCall.isRead ? (
+                                <Badge variant="outline" className="text-xs">
+                                  <CheckCircle2 className="h-3 w-3 mr-1" /> Read
+                                </Badge>
+                              ) : (
+                                <Badge variant="default" className="text-xs">New</Badge>
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                              <Dialog open={callbackDialogOpen} onOpenChange={setCallbackDialogOpen}>
+                                <DialogTrigger asChild>
+                                  <Button variant="outline" size="sm">
+                                    <Phone className="h-4 w-4 mr-2" />
+                                    Update Callback
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                  <DialogHeader>
+                                    <DialogTitle>Update Callback Status</DialogTitle>
+                                    <DialogDescription>Update the callback status for this call.</DialogDescription>
+                                  </DialogHeader>
+                                  <div className="space-y-4">
+                                    <div className="flex gap-2 flex-wrap">
+                                      {['pending', 'scheduled', 'completed', 'cancelled'].map((status) => (
+                                        <Button
+                                          key={status}
+                                          variant={callbackStatus === status ? 'default' : 'outline'}
+                                          size="sm"
+                                          onClick={() => setCallbackStatus(status)}
+                                        >
+                                          {status.charAt(0).toUpperCase() + status.slice(1)}
+                                        </Button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <DialogFooter>
+                                    <Button 
+                                      onClick={() => updateCallbackMutation.mutate({ 
+                                        callId: selectedCall.id, 
+                                        status: callbackStatus 
+                                      })}
+                                      disabled={!callbackStatus || updateCallbackMutation.isPending}
+                                    >
+                                      Update Status
+                                    </Button>
+                                  </DialogFooter>
+                                </DialogContent>
+                              </Dialog>
+                              <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
+                                <DialogTrigger asChild>
+                                  <Button variant="outline" size="sm">
+                                    <StickyNote className="h-4 w-4 mr-2" />
+                                    Add Note
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                  <DialogHeader>
+                                    <DialogTitle>Add Admin Note</DialogTitle>
+                                    <DialogDescription>Add a note to this call for future reference.</DialogDescription>
+                                  </DialogHeader>
+                                  <Textarea
+                                    value={adminNote}
+                                    onChange={(e) => setAdminNote(e.target.value)}
+                                    placeholder="Enter your note..."
+                                    rows={4}
+                                  />
+                                  <DialogFooter>
+                                    <Button 
+                                      onClick={() => addCallNoteMutation.mutate({ 
+                                        callId: selectedCall.id, 
+                                        note: adminNote 
+                                      })}
+                                      disabled={!adminNote || addCallNoteMutation.isPending}
+                                    >
+                                      Save Note
+                                    </Button>
+                                  </DialogFooter>
+                                </DialogContent>
+                              </Dialog>
+                            </div>
+                          </div>
+
+                          <div className="space-y-3">
+                            <div>
+                              <label className="text-sm font-medium text-muted-foreground">Caller</label>
+                              <p className="font-medium">{selectedCall.callerNumber}</p>
+                            </div>
+                            <div>
+                              <label className="text-sm font-medium text-muted-foreground">Called Number</label>
+                              <p>{selectedCall.calledNumber}</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label className="text-sm font-medium text-muted-foreground">Call Time</label>
+                                <p>{format(new Date(selectedCall.callStartedAt), 'PPpp')}</p>
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium text-muted-foreground">Duration</label>
+                                <p>{formatDuration(selectedCall.duration)}</p>
+                              </div>
+                            </div>
+                            {(selectedCall.callerCity || selectedCall.callerState || selectedCall.callerCountry) && (
+                              <div>
+                                <label className="text-sm font-medium text-muted-foreground">Location</label>
+                                <p>
+                                  {[selectedCall.callerCity, selectedCall.callerState, selectedCall.callerCountry]
+                                    .filter(Boolean)
+                                    .join(', ')}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+
+                          {selectedCall.callbackRequested && (
+                            <div className="border-t pt-4">
+                              <label className="text-sm font-medium text-muted-foreground">Callback Status</label>
+                              <div className="mt-2 flex items-center gap-2">
+                                {getCallbackStatusBadge(selectedCall.callbackStatus)}
+                                {selectedCall.callbackScheduledAt && (
+                                  <span className="text-sm text-muted-foreground">
+                                    Scheduled for {format(new Date(selectedCall.callbackScheduledAt), 'PPp')}
+                                  </span>
+                                )}
+                                {selectedCall.callbackCompletedAt && (
+                                  <span className="text-sm text-muted-foreground">
+                                    Completed at {format(new Date(selectedCall.callbackCompletedAt), 'PPp')}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {selectedCall.greetingPlayed && (
+                            <div className="border-t pt-4">
+                              <label className="text-sm font-medium text-muted-foreground">Greeting Played</label>
+                              <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                                <p className="whitespace-pre-wrap text-sm">{selectedCall.greetingPlayed}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {selectedCall.adminNotes && (
+                            <div className="border-t pt-4">
+                              <label className="text-sm font-medium text-muted-foreground">Admin Notes</label>
+                              <div className="mt-2 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                                <p className="whitespace-pre-wrap text-sm">{selectedCall.adminNotes}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {selectedCall.userId && (
+                            <div className="border-t pt-4">
+                              <label className="text-sm font-medium text-muted-foreground">Associated User</label>
+                              <div className="flex items-center gap-2 mt-1">
+                                <User className="h-4 w-4" />
+                                <div className="flex flex-col">
+                                  <span className="font-medium">
+                                    {selectedCall.userFirstName || selectedCall.userLastName 
+                                      ? `${selectedCall.userFirstName || ''} ${selectedCall.userLastName || ''}`.trim()
+                                      : 'Unknown User'}
+                                  </span>
+                                  {selectedCall.userEmail && (
+                                    <span className="text-sm text-muted-foreground">{selectedCall.userEmail}</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-center py-12 text-muted-foreground">
+                          <Phone className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                          <p>Select a call to view details</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-center gap-2 mt-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(p => Math.max(0, p - 1))}
+                      disabled={page === 0}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {page + 1} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                      disabled={page >= totalPages - 1}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                )}
+              </TabsContent>
+            </> )}
           </Tabs>
         </CardContent>
       </Card>
@@ -489,7 +910,7 @@ export default function SmsInbox() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-4 border rounded-lg">
               <label className="text-sm font-medium">SMS Webhook URL</label>
               <div className="mt-2 p-2 bg-muted rounded font-mono text-sm break-all">
@@ -506,6 +927,15 @@ export default function SmsInbox() {
               </div>
               <p className="text-xs text-muted-foreground mt-2">
                 Set this URL in Twilio Console → Messaging → WhatsApp Senders
+              </p>
+            </div>
+            <div className="p-4 border rounded-lg">
+              <label className="text-sm font-medium">Voice Webhook URL</label>
+              <div className="mt-2 p-2 bg-muted rounded font-mono text-sm break-all">
+                {typeof window !== 'undefined' ? `${window.location.origin}/api/twilio/voice/webhook` : '/api/twilio/voice/webhook'}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Set this URL in Twilio Console → Phone Numbers → +17623851291 → Voice
               </p>
             </div>
           </div>
