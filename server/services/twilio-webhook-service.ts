@@ -1,11 +1,13 @@
 import twilio from 'twilio';
 import { Request, Response, Router } from 'express';
 import { db } from '../db';
-import { users, userNotifications, whatsappContacts, inboundMessages } from '@shared/schema';
-import { eq, sql, desc, and, gte, lte, like } from 'drizzle-orm';
+import { users, userNotifications, whatsappContacts, inboundMessages, callLogs } from '@shared/schema';
+import { eq, sql, desc, and, gte, lte, like, or } from 'drizzle-orm';
 import { twilioWhatsAppService } from './twilio-whatsapp-service';
 import { smsService } from './sms-service';
 import { requireAdmin } from '../middleware/roleMiddleware';
+
+const VoiceResponse = twilio.twiml.VoiceResponse;
 
 interface IncomingMessage {
   MessageSid: string;
@@ -29,6 +31,20 @@ interface MessageLogEntry {
   timestamp: Date;
   userId?: string;
   processed: boolean;
+}
+
+interface IncomingCall {
+  CallSid: string;
+  AccountSid: string;
+  From: string;
+  To: string;
+  CallStatus: string;
+  Direction: string;
+  CallerCity?: string;
+  CallerState?: string;
+  CallerCountry?: string;
+  CallerZip?: string;
+  Duration?: string;
 }
 
 class TwilioWebhookService {
@@ -636,24 +652,86 @@ export function createTwilioWebhookRouter(): Router {
 
   router.post('/voice/webhook', async (req: Request, res: Response) => {
     try {
-      console.log(`📞 Incoming voice call from ${req.body.From} to ${req.body.To}`);
+      const callData: IncomingCall = req.body;
+      console.log(`📞 Incoming voice call from ${callData.From} to ${callData.To}`);
       
-      const callerNumber = req.body.From || 'Unknown';
-      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Say voice="alice" language="en-IN">
-    Welcome to FintekPro. Please hold while we connect your call.
-  </Say>
-  <Dial callerId="${req.body.To}" timeout="30" action="/api/twilio/voice/status">
-    <Number>${CALL_FORWARD_NUMBER}</Number>
-  </Dial>
-  <Say voice="alice" language="en-IN">
-    We're sorry, we couldn't connect your call. Please try again later or contact us through our website at fintek pro dot com.
-  </Say>
-</Response>`;
+      const callerNumber = callData.From || 'Unknown';
+      const normalizedNumber = callerNumber.replace(/^(\+|whatsapp:)/, '');
+      
+      // Look up user by phone number
+      let userId: string | null = null;
+      let assignedAgentId: string | null = null;
+      let userName: string | null = null;
+      
+      try {
+        const userResult = await db.select({
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          assignedAgentId: users.assignedAgentId,
+        })
+          .from(users)
+          .where(or(
+            eq(users.mobile, normalizedNumber),
+            eq(users.mobile, callerNumber),
+            like(users.mobile, `%${normalizedNumber.slice(-10)}`)
+          ))
+          .limit(1);
+        
+        if (userResult.length > 0) {
+          userId = userResult[0].id;
+          assignedAgentId = userResult[0].assignedAgentId || null;
+          userName = `${userResult[0].firstName || ''} ${userResult[0].lastName || ''}`.trim() || null;
+          console.log(`📞 Caller identified: ${userName} (User ID: ${userId})`);
+          if (assignedAgentId) {
+            console.log(`📞 Assigned agent: ${assignedAgentId}`);
+          }
+        } else {
+          console.log(`📞 Caller not found in database: ${callerNumber}`);
+        }
+      } catch (err) {
+        console.error('Error looking up caller:', err);
+      }
+      
+      // Log the call to database
+      const greetingMessage = "Thank you for calling FintekPro. Your call back request is successfully registered. Our client support executive will call you back soon.";
+      
+      try {
+        await db.insert(callLogs).values({
+          callSid: callData.CallSid,
+          accountSid: callData.AccountSid,
+          direction: 'inbound',
+          status: callData.CallStatus || 'received',
+          callerNumber: callerNumber,
+          calledNumber: callData.To || '',
+          callerCity: callData.CallerCity || null,
+          callerState: callData.CallerState || null,
+          callerCountry: callData.CallerCountry || null,
+          userId: userId,
+          assignedAgentId: assignedAgentId,
+          callbackRequested: true,
+          callbackStatus: 'pending',
+          greetingPlayed: greetingMessage,
+          isRead: false,
+        });
+        console.log(`📞 Call logged to database: ${callData.CallSid}`);
+      } catch (err) {
+        console.error('Error logging call to database:', err);
+      }
+      
+      // Generate TwiML response with greeting
+      const twiml = new VoiceResponse();
+      twiml.say({
+        voice: 'alice',
+        language: 'en-IN'
+      }, greetingMessage);
+      
+      // Optionally add a pause and hangup
+      twiml.pause({ length: 1 });
+      twiml.hangup();
 
-      console.log(`📞 Forwarding call to ${CALL_FORWARD_NUMBER}`);
-      res.type('text/xml').send(twiml);
+      console.log(`📞 Greeting played, call logged for callback`);
+      res.type('text/xml').send(twiml.toString());
     } catch (error) {
       console.error('Error handling voice webhook:', error);
       res.type('text/xml').send(`<?xml version="1.0" encoding="UTF-8"?>
@@ -666,19 +744,27 @@ export function createTwilioWebhookRouter(): Router {
   router.post('/voice/status', async (req: Request, res: Response) => {
     console.log(`📞 Call status update: ${req.body.CallStatus} for ${req.body.CallSid}`);
     
-    if (req.body.DialCallStatus === 'no-answer' || req.body.DialCallStatus === 'busy') {
-      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Say voice="alice" language="en-IN">
-    We're sorry, no one is available to take your call right now. 
-    Please leave a message after the beep, or call back later.
-  </Say>
-  <Record maxLength="120" action="/api/twilio/voice/recording" transcribe="true" />
-</Response>`;
-      res.type('text/xml').send(twiml);
-    } else {
-      res.type('text/xml').send(`<?xml version="1.0" encoding="UTF-8"?><Response></Response>`);
+    // Update call log with status and duration
+    try {
+      const callSid = req.body.CallSid;
+      const callStatus = req.body.CallStatus;
+      const duration = parseInt(req.body.CallDuration || '0', 10);
+      
+      if (callSid) {
+        await db.update(callLogs)
+          .set({
+            status: callStatus,
+            duration: duration,
+            callEndedAt: ['completed', 'busy', 'failed', 'no-answer', 'canceled'].includes(callStatus) ? new Date() : null,
+          })
+          .where(eq(callLogs.callSid, callSid));
+        console.log(`📞 Call log updated: ${callSid} - Status: ${callStatus}, Duration: ${duration}s`);
+      }
+    } catch (err) {
+      console.error('Error updating call log:', err);
     }
+    
+    res.type('text/xml').send(`<?xml version="1.0" encoding="UTF-8"?><Response></Response>`);
   });
 
   router.post('/voice/recording', async (req: Request, res: Response) => {
@@ -841,6 +927,194 @@ export function createTwilioWebhookRouter(): Router {
     } catch (error) {
       console.error('Error adding admin note:', error);
       res.status(500).json({ error: 'Failed to add note' });
+    }
+  });
+
+  // Admin routes for call logs management (protected)
+  router.get('/admin/calls', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { callbackStatus, isRead, limit, offset, startDate, endDate, agentId } = req.query;
+      
+      const conditions = [];
+      
+      if (callbackStatus) {
+        conditions.push(eq(callLogs.callbackStatus, callbackStatus as string));
+      }
+      if (isRead === 'true') {
+        conditions.push(eq(callLogs.isRead, true));
+      } else if (isRead === 'false') {
+        conditions.push(eq(callLogs.isRead, false));
+      }
+      if (startDate) {
+        conditions.push(gte(callLogs.callStartedAt, new Date(startDate as string)));
+      }
+      if (endDate) {
+        conditions.push(lte(callLogs.callStartedAt, new Date(endDate as string)));
+      }
+      if (agentId) {
+        conditions.push(eq(callLogs.assignedAgentId, agentId as string));
+      }
+      
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+      const limitNum = limit ? parseInt(limit as string) : 50;
+      const offsetNum = offset ? parseInt(offset as string) : 0;
+      
+      const [calls, countResult] = await Promise.all([
+        db.select({
+          id: callLogs.id,
+          callSid: callLogs.callSid,
+          direction: callLogs.direction,
+          status: callLogs.status,
+          callerNumber: callLogs.callerNumber,
+          calledNumber: callLogs.calledNumber,
+          callerCity: callLogs.callerCity,
+          callerState: callLogs.callerState,
+          callerCountry: callLogs.callerCountry,
+          duration: callLogs.duration,
+          userId: callLogs.userId,
+          assignedAgentId: callLogs.assignedAgentId,
+          callbackRequested: callLogs.callbackRequested,
+          callbackStatus: callLogs.callbackStatus,
+          callbackScheduledAt: callLogs.callbackScheduledAt,
+          callbackCompletedAt: callLogs.callbackCompletedAt,
+          recordingUrl: callLogs.recordingUrl,
+          adminNotes: callLogs.adminNotes,
+          isRead: callLogs.isRead,
+          readAt: callLogs.readAt,
+          readBy: callLogs.readBy,
+          greetingPlayed: callLogs.greetingPlayed,
+          callStartedAt: callLogs.callStartedAt,
+          callEndedAt: callLogs.callEndedAt,
+          userFirstName: users.firstName,
+          userLastName: users.lastName,
+          userEmail: users.email,
+        })
+          .from(callLogs)
+          .leftJoin(users, eq(callLogs.userId, users.id))
+          .where(whereClause)
+          .orderBy(desc(callLogs.callStartedAt))
+          .limit(limitNum)
+          .offset(offsetNum),
+        db.select({ count: sql<number>`count(*)::int` })
+          .from(callLogs)
+          .where(whereClause),
+      ]);
+      
+      res.json({
+        calls,
+        total: countResult[0]?.count || 0,
+      });
+    } catch (error) {
+      console.error('Error fetching call logs:', error);
+      res.status(500).json({ error: 'Failed to fetch call logs' });
+    }
+  });
+
+  router.get('/admin/calls/unread-count', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const result = await db.select({ count: sql<number>`count(*)::int` })
+        .from(callLogs)
+        .where(eq(callLogs.isRead, false));
+      res.json({ unreadCount: result[0]?.count || 0 });
+    } catch (error) {
+      console.error('Error getting unread call count:', error);
+      res.status(500).json({ error: 'Failed to get unread count' });
+    }
+  });
+
+  router.post('/admin/calls/:callId/read', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { callId } = req.params;
+      const readBy = req.body.readBy || 'admin';
+      
+      await db.update(callLogs)
+        .set({ 
+          isRead: true, 
+          readAt: new Date(),
+          readBy: readBy,
+        })
+        .where(eq(callLogs.id, callId));
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error marking call as read:', error);
+      res.status(500).json({ error: 'Failed to mark call as read' });
+    }
+  });
+
+  router.post('/admin/calls/:callId/callback', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { callId } = req.params;
+      const { status, scheduledAt, notes } = req.body;
+      const completedBy = req.body.completedBy;
+      
+      const updateData: any = {};
+      
+      if (status) {
+        updateData.callbackStatus = status;
+      }
+      if (scheduledAt) {
+        updateData.callbackScheduledAt = new Date(scheduledAt);
+      }
+      if (status === 'completed') {
+        updateData.callbackCompletedAt = new Date();
+        updateData.callbackCompletedBy = completedBy;
+      }
+      if (notes) {
+        updateData.adminNotes = notes;
+      }
+      
+      await db.update(callLogs)
+        .set(updateData)
+        .where(eq(callLogs.id, callId));
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error updating callback status:', error);
+      res.status(500).json({ error: 'Failed to update callback status' });
+    }
+  });
+
+  router.post('/admin/calls/:callId/note', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { callId } = req.params;
+      const { note } = req.body;
+      
+      if (!note) {
+        return res.status(400).json({ error: 'Note is required' });
+      }
+      
+      await db.update(callLogs)
+        .set({ adminNotes: note })
+        .where(eq(callLogs.id, callId));
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error adding call note:', error);
+      res.status(500).json({ error: 'Failed to add note' });
+    }
+  });
+
+  // Combined inbox endpoint for messages + calls
+  router.get('/admin/inbox/unread-count', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const [messageCount, callCount] = await Promise.all([
+        db.select({ count: sql<number>`count(*)::int` })
+          .from(inboundMessages)
+          .where(eq(inboundMessages.isRead, false)),
+        db.select({ count: sql<number>`count(*)::int` })
+          .from(callLogs)
+          .where(eq(callLogs.isRead, false)),
+      ]);
+      
+      res.json({ 
+        unreadCount: (messageCount[0]?.count || 0) + (callCount[0]?.count || 0),
+        messageCount: messageCount[0]?.count || 0,
+        callCount: callCount[0]?.count || 0,
+      });
+    } catch (error) {
+      console.error('Error getting combined unread count:', error);
+      res.status(500).json({ error: 'Failed to get unread count' });
     }
   });
 
