@@ -471,4 +471,79 @@ router.get("/stats", requireAdmin, async (req, res) => {
   }
 });
 
+// Public router for recommendation engine (no auth required)
+const publicRouter = Router();
+
+// Public: Get recommendations by type and risk profile
+publicRouter.get("/by-category", async (req, res) => {
+  try {
+    const { productType, riskProfile } = req.query;
+    
+    if (!productType || !riskProfile) {
+      return res.status(400).json({ error: "productType and riskProfile are required" });
+    }
+    
+    const cacheKey = `${productType}_${riskProfile}`;
+    if (Date.now() - cacheTimestamp < CACHE_TTL && recommendationCache.has(cacheKey)) {
+      return res.json(recommendationCache.get(cacheKey));
+    }
+    
+    const products = await db
+      .select()
+      .from(recommendationProducts)
+      .where(
+        and(
+          eq(recommendationProducts.productType, productType as string),
+          eq(recommendationProducts.riskProfile, riskProfile as string),
+          eq(recommendationProducts.isActive, true)
+        )
+      )
+      .orderBy(desc(recommendationProducts.priority), asc(recommendationProducts.name));
+    
+    recommendationCache.set(cacheKey, products);
+    cacheTimestamp = Date.now();
+    
+    res.json(products);
+  } catch (error: any) {
+    console.error("[RecommendationProducts] Error fetching by category:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Public: Get all active recommendations grouped
+publicRouter.get("/all-active", async (req, res) => {
+  try {
+    const cacheKey = "all_active";
+    if (Date.now() - cacheTimestamp < CACHE_TTL && recommendationCache.has(cacheKey)) {
+      return res.json(recommendationCache.get(cacheKey));
+    }
+    
+    const products = await db
+      .select()
+      .from(recommendationProducts)
+      .where(eq(recommendationProducts.isActive, true))
+      .orderBy(desc(recommendationProducts.priority), asc(recommendationProducts.name));
+    
+    const grouped: Record<string, Record<string, any[]>> = {};
+    products.forEach(p => {
+      if (!grouped[p.productType]) {
+        grouped[p.productType] = {};
+      }
+      if (!grouped[p.productType][p.riskProfile]) {
+        grouped[p.productType][p.riskProfile] = [];
+      }
+      grouped[p.productType][p.riskProfile].push(p);
+    });
+    
+    recommendationCache.set(cacheKey, grouped as any);
+    cacheTimestamp = Date.now();
+    
+    res.json(grouped);
+  } catch (error: any) {
+    console.error("[RecommendationProducts] Error fetching all active:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;
+export { publicRouter };

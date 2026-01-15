@@ -126,7 +126,7 @@ import exchangeStockSyncRoutes from './routes/exchange-stock-sync';
 import unifiedCartRoutes from "./routes/unified-cart";
 import aiProposalRoutes from "./routes/ai-proposal-routes";
 import goalPlanningRoutes from "./routes/goal-planning-routes";
-import recommendationProductsRoutes from "./routes/recommendation-products";
+import recommendationProductsRoutes, { publicRouter as recommendationProductsPublicRoutes } from "./routes/recommendation-products";
 import investableSurplusRoutes from "./routes/investable-surplus-routes";
 import riskSuitabilityRoutes from "./routes/risk-suitability-routes";
 import returnForecastingRoutes from "./routes/return-forecasting-routes";
@@ -687,6 +687,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   console.log("✅ MCA Intelligence routes registered");
 
   app.use("/api/admin/recommendation-products", recommendationProductsRoutes);
+  app.use("/api/recommendation-products", recommendationProductsPublicRoutes);
   console.log("✅ Recommendation Products routes registered");
 
   app.post("/api/admin/seed-products", requireAdmin, async (req, res) => {
