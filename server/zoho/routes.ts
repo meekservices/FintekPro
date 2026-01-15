@@ -2,6 +2,9 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { ZohoOAuthService } from './oauth';
 import { ZohoCRMService } from './services/crm';
+import { ZohoCampaignsService } from './services/campaigns';
+import { ZohoMeetingService } from './services/meeting';
+import { ZohoSignService } from './services/sign';
 import { db } from '../db';
 import { zohoConnections, zohoEntityMappings, zohoSyncLogs, zohoWebhookEvents } from '@shared/schema';
 import { eq, desc, and, gte, lte, sql } from 'drizzle-orm';
@@ -892,6 +895,520 @@ router.get('/admin/rate-limits', async (req, res) => {
     res.json({ rateLimits });
   } catch (error: any) {
     console.error('Get rate limits error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== ZOHO CAMPAIGNS ROUTES ====================
+
+/**
+ * GET /api/zoho/campaigns/lists
+ * Get all mailing lists
+ */
+router.get('/campaigns/lists', async (req, res) => {
+  try {
+    const { connectionId } = req.query;
+    if (!connectionId) {
+      return res.status(400).json({ message: 'connectionId required' });
+    }
+    
+    const service = new ZohoCampaignsService(connectionId as string, 'in');
+    const lists = await service.getMailingLists();
+    res.json({ lists });
+  } catch (error: any) {
+    console.error('Get campaigns lists error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * POST /api/zoho/campaigns/lists
+ * Create a new mailing list
+ */
+router.post('/campaigns/lists', async (req, res) => {
+  try {
+    const { connectionId, listname, list_description, signup_form, double_optin } = req.body;
+    if (!connectionId || !listname) {
+      return res.status(400).json({ message: 'connectionId and listname required' });
+    }
+    
+    const service = new ZohoCampaignsService(connectionId, 'in');
+    const listKey = await service.createMailingList({
+      listname,
+      list_description,
+      signup_form,
+      double_optin,
+    });
+    res.json({ listKey, message: 'Mailing list created successfully' });
+  } catch (error: any) {
+    console.error('Create campaigns list error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * POST /api/zoho/campaigns/lists/:listKey/contacts
+ * Add contacts to a mailing list
+ */
+router.post('/campaigns/lists/:listKey/contacts', async (req, res) => {
+  try {
+    const { listKey } = req.params;
+    const { connectionId, contacts } = req.body;
+    if (!connectionId || !contacts || !Array.isArray(contacts)) {
+      return res.status(400).json({ message: 'connectionId and contacts array required' });
+    }
+    
+    const service = new ZohoCampaignsService(connectionId, 'in');
+    const result = await service.addContactsToList(listKey, contacts);
+    res.json({ ...result, message: 'Contacts added to list' });
+  } catch (error: any) {
+    console.error('Add contacts to list error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * GET /api/zoho/campaigns/campaigns
+ * Get all campaigns
+ */
+router.get('/campaigns/campaigns', async (req, res) => {
+  try {
+    const { connectionId, status } = req.query;
+    if (!connectionId) {
+      return res.status(400).json({ message: 'connectionId required' });
+    }
+    
+    const service = new ZohoCampaignsService(connectionId as string, 'in');
+    const campaigns = await service.getCampaigns(status as any);
+    res.json({ campaigns });
+  } catch (error: any) {
+    console.error('Get campaigns error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * POST /api/zoho/campaigns/send-festival
+ * Send festival greeting campaign
+ */
+router.post('/campaigns/send-festival', async (req, res) => {
+  try {
+    const { connectionId, festivalName, subject, htmlContent, fromEmail, fromName, listKeys, scheduleTime } = req.body;
+    if (!connectionId || !festivalName || !subject || !htmlContent || !fromEmail || !fromName || !listKeys) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+    
+    const service = new ZohoCampaignsService(connectionId, 'in');
+    const result = await service.createFestivalCampaign({
+      festivalName,
+      subject,
+      htmlContent,
+      fromEmail,
+      fromName,
+      listKeys,
+      scheduleTime: scheduleTime ? new Date(scheduleTime) : undefined,
+    });
+    res.json({ ...result, message: 'Festival campaign created' });
+  } catch (error: any) {
+    console.error('Send festival campaign error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * GET /api/zoho/campaigns/:campaignKey/stats
+ * Get campaign statistics
+ */
+router.get('/campaigns/:campaignKey/stats', async (req, res) => {
+  try {
+    const { campaignKey } = req.params;
+    const { connectionId } = req.query;
+    if (!connectionId) {
+      return res.status(400).json({ message: 'connectionId required' });
+    }
+    
+    const service = new ZohoCampaignsService(connectionId as string, 'in');
+    const stats = await service.getCampaignStats(campaignKey);
+    res.json({ stats });
+  } catch (error: any) {
+    console.error('Get campaign stats error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== ZOHO MEETING ROUTES ====================
+
+/**
+ * GET /api/zoho/meeting/meetings
+ * Get all meetings
+ */
+router.get('/meeting/meetings', async (req, res) => {
+  try {
+    const { connectionId, status, fromDate, toDate } = req.query;
+    if (!connectionId) {
+      return res.status(400).json({ message: 'connectionId required' });
+    }
+    
+    const service = new ZohoMeetingService(connectionId as string, 'in');
+    const meetings = await service.getMeetings({
+      status: status as any,
+      fromDate: fromDate ? new Date(fromDate as string) : undefined,
+      toDate: toDate ? new Date(toDate as string) : undefined,
+    });
+    res.json({ meetings });
+  } catch (error: any) {
+    console.error('Get meetings error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * POST /api/zoho/meeting/meetings
+ * Create a new meeting
+ */
+router.post('/meeting/meetings', async (req, res) => {
+  try {
+    const { connectionId, topic, agenda, startTime, duration, timezone, participants } = req.body;
+    if (!connectionId || !topic || !startTime || !duration) {
+      return res.status(400).json({ message: 'connectionId, topic, startTime, and duration required' });
+    }
+    
+    const service = new ZohoMeetingService(connectionId, 'in');
+    const meeting = await service.createMeeting({
+      topic,
+      agenda,
+      startTime: new Date(startTime),
+      duration,
+      timezone,
+      participants,
+    });
+    res.json({ meeting, message: 'Meeting created successfully' });
+  } catch (error: any) {
+    console.error('Create meeting error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * POST /api/zoho/meeting/client-meeting
+ * Create a client meeting with FintekPro integration
+ */
+router.post('/meeting/client-meeting', async (req, res) => {
+  try {
+    const { connectionId, clientName, clientEmail, agentName, purpose, startTime, duration } = req.body;
+    if (!connectionId || !clientName || !clientEmail || !agentName || !purpose || !startTime) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+    
+    const service = new ZohoMeetingService(connectionId, 'in');
+    const result = await service.createClientMeeting({
+      clientName,
+      clientEmail,
+      agentName,
+      purpose,
+      startTime: new Date(startTime),
+      duration,
+    });
+    res.json({ ...result, message: 'Client meeting scheduled' });
+  } catch (error: any) {
+    console.error('Create client meeting error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * GET /api/zoho/meeting/webinars
+ * Get all webinars
+ */
+router.get('/meeting/webinars', async (req, res) => {
+  try {
+    const { connectionId, status } = req.query;
+    if (!connectionId) {
+      return res.status(400).json({ message: 'connectionId required' });
+    }
+    
+    const service = new ZohoMeetingService(connectionId as string, 'in');
+    const webinars = await service.getWebinars({ status: status as any });
+    res.json({ webinars });
+  } catch (error: any) {
+    console.error('Get webinars error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * POST /api/zoho/meeting/webinars
+ * Create a new webinar
+ */
+router.post('/meeting/webinars', async (req, res) => {
+  try {
+    const { connectionId, topic, description, startTime, duration, maxAttendees } = req.body;
+    if (!connectionId || !topic || !startTime || !duration) {
+      return res.status(400).json({ message: 'connectionId, topic, startTime, and duration required' });
+    }
+    
+    const service = new ZohoMeetingService(connectionId, 'in');
+    const result = await service.createInvestorWebinar({
+      topic,
+      description: description || '',
+      startTime: new Date(startTime),
+      duration,
+      maxAttendees,
+    });
+    res.json({ ...result, message: 'Webinar created successfully' });
+  } catch (error: any) {
+    console.error('Create webinar error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * POST /api/zoho/meeting/webinars/:webinarKey/register
+ * Register clients for a webinar
+ */
+router.post('/meeting/webinars/:webinarKey/register', async (req, res) => {
+  try {
+    const { webinarKey } = req.params;
+    const { connectionId, clients } = req.body;
+    if (!connectionId || !clients || !Array.isArray(clients)) {
+      return res.status(400).json({ message: 'connectionId and clients array required' });
+    }
+    
+    const service = new ZohoMeetingService(connectionId, 'in');
+    const result = await service.bulkRegisterClients(webinarKey, clients);
+    res.json({ ...result, message: 'Clients registered for webinar' });
+  } catch (error: any) {
+    console.error('Register for webinar error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== ZOHO SIGN ROUTES ====================
+
+/**
+ * GET /api/zoho/sign/documents
+ * Get all sign documents
+ */
+router.get('/sign/documents', async (req, res) => {
+  try {
+    const { connectionId, status, page, limit } = req.query;
+    if (!connectionId) {
+      return res.status(400).json({ message: 'connectionId required' });
+    }
+    
+    const service = new ZohoSignService(connectionId as string, 'in');
+    const documents = await service.getDocuments({
+      status: status as any,
+      page: page ? parseInt(page as string) : undefined,
+      limit: limit ? parseInt(limit as string) : undefined,
+    });
+    res.json({ documents });
+  } catch (error: any) {
+    console.error('Get sign documents error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * GET /api/zoho/sign/documents/:requestId
+ * Get document details
+ */
+router.get('/sign/documents/:requestId', async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const { connectionId } = req.query;
+    if (!connectionId) {
+      return res.status(400).json({ message: 'connectionId required' });
+    }
+    
+    const service = new ZohoSignService(connectionId as string, 'in');
+    const document = await service.getDocumentDetails(requestId);
+    res.json({ document });
+  } catch (error: any) {
+    console.error('Get sign document details error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * GET /api/zoho/sign/documents/:requestId/status
+ * Get signature status
+ */
+router.get('/sign/documents/:requestId/status', async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const { connectionId } = req.query;
+    if (!connectionId) {
+      return res.status(400).json({ message: 'connectionId required' });
+    }
+    
+    const service = new ZohoSignService(connectionId as string, 'in');
+    const status = await service.getSignatureStatus(requestId);
+    res.json({ status });
+  } catch (error: any) {
+    console.error('Get signature status error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * POST /api/zoho/sign/kyc-document
+ * Create KYC sign request
+ */
+router.post('/sign/kyc-document', async (req, res) => {
+  try {
+    const { connectionId, clientName, clientEmail, documentType, documentContent, agentEmail, agentName } = req.body;
+    if (!connectionId || !clientName || !clientEmail || !documentType || !documentContent) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+    
+    const service = new ZohoSignService(connectionId, 'in');
+    const result = await service.createKYCSignRequest({
+      clientName,
+      clientEmail,
+      documentType,
+      documentContent: Buffer.from(documentContent, 'base64'),
+      agentEmail,
+      agentName,
+    });
+    res.json({ ...result, message: 'KYC document sent for signature' });
+  } catch (error: any) {
+    console.error('Create KYC sign request error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * POST /api/zoho/sign/investment-agreement
+ * Create investment agreement sign request
+ */
+router.post('/sign/investment-agreement', async (req, res) => {
+  try {
+    const { connectionId, clientName, clientEmail, investmentType, investmentAmount, documentContent } = req.body;
+    if (!connectionId || !clientName || !clientEmail || !investmentType || !investmentAmount || !documentContent) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+    
+    const service = new ZohoSignService(connectionId, 'in');
+    const result = await service.createInvestmentAgreement({
+      clientName,
+      clientEmail,
+      investmentType,
+      investmentAmount,
+      documentContent: Buffer.from(documentContent, 'base64'),
+    });
+    res.json({ ...result, message: 'Investment agreement sent for signature' });
+  } catch (error: any) {
+    console.error('Create investment agreement error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * GET /api/zoho/sign/templates
+ * Get all sign templates
+ */
+router.get('/sign/templates', async (req, res) => {
+  try {
+    const { connectionId } = req.query;
+    if (!connectionId) {
+      return res.status(400).json({ message: 'connectionId required' });
+    }
+    
+    const service = new ZohoSignService(connectionId as string, 'in');
+    const templates = await service.getTemplates();
+    res.json({ templates });
+  } catch (error: any) {
+    console.error('Get sign templates error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * POST /api/zoho/sign/documents/:requestId/remind
+ * Send reminder to signer
+ */
+router.post('/sign/documents/:requestId/remind', async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const { connectionId, actionId } = req.body;
+    if (!connectionId || !actionId) {
+      return res.status(400).json({ message: 'connectionId and actionId required' });
+    }
+    
+    const service = new ZohoSignService(connectionId, 'in');
+    const success = await service.remindRecipient(requestId, actionId);
+    res.json({ success, message: success ? 'Reminder sent' : 'Failed to send reminder' });
+  } catch (error: any) {
+    console.error('Send reminder error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * GET /api/zoho/sign/documents/:requestId/download
+ * Download signed document
+ */
+router.get('/sign/documents/:requestId/download', async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const { connectionId } = req.query;
+    if (!connectionId) {
+      return res.status(400).json({ message: 'connectionId required' });
+    }
+    
+    const service = new ZohoSignService(connectionId as string, 'in');
+    const pdfBuffer = await service.downloadSignedDocument(requestId);
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="signed_document_${requestId}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (error: any) {
+    console.error('Download signed document error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== ZOHO INTEGRATION STATUS ====================
+
+/**
+ * GET /api/zoho/integration-status
+ * Get status of all Zoho integrations
+ */
+router.get('/integration-status', async (req, res) => {
+  try {
+    const refreshToken = process.env.ZOHO_REFRESH_TOKEN;
+    const clientId = process.env.ZOHO_CLIENT_ID;
+    const clientSecret = process.env.ZOHO_CLIENT_SECRET;
+    
+    if (!refreshToken || !clientId || !clientSecret) {
+      return res.json({
+        configured: false,
+        message: 'Zoho credentials not configured',
+        applications: []
+      });
+    }
+
+    const oauthService = new ZohoOAuthService('in');
+    const tokenResponse = await oauthService.refreshAccessToken(refreshToken);
+    
+    const scopes = tokenResponse.scope?.split(' ') || [];
+    const applications = [
+      { name: 'CRM', configured: scopes.some(s => s.includes('ZohoCRM')), scopes: scopes.filter(s => s.includes('ZohoCRM')) },
+      { name: 'Books', configured: scopes.some(s => s.includes('ZohoBooks')), scopes: scopes.filter(s => s.includes('ZohoBooks')) },
+      { name: 'Campaigns', configured: scopes.some(s => s.includes('ZohoCampaigns')), scopes: scopes.filter(s => s.includes('ZohoCampaigns')) },
+      { name: 'Meeting', configured: scopes.some(s => s.includes('ZohoMeeting')), scopes: scopes.filter(s => s.includes('ZohoMeeting')) },
+      { name: 'Sign', configured: scopes.some(s => s.includes('ZohoSign')), scopes: scopes.filter(s => s.includes('ZohoSign')) },
+    ];
+
+    res.json({
+      configured: true,
+      apiDomain: tokenResponse.api_domain,
+      applications,
+      totalScopes: scopes.length,
+    });
+  } catch (error: any) {
+    console.error('Get integration status error:', error);
     res.status(500).json({ message: error.message });
   }
 });
