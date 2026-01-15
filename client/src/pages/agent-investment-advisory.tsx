@@ -162,15 +162,22 @@ interface TalkingPoint {
 }
 
 interface Client {
-  id: number;
+  id: number | string;
   uuid: string;
   firstName: string;
   lastName: string;
-  email: string;
-  phone?: string;
+  email?: string | null;
+  mobile?: string | null;
+  phone?: string | null;
   isProspect?: boolean;
   prospectState?: string;
   clientType?: string;
+  relationshipType?: string;
+  kycStatus?: string;
+  riskProfile?: string;
+  companyName?: string | null;
+  leadQuality?: string | null;
+  createdAt?: string | Date | null;
 }
 
 const SIGNAL_COLORS = {
@@ -616,14 +623,22 @@ export default function AgentInvestmentAdvisory() {
                   <span className="flex items-center gap-2 truncate">
                     <User className="h-4 w-4 shrink-0" />
                     {selectedClient.firstName} {selectedClient.lastName}
-                    {selectedClient.isProspect && (
+                    {selectedClient.prospectState === 'lead' ? (
+                      <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                        Lead
+                      </Badge>
+                    ) : selectedClient.isProspect ? (
                       <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800">
-                        {selectedClient.prospectState === 'prospect' ? 'Lead' : 'Prospect'}
+                        Prospect
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800">
+                        Client
                       </Badge>
                     )}
                   </span>
                 ) : (
-                  <span className="text-muted-foreground">Select client or prospect...</span>
+                  <span className="text-muted-foreground">Select client, prospect or lead...</span>
                 )}
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
@@ -674,14 +689,22 @@ export default function AgentInvestmentAdvisory() {
                         <div className="flex flex-col flex-1">
                           <div className="flex items-center gap-2">
                             <span>{client.firstName} {client.lastName}</span>
-                            {client.isProspect && (
+                            {client.prospectState === 'lead' ? (
+                              <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                                Lead {client.leadQuality === 'hot' && '🔥'}
+                              </Badge>
+                            ) : client.isProspect ? (
                               <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800">
-                                {client.prospectState === 'prospect' ? 'Lead' : client.prospectState === 'onboarded' ? 'Prospect' : 'Prospect'}
+                                {client.prospectState === 'onboarded' ? 'Prospect' : 'Prospect'}
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800">
+                                Client
                               </Badge>
                             )}
                           </div>
                           <span className="text-xs text-muted-foreground truncate">
-                            {client.email || client.uuid?.slice(0, 8) + '...'}
+                            {client.companyName || client.email || client.uuid?.slice(0, 8) + '...'}
                           </span>
                         </div>
                       </CommandItem>

@@ -16,6 +16,8 @@ import {
   portfolios,
   partners,
   agentPartnerMappings,
+  prospectClients,
+  prospectLeads,
   insertAdvisorySessionSchema,
   insertSuitabilityCheckSchema,
   insertProposalNoteSchema,
@@ -244,10 +246,13 @@ export function registerAgentAdvisoryRoutes(app: Express) {
   app.get("/api/agent/clients", requireAgent, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
+      const includeProspects = req.query.includeProspects !== 'false'; // Include by default
       
-      const clients = await db
+      // Fetch registered clients from clientAgentRelationships
+      const registeredClients = await db
         .select({
           id: users.id,
+          uuid: users.id,
           firstName: users.firstName,
           lastName: users.lastName,
           email: users.email,
@@ -267,16 +272,120 @@ export function registerAgentAdvisoryRoutes(app: Express) {
         .orderBy(desc(users.createdAt))
         .limit(100);
 
+      // Format registered clients
+      const formattedClients = registeredClients.map(c => ({
+        ...c,
+        isProspect: false,
+        prospectState: 'client',
+        clientType: 'registered'
+      }));
+
+      let allClients = [...formattedClients];
+
+      if (includeProspects) {
+        // Fetch individual prospects from prospectClients table
+        const prospects = await db
+          .select({
+            id: prospectClients.id,
+            name: prospectClients.name,
+            email: prospectClients.email,
+            mobile: prospectClients.mobile,
+            pan: prospectClients.pan,
+            clientType: prospectClients.clientType,
+            state: prospectClients.state,
+            indicativeRiskProfile: prospectClients.indicativeRiskProfile,
+            createdAt: prospectClients.createdAt
+          })
+          .from(prospectClients)
+          .where(eq(prospectClients.agentId, agentId))
+          .orderBy(desc(prospectClients.createdAt))
+          .limit(100);
+
+        // Format prospects - parse name into firstName/lastName
+        const formattedProspects = prospects.map(p => {
+          const nameParts = (p.name || '').trim().split(' ');
+          const firstName = nameParts[0] || '';
+          const lastName = nameParts.slice(1).join(' ') || '';
+          return {
+            id: p.id,
+            uuid: p.id,
+            firstName,
+            lastName,
+            email: p.email,
+            mobile: p.mobile,
+            kycStatus: 'pending',
+            riskProfile: p.indicativeRiskProfile || 'moderate',
+            createdAt: p.createdAt,
+            relationshipType: 'prospect',
+            relationshipStatus: 'active',
+            isProspect: true,
+            prospectState: p.state || 'prospect',
+            clientType: p.clientType || 'individual'
+          };
+        });
+
+        // Fetch B2B leads from prospectLeads table
+        const leads = await db
+          .select({
+            id: prospectLeads.id,
+            companyName: prospectLeads.companyName,
+            contactName: prospectLeads.contactName,
+            contactEmail: prospectLeads.contactEmail,
+            contactPhone: prospectLeads.contactPhone,
+            status: prospectLeads.status,
+            leadQuality: prospectLeads.leadQuality,
+            createdAt: prospectLeads.createdAt
+          })
+          .from(prospectLeads)
+          .where(eq(prospectLeads.assignedTo, agentId))
+          .orderBy(desc(prospectLeads.createdAt))
+          .limit(50);
+
+        // Format leads
+        const formattedLeads = leads.map(l => {
+          const nameParts = (l.contactName || l.companyName || '').trim().split(' ');
+          const firstName = nameParts[0] || l.companyName || 'Lead';
+          const lastName = nameParts.slice(1).join(' ') || '';
+          return {
+            id: l.id,
+            uuid: l.id,
+            firstName,
+            lastName,
+            email: l.contactEmail,
+            mobile: l.contactPhone,
+            kycStatus: 'pending',
+            riskProfile: 'moderate',
+            createdAt: l.createdAt,
+            relationshipType: 'lead',
+            relationshipStatus: l.status || 'new',
+            isProspect: true,
+            prospectState: 'lead',
+            clientType: 'b2b',
+            companyName: l.companyName,
+            leadQuality: l.leadQuality
+          };
+        });
+
+        allClients = [...formattedClients, ...formattedProspects, ...formattedLeads];
+        
+        // Sort by createdAt descending to show most recent first
+        allClients.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        });
+      }
+
       await logAgentAction({
         agentId,
         actionCategory: 'view',
         actionType: 'client_list',
-        actionDescription: `Viewed ${clients.length} assigned clients`,
+        actionDescription: `Viewed ${allClients.length} clients/prospects/leads`,
         ipAddress: req.ip,
         userAgent: req.headers['user-agent']
       });
 
-      res.json(clients);
+      res.json(allClients);
     } catch (error) {
       console.error("Error fetching agent clients:", error);
       res.status(500).json({ error: "Failed to fetch clients" });
