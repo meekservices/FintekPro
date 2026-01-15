@@ -477,29 +477,78 @@ class ImprovementFeaturesService {
           .limit(5);
       }
 
-      return {
-        stocks: stocksResults.map(s => ({
+      // Sorting helper functions
+      const marketCapOrder: Record<string, number> = {
+        'Large Cap': 1,
+        'Mid Cap': 2,
+        'Small Cap': 3
+      };
+      
+      const creditRatingOrder: Record<string, number> = {
+        'AAA': 1, 'AA+': 2, 'AA': 3, 'AA-': 4,
+        'A+': 5, 'A': 6, 'A-': 7,
+        'BBB+': 8, 'BBB': 9, 'BBB-': 10,
+        'BB+': 11, 'BB': 12, 'BB-': 13,
+        'B+': 14, 'B': 15, 'B-': 16
+      };
+
+      // Sort stocks by market cap (Large Cap first)
+      const sortedStocks = stocksResults
+        .map(s => ({
           symbol: s.symbol,
           name: s.name,
           type: 'stock',
           sector: s.sector,
           marketCap: s.marketCap
-        })),
-        mutualFunds: mfResults.map(m => ({
+        }))
+        .sort((a, b) => {
+          const orderA = marketCapOrder[a.marketCap || ''] || 99;
+          const orderB = marketCapOrder[b.marketCap || ''] || 99;
+          return orderA - orderB;
+        });
+
+      // Sort mutual funds by fund house match first, then alphabetically by name
+      const queryLower = query.toLowerCase();
+      const sortedMutualFunds = mfResults
+        .map(m => ({
           id: m.id,
           name: m.name,
           type: 'mutual_fund',
           category: m.category,
           fundHouse: m.fundHouse
-        })),
-        bonds: bondResults.map(b => ({
+        }))
+        .sort((a, b) => {
+          // Prioritize exact fund house match
+          const aFundHouseMatch = (a.fundHouse || '').toLowerCase().includes(queryLower) ? 0 : 1;
+          const bFundHouseMatch = (b.fundHouse || '').toLowerCase().includes(queryLower) ? 0 : 1;
+          if (aFundHouseMatch !== bFundHouseMatch) return aFundHouseMatch - bFundHouseMatch;
+          // Then by category (non-null first)
+          if (a.category && !b.category) return -1;
+          if (!a.category && b.category) return 1;
+          // Then alphabetically by name
+          return (a.name || '').localeCompare(b.name || '');
+        });
+
+      // Sort bonds by credit rating (AAA first)
+      const sortedBonds = bondResults
+        .map(b => ({
           id: b.id,
           name: b.name,
           issuer: b.issuer,
           type: 'bond',
           bondType: b.type,
           rating: b.rating
-        })),
+        }))
+        .sort((a, b) => {
+          const orderA = creditRatingOrder[a.rating || ''] || 99;
+          const orderB = creditRatingOrder[b.rating || ''] || 99;
+          return orderA - orderB;
+        });
+
+      return {
+        stocks: sortedStocks,
+        mutualFunds: sortedMutualFunds,
+        bonds: sortedBonds,
         goals: goalsResults.map(g => ({
           id: g.id,
           name: g.name,
