@@ -14,6 +14,7 @@ import { aiInvestmentOrchestrator } from "./ai-investment-orchestrator";
 import { aiResponseCacheService } from "./ai-response-cache-service";
 import { proposalCapitalGainsService } from "./proposal-capital-gains-service";
 import { historicalNavService } from "./historical-nav-service";
+import { getRecommendationsByCategory, getAllActiveRecommendations } from "./recommendation-products-service";
 
 // Format amount in Indian currency format (₹X.XX L for lakhs, ₹X.XX Cr for crores)
 const formatAmount = (amount: number): string => {
@@ -345,6 +346,88 @@ export const PRODUCT_CATEGORIES = [
 
 // Export for API access
 export { FUND_RECOMMENDATIONS_BY_CATEGORY };
+
+// Helper function to get recommendations from database with fallback to hardcoded
+async function getRecommendationsForCategory(
+  category: string,
+  riskProfile: string
+): Promise<any[]> {
+  // Map category names to product types for database lookup
+  const categoryToProductType: Record<string, string> = {
+    'listed_stocks': 'listed_stock',
+    'unlisted_stocks': 'unlisted_stock',
+    'reit': 'reit',
+    'invit': 'invit',
+  };
+  
+  const productType = categoryToProductType[category];
+  
+  // Only fetch from database for stocks, REITs, InvITs
+  if (productType) {
+    try {
+      const dbRecommendations = await getRecommendationsByCategory(productType, riskProfile);
+      if (dbRecommendations.length > 0) {
+        console.log(`[Recommendations] Using ${dbRecommendations.length} ${category} recommendations from database for ${riskProfile}`);
+        return dbRecommendations;
+      }
+    } catch (error) {
+      console.error(`[Recommendations] Error fetching ${category} from database:`, error);
+    }
+  }
+  
+  // Fallback to hardcoded data
+  const hardcodedData = (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category]?.[riskProfile] ||
+                        (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category]?.moderate || [];
+  return hardcodedData;
+}
+
+// Preload database recommendations into FUND_RECOMMENDATIONS_BY_CATEGORY
+// This allows synchronous access in existing functions while using DB data
+async function initializeRecommendationsFromDatabase(): Promise<void> {
+  try {
+    const dbProducts = await getAllActiveRecommendations();
+    
+    const productTypeToCategory: Record<string, string> = {
+      'listed_stock': 'listed_stocks',
+      'unlisted_stock': 'unlisted_stocks',
+      'reit': 'reit',
+      'invit': 'invit',
+    };
+    
+    let mergedCount = 0;
+    
+    // Merge database products into FUND_RECOMMENDATIONS_BY_CATEGORY
+    for (const [productType, riskProfiles] of Object.entries(dbProducts)) {
+      const category = productTypeToCategory[productType];
+      if (!category) continue;
+      
+      // Ensure category exists in FUND_RECOMMENDATIONS_BY_CATEGORY
+      if (!(FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category]) {
+        (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category] = {};
+      }
+      
+      for (const [riskProfile, products] of Object.entries(riskProfiles as Record<string, any[]>)) {
+        // Merge with existing (DB products take priority)
+        (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category][riskProfile] = products;
+        mergedCount += products.length;
+      }
+    }
+    
+    if (mergedCount > 0) {
+      console.log(`[Recommendations] Loaded ${mergedCount} products from database into recommendation catalog`);
+    }
+  } catch (error) {
+    console.error("[Recommendations] Failed to load from database, using hardcoded data:", error);
+  }
+}
+
+// Initialize on module load (async, won't block)
+initializeRecommendationsFromDatabase().catch(err => {
+  console.error("[Recommendations] Initialization failed:", err);
+});
+
+// Export for manual refresh
+export { initializeRecommendationsFromDatabase };
 
 // Target allocations by risk profile (expanded with new asset classes including stocks)
 const TARGET_ALLOCATIONS = {

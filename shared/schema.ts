@@ -26541,3 +26541,71 @@ export const abTests = pgTable("ab_tests", {
 export const insertAbTestSchema = createInsertSchema(abTests).omit({ id: true, createdAt: true, updatedAt: true });
 export type AbTest = typeof abTests.$inferSelect;
 export type InsertAbTest = z.infer<typeof insertAbTestSchema>;
+
+// Recommendation Products - Database-driven investment product recommendations
+// This replaces hardcoded FUND_RECOMMENDATIONS_BY_CATEGORY for stocks, REITs, InvITs
+export const recommendationProducts = pgTable("recommendation_products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Product identification
+  productType: varchar("product_type").notNull(), // 'listed_stock', 'unlisted_stock', 'reit', 'invit', 'mutual_fund', 'bond', 'pms', 'aif'
+  productId: varchar("product_id"), // Reference to listedStocks.id, reits.id, preIpoCompanies.id, etc. (optional for manual entries)
+  
+  // Product details (can be synced from source table or manually entered)
+  name: text("name").notNull(),
+  symbol: varchar("symbol"), // NSE/BSE symbol for stocks, ticker for others
+  amc: varchar("amc"), // AMC/Sponsor/Manager name
+  category: varchar("category"), // 'Large Cap', 'Mid Cap', 'Office REIT', etc.
+  sector: varchar("sector"), // IT, Banking, Real Estate, Infrastructure, etc.
+  
+  // Risk profile mapping
+  riskProfile: varchar("risk_profile").notNull(), // 'conservative', 'moderate', 'aggressive', 'very_aggressive'
+  
+  // Performance metrics
+  returns1Y: varchar("returns_1y"),
+  returns3Y: varchar("returns_3y"),
+  returns5Y: varchar("returns_5y"),
+  dividendYield: varchar("dividend_yield"),
+  
+  // Valuation/Price data
+  currentPrice: decimal("current_price", { precision: 15, scale: 2 }),
+  peRatio: decimal("pe_ratio", { precision: 10, scale: 2 }),
+  marketCap: varchar("market_cap"), // 'Large Cap', 'Mid Cap', 'Small Cap'
+  
+  // Risk classification
+  riskLevel: varchar("risk_level"), // 'Low', 'Moderate', 'Moderately High', 'High', 'Very High'
+  
+  // Investment requirements
+  minimumInvestment: decimal("minimum_investment", { precision: 15, scale: 2 }).default("0"),
+  lotSize: integer("lot_size").default(1),
+  
+  // Selection criteria
+  selectionRationale: text("selection_rationale"), // Why this product is recommended
+  investmentThesis: text("investment_thesis"), // Investment thesis for agents
+  
+  // Priority and controls
+  priority: integer("priority").default(50), // Higher = recommended first (1-100)
+  isActive: boolean("is_active").default(true),
+  
+  // Special requirements
+  requiresEnhancedKYC: boolean("requires_enhanced_kyc").default(false),
+  
+  // Metadata
+  addedBy: varchar("added_by").references(() => users.id),
+  lastUpdatedBy: varchar("last_updated_by").references(() => users.id),
+  dataSource: varchar("data_source").default("manual"), // 'manual', 'synced', 'api'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_rec_products_type").on(table.productType),
+  index("idx_rec_products_risk").on(table.riskProfile),
+  index("idx_rec_products_active").on(table.isActive),
+  index("idx_rec_products_type_risk").on(table.productType, table.riskProfile),
+  index("idx_rec_products_priority").on(table.priority),
+]);
+
+export const insertRecommendationProductSchema = createInsertSchema(recommendationProducts).omit({ 
+  id: true, createdAt: true, updatedAt: true 
+});
+export type RecommendationProduct = typeof recommendationProducts.$inferSelect;
+export type InsertRecommendationProduct = z.infer<typeof insertRecommendationProductSchema>;
