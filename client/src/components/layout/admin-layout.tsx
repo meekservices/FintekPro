@@ -70,7 +70,8 @@ import {
   CheckCircle,
   UserCheck,
   Bug,
-  Wallet
+  Wallet,
+  Inbox
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
@@ -174,6 +175,7 @@ const navCategories: NavCategory[] = [
       { title: "Overview", href: "/admin/marketing-dashboard", icon: TrendingUp, description: "Campaigns dashboard" },
       { title: "Email Campaigns", href: "/admin/email-campaigns", icon: Mail, description: "Email marketing" },
       { title: "WhatsApp/SMS", href: "/admin/whatsapp-campaigns", icon: MessageSquare, description: "WhatsApp & SMS campaigns" },
+      { title: "SMS Inbox", href: "/admin/sms-inbox", icon: Inbox, description: "Incoming messages" },
       { title: "Analytics", href: "/admin/marketing-analytics", icon: PieChart, description: "Performance tracking" },
     ]
   },
@@ -250,6 +252,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     queryKey: ["/api/admin/pending-orders/count"],
     refetchInterval: 60000,
   });
+
+  const { data: smsInboxResponse } = useQuery<{ unreadCount: number }>({
+    queryKey: ["/api/twilio/admin/messages/unread-count"],
+    refetchInterval: 30000,
+  });
+
+  const smsUnreadCount = smsInboxResponse?.unreadCount || 0;
 
   const notifications: Notification[] = useMemo(() => {
     const items: Notification[] = [];
@@ -623,6 +632,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                             );
                           }
                           
+                          const showBadge = item.href === '/admin/sms-inbox' && smsUnreadCount > 0;
+                          
                           return (
                             <Link
                               key={item.href}
@@ -636,7 +647,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                               data-testid={`link-admin-${item.href.split('/').pop()}`}
                             >
                               <Icon className="h-4 w-4 flex-shrink-0" />
-                              <span className="text-sm">{item.title}</span>
+                              <span className="text-sm flex-1">{item.title}</span>
+                              {showBadge && (
+                                <Badge className="h-5 min-w-[20px] flex items-center justify-center p-0 bg-red-500 text-white text-xs">
+                                  {smsUnreadCount > 99 ? '99+' : smsUnreadCount}
+                                </Badge>
+                              )}
                             </Link>
                           );
                         })}
