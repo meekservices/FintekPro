@@ -26502,3 +26502,42 @@ export const callLogs = pgTable("call_logs", {
 export const insertCallLogSchema = createInsertSchema(callLogs).omit({ id: true, createdAt: true });
 export type CallLog = typeof callLogs.$inferSelect;
 export type InsertCallLog = z.infer<typeof insertCallLogSchema>;
+
+// A/B Tests Table - For running experiments
+export const abTests = pgTable("ab_tests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Test identification
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+  testKey: varchar("test_key", { length: 100 }).notNull().unique(),
+  
+  // Test configuration
+  status: varchar("status", { length: 20 }).notNull().default('draft'), // 'draft', 'running', 'paused', 'completed'
+  metric: varchar("metric", { length: 100 }).notNull(), // What we're measuring (e.g., 'conversion_rate', 'click_rate')
+  
+  // Variants stored as JSONB array
+  // [{name: string, percentage: number, conversions: number}]
+  variants: jsonb("variants").notNull().default(sql`'[]'::jsonb`),
+  
+  // Sample size and results
+  sampleSize: integer("sample_size").default(0),
+  winner: varchar("winner", { length: 100 }),
+  
+  // Targeting
+  targetAudience: text("target_audience").array().default(sql`ARRAY[]::text[]`),
+  
+  // Timestamps
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdBy: varchar("created_by").references(() => users.id),
+}, (table) => [
+  index("idx_ab_tests_key").on(table.testKey),
+  index("idx_ab_tests_status").on(table.status),
+]);
+
+export const insertAbTestSchema = createInsertSchema(abTests).omit({ id: true, createdAt: true, updatedAt: true });
+export type AbTest = typeof abTests.$inferSelect;
+export type InsertAbTest = z.infer<typeof insertAbTestSchema>;
