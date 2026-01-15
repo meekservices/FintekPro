@@ -223,6 +223,7 @@ import DashboardCustomize from "@/pages/dashboard-customize";
 import ThemeSettings from "@/pages/theme-settings";
 import AgentProspectWizard from "@/pages/agent-prospect-wizard";
 import MarketingDashboard from "@/pages/admin/marketing-dashboard";
+import FestivalMarketing from "@/pages/admin/festival-marketing";
 import EmailCampaigns from "@/pages/admin/email-campaigns";
 import WhatsAppCampaigns from "@/pages/admin/whatsapp-campaigns";
 import SMSCampaigns from "@/pages/admin/sms-campaigns";
@@ -667,6 +668,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <MarketingDashboard />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/festival-marketing">
+        {() => (
+          <AdminLayout>
+            <FestivalMarketing />
           </AdminLayout>
         )}
       </Route>

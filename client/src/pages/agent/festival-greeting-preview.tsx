@@ -8,7 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { Download, Share2, Sparkles, Save, User, Edit2, Check, X } from 'lucide-react';
+import { Download, Share2, Sparkles, Save, User, Edit2, Check, X, Send, Users, Mail, MessageSquare } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 
@@ -374,18 +376,230 @@ export default function FestivalGreetingPreview() {
   const majorFestivals = festivals.filter(f => f.category === 'major');
   const regionalFestivals = festivals.filter(f => f.category === 'regional');
 
+  // Marketing state
+  const [activeTab, setActiveTab] = useState<'create' | 'marketing'>('create');
+  const [selectedClients, setSelectedClients] = useState<string[]>([]);
+  const [marketingChannel, setMarketingChannel] = useState<'email' | 'whatsapp'>('email');
+
+  // Fetch assigned clients
+  const { data: assignedClients = [], isLoading: isLoadingClients } = useQuery({
+    queryKey: ['/api/agent/marketing/clients'],
+  });
+
+  // Send greetings mutation
+  const sendGreetingsMutation = useMutation({
+    mutationFn: async (data: { festivalId: string; clientIds: string[]; channel: string }) => {
+      return apiRequest('/api/agent/marketing/send-greetings', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: 'Greetings Sent!',
+        description: `Festival greetings sent to ${data.sentCount || selectedClients.length} clients.`,
+      });
+      setSelectedClients([]);
+    },
+    onError: () => {
+      toast({
+        title: 'Error',
+        description: 'Failed to send greetings. Please try again.',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleSendToClients = () => {
+    if (selectedClients.length === 0) {
+      toast({
+        title: 'Select Clients',
+        description: 'Please select at least one client to send greetings.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    sendGreetingsMutation.mutate({
+      festivalId: selectedFestival.id,
+      clientIds: selectedClients,
+      channel: marketingChannel,
+    });
+  };
+
+  const toggleClientSelection = (clientId: string) => {
+    setSelectedClients(prev => 
+      prev.includes(clientId) 
+        ? prev.filter(id => id !== clientId)
+        : [...prev, clientId]
+    );
+  };
+
+  const selectAllClients = () => {
+    const clients = assignedClients as any[];
+    if (selectedClients.length === clients.length) {
+      setSelectedClients([]);
+    } else {
+      setSelectedClients(clients.map((c: any) => c.id));
+    }
+  };
+
   return (
     <div className="container mx-auto p-6 max-w-7xl">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Sparkles className="h-6 w-6 text-yellow-500" />
-          Festival Greeting Templates
-        </h1>
-        <p className="text-muted-foreground">
-          Create personalized festival greetings for your clients with 17+ beautiful templates
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <Sparkles className="h-6 w-6 text-yellow-500" />
+              Festival Greeting Templates
+            </h1>
+            <p className="text-muted-foreground">
+              Create personalized festival greetings for your clients with 17+ beautiful templates
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant={activeTab === 'create' ? 'default' : 'outline'}
+              onClick={() => setActiveTab('create')}
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              Create Greeting
+            </Button>
+            <Button
+              variant={activeTab === 'marketing' ? 'default' : 'outline'}
+              onClick={() => setActiveTab('marketing')}
+            >
+              <Users className="h-4 w-4 mr-2" />
+              Share with Clients
+            </Button>
+          </div>
+        </div>
       </div>
 
+      {activeTab === 'marketing' ? (
+        /* Marketing Tab Content */
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Left Panel - Client Selection */}
+          <div className="lg:col-span-2 space-y-4">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Select Clients</CardTitle>
+                    <CardDescription>Choose clients to send {selectedFestival.name} greetings</CardDescription>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={selectAllClients}>
+                    {selectedClients.length === (assignedClients as any[]).length ? 'Deselect All' : 'Select All'}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {isLoadingClients ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  </div>
+                ) : (assignedClients as any[]).length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>No clients assigned to you yet</p>
+                    <p className="text-sm">Clients will appear here once assigned by admin</p>
+                  </div>
+                ) : (
+                  <ScrollArea className="h-[400px]">
+                    <div className="space-y-2">
+                      {(assignedClients as any[]).map((client: any) => (
+                        <div 
+                          key={client.id}
+                          className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors ${
+                            selectedClients.includes(client.id) ? 'bg-muted border-primary' : ''
+                          }`}
+                          onClick={() => toggleClientSelection(client.id)}
+                        >
+                          <Checkbox 
+                            checked={selectedClients.includes(client.id)}
+                            onCheckedChange={() => toggleClientSelection(client.id)}
+                          />
+                          <div className="flex-1">
+                            <p className="font-medium">{client.name}</p>
+                            <div className="flex gap-4 text-sm text-muted-foreground">
+                              {client.email && <span>📧 {client.email}</span>}
+                              {client.phone && <span>📞 {client.phone}</span>}
+                            </div>
+                          </div>
+                          <Badge variant="secondary">{client.status}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Panel - Send Options */}
+          <div className="space-y-4">
+            {/* Selected Festival Preview */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">Selected Festival</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div 
+                  className="h-24 rounded-lg flex items-center justify-center"
+                  style={{ background: selectedFestival.gradient }}
+                >
+                  <span className="text-4xl">{selectedFestival.emoji}</span>
+                </div>
+                <p className="font-medium text-center mt-2">{selectedFestival.name}</p>
+              </CardContent>
+            </Card>
+
+            {/* Delivery Channel */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">Delivery Channel</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Button
+                  variant={marketingChannel === 'email' ? 'default' : 'outline'}
+                  className="w-full justify-start"
+                  onClick={() => setMarketingChannel('email')}
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  Email
+                </Button>
+                <Button
+                  variant={marketingChannel === 'whatsapp' ? 'default' : 'outline'}
+                  className="w-full justify-start"
+                  onClick={() => setMarketingChannel('whatsapp')}
+                >
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  WhatsApp
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Send Button */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center mb-4">
+                  <p className="text-2xl font-bold">{selectedClients.length}</p>
+                  <p className="text-muted-foreground">clients selected</p>
+                </div>
+                <Button 
+                  className="w-full" 
+                  size="lg"
+                  onClick={handleSendToClients}
+                  disabled={selectedClients.length === 0 || sendGreetingsMutation.isPending}
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  {sendGreetingsMutation.isPending ? 'Sending...' : 'Send Greetings'}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      ) : (
+      /* Create Tab Content */
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Left Panel - Agent Profile & Customization */}
         <div className="space-y-4">
@@ -780,6 +994,7 @@ export default function FestivalGreetingPreview() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

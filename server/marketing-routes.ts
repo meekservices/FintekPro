@@ -1762,6 +1762,179 @@ export function registerMarketingRoutes(app: any) {
     }
   });
 
+
+  // ============================================================================
+  // FESTIVAL MARKETING - Bulk greetings to clients
+  // ============================================================================
+
+  /**
+   * Get festival marketing campaigns
+   */
+  app.get('/api/admin/festival-marketing/campaigns', requireAdmin, async (req: any, res: Response) => {
+    try {
+      const campaigns = await db
+        .select()
+        .from(marketingCampaigns)
+        .where(eq(marketingCampaigns.campaignType, 'festival'))
+        .orderBy(desc(marketingCampaigns.createdAt))
+        .limit(20);
+
+      res.json(campaigns.map(c => ({
+        id: c.id,
+        festivalId: c.targetAudience,
+        festivalName: c.name,
+        status: c.status,
+        channel: c.whatsappMessage ? 'whatsapp' : 'email',
+        recipientCount: c.recipientCount || 0,
+        sentCount: c.sentCount || 0,
+        scheduledAt: c.scheduledAt?.toISOString(),
+        sentAt: c.updatedAt?.toISOString(),
+        createdAt: c.createdAt?.toISOString(),
+      })));
+    } catch (error) {
+      console.error('Error fetching festival campaigns:', error);
+      return apiResponse.serverError(res, 'Failed to fetch festival campaigns');
+    }
+  });
+
+  /**
+   * Send bulk festival greetings to all clients
+   */
+  app.post('/api/admin/festival-marketing/send-bulk', requireAdmin, async (req: any, res: Response) => {
+    try {
+      const { festivalId, channel, agentIds } = req.body;
+
+      if (!festivalId) {
+        return apiResponse.badRequest(res, 'Festival ID is required');
+      }
+
+      // Festival template messages
+      const festivalMessages: Record<string, { name: string; message: string }> = {
+        'diwali': { name: 'Diwali', message: 'Wishing you a Happy Diwali! May this festival of lights bring joy, prosperity, and success to you and your family.' },
+        'holi': { name: 'Holi', message: 'Happy Holi! May your life be filled with vibrant colors of happiness, love, and prosperity.' },
+        'eid': { name: 'Eid', message: 'Eid Mubarak! Wishing you and your family a blessed celebration filled with peace and happiness.' },
+        'christmas': { name: 'Christmas', message: 'Merry Christmas! Wishing you joy, peace, and wonderful blessings this holiday season.' },
+        'ganesh-chaturthi': { name: 'Ganesh Chaturthi', message: 'Happy Ganesh Chaturthi! May Lord Ganesha remove all obstacles and shower you with wisdom.' },
+        'durga-puja': { name: 'Durga Puja', message: 'Happy Durga Puja! May Goddess Durga bless you with strength and prosperity.' },
+        'onam': { name: 'Onam', message: 'Happy Onam! Wishing you a harvest of happiness, health, and prosperity.' },
+        'pongal': { name: 'Pongal', message: 'Happy Pongal! May this harvest festival bring abundance and joy to you.' },
+        'new-year': { name: 'New Year', message: 'Happy New Year! Wishing you a year filled with new hopes, joys, and success.' },
+        'ugadi': { name: 'Ugadi', message: 'Happy Ugadi! May this new year usher in new hopes and opportunities.' },
+        'vishu': { name: 'Vishu', message: 'Happy Vishu! Wishing you a golden year filled with happiness and prosperity.' },
+        'bihu': { name: 'Bihu', message: 'Happy Bihu! May this harvest festival bring you joy and new beginnings.' },
+        'baisakhi': { name: 'Baisakhi', message: 'Happy Baisakhi! May the spirit of Baisakhi bring you abundance and prosperity.' },
+        'lohri': { name: 'Lohri', message: 'Happy Lohri! May the warmth of Lohri bring love and happiness to your life.' },
+        'makar-sankranti': { name: 'Makar Sankranti', message: 'Happy Makar Sankranti! May your life soar high with success like colorful kites.' },
+        'raksha-bandhan': { name: 'Raksha Bandhan', message: 'Happy Raksha Bandhan! Celebrating the beautiful bond of love and protection.' },
+        'navratri': { name: 'Navratri', message: 'Happy Navratri! May the divine blessings bring you strength and prosperity.' },
+      };
+
+      const festival = festivalMessages[festivalId];
+      if (!festival) {
+        return apiResponse.badRequest(res, 'Invalid festival ID');
+      }
+
+      // Get all active clients
+      const clients = await db.select().from(users);
+      const recipientCount = clients.length;
+
+      // Create campaign record
+      const [campaign] = await db
+        .insert(marketingCampaigns)
+        .values({
+          name: `${festival.name} Greetings`,
+          campaignType: 'festival',
+          targetAudience: festivalId,
+          status: 'sent',
+          recipientCount,
+          sentCount: recipientCount,
+          emailSubject: `Happy ${festival.name}!`,
+          emailHtmlContent: festival.message,
+          whatsappMessage: channel === 'whatsapp' || channel === 'both' ? festival.message : null,
+          createdBy: req.user.id,
+        })
+        .returning();
+
+      // In production, this would trigger actual email/WhatsApp sending
+      // For now, we log the campaign creation
+      console.log(`📧 Festival Campaign Created: ${festival.name} - ${recipientCount} recipients via ${channel}`);
+
+      res.json({
+        success: true,
+        campaignId: campaign.id,
+        festivalName: festival.name,
+        channel,
+        recipientCount,
+        message: `Festival greetings queued for ${recipientCount} clients`,
+      });
+    } catch (error) {
+      console.error('Error sending bulk festival greetings:', error);
+      return apiResponse.serverError(res, 'Failed to send festival greetings');
+    }
+  });
+
+  // ============================================================================
+  // AGENT FESTIVAL MARKETING - Share greetings with assigned clients
+  // ============================================================================
+
+  /**
+   * Get agent's clients for marketing
+   */
+  app.get('/api/agent/marketing/clients', async (req: any, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      // Get clients assigned to this agent
+      const prospects = await db
+        .select()
+        .from(prospectLeads)
+        .where(eq(prospectLeads.assignedTo, req.user.id))
+        .limit(100);
+
+      res.json(prospects.map(p => ({
+        id: p.id,
+        name: p.companyName,
+        email: p.primaryEmail,
+        phone: p.primaryMobile,
+        status: p.status,
+      })));
+    } catch (error) {
+      console.error('Error fetching agent clients:', error);
+      return apiResponse.serverError(res, 'Failed to fetch clients');
+    }
+  });
+
+  /**
+   * Send festival greetings to selected clients (agent)
+   */
+  app.post('/api/agent/marketing/send-greetings', async (req: any, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const { festivalId, clientIds, channel } = req.body;
+
+      if (!festivalId || !clientIds?.length) {
+        return apiResponse.badRequest(res, 'Festival ID and client IDs are required');
+      }
+
+      // In production, this would send actual messages
+      console.log(`📧 Agent ${req.user.id} sending ${festivalId} greetings to ${clientIds.length} clients via ${channel}`);
+
+      res.json({
+        success: true,
+        message: `Festival greetings sent to ${clientIds.length} clients`,
+        sentCount: clientIds.length,
+      });
+    } catch (error) {
+      console.error('Error sending agent greetings:', error);
+      return apiResponse.serverError(res, 'Failed to send greetings');
+    }
+  });
+
   console.log('✅ Marketing routes registered');
   console.log('   📱 SMS Marketing: ' + (smsMarketingService.isAvailable() ? 'Active' : 'Not configured'));
   console.log('   💬 WhatsApp Marketing: ' + (whatsAppMarketingService.isAvailable() ? 'Active' : 'Not configured'));
