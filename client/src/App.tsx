@@ -119,46 +119,46 @@ import LoanApplication from "@/pages/loan-application";
 import LoanDashboard from "@/pages/loan-dashboard";
 import ProposalsPage from "@/pages/proposals";
 import BrokingPage from "@/pages/broking";
-import AgentPortal from "@/pages/agent-portal";
+const AgentPortal = lazy(() => import("@/pages/agent-portal"));
 const DistributionPartnerPortal = lazy(() => import("@/pages/distribution-partner-portal"));
-import FieldAgentPortal from "@/pages/field-agent-portal";
-import AgentClientsPage from "@/pages/agent-clients";
-import AgentCrmClient360 from "@/pages/agent-crm-client-360";
-import AgentCrmPipeline from "@/pages/agent-crm-pipeline";
-import AgentCrmTasks from "@/pages/agent-crm-tasks";
-import AgentCrmAnalytics from "@/pages/agent-crm-analytics";
-import AgentRecommendationControl from "@/pages/agent-recommendation-control";
-import AgentTrainingPage from "@/pages/agent-training";
-import AgentProposalsPage from "@/pages/agent-proposals";
-import AgentClientAcquisitionPage from "@/pages/agent-client-acquisition";
-import AgentDerivatives from "@/pages/agent-derivatives";
-import AgentTaxCasesPage from "@/pages/agent-tax-cases";
-import AgentKnowledgeHub from "@/pages/agent-knowledge-hub";
-import AgentKnowledgeMarketBrief from "@/pages/agent-knowledge-market-brief";
-import FestivalGreetingPreview from "@/pages/agent/festival-greeting-preview";
-import AgentKnowledgeProducts from "@/pages/agent-knowledge-products";
-import AgentKnowledgeExplanations from "@/pages/agent-knowledge-explanations";
-import AgentKnowledgeCertifications from "@/pages/agent-knowledge-certifications";
+const FieldAgentPortal = lazy(() => import("@/pages/field-agent-portal"));
+const AgentClientsPage = lazy(() => import("@/pages/agent-clients"));
+const AgentCrmClient360 = lazy(() => import("@/pages/agent-crm-client-360"));
+const AgentCrmPipeline = lazy(() => import("@/pages/agent-crm-pipeline"));
+const AgentCrmTasks = lazy(() => import("@/pages/agent-crm-tasks"));
+const AgentCrmAnalytics = lazy(() => import("@/pages/agent-crm-analytics"));
+const AgentRecommendationControl = lazy(() => import("@/pages/agent-recommendation-control"));
+const AgentTrainingPage = lazy(() => import("@/pages/agent-training"));
+const AgentProposalsPage = lazy(() => import("@/pages/agent-proposals"));
+const AgentClientAcquisitionPage = lazy(() => import("@/pages/agent-client-acquisition"));
+const AgentDerivatives = lazy(() => import("@/pages/agent-derivatives"));
+const AgentTaxCasesPage = lazy(() => import("@/pages/agent-tax-cases"));
+const AgentKnowledgeHub = lazy(() => import("@/pages/agent-knowledge-hub"));
+const AgentKnowledgeMarketBrief = lazy(() => import("@/pages/agent-knowledge-market-brief"));
+const FestivalGreetingPreview = lazy(() => import("@/pages/agent/festival-greeting-preview"));
+const AgentKnowledgeProducts = lazy(() => import("@/pages/agent-knowledge-products"));
+const AgentKnowledgeExplanations = lazy(() => import("@/pages/agent-knowledge-explanations"));
+const AgentKnowledgeCertifications = lazy(() => import("@/pages/agent-knowledge-certifications"));
 const AgentInvestmentAdvisory = lazy(() => import("@/pages/agent-investment-advisory"));
 const AgentBondRecommendations = lazy(() => import("@/pages/agent-bond-recommendations"));
 const AgentStockAI = lazy(() => import("@/pages/agent-stock-ai"));
 const AgentTreasuryPage = lazy(() => import("@/pages/agent-treasury"));
 const AgentRevenueCockpit = lazy(() => import("@/pages/agent-revenue-cockpit"));
-import AgentLeadPipeline from "@/pages/agent-lead-pipeline";
-import AgentClientProfile from "@/pages/agent-client-profile";
-import AgentTasks from "@/pages/agent-tasks";
-import AgentReportsHub from "@/pages/agent-reports-hub";
-import AgentDemoProgress from "@/pages/agent-demo-progress";
-import AgentPortfolioReportBuilder from "@/pages/agent-portfolio-report-builder";
-import AgentSampleReport from "@/pages/agent-sample-report";
-import AgentDemoProposalBuilder from "@/pages/agent-demo-proposal-builder";
-import AgentZohoCRM from "@/pages/agent-zoho-crm";
-import AgentLeaderboard from "@/pages/agent-leaderboard";
-import AgentCommissionCalculator from "@/pages/agent-commission-calculator";
-import AgentBulkCommunication from "@/pages/agent-bulk-communication";
-import AgentCalendar from "@/pages/agent-calendar";
-import AgentESign from "@/pages/agent-esign";
-import AgentClientOnboarding from "@/pages/agent-client-onboarding";
+const AgentLeadPipeline = lazy(() => import("@/pages/agent-lead-pipeline"));
+const AgentClientProfile = lazy(() => import("@/pages/agent-client-profile"));
+const AgentTasks = lazy(() => import("@/pages/agent-tasks"));
+const AgentReportsHub = lazy(() => import("@/pages/agent-reports-hub"));
+const AgentDemoProgress = lazy(() => import("@/pages/agent-demo-progress"));
+const AgentPortfolioReportBuilder = lazy(() => import("@/pages/agent-portfolio-report-builder"));
+const AgentSampleReport = lazy(() => import("@/pages/agent-sample-report"));
+const AgentDemoProposalBuilder = lazy(() => import("@/pages/agent-demo-proposal-builder"));
+const AgentZohoCRM = lazy(() => import("@/pages/agent-zoho-crm"));
+const AgentLeaderboard = lazy(() => import("@/pages/agent-leaderboard"));
+const AgentCommissionCalculator = lazy(() => import("@/pages/agent-commission-calculator"));
+const AgentBulkCommunication = lazy(() => import("@/pages/agent-bulk-communication"));
+const AgentCalendar = lazy(() => import("@/pages/agent-calendar"));
+const AgentESign = lazy(() => import("@/pages/agent-esign"));
+const AgentClientOnboarding = lazy(() => import("@/pages/agent-client-onboarding"));
 import OnboardingPage from "@/pages/onboarding";
 import PublicProposalPage from "@/pages/public-proposal";
 import ManualKYCPage from "@/pages/manual-kyc";
@@ -1253,7 +1253,9 @@ function PartnerRoutes() {
       <Route path="/agents">
         {() => (
           <PartnerLayout>
-            <AgentPortal />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentPortal />
+            </Suspense>
           </PartnerLayout>
         )}
       </Route>
@@ -1292,21 +1294,27 @@ function AgentRoutes() {
       <Route path="/">
         {() => (
           <AgentLayout>
-            <FieldAgentPortal />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <FieldAgentPortal />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
       <Route path="/agent">
         {() => (
           <AgentLayout>
-            <FieldAgentPortal />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <FieldAgentPortal />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
       <Route path="/agent-portal">
         {() => (
           <AgentLayout>
-            <FieldAgentPortal />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <FieldAgentPortal />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
@@ -1320,50 +1328,70 @@ function AgentRoutes() {
       <Route path="/agent/zoho-crm">
         {() => (
           <AgentLayout>
-            <AgentZohoCRM />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentZohoCRM />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
       <Route path="/agent/clients">
         {() => (
           <AgentLayout>
-            <AgentClientsPage />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentClientsPage />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
       <Route path="/agent/crm/clients/:clientId">
         {() => (
           <AgentLayout>
-            <AgentCrmClient360 />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentCrmClient360 />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
       <Route path="/agent/crm/pipeline">
         {() => (
           <AgentLayout>
-            <AgentCrmPipeline />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentCrmPipeline />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
       <Route path="/agent/crm/tasks">
         {() => (
           <AgentLayout>
-            <AgentCrmTasks />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentCrmTasks />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
       <Route path="/agent/crm/analytics">
         {() => (
           <AgentLayout>
-            <AgentCrmAnalytics />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentCrmAnalytics />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
       <Route path="/agent/training">
-        {() => <AgentTrainingPage />}
+        {() => (
+          <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+            <AgentTrainingPage />
+          </Suspense>
+        )}
       </Route>
       <Route path="/agent/recommendation-control">
-        {() => <AgentRecommendationControl />}
+        {() => (
+          <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+            <AgentRecommendationControl />
+          </Suspense>
+        )}
       </Route>
       <Route path="/agent/investment-advisory">
         {() => (
@@ -1384,7 +1412,11 @@ function AgentRoutes() {
         )}
       </Route>
       <Route path="/agent/derivatives">
-        {() => <AgentDerivatives />}
+        {() => (
+          <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+            <AgentDerivatives />
+          </Suspense>
+        )}
       </Route>
       <Route path="/agent/stock-ai">
         {() => (
@@ -1398,7 +1430,9 @@ function AgentRoutes() {
       <Route path="/agent/demo-progress">
         {() => (
           <AgentLayout>
-            <AgentDemoProgress />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentDemoProgress />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
@@ -1412,14 +1446,18 @@ function AgentRoutes() {
       <Route path="/agent/proposals">
         {() => (
           <AgentLayout>
-            <AgentProposalsPage />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentProposalsPage />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
       <Route path="/agent/client-acquisition">
         {() => (
           <AgentLayout>
-            <AgentClientAcquisitionPage />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentClientAcquisitionPage />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
@@ -1442,49 +1480,63 @@ function AgentRoutes() {
       <Route path="/agent/tax-cases">
         {() => (
           <AgentLayout>
-            <AgentTaxCasesPage />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentTaxCasesPage />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
       <Route path="/agent/knowledge-hub">
         {() => (
           <AgentLayout>
-            <AgentKnowledgeHub />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentKnowledgeHub />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
       <Route path="/agent/knowledge-hub/market-brief">
         {() => (
           <AgentLayout>
-            <AgentKnowledgeMarketBrief />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentKnowledgeMarketBrief />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
       <Route path="/agent/knowledge-hub/products">
         {() => (
           <AgentLayout>
-            <AgentKnowledgeProducts />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentKnowledgeProducts />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
       <Route path="/agent/knowledge-hub/explanations">
         {() => (
           <AgentLayout>
-            <AgentKnowledgeExplanations />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentKnowledgeExplanations />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
       <Route path="/agent/knowledge-hub/certifications">
         {() => (
           <AgentLayout>
-            <AgentKnowledgeCertifications />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentKnowledgeCertifications />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
       <Route path="/agent/festival-greetings">
         {() => (
           <AgentLayout>
-            <FestivalGreetingPreview />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <FestivalGreetingPreview />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
@@ -1500,56 +1552,72 @@ function AgentRoutes() {
       <Route path="/agent/leads">
         {() => (
           <AgentLayout>
-            <AgentLeadPipeline />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentLeadPipeline />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
       <Route path="/agent/clients/:id">
         {() => (
           <AgentLayout>
-            <AgentClientProfile />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentClientProfile />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
       <Route path="/agent/tasks">
         {() => (
           <AgentLayout>
-            <AgentTasks />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentTasks />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
       <Route path="/agent/reports">
         {() => (
           <AgentLayout>
-            <AgentReportsHub />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentReportsHub />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
       <Route path="/agent/report-builder">
         {() => (
           <AgentLayout>
-            <AgentPortfolioReportBuilder />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentPortfolioReportBuilder />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
       <Route path="/agent/sample-report">
         {() => (
           <AgentLayout>
-            <AgentSampleReport />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentSampleReport />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
       <Route path="/agent/leaderboard">
         {() => (
           <AgentLayout>
-            <AgentLeaderboard />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentLeaderboard />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
       <Route path="/agent/commission-calculator">
         {() => (
           <AgentLayout>
-            <AgentCommissionCalculator />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentCommissionCalculator />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
@@ -1563,28 +1631,36 @@ function AgentRoutes() {
       <Route path="/agent/bulk-communication">
         {() => (
           <AgentLayout>
-            <AgentBulkCommunication />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentBulkCommunication />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
       <Route path="/agent/calendar">
         {() => (
           <AgentLayout>
-            <AgentCalendar />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentCalendar />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
       <Route path="/agent/esign">
         {() => (
           <AgentLayout>
-            <AgentESign />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentESign />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
       <Route path="/agent/onboard-client">
         {() => (
           <AgentLayout>
-            <AgentClientOnboarding />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentClientOnboarding />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
