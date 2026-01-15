@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Link } from 'wouter';
-import { Activity, Database, Webhook, TrendingUp, AlertCircle, CheckCircle } from 'lucide-react';
+import { Activity, Database, Webhook, TrendingUp, AlertCircle, CheckCircle, Building2, Mail, Video, FileSignature, BookOpen, RefreshCw } from 'lucide-react';
 
 interface ZohoConnection {
   id: string;
@@ -47,6 +47,42 @@ interface SyncLogsResponse {
   logs?: SyncLog[];
 }
 
+interface ZohoApplication {
+  name: string;
+  configured: boolean;
+  scopes: string[];
+}
+
+interface IntegrationStatus {
+  configured: boolean;
+  apiDomain?: string;
+  applications: ZohoApplication[];
+  totalScopes?: number;
+  message?: string;
+}
+
+const getAppIcon = (appName: string) => {
+  switch (appName) {
+    case 'CRM': return <Building2 className="h-4 w-4" />;
+    case 'Books': return <BookOpen className="h-4 w-4" />;
+    case 'Campaigns': return <Mail className="h-4 w-4" />;
+    case 'Meeting': return <Video className="h-4 w-4" />;
+    case 'Sign': return <FileSignature className="h-4 w-4" />;
+    default: return <Database className="h-4 w-4" />;
+  }
+};
+
+const getAppDescription = (appName: string) => {
+  switch (appName) {
+    case 'CRM': return 'Lead & contact management';
+    case 'Books': return 'Invoicing & billing';
+    case 'Campaigns': return 'Email marketing';
+    case 'Meeting': return 'Video meetings';
+    case 'Sign': return 'E-signatures';
+    default: return '';
+  }
+};
+
 export default function ZohoDashboardPage() {
   const { data: connections, isLoading: loadingConnections } = useQuery<ZohoConnection[]>({
     queryKey: ['/api/zoho/connections']
@@ -62,6 +98,10 @@ export default function ZohoDashboardPage() {
 
   const { data: recentLogs } = useQuery<SyncLogsResponse>({
     queryKey: ['/api/zoho/admin/sync-logs?limit=5']
+  });
+
+  const { data: integrationStatus, refetch: refetchStatus } = useQuery<IntegrationStatus>({
+    queryKey: ['/api/zoho/integration-status']
   });
 
   const activeConnections = connections?.filter(c => c.isActive) || [];
@@ -95,12 +135,49 @@ export default function ZohoDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Zoho Integration Dashboard</h1>
-        <p className="text-muted-foreground mt-2">
-          Monitor and manage Zoho One integrations across CRM, Books, Desk, and WorkDrive
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Zoho Integration Dashboard</h1>
+          <p className="text-muted-foreground mt-2">
+            Manage all Zoho applications - CRM, Books, Campaigns, Meeting & Sign
+          </p>
+        </div>
+        <Button variant="outline" onClick={() => refetchStatus()}>
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Refresh Status
+        </Button>
       </div>
+
+      {/* Zoho Applications Status */}
+      {integrationStatus?.configured && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Zoho Applications</CardTitle>
+            <CardDescription>All connected Zoho applications and their status</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              {integrationStatus.applications?.map((app) => (
+                <div 
+                  key={app.name} 
+                  className={`p-4 rounded-lg border ${app.configured ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950' : 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900'}`}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    {getAppIcon(app.name)}
+                    <span className="font-medium text-sm">{app.name}</span>
+                    {app.configured ? (
+                      <CheckCircle className="h-4 w-4 text-green-600 ml-auto" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 text-gray-400 ml-auto" />
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{getAppDescription(app.name)}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Health Overview Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
