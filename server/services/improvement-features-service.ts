@@ -6,9 +6,14 @@ import {
   compoundAlerts,
   trendingInvestments,
   themePreferences,
-  users
+  users,
+  listedStocks,
+  mutualFunds,
+  corporateBonds,
+  financialGoals,
+  unifiedOrders
 } from "@shared/schema";
-import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
+import { eq, desc, and, gte, lte, sql, ilike, or } from "drizzle-orm";
 import crypto from "crypto";
 
 interface WidgetConfig {
@@ -371,20 +376,155 @@ class ImprovementFeaturesService {
     goals: any[];
     orders: any[];
   }> {
-    const searchTerm = query.toLowerCase();
+    const searchPattern = `%${query}%`;
     
-    return {
-      stocks: [
-        { symbol: 'RELIANCE', name: 'Reliance Industries Ltd', type: 'stock', match: 'name' },
-        { symbol: 'RELIANCEC', name: 'Reliance Capital', type: 'stock', match: 'symbol' }
-      ].filter(s => s.name.toLowerCase().includes(searchTerm) || s.symbol.toLowerCase().includes(searchTerm)),
-      mutualFunds: [
-        { id: 'mf1', name: 'Reliance Large Cap Fund', type: 'mutual_fund', match: 'name' }
-      ].filter(m => m.name.toLowerCase().includes(searchTerm)),
-      bonds: [],
-      goals: [],
-      orders: []
-    };
+    try {
+      // Search stocks from listedStocks table
+      const stocksResults = await db
+        .select({
+          symbol: listedStocks.symbol,
+          name: listedStocks.companyName,
+          sector: listedStocks.sector,
+          marketCap: listedStocks.marketCap
+        })
+        .from(listedStocks)
+        .where(
+          or(
+            ilike(listedStocks.symbol, searchPattern),
+            ilike(listedStocks.companyName, searchPattern),
+            ilike(listedStocks.isin, searchPattern)
+          )
+        )
+        .limit(10);
+
+      // Search mutual funds
+      const mfResults = await db
+        .select({
+          id: mutualFunds.id,
+          name: mutualFunds.schemeName,
+          category: mutualFunds.category,
+          fundHouse: mutualFunds.fundHouse
+        })
+        .from(mutualFunds)
+        .where(
+          or(
+            ilike(mutualFunds.schemeName, searchPattern),
+            ilike(mutualFunds.fundHouse, searchPattern),
+            ilike(mutualFunds.schemeCode, searchPattern)
+          )
+        )
+        .limit(10);
+
+      // Search bonds
+      const bondResults = await db
+        .select({
+          id: corporateBonds.id,
+          name: corporateBonds.bondName,
+          issuer: corporateBonds.issuer,
+          type: corporateBonds.bondType,
+          rating: corporateBonds.creditRating
+        })
+        .from(corporateBonds)
+        .where(
+          or(
+            ilike(corporateBonds.bondName, searchPattern),
+            ilike(corporateBonds.issuer, searchPattern),
+            ilike(corporateBonds.isin, searchPattern)
+          )
+        )
+        .limit(10);
+
+      // Search goals (only for authenticated users)
+      let goalsResults: any[] = [];
+      if (userId) {
+        goalsResults = await db
+          .select({
+            id: financialGoals.id,
+            name: financialGoals.goalName,
+            type: financialGoals.goalType,
+            targetAmount: financialGoals.targetAmount
+          })
+          .from(financialGoals)
+          .where(
+            and(
+              eq(financialGoals.userId, userId),
+              ilike(financialGoals.goalName, searchPattern)
+            )
+          )
+          .limit(5);
+      }
+
+      // Search orders (only for authenticated users)
+      let ordersResults: any[] = [];
+      if (userId) {
+        ordersResults = await db
+          .select({
+            id: unifiedOrders.id,
+            symbol: unifiedOrders.instrumentSymbol,
+            type: unifiedOrders.productType,
+            status: unifiedOrders.status
+          })
+          .from(unifiedOrders)
+          .where(
+            and(
+              eq(unifiedOrders.userId, userId),
+              or(
+                ilike(unifiedOrders.instrumentSymbol, searchPattern),
+                ilike(unifiedOrders.instrumentName, searchPattern)
+              )
+            )
+          )
+          .limit(5);
+      }
+
+      return {
+        stocks: stocksResults.map(s => ({
+          symbol: s.symbol,
+          name: s.name,
+          type: 'stock',
+          sector: s.sector,
+          marketCap: s.marketCap
+        })),
+        mutualFunds: mfResults.map(m => ({
+          id: m.id,
+          name: m.name,
+          type: 'mutual_fund',
+          category: m.category,
+          fundHouse: m.fundHouse
+        })),
+        bonds: bondResults.map(b => ({
+          id: b.id,
+          name: b.name,
+          issuer: b.issuer,
+          type: 'bond',
+          bondType: b.type,
+          rating: b.rating
+        })),
+        goals: goalsResults.map(g => ({
+          id: g.id,
+          name: g.name,
+          type: 'goal',
+          goalType: g.type,
+          targetAmount: g.targetAmount
+        })),
+        orders: ordersResults.map(o => ({
+          id: o.id,
+          symbol: o.symbol,
+          type: 'order',
+          productType: o.type,
+          status: o.status
+        }))
+      };
+    } catch (error) {
+      console.error("Error in global search:", error);
+      return {
+        stocks: [],
+        mutualFunds: [],
+        bonds: [],
+        goals: [],
+        orders: []
+      };
+    }
   }
 }
 
