@@ -1559,6 +1559,178 @@ class McaIntelligenceService {
       .orderBy(desc(mcaWalletPayments.createdAt))
       .limit(limit);
   }
+
+  // ===============================================
+  // DIRECT DATA INGEST METHODS
+  // For populating MCA data via JSON API
+  // ===============================================
+
+  /**
+   * Check if a company exists in the master table
+   */
+  async companyExists(cin: string): Promise<boolean> {
+    const [existing] = await db.select({ cin: mcaCompanyMaster.cin })
+      .from(mcaCompanyMaster)
+      .where(eq(mcaCompanyMaster.cin, cin))
+      .limit(1);
+    return !!existing;
+  }
+
+  /**
+   * Upsert company master data (insert or update on conflict)
+   */
+  async upsertCompanyMaster(data: {
+    cin: string;
+    companyName: string;
+    companyStatus?: string;
+    incorporationDate?: string;
+    registeredState?: string;
+    registeredCity?: string;
+    registeredAddress?: string;
+    companyCategory?: string;
+    companySubCategory?: string;
+    companyClass?: string;
+    authorizedCapital?: string;
+    paidUpCapital?: string;
+    lastFilingYear?: string;
+    email?: string;
+    industry?: string;
+    sourceAttribution?: string;
+  }): Promise<McaCompanyMaster> {
+    const [existing] = await db.select()
+      .from(mcaCompanyMaster)
+      .where(eq(mcaCompanyMaster.cin, data.cin))
+      .limit(1);
+
+    if (existing) {
+      // Update existing record
+      const [updated] = await db.update(mcaCompanyMaster)
+        .set({
+          companyName: data.companyName,
+          companyStatus: data.companyStatus || existing.companyStatus,
+          incorporationDate: data.incorporationDate || existing.incorporationDate,
+          registeredState: data.registeredState || existing.registeredState,
+          registeredCity: data.registeredCity || existing.registeredCity,
+          registeredAddress: data.registeredAddress || existing.registeredAddress,
+          companyCategory: data.companyCategory || existing.companyCategory,
+          companySubCategory: data.companySubCategory || existing.companySubCategory,
+          companyClass: data.companyClass || existing.companyClass,
+          authorizedCapital: data.authorizedCapital || existing.authorizedCapital,
+          paidUpCapital: data.paidUpCapital || existing.paidUpCapital,
+          lastFilingYear: data.lastFilingYear || existing.lastFilingYear,
+          email: data.email || existing.email,
+          industry: data.industry || existing.industry,
+          sourceAttribution: data.sourceAttribution || existing.sourceAttribution,
+          updatedAt: new Date(),
+        })
+        .where(eq(mcaCompanyMaster.cin, data.cin))
+        .returning();
+      console.log(`[MCA Intelligence] Updated company master: ${data.cin} - ${data.companyName}`);
+      return updated;
+    } else {
+      // Insert new record
+      const [created] = await db.insert(mcaCompanyMaster)
+        .values({
+          cin: data.cin,
+          companyName: data.companyName,
+          companyStatus: data.companyStatus || 'Active',
+          incorporationDate: data.incorporationDate,
+          registeredState: data.registeredState,
+          registeredCity: data.registeredCity,
+          registeredAddress: data.registeredAddress,
+          companyCategory: data.companyCategory,
+          companySubCategory: data.companySubCategory,
+          companyClass: data.companyClass,
+          authorizedCapital: data.authorizedCapital,
+          paidUpCapital: data.paidUpCapital,
+          lastFilingYear: data.lastFilingYear,
+          email: data.email,
+          industry: data.industry,
+          sourceAttribution: data.sourceAttribution || 'DIRECT_INGEST',
+        })
+        .returning();
+      console.log(`[MCA Intelligence] Created company master: ${data.cin} - ${data.companyName}`);
+      return created;
+    }
+  }
+
+  /**
+   * Upsert financial snapshot data (insert or update on conflict for same CIN + FY)
+   */
+  async upsertFinancialSnapshot(data: {
+    cin: string;
+    financialYear: string;
+    revenue?: string;
+    profitBeforeTax?: string;
+    profitAfterTax?: string;
+    netWorth?: string;
+    totalAssets?: string;
+    totalLiabilities?: string;
+    shareCapital?: string;
+    reserves?: string;
+    longTermBorrowing?: string;
+    shortTermBorrowing?: string;
+    source?: string;
+    derivedBy?: string;
+    notes?: string;
+  }): Promise<McaFinancialSnapshot> {
+    // Check if financial record exists for this CIN + FY combo
+    const [existing] = await db.select()
+      .from(mcaFinancialSnapshot)
+      .where(and(
+        eq(mcaFinancialSnapshot.cin, data.cin),
+        eq(mcaFinancialSnapshot.financialYear, data.financialYear)
+      ))
+      .limit(1);
+
+    if (existing) {
+      // Update existing record
+      const [updated] = await db.update(mcaFinancialSnapshot)
+        .set({
+          revenue: data.revenue ?? existing.revenue,
+          profitBeforeTax: data.profitBeforeTax ?? existing.profitBeforeTax,
+          profitAfterTax: data.profitAfterTax ?? existing.profitAfterTax,
+          netWorth: data.netWorth ?? existing.netWorth,
+          totalAssets: data.totalAssets ?? existing.totalAssets,
+          totalLiabilities: data.totalLiabilities ?? existing.totalLiabilities,
+          shareCapital: data.shareCapital ?? existing.shareCapital,
+          reserves: data.reserves ?? existing.reserves,
+          longTermBorrowing: data.longTermBorrowing ?? existing.longTermBorrowing,
+          shortTermBorrowing: data.shortTermBorrowing ?? existing.shortTermBorrowing,
+          source: data.source || existing.source,
+          derivedBy: data.derivedBy || existing.derivedBy,
+          notes: data.notes || existing.notes,
+          derivedAt: new Date(),
+        })
+        .where(eq(mcaFinancialSnapshot.id, existing.id))
+        .returning();
+      console.log(`[MCA Intelligence] Updated financial snapshot: ${data.cin} FY ${data.financialYear}`);
+      return updated;
+    } else {
+      // Insert new record
+      const [created] = await db.insert(mcaFinancialSnapshot)
+        .values({
+          cin: data.cin,
+          financialYear: data.financialYear,
+          revenue: data.revenue,
+          profitBeforeTax: data.profitBeforeTax,
+          profitAfterTax: data.profitAfterTax,
+          netWorth: data.netWorth,
+          totalAssets: data.totalAssets,
+          totalLiabilities: data.totalLiabilities,
+          shareCapital: data.shareCapital,
+          reserves: data.reserves,
+          longTermBorrowing: data.longTermBorrowing,
+          shortTermBorrowing: data.shortTermBorrowing,
+          source: data.source || 'DIRECT_INGEST',
+          derivedBy: data.derivedBy,
+          notes: data.notes,
+        })
+        .returning();
+      console.log(`[MCA Intelligence] Created financial snapshot: ${data.cin} FY ${data.financialYear}`);
+      return created;
+    }
+  }
 }
 
 export const mcaIntelligenceService = new McaIntelligenceService();
