@@ -369,7 +369,7 @@ class ImprovementFeaturesService {
     }
   }
 
-  async globalSearch(query: string, userId?: string): Promise<{
+  async globalSearch(query: string, userId?: string, category: string = "all"): Promise<{
     stocks: any[];
     mutualFunds: any[];
     bonds: any[];
@@ -377,10 +377,15 @@ class ImprovementFeaturesService {
     orders: any[];
   }> {
     const searchPattern = `%${query}%`;
+    const shouldSearchStocks = category === "all" || category === "stocks";
+    const shouldSearchMutualFunds = category === "all" || category === "mutualFunds";
+    const shouldSearchBonds = category === "all" || category === "bonds";
+    const shouldSearchGoals = category === "all" || category === "goals";
+    const shouldSearchOrders = category === "all" || category === "orders";
     
     try {
       // Search stocks from listedStocks table
-      const stocksResults = await db
+      const stocksResults = shouldSearchStocks ? await db
         .select({
           symbol: listedStocks.symbol,
           name: listedStocks.companyName,
@@ -395,10 +400,10 @@ class ImprovementFeaturesService {
             ilike(listedStocks.isin, searchPattern)
           )
         )
-        .limit(10);
+        .limit(10) : [];
 
       // Search mutual funds
-      const mfResults = await db
+      const mfResults = shouldSearchMutualFunds ? await db
         .select({
           id: mutualFunds.id,
           name: mutualFunds.schemeName,
@@ -413,10 +418,10 @@ class ImprovementFeaturesService {
             ilike(mutualFunds.schemeCode, searchPattern)
           )
         )
-        .limit(10);
+        .limit(10) : [];
 
       // Search bonds
-      const bondResults = await db
+      const bondResults = shouldSearchBonds ? await db
         .select({
           id: corporateBonds.id,
           name: corporateBonds.bondName,
@@ -432,11 +437,11 @@ class ImprovementFeaturesService {
             ilike(corporateBonds.isin, searchPattern)
           )
         )
-        .limit(10);
+        .limit(10) : [];
 
       // Search goals (only for authenticated users)
       let goalsResults: any[] = [];
-      if (userId) {
+      if (shouldSearchGoals && userId) {
         goalsResults = await db
           .select({
             id: financialGoals.id,
@@ -456,7 +461,7 @@ class ImprovementFeaturesService {
 
       // Search orders (only for authenticated users)
       let ordersResults: any[] = [];
-      if (userId) {
+      if (shouldSearchOrders && userId) {
         ordersResults = await db
           .select({
             id: unifiedOrders.id,

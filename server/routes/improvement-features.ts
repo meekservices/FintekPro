@@ -250,12 +250,14 @@ router.put("/theme", async (req: Request, res: Response) => {
 router.get("/search", async (req: Request, res: Response) => {
   try {
     const query = req.query.q as string;
-    if (!query || query.length < 2) {
+    const category = req.query.category as string || "all";
+    
+    if (!query || query.length < 3) {
       return res.json({ success: true, results: { stocks: [], mutualFunds: [], bonds: [], goals: [], orders: [] } });
     }
 
     const userId = (req as any).user?.id;
-    const results = await improvementFeaturesService.globalSearch(query, userId);
+    const results = await improvementFeaturesService.globalSearch(query, userId, category);
     res.json({ success: true, results });
   } catch (error) {
     console.error("Error in global search:", error);
