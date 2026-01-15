@@ -1599,6 +1599,256 @@ export function registerMarketingRoutes(app: any) {
   });
 
   /**
+   * Get all contacts (clients, prospects, leads) for multi-channel campaigns
+   */
+  app.get('/api/admin/marketing/audience/all', requireAdmin, async (req: any, res: Response) => {
+    try {
+      const { filter = 'all', consentOnly = 'false', limit = 1000 } = req.query;
+      const requireConsent = consentOnly === 'true';
+
+      const contacts: Array<{
+        id: string;
+        mobile: string;
+        email: string;
+        name: string;
+        type: 'client' | 'prospect' | 'lead';
+        kycTier?: string;
+      }> = [];
+
+      // Fetch clients (users)
+      if (filter === 'all' || filter === 'all_contacts' || filter === 'all_clients' || filter === 'clients') {
+        const clientConditions: any[] = [];
+        if (requireConsent) {
+          clientConditions.push(eq(users.marketingConsent, true));
+        }
+        
+        const clientQuery = clientConditions.length > 0
+          ? db.select({
+              id: users.id,
+              mobile: users.mobile,
+              email: users.email,
+              firstName: users.firstName,
+              lastName: users.lastName,
+              investorType: users.investorType
+            }).from(users).where(and(...clientConditions))
+          : db.select({
+              id: users.id,
+              mobile: users.mobile,
+              email: users.email,
+              firstName: users.firstName,
+              lastName: users.lastName,
+              investorType: users.investorType
+            }).from(users);
+
+        const clients = await clientQuery.limit(Number(limit));
+        
+        clients.forEach(c => {
+          if (c.mobile || c.email) {
+            contacts.push({
+              id: c.id,
+              mobile: c.mobile || '',
+              email: c.email || '',
+              name: `${c.firstName || ''} ${c.lastName || ''}`.trim() || 'Client',
+              type: 'client',
+              kycTier: c.investorType || undefined
+            });
+          }
+        });
+      }
+
+      // Fetch prospects
+      if (filter === 'all' || filter === 'all_contacts' || filter === 'all_prospects' || filter === 'prospects') {
+        const prospects = await db.select({
+          id: prospectLeads.id,
+          mobile: prospectLeads.phone,
+          email: prospectLeads.email,
+          firstName: prospectLeads.firstName,
+          lastName: prospectLeads.lastName,
+          companyName: prospectLeads.companyName
+        }).from(prospectLeads).limit(Number(limit));
+
+        prospects.forEach(p => {
+          if (p.mobile || p.email) {
+            contacts.push({
+              id: p.id,
+              mobile: p.mobile || '',
+              email: p.email || '',
+              name: `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.companyName || 'Prospect',
+              type: 'prospect'
+            });
+          }
+        });
+      }
+
+      // Fetch leads from whatsappContacts if available
+      if (filter === 'all' || filter === 'all_contacts' || filter === 'all_leads' || filter === 'leads') {
+        try {
+          const leads = await db.select({
+            id: whatsappContacts.id,
+            mobile: whatsappContacts.phoneNumber,
+            name: whatsappContacts.name
+          }).from(whatsappContacts).limit(Number(limit));
+
+          leads.forEach(l => {
+            if (l.mobile) {
+              contacts.push({
+                id: l.id,
+                mobile: l.mobile || '',
+                email: '',
+                name: l.name || 'Lead',
+                type: 'lead'
+              });
+            }
+          });
+        } catch (e) {
+          // whatsappContacts table might not exist
+        }
+      }
+
+      res.json(contacts);
+    } catch (error: any) {
+      console.error('Error getting all contacts:', error);
+      return apiResponse.serverError(res, 'Failed to get contacts');
+    }
+  });
+
+  /**
+   * Multi-channel bulk send (WhatsApp, SMS, Email)
+   */
+  app.post('/api/admin/marketing/multi-channel/bulk', requireAdmin, async (req: any, res: Response) => {
+    try {
+      const { recipients, templateType, variables, channels } = req.body;
+
+      if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
+        return apiResponse.badRequest(res, 'Recipients are required');
+      }
+
+      if (!templateType) {
+        return apiResponse.badRequest(res, 'Template type is required');
+      }
+
+      const results: any = {};
+
+      // Send WhatsApp messages
+      if (channels.whatsapp) {
+        const whatsappRecipients = recipients.filter((r: any) => r.mobile);
+        let whatsappSent = 0;
+        let whatsappFailed = 0;
+
+        for (const recipient of whatsappRecipients) {
+          try {
+            const personalizedVars = {
+              ...variables,
+              customer_name: variables.customer_name || recipient.name || 'Valued Customer'
+            };
+            await whatsAppMarketingService.sendTemplateMessage(
+              recipient.mobile,
+              templateType,
+              personalizedVars
+            );
+            whatsappSent++;
+          } catch (e) {
+            whatsappFailed++;
+          }
+        }
+
+        results.whatsapp = { total: whatsappRecipients.length, sent: whatsappSent, failed: whatsappFailed };
+      }
+
+      // Send SMS messages
+      if (channels.sms) {
+        const smsRecipients = recipients.filter((r: any) => r.mobile);
+        let smsSent = 0;
+        let smsFailed = 0;
+
+        const templateMessages: Record<string, string> = {
+          diwali_greeting: `Happy Diwali ${variables.festival_year || ''}! ${variables.custom_message || 'Wishing you prosperity and happiness.'} - FintekPro`,
+          holi_greeting: `Happy Holi ${variables.festival_year || ''}! ${variables.custom_message || 'May your life be filled with colors of joy.'} - FintekPro`,
+          eid_greeting: `Eid Mubarak ${variables.festival_year || ''}! ${variables.custom_message || 'Wishing you peace and blessings.'} - FintekPro`,
+          christmas_greeting: `Merry Christmas ${variables.festival_year || ''}! ${variables.custom_message || 'Wishing you joy and happiness.'} - FintekPro`,
+          new_year_greeting: `Happy New Year ${variables.festival_year || ''}! ${variables.custom_message || 'Wishing you success and prosperity.'} - FintekPro`,
+          independence_day: `Happy Independence Day ${variables.year || ''}! Jai Hind! - FintekPro`,
+          republic_day: `Happy Republic Day ${variables.year || ''}! Jai Hind! - FintekPro`,
+          birthday_greeting: `Happy Birthday! ${variables.birthday_message || 'Wishing you a wonderful year ahead.'} - FintekPro`
+        };
+
+        const smsMessage = templateMessages[templateType] || `${variables.custom_message || 'Greetings from FintekPro!'}`;
+
+        for (const recipient of smsRecipients) {
+          try {
+            const personalizedMessage = smsMessage.replace(/\{name\}/g, recipient.name || 'Valued Customer');
+            await smsMarketingService.sendSMS(recipient.mobile, personalizedMessage);
+            smsSent++;
+          } catch (e) {
+            smsFailed++;
+          }
+        }
+
+        results.sms = { total: smsRecipients.length, sent: smsSent, failed: smsFailed };
+      }
+
+      // Send Email messages
+      if (channels.email) {
+        const emailRecipients = recipients.filter((r: any) => r.email);
+        let emailSent = 0;
+        let emailFailed = 0;
+
+        const templateSubjects: Record<string, string> = {
+          diwali_greeting: `Happy Diwali ${variables.festival_year || ''} from FintekPro!`,
+          holi_greeting: `Happy Holi ${variables.festival_year || ''} from FintekPro!`,
+          eid_greeting: `Eid Mubarak ${variables.festival_year || ''} from FintekPro!`,
+          christmas_greeting: `Merry Christmas ${variables.festival_year || ''} from FintekPro!`,
+          new_year_greeting: `Happy New Year ${variables.festival_year || ''} from FintekPro!`,
+          independence_day: `Happy Independence Day ${variables.year || ''} from FintekPro!`,
+          republic_day: `Happy Republic Day ${variables.year || ''} from FintekPro!`,
+          birthday_greeting: `Happy Birthday from FintekPro!`
+        };
+
+        const subject = templateSubjects[templateType] || 'Greetings from FintekPro';
+
+        // Use nodemailer for email sending
+        const nodemailer = await import('nodemailer');
+        const transporter = nodemailer.default.createTransport({
+          service: 'gmail',
+          auth: {
+            user: process.env.EMAIL_USER || process.env.GMAIL_USER,
+            pass: process.env.EMAIL_PASS || process.env.GMAIL_APP_PASSWORD
+          }
+        });
+
+        for (const recipient of emailRecipients) {
+          try {
+            const emailBody = `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #1a365d;">Dear ${recipient.name || 'Valued Customer'},</h2>
+                <p style="font-size: 16px; color: #333;">${variables.custom_message || 'Warm greetings from FintekPro!'}</p>
+                <p style="font-size: 14px; color: #666; margin-top: 30px;">Best Regards,<br/>Team FintekPro</p>
+              </div>
+            `;
+
+            await transporter.sendMail({
+              from: process.env.EMAIL_USER || process.env.GMAIL_USER,
+              to: recipient.email,
+              subject: subject,
+              html: emailBody
+            });
+            emailSent++;
+          } catch (e) {
+            emailFailed++;
+          }
+        }
+
+        results.email = { total: emailRecipients.length, sent: emailSent, failed: emailFailed };
+      }
+
+      res.json(results);
+    } catch (error: any) {
+      console.error('Error sending multi-channel campaign:', error);
+      return apiResponse.serverError(res, 'Failed to send campaign');
+    }
+  });
+
+  /**
    * Get WhatsApp service status
    */
   app.get('/api/admin/marketing/whatsapp/status', requireAdmin, async (req: any, res: Response) => {

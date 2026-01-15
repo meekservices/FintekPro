@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   MessageSquare, 
   Plus, 
@@ -18,7 +19,10 @@ import {
   AlertTriangle,
   Settings,
   RefreshCw,
-  Eye
+  Eye,
+  Mail,
+  Phone,
+  Smartphone
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { LoadingState } from '@/components/LoadingState';
@@ -82,8 +86,13 @@ export default function WhatsAppCampaigns() {
   const { toast } = useToast();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
-  const [audienceFilter, setAudienceFilter] = useState<string>('all');
+  const [audienceFilter, setAudienceFilter] = useState<string>('all_consented');
   const [templateVariables, setTemplateVariables] = useState<Record<string, string>>({});
+  const [channels, setChannels] = useState<{ whatsapp: boolean; sms: boolean; email: boolean }>({
+    whatsapp: true,
+    sms: false,
+    email: false
+  });
 
   const { data: serviceStatus, isLoading: statusLoading } = useQuery<WhatsAppServiceStatus>({
     queryKey: ['/api/admin/marketing/whatsapp/status']
@@ -93,32 +102,43 @@ export default function WhatsAppCampaigns() {
     queryKey: ['/api/admin/marketing/audience/stats']
   });
 
-  const { data: consentedUsers, isLoading: usersLoading } = useQuery<Array<{
-    userId: string;
+  const isConsentRequired = audienceFilter.startsWith('consented_') || audienceFilter === 'all_consented';
+  const actualFilter = audienceFilter.replace('consented_', '').replace('all_consented', 'all');
+  
+  const { data: audienceContacts, isLoading: usersLoading } = useQuery<Array<{
+    id: string;
     mobile: string;
+    email: string;
     name: string;
-    kycTier: string;
+    type: 'client' | 'prospect' | 'lead';
+    kycTier?: string;
   }>>({
-    queryKey: ['/api/admin/marketing/audience', audienceFilter],
+    queryKey: ['/api/admin/marketing/audience/all', audienceFilter],
     queryFn: async () => {
-      const response = await fetch(`/api/admin/marketing/audience?filter=${audienceFilter}&consentOnly=true`);
+      const response = await fetch(`/api/admin/marketing/audience/all?filter=${actualFilter}&consentOnly=${isConsentRequired}`);
       if (!response.ok) throw new Error('Failed to fetch audience');
       return response.json();
     }
   });
 
-  const sendBulkWhatsAppMutation = useMutation({
+  const sendMultiChannelMutation = useMutation({
     mutationFn: async (data: { 
-      recipients: Array<{ mobile: string; name?: string }>; 
+      recipients: Array<{ mobile?: string; email?: string; name?: string }>; 
       templateType: string;
       variables: Record<string, string>;
+      channels: { whatsapp: boolean; sms: boolean; email: boolean };
     }) => {
-      return apiRequest('/api/admin/marketing/whatsapp/bulk', 'POST', data);
+      return apiRequest('/api/admin/marketing/multi-channel/bulk', 'POST', data);
     },
-    onSuccess: (result: BulkSendResult) => {
+    onSuccess: (result: any) => {
+      const channelResults = [];
+      if (result.whatsapp) channelResults.push(`WhatsApp: ${result.whatsapp.sent}/${result.whatsapp.total}`);
+      if (result.sms) channelResults.push(`SMS: ${result.sms.sent}/${result.sms.total}`);
+      if (result.email) channelResults.push(`Email: ${result.email.sent}/${result.email.total}`);
+      
       toast({ 
-        title: `WhatsApp Campaign Sent`,
-        description: `${result.sent} sent, ${result.failed} failed`
+        title: `Campaign Sent Successfully`,
+        description: channelResults.join(', ')
       });
       setIsCreateOpen(false);
       setTemplateVariables({});
@@ -132,24 +152,8 @@ export default function WhatsAppCampaigns() {
     }
   });
 
-  const sendSingleWhatsAppMutation = useMutation({
-    mutationFn: async (data: { to: string; templateType: string; variables: Record<string, string> }) => {
-      return apiRequest('/api/admin/marketing/whatsapp/send', 'POST', data);
-    },
-    onSuccess: () => {
-      toast({ title: 'WhatsApp message sent successfully' });
-    },
-    onError: (error: any) => {
-      toast({ 
-        title: 'Failed to send message',
-        description: error.message,
-        variant: 'destructive'
-      });
-    }
-  });
-
-  const handleSendBulkWhatsApp = () => {
-    if (!consentedUsers || consentedUsers.length === 0) {
+  const handleSendMultiChannel = () => {
+    if (!audienceContacts || audienceContacts.length === 0) {
       toast({ title: 'No recipients selected', variant: 'destructive' });
       return;
     }
@@ -157,16 +161,22 @@ export default function WhatsAppCampaigns() {
       toast({ title: 'Please select a template', variant: 'destructive' });
       return;
     }
+    if (!channels.whatsapp && !channels.sms && !channels.email) {
+      toast({ title: 'Please select at least one channel', variant: 'destructive' });
+      return;
+    }
 
-    const recipients = consentedUsers.map(u => ({
+    const recipients = audienceContacts.map(u => ({
       mobile: u.mobile,
+      email: u.email,
       name: u.name
     }));
 
-    sendBulkWhatsAppMutation.mutate({
+    sendMultiChannelMutation.mutate({
       recipients,
       templateType: selectedTemplate,
-      variables: templateVariables
+      variables: templateVariables,
+      channels
     });
   };
 
@@ -226,9 +236,9 @@ export default function WhatsAppCampaigns() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">WhatsApp Marketing</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Multi-Channel Campaigns</h1>
           <p className="text-muted-foreground">
-            Send template-based WhatsApp campaigns via Twilio Business API
+            Send festive greetings and campaigns via WhatsApp, SMS, and Email
           </p>
         </div>
         <div className="flex gap-2">
@@ -242,36 +252,94 @@ export default function WhatsAppCampaigns() {
           </Button>
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
-              <Button disabled={!isConfigured} data-testid="button-create-whatsapp-campaign">
+              <Button data-testid="button-create-campaign">
                 <Plus className="mr-2 h-4 w-4" />
-                New WhatsApp Campaign
+                New Campaign
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Create WhatsApp Campaign</DialogTitle>
+                <DialogTitle>Create Multi-Channel Campaign</DialogTitle>
                 <DialogDescription>
-                  Send pre-approved template messages to users who have consented to marketing
+                  Send festive greetings or messages via WhatsApp, SMS, and Email
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Audience Filter</Label>
+                  <Label>Communication Channels</Label>
+                  <div className="flex flex-wrap gap-4 p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="channel-whatsapp"
+                        checked={channels.whatsapp}
+                        onCheckedChange={(checked) => setChannels({ ...channels, whatsapp: !!checked })}
+                      />
+                      <Label htmlFor="channel-whatsapp" className="flex items-center gap-1 cursor-pointer">
+                        <Smartphone className="h-4 w-4 text-green-600" />
+                        WhatsApp
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="channel-sms"
+                        checked={channels.sms}
+                        onCheckedChange={(checked) => setChannels({ ...channels, sms: !!checked })}
+                      />
+                      <Label htmlFor="channel-sms" className="flex items-center gap-1 cursor-pointer">
+                        <Phone className="h-4 w-4 text-blue-600" />
+                        SMS
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="channel-email"
+                        checked={channels.email}
+                        onCheckedChange={(checked) => setChannels({ ...channels, email: !!checked })}
+                      />
+                      <Label htmlFor="channel-email" className="flex items-center gap-1 cursor-pointer">
+                        <Mail className="h-4 w-4 text-orange-600" />
+                        Email
+                      </Label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Audience</Label>
                   <Select value={audienceFilter} onValueChange={setAudienceFilter}>
                     <SelectTrigger data-testid="select-audience-filter">
                       <SelectValue placeholder="Select audience" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Consented Users</SelectItem>
-                      <SelectItem value="basic">Basic KYC Users</SelectItem>
-                      <SelectItem value="enhanced">Enhanced KYC Users</SelectItem>
-                      <SelectItem value="accredited">Accredited Investors</SelectItem>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Consented (Marketing Opt-in)</div>
+                      <SelectItem value="all_consented">All Consented Users</SelectItem>
+                      <SelectItem value="consented_clients">Consented Clients Only</SelectItem>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground border-t mt-1 pt-2">All Contacts (Greetings)</div>
+                      <SelectItem value="all_contacts">All Contacts</SelectItem>
+                      <SelectItem value="all_clients">All Clients</SelectItem>
+                      <SelectItem value="all_prospects">All Prospects</SelectItem>
+                      <SelectItem value="all_leads">All Leads</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    {usersLoading ? 'Loading...' : `${consentedUsers?.length || 0} recipients selected`}
+                    {usersLoading ? 'Loading...' : `${audienceContacts?.length || 0} recipients selected`}
                   </p>
                 </div>
+
+                {!isConsentRequired && (
+                  <div className="bg-amber-50 dark:bg-amber-950 p-3 rounded-lg border border-amber-200 dark:border-amber-800">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5" />
+                      <div className="text-sm">
+                        <p className="font-medium text-amber-800 dark:text-amber-200">Compliance Notice</p>
+                        <p className="text-amber-700 dark:text-amber-300">
+                          You are sending to contacts who may not have opted in to marketing. 
+                          Use this only for festive greetings or transactional messages.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label>Message Template</Label>
@@ -329,18 +397,19 @@ export default function WhatsAppCampaigns() {
                   </div>
                 )}
 
-                <div className="bg-green-50 dark:bg-green-950 p-3 rounded-lg border border-green-200 dark:border-green-800">
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5" />
-                    <div className="text-sm">
-                      <p className="font-medium text-green-800 dark:text-green-200">WhatsApp Business Compliance</p>
-                      <p className="text-green-700 dark:text-green-300">
-                        Only pre-approved templates are used. Messages are only sent to users who have
-                        opted in to marketing communications.
-                      </p>
+                {isConsentRequired && (
+                  <div className="bg-green-50 dark:bg-green-950 p-3 rounded-lg border border-green-200 dark:border-green-800">
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5" />
+                      <div className="text-sm">
+                        <p className="font-medium text-green-800 dark:text-green-200">Marketing Compliance</p>
+                        <p className="text-green-700 dark:text-green-300">
+                          Messages will only be sent to users who have opted in to marketing communications.
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 <div className="flex justify-end gap-2">
                   <Button
@@ -352,11 +421,11 @@ export default function WhatsAppCampaigns() {
                     Cancel
                   </Button>
                   <Button
-                    onClick={handleSendBulkWhatsApp}
-                    disabled={sendBulkWhatsAppMutation.isPending || !consentedUsers?.length || !selectedTemplate}
+                    onClick={handleSendMultiChannel}
+                    disabled={sendMultiChannelMutation.isPending || !audienceContacts?.length || !selectedTemplate || (!channels.whatsapp && !channels.sms && !channels.email)}
                     data-testid="button-send-campaign"
                   >
-                    {sendBulkWhatsAppMutation.isPending ? (
+                    {sendMultiChannelMutation.isPending ? (
                       <>
                         <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                         Sending...
@@ -364,7 +433,7 @@ export default function WhatsAppCampaigns() {
                     ) : (
                       <>
                         <Send className="mr-2 h-4 w-4" />
-                        Send to {consentedUsers?.length || 0} Recipients
+                        Send to {audienceContacts?.length || 0} Recipients
                       </>
                     )}
                   </Button>
