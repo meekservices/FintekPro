@@ -135,6 +135,7 @@ import AgentDerivatives from "@/pages/agent-derivatives";
 import AgentTaxCasesPage from "@/pages/agent-tax-cases";
 import AgentKnowledgeHub from "@/pages/agent-knowledge-hub";
 import AgentKnowledgeMarketBrief from "@/pages/agent-knowledge-market-brief";
+import FestivalGreetingPreview from "@/pages/agent/festival-greeting-preview";
 import AgentKnowledgeProducts from "@/pages/agent-knowledge-products";
 import AgentKnowledgeExplanations from "@/pages/agent-knowledge-explanations";
 import AgentKnowledgeCertifications from "@/pages/agent-knowledge-certifications";
@@ -1477,6 +1478,13 @@ function AgentRoutes() {
         {() => (
           <AgentLayout>
             <AgentKnowledgeCertifications />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/festival-greetings">
+        {() => (
+          <AgentLayout>
+            <FestivalGreetingPreview />
           </AgentLayout>
         )}
       </Route>
