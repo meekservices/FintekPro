@@ -178,14 +178,26 @@ export function registerAdminPanelRoutes(app: Express): void {
 
   // Toggle feature flag
   app.post("/api/admin/feature-flags/:flagId/toggle", requireAdmin, async (req, res) => {
-    const { flagId } = req.params;
-    const { enabled } = req.body;
-    res.json({ 
-      success: true, 
-      flagId, 
-      enabled,
-      message: `Feature flag ${enabled ? 'enabled' : 'disabled'} successfully`
-    });
+    try {
+      const { flagId } = req.params;
+      const { enabled } = req.body;
+      
+      await db.execute(sql`
+        UPDATE platform_feature_flags 
+        SET is_enabled = ${enabled}, updated_at = NOW()
+        WHERE id = ${flagId}
+      `);
+      
+      res.json({ 
+        success: true, 
+        flagId, 
+        enabled,
+        message: `Feature flag ${enabled ? 'enabled' : 'disabled'} successfully`
+      });
+    } catch (error: any) {
+      console.error('[Feature Flags] Toggle error:', error.message);
+      res.status(500).json({ error: 'Failed to toggle feature flag' });
+    }
   });
 
   // User Activity Timeline API
@@ -296,19 +308,210 @@ export function registerAdminPanelRoutes(app: Express): void {
 
   // Feature Flags API
   app.get("/api/admin/feature-flags", requireAdmin, async (req, res) => {
-    res.json({
-      flags: [
-        { id: '1', name: 'AI Recommendations', key: 'ai_recommendations_v2', description: 'Enable new AI recommendation engine', enabled: true, rolloutPercentage: 100, targetAudience: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-        { id: '2', name: 'Dark Mode', key: 'dark_mode', description: 'Enable dark mode theme toggle', enabled: true, rolloutPercentage: 100, targetAudience: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-        { id: '3', name: 'New Portfolio View', key: 'portfolio_v3', description: 'New portfolio dashboard layout', enabled: false, rolloutPercentage: 25, targetAudience: ['beta_users'], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-        { id: '4', name: 'Unlisted Marketplace', key: 'unlisted_market', description: 'Pre-IPO and unlisted shares trading', enabled: true, rolloutPercentage: 100, targetAudience: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
-      ],
-      abTests: [
-        { id: '1', name: 'Onboarding Flow Test', status: 'running', variants: [{ name: 'Control', percentage: 50, conversions: 234 }, { name: 'Variant A', percentage: 50, conversions: 267 }], metric: 'completion_rate', startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), sampleSize: 1000 },
-        { id: '2', name: 'CTA Button Color', status: 'completed', variants: [{ name: 'Blue', percentage: 50, conversions: 145 }, { name: 'Green', percentage: 50, conversions: 178 }], metric: 'click_rate', startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), endDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), sampleSize: 500, winner: 'Green' }
-      ],
-      stats: { activeFlags: 3, runningTests: 1, totalUsers: 1500 }
-    });
+    try {
+      // Fetch feature flags from database
+      const flagsResult = await db.execute(sql`
+        SELECT 
+          id, flag_key as key, flag_name as name, description, 
+          is_enabled as enabled, 
+          COALESCE((targeting_rules->>'percentRollout')::int, 100) as "rolloutPercentage",
+          COALESCE(enabled_environments, ARRAY[]::text[]) as "targetAudience",
+          created_at as "createdAt", updated_at as "updatedAt"
+        FROM platform_feature_flags
+        ORDER BY created_at DESC
+      `);
+      
+      // Fetch A/B tests from database
+      const testsResult = await db.execute(sql`
+        SELECT 
+          id, name, status, variants, metric,
+          sample_size as "sampleSize", winner,
+          start_date as "startDate", end_date as "endDate"
+        FROM ab_tests
+        ORDER BY created_at DESC
+      `);
+      
+      // Count active flags and running tests
+      const activeFlagsResult = await db.execute(sql`
+        SELECT COUNT(*) as count FROM platform_feature_flags WHERE is_enabled = true
+      `);
+      const runningTestsResult = await db.execute(sql`
+        SELECT COUNT(*) as count FROM ab_tests WHERE status = 'running'
+      `);
+      const totalUsersResult = await db.execute(sql`
+        SELECT COUNT(*) as count FROM users
+      `);
+      
+      const flags = flagsResult.rows.map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        key: row.key,
+        description: row.description || '',
+        enabled: row.enabled || false,
+        rolloutPercentage: row.rolloutPercentage || 100,
+        targetAudience: row.targetAudience || [],
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt
+      }));
+      
+      const abTests = testsResult.rows.map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        status: row.status,
+        variants: row.variants || [],
+        metric: row.metric,
+        sampleSize: row.sampleSize || 0,
+        winner: row.winner,
+        startDate: row.startDate,
+        endDate: row.endDate
+      }));
+      
+      res.json({
+        flags,
+        abTests,
+        stats: { 
+          activeFlags: Number(activeFlagsResult.rows[0]?.count || 0), 
+          runningTests: Number(runningTestsResult.rows[0]?.count || 0), 
+          totalUsers: Number(totalUsersResult.rows[0]?.count || 0)
+        }
+      });
+    } catch (error: any) {
+      console.error('[Feature Flags] Error fetching data:', error.message);
+      res.status(500).json({ error: 'Failed to fetch feature flags' });
+    }
+  });
+
+  // Create new feature flag
+  app.post("/api/admin/feature-flags", requireAdmin, async (req, res) => {
+    try {
+      const { name, key, description, enabled, rolloutPercentage, targetAudience } = req.body;
+      
+      if (!name || !key) {
+        return res.status(400).json({ error: 'Name and key are required' });
+      }
+      
+      const result = await db.execute(sql`
+        INSERT INTO platform_feature_flags (flag_key, flag_name, description, is_enabled, targeting_rules)
+        VALUES (${key}, ${name}, ${description || ''}, ${enabled || false}, ${JSON.stringify({ percentRollout: rolloutPercentage || 100 })}::jsonb)
+        RETURNING id
+      `);
+      
+      res.json({ success: true, id: result.rows[0]?.id, message: 'Feature flag created' });
+    } catch (error: any) {
+      console.error('[Feature Flags] Create error:', error.message);
+      if (error.message?.includes('unique')) {
+        return res.status(400).json({ error: 'Flag key already exists' });
+      }
+      res.status(500).json({ error: 'Failed to create feature flag' });
+    }
+  });
+
+  // Update feature flag
+  app.put("/api/admin/feature-flags/:flagId", requireAdmin, async (req, res) => {
+    try {
+      const { flagId } = req.params;
+      const { name, description, rolloutPercentage, targetAudience } = req.body;
+      
+      await db.execute(sql`
+        UPDATE platform_feature_flags 
+        SET flag_name = COALESCE(${name}, flag_name),
+            description = COALESCE(${description}, description),
+            targeting_rules = CASE 
+              WHEN ${rolloutPercentage}::int IS NOT NULL 
+              THEN jsonb_set(COALESCE(targeting_rules, '{}'::jsonb), '{percentRollout}', to_jsonb(${rolloutPercentage}::int))
+              ELSE targeting_rules
+            END,
+            updated_at = NOW()
+        WHERE id = ${flagId}
+      `);
+      
+      res.json({ success: true, message: 'Feature flag updated' });
+    } catch (error: any) {
+      console.error('[Feature Flags] Update error:', error.message);
+      res.status(500).json({ error: 'Failed to update feature flag' });
+    }
+  });
+
+  // Delete feature flag
+  app.delete("/api/admin/feature-flags/:flagId", requireAdmin, async (req, res) => {
+    try {
+      const { flagId } = req.params;
+      
+      await db.execute(sql`DELETE FROM platform_feature_flags WHERE id = ${flagId}`);
+      
+      res.json({ success: true, message: 'Feature flag deleted' });
+    } catch (error: any) {
+      console.error('[Feature Flags] Delete error:', error.message);
+      res.status(500).json({ error: 'Failed to delete feature flag' });
+    }
+  });
+
+  // Create new A/B test
+  app.post("/api/admin/ab-tests", requireAdmin, async (req, res) => {
+    try {
+      const { name, testKey, metric, variants, status } = req.body;
+      
+      if (!name || !testKey || !metric) {
+        return res.status(400).json({ error: 'Name, test key, and metric are required' });
+      }
+      
+      const result = await db.execute(sql`
+        INSERT INTO ab_tests (name, test_key, metric, variants, status, start_date)
+        VALUES (${name}, ${testKey}, ${metric}, ${JSON.stringify(variants || [])}::jsonb, ${status || 'draft'}, NOW())
+        RETURNING id
+      `);
+      
+      res.json({ success: true, id: result.rows[0]?.id, message: 'A/B test created' });
+    } catch (error: any) {
+      console.error('[A/B Tests] Create error:', error.message);
+      if (error.message?.includes('unique')) {
+        return res.status(400).json({ error: 'Test key already exists' });
+      }
+      res.status(500).json({ error: 'Failed to create A/B test' });
+    }
+  });
+
+  // Update A/B test status
+  app.patch("/api/admin/ab-tests/:testId/status", requireAdmin, async (req, res) => {
+    try {
+      const { testId } = req.params;
+      const { status, winner } = req.body;
+      
+      let query;
+      if (status === 'completed' && winner) {
+        query = sql`
+          UPDATE ab_tests 
+          SET status = ${status}, winner = ${winner}, end_date = NOW(), updated_at = NOW()
+          WHERE id = ${testId}
+        `;
+      } else {
+        query = sql`
+          UPDATE ab_tests 
+          SET status = ${status}, updated_at = NOW()
+          WHERE id = ${testId}
+        `;
+      }
+      
+      await db.execute(query);
+      res.json({ success: true, message: `Test ${status}` });
+    } catch (error: any) {
+      console.error('[A/B Tests] Status update error:', error.message);
+      res.status(500).json({ error: 'Failed to update test status' });
+    }
+  });
+
+  // Delete A/B test
+  app.delete("/api/admin/ab-tests/:testId", requireAdmin, async (req, res) => {
+    try {
+      const { testId } = req.params;
+      
+      await db.execute(sql`DELETE FROM ab_tests WHERE id = ${testId}`);
+      
+      res.json({ success: true, message: 'A/B test deleted' });
+    } catch (error: any) {
+      console.error('[A/B Tests] Delete error:', error.message);
+      res.status(500).json({ error: 'Failed to delete A/B test' });
+    }
   });
 
   // AI Insights API - Returns arrays as expected by frontend
