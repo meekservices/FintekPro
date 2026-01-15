@@ -79,6 +79,108 @@ const MARKETING_TEMPLATES: Record<string, WhatsAppTemplate> = {
     name: 'mutual_fund_template',
     category: 'marketing',
     variables: ['fund_name', 'returns', 'min_investment']
+  },
+  diwali_greeting: {
+    contentSid: process.env.TWILIO_WA_TEMPLATE_DIWALI || '',
+    name: 'diwali_greeting_template',
+    category: 'marketing',
+    variables: ['customer_name', 'festival_year', 'custom_message']
+  },
+  holi_greeting: {
+    contentSid: process.env.TWILIO_WA_TEMPLATE_HOLI || '',
+    name: 'holi_greeting_template',
+    category: 'marketing',
+    variables: ['customer_name', 'festival_year', 'custom_message']
+  },
+  eid_greeting: {
+    contentSid: process.env.TWILIO_WA_TEMPLATE_EID || '',
+    name: 'eid_greeting_template',
+    category: 'marketing',
+    variables: ['customer_name', 'festival_year', 'custom_message']
+  },
+  christmas_greeting: {
+    contentSid: process.env.TWILIO_WA_TEMPLATE_CHRISTMAS || '',
+    name: 'christmas_greeting_template',
+    category: 'marketing',
+    variables: ['customer_name', 'festival_year', 'custom_message']
+  },
+  new_year_greeting: {
+    contentSid: process.env.TWILIO_WA_TEMPLATE_NEWYEAR || '',
+    name: 'new_year_greeting_template',
+    category: 'marketing',
+    variables: ['customer_name', 'festival_year', 'custom_message']
+  },
+  independence_day: {
+    contentSid: process.env.TWILIO_WA_TEMPLATE_INDEPENDENCE || '',
+    name: 'independence_day_template',
+    category: 'marketing',
+    variables: ['customer_name', 'year']
+  },
+  republic_day: {
+    contentSid: process.env.TWILIO_WA_TEMPLATE_REPUBLIC || '',
+    name: 'republic_day_template',
+    category: 'marketing',
+    variables: ['customer_name', 'year']
+  },
+  dussehra_greeting: {
+    contentSid: process.env.TWILIO_WA_TEMPLATE_DUSSEHRA || '',
+    name: 'dussehra_greeting_template',
+    category: 'marketing',
+    variables: ['customer_name', 'festival_year', 'custom_message']
+  },
+  ganesh_chaturthi: {
+    contentSid: process.env.TWILIO_WA_TEMPLATE_GANESH || '',
+    name: 'ganesh_chaturthi_template',
+    category: 'marketing',
+    variables: ['customer_name', 'festival_year', 'custom_message']
+  },
+  pongal_greeting: {
+    contentSid: process.env.TWILIO_WA_TEMPLATE_PONGAL || '',
+    name: 'pongal_greeting_template',
+    category: 'marketing',
+    variables: ['customer_name', 'festival_year', 'custom_message']
+  },
+  onam_greeting: {
+    contentSid: process.env.TWILIO_WA_TEMPLATE_ONAM || '',
+    name: 'onam_greeting_template',
+    category: 'marketing',
+    variables: ['customer_name', 'festival_year', 'custom_message']
+  },
+  raksha_bandhan: {
+    contentSid: process.env.TWILIO_WA_TEMPLATE_RAKHI || '',
+    name: 'raksha_bandhan_template',
+    category: 'marketing',
+    variables: ['customer_name', 'festival_year', 'custom_message']
+  },
+  navratri_greeting: {
+    contentSid: process.env.TWILIO_WA_TEMPLATE_NAVRATRI || '',
+    name: 'navratri_greeting_template',
+    category: 'marketing',
+    variables: ['customer_name', 'festival_year', 'custom_message']
+  },
+  makar_sankranti: {
+    contentSid: process.env.TWILIO_WA_TEMPLATE_SANKRANTI || '',
+    name: 'makar_sankranti_template',
+    category: 'marketing',
+    variables: ['customer_name', 'festival_year', 'custom_message']
+  },
+  baisakhi_greeting: {
+    contentSid: process.env.TWILIO_WA_TEMPLATE_BAISAKHI || '',
+    name: 'baisakhi_greeting_template',
+    category: 'marketing',
+    variables: ['customer_name', 'festival_year', 'custom_message']
+  },
+  guru_nanak_jayanti: {
+    contentSid: process.env.TWILIO_WA_TEMPLATE_GURUNANAK || '',
+    name: 'guru_nanak_jayanti_template',
+    category: 'marketing',
+    variables: ['customer_name', 'festival_year', 'custom_message']
+  },
+  birthday_greeting: {
+    contentSid: process.env.TWILIO_WA_TEMPLATE_BIRTHDAY || '',
+    name: 'birthday_greeting_template',
+    category: 'marketing',
+    variables: ['customer_name', 'birthday_message']
   }
 };
 
@@ -150,13 +252,11 @@ class WhatsAppMarketingService {
         contentSid: template.contentSid,
       };
 
-      if (Object.keys(variables).length > 0) {
+      if (template.variables && template.variables.length > 0) {
         const indexedVars: Record<string, string> = {};
-        let idx = 1;
-        for (const [key, value] of Object.entries(variables)) {
-          indexedVars[String(idx)] = value;
-          idx++;
-        }
+        template.variables.forEach((key, idx) => {
+          indexedVars[String(idx + 1)] = variables[key] ?? '';
+        });
         messageOptions.contentVariables = JSON.stringify(indexedVars);
       }
 

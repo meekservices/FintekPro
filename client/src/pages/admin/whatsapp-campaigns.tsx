@@ -51,14 +51,31 @@ interface BulkSendResult {
 }
 
 const TEMPLATE_TYPES = [
-  { id: 'welcome', name: 'Welcome Message', description: 'Greet new users joining the platform' },
-  { id: 'ipo_alert', name: 'IPO Alert', description: 'Notify users about upcoming IPO opportunities' },
-  { id: 'portfolio_update', name: 'Portfolio Update', description: 'Send portfolio performance updates' },
-  { id: 'kyc_reminder', name: 'KYC Reminder', description: 'Remind users to complete KYC verification' },
-  { id: 'promotion', name: 'Promotional Offer', description: 'Share special offers and promotions' },
-  { id: 'mutual_fund_update', name: 'Mutual Fund Update', description: 'Send mutual fund performance alerts' },
-  { id: 'dividend_alert', name: 'Dividend Alert', description: 'Notify about dividend announcements' },
-  { id: 'order_confirmation', name: 'Order Confirmation', description: 'Confirm order placements' }
+  { id: 'welcome', name: 'Welcome Message', description: 'Greet new users joining the platform', category: 'business' },
+  { id: 'ipo_alert', name: 'IPO Alert', description: 'Notify users about upcoming IPO opportunities', category: 'business' },
+  { id: 'portfolio_update', name: 'Portfolio Update', description: 'Send portfolio performance updates', category: 'business' },
+  { id: 'kyc_reminder', name: 'KYC Reminder', description: 'Remind users to complete KYC verification', category: 'business' },
+  { id: 'promotion', name: 'Promotional Offer', description: 'Share special offers and promotions', category: 'business' },
+  { id: 'mutual_fund', name: 'Mutual Fund Update', description: 'Send mutual fund performance alerts', category: 'business' },
+  { id: 'dividend_alert', name: 'Dividend Alert', description: 'Notify about dividend announcements', category: 'business' },
+  { id: 'order_update', name: 'Order Update', description: 'Send order status updates', category: 'business' },
+  { id: 'diwali_greeting', name: 'Diwali Greeting', description: 'Send Diwali festival wishes to clients', category: 'festive' },
+  { id: 'holi_greeting', name: 'Holi Greeting', description: 'Send Holi festival wishes to clients', category: 'festive' },
+  { id: 'eid_greeting', name: 'Eid Greeting', description: 'Send Eid Mubarak wishes to clients', category: 'festive' },
+  { id: 'christmas_greeting', name: 'Christmas Greeting', description: 'Send Christmas wishes to clients', category: 'festive' },
+  { id: 'new_year_greeting', name: 'New Year Greeting', description: 'Send New Year wishes to clients', category: 'festive' },
+  { id: 'independence_day', name: 'Independence Day', description: 'Send Independence Day greetings', category: 'festive' },
+  { id: 'republic_day', name: 'Republic Day', description: 'Send Republic Day greetings', category: 'festive' },
+  { id: 'dussehra_greeting', name: 'Dussehra Greeting', description: 'Send Dussehra wishes to clients', category: 'festive' },
+  { id: 'ganesh_chaturthi', name: 'Ganesh Chaturthi', description: 'Send Ganesh Chaturthi wishes to clients', category: 'festive' },
+  { id: 'pongal_greeting', name: 'Pongal Greeting', description: 'Send Pongal wishes to clients', category: 'festive' },
+  { id: 'onam_greeting', name: 'Onam Greeting', description: 'Send Onam wishes to clients', category: 'festive' },
+  { id: 'raksha_bandhan', name: 'Raksha Bandhan', description: 'Send Raksha Bandhan wishes to clients', category: 'festive' },
+  { id: 'navratri_greeting', name: 'Navratri Greeting', description: 'Send Navratri wishes to clients', category: 'festive' },
+  { id: 'makar_sankranti', name: 'Makar Sankranti', description: 'Send Makar Sankranti wishes to clients', category: 'festive' },
+  { id: 'baisakhi_greeting', name: 'Baisakhi Greeting', description: 'Send Baisakhi wishes to clients', category: 'festive' },
+  { id: 'guru_nanak_jayanti', name: 'Guru Nanak Jayanti', description: 'Send Guru Nanak Jayanti wishes', category: 'festive' },
+  { id: 'birthday_greeting', name: 'Birthday Greeting', description: 'Send birthday wishes to clients', category: 'festive' }
 ];
 
 export default function WhatsAppCampaigns() {
@@ -164,17 +181,40 @@ export default function WhatsAppCampaigns() {
       case 'kyc_reminder':
         return ['customer_name', 'pending_step'];
       case 'promotion':
-        return ['offer_details', 'valid_until'];
-      case 'mutual_fund_update':
-        return ['fund_name', 'nav_change', 'returns'];
+        return ['offer_title', 'offer_details', 'cta_link'];
+      case 'mutual_fund':
+        return ['fund_name', 'returns', 'min_investment'];
       case 'dividend_alert':
-        return ['company_name', 'dividend_amount', 'record_date'];
-      case 'order_confirmation':
-        return ['order_id', 'order_details', 'amount'];
+        return ['company_name', 'dividend_amount', 'ex_date'];
+      case 'order_update':
+        return ['order_id', 'order_status', 'order_details'];
+      case 'diwali_greeting':
+      case 'holi_greeting':
+      case 'eid_greeting':
+      case 'christmas_greeting':
+      case 'new_year_greeting':
+      case 'dussehra_greeting':
+      case 'ganesh_chaturthi':
+      case 'pongal_greeting':
+      case 'onam_greeting':
+      case 'raksha_bandhan':
+      case 'navratri_greeting':
+      case 'makar_sankranti':
+      case 'baisakhi_greeting':
+      case 'guru_nanak_jayanti':
+        return ['customer_name', 'festival_year', 'custom_message'];
+      case 'independence_day':
+      case 'republic_day':
+        return ['customer_name', 'year'];
+      case 'birthday_greeting':
+        return ['customer_name', 'birthday_message'];
       default:
         return [];
     }
   };
+
+  const businessTemplates = TEMPLATE_TYPES.filter(t => t.category === 'business');
+  const festiveTemplates = TEMPLATE_TYPES.filter(t => t.category === 'festive');
 
   if (statusLoading) {
     return <LoadingState variant="stats" />;
@@ -242,8 +282,15 @@ export default function WhatsAppCampaigns() {
                     <SelectTrigger data-testid="select-template">
                       <SelectValue placeholder="Select a template" />
                     </SelectTrigger>
-                    <SelectContent>
-                      {TEMPLATE_TYPES.map((template) => (
+                    <SelectContent className="max-h-80">
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Business Templates</div>
+                      {businessTemplates.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>
+                          {template.name}
+                        </SelectItem>
+                      ))}
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground border-t mt-1 pt-2">Festive Greetings</div>
+                      {festiveTemplates.map((template) => (
                         <SelectItem key={template.id} value={template.id}>
                           {template.name}
                         </SelectItem>
