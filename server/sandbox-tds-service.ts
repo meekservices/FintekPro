@@ -302,6 +302,25 @@ class SandboxTDSService {
     return !!(this.apiKey && this.apiSecret);
   }
 
+  /**
+   * Get all TDS sections with their rates and thresholds
+   */
+  getTDSSections(): Array<{
+    section: string;
+    rate: number;
+    thresholdIndividual: number;
+    thresholdOther: number;
+    description: string;
+  }> {
+    return Object.entries(TDS_RATES).map(([section, config]) => ({
+      section,
+      rate: config.rate,
+      thresholdIndividual: config.thresholdIndividual,
+      thresholdOther: config.thresholdOther,
+      description: config.description,
+    }));
+  }
+
   // ============ TAX CALCULATION HELPERS ============
 
   private calculateOldRegimeTax(taxableIncome: number): { tax: number; slabs: any[] } {

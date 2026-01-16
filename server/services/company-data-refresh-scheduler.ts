@@ -144,11 +144,13 @@ class CompanyDataRefreshScheduler {
 
         try {
           const detailsResult = await probe42Service.batchGetCompanyDetails(cins);
-          refreshed += detailsResult.successful;
-          this.metrics.detailsUpdated += detailsResult.successful;
+          const successfulDetails = [...detailsResult.values()].filter(v => v !== null).length;
+          refreshed += successfulDetails;
+          this.metrics.detailsUpdated += successfulDetails;
 
           const financialsResult = await probe42Service.batchGetCompanyFinancials(cins);
-          this.metrics.financialsUpdated += financialsResult.withData;
+          const successfulFinancials = [...financialsResult.values()].filter(v => v !== null).length;
+          this.metrics.financialsUpdated += successfulFinancials;
 
         } catch (error: any) {
           console.error(`[CompanyRefresh] Batch failed: ${error.message}`);
