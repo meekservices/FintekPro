@@ -530,6 +530,100 @@ class FinancialDataRepository {
       client.release();
     }
   }
+
+  async getInstrumentsForProposals(): Promise<{
+    mutualFunds: any[];
+    globalStocks: any[];
+    etfs: any[];
+    debtInstruments: any[];
+    lastUpdated: string;
+  }> {
+    const client = await pool.connect();
+    try {
+      const [mfResult, stocksResult, etfsResult, debtResult] = await Promise.all([
+        client.query(`SELECT * FROM financial_instruments_cache WHERE instrument_type = 'mutual_fund' AND confidence_score >= 80 ORDER BY confidence_score DESC LIMIT 100`),
+        client.query(`SELECT * FROM financial_instruments_cache WHERE instrument_type = 'global_stock' AND confidence_score >= 70 ORDER BY confidence_score DESC LIMIT 50`),
+        client.query(`SELECT * FROM financial_instruments_cache WHERE instrument_type = 'etf' AND confidence_score >= 70 ORDER BY confidence_score DESC LIMIT 50`),
+        client.query(`SELECT * FROM financial_instruments_cache WHERE instrument_type IN ('bond', 'ncd', 'govt_security') ORDER BY confidence_score DESC LIMIT 50`),
+      ]);
+
+      return {
+        mutualFunds: mfResult.rows.map(row => ({
+          symbol: row.symbol,
+          name: row.name,
+          nav: row.nav ? parseFloat(row.nav) : null,
+          navDate: row.nav_date,
+          category: row.category,
+          amc: row.amc,
+          return1y: row.return_1y ? parseFloat(row.return_1y) : null,
+          return3y: row.return_3y ? parseFloat(row.return_3y) : null,
+          return5y: row.return_5y ? parseFloat(row.return_5y) : null,
+          riskLevel: row.risk_level,
+          confidenceScore: row.confidence_score,
+          source: row.data_source,
+        })),
+        globalStocks: stocksResult.rows.map(row => ({
+          symbol: row.symbol,
+          name: row.name,
+          price: row.current_price ? parseFloat(row.current_price) : null,
+          change: row.day_change_percent ? parseFloat(row.day_change_percent) : null,
+          marketCap: row.market_cap ? parseFloat(row.market_cap) : null,
+          sector: row.sector,
+          exchange: row.exchange,
+          confidenceScore: row.confidence_score,
+          source: row.data_source,
+        })),
+        etfs: etfsResult.rows.map(row => ({
+          symbol: row.symbol,
+          name: row.name,
+          price: row.current_price ? parseFloat(row.current_price) : null,
+          nav: row.nav ? parseFloat(row.nav) : null,
+          category: row.category,
+          expenseRatio: row.expense_ratio ? parseFloat(row.expense_ratio) : null,
+          aum: row.aum ? parseFloat(row.aum) : null,
+          confidenceScore: row.confidence_score,
+          source: row.data_source,
+        })),
+        debtInstruments: debtResult.rows.map(row => ({
+          symbol: row.symbol,
+          name: row.name,
+          type: row.instrument_type,
+          yieldPercent: row.yield_percent ? parseFloat(row.yield_percent) : null,
+          couponRate: row.coupon_rate ? parseFloat(row.coupon_rate) : null,
+          maturityDate: row.maturity_date,
+          riskLevel: row.risk_level,
+          confidenceScore: row.confidence_score,
+          source: row.data_source,
+        })),
+        lastUpdated: new Date().toISOString(),
+      };
+    } finally {
+      client.release();
+    }
+  }
+
+  async getMutualFundBySchemeCode(schemeCode: string): Promise<any | null> {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(
+        `SELECT * FROM financial_instruments_cache WHERE instrument_type = 'mutual_fund' AND symbol = $1 LIMIT 1`,
+        [schemeCode]
+      );
+      if (result.rows.length === 0) return null;
+      const row = result.rows[0];
+      return {
+        symbol: row.symbol,
+        name: row.name,
+        nav: row.nav ? parseFloat(row.nav) : null,
+        navDate: row.nav_date,
+        category: row.category,
+        amc: row.amc,
+        confidenceScore: row.confidence_score,
+      };
+    } finally {
+      client.release();
+    }
+  }
 }
 
 export const financialDataRepository = new FinancialDataRepository();
