@@ -138,6 +138,7 @@ import treasuryRoutes from "./routes/treasury-routes";
 import proposalExecutionRoutes from "./routes/proposal-execution-routes";
 import explainabilityRoutes from "./routes/explainability-routes";
 import investmentAdvisoryComplianceRoutes from "./routes/investment-advisory-compliance-routes";
+import { setupChatRoutes } from './routes/chat-routes';
 import { registerAIStockRecommendationRoutes } from './routes/ai-stock-recommendation-routes';
 import { registerAgentAdvisoryRoutes } from "./routes/agent-advisory";
 import onboardingInvitationsRoutes from "./routes/onboarding-invitations";
@@ -9404,6 +9405,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
+  
+  // Chat Session Routes
+  setupChatRoutes(app as any, storage, requireAuth);
   // AI-POWERED PORTFOLIO ROUTES - PROTECTED (requireAuth)
   // =================================================================
   
