@@ -26609,3 +26609,53 @@ export const insertRecommendationProductSchema = createInsertSchema(recommendati
 });
 export type RecommendationProduct = typeof recommendationProducts.$inferSelect;
 export type InsertRecommendationProduct = z.infer<typeof insertRecommendationProductSchema>;
+
+
+// Stock Prices Cache - Database-driven market data to reduce API calls
+// Stores real-time stock prices fetched from NSE/BSE with periodic updates
+export const stockPricesCache = pgTable("stock_prices_cache", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Stock identification
+  symbol: varchar("symbol").notNull().unique(), // NSE/BSE symbol
+  name: text("name").notNull(),
+  exchange: varchar("exchange").notNull().default("NSE"), // 'NSE', 'BSE'
+  
+  // Price data
+  currentPrice: decimal("current_price", { precision: 15, scale: 2 }).notNull(),
+  previousClose: decimal("previous_close", { precision: 15, scale: 2 }),
+  change: decimal("change", { precision: 15, scale: 2 }),
+  changePercent: decimal("change_percent", { precision: 10, scale: 4 }),
+  
+  // OHLC data
+  dayHigh: decimal("day_high", { precision: 15, scale: 2 }),
+  dayLow: decimal("day_low", { precision: 15, scale: 2 }),
+  open: decimal("open_price", { precision: 15, scale: 2 }),
+  volume: bigint("volume", { mode: "number" }),
+  
+  // Market cap for sorting
+  marketCap: decimal("market_cap", { precision: 20, scale: 2 }),
+  
+  // Categorization for market movers
+  isGainer: boolean("is_gainer").default(false),
+  isLoser: boolean("is_loser").default(false),
+  gainerRank: integer("gainer_rank"), // Rank among gainers (1 = top gainer)
+  loserRank: integer("loser_rank"), // Rank among losers (1 = top loser)
+  
+  // Data freshness
+  dataSource: varchar("data_source").default("nse"), // 'nse', 'bse', 'finnhub'
+  fetchedAt: timestamp("fetched_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_stock_prices_symbol").on(table.symbol),
+  index("idx_stock_prices_gainer").on(table.isGainer, table.gainerRank),
+  index("idx_stock_prices_loser").on(table.isLoser, table.loserRank),
+  index("idx_stock_prices_fetched").on(table.fetchedAt),
+]);
+
+export const insertStockPricesCacheSchema = createInsertSchema(stockPricesCache).omit({ 
+  id: true, createdAt: true, updatedAt: true 
+});
+export type StockPricesCache = typeof stockPricesCache.$inferSelect;
+export type InsertStockPricesCache = z.infer<typeof insertStockPricesCacheSchema>;
