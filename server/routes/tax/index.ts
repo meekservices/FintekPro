@@ -430,5 +430,127 @@ export function registerTaxRoutes(app: Express): void {
     }
   });
 
+  // ============ ITR ROUTE ALIASES (backward compatibility) ============
+  // These aliases map /api/itr/* to /api/sandbox-itr/* for backward compatibility
+  
+  app.post("/api/itr/calculate", async (req, res) => {
+    try {
+      const result = await sandboxITRService.calculateTax(req.body);
+      res.json(result);
+    } catch (error) {
+      console.error("ITR tax calculation error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: error instanceof Error ? error.message : "Tax calculation failed" 
+      });
+    }
+  });
+
+  app.post("/api/itr/prepare", async (req, res) => {
+    try {
+      const result = await sandboxITRService.prepareITR(req.body);
+      res.json(result);
+    } catch (error) {
+      console.error("ITR preparation error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: error instanceof Error ? error.message : "ITR preparation failed" 
+      });
+    }
+  });
+
+  app.post("/api/itr/file", async (req, res) => {
+    try {
+      const result = await sandboxITRService.fileITR(req.body);
+      res.json(result);
+    } catch (error) {
+      console.error("ITR filing error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: error instanceof Error ? error.message : "ITR filing failed" 
+      });
+    }
+  });
+
+  app.get("/api/itr/status/:acknowledgmentNumber", async (req, res) => {
+    try {
+      const { acknowledgmentNumber } = req.params;
+      const result = await sandboxITRService.getITRStatus(acknowledgmentNumber);
+      res.json(result);
+    } catch (error) {
+      console.error("ITR status error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: error instanceof Error ? error.message : "Status check failed" 
+      });
+    }
+  });
+
+  app.post("/api/itr/form-recommendation", async (req, res) => {
+    try {
+      const { incomeDetails, entityType } = req.body;
+      if (!incomeDetails) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Income details are required" 
+        });
+      }
+      const suggestion = sandboxITRService.getSuitableITRForm(incomeDetails, entityType || 'individual');
+      res.json({ 
+        success: true, 
+        ...suggestion 
+      });
+    } catch (error) {
+      console.error("Form recommendation error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Form recommendation failed" 
+      });
+    }
+  });
+
+  app.get("/api/itr/form-26as/:pan/:assessmentYear", async (req, res) => {
+    try {
+      const { pan, assessmentYear } = req.params;
+      const result = await sandboxITRService.getForm26AS(pan, assessmentYear);
+      res.json(result);
+    } catch (error) {
+      console.error("Form 26AS error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: error instanceof Error ? error.message : "Form 26AS fetch failed" 
+      });
+    }
+  });
+
+  app.get("/api/itr/ais/:pan/:assessmentYear", async (req, res) => {
+    try {
+      const { pan, assessmentYear } = req.params;
+      const result = await sandboxITRService.getAIS(pan, assessmentYear);
+      res.json(result);
+    } catch (error) {
+      console.error("AIS error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: error instanceof Error ? error.message : "AIS fetch failed" 
+      });
+    }
+  });
+
+  app.get("/api/itr/itr-v/:acknowledgmentNumber", async (req, res) => {
+    try {
+      const { acknowledgmentNumber } = req.params;
+      const result = await sandboxITRService.downloadITRV(acknowledgmentNumber);
+      res.json(result);
+    } catch (error) {
+      console.error("ITR-V download error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: error instanceof Error ? error.message : "ITR-V download failed" 
+      });
+    }
+  });
+
   console.log("✅ Tax routes registered");
+  console.log("✅ ITR route aliases registered");
 }

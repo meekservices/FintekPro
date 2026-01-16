@@ -15767,8 +15767,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // File ITR with Income Tax Department
-  app.post("/api/sandbox-itr/file", async (req, res) => {
+  // File ITR by ID with Income Tax Department (for pre-prepared ITRs)
+  // Note: Use /api/sandbox-itr/file for full form data filing via SandboxITRService
+  app.post("/api/sandbox-itr/submit-by-id", async (req, res) => {
     try {
       const { itrId } = req.body;
       
