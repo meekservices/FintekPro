@@ -483,6 +483,83 @@ router.post('/webhooks/desk', validateZohoWebhookSignature, async (req, res) => 
 });
 
 /**
+ * POST /api/zoho/webhooks/meeting
+ * Webhook receiver for Zoho Meeting events
+ * Events: meeting.created, meeting.started, meeting.ended, recording.ready
+ * Protected by HMAC-SHA256 signature validation
+ */
+router.post('/webhooks/meeting', validateZohoWebhookSignature, async (req, res) => {
+  try {
+    const payload = req.body;
+    
+    console.info('[Zoho Meeting Webhook] Received event:', payload.event_type || 'unknown');
+    
+    await db.insert(zohoWebhookEvents).values({
+      zohoService: 'Meeting',
+      zohoModule: 'meetings',
+      eventType: payload.event_type || payload.action || 'unknown',
+      webhookPayload: payload,
+      status: 'received'
+    });
+
+    // Process meeting events
+    if (payload.event_type === 'meeting.ended') {
+      // Log meeting completion for audit
+      console.info('[Zoho Meeting] Meeting ended:', payload.meeting_key);
+    } else if (payload.event_type === 'recording.ready') {
+      // Recording is available
+      console.info('[Zoho Meeting] Recording ready:', payload.recording_url);
+    }
+
+    res.status(200).json({ message: 'Meeting webhook received' });
+  } catch (error: any) {
+    console.error('Meeting webhook error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * POST /api/zoho/webhooks/sign
+ * Webhook receiver for Zoho Sign events
+ * Events: document.signed, document.viewed, document.completed, document.declined
+ * Protected by HMAC-SHA256 signature validation
+ */
+router.post('/webhooks/sign', validateZohoWebhookSignature, async (req, res) => {
+  try {
+    const payload = req.body;
+    
+    console.info('[Zoho Sign Webhook] Received event:', payload.action_type || payload.event_type || 'unknown');
+    
+    await db.insert(zohoWebhookEvents).values({
+      zohoService: 'Sign',
+      zohoModule: 'documents',
+      eventType: payload.action_type || payload.event_type || 'unknown',
+      webhookPayload: payload,
+      status: 'received'
+    });
+
+    // Process sign events
+    const actionType = payload.action_type || payload.event_type;
+    if (actionType === 'document.completed' || actionType === 'DocumentCompleted') {
+      // All signatures collected
+      console.info('[Zoho Sign] Document completed:', payload.requests?.request_id);
+      // TODO: Update related KYC or agreement status
+    } else if (actionType === 'document.declined' || actionType === 'DocumentDeclined') {
+      // Document was declined
+      console.info('[Zoho Sign] Document declined:', payload.requests?.request_id);
+    } else if (actionType === 'document.signed' || actionType === 'RecipientCompleted') {
+      // A recipient has signed
+      console.info('[Zoho Sign] Recipient signed:', payload.requests?.request_id);
+    }
+
+    res.status(200).json({ message: 'Sign webhook received' });
+  } catch (error: any) {
+    console.error('Sign webhook error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
  * POST /api/zoho/crm/commission-deal
  * Create a commission deal in Zoho CRM
  */
@@ -895,6 +972,87 @@ router.get('/admin/rate-limits', async (req, res) => {
     res.json({ rateLimits });
   } catch (error: any) {
     console.error('Get rate limits error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * GET /api/zoho/admin/webhook-config
+ * Get webhook configuration URLs for setting up in Zoho
+ * These are the URLs you need to configure in each Zoho service's webhook settings
+ */
+router.get('/admin/webhook-config', async (req, res) => {
+  try {
+    // Use request host for accurate URL generation across all environments
+    const protocol = req.headers['x-forwarded-proto'] || 'https';
+    const host = req.headers.host || 'fintekpro.com';
+    
+    // For production, always use the main domain for webhooks (not subdomains)
+    const productionHost = host.includes('fintekpro.com') ? 'fintekpro.com' : host;
+    const baseUrl = `${protocol}://${productionHost}`;
+    
+    const webhookSecret = process.env.ZOHO_WEBHOOK_SECRET;
+    const secretConfigured = !!webhookSecret;
+
+    const webhooks = [
+      {
+        service: 'Zoho CRM',
+        url: `${baseUrl}/api/zoho/webhooks/crm`,
+        events: ['Lead.create', 'Lead.update', 'Contact.create', 'Contact.update', 'Deal.create', 'Deal.update'],
+        setupPath: 'Settings > Automation > Actions > Webhooks',
+        status: 'active'
+      },
+      {
+        service: 'Zoho Books',
+        url: `${baseUrl}/api/zoho/webhooks/books`,
+        events: ['invoice.created', 'invoice.paid', 'payment.received', 'expense.created'],
+        setupPath: 'Settings > Automation > Webhooks',
+        status: 'active'
+      },
+      {
+        service: 'Zoho Meeting',
+        url: `${baseUrl}/api/zoho/webhooks/meeting`,
+        events: ['meeting.created', 'meeting.started', 'meeting.ended', 'recording.ready'],
+        setupPath: 'Settings > Integrations > Webhooks',
+        status: 'active'
+      },
+      {
+        service: 'Zoho Sign',
+        url: `${baseUrl}/api/zoho/webhooks/sign`,
+        events: ['DocumentCompleted', 'DocumentDeclined', 'RecipientCompleted', 'DocumentViewed'],
+        setupPath: 'Settings > Developer Space > Webhooks',
+        status: 'active'
+      }
+    ];
+
+    // Get recent webhook stats
+    const recentEvents = await db
+      .select({
+        service: zohoWebhookEvents.zohoService,
+        count: sql<number>`count(*)`,
+        lastEvent: sql<Date>`max(${zohoWebhookEvents.createdAt})`
+      })
+      .from(zohoWebhookEvents)
+      .where(gte(zohoWebhookEvents.createdAt, new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)))
+      .groupBy(zohoWebhookEvents.zohoService);
+
+    res.json({
+      webhooks,
+      secretConfigured,
+      secretHint: secretConfigured ? 'Configured' : 'Set ZOHO_WEBHOOK_SECRET in environment',
+      recentActivity: recentEvents,
+      instructions: {
+        step1: 'Copy the webhook URL for the service you want to configure',
+        step2: 'Go to the Zoho service admin panel',
+        step3: 'Navigate to the setup path shown above',
+        step4: 'Create a new webhook with the URL',
+        step5: 'Select the events you want to receive',
+        step6: 'Set the secret key (must match ZOHO_WEBHOOK_SECRET)',
+        step7: 'Save and test the webhook'
+      }
+    });
+  } catch (error: any) {
+    console.error('Get webhook config error:', error);
     res.status(500).json({ message: error.message });
   }
 });
