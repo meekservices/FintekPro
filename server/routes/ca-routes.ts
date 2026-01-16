@@ -297,7 +297,7 @@ router.get('/cases/:partnerId', requireAuth, injectRoleInfo, requirePartnerPorta
   }
 });
 
-router.patch('/availability/:partnerId', async (req: Request, res: Response) => {
+router.patch('/availability/:partnerId', requireAuth, injectRoleInfo, requirePartnerPortal, async (req: Request, res: Response) => {
   try {
     const { partnerId } = req.params;
     const { availability } = req.body;
