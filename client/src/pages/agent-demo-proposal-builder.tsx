@@ -56,7 +56,8 @@ import {
   Trash2,
   Clock,
   MessageSquare,
-  CheckCircle2
+  CheckCircle2,
+  Globe
 } from "lucide-react";
 
 interface Client {
@@ -87,6 +88,10 @@ interface AssetAllocation {
   gold: number;
   index: number;
   international: number;
+  us_markets: number;
+  europe_markets: number;
+  asia_pacific_markets: number;
+  emerging_markets: number;
   reit: number;
   invit: number;
   bonds: number;
@@ -207,36 +212,44 @@ const PROPOSAL_SECTIONS = [
 ];
 
 const ASSET_CATEGORIES = [
-  { id: 'equity', name: 'Equity Mutual Funds', color: 'bg-blue-500', description: 'Large, Mid & Small Cap Funds' },
-  { id: 'debt', name: 'Debt Funds', color: 'bg-green-500', description: 'Corporate & Govt Bond Funds' },
-  { id: 'hybrid', name: 'Hybrid Funds', color: 'bg-teal-500', description: 'Balanced & Multi-Asset Funds' },
-  { id: 'gold', name: 'Gold', color: 'bg-yellow-500', description: 'Gold ETFs & Funds' },
-  { id: 'index', name: 'Index Funds', color: 'bg-indigo-500', description: 'Nifty, Sensex Trackers' },
-  { id: 'international', name: 'International', color: 'bg-cyan-500', description: 'US & Global Equity Funds' },
-  { id: 'reit', name: 'REITs', color: 'bg-purple-500', description: 'Real Estate Investment Trusts' },
-  { id: 'invit', name: 'InvITs', color: 'bg-orange-500', description: 'Infrastructure Investment Trusts' },
-  { id: 'bonds', name: 'Direct Bonds', color: 'bg-emerald-500', description: 'NCDs, Tax-Free Bonds' },
-  { id: 'listed_stocks', name: 'Listed Stocks', color: 'bg-rose-500', description: 'Direct Equity (NSE/BSE)' },
-  { id: 'unlisted_stocks', name: 'Unlisted Stocks', color: 'bg-pink-500', description: 'Pre-IPO Shares' },
-  { id: 'cash', name: 'Cash/Liquid', color: 'bg-gray-500', description: 'Liquid Funds & Cash' },
+  { id: 'equity', name: 'Equity Mutual Funds', color: 'bg-blue-500', description: 'Large, Mid & Small Cap Funds', group: 'domestic' },
+  { id: 'debt', name: 'Debt Funds', color: 'bg-green-500', description: 'Corporate & Govt Bond Funds', group: 'domestic' },
+  { id: 'hybrid', name: 'Hybrid Funds', color: 'bg-teal-500', description: 'Balanced & Multi-Asset Funds', group: 'domestic' },
+  { id: 'gold', name: 'Gold', color: 'bg-yellow-500', description: 'Gold ETFs & Funds', group: 'commodities' },
+  { id: 'index', name: 'Index Funds', color: 'bg-indigo-500', description: 'Nifty, Sensex Trackers', group: 'domestic' },
+  { id: 'international', name: 'Global Diversified', color: 'bg-cyan-500', description: 'Multi-Region International Funds', group: 'global' },
+  { id: 'us_markets', name: 'US Markets', color: 'bg-blue-600', description: 'S&P 500, Nasdaq, US Equity', group: 'global' },
+  { id: 'europe_markets', name: 'Europe Markets', color: 'bg-sky-500', description: 'Euro Stoxx, UK, German Funds', group: 'global' },
+  { id: 'asia_pacific_markets', name: 'Asia-Pacific', color: 'bg-violet-500', description: 'Japan, China, ASEAN Funds', group: 'global' },
+  { id: 'emerging_markets', name: 'Emerging Markets', color: 'bg-amber-500', description: 'BRICS, Latin America, Africa', group: 'global' },
+  { id: 'reit', name: 'REITs', color: 'bg-purple-500', description: 'Real Estate Investment Trusts', group: 'alternatives' },
+  { id: 'invit', name: 'InvITs', color: 'bg-orange-500', description: 'Infrastructure Investment Trusts', group: 'alternatives' },
+  { id: 'bonds', name: 'Direct Bonds', color: 'bg-emerald-500', description: 'NCDs, Tax-Free Bonds', group: 'fixed_income' },
+  { id: 'listed_stocks', name: 'Listed Stocks', color: 'bg-rose-500', description: 'Direct Equity (NSE/BSE)', group: 'domestic' },
+  { id: 'unlisted_stocks', name: 'Unlisted Stocks', color: 'bg-pink-500', description: 'Pre-IPO Shares', group: 'alternatives' },
+  { id: 'cash', name: 'Cash/Liquid', color: 'bg-gray-500', description: 'Liquid Funds & Cash', group: 'fixed_income' },
 ];
 
 const DEFAULT_ALLOCATIONS: Record<string, AssetAllocation> = {
   conservative: {
     equity: 20, debt: 35, hybrid: 15, gold: 10, index: 5, international: 0,
+    us_markets: 0, europe_markets: 0, asia_pacific_markets: 0, emerging_markets: 0,
     reit: 5, invit: 5, bonds: 5, listed_stocks: 0, unlisted_stocks: 0, cash: 0
   },
   moderate: {
-    equity: 30, debt: 20, hybrid: 10, gold: 8, index: 10, international: 5,
-    reit: 5, invit: 5, bonds: 5, listed_stocks: 0, unlisted_stocks: 0, cash: 2
+    equity: 25, debt: 20, hybrid: 10, gold: 5, index: 8, international: 0,
+    us_markets: 5, europe_markets: 2, asia_pacific_markets: 3, emerging_markets: 0,
+    reit: 5, invit: 5, bonds: 5, listed_stocks: 0, unlisted_stocks: 0, cash: 7
   },
   aggressive: {
-    equity: 35, debt: 10, hybrid: 5, gold: 5, index: 15, international: 10,
-    reit: 5, invit: 5, bonds: 5, listed_stocks: 0, unlisted_stocks: 0, cash: 5
+    equity: 30, debt: 10, hybrid: 5, gold: 3, index: 10, international: 0,
+    us_markets: 8, europe_markets: 4, asia_pacific_markets: 5, emerging_markets: 3,
+    reit: 5, invit: 5, bonds: 5, listed_stocks: 0, unlisted_stocks: 0, cash: 7
   },
   very_aggressive: {
-    equity: 30, debt: 5, hybrid: 5, gold: 5, index: 15, international: 10,
-    reit: 5, invit: 5, bonds: 5, listed_stocks: 7, unlisted_stocks: 5, cash: 3
+    equity: 25, debt: 5, hybrid: 5, gold: 2, index: 10, international: 0,
+    us_markets: 10, europe_markets: 5, asia_pacific_markets: 7, emerging_markets: 6,
+    reit: 5, invit: 3, bonds: 2, listed_stocks: 7, unlisted_stocks: 5, cash: 3
   }
 };
 
@@ -255,22 +268,22 @@ const TEMPLATE_PRESETS = [
   {
     id: 'aggressive_wealth',
     name: 'Aggressive Wealth Creation',
-    description: 'High-growth portfolio for young investors',
+    description: 'High-growth portfolio with global diversification',
     config: {
       investmentGoals: { primaryGoal: 'wealth_creation', investmentHorizon: '10+ years', targetAmount: 50000000, monthlyContribution: 100000 },
       assetAllocation: DEFAULT_ALLOCATIONS.aggressive,
-      selectedCategories: ['equity', 'debt', 'hybrid', 'gold', 'index', 'international', 'reit', 'invit', 'bonds'],
+      selectedCategories: ['equity', 'debt', 'hybrid', 'gold', 'index', 'us_markets', 'europe_markets', 'asia_pacific_markets', 'emerging_markets', 'reit', 'invit', 'bonds'],
       riskProfile: { score: 80, category: 'aggressive' as const, tolerance: 'High risk tolerance - growth focused' },
     }
   },
   {
     id: 'balanced_education',
     name: 'Balanced Child Education',
-    description: 'Moderate-risk portfolio for education planning',
+    description: 'Moderate-risk portfolio with global exposure',
     config: {
       investmentGoals: { primaryGoal: 'child_education', investmentHorizon: '5-10 years', targetAmount: 3000000, monthlyContribution: 25000 },
       assetAllocation: DEFAULT_ALLOCATIONS.moderate,
-      selectedCategories: ['equity', 'debt', 'hybrid', 'gold', 'index', 'international', 'reit', 'invit', 'bonds'],
+      selectedCategories: ['equity', 'debt', 'hybrid', 'gold', 'index', 'us_markets', 'asia_pacific_markets', 'reit', 'invit', 'bonds'],
       riskProfile: { score: 50, category: 'moderate' as const, tolerance: 'Moderate risk tolerance - balanced approach' },
     }
   },
@@ -280,9 +293,24 @@ const TEMPLATE_PRESETS = [
     description: 'Regular income generation portfolio',
     config: {
       investmentGoals: { primaryGoal: 'regular_income', investmentHorizon: '3-5 years', targetAmount: 5000000, monthlyContribution: 0 },
-      assetAllocation: { ...DEFAULT_ALLOCATIONS.conservative, debt: 40, bonds: 10, reit: 8, invit: 7, equity: 15, hybrid: 10, gold: 5, index: 5, international: 0, listed_stocks: 0, unlisted_stocks: 0, cash: 0 },
+      assetAllocation: { ...DEFAULT_ALLOCATIONS.conservative, debt: 40, bonds: 10, reit: 8, invit: 7, equity: 15, hybrid: 10, gold: 5, index: 5 },
       selectedCategories: ['equity', 'debt', 'hybrid', 'gold', 'index', 'reit', 'invit', 'bonds'],
       riskProfile: { score: 30, category: 'conservative' as const, tolerance: 'Low risk tolerance - income stability preferred' },
+    }
+  },
+  {
+    id: 'global_diversified',
+    name: 'Global Diversified',
+    description: 'Multi-region portfolio for international exposure',
+    config: {
+      investmentGoals: { primaryGoal: 'wealth_creation', investmentHorizon: '10+ years', targetAmount: 20000000, monthlyContribution: 75000 },
+      assetAllocation: {
+        equity: 20, debt: 10, hybrid: 5, gold: 3, index: 5, international: 0,
+        us_markets: 15, europe_markets: 10, asia_pacific_markets: 12, emerging_markets: 8,
+        reit: 5, invit: 2, bonds: 3, listed_stocks: 0, unlisted_stocks: 0, cash: 2
+      },
+      selectedCategories: ['equity', 'debt', 'index', 'us_markets', 'europe_markets', 'asia_pacific_markets', 'emerging_markets', 'reit', 'bonds'],
+      riskProfile: { score: 70, category: 'aggressive' as const, tolerance: 'High risk tolerance - global growth focused' },
     }
   },
 ];
@@ -296,7 +324,7 @@ const defaultConfig: ProposalConfig = {
     monthlyContribution: 25000,
   },
   assetAllocation: { ...DEFAULT_ALLOCATIONS.moderate },
-  selectedCategories: ['equity', 'debt', 'hybrid', 'gold', 'index', 'international', 'reit', 'invit', 'bonds'],
+  selectedCategories: ['equity', 'debt', 'hybrid', 'gold', 'index', 'us_markets', 'asia_pacific_markets', 'reit', 'invit', 'bonds'],
   riskProfile: {
     score: 50,
     category: 'moderate',
@@ -1182,7 +1210,9 @@ export default function AgentDemoProposalBuilder() {
                                 let currentAngle = 0;
                                 const categoryColors: Record<string, string> = {
                                   equity: '#3B82F6', debt: '#22C55E', hybrid: '#14B8A6', gold: '#EAB308',
-                                  index: '#6366F1', international: '#06B6D4', reit: '#A855F7', invit: '#F97316',
+                                  index: '#6366F1', international: '#06B6D4', 
+                                  us_markets: '#2563EB', europe_markets: '#0EA5E9', asia_pacific_markets: '#8B5CF6', emerging_markets: '#F59E0B',
+                                  reit: '#A855F7', invit: '#F97316',
                                   bonds: '#10B981', listed_stocks: '#F43F5E', unlisted_stocks: '#EC4899', cash: '#6B7280'
                                 };
                                 return ASSET_CATEGORIES.map((cat) => {
@@ -1244,6 +1274,46 @@ export default function AgentDemoProposalBuilder() {
                                   </div>
                                 );
                               })}
+                            </div>
+                          </Card>
+                        )}
+
+                        {(config.assetAllocation.us_markets > 0 || config.assetAllocation.europe_markets > 0 || 
+                          config.assetAllocation.asia_pacific_markets > 0 || config.assetAllocation.emerging_markets > 0) && (
+                          <Card className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800">
+                            <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm">
+                              <Globe className="h-4 w-4 text-blue-600" />
+                              Global Market Exposure
+                            </h3>
+                            <div className="space-y-2 text-xs">
+                              {[
+                                { key: 'us_markets', name: 'US Markets', color: '#2563EB', benchmark: 'S&P 500', ytd: '+12.4%' },
+                                { key: 'europe_markets', name: 'Europe', color: '#0EA5E9', benchmark: 'STOXX 600', ytd: '+8.2%' },
+                                { key: 'asia_pacific_markets', name: 'Asia-Pacific', color: '#8B5CF6', benchmark: 'MSCI APAC', ytd: '+6.8%' },
+                                { key: 'emerging_markets', name: 'Emerging', color: '#F59E0B', benchmark: 'MSCI EM', ytd: '+4.5%' }
+                              ].filter(region => (config.assetAllocation[region.key as keyof typeof config.assetAllocation] as number) > 0)
+                               .map(region => (
+                                <div key={region.key} className="flex items-center justify-between py-1">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: region.color }} />
+                                    <span className="font-medium">{region.name}</span>
+                                  </div>
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-muted-foreground">{region.benchmark}</span>
+                                    <span className="text-green-600 font-medium">{region.ytd}</span>
+                                    <Badge variant="outline" className="text-xs">
+                                      {config.assetAllocation[region.key as keyof typeof config.assetAllocation]}%
+                                    </Badge>
+                                  </div>
+                                </div>
+                              ))}
+                              <div className="border-t pt-2 mt-2 flex justify-between text-muted-foreground">
+                                <span>Total Global Allocation</span>
+                                <span className="font-semibold text-foreground">
+                                  {(config.assetAllocation.us_markets || 0) + (config.assetAllocation.europe_markets || 0) + 
+                                   (config.assetAllocation.asia_pacific_markets || 0) + (config.assetAllocation.emerging_markets || 0)}%
+                                </span>
+                              </div>
                             </div>
                           </Card>
                         )}

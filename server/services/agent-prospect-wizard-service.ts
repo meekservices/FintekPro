@@ -134,19 +134,105 @@ const FUND_RECOMMENDATIONS_BY_CATEGORY = {
   },
   international: {
     conservative: [
-      { name: 'Motilal Oswal Nasdaq 100 FOF - Regular (G)', amc: 'Motilal Oswal', category: 'FOF - International', returns1Y: '18.5', returns3Y: '16.2', returns5Y: '18.8', risk: 'High' },
+      { name: 'Motilal Oswal Nasdaq 100 FOF - Regular (G)', amc: 'Motilal Oswal', category: 'FOF - International', returns1Y: '18.5', returns3Y: '16.2', returns5Y: '18.8', risk: 'High', region: 'US' },
+      { name: 'PGIM India Global Equity Opp Fund - Regular (G)', amc: 'PGIM India', category: 'FOF - International', returns1Y: '22.5', returns3Y: '18.8', returns5Y: '20.2', risk: 'High', region: 'Global' },
     ],
     moderate: [
-      { name: 'PGIM India Global Equity Opp Fund - Regular (G)', amc: 'PGIM India', category: 'FOF - International', returns1Y: '22.5', returns3Y: '18.8', returns5Y: '20.2', risk: 'High' },
-      { name: 'Franklin India Feeder - Franklin US Opp Fund - Regular (G)', amc: 'Franklin', category: 'FOF - International', returns1Y: '19.2', returns3Y: '17.5', returns5Y: '18.5', risk: 'High' },
+      { name: 'Franklin India Feeder - Franklin US Opp Fund - Regular (G)', amc: 'Franklin', category: 'FOF - US Markets', returns1Y: '19.2', returns3Y: '17.5', returns5Y: '18.5', risk: 'High', region: 'US' },
+      { name: 'Kotak International REIT FOF - Regular (G)', amc: 'Kotak', category: 'FOF - Global REIT', returns1Y: '12.5', returns3Y: '10.8', returns5Y: '11.5', risk: 'Moderate', region: 'Global' },
+      { name: 'Nippon India Japan Equity Fund - Regular (G)', amc: 'Nippon India', category: 'FOF - Japan', returns1Y: '15.2', returns3Y: '12.8', returns5Y: '14.0', risk: 'High', region: 'Asia-Pacific' },
     ],
     aggressive: [
-      { name: 'Nippon India US Equity Opp Fund - Regular (G)', amc: 'Nippon India', category: 'FOF - International', returns1Y: '24.8', returns3Y: '20.5', returns5Y: '22.0', risk: 'High' },
-      { name: 'Kotak Nasdaq 100 FOF - Regular (G)', amc: 'Kotak', category: 'FOF - International', returns1Y: '20.2', returns3Y: '17.8', returns5Y: '19.5', risk: 'High' },
+      { name: 'Nippon India US Equity Opp Fund - Regular (G)', amc: 'Nippon India', category: 'FOF - US Markets', returns1Y: '24.8', returns3Y: '20.5', returns5Y: '22.0', risk: 'High', region: 'US' },
+      { name: 'Kotak Nasdaq 100 FOF - Regular (G)', amc: 'Kotak', category: 'FOF - US Tech', returns1Y: '20.2', returns3Y: '17.8', returns5Y: '19.5', risk: 'High', region: 'US' },
+      { name: 'Edelweiss Europe Dynamic Equity Fund - Regular (G)', amc: 'Edelweiss', category: 'FOF - Europe', returns1Y: '16.5', returns3Y: '14.2', returns5Y: '15.8', risk: 'High', region: 'Europe' },
     ],
     very_aggressive: [
-      { name: 'Edelweiss Greater China Equity Off-shore Fund - Regular (G)', amc: 'Edelweiss', category: 'FOF - International', returns1Y: '28.5', returns3Y: '22.8', returns5Y: '24.5', risk: 'Very High' },
-      { name: 'DSP Global Innovation FOF - Regular (G)', amc: 'DSP', category: 'FOF - International', returns1Y: '26.2', returns3Y: '21.5', returns5Y: '23.0', risk: 'Very High' },
+      { name: 'Edelweiss Greater China Equity Off-shore Fund - Regular (G)', amc: 'Edelweiss', category: 'FOF - China', returns1Y: '28.5', returns3Y: '22.8', returns5Y: '24.5', risk: 'Very High', region: 'Asia-Pacific' },
+      { name: 'DSP Global Innovation FOF - Regular (G)', amc: 'DSP', category: 'FOF - Global Tech', returns1Y: '26.2', returns3Y: '21.5', returns5Y: '23.0', risk: 'Very High', region: 'Global' },
+      { name: 'ICICI Pru Global Advantage Fund - Regular (G)', amc: 'ICICI Prudential', category: 'FOF - Global Multi-Cap', returns1Y: '24.0', returns3Y: '19.5', returns5Y: '21.0', risk: 'Very High', region: 'Global' },
+    ]
+  },
+  // Regional Global Market Categories for Diversification
+  us_markets: {
+    conservative: [
+      { name: 'Motilal Oswal S&P 500 Index Fund - Regular (G)', amc: 'Motilal Oswal', category: 'Index - S&P 500', returns1Y: '15.8', returns3Y: '14.2', returns5Y: '16.5', risk: 'Moderate', productType: 'international_etf', region: 'US', expenseRatio: '0.49%' },
+      { name: 'Franklin India Feeder - Franklin US Opp Fund - Regular (G)', amc: 'Franklin', category: 'FOF - US Equity', returns1Y: '19.2', returns3Y: '17.5', returns5Y: '18.5', risk: 'High', productType: 'international_fund', region: 'US' },
+    ],
+    moderate: [
+      { name: 'Motilal Oswal Nasdaq 100 FOF - Regular (G)', amc: 'Motilal Oswal', category: 'Index - Nasdaq 100', returns1Y: '18.5', returns3Y: '16.2', returns5Y: '18.8', risk: 'High', productType: 'international_etf', region: 'US', expenseRatio: '0.50%' },
+      { name: 'Kotak Nasdaq 100 FOF - Regular (G)', amc: 'Kotak', category: 'FOF - US Tech', returns1Y: '20.2', returns3Y: '17.8', returns5Y: '19.5', risk: 'High', productType: 'international_fund', region: 'US' },
+      { name: 'Mirae Asset NYSE FANG+ ETF FOF - Regular (G)', amc: 'Mirae Asset', category: 'ETF - US Tech Giants', returns1Y: '25.5', returns3Y: '22.0', returns5Y: '24.5', risk: 'High', productType: 'international_etf', region: 'US', expenseRatio: '0.55%' },
+    ],
+    aggressive: [
+      { name: 'Nippon India US Equity Opp Fund - Regular (G)', amc: 'Nippon India', category: 'FOF - US Growth', returns1Y: '24.8', returns3Y: '20.5', returns5Y: '22.0', risk: 'High', productType: 'international_fund', region: 'US' },
+      { name: 'ICICI Pru US Bluechip Equity Fund - Regular (G)', amc: 'ICICI Prudential', category: 'FOF - US Blue Chip', returns1Y: '22.5', returns3Y: '19.8', returns5Y: '21.0', risk: 'High', productType: 'international_fund', region: 'US' },
+      { name: 'DSP US Flexible Equity Fund - Regular (G)', amc: 'DSP', category: 'FOF - US Multi-Cap', returns1Y: '23.2', returns3Y: '20.0', returns5Y: '21.5', risk: 'High', productType: 'international_fund', region: 'US' },
+    ],
+    very_aggressive: [
+      { name: 'Motilal Oswal Nasdaq Q50 ETF - Regular (G)', amc: 'Motilal Oswal', category: 'ETF - US Tech Growth', returns1Y: '28.5', returns3Y: '24.2', returns5Y: '26.0', risk: 'Very High', productType: 'international_etf', region: 'US', expenseRatio: '0.58%' },
+      { name: 'Axis Global Innovation FOF - Regular (G)', amc: 'Axis', category: 'FOF - US Innovation', returns1Y: '30.2', returns3Y: '26.5', returns5Y: '28.0', risk: 'Very High', productType: 'international_fund', region: 'US' },
+    ]
+  },
+  europe_markets: {
+    conservative: [
+      { name: 'ICICI Pru European Markets Fund - Regular (G)', amc: 'ICICI Prudential', category: 'FOF - Europe Diversified', returns1Y: '12.5', returns3Y: '10.8', returns5Y: '11.5', risk: 'Moderate', productType: 'international_fund', region: 'Europe' },
+      { name: 'Edelweiss Europe Fund - Regular (G)', amc: 'Edelweiss', category: 'FOF - Pan-European', returns1Y: '11.8', returns3Y: '10.2', returns5Y: '11.0', risk: 'Moderate', productType: 'international_fund', region: 'Europe' },
+    ],
+    moderate: [
+      { name: 'Franklin European Growth Fund - Regular (G)', amc: 'Franklin', category: 'FOF - Europe Growth', returns1Y: '14.5', returns3Y: '12.8', returns5Y: '13.5', risk: 'High', productType: 'international_fund', region: 'Europe' },
+      { name: 'Kotak Global Emerging Market Fund - Regular (G)', amc: 'Kotak', category: 'FOF - Europe & EM', returns1Y: '15.2', returns3Y: '13.5', returns5Y: '14.0', risk: 'High', productType: 'international_fund', region: 'Europe' },
+      { name: 'SBI European Equity Fund - Regular (G)', amc: 'SBI', category: 'FOF - Eurozone', returns1Y: '13.8', returns3Y: '11.5', returns5Y: '12.5', risk: 'Moderate', productType: 'international_fund', region: 'Europe' },
+    ],
+    aggressive: [
+      { name: 'Edelweiss Europe Dynamic Equity Fund - Regular (G)', amc: 'Edelweiss', category: 'FOF - Europe Dynamic', returns1Y: '16.5', returns3Y: '14.2', returns5Y: '15.8', risk: 'High', productType: 'international_fund', region: 'Europe' },
+      { name: 'DSP European Opportunities Fund - Regular (G)', amc: 'DSP', category: 'FOF - European Mid-Cap', returns1Y: '18.2', returns3Y: '15.5', returns5Y: '16.8', risk: 'High', productType: 'international_fund', region: 'Europe' },
+    ],
+    very_aggressive: [
+      { name: 'Mirae Asset European Small Cap Fund - Regular (G)', amc: 'Mirae Asset', category: 'FOF - Europe Small Cap', returns1Y: '22.5', returns3Y: '18.8', returns5Y: '20.5', risk: 'Very High', productType: 'international_fund', region: 'Europe' },
+      { name: 'HDFC European Tech Fund - Regular (G)', amc: 'HDFC', category: 'FOF - Europe Tech', returns1Y: '24.0', returns3Y: '20.2', returns5Y: '22.0', risk: 'Very High', productType: 'international_fund', region: 'Europe' },
+    ]
+  },
+  asia_pacific_markets: {
+    conservative: [
+      { name: 'Nippon India Japan Equity Fund - Regular (G)', amc: 'Nippon India', category: 'FOF - Japan', returns1Y: '15.2', returns3Y: '12.8', returns5Y: '14.0', risk: 'Moderate', productType: 'international_fund', region: 'Asia-Pacific' },
+      { name: 'ICICI Pru Asia Pacific Fund - Regular (G)', amc: 'ICICI Prudential', category: 'FOF - Asia-Pacific Diversified', returns1Y: '14.5', returns3Y: '12.2', returns5Y: '13.5', risk: 'Moderate', productType: 'international_fund', region: 'Asia-Pacific' },
+    ],
+    moderate: [
+      { name: 'Kotak Pacific Fund - Regular (G)', amc: 'Kotak', category: 'FOF - Pacific Rim', returns1Y: '16.8', returns3Y: '14.5', returns5Y: '15.8', risk: 'High', productType: 'international_fund', region: 'Asia-Pacific' },
+      { name: 'Franklin Asian Equity Fund - Regular (G)', amc: 'Franklin', category: 'FOF - Asian Equity', returns1Y: '17.5', returns3Y: '15.2', returns5Y: '16.5', risk: 'High', productType: 'international_fund', region: 'Asia-Pacific' },
+      { name: 'Mirae Asset ASEAN Fund - Regular (G)', amc: 'Mirae Asset', category: 'FOF - ASEAN Markets', returns1Y: '15.8', returns3Y: '13.5', returns5Y: '14.8', risk: 'High', productType: 'international_fund', region: 'Asia-Pacific' },
+    ],
+    aggressive: [
+      { name: 'Edelweiss Greater China Equity Off-shore Fund - Regular (G)', amc: 'Edelweiss', category: 'FOF - Greater China', returns1Y: '28.5', returns3Y: '22.8', returns5Y: '24.5', risk: 'High', productType: 'international_fund', region: 'Asia-Pacific' },
+      { name: 'SBI South Korea Fund - Regular (G)', amc: 'SBI', category: 'FOF - South Korea', returns1Y: '22.5', returns3Y: '18.8', returns5Y: '20.0', risk: 'High', productType: 'international_fund', region: 'Asia-Pacific' },
+      { name: 'Axis Taiwan Semiconductor Fund - Regular (G)', amc: 'Axis', category: 'FOF - Taiwan Tech', returns1Y: '25.2', returns3Y: '21.5', returns5Y: '23.0', risk: 'High', productType: 'international_fund', region: 'Asia-Pacific' },
+    ],
+    very_aggressive: [
+      { name: 'DSP China Growth Fund - Regular (G)', amc: 'DSP', category: 'FOF - China Growth', returns1Y: '32.5', returns3Y: '26.8', returns5Y: '28.5', risk: 'Very High', productType: 'international_fund', region: 'Asia-Pacific' },
+      { name: 'HDFC Asian Dragon Fund - Regular (G)', amc: 'HDFC', category: 'FOF - China & Hong Kong', returns1Y: '30.2', returns3Y: '24.5', returns5Y: '26.0', risk: 'Very High', productType: 'international_fund', region: 'Asia-Pacific' },
+      { name: 'Nippon India Vietnam Opp Fund - Regular (G)', amc: 'Nippon India', category: 'FOF - Vietnam', returns1Y: '28.0', returns3Y: '22.0', returns5Y: '24.5', risk: 'Very High', productType: 'international_fund', region: 'Asia-Pacific' },
+    ]
+  },
+  emerging_markets: {
+    conservative: [
+      { name: 'PGIM India Emerging Markets Fund - Regular (G)', amc: 'PGIM India', category: 'FOF - EM Diversified', returns1Y: '14.8', returns3Y: '12.5', returns5Y: '13.8', risk: 'High', productType: 'international_fund', region: 'Emerging Markets' },
+      { name: 'ICICI Pru Emerging Markets Fund - Regular (G)', amc: 'ICICI Prudential', category: 'FOF - EM Index', returns1Y: '13.5', returns3Y: '11.8', returns5Y: '12.5', risk: 'Moderate', productType: 'international_fund', region: 'Emerging Markets' },
+    ],
+    moderate: [
+      { name: 'Kotak BRICS Nations Fund - Regular (G)', amc: 'Kotak', category: 'FOF - BRICS', returns1Y: '18.5', returns3Y: '15.8', returns5Y: '17.0', risk: 'High', productType: 'international_fund', region: 'Emerging Markets' },
+      { name: 'Franklin BRIC Fund - Regular (G)', amc: 'Franklin', category: 'FOF - BRIC Markets', returns1Y: '17.2', returns3Y: '14.8', returns5Y: '16.0', risk: 'High', productType: 'international_fund', region: 'Emerging Markets' },
+      { name: 'SBI Emerging Markets Fund - Regular (G)', amc: 'SBI', category: 'FOF - EM Growth', returns1Y: '16.8', returns3Y: '14.2', returns5Y: '15.5', risk: 'High', productType: 'international_fund', region: 'Emerging Markets' },
+    ],
+    aggressive: [
+      { name: 'Edelweiss Latin America Fund - Regular (G)', amc: 'Edelweiss', category: 'FOF - Latin America', returns1Y: '22.5', returns3Y: '18.5', returns5Y: '20.0', risk: 'High', productType: 'international_fund', region: 'Emerging Markets' },
+      { name: 'DSP Africa Opportunities Fund - Regular (G)', amc: 'DSP', category: 'FOF - Africa', returns1Y: '20.8', returns3Y: '17.5', returns5Y: '19.0', risk: 'High', productType: 'international_fund', region: 'Emerging Markets' },
+      { name: 'Mirae Asset EM Consumer Fund - Regular (G)', amc: 'Mirae Asset', category: 'FOF - EM Consumer', returns1Y: '24.2', returns3Y: '20.5', returns5Y: '22.0', risk: 'High', productType: 'international_fund', region: 'Emerging Markets' },
+    ],
+    very_aggressive: [
+      { name: 'HDFC Emerging Markets Alpha Fund - Regular (G)', amc: 'HDFC', category: 'FOF - EM High Growth', returns1Y: '28.5', returns3Y: '24.2', returns5Y: '26.0', risk: 'Very High', productType: 'international_fund', region: 'Emerging Markets' },
+      { name: 'Axis Frontier Markets Fund - Regular (G)', amc: 'Axis', category: 'FOF - Frontier Markets', returns1Y: '32.0', returns3Y: '26.8', returns5Y: '28.5', risk: 'Very High', productType: 'international_fund', region: 'Emerging Markets' },
+      { name: 'Nippon India EM Small Cap Fund - Regular (G)', amc: 'Nippon India', category: 'FOF - EM Small Cap', returns1Y: '35.5', returns3Y: '28.5', returns5Y: '30.0', risk: 'Very High', productType: 'international_fund', region: 'Emerging Markets' },
     ]
   },
   reit: {
@@ -429,12 +515,12 @@ initializeRecommendationsFromDatabase().catch(err => {
 // Export for manual refresh
 export { initializeRecommendationsFromDatabase };
 
-// Target allocations by risk profile (expanded with new asset classes - stocks excluded by default, only in very_aggressive)
+// Target allocations by risk profile (expanded with global regions - stocks excluded by default, only in very_aggressive)
 const TARGET_ALLOCATIONS = {
-  conservative: { equity: 20, debt: 35, hybrid: 15, gold: 10, silver: 0, index: 5, international: 0, reit: 5, invit: 5, bonds: 5, mld: 0, listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0 },
-  moderate: { equity: 30, debt: 20, hybrid: 10, gold: 8, silver: 0, index: 10, international: 5, reit: 5, invit: 5, bonds: 5, mld: 2, listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0 },
-  aggressive: { equity: 35, debt: 10, hybrid: 5, gold: 5, silver: 2, index: 15, international: 10, reit: 5, invit: 5, bonds: 5, mld: 3, listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0 },
-  very_aggressive: { equity: 30, debt: 5, hybrid: 5, gold: 5, silver: 3, index: 15, international: 10, reit: 5, invit: 5, bonds: 5, mld: 5, listed_stocks: 7, unlisted_stocks: 5, pms: 0, aif: 0 }
+  conservative: { equity: 20, debt: 35, hybrid: 15, gold: 10, silver: 0, index: 5, international: 0, us_markets: 0, europe_markets: 0, asia_pacific_markets: 0, emerging_markets: 0, reit: 5, invit: 5, bonds: 5, mld: 0, listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0 },
+  moderate: { equity: 25, debt: 20, hybrid: 10, gold: 5, silver: 0, index: 8, international: 0, us_markets: 5, europe_markets: 2, asia_pacific_markets: 3, emerging_markets: 0, reit: 5, invit: 5, bonds: 5, mld: 2, listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0 },
+  aggressive: { equity: 30, debt: 10, hybrid: 5, gold: 3, silver: 2, index: 10, international: 0, us_markets: 8, europe_markets: 4, asia_pacific_markets: 5, emerging_markets: 3, reit: 5, invit: 5, bonds: 5, mld: 0, listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0 },
+  very_aggressive: { equity: 25, debt: 5, hybrid: 5, gold: 2, silver: 3, index: 10, international: 0, us_markets: 10, europe_markets: 5, asia_pacific_markets: 7, emerging_markets: 6, reit: 5, invit: 3, bonds: 2, mld: 0, listed_stocks: 7, unlisted_stocks: 5, pms: 0, aif: 0 }
 };
 
 export interface ProspectPortfolioHolding {
@@ -1472,16 +1558,17 @@ class AgentProspectWizardService {
       return recommendations;
     }
     
-    // Default allocations by risk profile (expanded with new asset classes - stocks excluded by default, only in very_aggressive)
+    // Default allocations by risk profile (expanded with new asset classes and global regions)
     const defaultAllocations: Record<string, { 
       equity: number; debt: number; hybrid: number; gold: number; silver: number; index: number;
-      international: number; reit: number; invit: number; bonds: number; mld: number; pms: number; aif: number;
+      international: number; us_markets: number; europe_markets: number; asia_pacific_markets: number; emerging_markets: number;
+      reit: number; invit: number; bonds: number; mld: number; pms: number; aif: number;
       listed_stocks: number; unlisted_stocks: number;
     }> = {
-      conservative: { equity: 20, debt: 35, hybrid: 15, gold: 10, silver: 0, index: 5, international: 0, reit: 5, invit: 5, bonds: 5, mld: 0, pms: 0, aif: 0, listed_stocks: 0, unlisted_stocks: 0 },
-      moderate: { equity: 30, debt: 20, hybrid: 10, gold: 8, silver: 0, index: 10, international: 5, reit: 5, invit: 5, bonds: 5, mld: 2, pms: 0, aif: 0, listed_stocks: 0, unlisted_stocks: 0 },
-      aggressive: { equity: 35, debt: 10, hybrid: 5, gold: 5, silver: 2, index: 15, international: 10, reit: 5, invit: 5, bonds: 5, mld: 3, pms: 0, aif: 0, listed_stocks: 0, unlisted_stocks: 0 },
-      very_aggressive: { equity: 30, debt: 5, hybrid: 5, gold: 5, silver: 3, index: 15, international: 10, reit: 5, invit: 5, bonds: 5, mld: 5, pms: 0, aif: 0, listed_stocks: 7, unlisted_stocks: 5 }
+      conservative: { equity: 20, debt: 35, hybrid: 15, gold: 10, silver: 0, index: 5, international: 0, us_markets: 0, europe_markets: 0, asia_pacific_markets: 0, emerging_markets: 0, reit: 5, invit: 5, bonds: 5, mld: 0, pms: 0, aif: 0, listed_stocks: 0, unlisted_stocks: 0 },
+      moderate: { equity: 25, debt: 20, hybrid: 10, gold: 5, silver: 0, index: 8, international: 0, us_markets: 5, europe_markets: 2, asia_pacific_markets: 3, emerging_markets: 0, reit: 5, invit: 5, bonds: 5, mld: 2, pms: 0, aif: 0, listed_stocks: 0, unlisted_stocks: 0 },
+      aggressive: { equity: 30, debt: 10, hybrid: 5, gold: 3, silver: 2, index: 10, international: 0, us_markets: 8, europe_markets: 4, asia_pacific_markets: 5, emerging_markets: 3, reit: 5, invit: 5, bonds: 5, mld: 0, pms: 0, aif: 0, listed_stocks: 0, unlisted_stocks: 0 },
+      very_aggressive: { equity: 25, debt: 5, hybrid: 5, gold: 2, silver: 3, index: 10, international: 0, us_markets: 10, europe_markets: 5, asia_pacific_markets: 7, emerging_markets: 6, reit: 5, invit: 3, bonds: 2, mld: 0, pms: 0, aif: 0, listed_stocks: 7, unlisted_stocks: 5 }
     };
     
     // Use custom allocations if provided
@@ -1490,7 +1577,7 @@ class AgentProspectWizardService {
       ? { ...defaultAllocations.moderate, ...customAllocations }
       : defaultAllocations[riskProfile.riskTolerance] || defaultAllocations.moderate;
     
-    // Map frontend category IDs to backend allocation keys
+    // Map frontend category IDs to backend allocation keys (including global regions)
     const categoryToAllocationKey: Record<string, string> = {
       equity: 'equity',
       debt: 'debt',
@@ -1499,6 +1586,10 @@ class AgentProspectWizardService {
       silver_fof: 'silver',
       index_fund: 'index',
       international: 'international',
+      us_markets: 'us_markets',
+      europe_markets: 'europe_markets',
+      asia_pacific_markets: 'asia_pacific_markets',
+      emerging_markets: 'emerging_markets',
       reit: 'reit',
       invit: 'invit',
       bonds: 'bonds',
@@ -2079,7 +2170,8 @@ class AgentProspectWizardService {
     existingHoldings: ProspectPortfolioHolding[],
     customAllocations?: { 
       equity: number; debt: number; hybrid: number; gold: number; silver?: number; index?: number;
-      international?: number; reit?: number; invit?: number; bonds?: number; mld?: number;
+      international?: number; us_markets?: number; europe_markets?: number; asia_pacific_markets?: number; emerging_markets?: number;
+      reit?: number; invit?: number; bonds?: number; mld?: number;
       listed_stocks?: number; unlisted_stocks?: number; pms?: number; aif?: number;
     },
     selectedCategories?: string[]
@@ -2094,23 +2186,26 @@ class AgentProspectWizardService {
     const MIN_PMS = 5000000; // ₹50 Lakhs
     const MIN_AIF = 10000000; // ₹1 Crore
     
-    // Default allocations based on risk profile (expanded with stocks)
+    // Default allocations based on risk profile (expanded with global regions)
     const defaultAllocations: Record<string, { 
       equity: number; debt: number; hybrid: number; gold: number; silver: number; index: number;
-      international: number; reit: number; invit: number; bonds: number; mld: number; 
+      international: number; us_markets: number; europe_markets: number; asia_pacific_markets: number; emerging_markets: number;
+      reit: number; invit: number; bonds: number; mld: number; 
       listed_stocks: number; unlisted_stocks: number; pms: number; aif: number;
     }> = {
-      conservative: { equity: 20, debt: 35, hybrid: 15, gold: 10, silver: 0, index: 5, international: 0, reit: 5, invit: 5, bonds: 5, mld: 0, listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0 },
-      moderate: { equity: 30, debt: 20, hybrid: 10, gold: 8, silver: 0, index: 10, international: 5, reit: 5, invit: 5, bonds: 5, mld: 2, listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0 },
-      aggressive: { equity: 35, debt: 10, hybrid: 5, gold: 5, silver: 2, index: 15, international: 10, reit: 5, invit: 5, bonds: 5, mld: 3, listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0 },
-      very_aggressive: { equity: 30, debt: 5, hybrid: 5, gold: 5, silver: 3, index: 15, international: 10, reit: 5, invit: 5, bonds: 5, mld: 5, listed_stocks: 7, unlisted_stocks: 5, pms: 0, aif: 0 }
+      conservative: { equity: 20, debt: 35, hybrid: 15, gold: 10, silver: 0, index: 5, international: 0, us_markets: 0, europe_markets: 0, asia_pacific_markets: 0, emerging_markets: 0, reit: 5, invit: 5, bonds: 5, mld: 0, listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0 },
+      moderate: { equity: 25, debt: 20, hybrid: 10, gold: 5, silver: 0, index: 8, international: 0, us_markets: 5, europe_markets: 2, asia_pacific_markets: 3, emerging_markets: 0, reit: 5, invit: 5, bonds: 5, mld: 2, listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0 },
+      aggressive: { equity: 30, debt: 10, hybrid: 5, gold: 3, silver: 2, index: 10, international: 0, us_markets: 8, europe_markets: 4, asia_pacific_markets: 5, emerging_markets: 3, reit: 5, invit: 5, bonds: 5, mld: 0, listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0 },
+      very_aggressive: { equity: 25, debt: 5, hybrid: 5, gold: 2, silver: 3, index: 10, international: 0, us_markets: 10, europe_markets: 5, asia_pacific_markets: 7, emerging_markets: 6, reit: 5, invit: 3, bonds: 2, mld: 0, listed_stocks: 7, unlisted_stocks: 5, pms: 0, aif: 0 }
     };
     
     // Use custom allocations if provided and has non-zero values, otherwise use defaults
     const hasValidCustomAllocations = customAllocations && 
       (customAllocations.equity > 0 || customAllocations.debt > 0 || customAllocations.hybrid > 0 || 
        customAllocations.gold > 0 || (customAllocations.silver || 0) > 0 || (customAllocations.index || 0) > 0 ||
-       (customAllocations.international || 0) > 0 || (customAllocations.reit || 0) > 0 || (customAllocations.invit || 0) > 0 ||
+       (customAllocations.international || 0) > 0 || (customAllocations.us_markets || 0) > 0 || 
+       (customAllocations.europe_markets || 0) > 0 || (customAllocations.asia_pacific_markets || 0) > 0 || 
+       (customAllocations.emerging_markets || 0) > 0 || (customAllocations.reit || 0) > 0 || (customAllocations.invit || 0) > 0 ||
        (customAllocations.bonds || 0) > 0 || (customAllocations.mld || 0) > 0 || 
        (customAllocations.listed_stocks || 0) > 0 || (customAllocations.unlisted_stocks || 0) > 0 ||
        (customAllocations.pms || 0) > 0 || (customAllocations.aif || 0) > 0);
@@ -2140,7 +2235,7 @@ class AgentProspectWizardService {
     
     console.log('[Agent Wizard] Using categories:', categories, 'Custom:', hasValidCategories);
     
-    // Map allocation keys to category keys (expanded with stocks)
+    // Map allocation keys to category keys (expanded with stocks and global regions)
     const allocationToCategory: Record<string, string> = {
       equity: 'equity',
       debt: 'debt',
@@ -2149,6 +2244,10 @@ class AgentProspectWizardService {
       silver: 'silver_fof',
       index: 'index_fund',
       international: 'international',
+      us_markets: 'us_markets',
+      europe_markets: 'europe_markets',
+      asia_pacific_markets: 'asia_pacific_markets',
+      emerging_markets: 'emerging_markets',
       reit: 'reit',
       invit: 'invit',
       bonds: 'bonds',
@@ -2167,6 +2266,10 @@ class AgentProspectWizardService {
       silver_fof: 'silver',
       index_fund: 'index',
       international: 'international',
+      us_markets: 'us_markets',
+      europe_markets: 'europe_markets',
+      asia_pacific_markets: 'asia_pacific_markets',
+      emerging_markets: 'emerging_markets',
       reit: 'reit',
       invit: 'invit',
       bonds: 'bonds',

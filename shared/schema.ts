@@ -26557,6 +26557,8 @@ export const recommendationProducts = pgTable("recommendation_products", {
   amc: varchar("amc"), // AMC/Sponsor/Manager name
   category: varchar("category"), // 'Large Cap', 'Mid Cap', 'Office REIT', etc.
   sector: varchar("sector"), // IT, Banking, Real Estate, Infrastructure, etc.
+  region: varchar("region"), // 'US', 'Europe', 'Asia-Pacific', 'Emerging Markets', 'Global' for international products
+  country: varchar("country"), // Specific country for international products (USA, Japan, Germany, etc.)
   
   // Risk profile mapping
   riskProfile: varchar("risk_profile").notNull(), // 'conservative', 'moderate', 'aggressive', 'very_aggressive'
