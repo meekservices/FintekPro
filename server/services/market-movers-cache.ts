@@ -773,6 +773,7 @@ class MarketMoversCache {
           const gainerRank = isGainer ? gainers.findIndex(g => g.symbol === stock.symbol) + 1 : null;
           const loserRank = isLoser ? losers.findIndex(l => l.symbol === stock.symbol) + 1 : null;
 
+          const exchange = source === 'bse' ? 'BSE' : source === 'finnhub' ? 'FINNHUB' : 'NSE';
           await client.query(`
             INSERT INTO stock_prices_cache 
               (symbol, name, exchange, current_price, previous_close, change, change_percent, 
@@ -780,6 +781,7 @@ class MarketMoversCache {
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
             ON CONFLICT (symbol) DO UPDATE SET
               name = EXCLUDED.name,
+              exchange = EXCLUDED.exchange,
               current_price = EXCLUDED.current_price,
               previous_close = EXCLUDED.previous_close,
               change = EXCLUDED.change,
@@ -794,7 +796,7 @@ class MarketMoversCache {
           `, [
             stock.symbol,
             stock.name,
-            'NSE',
+            exchange,
             stock.price,
             stock.previousClose,
             stock.change,
