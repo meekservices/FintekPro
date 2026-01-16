@@ -1575,7 +1575,13 @@ export default function AgentProspectWizard() {
     mutationFn: async () => {
       return await apiRequest("/api/agent-wizard/rebalancing-suggestions", {
         method: "POST",
-        body: JSON.stringify({ holdings, riskProfile, analysis })
+        body: JSON.stringify({ 
+          holdings, 
+          riskProfile, 
+          analysis,
+          customAllocations,
+          selectedCategories
+        })
       });
     },
     onSuccess: (data) => {
@@ -1594,7 +1600,9 @@ export default function AgentProspectWizard() {
         body: JSON.stringify({ 
           riskProfile, 
           investmentAmount: freshInvestmentAmount,
-          existingHoldings: holdings 
+          existingHoldings: holdings,
+          customAllocations,
+          selectedCategories
         })
       });
     },

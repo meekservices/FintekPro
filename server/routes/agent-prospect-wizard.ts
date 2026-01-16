@@ -367,15 +367,19 @@ router.post("/rebalancing-suggestions", async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, message: "Authentication required" });
     }
 
-    const { holdings, riskProfile, analysis } = req.body;
+    const { holdings, riskProfile, analysis, customAllocations, selectedCategories } = req.body;
     const flexibleHoldings = z.array(flexibleHoldingSchema).parse(holdings);
     const normalizedHoldings = normalizeHoldings(flexibleHoldings);
     const parsedRiskProfile = riskProfileSchema.parse(riskProfile);
+    const parsedAllocations = customAllocations ? customAllocationsSchema.parse(customAllocations) : undefined;
     
     const result = agentProspectWizardService.generateRebalancingRecommendations(
       normalizedHoldings, 
       parsedRiskProfile, 
-      analysis
+      analysis,
+      parsedAllocations,
+      0,
+      selectedCategories
     );
     
     // Handle both old array format and new object format
