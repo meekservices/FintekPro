@@ -25,7 +25,7 @@ import {
   Copy, ExternalLink, Plus, Trash2, Loader2, CheckCircle, AlertTriangle,
   IndianRupee, Percent, Clock, Shield, Zap, RefreshCw, Search, Users, Download,
   Upload, Link, FileText, AlertCircle, Settings2, Globe, ChevronUp, ChevronDown, Info,
-  Pencil, RotateCcw, Save, X, Lightbulb, Calculator
+  Pencil, RotateCcw, Save, X, Lightbulb, Calculator, LayoutGrid, Wand2
 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import jsPDF from "jspdf";
@@ -393,6 +393,7 @@ export default function AgentProspectWizard() {
   const [analysis, setAnalysis] = useState<PortfolioAnalysis | null>(null);
   
   // Asset Allocation & Category Selection State
+  const [categorySelectionMode, setCategorySelectionMode] = useState<'ai_default' | 'manual'>('ai_default');
   const [customAllocations, setCustomAllocations] = useState<{
     equity: number; debt: number; hybrid: number; gold: number; silver: number; index: number;
     international: number; reit: number; invit: number; bonds: number; mld: number; 
@@ -401,6 +402,40 @@ export default function AgentProspectWizard() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
     PRODUCT_CATEGORY_OPTIONS.filter(c => c.defaultSelected).map(c => c.id)
   );
+  
+  // Get AI default categories based on risk profile
+  const getAIDefaultCategories = (riskTolerance: string): string[] => {
+    const baseCategories = ['equity', 'debt', 'hybrid', 'gold_fof', 'index_fund'];
+    if (riskTolerance === 'conservative') {
+      return [...baseCategories, 'bonds'];
+    } else if (riskTolerance === 'moderate') {
+      return [...baseCategories, 'international', 'reit', 'listed_stocks'];
+    } else {
+      return [...baseCategories, 'international', 'reit', 'invit', 'listed_stocks', 'unlisted_stocks', 'global_advisory'];
+    }
+  };
+  
+  // Apply AI default allocation based on risk profile
+  const applyAIDefaultAllocation = () => {
+    const aiCategories = getAIDefaultCategories(riskProfile.riskTolerance);
+    setSelectedCategories(aiCategories);
+    setCustomAllocations(DEFAULT_ALLOCATIONS[riskProfile.riskTolerance as keyof typeof DEFAULT_ALLOCATIONS] || DEFAULT_ALLOCATIONS.moderate);
+  };
+  
+  // Map category IDs to allocation keys (handles differences like gold_fof -> gold)
+  const categoryToAllocationKey = (categoryId: string): string => {
+    const mapping: Record<string, string> = {
+      'gold_fof': 'gold',
+      'silver_fof': 'silver',
+      'index_fund': 'index',
+    };
+    return mapping[categoryId] || categoryId;
+  };
+  
+  // Check if an allocation key is in the selected categories
+  const isAllocationKeySelected = (allocationKey: string): boolean => {
+    return selectedCategories.some(catId => categoryToAllocationKey(catId) === allocationKey);
+  };
   
   const [globalAdvisorySelections, setGlobalAdvisorySelections] = useState<GlobalAdvisorySelection>({});
   const [globalAdvisoryBudget, setGlobalAdvisoryBudget] = useState<number>(0);
@@ -1531,7 +1566,7 @@ export default function AgentProspectWizard() {
       if (data.success) {
         setRebalancing(data.suggestions);
         setTaxSummary(data.taxSummary || null);
-        setCurrentStep(6);
+        setCurrentStep(7);
       }
     }
   });
@@ -1550,7 +1585,7 @@ export default function AgentProspectWizard() {
     onSuccess: (data) => {
       if (data.success) {
         setFreshInvestments(data.suggestions);
-        setCurrentStep(7);
+        setCurrentStep(8);
       }
     }
   });
@@ -1647,7 +1682,7 @@ export default function AgentProspectWizard() {
       if (data.success) {
         setProposal(data.proposal);
         toast({ title: "Proposal Generated", description: "Investment proposal ready to share!" });
-        setCurrentStep(8);
+        setCurrentStep(9);
         
         if (zohoLeadId && zohoSource === 'zoho') {
           const products = selectedCategories.filter(c => customAllocations[c as keyof typeof customAllocations] > 0);
@@ -1874,10 +1909,11 @@ export default function AgentProspectWizard() {
     { num: 2, title: "Risk Profile", icon: Target },
     { num: 3, title: "Portfolio", icon: PieChart },
     { num: 4, title: "Analysis", icon: Sparkles },
-    { num: 5, title: "Allocation", icon: Settings2 },
-    { num: 6, title: "Rebalance", icon: Scale },
-    { num: 7, title: "Fresh Invest", icon: TrendingUp },
-    { num: 8, title: "Share", icon: Share2 }
+    { num: 5, title: "Categories", icon: LayoutGrid },
+    { num: 6, title: "Allocation", icon: Settings2 },
+    { num: 7, title: "Rebalance", icon: Scale },
+    { num: 8, title: "Fresh Invest", icon: TrendingUp },
+    { num: 9, title: "Share", icon: Share2 }
   ];
 
   return (
@@ -2886,20 +2922,201 @@ export default function AgentProspectWizard() {
             </Button>
             <Button 
               onClick={() => setCurrentStep(5)}
-              data-testid="to-allocation-btn"
+              data-testid="to-categories-btn"
             >
-              <Settings2 className="h-4 w-4 mr-2" /> Configure Allocations
+              <LayoutGrid className="h-4 w-4 mr-2" /> Select Categories
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           </CardFooter>
         </Card>
       )}
 
+      {/* Step 5: Product Category Selection */}
       {currentStep === 5 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Settings2 className="h-5 w-5" /> Asset Allocation & Category Selection</CardTitle>
-            <CardDescription>Customize target allocations and select product categories for {prospectData.name}</CardDescription>
+            <CardTitle className="flex items-center gap-2"><LayoutGrid className="h-5 w-5" /> Product Category Selection</CardTitle>
+            <CardDescription>Choose how to select product categories for {prospectData.name}'s portfolio</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Mode Selection */}
+            <div className="grid md:grid-cols-2 gap-4">
+              <div 
+                className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                  categorySelectionMode === 'ai_default' 
+                    ? 'border-primary bg-primary/5' 
+                    : 'border-muted hover:border-muted-foreground/50'
+                }`}
+                onClick={() => {
+                  setCategorySelectionMode('ai_default');
+                  applyAIDefaultAllocation();
+                }}
+                data-testid="mode-ai-default"
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`p-2 rounded-lg ${categorySelectionMode === 'ai_default' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                    <Wand2 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">AI Default Allocation</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Let AI automatically select product categories and allocation percentages based on the client's {riskProfile.riskTolerance} risk profile.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div 
+                className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                  categorySelectionMode === 'manual' 
+                    ? 'border-primary bg-primary/5' 
+                    : 'border-muted hover:border-muted-foreground/50'
+                }`}
+                onClick={() => setCategorySelectionMode('manual')}
+                data-testid="mode-manual"
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`p-2 rounded-lg ${categorySelectionMode === 'manual' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                    <Settings2 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Manual Selection</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Manually select which product categories to include and calibrate allocation percentages on the next step.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* AI Default Mode Summary */}
+            {categorySelectionMode === 'ai_default' && (
+              <div className="p-4 bg-muted/30 rounded-lg space-y-4">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  <h3 className="font-medium">AI-Selected Categories & Allocations</h3>
+                  <Badge variant="secondary" className="ml-auto">{riskProfile.riskTolerance} profile</Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Based on the client's risk profile, AI has selected the following categories and allocations:
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {getAIDefaultCategories(riskProfile.riskTolerance).map(catId => {
+                    const category = PRODUCT_CATEGORY_OPTIONS.find(c => c.id === catId);
+                    const allocationKey = catId === 'gold_fof' ? 'gold' : catId === 'index_fund' ? 'index' : catId;
+                    const allocation = customAllocations[allocationKey as keyof typeof customAllocations] || 0;
+                    return (
+                      <div key={catId} className="flex items-center justify-between p-2 bg-background rounded border">
+                        <span className="text-sm">{category?.label || catId}</span>
+                        <Badge variant="outline">{allocation}%</Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center gap-2 pt-2 border-t">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span className="text-sm text-muted-foreground">
+                    Total: {Object.values(customAllocations).reduce((a, b) => a + b, 0)}% allocated
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Manual Selection Mode */}
+            {categorySelectionMode === 'manual' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Select Product Categories</h3>
+                    <p className="text-sm text-muted-foreground">Choose which categories to include in the proposal</p>
+                  </div>
+                  <Badge variant="outline">{selectedCategories.length} selected</Badge>
+                </div>
+                <div className="grid md:grid-cols-2 gap-3">
+                  {PRODUCT_CATEGORY_OPTIONS.map(category => {
+                    const isSelected = selectedCategories.includes(category.id);
+                    const isEligible = !category.minInvestment || totalPortfolioValue >= category.minInvestment;
+                    
+                    return (
+                      <div 
+                        key={category.id}
+                        className={`p-3 border rounded-lg transition-colors ${
+                          !isEligible 
+                            ? 'opacity-50 cursor-not-allowed bg-muted/30' 
+                            : isSelected 
+                              ? 'border-primary bg-primary/5 cursor-pointer' 
+                              : 'hover:bg-muted/50 cursor-pointer'
+                        }`}
+                        onClick={() => isEligible && handleCategoryToggle(category.id, !isSelected)}
+                        data-testid={`category-select-${category.id}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <Checkbox 
+                            checked={isSelected}
+                            onCheckedChange={(checked) => isEligible && handleCategoryToggle(category.id, !!checked)}
+                            disabled={!isEligible}
+                            className="mt-0.5"
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-sm">{category.label}</p>
+                              {category.requiresEnhancedKYC && (
+                                <Badge variant="outline" className="text-xs">Enhanced KYC</Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground">{category.description}</p>
+                            {category.minInvestment && !isEligible && (
+                              <p className="text-xs text-amber-600 mt-1">Min {formatCurrency(category.minInvestment)} required</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                
+                {selectedCategories.length === 0 && (
+                  <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-center">
+                    <AlertCircle className="h-5 w-5 text-amber-600 mx-auto mb-2" />
+                    <p className="text-sm text-amber-700 dark:text-amber-400">Please select at least one category to proceed</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+          <CardFooter className="justify-between">
+            <Button variant="outline" onClick={() => setCurrentStep(4)} data-testid="back-to-analysis-btn">
+              <ArrowLeft className="h-4 w-4 mr-2" /> Back
+            </Button>
+            <Button 
+              onClick={() => setCurrentStep(6)}
+              disabled={categorySelectionMode === 'manual' && selectedCategories.length === 0}
+              data-testid="to-allocation-btn"
+            >
+              {categorySelectionMode === 'ai_default' ? (
+                <>
+                  <Check className="h-4 w-4 mr-2" /> Confirm & Continue
+                </>
+              ) : (
+                <>
+                  <Settings2 className="h-4 w-4 mr-2" /> Configure Allocations
+                </>
+              )}
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
+
+      {currentStep === 6 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Settings2 className="h-5 w-5" /> Asset Allocation</CardTitle>
+            <CardDescription>
+              {categorySelectionMode === 'ai_default' 
+                ? `Review AI-recommended allocations for ${prospectData.name}` 
+                : `Calibrate allocation percentages for selected categories`}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex items-center justify-between">
@@ -2936,7 +3153,7 @@ export default function AgentProspectWizard() {
                   { key: 'pms', label: 'PMS', color: 'bg-violet-600', minInvestment: 5000000 },
                   { key: 'aif', label: 'AIF', color: 'bg-rose-600', minInvestment: 10000000 },
                   { key: 'global_advisory', label: 'Global Advisory', color: 'bg-blue-700', requiresEnhancedKYC: true }
-                ].map(({ key, label, color, minInvestment, requiresEnhancedKYC }) => {
+                ].filter(({ key }) => isAllocationKeySelected(key)).map(({ key, label, color, minInvestment, requiresEnhancedKYC }) => {
                   const isEligible = !minInvestment || totalPortfolioValue >= minInvestment;
                   const eligibilityMessage = minInvestment && !isEligible 
                     ? `Requires min ${formatCurrency(minInvestment)} portfolio`
@@ -3019,7 +3236,7 @@ export default function AgentProspectWizard() {
                       { key: 'pms', label: 'PMS', color: 'bg-violet-600' },
                       { key: 'aif', label: 'AIF', color: 'bg-rose-600' },
                       { key: 'global_advisory', label: 'Global Advisory', color: 'bg-blue-700' }
-                    ].map(({ key, label, color }) => {
+                    ].filter(({ key }) => isAllocationKeySelected(key)).map(({ key, label, color }) => {
                       const value = customAllocations[key as keyof typeof customAllocations];
                       if (value === 0) return null;
                       return (
@@ -3048,7 +3265,7 @@ export default function AgentProspectWizard() {
                       { key: 'pms', color: 'bg-violet-600' },
                       { key: 'aif', color: 'bg-rose-600' },
                       { key: 'global_advisory', color: 'bg-blue-700' }
-                    ].map(({ key, color }) => {
+                    ].filter(({ key }) => isAllocationKeySelected(key)).map(({ key, color }) => {
                       const value = customAllocations[key as keyof typeof customAllocations];
                       if (value === 0) return null;
                       return (
@@ -3281,7 +3498,7 @@ export default function AgentProspectWizard() {
             </div>
           </CardContent>
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(4)} data-testid="back-to-analysis-btn">
+            <Button variant="outline" onClick={() => setCurrentStep(5)} data-testid="back-to-categories-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
@@ -3296,7 +3513,7 @@ export default function AgentProspectWizard() {
         </Card>
       )}
 
-      {currentStep === 6 && (
+      {currentStep === 7 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Scale className="h-5 w-5" /> Rebalancing Recommendations</CardTitle>
@@ -3487,7 +3704,7 @@ export default function AgentProspectWizard() {
             )}
           </CardContent>
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(5)} data-testid="back-to-allocation-btn">
+            <Button variant="outline" onClick={() => setCurrentStep(6)} data-testid="back-to-allocation-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
@@ -3502,7 +3719,7 @@ export default function AgentProspectWizard() {
         </Card>
       )}
 
-      {currentStep === 7 && (
+      {currentStep === 8 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5" /> Fresh Investment Suggestions</CardTitle>
@@ -3540,7 +3757,7 @@ export default function AgentProspectWizard() {
             </div>
           </CardContent>
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(6)} data-testid="back-to-rebalance-btn">
+            <Button variant="outline" onClick={() => setCurrentStep(7)} data-testid="back-to-rebalance-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
@@ -3555,7 +3772,7 @@ export default function AgentProspectWizard() {
         </Card>
       )}
 
-      {currentStep === 8 && proposal && (
+      {currentStep === 9 && proposal && (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -3638,7 +3855,7 @@ export default function AgentProspectWizard() {
             </div>
           </CardContent>
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(7)} data-testid="back-to-fresh-invest-btn">
+            <Button variant="outline" onClick={() => setCurrentStep(8)} data-testid="back-to-fresh-invest-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button variant="outline" onClick={() => window.open(`/proposal/${proposal.shareToken}`, '_blank')} data-testid="preview-proposal-btn">
