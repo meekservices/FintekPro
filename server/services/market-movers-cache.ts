@@ -1,4 +1,5 @@
 import yahooFinance from 'yahoo-finance2';
+import { pool } from '../db';
 
 interface Stock {
   symbol: string;
@@ -699,6 +700,122 @@ class MarketMoversCache {
     this.bseProvider = new BseIndiaProvider();
   }
 
+  private async loadFromDatabase(): Promise<MarketMoversData | null> {
+    try {
+      const client = await pool.connect();
+      try {
+        const gainersResult = await client.query(`
+          SELECT symbol, name, current_price as price, change, change_percent as "changePercent", previous_close as "previousClose"
+          FROM stock_prices_cache 
+          WHERE is_gainer = true AND fetched_at > NOW() - INTERVAL '30 minutes'
+          ORDER BY gainer_rank ASC NULLS LAST, change_percent DESC
+          LIMIT 5
+        `);
+        
+        const losersResult = await client.query(`
+          SELECT symbol, name, current_price as price, change, change_percent as "changePercent", previous_close as "previousClose"
+          FROM stock_prices_cache 
+          WHERE is_loser = true AND fetched_at > NOW() - INTERVAL '30 minutes'
+          ORDER BY loser_rank ASC NULLS LAST, change_percent ASC
+          LIMIT 5
+        `);
+
+        if (gainersResult.rows.length > 0 || losersResult.rows.length > 0) {
+          const gainers = gainersResult.rows.map(row => ({
+            symbol: row.symbol,
+            name: row.name,
+            price: parseFloat(row.price),
+            change: parseFloat(row.change || 0),
+            changePercent: parseFloat(row.changePercent || 0),
+            previousClose: parseFloat(row.previousClose || 0),
+          }));
+          
+          const losers = losersResult.rows.map(row => ({
+            symbol: row.symbol,
+            name: row.name,
+            price: parseFloat(row.price),
+            change: parseFloat(row.change || 0),
+            changePercent: parseFloat(row.changePercent || 0),
+            previousClose: parseFloat(row.previousClose || 0),
+          }));
+
+          console.log(`💾 [MarketMoversCache] Loaded from database: ${gainers.length} gainers, ${losers.length} losers`);
+          return { gainers, losers };
+        }
+        return null;
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      console.warn('⚠️ [MarketMoversCache] Database load failed:', error);
+      return null;
+    }
+  }
+
+  private async saveToDatabase(stocks: Stock[], source: string): Promise<void> {
+    if (stocks.length === 0) return;
+    
+    try {
+      const client = await pool.connect();
+      try {
+        const gainers = stocks
+          .filter(s => s.changePercent > 0)
+          .sort((a, b) => b.changePercent - a.changePercent);
+        
+        const losers = stocks
+          .filter(s => s.changePercent < 0)
+          .sort((a, b) => a.changePercent - b.changePercent);
+
+        for (let i = 0; i < stocks.length; i++) {
+          const stock = stocks[i];
+          const isGainer = stock.changePercent > 0;
+          const isLoser = stock.changePercent < 0;
+          const gainerRank = isGainer ? gainers.findIndex(g => g.symbol === stock.symbol) + 1 : null;
+          const loserRank = isLoser ? losers.findIndex(l => l.symbol === stock.symbol) + 1 : null;
+
+          await client.query(`
+            INSERT INTO stock_prices_cache 
+              (symbol, name, exchange, current_price, previous_close, change, change_percent, 
+               is_gainer, is_loser, gainer_rank, loser_rank, data_source, fetched_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+            ON CONFLICT (symbol) DO UPDATE SET
+              name = EXCLUDED.name,
+              current_price = EXCLUDED.current_price,
+              previous_close = EXCLUDED.previous_close,
+              change = EXCLUDED.change,
+              change_percent = EXCLUDED.change_percent,
+              is_gainer = EXCLUDED.is_gainer,
+              is_loser = EXCLUDED.is_loser,
+              gainer_rank = EXCLUDED.gainer_rank,
+              loser_rank = EXCLUDED.loser_rank,
+              data_source = EXCLUDED.data_source,
+              fetched_at = NOW(),
+              updated_at = NOW()
+          `, [
+            stock.symbol,
+            stock.name,
+            'NSE',
+            stock.price,
+            stock.previousClose,
+            stock.change,
+            stock.changePercent,
+            isGainer,
+            isLoser,
+            gainerRank,
+            loserRank,
+            source
+          ]);
+        }
+        
+        console.log(`💾 [MarketMoversCache] Saved ${stocks.length} stocks to database`);
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      console.warn('⚠️ [MarketMoversCache] Database save failed:', error);
+    }
+  }
+
   async initialize(): Promise<void> {
     console.log('📈 [MarketMoversCache] Starting background initialization...');
     this.initializeInBackground().catch(err => 
@@ -709,10 +826,27 @@ class MarketMoversCache {
   }
 
   private async initializeInBackground(): Promise<void> {
-    // Try to refresh cache immediately with NSE (primary)
+    // Try to load from database first (much faster, no API calls)
+    const dbData = await this.loadFromDatabase();
+    if (dbData && dbData.gainers.length > 0) {
+      this.cache = {
+        data: dbData,
+        timestamp: Date.now(),
+        isRefreshing: false,
+      };
+      this.metrics.lastSuccessfulProvider = 'database';
+      this.isInitialized = true;
+      console.log('✅ [MarketMoversCache] Initialized from database (fast path)');
+      
+      // Schedule a background refresh to update the data
+      setTimeout(() => this.refreshCache().catch(console.error), 5000);
+      return;
+    }
+    
+    // Fall back to API refresh if database is empty
     await this.refreshCache();
     this.isInitialized = true;
-    console.log('✅ [MarketMoversCache] Background initialization completed');
+    console.log('✅ [MarketMoversCache] Background initialization completed (API refresh)');
   }
 
   private isRateLimited(): boolean {
@@ -958,6 +1092,11 @@ class MarketMoversCache {
       this.metrics.lastRefreshTime = Date.now();
       this.metrics.lastRefreshDuration = Date.now() - startTime;
       this.metrics.lastSuccessfulProvider = successProvider;
+
+      // Save to database for persistence (non-blocking)
+      this.saveToDatabase(stockQuotes, successProvider || 'unknown').catch(err => 
+        console.warn('⚠️ [MarketMoversCache] Background DB save failed:', err)
+      );
 
       console.log(`✅ [MarketMoversCache] Cache refreshed in ${this.metrics.lastRefreshDuration}ms via ${successProvider} (${stockQuotes.length} stocks)`);
     } catch (error) {
