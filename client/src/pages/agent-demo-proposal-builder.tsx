@@ -80,6 +80,21 @@ interface ProspectClient {
   state: 'prospect' | 'onboarded' | 'active_client';
 }
 
+interface AssetAllocation {
+  equity: number;
+  debt: number;
+  hybrid: number;
+  gold: number;
+  index: number;
+  international: number;
+  reit: number;
+  invit: number;
+  bonds: number;
+  listed_stocks: number;
+  unlisted_stocks: number;
+  cash: number;
+}
+
 interface ProposalConfig {
   clientId: string;
   investmentGoals: {
@@ -88,13 +103,8 @@ interface ProposalConfig {
     targetAmount: number;
     monthlyContribution: number;
   };
-  assetAllocation: {
-    equity: number;
-    debt: number;
-    gold: number;
-    realestate: number;
-    cash: number;
-  };
+  assetAllocation: AssetAllocation;
+  selectedCategories: string[];
   riskProfile: {
     score: number;
     category: 'conservative' | 'moderate' | 'aggressive' | 'very_aggressive';
@@ -196,6 +206,40 @@ const PROPOSAL_SECTIONS = [
   { id: 'termsConditions', name: 'Terms & Conditions', description: 'Legal terms and regulatory disclosures', icon: Shield },
 ];
 
+const ASSET_CATEGORIES = [
+  { id: 'equity', name: 'Equity Mutual Funds', color: 'bg-blue-500', description: 'Large, Mid & Small Cap Funds' },
+  { id: 'debt', name: 'Debt Funds', color: 'bg-green-500', description: 'Corporate & Govt Bond Funds' },
+  { id: 'hybrid', name: 'Hybrid Funds', color: 'bg-teal-500', description: 'Balanced & Multi-Asset Funds' },
+  { id: 'gold', name: 'Gold', color: 'bg-yellow-500', description: 'Gold ETFs & Funds' },
+  { id: 'index', name: 'Index Funds', color: 'bg-indigo-500', description: 'Nifty, Sensex Trackers' },
+  { id: 'international', name: 'International', color: 'bg-cyan-500', description: 'US & Global Equity Funds' },
+  { id: 'reit', name: 'REITs', color: 'bg-purple-500', description: 'Real Estate Investment Trusts' },
+  { id: 'invit', name: 'InvITs', color: 'bg-orange-500', description: 'Infrastructure Investment Trusts' },
+  { id: 'bonds', name: 'Direct Bonds', color: 'bg-emerald-500', description: 'NCDs, Tax-Free Bonds' },
+  { id: 'listed_stocks', name: 'Listed Stocks', color: 'bg-rose-500', description: 'Direct Equity (NSE/BSE)' },
+  { id: 'unlisted_stocks', name: 'Unlisted Stocks', color: 'bg-pink-500', description: 'Pre-IPO Shares' },
+  { id: 'cash', name: 'Cash/Liquid', color: 'bg-gray-500', description: 'Liquid Funds & Cash' },
+];
+
+const DEFAULT_ALLOCATIONS: Record<string, AssetAllocation> = {
+  conservative: {
+    equity: 20, debt: 35, hybrid: 15, gold: 10, index: 5, international: 0,
+    reit: 5, invit: 5, bonds: 5, listed_stocks: 0, unlisted_stocks: 0, cash: 0
+  },
+  moderate: {
+    equity: 30, debt: 20, hybrid: 10, gold: 8, index: 10, international: 5,
+    reit: 5, invit: 5, bonds: 5, listed_stocks: 0, unlisted_stocks: 0, cash: 2
+  },
+  aggressive: {
+    equity: 35, debt: 10, hybrid: 5, gold: 5, index: 15, international: 10,
+    reit: 5, invit: 5, bonds: 5, listed_stocks: 0, unlisted_stocks: 0, cash: 5
+  },
+  very_aggressive: {
+    equity: 30, debt: 5, hybrid: 5, gold: 5, index: 15, international: 10,
+    reit: 5, invit: 5, bonds: 5, listed_stocks: 7, unlisted_stocks: 5, cash: 3
+  }
+};
+
 const TEMPLATE_PRESETS = [
   {
     id: 'conservative_retirement',
@@ -203,7 +247,8 @@ const TEMPLATE_PRESETS = [
     description: 'Low-risk portfolio for retirement planning',
     config: {
       investmentGoals: { primaryGoal: 'retirement', investmentHorizon: '10+ years', targetAmount: 10000000, monthlyContribution: 50000 },
-      assetAllocation: { equity: 30, debt: 50, gold: 10, realestate: 5, cash: 5 },
+      assetAllocation: DEFAULT_ALLOCATIONS.conservative,
+      selectedCategories: ['equity', 'debt', 'hybrid', 'gold', 'index', 'reit', 'invit', 'bonds'],
       riskProfile: { score: 25, category: 'conservative' as const, tolerance: 'Low risk tolerance - prefers capital preservation' },
     }
   },
@@ -213,7 +258,8 @@ const TEMPLATE_PRESETS = [
     description: 'High-growth portfolio for young investors',
     config: {
       investmentGoals: { primaryGoal: 'wealth_creation', investmentHorizon: '10+ years', targetAmount: 50000000, monthlyContribution: 100000 },
-      assetAllocation: { equity: 80, debt: 10, gold: 5, realestate: 0, cash: 5 },
+      assetAllocation: DEFAULT_ALLOCATIONS.aggressive,
+      selectedCategories: ['equity', 'debt', 'hybrid', 'gold', 'index', 'international', 'reit', 'invit', 'bonds'],
       riskProfile: { score: 80, category: 'aggressive' as const, tolerance: 'High risk tolerance - growth focused' },
     }
   },
@@ -223,7 +269,8 @@ const TEMPLATE_PRESETS = [
     description: 'Moderate-risk portfolio for education planning',
     config: {
       investmentGoals: { primaryGoal: 'child_education', investmentHorizon: '5-10 years', targetAmount: 3000000, monthlyContribution: 25000 },
-      assetAllocation: { equity: 50, debt: 35, gold: 10, realestate: 0, cash: 5 },
+      assetAllocation: DEFAULT_ALLOCATIONS.moderate,
+      selectedCategories: ['equity', 'debt', 'hybrid', 'gold', 'index', 'international', 'reit', 'invit', 'bonds'],
       riskProfile: { score: 50, category: 'moderate' as const, tolerance: 'Moderate risk tolerance - balanced approach' },
     }
   },
@@ -233,7 +280,8 @@ const TEMPLATE_PRESETS = [
     description: 'Regular income generation portfolio',
     config: {
       investmentGoals: { primaryGoal: 'regular_income', investmentHorizon: '3-5 years', targetAmount: 5000000, monthlyContribution: 0 },
-      assetAllocation: { equity: 20, debt: 60, gold: 5, realestate: 10, cash: 5 },
+      assetAllocation: { ...DEFAULT_ALLOCATIONS.conservative, debt: 40, bonds: 10, reit: 8, invit: 7, equity: 15, hybrid: 10, gold: 5, index: 5, international: 0, listed_stocks: 0, unlisted_stocks: 0, cash: 0 },
+      selectedCategories: ['equity', 'debt', 'hybrid', 'gold', 'index', 'reit', 'invit', 'bonds'],
       riskProfile: { score: 30, category: 'conservative' as const, tolerance: 'Low risk tolerance - income stability preferred' },
     }
   },
@@ -247,13 +295,8 @@ const defaultConfig: ProposalConfig = {
     targetAmount: 5000000,
     monthlyContribution: 25000,
   },
-  assetAllocation: {
-    equity: 60,
-    debt: 25,
-    gold: 10,
-    realestate: 0,
-    cash: 5,
-  },
+  assetAllocation: { ...DEFAULT_ALLOCATIONS.moderate },
+  selectedCategories: ['equity', 'debt', 'hybrid', 'gold', 'index', 'international', 'reit', 'invit', 'bonds'],
   riskProfile: {
     score: 50,
     category: 'moderate',
@@ -574,7 +617,7 @@ export default function AgentDemoProposalBuilder() {
     if (total === 0) {
       setConfig(prev => ({
         ...prev,
-        assetAllocation: { equity: 60, debt: 25, gold: 10, realestate: 5, cash: 0 },
+        assetAllocation: { ...DEFAULT_ALLOCATIONS.moderate },
       }));
       return;
     }
@@ -596,6 +639,57 @@ export default function AgentDemoProposalBuilder() {
     toast({
       title: "Allocation Normalized",
       description: "Your allocation has been adjusted to total 100%",
+    });
+  };
+
+  const applyDefaultAllocation = (riskCategory: 'conservative' | 'moderate' | 'aggressive' | 'very_aggressive') => {
+    const allocation = DEFAULT_ALLOCATIONS[riskCategory];
+    const selectedCats = Object.entries(allocation)
+      .filter(([_, value]) => value > 0)
+      .map(([key]) => key);
+    
+    setConfig(prev => ({
+      ...prev,
+      assetAllocation: { ...allocation },
+      selectedCategories: selectedCats,
+      riskProfile: {
+        ...prev.riskProfile,
+        category: riskCategory,
+        score: riskCategory === 'conservative' ? 25 : riskCategory === 'moderate' ? 50 : riskCategory === 'aggressive' ? 75 : 90,
+        tolerance: riskCategory === 'conservative' ? 'Low risk tolerance - prefers capital preservation' :
+                   riskCategory === 'moderate' ? 'Moderate risk tolerance - balanced approach' :
+                   riskCategory === 'aggressive' ? 'High risk tolerance - growth focused' :
+                   'Very high risk tolerance - maximum growth potential'
+      }
+    }));
+    
+    toast({
+      title: "Default Allocation Applied",
+      description: `${riskCategory.charAt(0).toUpperCase() + riskCategory.slice(1).replace('_', ' ')} allocation has been applied`,
+    });
+  };
+
+  const toggleCategory = (categoryId: string) => {
+    setConfig(prev => {
+      const isSelected = prev.selectedCategories.includes(categoryId);
+      let newCategories: string[];
+      let newAllocation = { ...prev.assetAllocation };
+      
+      if (isSelected) {
+        newCategories = prev.selectedCategories.filter(c => c !== categoryId);
+        newAllocation[categoryId as keyof AssetAllocation] = 0;
+      } else {
+        newCategories = [...prev.selectedCategories, categoryId];
+        if (newAllocation[categoryId as keyof AssetAllocation] === 0) {
+          newAllocation[categoryId as keyof AssetAllocation] = 5;
+        }
+      }
+      
+      return {
+        ...prev,
+        selectedCategories: newCategories,
+        assetAllocation: newAllocation
+      };
     });
   };
 
@@ -977,10 +1071,13 @@ export default function AgentDemoProposalBuilder() {
 
                 {currentStep === 3 && (
                   <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-xl font-semibold">Asset Allocation</h2>
+                    <div className="flex items-center justify-between flex-wrap gap-4">
+                      <div>
+                        <h2 className="text-xl font-semibold">Asset Allocation</h2>
+                        <p className="text-sm text-muted-foreground mt-1">Choose a default allocation or customize with sliders</p>
+                      </div>
                       <div className="flex items-center gap-4">
-                        <Badge variant={allocationTotal === 100 ? "default" : "destructive"}>
+                        <Badge variant={allocationTotal === 100 ? "default" : "destructive"} className="text-sm px-3 py-1">
                           Total: {allocationTotal}%
                         </Badge>
                         {allocationTotal !== 100 && (
@@ -992,156 +1089,162 @@ export default function AgentDemoProposalBuilder() {
                       </div>
                     </div>
 
-                    <div className="grid md:grid-cols-2 gap-8">
-                      <div className="space-y-4">
-                        {Object.entries(config.assetAllocation).map(([key, value]) => {
-                          const labels: Record<string, { name: string; color: string }> = {
-                            equity: { name: 'Equity', color: 'bg-blue-500' },
-                            debt: { name: 'Debt/Fixed Income', color: 'bg-green-500' },
-                            gold: { name: 'Gold', color: 'bg-yellow-500' },
-                            realestate: { name: 'Real Estate/REITs', color: 'bg-purple-500' },
-                            cash: { name: 'Cash/Liquid', color: 'bg-gray-500' },
-                          };
-                          const label = labels[key];
-                          return (
-                            <div key={key} className="space-y-2">
-                              <div className="flex justify-between items-center">
-                                <div className="flex items-center gap-2">
-                                  <div className={`w-3 h-3 rounded-full ${label.color}`} />
-                                  <Label>{label.name}</Label>
+                    <Card className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border-purple-200 dark:border-purple-800">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Sparkles className="h-5 w-5 text-purple-600" />
+                        <h3 className="font-semibold">Quick Start - Default Allocations</h3>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-4">Select a risk-based preset to auto-fill allocation, or customize manually below</p>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {(['conservative', 'moderate', 'aggressive', 'very_aggressive'] as const).map((risk) => (
+                          <Button
+                            key={risk}
+                            variant={config.riskProfile.category === risk ? "default" : "outline"}
+                            className={`flex flex-col h-auto py-3 ${config.riskProfile.category === risk ? 'bg-purple-600 hover:bg-purple-700' : ''}`}
+                            onClick={() => applyDefaultAllocation(risk)}
+                          >
+                            <span className="font-medium capitalize">{risk.replace('_', ' ')}</span>
+                            <span className="text-xs opacity-75 mt-1">
+                              {risk === 'conservative' ? 'Low Risk' : risk === 'moderate' ? 'Balanced' : risk === 'aggressive' ? 'Growth' : 'Max Growth'}
+                            </span>
+                          </Button>
+                        ))}
+                      </div>
+                    </Card>
+
+                    <Separator />
+
+                    <div className="grid lg:grid-cols-3 gap-6">
+                      <div className="lg:col-span-2 space-y-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="font-semibold">Asset Categories</h3>
+                          <p className="text-xs text-muted-foreground">Toggle categories on/off, then adjust allocation %</p>
+                        </div>
+                        <div className="grid gap-3">
+                          {ASSET_CATEGORIES.map((category) => {
+                            const isSelected = config.selectedCategories.includes(category.id);
+                            const value = config.assetAllocation[category.id as keyof AssetAllocation] || 0;
+                            return (
+                              <div 
+                                key={category.id} 
+                                className={`p-3 rounded-lg border transition-all ${
+                                  isSelected 
+                                    ? 'bg-white dark:bg-card border-gray-200 dark:border-gray-700' 
+                                    : 'bg-gray-50 dark:bg-gray-800/50 border-gray-100 dark:border-gray-800 opacity-60'
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onCheckedChange={() => toggleCategory(category.id)}
+                                    className="h-5 w-5"
+                                  />
+                                  <div className={`w-3 h-3 rounded-full ${category.color}`} />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <div>
+                                        <span className="font-medium text-sm">{category.name}</span>
+                                        <span className="text-xs text-muted-foreground ml-2 hidden sm:inline">{category.description}</span>
+                                      </div>
+                                      <span className="font-semibold text-sm tabular-nums w-12 text-right">{value}%</span>
+                                    </div>
+                                    {isSelected && (
+                                      <Slider
+                                        value={[value]}
+                                        onValueChange={(val) => {
+                                          setConfig(prev => ({
+                                            ...prev,
+                                            assetAllocation: {
+                                              ...prev.assetAllocation,
+                                              [category.id]: val[0]
+                                            }
+                                          }));
+                                        }}
+                                        max={100}
+                                        step={1}
+                                        className="mt-2"
+                                      />
+                                    )}
+                                  </div>
                                 </div>
-                                <span className="font-semibold">{value}%</span>
                               </div>
-                              <Slider
-                                value={[value]}
-                                onValueChange={(val) => handleAllocationChange(key as keyof typeof config.assetAllocation, val[0])}
-                                max={100}
-                                step={1}
-                                className="w-full"
-                              />
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
 
-                      <div>
-                        <Card className="p-4">
+                      <div className="space-y-4">
+                        <Card className="p-4 sticky top-4">
                           <h3 className="font-semibold mb-4 text-center">Allocation Preview</h3>
-                          <div className="aspect-square max-w-[200px] mx-auto relative">
+                          <div className="aspect-square max-w-[180px] mx-auto relative">
                             <svg viewBox="0 0 100 100" className="transform -rotate-90">
                               {(() => {
                                 let currentAngle = 0;
-                                const colors = ['#3B82F6', '#22C55E', '#EAB308', '#A855F7', '#6B7280'];
-                                return Object.values(config.assetAllocation).map((value, index) => {
+                                const categoryColors: Record<string, string> = {
+                                  equity: '#3B82F6', debt: '#22C55E', hybrid: '#14B8A6', gold: '#EAB308',
+                                  index: '#6366F1', international: '#06B6D4', reit: '#A855F7', invit: '#F97316',
+                                  bonds: '#10B981', listed_stocks: '#F43F5E', unlisted_stocks: '#EC4899', cash: '#6B7280'
+                                };
+                                return ASSET_CATEGORIES.map((cat) => {
+                                  const value = config.assetAllocation[cat.id as keyof AssetAllocation] || 0;
+                                  if (value === 0) return null;
                                   const percentage = value / 100;
                                   const angle = percentage * 360;
                                   const startAngle = currentAngle;
                                   currentAngle += angle;
-                                  
-                                  if (value === 0) return null;
-                                  
                                   const x1 = 50 + 40 * Math.cos((startAngle * Math.PI) / 180);
                                   const y1 = 50 + 40 * Math.sin((startAngle * Math.PI) / 180);
                                   const x2 = 50 + 40 * Math.cos(((startAngle + angle) * Math.PI) / 180);
                                   const y2 = 50 + 40 * Math.sin(((startAngle + angle) * Math.PI) / 180);
                                   const largeArcFlag = angle > 180 ? 1 : 0;
-                                  
                                   return (
                                     <path
-                                      key={index}
+                                      key={cat.id}
                                       d={`M 50 50 L ${x1} ${y1} A 40 40 0 ${largeArcFlag} 1 ${x2} ${y2} Z`}
-                                      fill={colors[index]}
-                                      opacity={0.8}
+                                      fill={categoryColors[cat.id]}
+                                      opacity={0.85}
                                     />
                                   );
                                 });
                               })()}
                             </svg>
                           </div>
-                          <div className="grid grid-cols-2 gap-2 mt-4 text-sm">
-                            {Object.entries(config.assetAllocation).map(([key, value]) => {
+                          <div className="grid grid-cols-2 gap-1.5 mt-4 text-xs">
+                            {ASSET_CATEGORIES.map((cat) => {
+                              const value = config.assetAllocation[cat.id as keyof AssetAllocation] || 0;
                               if (value === 0) return null;
-                              const labels: Record<string, string> = {
-                                equity: 'Equity',
-                                debt: 'Debt',
-                                gold: 'Gold',
-                                realestate: 'Real Estate',
-                                cash: 'Cash',
-                              };
-                              const colors: Record<string, string> = {
-                                equity: 'bg-blue-500',
-                                debt: 'bg-green-500',
-                                gold: 'bg-yellow-500',
-                                realestate: 'bg-purple-500',
-                                cash: 'bg-gray-500',
-                              };
                               return (
-                                <div key={key} className="flex items-center gap-2">
-                                  <div className={`w-2 h-2 rounded-full ${colors[key]}`} />
-                                  <span>{labels[key]}: {value}%</span>
+                                <div key={cat.id} className="flex items-center gap-1.5">
+                                  <div className={`w-2 h-2 rounded-full ${cat.color}`} />
+                                  <span className="truncate">{cat.name.split(' ')[0]}: {value}%</span>
                                 </div>
                               );
                             })}
                           </div>
                         </Card>
 
-                        {/* Portfolio Comparison Section */}
-                        {selectedClient?.type === 'prospect' && (
-                          <Card className="p-4 mt-4">
-                            <h3 className="font-semibold mb-3 flex items-center gap-2">
+                        {selectedClient?.type === 'prospect' && prospectPortfolio && (
+                          <Card className="p-4">
+                            <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm">
                               <BarChart3 className="h-4 w-4" />
                               Current vs Recommended
                             </h3>
-                            {portfolioLoading ? (
-                              <div className="flex items-center justify-center py-4">
-                                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                                <span className="ml-2 text-sm text-muted-foreground">Loading portfolio...</span>
-                              </div>
-                            ) : prospectPortfolio ? (
-                              <div className="space-y-3">
-                                <div className="text-xs text-muted-foreground mb-2">
-                                  Source: {prospectPortfolio.brokerDetected || prospectPortfolio.source}
-                                  {prospectPortfolio.totalValue > 0 && ` • ${formatCurrency(prospectPortfolio.totalValue)}`}
-                                </div>
-                                <div className="space-y-2">
-                                  {Object.entries({
-                                    Equity: { current: prospectPortfolio.allocation?.equity || 0, recommended: config.assetAllocation.equity, color: 'bg-blue-500' },
-                                    Debt: { current: prospectPortfolio.allocation?.debt || 0, recommended: config.assetAllocation.debt, color: 'bg-green-500' },
-                                    Gold: { current: prospectPortfolio.allocation?.gold || 0, recommended: config.assetAllocation.gold, color: 'bg-yellow-500' },
-                                    Cash: { current: prospectPortfolio.allocation?.cash || 0, recommended: config.assetAllocation.cash, color: 'bg-gray-500' },
-                                  }).map(([name, { current, recommended, color }]) => {
-                                    const diff = recommended - current;
-                                    return (
-                                      <div key={name} className="text-sm">
-                                        <div className="flex justify-between mb-1">
-                                          <span className="flex items-center gap-1">
-                                            <div className={`w-2 h-2 rounded-full ${color}`} />
-                                            {name}
-                                          </span>
-                                          <span className={diff > 0 ? 'text-green-600' : diff < 0 ? 'text-red-600' : ''}>
-                                            {current}% → {recommended}%
-                                            {diff !== 0 && <span className="ml-1">({diff > 0 ? '+' : ''}{diff}%)</span>}
-                                          </span>
-                                        </div>
-                                        <div className="flex gap-1 h-2">
-                                          <div className={`${color} opacity-40 rounded-l`} style={{ width: `${current}%` }} title={`Current: ${current}%`} />
-                                          <div className={`${color} rounded-r`} style={{ width: `${recommended}%` }} title={`Recommended: ${recommended}%`} />
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                                <div className="pt-2 border-t text-xs text-muted-foreground">
-                                  <span className="opacity-50">■</span> Current &nbsp;
-                                  <span>■</span> Recommended
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="text-center py-3 text-sm text-muted-foreground">
-                                <p>No portfolio imported for this prospect.</p>
-                                <p className="text-xs mt-1">Import via Prospect Wizard to see comparison.</p>
-                              </div>
-                            )}
+                            <div className="space-y-2 text-xs">
+                              {Object.entries({
+                                Equity: { current: prospectPortfolio.allocation?.equity || 0, recommended: config.assetAllocation.equity },
+                                Debt: { current: prospectPortfolio.allocation?.debt || 0, recommended: config.assetAllocation.debt },
+                              }).map(([name, { current, recommended }]) => {
+                                const diff = recommended - current;
+                                return (
+                                  <div key={name} className="flex justify-between">
+                                    <span>{name}</span>
+                                    <span className={diff > 0 ? 'text-green-600' : diff < 0 ? 'text-red-600' : ''}>
+                                      {current}% → {recommended}%
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </Card>
                         )}
                       </div>

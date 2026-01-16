@@ -429,12 +429,12 @@ initializeRecommendationsFromDatabase().catch(err => {
 // Export for manual refresh
 export { initializeRecommendationsFromDatabase };
 
-// Target allocations by risk profile (expanded with new asset classes including stocks)
+// Target allocations by risk profile (expanded with new asset classes - stocks excluded by default, only in very_aggressive)
 const TARGET_ALLOCATIONS = {
-  conservative: { equity: 18, debt: 32, hybrid: 15, gold: 8, silver: 0, index: 5, international: 2, reit: 5, invit: 5, bonds: 5, mld: 0, listed_stocks: 5, unlisted_stocks: 0, pms: 0, aif: 0 },
-  moderate: { equity: 25, debt: 18, hybrid: 10, gold: 7, silver: 0, index: 8, international: 5, reit: 5, invit: 5, bonds: 5, mld: 2, listed_stocks: 8, unlisted_stocks: 2, pms: 0, aif: 0 },
-  aggressive: { equity: 32, debt: 6, hybrid: 6, gold: 5, silver: 2, index: 8, international: 7, reit: 5, invit: 5, bonds: 4, mld: 2, listed_stocks: 12, unlisted_stocks: 6, pms: 0, aif: 0 },
-  very_aggressive: { equity: 30, debt: 4, hybrid: 4, gold: 4, silver: 2, index: 8, international: 8, reit: 4, invit: 4, bonds: 4, mld: 3, listed_stocks: 15, unlisted_stocks: 10, pms: 0, aif: 0 }
+  conservative: { equity: 20, debt: 35, hybrid: 15, gold: 10, silver: 0, index: 5, international: 0, reit: 5, invit: 5, bonds: 5, mld: 0, listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0 },
+  moderate: { equity: 30, debt: 20, hybrid: 10, gold: 8, silver: 0, index: 10, international: 5, reit: 5, invit: 5, bonds: 5, mld: 2, listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0 },
+  aggressive: { equity: 35, debt: 10, hybrid: 5, gold: 5, silver: 2, index: 15, international: 10, reit: 5, invit: 5, bonds: 5, mld: 3, listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0 },
+  very_aggressive: { equity: 30, debt: 5, hybrid: 5, gold: 5, silver: 3, index: 15, international: 10, reit: 5, invit: 5, bonds: 5, mld: 5, listed_stocks: 7, unlisted_stocks: 5, pms: 0, aif: 0 }
 };
 
 export interface ProspectPortfolioHolding {
@@ -1472,16 +1472,16 @@ class AgentProspectWizardService {
       return recommendations;
     }
     
-    // Default allocations by risk profile (expanded with new asset classes including stocks)
+    // Default allocations by risk profile (expanded with new asset classes - stocks excluded by default, only in very_aggressive)
     const defaultAllocations: Record<string, { 
       equity: number; debt: number; hybrid: number; gold: number; silver: number; index: number;
       international: number; reit: number; invit: number; bonds: number; mld: number; pms: number; aif: number;
       listed_stocks: number; unlisted_stocks: number;
     }> = {
-      conservative: { equity: 20, debt: 35, hybrid: 15, gold: 8, silver: 0, index: 5, international: 2, reit: 5, invit: 5, bonds: 5, mld: 0, pms: 0, aif: 0, listed_stocks: 5, unlisted_stocks: 0 },
-      moderate: { equity: 25, debt: 20, hybrid: 12, gold: 8, silver: 0, index: 8, international: 5, reit: 5, invit: 5, bonds: 5, mld: 2, pms: 0, aif: 0, listed_stocks: 8, unlisted_stocks: 2 },
-      aggressive: { equity: 32, debt: 8, hybrid: 8, gold: 6, silver: 3, index: 10, international: 8, reit: 5, invit: 5, bonds: 4, mld: 3, pms: 0, aif: 0, listed_stocks: 12, unlisted_stocks: 6 },
-      very_aggressive: { equity: 30, debt: 5, hybrid: 5, gold: 5, silver: 3, index: 10, international: 10, reit: 5, invit: 5, bonds: 4, mld: 3, pms: 0, aif: 0, listed_stocks: 15, unlisted_stocks: 10 }
+      conservative: { equity: 20, debt: 35, hybrid: 15, gold: 10, silver: 0, index: 5, international: 0, reit: 5, invit: 5, bonds: 5, mld: 0, pms: 0, aif: 0, listed_stocks: 0, unlisted_stocks: 0 },
+      moderate: { equity: 30, debt: 20, hybrid: 10, gold: 8, silver: 0, index: 10, international: 5, reit: 5, invit: 5, bonds: 5, mld: 2, pms: 0, aif: 0, listed_stocks: 0, unlisted_stocks: 0 },
+      aggressive: { equity: 35, debt: 10, hybrid: 5, gold: 5, silver: 2, index: 15, international: 10, reit: 5, invit: 5, bonds: 5, mld: 3, pms: 0, aif: 0, listed_stocks: 0, unlisted_stocks: 0 },
+      very_aggressive: { equity: 30, debt: 5, hybrid: 5, gold: 5, silver: 3, index: 15, international: 10, reit: 5, invit: 5, bonds: 5, mld: 5, pms: 0, aif: 0, listed_stocks: 7, unlisted_stocks: 5 }
     };
     
     // Use custom allocations if provided
@@ -2100,10 +2100,10 @@ class AgentProspectWizardService {
       international: number; reit: number; invit: number; bonds: number; mld: number; 
       listed_stocks: number; unlisted_stocks: number; pms: number; aif: number;
     }> = {
-      conservative: { equity: 18, debt: 32, hybrid: 15, gold: 8, silver: 0, index: 5, international: 2, reit: 5, invit: 5, bonds: 5, mld: 0, listed_stocks: 5, unlisted_stocks: 0, pms: 0, aif: 0 },
-      moderate: { equity: 25, debt: 18, hybrid: 10, gold: 7, silver: 0, index: 8, international: 5, reit: 5, invit: 5, bonds: 5, mld: 2, listed_stocks: 8, unlisted_stocks: 2, pms: 0, aif: 0 },
-      aggressive: { equity: 32, debt: 6, hybrid: 6, gold: 5, silver: 2, index: 8, international: 7, reit: 5, invit: 5, bonds: 4, mld: 2, listed_stocks: 12, unlisted_stocks: 6, pms: 0, aif: 0 },
-      very_aggressive: { equity: 30, debt: 4, hybrid: 4, gold: 4, silver: 2, index: 8, international: 8, reit: 4, invit: 4, bonds: 4, mld: 3, listed_stocks: 15, unlisted_stocks: 10, pms: 0, aif: 0 }
+      conservative: { equity: 20, debt: 35, hybrid: 15, gold: 10, silver: 0, index: 5, international: 0, reit: 5, invit: 5, bonds: 5, mld: 0, listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0 },
+      moderate: { equity: 30, debt: 20, hybrid: 10, gold: 8, silver: 0, index: 10, international: 5, reit: 5, invit: 5, bonds: 5, mld: 2, listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0 },
+      aggressive: { equity: 35, debt: 10, hybrid: 5, gold: 5, silver: 2, index: 15, international: 10, reit: 5, invit: 5, bonds: 5, mld: 3, listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0 },
+      very_aggressive: { equity: 30, debt: 5, hybrid: 5, gold: 5, silver: 3, index: 15, international: 10, reit: 5, invit: 5, bonds: 5, mld: 5, listed_stocks: 7, unlisted_stocks: 5, pms: 0, aif: 0 }
     };
     
     // Use custom allocations if provided and has non-zero values, otherwise use defaults
