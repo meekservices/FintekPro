@@ -709,15 +709,10 @@ class MarketMoversCache {
   }
 
   private async initializeInBackground(): Promise<void> {
-    // Try to refresh cache immediately with NSE (primary) - don't wait for Yahoo crumb
+    // Try to refresh cache immediately with NSE (primary)
     await this.refreshCache();
     this.isInitialized = true;
     console.log('✅ [MarketMoversCache] Background initialization completed');
-    
-    // Initialize Yahoo crumb in background for fallback use
-    this.initializeYahooCrumb().catch(err => 
-      console.warn('⚠️ [MarketMoversCache] Yahoo crumb init failed (will use NSE):', err)
-    );
   }
 
   private isRateLimited(): boolean {
@@ -791,10 +786,6 @@ class MarketMoversCache {
       if (cacheAge >= CACHE_TTL_MS && !this.refreshLock) {
         console.log('🔄 [MarketMoversCache] Background refresh triggered');
         await this.refreshCache();
-      }
-      
-      if ((now - this.crumbInitTime) >= CRUMB_TTL_MS) {
-        await this.initializeYahooCrumb();
       }
     }, REFRESH_INTERVAL_MS);
   }
@@ -928,29 +919,8 @@ class MarketMoversCache {
         }
       }
 
-      // Priority 3: Yahoo Finance (tertiary - may be rate limited)
-      if (stockQuotes.length === 0 && !this.yahooRateLimited && !this.isRateLimited()) {
-        try {
-          console.log('🔄 [MarketMoversCache] Trying Yahoo Finance fallback...');
-          stockQuotes = await this.fetchFromYahoo();
-          successProvider = 'yahoo';
-          console.log(`✅ [MarketMoversCache] Yahoo Finance succeeded with ${stockQuotes.length} stocks`);
-        } catch (yahooError) {
-          console.warn('⚠️ [MarketMoversCache] Yahoo Finance failed:', yahooError);
-          this.metrics.providers.yahoo.failureCount++;
-          this.metrics.providers.yahoo.lastFailure = Date.now();
-          
-          if (this.isRateLimitError(yahooError)) {
-            this.metrics.rateLimitErrors++;
-            this.yahooRateLimited = true;
-            this.applyBackoff();
-          }
-        }
-      } else if (stockQuotes.length === 0) {
-        console.log('⏸️ [MarketMoversCache] Skipping Yahoo Finance (rate limited)');
-      }
-
-      // Priority 4: Finnhub (quaternary - limited Indian stock coverage on free tier)
+      // Priority 3: Finnhub (tertiary - limited Indian stock coverage on free tier)
+      // Note: Yahoo Finance is reserved for other features like global stocks and individual quotes
       if (stockQuotes.length === 0 && this.finnhubProvider.isEnabled()) {
         try {
           console.log('🔄 [MarketMoversCache] Trying Finnhub fallback...');
@@ -988,10 +958,6 @@ class MarketMoversCache {
       this.metrics.lastRefreshTime = Date.now();
       this.metrics.lastRefreshDuration = Date.now() - startTime;
       this.metrics.lastSuccessfulProvider = successProvider;
-
-      if (successProvider === 'yahoo') {
-        this.resetBackoff();
-      }
 
       console.log(`✅ [MarketMoversCache] Cache refreshed in ${this.metrics.lastRefreshDuration}ms via ${successProvider} (${stockQuotes.length} stocks)`);
     } catch (error) {
@@ -1037,11 +1003,10 @@ class MarketMoversCache {
         this.metrics.hits++;
         console.log(`📦 [MarketMoversCache] Serving stale cache (age: ${Math.round(cacheAge / 1000)}s)`);
         
-        const canRefreshYahoo = !this.refreshLock && !this.isRateLimited();
         const canRefreshFinnhub = !this.refreshLock && this.finnhubProvider.isEnabled();
         const canRefreshNse = !this.refreshLock && this.nseProvider.isEnabled();
         
-        if (canRefreshYahoo || canRefreshFinnhub || canRefreshNse) {
+        if (canRefreshFinnhub || canRefreshNse) {
           this.refreshCache().catch(console.error);
         }
         
