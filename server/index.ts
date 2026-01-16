@@ -713,6 +713,18 @@ app.use((req, res, next) => {
       logger.serviceError('Unlisted Marketplace Cron', 'Failed to initialize cron jobs', error instanceof Error ? error : undefined);
     }
     
+    // Initialize Financial Data Scheduler for database-driven caching
+    try {
+      import('./services/financial-data-scheduler').then(({ financialDataScheduler }) => {
+        financialDataScheduler.start();
+        logger.service('Financial Data Scheduler', 'Started periodic data refresh');
+      }).catch(error => {
+        console.error('❌ Failed to start financial data scheduler:', error);
+      });
+    } catch (error) {
+      console.error('❌ Error initializing financial data scheduler:', error);
+    }
+    
     // Seed default store categories if not present
     storage.seedDefaultStoreCategories().catch(error => {
       console.error('❌ Failed to seed store categories:', error);

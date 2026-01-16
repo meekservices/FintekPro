@@ -46,6 +46,16 @@ interface FetchResult {
 
 const PRICE_TOLERANCE_PERCENT = 2;
 
+function convertDateFormat(dateStr: string | undefined): string | undefined {
+  if (!dateStr) return undefined;
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    if (parts[0].length === 4) return dateStr;
+    return `${parts[2]}-${parts[1]}-${parts[0]}`;
+  }
+  return dateStr;
+}
+
 class FinancialDataRepository {
   private isInitialized = false;
 
@@ -170,7 +180,7 @@ class FinancialDataRepository {
         currency: 'INR',
         country: 'IN',
         nav: parseFloat(latestNav.nav),
-        navDate: latestNav.date,
+        navDate: convertDateFormat(latestNav.date),
         amc: meta.fund_house,
         category: meta.scheme_category,
         dataSource: 'mfapi',
@@ -332,6 +342,11 @@ class FinancialDataRepository {
       case 'mutual_fund':
         result = await this.fetchMutualFundFromMFAPI(symbol);
         break;
+      case 'bond':
+      case 'ncd':
+      case 'govt_security':
+        result = await this.fetchDebtInstrument(symbol, instrumentType);
+        break;
       default:
         return null;
     }
@@ -387,6 +402,58 @@ class FinancialDataRepository {
     }
 
     console.log(`📊 [FinancialDataRepository] Refreshed ETFs: ${success} success, ${failed} failed`);
+    return { success, failed };
+  }
+
+  async fetchDebtInstrument(symbol: string, type: string = 'bond'): Promise<FetchResult> {
+    try {
+      const data: InstrumentData = {
+        instrumentType: type,
+        symbol: symbol,
+        name: `${type.toUpperCase()} - ${symbol}`,
+        exchange: type === 'govt_security' ? 'RBI' : 'NSE',
+        currency: 'INR',
+        country: 'IN',
+        dataSource: 'internal',
+        confidenceScore: 75,
+        riskLevel: type === 'govt_security' ? 'Low' : 'Moderate',
+      };
+
+      return { success: true, data };
+    } catch (error) {
+      console.warn(`⚠️ [FinancialDataRepository] Debt fetch failed for ${symbol}:`, error);
+      return { success: false, error: String(error) };
+    }
+  }
+
+  async refreshDebtInstruments(instruments: Array<{symbol: string, type: string, name: string, yieldPercent?: number, couponRate?: number, maturityDate?: string}>): Promise<{ success: number; failed: number }> {
+    let success = 0;
+    let failed = 0;
+
+    for (const inst of instruments) {
+      try {
+        const data: InstrumentData = {
+          instrumentType: inst.type,
+          symbol: inst.symbol,
+          name: inst.name,
+          exchange: inst.type === 'govt_security' ? 'RBI' : 'NSE',
+          currency: 'INR',
+          country: 'IN',
+          yieldPercent: inst.yieldPercent,
+          couponRate: inst.couponRate,
+          maturityDate: inst.maturityDate,
+          dataSource: 'internal',
+          confidenceScore: 85,
+          riskLevel: inst.type === 'govt_security' ? 'Low' : 'Moderate',
+        };
+        await this.saveToDatabase(data);
+        success++;
+      } catch (error) {
+        failed++;
+      }
+    }
+
+    console.log(`📊 [FinancialDataRepository] Refreshed debt instruments: ${success} success, ${failed} failed`);
     return { success, failed };
   }
 

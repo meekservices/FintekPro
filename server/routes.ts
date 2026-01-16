@@ -15,6 +15,7 @@ import { registerLoanRoutes, registerLoanProcessingRoutes, registerLoanCompariso
 import { registerPreIPORoutes } from './routes/pre-ipo';
 import { registerCartRoutes } from './routes/cart';
 import { registerDLMRoutes } from './routes/dlm-routes';
+import { registerFinancialDataRoutes } from './routes/financial-data-routes';
 import knowledgeHubRoutes from './routes/knowledge-hub-routes';
 import mcaIntelligenceRoutes from './routes/mca-intelligence-routes';
 import { createServer, type Server } from "http";
@@ -28779,6 +28780,7 @@ Provide analysis in JSON format with these sections:
   registerPartnerPortalRoutes(app);
   
   // Document Lifecycle Management (DLM) System
+  registerFinancialDataRoutes(app);
   registerDLMRoutes(app);
   
   return server;
