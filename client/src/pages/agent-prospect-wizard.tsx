@@ -199,6 +199,7 @@ const PRODUCT_CATEGORY_OPTIONS = [
   { id: 'unlisted_stocks', label: 'Unlisted Stocks', description: 'Pre-IPO & private company shares (Enhanced KYC required)', defaultSelected: false, requiresEnhancedKYC: true },
   { id: 'pms', label: 'PMS', description: 'Portfolio Management Services (Min ₹50L)', defaultSelected: false, minInvestment: 5000000 },
   { id: 'aif', label: 'AIF', description: 'Alternative Investment Funds (Min ₹1Cr)', defaultSelected: false, minInvestment: 10000000 },
+  { id: 'global_advisory', label: 'Global Advisory (LRS)', description: 'International investments via Liberalised Remittance Scheme', defaultSelected: false, requiresEnhancedKYC: true },
 ];
 
 const GLOBAL_MARKET_OPTIONS = [
@@ -403,16 +404,21 @@ export default function AgentProspectWizard() {
     PRODUCT_CATEGORY_OPTIONS.filter(c => c.defaultSelected).map(c => c.id)
   );
   
-  // Get AI default categories based on risk profile
+  // Get AI default categories based on risk profile - derived from DEFAULT_ALLOCATIONS
   const getAIDefaultCategories = (riskTolerance: string): string[] => {
-    const baseCategories = ['equity', 'debt', 'hybrid', 'gold_fof', 'index_fund'];
-    if (riskTolerance === 'conservative') {
-      return [...baseCategories, 'bonds'];
-    } else if (riskTolerance === 'moderate') {
-      return [...baseCategories, 'international', 'reit', 'listed_stocks'];
-    } else {
-      return [...baseCategories, 'international', 'reit', 'invit', 'listed_stocks', 'unlisted_stocks', 'global_advisory'];
-    }
+    const allocations = DEFAULT_ALLOCATIONS[riskTolerance as keyof typeof DEFAULT_ALLOCATIONS] || DEFAULT_ALLOCATIONS.moderate;
+    const categories: string[] = [];
+    
+    // Derive categories from allocations that have non-zero values
+    Object.entries(allocations).forEach(([allocationKey, value]) => {
+      if (value > 0) {
+        // Map allocation key back to category ID using ALLOCATION_TO_CATEGORY_MAP
+        const categoryId = ALLOCATION_TO_CATEGORY_MAP[allocationKey] || allocationKey;
+        categories.push(categoryId);
+      }
+    });
+    
+    return categories;
   };
   
   // Apply AI default allocation based on risk profile
