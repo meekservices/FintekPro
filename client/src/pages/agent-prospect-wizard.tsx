@@ -200,6 +200,10 @@ const PRODUCT_CATEGORY_OPTIONS = [
   { id: 'pms', label: 'PMS', description: 'Portfolio Management Services (Min ₹50L)', defaultSelected: false, minInvestment: 5000000 },
   { id: 'aif', label: 'AIF', description: 'Alternative Investment Funds (Min ₹1Cr)', defaultSelected: false, minInvestment: 10000000 },
   { id: 'global_advisory', label: 'Global Advisory (LRS)', description: 'International investments via Liberalised Remittance Scheme', defaultSelected: false, requiresEnhancedKYC: true },
+  { id: 'us_markets', label: 'US Markets', description: 'NYSE, NASDAQ listed stocks & ETFs (🇺🇸)', defaultSelected: false, requiresEnhancedKYC: true },
+  { id: 'europe_markets', label: 'European Markets', description: 'UK, Germany, France exchanges (🇪🇺)', defaultSelected: false, requiresEnhancedKYC: true },
+  { id: 'asia_pacific_markets', label: 'Asia-Pacific Markets', description: 'Japan, Singapore, Australia, Hong Kong (🌏)', defaultSelected: false, requiresEnhancedKYC: true },
+  { id: 'emerging_markets', label: 'Emerging Markets', description: 'Brazil, India, China growth opportunities (🌍)', defaultSelected: false, requiresEnhancedKYC: true },
 ];
 
 const GLOBAL_MARKET_OPTIONS = [
@@ -224,10 +228,10 @@ interface GlobalAdvisorySelection {
 const LRS_ANNUAL_LIMIT_USD = 250000;
 
 const DEFAULT_ALLOCATIONS = {
-  conservative: { equity: 18, debt: 32, hybrid: 15, gold: 8, silver: 0, index: 5, international: 2, reit: 5, invit: 5, bonds: 5, mld: 0, listed_stocks: 5, unlisted_stocks: 0, pms: 0, aif: 0, global_advisory: 0 },
-  moderate: { equity: 25, debt: 18, hybrid: 10, gold: 7, silver: 0, index: 8, international: 5, reit: 5, invit: 5, bonds: 5, mld: 2, listed_stocks: 8, unlisted_stocks: 2, pms: 0, aif: 0, global_advisory: 0 },
-  aggressive: { equity: 30, debt: 6, hybrid: 6, gold: 5, silver: 2, index: 8, international: 5, reit: 5, invit: 5, bonds: 4, mld: 2, listed_stocks: 12, unlisted_stocks: 6, pms: 0, aif: 0, global_advisory: 4 },
-  very_aggressive: { equity: 28, debt: 4, hybrid: 4, gold: 4, silver: 2, index: 8, international: 5, reit: 4, invit: 4, bonds: 4, mld: 3, listed_stocks: 15, unlisted_stocks: 10, pms: 0, aif: 0, global_advisory: 5 }
+  conservative: { equity: 18, debt: 32, hybrid: 15, gold: 8, silver: 0, index: 5, international: 2, reit: 5, invit: 5, bonds: 5, mld: 0, listed_stocks: 5, unlisted_stocks: 0, pms: 0, aif: 0, global_advisory: 0, us_markets: 0, europe_markets: 0, asia_pacific_markets: 0, emerging_markets: 0 },
+  moderate: { equity: 25, debt: 18, hybrid: 10, gold: 7, silver: 0, index: 8, international: 5, reit: 5, invit: 5, bonds: 5, mld: 2, listed_stocks: 8, unlisted_stocks: 2, pms: 0, aif: 0, global_advisory: 0, us_markets: 0, europe_markets: 0, asia_pacific_markets: 0, emerging_markets: 0 },
+  aggressive: { equity: 26, debt: 6, hybrid: 6, gold: 5, silver: 2, index: 8, international: 0, reit: 5, invit: 5, bonds: 4, mld: 2, listed_stocks: 10, unlisted_stocks: 5, pms: 0, aif: 0, global_advisory: 0, us_markets: 6, europe_markets: 4, asia_pacific_markets: 4, emerging_markets: 2 },
+  very_aggressive: { equity: 22, debt: 4, hybrid: 4, gold: 4, silver: 2, index: 6, international: 0, reit: 4, invit: 4, bonds: 4, mld: 3, listed_stocks: 12, unlisted_stocks: 8, pms: 0, aif: 0, global_advisory: 0, us_markets: 8, europe_markets: 5, asia_pacific_markets: 6, emerging_markets: 4 }
 };
 
 const CATEGORY_TO_ALLOCATION_MAP: Record<string, keyof typeof DEFAULT_ALLOCATIONS.moderate> = {
@@ -246,7 +250,11 @@ const CATEGORY_TO_ALLOCATION_MAP: Record<string, keyof typeof DEFAULT_ALLOCATION
   unlisted_stocks: 'unlisted_stocks',
   pms: 'pms',
   aif: 'aif',
-  global_advisory: 'global_advisory'
+  global_advisory: 'global_advisory',
+  us_markets: 'us_markets',
+  europe_markets: 'europe_markets',
+  asia_pacific_markets: 'asia_pacific_markets',
+  emerging_markets: 'emerging_markets'
 };
 
 const ALLOCATION_TO_CATEGORY_MAP: Record<string, string> = {
@@ -265,7 +273,11 @@ const ALLOCATION_TO_CATEGORY_MAP: Record<string, string> = {
   unlisted_stocks: 'unlisted_stocks',
   pms: 'pms',
   aif: 'aif',
-  global_advisory: 'global_advisory'
+  global_advisory: 'global_advisory',
+  us_markets: 'us_markets',
+  europe_markets: 'europe_markets',
+  asia_pacific_markets: 'asia_pacific_markets',
+  emerging_markets: 'emerging_markets'
 };
 
 const deriveDefaultCategories = (riskTolerance: keyof typeof DEFAULT_ALLOCATIONS): string[] => {
@@ -399,6 +411,7 @@ export default function AgentProspectWizard() {
     equity: number; debt: number; hybrid: number; gold: number; silver: number; index: number;
     international: number; reit: number; invit: number; bonds: number; mld: number; 
     listed_stocks: number; unlisted_stocks: number; pms: number; aif: number; global_advisory: number;
+    us_markets: number; europe_markets: number; asia_pacific_markets: number; emerging_markets: number;
   }>(DEFAULT_ALLOCATIONS.moderate);
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
     PRODUCT_CATEGORY_OPTIONS.filter(c => c.defaultSelected).map(c => c.id)
@@ -3004,7 +3017,8 @@ export default function AgentProspectWizard() {
                   setCustomAllocations({
                     equity: 0, debt: 0, hybrid: 0, gold: 0, silver: 0, index: 0,
                     international: 0, reit: 0, invit: 0, bonds: 0, mld: 0,
-                    listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0, global_advisory: 0
+                    listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0, global_advisory: 0,
+                    us_markets: 0, europe_markets: 0, asia_pacific_markets: 0, emerging_markets: 0
                   });
                 }}
                 data-testid="mode-manual"
@@ -3092,7 +3106,8 @@ export default function AgentProspectWizard() {
                         setCustomAllocations({
                           equity: 0, debt: 0, hybrid: 0, gold: 0, silver: 0, index: 0,
                           international: 0, reit: 0, invit: 0, bonds: 0, mld: 0,
-                          listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0, global_advisory: 0
+                          listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0, global_advisory: 0,
+                          us_markets: 0, europe_markets: 0, asia_pacific_markets: 0, emerging_markets: 0
                         });
                       }}
                       data-testid="clear-all-categories-btn"
