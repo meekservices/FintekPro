@@ -1151,16 +1151,12 @@ export default function AgentProspectWizard() {
 
   const createProspectMutation = useMutation({
     mutationFn: async (data: typeof prospectData) => {
-      const res = await apiRequest("/api/agent-wizard/prospects", {
+      const result = await apiRequest("/api/agent-wizard/prospects", {
         method: "POST",
         body: JSON.stringify(data)
       });
-      const result = await res.json();
-      if (!res.ok) {
-        if (result.isDuplicate) {
-          throw { isDuplicate: true, ...result };
-        }
-        throw new Error(result.message || "Failed to create prospect");
+      if (result.isDuplicate) {
+        throw { isDuplicate: true, ...result };
       }
       return result;
     },
@@ -1194,11 +1190,11 @@ export default function AgentProspectWizard() {
 
   const requestMappingMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest("/api/agent-wizard/request-mapping", {
+      const result = await apiRequest("/api/agent-wizard/request-mapping", {
         method: "POST",
         body: JSON.stringify(data)
       });
-      return res.json();
+      return result;
     },
     onSuccess: (data) => {
       if (data.success) {
