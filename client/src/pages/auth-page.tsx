@@ -65,7 +65,7 @@ type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
 export default function AuthPage() {
   const [, navigate] = useLocation();
   const { user, isLoading: isAuthLoading } = useAuth();
-  const { isAdminPortal } = useSubdomain();
+  const { isAdminPortal, withPortalParams } = useSubdomain();
   const { toast } = useToast();
   const { clearSessionExpired } = useSession();
   const [showPassword, setShowPassword] = useState(false);
@@ -357,7 +357,7 @@ export default function AuthPage() {
         title: "Login successful",
         description: "Welcome back!",
       });
-      navigate("/");
+      navigate(withPortalParams("/"));
     },
     onError: (error: Error) => {
       toast({
@@ -565,7 +565,7 @@ export default function AuthPage() {
 
   // Redirect if already authenticated
   if (!isAuthLoading && user) {
-    navigate("/");
+    navigate(withPortalParams("/"));
     return null;
   }
 
@@ -596,7 +596,7 @@ export default function AuthPage() {
       title: "Continuing with existing session",
       description: "Redirecting you to the dashboard...",
     });
-    navigate("/");
+    navigate(withPortalParams("/"));
   };
 
   // Handle session conflict - force logout and login fresh
@@ -1262,7 +1262,7 @@ export default function AuthPage() {
               className="w-full" 
               onClick={() => {
                 setShowUserIdDialog(false);
-                navigate("/");
+                navigate(withPortalParams("/"));
               }}
               data-testid="button-proceed-to-dashboard"
             >

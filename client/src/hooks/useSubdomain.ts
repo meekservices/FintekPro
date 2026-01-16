@@ -82,6 +82,28 @@ function detectSubdomain(): string {
   return '';
 }
 
+export function getPortalQueryParams(): string {
+  const urlParams = new URLSearchParams(window.location.search);
+  const adminParam = urlParams.get('admin');
+  const partnerParam = urlParams.get('partner');
+  const agentParam = urlParams.get('agent');
+  
+  if (adminParam === 'true') return '?admin=true';
+  if (partnerParam === 'true') return '?partner=true';
+  if (agentParam === 'true') return '?agent=true';
+  return '';
+}
+
+export function withPortalParams(path: string): string {
+  const portalParams = getPortalQueryParams();
+  if (!portalParams) return path;
+  
+  if (path.includes('?')) {
+    return path + '&' + portalParams.substring(1);
+  }
+  return path + portalParams;
+}
+
 export function useSubdomain() {
   // Use state to ensure re-render when subdomain is detected
   const [subdomain, setSubdomain] = useState<string>(() => detectSubdomain());
@@ -112,6 +134,7 @@ export function useSubdomain() {
     isAdminPortal,
     isPartnerPortal,
     isAgentPortal,
-    isClientPortal: !isAdminPortal && !isPartnerPortal && !isAgentPortal
+    isClientPortal: !isAdminPortal && !isPartnerPortal && !isAgentPortal,
+    withPortalParams
   };
 }

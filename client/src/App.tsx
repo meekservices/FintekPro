@@ -527,10 +527,11 @@ function UserProtectedRoutes() {
 function AdminRoot() {
   const { user, isLoading } = useAuth();
   const [, navigate] = useLocation();
+  const { withPortalParams } = useSubdomain();
   
   useEffect(() => {
     if (!isLoading && !user) {
-      navigate('/auth');
+      navigate(withPortalParams('/auth'));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isLoading]);
