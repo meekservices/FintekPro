@@ -73,7 +73,7 @@ export default function SandboxITRFiling() {
   // File ITR mutation
   const fileITRMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/sandbox-itr/file', {
+      const response = await apiRequest('POST', '/api/sandbox-itr/submit-by-id', {
         body: { itrId: itrData?.id }
       });
       return await response.json();
