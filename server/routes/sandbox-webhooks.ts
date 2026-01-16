@@ -103,7 +103,8 @@ async function handleKYCVerificationDone(data: any, transactionId: string): Prom
 }
 
 export function registerSandboxWebhookRoutes(app: Express): void {
-  const WEBHOOK_SECRET = process.env.SANDBOX_WEBHOOK_SECRET || undefined;
+  // Use dedicated webhook secret, or fall back to API secret for HMAC validation
+  const WEBHOOK_SECRET = process.env.SANDBOX_WEBHOOK_SECRET || process.env.SANDBOX_API_SECRET || undefined;
 
   app.post('/api/webhooks/sandbox', async (req: Request, res: Response) => {
     const startTime = Date.now();
