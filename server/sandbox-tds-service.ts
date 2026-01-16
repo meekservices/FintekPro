@@ -234,6 +234,8 @@ const TDS_RATES: Record<string, { rate: number; thresholdIndividual: number; thr
   '194N': { rate: 2, thresholdIndividual: 10000000, thresholdOther: 10000000, description: 'Cash withdrawal exceeding ₹1 crore' },
 };
 
+// Mapping from payment types to TDS sections
+// Note: Only sections allowed in TDSNonSalaryInputSchema are included
 const PAYMENT_TO_SECTION: Record<string, string> = {
   'contractor': '194C',
   'professional': '194J',
@@ -242,7 +244,7 @@ const PAYMENT_TO_SECTION: Record<string, string> = {
   'dividend': '194',
   'commission': '194H',
   'technical_services': '194J',
-  'sale_of_property': '194IA',
+  'sale_of_property': '194I', // Use 194I for property sales (closest match in schema)
   'lottery': '194B',
   'horse_racing': '194BB',
   'insurance_commission': '194D',
@@ -824,6 +826,73 @@ class SandboxTDSService {
 
   getTDSSectionRates(): Record<string, { rate: number; thresholdIndividual: number; thresholdOther: number; description: string }> {
     return TDS_RATES;
+  }
+
+  // Universal TDS calculation method that auto-detects salary vs non-salary
+  async calculateTDS(input: any): Promise<TDSCalculationResponse | TDSNonSalaryResponse> {
+    // Determine if this is a salary or non-salary calculation
+    const isSalaryCalculation = 
+      input.grossSalary !== undefined || 
+      input.basicSalary !== undefined ||
+      input.employerTAN !== undefined ||
+      (input.type === 'salary');
+
+    if (isSalaryCalculation) {
+      // Map input to salary format
+      const salaryInput: TDSSalaryInput = {
+        pan: input.pan || 'AAAAA0000A',
+        financialYear: input.financialYear || '2024-25',
+        employerTAN: input.employerTAN,
+        grossSalary: input.grossSalary || input.amount || 0,
+        basicSalary: input.basicSalary || (input.grossSalary * 0.5) || 0,
+        hra: input.hra || 0,
+        specialAllowance: input.specialAllowance || 0,
+        lta: input.lta || 0,
+        bonus: input.bonus || 0,
+        perquisites: input.perquisites || 0,
+        profitInLieu: input.profitInLieu || 0,
+        deductions: input.deductions || {},
+        rentPaid: input.rentPaid || 0,
+        metroCity: input.metroCity ?? true,
+        taxRegime: input.taxRegime || 'new',
+      };
+      return this.calculateSalaryTDSAPI(salaryInput);
+    } else {
+      // Map input to non-salary format
+      const nonSalaryInput: TDSNonSalaryInput = {
+        deductorTAN: input.deductorTAN || input.tan || 'AAAA00000A',
+        deducteePAN: input.deducteePAN || input.pan || 'AAAAA0000A',
+        paymentType: input.paymentType || this.getSectionPaymentType(input.section),
+        amount: input.amount || 0,
+        paymentDate: input.paymentDate || new Date().toISOString().split('T')[0],
+        section: input.section,
+        isIndividualHUF: input.isIndividualHUF ?? (input.entityType === 'individual' || input.entityType === 'huf'),
+        hasValidPAN: input.hasValidPAN ?? true,
+        thresholdExceeded: input.thresholdExceeded ?? true,
+      };
+      return this.calculateNonSalaryTDSAPI(nonSalaryInput);
+    }
+  }
+
+  // Helper to map section codes to payment types
+  // Note: Maps TDS sections to valid paymentType values from TDSNonSalaryInputSchema
+  private getSectionPaymentType(section?: string): TDSNonSalaryInput['paymentType'] {
+    const sectionMap: Record<string, TDSNonSalaryInput['paymentType']> = {
+      '194C': 'contractor',
+      '194J': 'professional',
+      '194I': 'rent',
+      '194A': 'interest',
+      '194': 'dividend',
+      '194H': 'commission',
+      '194O': 'technical_services',
+      '194DA': 'insurance_commission',
+      '194B': 'lottery',
+      '194BB': 'horse_racing',
+      '194D': 'insurance_commission',
+      // 194N (cash withdrawal) doesn't have a direct payment type mapping
+      // Falls back to 'contractor' which is the default
+    };
+    return sectionMap[section || '194C'] || 'contractor';
   }
 
   getTDSFormTypes(): Array<{ form: string; description: string; applicableFor: string[] }> {

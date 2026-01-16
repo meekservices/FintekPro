@@ -213,6 +213,14 @@ app.use('/api/zoho/webhooks', express.json({
   }
 }));
 
+// Raw body capture for Sandbox.co.in webhook signature verification
+app.use('/api/webhooks/sandbox', express.json({
+  limit: "10mb",
+  verify: (req: any, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
+
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: false, limit: "10mb" }));
 

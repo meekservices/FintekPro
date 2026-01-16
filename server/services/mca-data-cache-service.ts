@@ -27,6 +27,7 @@ import {
   type McaShareholdingPattern,
 } from '@shared/schema';
 import { mcaService, type MCACompanyMasterData } from './mca-service';
+import { probe42Service } from './probe42-service';
 import { nanoid } from 'nanoid';
 
 // Cache TTL in hours (data older than this will trigger a refresh)
@@ -98,12 +99,54 @@ class McaDataCacheService {
       const apiResult = await mcaService.getCompanyByCINWithDetails(cin);
       
       if (!apiResult.success || !apiResult.data) {
+        console.log(`[MCA Cache] Sandbox API failed for ${cin}: ${apiResult.error?.message}`);
+        
+        // Try Probe42 as fallback when Sandbox fails
+        console.log(`[MCA Cache] Attempting Probe42 fallback for ${cin}...`);
+        try {
+          const probe42Result = await probe42Service.getCompanyDetails(cin);
+          if (probe42Result) {
+            console.log(`[MCA Cache] Probe42 fallback successful for ${cin}`);
+            
+            // Convert Probe42 data to MCA format and persist
+            const probe42Data: Partial<MCACompanyMasterData> = {
+              cin: probe42Result.cin,
+              companyName: probe42Result.companyName,
+              companyStatus: probe42Result.status || 'Active',
+              companyCategory: probe42Result.category || 'Company limited by Shares',
+              companySubCategory: probe42Result.subCategory || 'Non-govt company',
+              companyClass: probe42Result.companyClass || 'Private',
+              registeredAddress: probe42Result.registeredAddress || '',
+              email: probe42Result.email || '',
+              incorporationDate: probe42Result.incorporationDate || '',
+              authorizedCapital: probe42Result.authorizedCapital?.toString() || '0',
+              paidUpCapital: probe42Result.paidUpCapital?.toString() || '0',
+            };
+
+            await this.persistCompanyDataFromProbe42(probe42Data, userId, runId);
+            await this.logIngestionComplete(runId, 'completed', 1, 'Probe42 fallback');
+            
+            const freshData = await this.getCachedCompany(cin);
+            return {
+              success: true,
+              data: freshData ? {
+                ...freshData,
+                fromCache: false,
+                cacheAge: 0,
+              } : undefined,
+              apiCallMade: true,
+            };
+          }
+        } catch (probe42Error: any) {
+          console.log(`[MCA Cache] Probe42 fallback also failed: ${probe42Error.message}`);
+        }
+
         await this.logIngestionComplete(runId, 'failed', 0, apiResult.error?.message);
         
-        // If API fails but we have stale cache, return it
+        // If both APIs fail but we have stale cache, return it
         const staleCache = await this.getCachedCompany(cin);
         if (staleCache) {
-          console.log(`[MCA Cache] API failed, returning stale cache for ${cin}`);
+          console.log(`[MCA Cache] APIs failed, returning stale cache for ${cin}`);
           return {
             success: true,
             data: {
@@ -117,7 +160,7 @@ class McaDataCacheService {
         
         return {
           success: false,
-          error: apiResult.error?.message || 'Failed to fetch company data',
+          error: apiResult.error?.message || 'Failed to fetch company data from both Sandbox and Probe42',
           apiCallMade: true,
         };
       }
@@ -293,6 +336,67 @@ class McaDataCacheService {
       console.log(`[MCA Cache] Persisted data for ${cin}: ${data.directors?.length || 0} directors, ${data.charges?.length || 0} charges, ${data.shareholding?.length || 0} shareholding records`);
     } catch (error: any) {
       console.error(`[MCA Cache] Error persisting data for ${cin}:`, error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Persist company data from Probe42 fallback response
+   */
+  async persistCompanyDataFromProbe42(
+    data: Partial<MCACompanyMasterData>,
+    userId?: string,
+    runId?: string
+  ): Promise<void> {
+    const cin = data.cin;
+    if (!cin) {
+      throw new Error('CIN is required to persist Probe42 data');
+    }
+    
+    try {
+      const existingCompany = await db
+        .select()
+        .from(mcaCompanyMaster)
+        .where(eq(mcaCompanyMaster.cin, cin))
+        .limit(1);
+
+      const companyData = {
+        cin: data.cin!,
+        companyName: data.companyName || 'Unknown',
+        companyStatus: data.companyStatus || 'Active',
+        companyCategory: data.companyCategory || 'Company limited by Shares',
+        companySubCategory: data.companySubCategory || 'Non-govt company',
+        companyClass: data.companyClass || 'Private',
+        incorporationDate: data.incorporationDate || null,
+        registeredAddress: data.registeredAddress || '',
+        email: data.email || '',
+        authorizedCapital: data.authorizedCapital || '0',
+        paidUpCapital: data.paidUpCapital || '0',
+        lastAnnualReturn: null,
+        lastBalanceSheet: null,
+        updatedAt: new Date(),
+        sourceAttribution: 'Probe42 Fallback',
+      };
+
+      if (existingCompany.length > 0) {
+        await this.logVersionChange('company', cin, 'update', existingCompany[0], companyData, userId, runId);
+        
+        await db
+          .update(mcaCompanyMaster)
+          .set(companyData)
+          .where(eq(mcaCompanyMaster.cin, cin));
+      } else {
+        await this.logVersionChange('company', cin, 'create', null, companyData, userId, runId);
+        
+        await db.insert(mcaCompanyMaster).values({
+          ...companyData,
+          createdAt: new Date(),
+        });
+      }
+
+      console.log(`[MCA Cache] Persisted Probe42 data for ${cin}`);
+    } catch (error: any) {
+      console.error(`[MCA Cache] Error persisting Probe42 data for ${cin}:`, error.message);
       throw error;
     }
   }
