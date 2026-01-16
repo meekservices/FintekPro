@@ -5,6 +5,13 @@ import { partners, caProfiles, agentItrCases, users } from '@shared/schema';
 import { caAssignmentService } from '../services/ca-assignment-service';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
+import { 
+  requireAuth, 
+  requirePartnerPortal, 
+  requireAdminPortal,
+  requireAgentPortal,
+  injectRoleInfo 
+} from '../middleware/roleMiddleware';
 
 const router = Router();
 
@@ -120,7 +127,7 @@ router.post('/register', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/my-profile', async (req: Request, res: Response) => {
+router.get('/my-profile', requireAuth, injectRoleInfo, requirePartnerPortal, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     
@@ -170,7 +177,7 @@ router.get('/my-profile', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/available', async (req: Request, res: Response) => {
+router.get('/available', requireAuth, async (req: Request, res: Response) => {
   try {
     const { caseType, city, state, itrFormType } = req.query;
     
@@ -194,7 +201,7 @@ router.get('/available', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/assign', async (req: Request, res: Response) => {
+router.post('/assign', requireAuth, injectRoleInfo, requireAgentPortal, async (req: Request, res: Response) => {
   try {
     const { caseId, caPartnerId, autoAssign, criteria } = req.body;
     
@@ -221,7 +228,7 @@ router.post('/assign', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/dashboard/:partnerId', async (req: Request, res: Response) => {
+router.get('/dashboard/:partnerId', requireAuth, injectRoleInfo, requirePartnerPortal, async (req: Request, res: Response) => {
   try {
     const { partnerId } = req.params;
     
@@ -271,7 +278,7 @@ router.get('/dashboard/:partnerId', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/cases/:partnerId', async (req: Request, res: Response) => {
+router.get('/cases/:partnerId', requireAuth, injectRoleInfo, requirePartnerPortal, async (req: Request, res: Response) => {
   try {
     const { partnerId } = req.params;
     const { status } = req.query;
@@ -323,7 +330,7 @@ router.patch('/availability/:partnerId', async (req: Request, res: Response) => 
   }
 });
 
-router.post('/case/:caseId/complete', async (req: Request, res: Response) => {
+router.post('/case/:caseId/complete', requireAuth, injectRoleInfo, requirePartnerPortal, async (req: Request, res: Response) => {
   try {
     const { caseId } = req.params;
     const { caPartnerId, rating, feedback } = req.body;
@@ -344,7 +351,7 @@ router.post('/case/:caseId/complete', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/admin/pending-verifications', async (req: Request, res: Response) => {
+router.get('/admin/pending-verifications', requireAuth, injectRoleInfo, requireAdminPortal, async (req: Request, res: Response) => {
   try {
     const pendingCAs = await db
       .select()
@@ -383,7 +390,7 @@ router.get('/admin/pending-verifications', async (req: Request, res: Response) =
   }
 });
 
-router.post('/admin/verify/:partnerId', async (req: Request, res: Response) => {
+router.post('/admin/verify/:partnerId', requireAuth, injectRoleInfo, requireAdminPortal, async (req: Request, res: Response) => {
   try {
     const { partnerId } = req.params;
     const { action, rejectionReason, adminId } = req.body;
@@ -421,7 +428,7 @@ router.post('/admin/verify/:partnerId', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/admin/all', async (req: Request, res: Response) => {
+router.get('/admin/all', requireAuth, injectRoleInfo, requireAdminPortal, async (req: Request, res: Response) => {
   try {
     const { status, search, page = '1', limit = '20' } = req.query;
     
@@ -486,7 +493,7 @@ router.get('/admin/all', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/admin/performance', async (req: Request, res: Response) => {
+router.get('/admin/performance', requireAuth, injectRoleInfo, requireAdminPortal, async (req: Request, res: Response) => {
   try {
     const allCAs = await db
       .select()
