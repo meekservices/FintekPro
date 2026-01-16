@@ -1,0 +1,468 @@
+import { pool } from '../db';
+import yahooFinance from 'yahoo-finance2';
+
+interface InstrumentData {
+  instrumentType: string;
+  symbol: string;
+  name: string;
+  exchange?: string;
+  currency?: string;
+  country?: string;
+  currentPrice?: number;
+  previousClose?: number;
+  dayChange?: number;
+  dayChangePercent?: number;
+  dayHigh?: number;
+  dayLow?: number;
+  openPrice?: number;
+  volume?: number;
+  nav?: number;
+  navDate?: string;
+  return1y?: number;
+  return3y?: number;
+  return5y?: number;
+  yieldPercent?: number;
+  couponRate?: number;
+  maturityDate?: string;
+  marketCap?: number;
+  peRatio?: number;
+  dividendYield?: number;
+  category?: string;
+  sector?: string;
+  amc?: string;
+  expenseRatio?: number;
+  aum?: number;
+  riskLevel?: string;
+  dataSource: string;
+  secondarySource?: string;
+  confidenceScore?: number;
+}
+
+interface FetchResult {
+  success: boolean;
+  data?: InstrumentData;
+  error?: string;
+}
+
+const PRICE_TOLERANCE_PERCENT = 2;
+
+class FinancialDataRepository {
+  private isInitialized = false;
+
+  async initialize(): Promise<void> {
+    console.log('📊 [FinancialDataRepository] Initializing...');
+    this.isInitialized = true;
+    console.log('✅ [FinancialDataRepository] Initialized');
+  }
+
+  private calculateConfidenceScore(primary: InstrumentData, secondary?: InstrumentData): number {
+    if (!secondary || !primary.currentPrice || !secondary.currentPrice) {
+      return 80;
+    }
+    
+    const priceDiff = Math.abs(primary.currentPrice - secondary.currentPrice);
+    const percentDiff = (priceDiff / primary.currentPrice) * 100;
+    
+    if (percentDiff <= 0.5) return 100;
+    if (percentDiff <= 1) return 95;
+    if (percentDiff <= PRICE_TOLERANCE_PERCENT) return 85;
+    if (percentDiff <= 5) return 70;
+    return 50;
+  }
+
+  async fetchGlobalStock(symbol: string): Promise<FetchResult> {
+    try {
+      yahooFinance.suppressNotices(['yahooSurvey']);
+      const quote = await yahooFinance.quote(symbol);
+      
+      if (!quote) {
+        return { success: false, error: 'No data returned' };
+      }
+
+      const data: InstrumentData = {
+        instrumentType: 'global_stock',
+        symbol: symbol.replace('.NS', '').replace('.BO', ''),
+        name: quote.shortName || quote.longName || symbol,
+        exchange: quote.exchange || 'UNKNOWN',
+        currency: quote.currency || 'USD',
+        country: quote.exchange?.includes('NS') ? 'IN' : 'US',
+        currentPrice: quote.regularMarketPrice,
+        previousClose: quote.regularMarketPreviousClose,
+        dayChange: quote.regularMarketChange,
+        dayChangePercent: quote.regularMarketChangePercent,
+        dayHigh: quote.regularMarketDayHigh,
+        dayLow: quote.regularMarketDayLow,
+        openPrice: quote.regularMarketOpen,
+        volume: quote.regularMarketVolume,
+        marketCap: quote.marketCap,
+        peRatio: quote.trailingPE,
+        dividendYield: quote.dividendYield ? quote.dividendYield * 100 : undefined,
+        sector: quote.sector,
+        dataSource: 'yahoo',
+        confidenceScore: 90,
+      };
+
+      return { success: true, data };
+    } catch (error) {
+      console.warn(`⚠️ [FinancialDataRepository] Yahoo fetch failed for ${symbol}:`, error);
+      return { success: false, error: String(error) };
+    }
+  }
+
+  async fetchETF(symbol: string): Promise<FetchResult> {
+    try {
+      yahooFinance.suppressNotices(['yahooSurvey']);
+      const quote = await yahooFinance.quote(symbol);
+      
+      if (!quote) {
+        return { success: false, error: 'No data returned' };
+      }
+
+      const data: InstrumentData = {
+        instrumentType: 'etf',
+        symbol: symbol,
+        name: quote.shortName || quote.longName || symbol,
+        exchange: quote.exchange || 'UNKNOWN',
+        currency: quote.currency || 'USD',
+        currentPrice: quote.regularMarketPrice,
+        nav: quote.navPrice,
+        previousClose: quote.regularMarketPreviousClose,
+        dayChange: quote.regularMarketChange,
+        dayChangePercent: quote.regularMarketChangePercent,
+        dayHigh: quote.regularMarketDayHigh,
+        dayLow: quote.regularMarketDayLow,
+        volume: quote.regularMarketVolume,
+        dividendYield: quote.yield ? quote.yield * 100 : undefined,
+        expenseRatio: quote.annualReportExpenseRatio,
+        aum: quote.totalAssets,
+        category: quote.category,
+        dataSource: 'yahoo',
+        confidenceScore: 90,
+      };
+
+      return { success: true, data };
+    } catch (error) {
+      console.warn(`⚠️ [FinancialDataRepository] ETF fetch failed for ${symbol}:`, error);
+      return { success: false, error: String(error) };
+    }
+  }
+
+  async fetchMutualFundFromMFAPI(schemeCode: string): Promise<FetchResult> {
+    try {
+      const response = await fetch(`https://api.mfapi.in/mf/${schemeCode}`);
+      if (!response.ok) {
+        return { success: false, error: `API returned ${response.status}` };
+      }
+
+      const data = await response.json();
+      if (!data || !data.data || data.data.length === 0) {
+        return { success: false, error: 'No NAV data returned' };
+      }
+
+      const latestNav = data.data[0];
+      const meta = data.meta || {};
+
+      const result: InstrumentData = {
+        instrumentType: 'mutual_fund',
+        symbol: schemeCode,
+        name: meta.scheme_name || `Scheme ${schemeCode}`,
+        exchange: 'AMFI',
+        currency: 'INR',
+        country: 'IN',
+        nav: parseFloat(latestNav.nav),
+        navDate: latestNav.date,
+        amc: meta.fund_house,
+        category: meta.scheme_category,
+        dataSource: 'mfapi',
+        confidenceScore: 95,
+      };
+
+      return { success: true, data: result };
+    } catch (error) {
+      console.warn(`⚠️ [FinancialDataRepository] MFAPI fetch failed for ${schemeCode}:`, error);
+      return { success: false, error: String(error) };
+    }
+  }
+
+  async saveToDatabase(instrument: InstrumentData): Promise<boolean> {
+    const client = await pool.connect();
+    try {
+      await client.query(`
+        INSERT INTO financial_instruments_cache 
+          (instrument_type, symbol, name, exchange, currency, country,
+           current_price, previous_close, day_change, day_change_percent,
+           day_high, day_low, open_price, volume, nav, nav_date,
+           return_1y, return_3y, return_5y, yield_percent, coupon_rate, maturity_date,
+           market_cap, pe_ratio, dividend_yield, category, sector, amc, expense_ratio, aum,
+           risk_level, data_source, secondary_source, confidence_score,
+           price_updated_at, fetched_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
+                $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
+                $31, $32, $33, $34, NOW(), NOW(), NOW())
+        ON CONFLICT (instrument_type, symbol, exchange) DO UPDATE SET
+          name = EXCLUDED.name,
+          current_price = EXCLUDED.current_price,
+          previous_close = EXCLUDED.previous_close,
+          day_change = EXCLUDED.day_change,
+          day_change_percent = EXCLUDED.day_change_percent,
+          day_high = EXCLUDED.day_high,
+          day_low = EXCLUDED.day_low,
+          open_price = EXCLUDED.open_price,
+          volume = EXCLUDED.volume,
+          nav = EXCLUDED.nav,
+          nav_date = EXCLUDED.nav_date,
+          return_1y = COALESCE(EXCLUDED.return_1y, financial_instruments_cache.return_1y),
+          return_3y = COALESCE(EXCLUDED.return_3y, financial_instruments_cache.return_3y),
+          return_5y = COALESCE(EXCLUDED.return_5y, financial_instruments_cache.return_5y),
+          market_cap = EXCLUDED.market_cap,
+          pe_ratio = EXCLUDED.pe_ratio,
+          dividend_yield = EXCLUDED.dividend_yield,
+          category = COALESCE(EXCLUDED.category, financial_instruments_cache.category),
+          sector = COALESCE(EXCLUDED.sector, financial_instruments_cache.sector),
+          amc = COALESCE(EXCLUDED.amc, financial_instruments_cache.amc),
+          expense_ratio = COALESCE(EXCLUDED.expense_ratio, financial_instruments_cache.expense_ratio),
+          aum = COALESCE(EXCLUDED.aum, financial_instruments_cache.aum),
+          data_source = EXCLUDED.data_source,
+          secondary_source = EXCLUDED.secondary_source,
+          confidence_score = EXCLUDED.confidence_score,
+          price_updated_at = NOW(),
+          fetched_at = NOW(),
+          updated_at = NOW()
+      `, [
+        instrument.instrumentType,
+        instrument.symbol,
+        instrument.name,
+        instrument.exchange || null,
+        instrument.currency || 'INR',
+        instrument.country || 'IN',
+        instrument.currentPrice || null,
+        instrument.previousClose || null,
+        instrument.dayChange || null,
+        instrument.dayChangePercent || null,
+        instrument.dayHigh || null,
+        instrument.dayLow || null,
+        instrument.openPrice || null,
+        instrument.volume || null,
+        instrument.nav || null,
+        instrument.navDate || null,
+        instrument.return1y || null,
+        instrument.return3y || null,
+        instrument.return5y || null,
+        instrument.yieldPercent || null,
+        instrument.couponRate || null,
+        instrument.maturityDate || null,
+        instrument.marketCap || null,
+        instrument.peRatio || null,
+        instrument.dividendYield || null,
+        instrument.category || null,
+        instrument.sector || null,
+        instrument.amc || null,
+        instrument.expenseRatio || null,
+        instrument.aum || null,
+        instrument.riskLevel || null,
+        instrument.dataSource,
+        instrument.secondarySource || null,
+        instrument.confidenceScore || 80,
+      ]);
+
+      return true;
+    } catch (error) {
+      console.error('❌ [FinancialDataRepository] Save failed:', error);
+      return false;
+    } finally {
+      client.release();
+    }
+  }
+
+  async getFromDatabase(instrumentType: string, symbol: string, maxAgeMinutes: number = 30): Promise<InstrumentData | null> {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        SELECT * FROM financial_instruments_cache 
+        WHERE instrument_type = $1 AND symbol = $2
+        AND fetched_at > NOW() - INTERVAL '${maxAgeMinutes} minutes'
+        ORDER BY fetched_at DESC LIMIT 1
+      `, [instrumentType, symbol]);
+
+      if (result.rows.length === 0) return null;
+
+      const row = result.rows[0];
+      return {
+        instrumentType: row.instrument_type,
+        symbol: row.symbol,
+        name: row.name,
+        exchange: row.exchange,
+        currency: row.currency,
+        country: row.country,
+        currentPrice: row.current_price ? parseFloat(row.current_price) : undefined,
+        previousClose: row.previous_close ? parseFloat(row.previous_close) : undefined,
+        dayChange: row.day_change ? parseFloat(row.day_change) : undefined,
+        dayChangePercent: row.day_change_percent ? parseFloat(row.day_change_percent) : undefined,
+        nav: row.nav ? parseFloat(row.nav) : undefined,
+        navDate: row.nav_date,
+        marketCap: row.market_cap ? parseFloat(row.market_cap) : undefined,
+        peRatio: row.pe_ratio ? parseFloat(row.pe_ratio) : undefined,
+        category: row.category,
+        sector: row.sector,
+        amc: row.amc,
+        dataSource: row.data_source,
+        confidenceScore: row.confidence_score,
+      };
+    } finally {
+      client.release();
+    }
+  }
+
+  async fetchWithValidation(instrumentType: string, symbol: string): Promise<InstrumentData | null> {
+    const cached = await this.getFromDatabase(instrumentType, symbol);
+    if (cached) {
+      console.log(`💾 [FinancialDataRepository] Using cached data for ${symbol}`);
+      return cached;
+    }
+
+    let result: FetchResult;
+    
+    switch (instrumentType) {
+      case 'global_stock':
+        result = await this.fetchGlobalStock(symbol);
+        break;
+      case 'etf':
+        result = await this.fetchETF(symbol);
+        break;
+      case 'mutual_fund':
+        result = await this.fetchMutualFundFromMFAPI(symbol);
+        break;
+      default:
+        return null;
+    }
+
+    if (result.success && result.data) {
+      await this.saveToDatabase(result.data);
+      return result.data;
+    }
+
+    return null;
+  }
+
+  async refreshGlobalStocks(symbols: string[]): Promise<{ success: number; failed: number }> {
+    let success = 0;
+    let failed = 0;
+
+    for (const symbol of symbols) {
+      try {
+        const result = await this.fetchGlobalStock(symbol);
+        if (result.success && result.data) {
+          await this.saveToDatabase(result.data);
+          success++;
+        } else {
+          failed++;
+        }
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (error) {
+        failed++;
+      }
+    }
+
+    console.log(`📊 [FinancialDataRepository] Refreshed global stocks: ${success} success, ${failed} failed`);
+    return { success, failed };
+  }
+
+  async refreshETFs(symbols: string[]): Promise<{ success: number; failed: number }> {
+    let success = 0;
+    let failed = 0;
+
+    for (const symbol of symbols) {
+      try {
+        const result = await this.fetchETF(symbol);
+        if (result.success && result.data) {
+          await this.saveToDatabase(result.data);
+          success++;
+        } else {
+          failed++;
+        }
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (error) {
+        failed++;
+      }
+    }
+
+    console.log(`📊 [FinancialDataRepository] Refreshed ETFs: ${success} success, ${failed} failed`);
+    return { success, failed };
+  }
+
+  async refreshMutualFunds(schemeCodes: string[]): Promise<{ success: number; failed: number }> {
+    let success = 0;
+    let failed = 0;
+
+    for (const code of schemeCodes) {
+      try {
+        const result = await this.fetchMutualFundFromMFAPI(code);
+        if (result.success && result.data) {
+          await this.saveToDatabase(result.data);
+          success++;
+        } else {
+          failed++;
+        }
+        await new Promise(resolve => setTimeout(resolve, 200));
+      } catch (error) {
+        failed++;
+      }
+    }
+
+    console.log(`📊 [FinancialDataRepository] Refreshed mutual funds: ${success} success, ${failed} failed`);
+    return { success, failed };
+  }
+
+  async cleanupStaleData(maxAgeDays: number = 7): Promise<number> {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        DELETE FROM financial_instruments_cache 
+        WHERE updated_at < NOW() - INTERVAL '${maxAgeDays} days'
+        RETURNING id
+      `);
+      const deleted = result.rowCount || 0;
+      if (deleted > 0) {
+        console.log(`🧹 [FinancialDataRepository] Cleaned up ${deleted} stale records`);
+      }
+      return deleted;
+    } finally {
+      client.release();
+    }
+  }
+
+  async getStatistics(): Promise<{
+    totalRecords: number;
+    byType: Record<string, number>;
+    avgConfidence: number;
+    lastUpdated: Date | null;
+  }> {
+    const client = await pool.connect();
+    try {
+      const countResult = await client.query(`SELECT COUNT(*) as total FROM financial_instruments_cache`);
+      const typeResult = await client.query(`
+        SELECT instrument_type, COUNT(*) as count 
+        FROM financial_instruments_cache 
+        GROUP BY instrument_type
+      `);
+      const avgResult = await client.query(`SELECT AVG(confidence_score) as avg FROM financial_instruments_cache`);
+      const lastResult = await client.query(`SELECT MAX(updated_at) as last FROM financial_instruments_cache`);
+
+      const byType: Record<string, number> = {};
+      typeResult.rows.forEach(row => {
+        byType[row.instrument_type] = parseInt(row.count);
+      });
+
+      return {
+        totalRecords: parseInt(countResult.rows[0]?.total || 0),
+        byType,
+        avgConfidence: parseFloat(avgResult.rows[0]?.avg || 0),
+        lastUpdated: lastResult.rows[0]?.last || null,
+      };
+    } finally {
+      client.release();
+    }
+  }
+}
+
+export const financialDataRepository = new FinancialDataRepository();

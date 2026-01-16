@@ -26659,3 +26659,83 @@ export const insertStockPricesCacheSchema = createInsertSchema(stockPricesCache)
 });
 export type StockPricesCache = typeof stockPricesCache.$inferSelect;
 export type InsertStockPricesCache = z.infer<typeof insertStockPricesCacheSchema>;
+
+// Financial Instruments Cache - Unified database for all financial data
+// Stores global stocks, ETFs, mutual funds, bonds, and other instruments
+export const financialInstrumentsCache = pgTable("financial_instruments_cache", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  instrumentType: varchar("instrument_type").notNull(),
+  symbol: varchar("symbol").notNull(),
+  isin: varchar("isin"),
+  name: text("name").notNull(),
+  
+  exchange: varchar("exchange"),
+  currency: varchar("currency").default("INR"),
+  country: varchar("country").default("IN"),
+  
+  currentPrice: decimal("current_price", { precision: 15, scale: 4 }),
+  previousClose: decimal("previous_close", { precision: 15, scale: 4 }),
+  dayChange: decimal("day_change", { precision: 15, scale: 4 }),
+  dayChangePercent: decimal("day_change_percent", { precision: 10, scale: 4 }),
+  dayHigh: decimal("day_high", { precision: 15, scale: 4 }),
+  dayLow: decimal("day_low", { precision: 15, scale: 4 }),
+  openPrice: decimal("open_price", { precision: 15, scale: 4 }),
+  volume: bigint("volume", { mode: "number" }),
+  
+  nav: decimal("nav", { precision: 15, scale: 4 }),
+  navDate: date("nav_date"),
+  
+  return1d: decimal("return_1d", { precision: 10, scale: 4 }),
+  return1w: decimal("return_1w", { precision: 10, scale: 4 }),
+  return1m: decimal("return_1m", { precision: 10, scale: 4 }),
+  return3m: decimal("return_3m", { precision: 10, scale: 4 }),
+  return6m: decimal("return_6m", { precision: 10, scale: 4 }),
+  return1y: decimal("return_1y", { precision: 10, scale: 4 }),
+  return3y: decimal("return_3y", { precision: 10, scale: 4 }),
+  return5y: decimal("return_5y", { precision: 10, scale: 4 }),
+  
+  yieldPercent: decimal("yield_percent", { precision: 10, scale: 4 }),
+  couponRate: decimal("coupon_rate", { precision: 10, scale: 4 }),
+  maturityDate: date("maturity_date"),
+  
+  marketCap: decimal("market_cap", { precision: 20, scale: 2 }),
+  peRatio: decimal("pe_ratio", { precision: 10, scale: 2 }),
+  dividendYield: decimal("dividend_yield", { precision: 10, scale: 4 }),
+  
+  category: varchar("category"),
+  sector: varchar("sector"),
+  subSector: varchar("sub_sector"),
+  
+  amc: varchar("amc"),
+  fundManager: varchar("fund_manager"),
+  expenseRatio: decimal("expense_ratio", { precision: 6, scale: 4 }),
+  aum: decimal("aum", { precision: 20, scale: 2 }),
+  
+  riskLevel: varchar("risk_level"),
+  volatility: decimal("volatility", { precision: 10, scale: 4 }),
+  sharpeRatio: decimal("sharpe_ratio", { precision: 10, scale: 4 }),
+  beta: decimal("beta", { precision: 10, scale: 4 }),
+  
+  dataSource: varchar("data_source").notNull(),
+  secondarySource: varchar("secondary_source"),
+  confidenceScore: integer("confidence_score").default(100),
+  isVerified: boolean("is_verified").default(false),
+  verificationNotes: text("verification_notes"),
+  
+  priceUpdatedAt: timestamp("price_updated_at"),
+  fetchedAt: timestamp("fetched_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_fin_cache_type").on(table.instrumentType),
+  index("idx_fin_cache_symbol").on(table.symbol),
+  index("idx_fin_cache_type_symbol").on(table.instrumentType, table.symbol),
+  index("idx_fin_cache_exchange").on(table.exchange),
+]);
+
+export const insertFinancialInstrumentsCacheSchema = createInsertSchema(financialInstrumentsCache).omit({ 
+  id: true, createdAt: true, updatedAt: true, fetchedAt: true 
+});
+export type FinancialInstrumentsCache = typeof financialInstrumentsCache.$inferSelect;
+export type InsertFinancialInstrumentsCache = z.infer<typeof insertFinancialInstrumentsCacheSchema>;
