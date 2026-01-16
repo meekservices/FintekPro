@@ -3565,7 +3565,11 @@ export default function AgentProspectWizard() {
             </Button>
             <Button 
               onClick={() => getRebalancingMutation.mutate()}
-              disabled={getRebalancingMutation.isPending || (selectedCategories.length === 0 && !hasGlobalAdvisorySelections)}
+              disabled={
+                getRebalancingMutation.isPending || 
+                (selectedCategories.length === 0 && !hasGlobalAdvisorySelections) ||
+                (selectedCategories.length > 0 && Object.values(customAllocations).reduce((a, b) => a + b, 0) !== 100)
+              }
               data-testid="get-rebalancing-btn"
             >
               {getRebalancingMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
