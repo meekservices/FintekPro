@@ -1,5 +1,5 @@
-const VERSION = '8';
-const BUILD_TIMESTAMP = '1736700000000';
+const VERSION = '9';
+const BUILD_TIMESTAMP = '1737016500000';
 const CACHE_PREFIX = 'fintekpro';
 const STATIC_CACHE_NAME = `${CACHE_PREFIX}-static-v${VERSION}`;
 const DYNAMIC_CACHE_NAME = `${CACHE_PREFIX}-dynamic-v${VERSION}`;
@@ -188,15 +188,26 @@ async function cacheFirstWithNetwork(request) {
 }
 
 self.addEventListener('message', (event) => {
-  if (event.data === 'skipWaiting') {
+  const data = event.data;
+  
+  if (data === 'skipWaiting') {
     self.skipWaiting();
+    return;
   }
-  if (event.data === 'clearCache') {
+  
+  if (data === 'clearCache') {
     caches.keys().then((names) => {
-      names.forEach((name) => caches.delete(name));
+      Promise.all(names.map((name) => caches.delete(name)));
     });
+    return;
   }
-  if (event.data === 'getVersion') {
-    event.ports[0].postMessage({ version: VERSION, build: BUILD_TIMESTAMP });
+  
+  if (data === 'getVersion') {
+    if (event.ports && event.ports[0]) {
+      event.ports[0].postMessage({ version: VERSION, build: BUILD_TIMESTAMP });
+    }
+    return;
   }
+  
+  // Ignore unknown messages silently to prevent channel errors
 });
