@@ -380,8 +380,17 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   if (!user) {
-    window.location.href = '/auth';
-    return null;
+    if (typeof window !== 'undefined') {
+      window.location.href = '/auth';
+    }
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-400">Redirecting to login...</p>
+        </div>
+      </div>
+    );
   }
 
   const isAdmin = user.roles?.includes('admin') || user.roles?.includes('superadmin');
@@ -395,11 +404,16 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             Access Denied
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
-            This admin portal is restricted to administrators only.
+            This admin portal is restricted to administrators only. Please sign in with an admin account.
           </p>
-          <Button asChild className="w-full">
-            <a href="https://fintekpro.com">Go to Main Portal</a>
-          </Button>
+          <div className="space-y-3">
+            <Button asChild className="w-full">
+              <a href="/auth">Sign In</a>
+            </Button>
+            <Button variant="outline" asChild className="w-full">
+              <a href="https://fintekpro.com">Go to Main Portal</a>
+            </Button>
+          </div>
         </div>
       </div>
     );
