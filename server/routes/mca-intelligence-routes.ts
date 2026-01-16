@@ -705,40 +705,8 @@ router.get('/profitable-companies', requireMcaAccess('read'), async (req: Reques
   }
 });
 
-/**
- * GET /api/mca/company/:cin
- * Lookup company by CIN
- */
-router.get('/company/:cin', requireMcaAccess('read'), async (req: Request, res: Response) => {
-  try {
-    const { cin } = req.params;
-    if (!cin || cin.length !== 21) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid CIN format. CIN must be 21 characters.',
-      });
-    }
-
-    const user = (req as any).user;
-    const result = await mcaIntelligenceService.handleQuery(
-      'company_lookup',
-      { cin },
-      {
-        id: user?.id,
-        name: user?.name || user?.email,
-        role: getMcaRole(req),
-      }
-    );
-
-    res.json(result);
-  } catch (error: any) {
-    console.error('[MCA Routes] Company lookup error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
-});
+// NOTE: Primary /company/:cin handler is defined in Phase 1.3 section (line ~1304)
+// with caching support via mcaDataCacheService.getCompanyWithCache
 
 /**
  * GET /api/mca/company/:cin/financials
@@ -1410,65 +1378,8 @@ router.get('/company/:cin', requireMcaAccess('read'), async (req: Request, res: 
   }
 });
 
-/**
- * GET /api/mca/company/:cin/financials
- * Get financial history API with FY-wise data series
- */
-router.get('/company/:cin/financials', requireMcaAccess('read'), async (req: Request, res: Response) => {
-  try {
-    const { cin } = req.params;
-    const maxYears = parseInt(req.query.years as string) || 10;
-
-    if (!cin || cin.length !== 21) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid CIN format',
-      });
-    }
-
-    const cachedData = await mcaDataCacheService.getCachedCompany(cin);
-    
-    if (!cachedData) {
-      return res.status(404).json({
-        success: false,
-        error: 'Company not found in cache. Use /company/:cin to fetch first.',
-      });
-    }
-
-    const financials = cachedData.financials.slice(0, maxYears);
-
-    res.json({
-      success: true,
-      data: {
-        cin,
-        companyName: cachedData.company.companyName,
-        financials: financials.map(f => ({
-          financialYear: f.financialYear,
-          revenue: f.revenue,
-          profitBeforeTax: f.profitBeforeTax,
-          profitAfterTax: f.profitAfterTax,
-          netWorth: f.netWorth,
-          totalAssets: f.totalAssets,
-          totalLiabilities: f.totalLiabilities,
-          shareCapital: f.shareCapital,
-          reserves: f.reserves,
-          longTermBorrowing: f.longTermBorrowing,
-          shortTermBorrowing: f.shortTermBorrowing,
-        })),
-      },
-      meta: {
-        totalYears: financials.length,
-        dataSource: 'FintekPro MCA Database',
-      },
-    });
-  } catch (error: any) {
-    console.error('[MCA Financials] Error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
-});
+// NOTE: /company/:cin/financials is defined above (line ~716) with ratio computation
+// This duplicate has been removed to avoid route conflicts
 
 /**
  * GET /api/mca/search
