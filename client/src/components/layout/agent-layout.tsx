@@ -76,10 +76,11 @@ const agentNavCategories: NavCategory[] = [
     ]
   },
   {
-    title: "Zoho CRM",
+    title: "Leads & CRM",
     icon: Target,
     items: [
-      { title: "Leads", href: "/agent/zoho-crm", icon: Target, description: "All leads from Zoho" },
+      { title: "Lead Pipeline", href: "/agent/leads", icon: TrendingUp, description: "Manage your lead pipeline" },
+      { title: "Zoho CRM", href: "/agent/zoho-crm", icon: Target, description: "All leads from Zoho" },
       { title: "Tasks", href: "/agent/tasks", icon: CheckSquare, description: "Tasks and reminders" },
       { title: "Calendar", href: "/agent/calendar", icon: Calendar, description: "Appointments" },
     ]
@@ -128,7 +129,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
   const { user, isLoading } = useAuth();
   const [location, navigate] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(["Dashboard", "Zoho CRM"]));
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(["Dashboard", "Leads & CRM"]));
   const [searchOpen, setSearchOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
