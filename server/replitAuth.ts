@@ -11,8 +11,18 @@ import { storage } from "./storage";
 import { generateUniqueUserId, hashPassword } from "./auth";
 import { PANConsentService } from "./services/pan-consent-service";
 
+// Custom domains for FintekPro - these need auth strategies even if not in REPLIT_DOMAINS
+const CUSTOM_DOMAINS = [
+  'fintekpro.com',
+  'www.fintekpro.com',
+  'admin.fintekpro.com',
+  'agent.fintekpro.com',
+  'partner.fintekpro.com'
+];
+
+// REPLIT_DOMAINS may not be set in production deployments with custom domains
 if (!process.env.REPLIT_DOMAINS) {
-  throw new Error("Environment variable REPLIT_DOMAINS not provided");
+  console.warn("⚠️ REPLIT_DOMAINS not set - using custom domains only for auth");
 }
 
 const getOidcConfig = memoize(
@@ -179,8 +189,16 @@ export async function setupAuth(app: Express) {
     verified(null, dbUser);
   };
 
-  for (const domain of process.env
-    .REPLIT_DOMAINS!.split(",")) {
+  // Combine REPLIT_DOMAINS with custom domains, ensuring no duplicates
+  const replitDomains = process.env.REPLIT_DOMAINS 
+    ? process.env.REPLIT_DOMAINS.split(",").map(d => d.trim())
+    : [];
+  const allDomains = [...new Set([...replitDomains, ...CUSTOM_DOMAINS])];
+  
+  console.log(`[Auth] Registering strategies for domains: ${allDomains.join(', ')}`);
+  
+  for (const domain of allDomains) {
+    if (!domain) continue; // Skip empty strings
     const strategy = new Strategy(
       {
         name: `replitauth:${domain}`,
@@ -213,14 +231,44 @@ export async function setupAuth(app: Express) {
   });
 
   app.get("/api/login", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, {
+    // Try exact hostname first, then fall back to base domain
+    let strategyName = `replitauth:${req.hostname}`;
+    
+    // If strategy doesn't exist for this hostname, try the base domain
+    if (!passport._strategy(strategyName)) {
+      // Extract base domain (e.g., admin.fintekpro.com -> fintekpro.com)
+      const parts = req.hostname.split('.');
+      if (parts.length > 2) {
+        const baseDomain = parts.slice(-2).join('.');
+        const baseStrategy = `replitauth:${baseDomain}`;
+        if (passport._strategy(baseStrategy)) {
+          strategyName = baseStrategy;
+        }
+      }
+    }
+    
+    passport.authenticate(strategyName, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
   });
 
   app.get("/api/callback", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, {
+    // Try exact hostname first, then fall back to base domain
+    let strategyName = `replitauth:${req.hostname}`;
+    
+    if (!passport._strategy(strategyName)) {
+      const parts = req.hostname.split('.');
+      if (parts.length > 2) {
+        const baseDomain = parts.slice(-2).join('.');
+        const baseStrategy = `replitauth:${baseDomain}`;
+        if (passport._strategy(baseStrategy)) {
+          strategyName = baseStrategy;
+        }
+      }
+    }
+    
+    passport.authenticate(strategyName, {
       successReturnToOrRedirect: "/",
       failureRedirect: "/api/login",
     })(req, res, next);
