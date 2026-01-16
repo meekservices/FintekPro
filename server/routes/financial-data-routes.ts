@@ -108,25 +108,8 @@ export function registerFinancialDataRoutes(app: Express): void {
 
   app.get('/api/financial-data/for-proposals', async (req: Request, res: Response) => {
     try {
-      const client = await pool.connect();
-      try {
-        const [stocks, etfs, mutualFunds, debt] = await Promise.all([
-          client.query(`SELECT * FROM financial_instruments_cache WHERE instrument_type = 'global_stock' ORDER BY confidence_score DESC LIMIT 50`),
-          client.query(`SELECT * FROM financial_instruments_cache WHERE instrument_type = 'etf' ORDER BY confidence_score DESC LIMIT 50`),
-          client.query(`SELECT * FROM financial_instruments_cache WHERE instrument_type = 'mutual_fund' ORDER BY confidence_score DESC LIMIT 50`),
-          client.query(`SELECT * FROM financial_instruments_cache WHERE instrument_type IN ('bond', 'ncd', 'govt_security') ORDER BY confidence_score DESC LIMIT 50`),
-        ]);
-        
-        res.json({
-          globalStocks: stocks.rows,
-          etfs: etfs.rows,
-          mutualFunds: mutualFunds.rows,
-          debtInstruments: debt.rows,
-          lastUpdated: new Date().toISOString(),
-        });
-      } finally {
-        client.release();
-      }
+      const data = await financialDataRepository.getInstrumentsForProposals();
+      res.json(data);
     } catch (error) {
       console.error('Proposals data error:', error);
       res.status(500).json({ message: 'Failed to fetch proposal data' });
