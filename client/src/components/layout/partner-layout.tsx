@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import { getPortalQueryParams } from "@/hooks/useSubdomain";
 import {
   Home,
   Bell,
@@ -196,7 +197,7 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
     mutationFn: () => apiRequest("/api/logout", { method: "POST" }),
     onSuccess: () => {
       // Redirect to auth page, staying on the partner subdomain
-      window.location.href = "/auth";
+      window.location.href = "/auth" + getPortalQueryParams();
     },
   });
 
@@ -210,7 +211,7 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
 
   if (!user) {
     if (typeof window !== 'undefined') {
-      window.location.href = '/auth';
+      window.location.href = '/auth' + getPortalQueryParams();
     }
     return (
       <div className="min-h-screen bg-indigo-950 flex items-center justify-center">

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { getPortalQueryParams } from "@/hooks/useSubdomain";
 import {
   Users,
   BarChart3,
@@ -169,7 +170,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
     mutationFn: () => apiRequest("/api/logout", { method: "POST" }),
     onSuccess: () => {
       // Redirect to auth page, staying on the agent subdomain
-      window.location.href = "/auth";
+      window.location.href = "/auth" + getPortalQueryParams();
     },
   });
 
@@ -354,7 +355,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
 
   if (!user) {
     if (typeof window !== 'undefined') {
-      window.location.href = '/auth';
+      window.location.href = '/auth' + getPortalQueryParams();
     }
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
