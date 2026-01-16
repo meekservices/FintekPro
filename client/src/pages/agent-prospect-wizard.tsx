@@ -550,6 +550,16 @@ export default function AgentProspectWizard() {
     });
   }, [totalPortfolioValue]);
   
+  // Apply AI defaults when entering Step 5 in AI mode or when risk profile changes
+  useEffect(() => {
+    if (currentStep === 5 && categorySelectionMode === 'ai_default') {
+      // Apply AI defaults based on current risk profile
+      const aiCategories = getAIDefaultCategories(riskProfile.riskTolerance);
+      setSelectedCategories(aiCategories);
+      setCustomAllocations(DEFAULT_ALLOCATIONS[riskProfile.riskTolerance as keyof typeof DEFAULT_ALLOCATIONS] || DEFAULT_ALLOCATIONS.moderate);
+    }
+  }, [currentStep, categorySelectionMode, riskProfile.riskTolerance]);
+  
   // Portfolio Import State
   const [importMode, setImportMode] = useState<'manual' | 'upload' | 'url'>('manual');
   const [importUrl, setImportUrl] = useState('');
@@ -2978,7 +2988,17 @@ export default function AgentProspectWizard() {
                     ? 'border-primary bg-primary/5' 
                     : 'border-muted hover:border-muted-foreground/50'
                 }`}
-                onClick={() => setCategorySelectionMode('manual')}
+                onClick={() => {
+                  setCategorySelectionMode('manual');
+                  // When switching to manual mode, clear all selections so user starts fresh
+                  setSelectedCategories([]);
+                  // Reset all allocations to zero
+                  setCustomAllocations({
+                    equity: 0, debt: 0, hybrid: 0, gold: 0, silver: 0, index: 0,
+                    international: 0, reit: 0, invit: 0, bonds: 0, mld: 0,
+                    listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0, global_advisory: 0
+                  });
+                }}
                 data-testid="mode-manual"
               >
                 <div className="flex items-start gap-3">
@@ -3036,7 +3056,43 @@ export default function AgentProspectWizard() {
                     <h3 className="font-medium">Select Product Categories</h3>
                     <p className="text-sm text-muted-foreground">Choose which categories to include in the proposal</p>
                   </div>
-                  <Badge variant="outline">{selectedCategories.length} selected</Badge>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        // Select all eligible categories and compute allocations
+                        const eligibleCategories = PRODUCT_CATEGORY_OPTIONS
+                          .filter(c => !c.minInvestment || totalPortfolioValue >= c.minInvestment)
+                          .map(c => c.id);
+                        setSelectedCategories(eligibleCategories);
+                        const newAllocations = computeAllocationsForSelectedCategories(
+                          eligibleCategories,
+                          riskProfile.riskTolerance as keyof typeof DEFAULT_ALLOCATIONS
+                        );
+                        setCustomAllocations(newAllocations);
+                      }}
+                      data-testid="select-all-categories-btn"
+                    >
+                      Select All
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedCategories([]);
+                        setCustomAllocations({
+                          equity: 0, debt: 0, hybrid: 0, gold: 0, silver: 0, index: 0,
+                          international: 0, reit: 0, invit: 0, bonds: 0, mld: 0,
+                          listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0, global_advisory: 0
+                        });
+                      }}
+                      data-testid="clear-all-categories-btn"
+                    >
+                      Clear All
+                    </Button>
+                    <Badge variant="outline">{selectedCategories.length} selected</Badge>
+                  </div>
                 </div>
                 <div className="grid md:grid-cols-2 gap-3">
                   {PRODUCT_CATEGORY_OPTIONS.map(category => {
