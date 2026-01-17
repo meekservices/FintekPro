@@ -19428,6 +19428,41 @@ export const insertPmsMasterSchema = createInsertSchema(pmsMaster).omit({
 export type PmsMaster = typeof pmsMaster.$inferSelect;
 export type InsertPmsMaster = z.infer<typeof insertPmsMasterSchema>;
 
+// ============ GIFT CITY IFSC PRODUCTS ============
+// Products offered in GIFT City International Financial Services Centre
+
+export const giftCityProducts = pgTable("gift_city_products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  category: varchar("category", { length: 100 }).notNull(),
+  subcategory: varchar("subcategory", { length: 100 }),
+  minimumInvestment: decimal("minimum_investment", { precision: 20, scale: 2 }),
+  currency: varchar("currency", { length: 20 }).default("USD"),
+  expectedReturns: varchar("expected_returns", { length: 50 }),
+  riskLevel: varchar("risk_level", { length: 50 }),
+  provider: varchar("provider", { length: 255 }),
+  features: text("features").array(),
+  regulatoryBenefits: text("regulatory_benefits").array(),
+  eligibility: text("eligibility").array(),
+  isPublished: boolean("is_published").default(true).notNull(),
+  isPremium: boolean("is_premium").default(false).notNull(),
+  isLimited: boolean("is_limited").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_gift_city_products_category").on(table.category),
+  index("idx_gift_city_products_published").on(table.isPublished),
+]);
+
+export const insertGiftCityProductSchema = createInsertSchema(giftCityProducts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type GiftCityProduct = typeof giftCityProducts.$inferSelect;
+export type InsertGiftCityProduct = z.infer<typeof insertGiftCityProductSchema>;
+
 // ============ FUND PERFORMANCE MONTHWISE ============
 // Monthly performance data for Finalyca-style charts
 
