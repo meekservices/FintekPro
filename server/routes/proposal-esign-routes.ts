@@ -1,6 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { proposalEsignWorkflowService, WorkflowStatus, ParticipantRole, SignatureMethod } from '../services/proposal-esign-workflow-service';
 import { z } from 'zod';
+import { db } from '../db';
+import { proposalEsignParticipants, proposalEsignWorkflows, proposalEsignFieldEdits, prospectProposals, proposalEsignComments } from '@shared/schema';
+import { eq, or, and } from 'drizzle-orm';
 
 const router = Router();
 
@@ -14,6 +17,60 @@ const getAuditContext = (req: Request) => ({
   userAgent: req.headers['user-agent'],
   deviceType: req.headers['user-agent']?.includes('Mobile') ? 'mobile' : 'desktop',
 });
+
+const ADMIN_ROLES = ['admin', 'super_admin', 'compliance_officer'];
+
+async function isAuthorizedForWorkflow(userId: string, userEmail: string, userRole: string, workflowId: string): Promise<{ authorized: boolean; participant?: any; isCreator?: boolean; isAdmin?: boolean }> {
+  if (ADMIN_ROLES.includes(userRole)) {
+    return { authorized: true, isAdmin: true };
+  }
+  
+  const [workflow] = await db.select().from(proposalEsignWorkflows)
+    .where(eq(proposalEsignWorkflows.id, workflowId))
+    .limit(1);
+  
+  if (!workflow) {
+    return { authorized: false };
+  }
+  
+  if (workflow.createdBy === userId) {
+    return { authorized: true, isCreator: true };
+  }
+  
+  const [participant] = await db.select().from(proposalEsignParticipants)
+    .where(
+      and(
+        eq(proposalEsignParticipants.workflowId, workflowId),
+        or(
+          eq(proposalEsignParticipants.userId, userId),
+          eq(proposalEsignParticipants.email, userEmail)
+        )
+      )
+    )
+    .limit(1);
+  
+  if (participant) {
+    return { authorized: true, participant };
+  }
+  
+  return { authorized: false };
+}
+
+async function requireWorkflowAccess(req: Request, res: Response, workflowId: string): Promise<{ authorized: boolean; participant?: any; isCreator?: boolean; isAdmin?: boolean } | null> {
+  const user = (req as any).user;
+  if (!user) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return null;
+  }
+  
+  const auth = await isAuthorizedForWorkflow(user.id, user.email, user.role, workflowId);
+  if (!auth.authorized) {
+    res.status(403).json({ error: 'You do not have access to this workflow' });
+    return null;
+  }
+  
+  return auth;
+}
 
 const createWorkflowSchema = z.object({
   proposalId: z.string(),
@@ -67,6 +124,10 @@ router.post('/workflows', async (req: Request, res: Response) => {
 router.get('/workflows/:workflowId', async (req: Request, res: Response) => {
   try {
     const { workflowId } = req.params;
+    
+    const auth = await requireWorkflowAccess(req, res, workflowId);
+    if (!auth) return;
+    
     const workflow = await proposalEsignWorkflowService.getWorkflowWithDetails(workflowId);
 
     if (!workflow) {
@@ -82,12 +143,20 @@ router.get('/workflows/:workflowId', async (req: Request, res: Response) => {
 
 router.get('/workflows/proposal/:proposalId', async (req: Request, res: Response) => {
   try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
     const { proposalId } = req.params;
     const workflow = await proposalEsignWorkflowService.getWorkflowByProposal(proposalId);
 
     if (!workflow) {
       return res.status(404).json({ error: 'No workflow found for this proposal' });
     }
+    
+    const auth = await requireWorkflowAccess(req, res, workflow.id);
+    if (!auth) return;
 
     const details = await proposalEsignWorkflowService.getWorkflowWithDetails(workflow.id);
     res.json({ success: true, workflow: details });
@@ -145,6 +214,14 @@ const addParticipantSchema = z.object({
 router.post('/workflows/:workflowId/participants', async (req: Request, res: Response) => {
   try {
     const { workflowId } = req.params;
+    
+    const auth = await requireWorkflowAccess(req, res, workflowId);
+    if (!auth) return;
+    
+    if (!auth.isCreator && !auth.isAdmin) {
+      return res.status(403).json({ error: 'Only workflow creator or admin can add participants' });
+    }
+    
     const parsed = addParticipantSchema.safeParse(req.body);
     
     if (!parsed.success) {
@@ -184,6 +261,14 @@ router.post('/workflows/:workflowId/versions', async (req: Request, res: Respons
     }
 
     const { workflowId } = req.params;
+    
+    const auth = await requireWorkflowAccess(req, res, workflowId);
+    if (!auth) return;
+    
+    if (!auth.isCreator && !auth.isAdmin && !(auth.participant?.canEdit)) {
+      return res.status(403).json({ error: 'You do not have permission to create versions for this workflow' });
+    }
+    
     const parsed = createVersionSchema.safeParse(req.body);
     
     if (!parsed.success) {
@@ -220,6 +305,14 @@ router.post('/workflows/:workflowId/edits', async (req: Request, res: Response) 
     }
 
     const { workflowId } = req.params;
+    
+    const auth = await requireWorkflowAccess(req, res, workflowId);
+    if (!auth) return;
+    
+    if (!auth.isCreator && !auth.isAdmin && !(auth.participant?.canEdit)) {
+      return res.status(403).json({ error: 'You do not have permission to edit this workflow' });
+    }
+    
     const parsed = fieldEditSchema.safeParse(req.body);
     
     if (!parsed.success) {
@@ -248,6 +341,22 @@ router.post('/edits/:editId/approve', async (req: Request, res: Response) => {
     }
 
     const { editId } = req.params;
+    
+    const [edit] = await db.select().from(proposalEsignFieldEdits)
+      .where(eq(proposalEsignFieldEdits.id, editId))
+      .limit(1);
+    
+    if (!edit) {
+      return res.status(404).json({ error: 'Edit not found' });
+    }
+    
+    const auth = await requireWorkflowAccess(req, res, edit.workflowId);
+    if (!auth) return;
+    
+    if (!auth.isCreator && !auth.isAdmin && !auth.participant?.canApprove) {
+      return res.status(403).json({ error: 'You do not have permission to approve edits' });
+    }
+    
     await proposalEsignWorkflowService.approveFieldEdit(editId, user.id);
 
     res.json({ success: true, message: 'Edit approved' });
@@ -269,6 +378,21 @@ router.post('/edits/:editId/reject', async (req: Request, res: Response) => {
 
     if (!reason) {
       return res.status(400).json({ error: 'Rejection reason is required' });
+    }
+    
+    const [edit] = await db.select().from(proposalEsignFieldEdits)
+      .where(eq(proposalEsignFieldEdits.id, editId))
+      .limit(1);
+    
+    if (!edit) {
+      return res.status(404).json({ error: 'Edit not found' });
+    }
+    
+    const auth = await requireWorkflowAccess(req, res, edit.workflowId);
+    if (!auth) return;
+    
+    if (!auth.isCreator && !auth.isAdmin && !auth.participant?.canApprove) {
+      return res.status(403).json({ error: 'You do not have permission to reject edits' });
     }
 
     await proposalEsignWorkflowService.rejectFieldEdit(editId, user.id, reason);
@@ -299,6 +423,10 @@ router.post('/workflows/:workflowId/comments', async (req: Request, res: Respons
     }
 
     const { workflowId } = req.params;
+    
+    const auth = await requireWorkflowAccess(req, res, workflowId);
+    if (!auth) return;
+    
     const parsed = addCommentSchema.safeParse(req.body);
     
     if (!parsed.success) {
@@ -326,6 +454,18 @@ router.post('/comments/:commentId/resolve', async (req: Request, res: Response) 
     }
 
     const { commentId } = req.params;
+    
+    const [comment] = await db.select().from(proposalEsignComments)
+      .where(eq(proposalEsignComments.id, commentId))
+      .limit(1);
+    
+    if (!comment) {
+      return res.status(404).json({ error: 'Comment not found' });
+    }
+    
+    const auth = await requireWorkflowAccess(req, res, comment.workflowId);
+    if (!auth) return;
+    
     await proposalEsignWorkflowService.resolveCommentThread(commentId, user.id);
 
     res.json({ success: true, message: 'Comment thread resolved' });
@@ -343,6 +483,14 @@ router.post('/workflows/:workflowId/status', async (req: Request, res: Response)
     }
 
     const { workflowId } = req.params;
+    
+    const auth = await requireWorkflowAccess(req, res, workflowId);
+    if (!auth) return;
+    
+    if (!auth.isCreator && !auth.isAdmin) {
+      return res.status(403).json({ error: 'Only workflow creator or admin can change workflow status' });
+    }
+    
     const { status } = req.body;
 
     const validStatuses: WorkflowStatus[] = ['draft', 'pending_edit', 'pending_approval', 'pending_signature', 'cancelled'];
@@ -366,11 +514,37 @@ const initiateSignatureSchema = z.object({
 
 router.post('/workflows/:workflowId/sign/initiate', async (req: Request, res: Response) => {
   try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
     const { workflowId } = req.params;
+    
+    const auth = await requireWorkflowAccess(req, res, workflowId);
+    if (!auth) return;
+    
     const parsed = initiateSignatureSchema.safeParse(req.body);
     
     if (!parsed.success) {
       return res.status(400).json({ error: 'Invalid request', details: parsed.error.errors });
+    }
+    
+    const [participant] = await db.select().from(proposalEsignParticipants)
+      .where(eq(proposalEsignParticipants.id, parsed.data.participantId))
+      .limit(1);
+    
+    if (!participant || participant.workflowId !== workflowId) {
+      return res.status(404).json({ error: 'Participant not found' });
+    }
+    
+    const isOwnSignature = participant.userId === user.id || participant.email === user.email;
+    if (!isOwnSignature && !auth.isCreator && !auth.isAdmin) {
+      return res.status(403).json({ error: 'You can only initiate your own signature or be admin/creator' });
+    }
+    
+    if (!participant.canSign) {
+      return res.status(403).json({ error: 'This participant does not have signing permission' });
     }
 
     const context = getAuditContext(req);
@@ -398,11 +572,33 @@ const recordSignatureSchema = z.object({
 
 router.post('/workflows/:workflowId/sign/complete', async (req: Request, res: Response) => {
   try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
     const { workflowId } = req.params;
+    
+    const auth = await requireWorkflowAccess(req, res, workflowId);
+    if (!auth) return;
+    
     const parsed = recordSignatureSchema.safeParse(req.body);
     
     if (!parsed.success) {
       return res.status(400).json({ error: 'Invalid request', details: parsed.error.errors });
+    }
+    
+    const [participant] = await db.select().from(proposalEsignParticipants)
+      .where(eq(proposalEsignParticipants.id, parsed.data.participantId))
+      .limit(1);
+    
+    if (!participant || participant.workflowId !== workflowId) {
+      return res.status(404).json({ error: 'Participant not found' });
+    }
+    
+    const isOwnSignature = participant.userId === user.id || participant.email === user.email;
+    if (!isOwnSignature && !auth.isCreator && !auth.isAdmin) {
+      return res.status(403).json({ error: 'You can only complete your own signature or be admin/creator' });
     }
 
     const context = getAuditContext(req);
@@ -427,11 +623,33 @@ router.post('/workflows/:workflowId/sign/complete', async (req: Request, res: Re
 
 router.post('/workflows/:workflowId/decline', async (req: Request, res: Response) => {
   try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
     const { workflowId } = req.params;
+    
+    const auth = await requireWorkflowAccess(req, res, workflowId);
+    if (!auth) return;
+    
     const { participantId, reason } = req.body;
 
     if (!participantId || !reason) {
       return res.status(400).json({ error: 'Participant ID and reason are required' });
+    }
+    
+    const [participant] = await db.select().from(proposalEsignParticipants)
+      .where(eq(proposalEsignParticipants.id, participantId))
+      .limit(1);
+    
+    if (!participant || participant.workflowId !== workflowId) {
+      return res.status(404).json({ error: 'Participant not found' });
+    }
+    
+    const isOwnAction = participant.userId === user.id || participant.email === user.email;
+    if (!isOwnAction && !auth.isCreator && !auth.isAdmin) {
+      return res.status(403).json({ error: 'You can only decline on your own behalf or be admin/creator' });
     }
 
     const context = getAuditContext(req);
@@ -446,11 +664,33 @@ router.post('/workflows/:workflowId/decline', async (req: Request, res: Response
 
 router.post('/workflows/:workflowId/view', async (req: Request, res: Response) => {
   try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
     const { workflowId } = req.params;
+    
+    const auth = await requireWorkflowAccess(req, res, workflowId);
+    if (!auth) return;
+    
     const { participantId } = req.body;
 
     if (!participantId) {
       return res.status(400).json({ error: 'Participant ID is required' });
+    }
+    
+    const [participant] = await db.select().from(proposalEsignParticipants)
+      .where(eq(proposalEsignParticipants.id, participantId))
+      .limit(1);
+    
+    if (!participant || participant.workflowId !== workflowId) {
+      return res.status(404).json({ error: 'Participant not found' });
+    }
+    
+    const isOwnView = participant.userId === user.id || participant.email === user.email;
+    if (!isOwnView && !auth.isCreator && !auth.isAdmin) {
+      return res.status(403).json({ error: 'You can only record your own views or be admin/creator' });
     }
 
     const context = getAuditContext(req);
@@ -471,6 +711,14 @@ router.post('/workflows/:workflowId/negotiate', async (req: Request, res: Respon
     }
 
     const { workflowId } = req.params;
+    
+    const auth = await requireWorkflowAccess(req, res, workflowId);
+    if (!auth) return;
+    
+    if (!auth.isCreator && !auth.isAdmin) {
+      return res.status(403).json({ error: 'Only workflow creator or admin can start negotiation rounds' });
+    }
+    
     await proposalEsignWorkflowService.startNegotiationRound(workflowId, user.id);
 
     res.json({ success: true, message: 'New negotiation round started' });
@@ -483,6 +731,14 @@ router.post('/workflows/:workflowId/negotiate', async (req: Request, res: Respon
 router.post('/workflows/:workflowId/remind/:participantId', async (req: Request, res: Response) => {
   try {
     const { workflowId, participantId } = req.params;
+    
+    const auth = await requireWorkflowAccess(req, res, workflowId);
+    if (!auth) return;
+    
+    if (!auth.isCreator && !auth.isAdmin) {
+      return res.status(403).json({ error: 'Only workflow creator or admin can send reminders' });
+    }
+    
     await proposalEsignWorkflowService.sendReminder(workflowId, participantId);
 
     res.json({ success: true, message: 'Reminder sent' });
@@ -495,6 +751,14 @@ router.post('/workflows/:workflowId/remind/:participantId', async (req: Request,
 router.get('/workflows/:workflowId/audit', async (req: Request, res: Response) => {
   try {
     const { workflowId } = req.params;
+    
+    const auth = await requireWorkflowAccess(req, res, workflowId);
+    if (!auth) return;
+    
+    if (!auth.isCreator && !auth.isAdmin && !auth.participant?.canApprove) {
+      return res.status(403).json({ error: 'Only creators, admins, or approvers can view audit logs' });
+    }
+    
     const limit = parseInt(req.query.limit as string) || 100;
 
     const auditLog = await proposalEsignWorkflowService.getAuditLog(workflowId, limit);
@@ -521,9 +785,48 @@ router.post('/webhooks/zoho-sign', async (req: Request, res: Response) => {
 
 import { investmentAgreementGenerator } from '../services/investment-agreement-generator';
 
+async function isAuthorizedForProposal(userId: string, userEmail: string, userRole: string, proposalId: string): Promise<boolean> {
+  if (ADMIN_ROLES.includes(userRole)) {
+    return true;
+  }
+  
+  const [proposal] = await db.select().from(prospectProposals)
+    .where(eq(prospectProposals.id, proposalId))
+    .limit(1);
+  
+  if (!proposal) {
+    return false;
+  }
+  
+  if (proposal.agentId === userId || proposal.clientUserId === userId) {
+    return true;
+  }
+  
+  const [workflow] = await db.select().from(proposalEsignWorkflows)
+    .where(eq(proposalEsignWorkflows.proposalId, proposalId))
+    .limit(1);
+  
+  if (!workflow) {
+    return true;
+  }
+  
+  const auth = await isAuthorizedForWorkflow(userId, userEmail, userRole, workflow.id);
+  return auth.authorized;
+}
+
 router.get('/agreements/:proposalId/preview', async (req: Request, res: Response) => {
   try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
     const { proposalId } = req.params;
+    
+    if (!(await isAuthorizedForProposal(user.id, user.email, user.role, proposalId))) {
+      return res.status(403).json({ error: 'You do not have access to this proposal' });
+    }
+    
     const html = await investmentAgreementGenerator.previewAgreement(proposalId);
     
     res.setHeader('Content-Type', 'text/html');
@@ -536,7 +839,17 @@ router.get('/agreements/:proposalId/preview', async (req: Request, res: Response
 
 router.post('/agreements/:proposalId/generate', async (req: Request, res: Response) => {
   try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
     const { proposalId } = req.params;
+    
+    if (!(await isAuthorizedForProposal(user.id, user.email, user.role, proposalId))) {
+      return res.status(403).json({ error: 'You do not have access to this proposal' });
+    }
+    
     const { versionNumber, watermark } = req.body;
 
     let agreement;
@@ -555,7 +868,17 @@ router.post('/agreements/:proposalId/generate', async (req: Request, res: Respon
 
 router.get('/agreements/:proposalId/fields', async (req: Request, res: Response) => {
   try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
     const { proposalId } = req.params;
+    
+    if (!(await isAuthorizedForProposal(user.id, user.email, user.role, proposalId))) {
+      return res.status(403).json({ error: 'You do not have access to this proposal' });
+    }
+    
     const agreement = await investmentAgreementGenerator.createFinalAgreement(proposalId);
 
     res.json({ success: true, editableFields: agreement.editableFields });
