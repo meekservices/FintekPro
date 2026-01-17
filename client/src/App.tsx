@@ -1184,6 +1184,15 @@ function AdminRoutes() {
           </AdminLayout>
         )}
       </Route>
+      <Route path="/admin/store/seed/listed-securities">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <ListedStocksSeed />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
       <Route path="/admin/recommendation-products">
         {() => (
           <AdminLayout>
