@@ -1221,6 +1221,15 @@ function AdminRoutes() {
           </AdminLayout>
         )}
       </Route>
+      <Route path="/admin/store/seed/pms">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <PmsSeedAdmin />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
       <Route path="/admin/recommendation-products">
         {() => (
           <AdminLayout>
