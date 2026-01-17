@@ -532,6 +532,11 @@ app.use((req, res, next) => {
   app.use('/api/esign', dscEsignRoutes.default);
   console.log('✅ DSC Token eSign routes registered');
   
+  // Register Proposal eSign Workflow routes
+  const proposalEsignRoutes = await import('./routes/proposal-esign-routes');
+  app.use('/api/proposal-esign', proposalEsignRoutes.default);
+  console.log('✅ Proposal eSign workflow routes registered');
+  
   // Register CA (Chartered Accountant) routes
   const caRoutes = await import('./routes/ca-routes');
   app.use('/api/ca', caRoutes.default);
