@@ -3,6 +3,7 @@ import { db } from '../db';
 import { eq, and, sql, desc, ilike, or, gte, lte, asc } from 'drizzle-orm';
 import { reits, invits, reitInvitOrders, reitInvitHoldings, users, userProfiles } from '@shared/schema';
 import { z } from 'zod';
+import { reitInvitDataService } from '../services/reit-invit-data-service';
 import { aiReitInvitService, ReitInvitAsset } from '../services/ai-reit-invit-service';
 
 const router = Router();
@@ -1125,6 +1126,115 @@ router.patch('/store/invits/:id/publish', async (req: Request, res: Response) =>
   } catch (error) {
     console.error('Error toggling InvIT publish status:', error);
     res.status(500).json({ error: 'Failed to update publish status' });
+  }
+});
+
+
+// ============================================
+// DATA REFRESH ROUTES (NSE/BSE/Yahoo Integration)
+// ============================================
+
+// GET /data-refresh/status - Get refresh service status
+router.get('/data-refresh/status', async (req: Request, res: Response) => {
+  try {
+    const status = reitInvitDataService.getStatus();
+    res.json({
+      success: true,
+      status,
+      knownReits: reitInvitDataService.getKnownReits(),
+      knownInvits: reitInvitDataService.getKnownInvits(),
+    });
+  } catch (error) {
+    console.error('Error getting refresh status:', error);
+    res.status(500).json({ error: 'Failed to get refresh status' });
+  }
+});
+
+// POST /data-refresh/all - Trigger full refresh of all REITs and InvITs
+router.post('/data-refresh/all', async (req: Request, res: Response) => {
+  try {
+    const result = await reitInvitDataService.refreshAll();
+    res.json({ success: true, ...result });
+  } catch (error: any) {
+    console.error('Error refreshing all data:', error);
+    res.status(500).json({ error: error.message || 'Failed to refresh data' });
+  }
+});
+
+// POST /data-refresh/reits - Refresh all REITs
+router.post('/data-refresh/reits', async (req: Request, res: Response) => {
+  try {
+    const result = await reitInvitDataService.refreshAllReits();
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('Error refreshing REITs:', error);
+    res.status(500).json({ error: 'Failed to refresh REITs' });
+  }
+});
+
+// POST /data-refresh/invits - Refresh all InvITs
+router.post('/data-refresh/invits', async (req: Request, res: Response) => {
+  try {
+    const result = await reitInvitDataService.refreshAllInvits();
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('Error refreshing InvITs:', error);
+    res.status(500).json({ error: 'Failed to refresh InvITs' });
+  }
+});
+
+// POST /data-refresh/reit/:symbol - Refresh single REIT
+router.post('/data-refresh/reit/:symbol', async (req: Request, res: Response) => {
+  try {
+    const { symbol } = req.params;
+    const result = await reitInvitDataService.refreshReit(symbol);
+    res.json(result);
+  } catch (error) {
+    console.error('Error refreshing REIT:', error);
+    res.status(500).json({ error: 'Failed to refresh REIT' });
+  }
+});
+
+// POST /data-refresh/invit/:symbol - Refresh single InvIT
+router.post('/data-refresh/invit/:symbol', async (req: Request, res: Response) => {
+  try {
+    const { symbol } = req.params;
+    const result = await reitInvitDataService.refreshInvit(symbol);
+    res.json(result);
+  } catch (error) {
+    console.error('Error refreshing InvIT:', error);
+    res.status(500).json({ error: 'Failed to refresh InvIT' });
+  }
+});
+
+// POST /data-refresh/scheduler/start - Start scheduled refresh
+router.post('/data-refresh/scheduler/start', async (req: Request, res: Response) => {
+  try {
+    const { intervalHours = 6 } = req.body;
+    reitInvitDataService.startScheduledRefresh(intervalHours);
+    res.json({ 
+      success: true, 
+      message: `Scheduled refresh started (every ${intervalHours} hours)`,
+      status: reitInvitDataService.getStatus(),
+    });
+  } catch (error) {
+    console.error('Error starting scheduler:', error);
+    res.status(500).json({ error: 'Failed to start scheduler' });
+  }
+});
+
+// POST /data-refresh/scheduler/stop - Stop scheduled refresh
+router.post('/data-refresh/scheduler/stop', async (req: Request, res: Response) => {
+  try {
+    reitInvitDataService.stopScheduledRefresh();
+    res.json({ 
+      success: true, 
+      message: 'Scheduled refresh stopped',
+      status: reitInvitDataService.getStatus(),
+    });
+  } catch (error) {
+    console.error('Error stopping scheduler:', error);
+    res.status(500).json({ error: 'Failed to stop scheduler' });
   }
 });
 

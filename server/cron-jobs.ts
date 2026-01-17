@@ -13,6 +13,7 @@ import { dailyReconciliationService } from './services/daily-reconciliation-serv
 import { db } from './db';
 import { users, unlistedCompanies } from '@shared/schema';
 import { eq } from 'drizzle-orm';
+import { reitInvitDataService } from './services/reit-invit-data-service';
 
 /**
  * Initialize scheduled cron jobs
@@ -20,6 +21,10 @@ import { eq } from 'drizzle-orm';
 export function initializeCronJobs(): void {
   console.log('Initializing cron jobs...');
 
+
+  // Start REIT/InvIT data refresh scheduler (every 6 hours)
+  reitInvitDataService.startScheduledRefresh(6);
+  console.log('🏢 [REIT/InvIT] Data refresh scheduler started (every 6 hours)');
   // Probe42 Sync Job - Run every 6 hours
   cron.schedule('0 */6 * * *', async () => {
     console.log('[CRON] Starting Probe42 sync job...');
