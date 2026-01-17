@@ -108,6 +108,7 @@ const AifSeedAdmin = lazy(() => import("@/pages/admin/aif-seed"));
 const PmsSeedAdmin = lazy(() => import("@/pages/admin/pms-seed"));
 const MutualFundsSeeding = lazy(() => import("@/pages/admin/mutual-funds-seeding"));
 const ListedStocksSeed = lazy(() => import("@/pages/admin/listed-stocks-seed"));
+const ReitsInvitsSeed = lazy(() => import("@/pages/admin/reits-invits-seed"));
 const RecommendationProductsAdmin = lazy(() => import("@/pages/admin/recommendation-products"));
 const SeedUnlistedPage = lazy(() => import("@/pages/admin/seed-unlisted"));
 const UnlistedPreviewPage = lazy(() => import("@/pages/admin/unlisted-preview"));
@@ -1161,6 +1162,24 @@ function AdminRoutes() {
           <AdminLayout>
             <Suspense fallback={<LoadingState variant="dashboard" />}>
               <ListedStocksSeed />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/reits-invits-seed">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <ReitsInvitsSeed />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/store/seed/reits-invits">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <ReitsInvitsSeed />
             </Suspense>
           </AdminLayout>
         )}

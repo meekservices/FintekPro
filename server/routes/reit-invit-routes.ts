@@ -922,4 +922,210 @@ router.delete('/orders/:orderId', async (req: Request, res: Response) => {
   }
 });
 
+// ===================== ADMIN ROUTES =====================
+
+// GET /store/reits/admin - List all REITs for admin (including unpublished)
+router.get('/store/reits/admin', async (req: Request, res: Response) => {
+  try {
+    const dbReits = await db.select().from(reits).orderBy(desc(reits.createdAt));
+    
+    // Combine with sample data if DB is empty
+    const allReits = dbReits.length > 0 ? dbReits : SAMPLE_REITS.map(r => ({
+      id: r.id,
+      name: r.name,
+      symbol: r.symbol,
+      sector: r.sector,
+      sponsor: r.sponsor,
+      marketCap: r.marketCap,
+      currentPrice: r.currentPrice,
+      dividendYield: r.distributionYield,
+      occupancy: r.occupancyRate,
+      nav: r.nav,
+      totalAssets: r.totalLeasableArea,
+      aiSignal: r.aiSignal,
+      isPublished: true,
+      description: r.aiRationale,
+      createdAt: new Date().toISOString(),
+    }));
+    
+    res.json({ reits: allReits });
+  } catch (error) {
+    console.error('Error fetching REITs for admin:', error);
+    res.status(500).json({ error: 'Failed to fetch REITs' });
+  }
+});
+
+// GET /store/invits/admin - List all InvITs for admin (including unpublished)
+router.get('/store/invits/admin', async (req: Request, res: Response) => {
+  try {
+    const dbInvits = await db.select().from(invits).orderBy(desc(invits.createdAt));
+    
+    // Combine with sample data if DB is empty
+    const allInvits = dbInvits.length > 0 ? dbInvits : SAMPLE_INVITS.map(i => ({
+      id: i.id,
+      name: i.name,
+      symbol: i.symbol,
+      sector: i.sector,
+      sponsor: i.sponsor,
+      marketCap: i.marketCap,
+      currentPrice: i.currentPrice,
+      dividendYield: i.distributionYield,
+      nav: i.nav,
+      totalAssets: i.capacityMW?.toString() || null,
+      aiSignal: i.aiSignal,
+      isPublished: true,
+      description: i.aiRationale,
+      createdAt: new Date().toISOString(),
+    }));
+    
+    res.json({ invits: allInvits });
+  } catch (error) {
+    console.error('Error fetching InvITs for admin:', error);
+    res.status(500).json({ error: 'Failed to fetch InvITs' });
+  }
+});
+
+// POST /store/reits - Create new REIT
+router.post('/store/reits', async (req: Request, res: Response) => {
+  try {
+    const data = req.body;
+    const newReit = await db.insert(reits).values({
+      id: `reit-${Date.now()}`,
+      name: data.name,
+      symbol: data.symbol,
+      sector: data.sector,
+      sponsor: data.sponsor,
+      marketCap: data.marketCap,
+      currentPrice: data.currentPrice,
+      dividendYield: data.dividendYield,
+      occupancy: data.occupancy,
+      nav: data.nav,
+      totalAssets: data.totalAssets,
+      aiSignal: data.aiSignal,
+      isPublished: data.isPublished || false,
+      description: data.description,
+    }).returning();
+    
+    res.json({ success: true, reit: newReit[0] });
+  } catch (error) {
+    console.error('Error creating REIT:', error);
+    res.status(500).json({ error: 'Failed to create REIT' });
+  }
+});
+
+// POST /store/invits - Create new InvIT
+router.post('/store/invits', async (req: Request, res: Response) => {
+  try {
+    const data = req.body;
+    const newInvit = await db.insert(invits).values({
+      id: `invit-${Date.now()}`,
+      name: data.name,
+      symbol: data.symbol,
+      sector: data.sector,
+      sponsor: data.sponsor,
+      marketCap: data.marketCap,
+      currentPrice: data.currentPrice,
+      dividendYield: data.dividendYield,
+      nav: data.nav,
+      totalAssets: data.totalAssets,
+      aiSignal: data.aiSignal,
+      isPublished: data.isPublished || false,
+      description: data.description,
+    }).returning();
+    
+    res.json({ success: true, invit: newInvit[0] });
+  } catch (error) {
+    console.error('Error creating InvIT:', error);
+    res.status(500).json({ error: 'Failed to create InvIT' });
+  }
+});
+
+// PATCH /store/reits/:id - Update REIT
+router.patch('/store/reits/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    
+    const updated = await db.update(reits)
+      .set(updates)
+      .where(eq(reits.id, id))
+      .returning();
+    
+    if (updated.length === 0) {
+      return res.status(404).json({ error: 'REIT not found' });
+    }
+    
+    res.json({ success: true, reit: updated[0] });
+  } catch (error) {
+    console.error('Error updating REIT:', error);
+    res.status(500).json({ error: 'Failed to update REIT' });
+  }
+});
+
+// PATCH /store/invits/:id - Update InvIT
+router.patch('/store/invits/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    
+    const updated = await db.update(invits)
+      .set(updates)
+      .where(eq(invits.id, id))
+      .returning();
+    
+    if (updated.length === 0) {
+      return res.status(404).json({ error: 'InvIT not found' });
+    }
+    
+    res.json({ success: true, invit: updated[0] });
+  } catch (error) {
+    console.error('Error updating InvIT:', error);
+    res.status(500).json({ error: 'Failed to update InvIT' });
+  }
+});
+
+// PATCH /store/reits/:id/publish - Toggle REIT publish status
+router.patch('/store/reits/:id/publish', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { isPublished } = req.body;
+    
+    const updated = await db.update(reits)
+      .set({ isPublished })
+      .where(eq(reits.id, id))
+      .returning();
+    
+    if (updated.length === 0) {
+      return res.status(404).json({ error: 'REIT not found' });
+    }
+    
+    res.json({ success: true, reit: updated[0] });
+  } catch (error) {
+    console.error('Error toggling REIT publish status:', error);
+    res.status(500).json({ error: 'Failed to update publish status' });
+  }
+});
+
+// PATCH /store/invits/:id/publish - Toggle InvIT publish status
+router.patch('/store/invits/:id/publish', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { isPublished } = req.body;
+    
+    const updated = await db.update(invits)
+      .set({ isPublished })
+      .where(eq(invits.id, id))
+      .returning();
+    
+    if (updated.length === 0) {
+      return res.status(404).json({ error: 'InvIT not found' });
+    }
+    
+    res.json({ success: true, invit: updated[0] });
+  } catch (error) {
+    console.error('Error toggling InvIT publish status:', error);
+    res.status(500).json({ error: 'Failed to update publish status' });
+  }
+});
+
 export default router;
