@@ -5434,6 +5434,13 @@ export const preIpoCompanies = pgTable("pre_ipo_companies", {
   documents: jsonb("documents"), // links to pitch deck, financials, etc.
   lastUpdated: timestamp("last_updated").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
+
+  // Enrichment fields for AI recommendations (matching listed_stocks pattern)
+  broadSector: varchar("broad_sector"), // Consolidated sector (Technology, Banking & Finance, etc.)
+  companyPan: varchar("company_pan"), // Company PAN for verification
+  enrichmentStatus: varchar("enrichment_status").default("pending"), // pending, partial, complete, failed
+  lastEnrichedAt: timestamp("last_enriched_at"),
+  enrichmentSource: varchar("enrichment_source"), // Primary source of enrichment data
 });
 
 // Pre-IPO Investments table - tracks user investments in pre-IPO companies

@@ -7,7 +7,8 @@ import {
   users,
   onboardingInvitations,
   agentClientMappingRequests,
-  listedStocks
+  listedStocks,
+  preIpoCompanies
 } from "@shared/schema";
 import { eq, and, desc, or, isNotNull, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
@@ -656,6 +657,297 @@ export async function getListedStockRecommendations(
     console.error('[ListedStocks] Error fetching recommendations:', error);
     return [];
   }
+}
+
+
+// ============== UNLISTED STOCKS / PRE-IPO COMPANIES FOR AI RECOMMENDATIONS ==============
+
+export interface UnlistedStockRecommendation {
+  id: string;
+  name: string;
+  sector: string;
+  broadSector: string;
+  industry: string;
+  currentValuation?: string;
+  expectedReturns?: string;
+  riskRating?: string;
+  investmentTier?: string;
+  minimumInvestment?: string;
+  ipoStatus?: string;
+  expectedIpoDate?: string;
+  riskLevel: string;
+  requiresEnhancedKyc: boolean;
+}
+
+// Sector consolidation mapping for unlisted stocks (reuses same 12 broad sectors)
+function mapUnlistedToBroadSector(sector?: string | null): string {
+  if (!sector) return 'Others';
+  const sectorLower = sector.toLowerCase();
+  
+  // Technology sector
+  if (sectorLower.includes('technology') || sectorLower.includes('software') || 
+      sectorLower.includes('it') || sectorLower.includes('tech') ||
+      sectorLower.includes('fintech') || sectorLower.includes('saas') ||
+      sectorLower.includes('ai') || sectorLower.includes('edtech') ||
+      sectorLower.includes('digital') || sectorLower.includes('internet')) {
+    return 'Technology';
+  }
+  
+  // Banking & Finance
+  if (sectorLower.includes('bank') || sectorLower.includes('financ') || 
+      sectorLower.includes('nbfc') || sectorLower.includes('insurance') ||
+      sectorLower.includes('lending') || sectorLower.includes('payment')) {
+    return 'Banking & Finance';
+  }
+  
+  // Healthcare & Pharma
+  if (sectorLower.includes('health') || sectorLower.includes('pharma') || 
+      sectorLower.includes('medical') || sectorLower.includes('hospital') ||
+      sectorLower.includes('biotech') || sectorLower.includes('diagnostic')) {
+    return 'Healthcare & Pharma';
+  }
+  
+  // Consumer Goods & Retail
+  if (sectorLower.includes('consumer') || sectorLower.includes('retail') || 
+      sectorLower.includes('fmcg') || sectorLower.includes('food') ||
+      sectorLower.includes('beverage') || sectorLower.includes('ecommerce') ||
+      sectorLower.includes('e-commerce') || sectorLower.includes('d2c')) {
+    return 'Consumer Goods & Retail';
+  }
+  
+  // Manufacturing
+  if (sectorLower.includes('manufactur') || sectorLower.includes('auto') ||
+      sectorLower.includes('industrial') || sectorLower.includes('engineering') ||
+      sectorLower.includes('machinery') || sectorLower.includes('electronics')) {
+    return 'Manufacturing';
+  }
+  
+  // Infrastructure & Construction
+  if (sectorLower.includes('infra') || sectorLower.includes('construct') ||
+      sectorLower.includes('road') || sectorLower.includes('cement') ||
+      sectorLower.includes('logistics') || sectorLower.includes('transport')) {
+    return 'Infrastructure & Construction';
+  }
+  
+  // Energy & Utilities
+  if (sectorLower.includes('energy') || sectorLower.includes('power') ||
+      sectorLower.includes('electric') || sectorLower.includes('solar') ||
+      sectorLower.includes('renewable') || sectorLower.includes('oil') ||
+      sectorLower.includes('gas') || sectorLower.includes('ev')) {
+    return 'Energy & Utilities';
+  }
+  
+  // Real Estate
+  if (sectorLower.includes('real estate') || sectorLower.includes('property') ||
+      sectorLower.includes('housing') || sectorLower.includes('realty')) {
+    return 'Real Estate';
+  }
+  
+  // Metals & Mining
+  if (sectorLower.includes('metal') || sectorLower.includes('mining') ||
+      sectorLower.includes('steel') || sectorLower.includes('alumin')) {
+    return 'Metals & Mining';
+  }
+  
+  // Chemicals
+  if (sectorLower.includes('chemical') || sectorLower.includes('specialty')) {
+    return 'Chemicals';
+  }
+  
+  // Services
+  if (sectorLower.includes('service') || sectorLower.includes('consult') ||
+      sectorLower.includes('bpo') || sectorLower.includes('staffing') ||
+      sectorLower.includes('hr') || sectorLower.includes('media') ||
+      sectorLower.includes('entertainment') || sectorLower.includes('travel')) {
+    return 'Services';
+  }
+  
+  return 'Others';
+}
+
+// Fetch unlisted stocks by broad sector
+export async function getUnlistedStocksBySector(
+  broadSector: string,
+  limit: number = 10
+): Promise<UnlistedStockRecommendation[]> {
+  try {
+    const companies = await db
+      .select({
+        id: preIpoCompanies.id,
+        name: preIpoCompanies.companyName,
+        sector: preIpoCompanies.sector,
+        broadSector: preIpoCompanies.broadSector,
+        industry: preIpoCompanies.industry,
+        currentValuation: preIpoCompanies.currentValuation,
+        expectedReturns: preIpoCompanies.expectedReturns,
+        riskRating: preIpoCompanies.riskRating,
+        investmentTier: preIpoCompanies.investmentTier,
+        minimumInvestment: preIpoCompanies.minimumInvestment,
+        ipoStatus: preIpoCompanies.ipoStatus,
+        expectedIpoDate: preIpoCompanies.expectedIpoDate,
+      })
+      .from(preIpoCompanies)
+      .where(
+        and(
+          eq(preIpoCompanies.broadSector, broadSector),
+          eq(preIpoCompanies.isAvailableForInvestment, true)
+        )
+      )
+      .orderBy(desc(preIpoCompanies.currentValuation))
+      .limit(limit);
+    
+    return companies.map(company => ({
+      id: company.id,
+      name: company.name,
+      sector: company.sector || 'General',
+      broadSector: company.broadSector || 'Others',
+      industry: company.industry || 'General',
+      currentValuation: company.currentValuation?.toString(),
+      expectedReturns: company.expectedReturns?.toString(),
+      riskRating: company.riskRating || 'high',
+      investmentTier: company.investmentTier,
+      minimumInvestment: company.minimumInvestment?.toString(),
+      ipoStatus: company.ipoStatus,
+      expectedIpoDate: company.expectedIpoDate?.toISOString(),
+      riskLevel: determineUnlistedRiskLevel(company.riskRating, company.investmentTier),
+      requiresEnhancedKyc: true, // All unlisted stocks require Enhanced KYC
+    }));
+  } catch (error) {
+    console.error(`[UnlistedStocks] Error fetching companies for sector ${broadSector}:`, error);
+    return [];
+  }
+}
+
+function determineUnlistedRiskLevel(riskRating?: string | null, investmentTier?: string | null): string {
+  // Unlisted stocks are inherently higher risk due to liquidity constraints
+  if (riskRating === 'very_high') return 'Very High';
+  if (riskRating === 'high') return 'High';
+  if (riskRating === 'medium') return 'Moderately High';
+  if (riskRating === 'low') return 'Moderate';
+  
+  // Fall back to investment tier
+  if (investmentTier === 'tier_1') return 'Moderate';
+  if (investmentTier === 'tier_2') return 'Moderately High';
+  if (investmentTier === 'tier_3') return 'High';
+  
+  return 'High'; // Default for unlisted stocks
+}
+
+// Get available broad sectors for unlisted stocks with counts
+export async function getAvailableUnlistedSectors(): Promise<{ sector: string; count: number }[]> {
+  try {
+    const sectors = await db
+      .select({
+        sector: preIpoCompanies.broadSector,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(preIpoCompanies)
+      .where(
+        and(
+          eq(preIpoCompanies.isAvailableForInvestment, true),
+          isNotNull(preIpoCompanies.broadSector)
+        )
+      )
+      .groupBy(preIpoCompanies.broadSector)
+      .orderBy(desc(sql`count(*)`));
+    
+    return sectors.map(s => ({
+      sector: s.sector || 'Others',
+      count: s.count,
+    }));
+  } catch (error) {
+    console.error('[UnlistedStocks] Error fetching available sectors:', error);
+    return [];
+  }
+}
+
+// Get unlisted stock recommendations for a risk profile
+export async function getUnlistedStockRecommendations(
+  riskProfile: 'conservative' | 'moderate' | 'aggressive' | 'very_aggressive',
+  preferredSectors?: string[],
+  limit: number = 5
+): Promise<UnlistedStockRecommendation[]> {
+  try {
+    // Unlisted stocks are only recommended for aggressive/very_aggressive profiles
+    // Conservative and moderate get empty results with a note
+    if (riskProfile === 'conservative') {
+      console.log('[UnlistedStocks] Conservative profile - unlisted stocks not recommended');
+      return [];
+    }
+    
+    // Default sectors by risk profile for unlisted stocks
+    const defaultSectorsByRisk = {
+      conservative: [], // Not recommended
+      moderate: ['Technology', 'Healthcare & Pharma'], // Limited exposure
+      aggressive: ['Technology', 'Healthcare & Pharma', 'Consumer Goods & Retail', 'Banking & Finance'],
+      very_aggressive: ['Technology', 'Healthcare & Pharma', 'Consumer Goods & Retail', 'Energy & Utilities', 'Real Estate'],
+    };
+    
+    const sectors = preferredSectors && preferredSectors.length > 0 
+      ? preferredSectors 
+      : defaultSectorsByRisk[riskProfile];
+    
+    if (sectors.length === 0) return [];
+    
+    // Fetch companies from each sector
+    const companyPromises = sectors.map(sector => 
+      getUnlistedStocksBySector(sector, Math.ceil(limit / sectors.length))
+    );
+    
+    const companyArrays = await Promise.all(companyPromises);
+    const allCompanies = companyArrays.flat();
+    
+    // Sort by investment tier and expected returns
+    return allCompanies
+      .sort((a, b) => {
+        const tierOrder: Record<string, number> = { 'tier_1': 3, 'tier_2': 2, 'tier_3': 1 };
+        return (tierOrder[b.investmentTier || ''] || 0) - (tierOrder[a.investmentTier || ''] || 0);
+      })
+      .slice(0, limit);
+  } catch (error) {
+    console.error('[UnlistedStocks] Error fetching recommendations:', error);
+    return [];
+  }
+}
+
+// Populate broad_sector for all unlisted stocks based on existing sector data
+export async function populateUnlistedBroadSectors(): Promise<{ updated: number; errors: number }> {
+  console.log('[UnlistedStocks] Populating broad sectors...');
+  
+  const companiesWithoutBroadSector = await db
+    .select({ id: preIpoCompanies.id, sector: preIpoCompanies.sector })
+    .from(preIpoCompanies)
+    .where(
+      and(
+        sql`${preIpoCompanies.broadSector} IS NULL`,
+        sql`${preIpoCompanies.sector} IS NOT NULL`
+      )
+    );
+
+  let updated = 0;
+  let errors = 0;
+
+  for (const company of companiesWithoutBroadSector) {
+    try {
+      const broadSector = mapUnlistedToBroadSector(company.sector);
+      
+      await db
+        .update(preIpoCompanies)
+        .set({ 
+          broadSector,
+          enrichmentStatus: 'partial'
+        })
+        .where(eq(preIpoCompanies.id, company.id));
+      
+      updated++;
+    } catch (error) {
+      errors++;
+      console.error(`[UnlistedStocks] Error updating broad sector for ${company.id}:`, error);
+    }
+  }
+
+  console.log(`[UnlistedStocks] Broad sector population complete: ${updated} updated, ${errors} errors`);
+  return { updated, errors };
 }
 
 // Target allocations by risk profile (expanded with global regions - stocks excluded by default, only in very_aggressive)

@@ -6,7 +6,11 @@ import {
   DuplicateCheckResult,
   getListedStocksBySector,
   getAvailableBroadSectors,
-  getListedStockRecommendations
+  getListedStockRecommendations,
+  getUnlistedStocksBySector,
+  getAvailableUnlistedSectors,
+  getUnlistedStockRecommendations,
+  populateUnlistedBroadSectors
 } from "../services/agent-prospect-wizard-service";
 import { z } from "zod";
 import { ZohoCRMService } from "../zoho/services/crm";
@@ -1187,6 +1191,79 @@ router.get("/listed-stocks/recommendations", async (req: Request, res: Response)
     });
   } catch (error: any) {
     console.error("[ListedStocks] Error fetching recommendations:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+
+// ============== UNLISTED STOCKS / PRE-IPO COMPANIES ROUTES ==============
+
+// Get available broad sectors for unlisted stocks
+router.get("/unlisted-stocks/sectors", async (req: Request, res: Response) => {
+  try {
+    const sectors = await getAvailableUnlistedSectors();
+    res.json({ success: true, sectors, count: sectors.length });
+  } catch (error: any) {
+    console.error("[UnlistedStocks] Error fetching sectors:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Get unlisted stocks by broad sector
+router.get("/unlisted-stocks/by-sector/:sector", async (req: Request, res: Response) => {
+  try {
+    const { sector } = req.params;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const stocks = await getUnlistedStocksBySector(sector, limit);
+    res.json({ success: true, stocks, count: stocks.length, sector });
+  } catch (error: any) {
+    console.error("[UnlistedStocks] Error fetching stocks by sector:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Get unlisted stock recommendations by risk profile
+router.get("/unlisted-stocks/recommendations", async (req: Request, res: Response) => {
+  try {
+    const riskProfile = (req.query.riskProfile as string) || 'aggressive';
+    const sectorsParam = req.query.sectors as string;
+    const limit = parseInt(req.query.limit as string) || 5;
+    
+    const preferredSectors = sectorsParam ? sectorsParam.split(',') : undefined;
+    
+    const recommendations = await getUnlistedStockRecommendations(
+      riskProfile as any,
+      preferredSectors,
+      limit
+    );
+    
+    res.json({ 
+      success: true, 
+      recommendations, 
+      count: recommendations.length,
+      riskProfile,
+      sectors: preferredSectors || 'default',
+      note: riskProfile === 'conservative' 
+        ? 'Unlisted stocks are not recommended for conservative risk profiles'
+        : 'Unlisted stocks require Enhanced KYC for trading'
+    });
+  } catch (error: any) {
+    console.error("[UnlistedStocks] Error fetching recommendations:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Populate broad sectors for all unlisted stocks (Admin action)
+router.post("/unlisted-stocks/populate-sectors", async (req: Request, res: Response) => {
+  try {
+    const result = await populateUnlistedBroadSectors();
+    res.json({ 
+      success: true, 
+      message: `Populated broad sectors for ${result.updated} companies`,
+      ...result
+    });
+  } catch (error: any) {
+    console.error("[UnlistedStocks] Error populating sectors:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
