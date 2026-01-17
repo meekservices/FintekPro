@@ -20721,7 +20721,7 @@ export const insertEsignAuditLogSchema = createInsertSchema(esignAuditLog).omit(
   createdAt: true,
 });
 export type EsignAuditLog = typeof esignAuditLog.$inferSelect;
-export type InsertEsignAuditLog = z.infer<typeof insertEsignAuditLogSchema>;
+export type InsertEsignWorkflowAuditLog = z.infer<typeof insertEsignWorkflowAuditLogSchema>;
 
 // ========================================
 // System Configuration Table
@@ -26757,3 +26757,337 @@ export const insertFinancialInstrumentsCacheSchema = createInsertSchema(financia
 });
 export type FinancialInstrumentsCache = typeof financialInstrumentsCache.$inferSelect;
 export type InsertFinancialInstrumentsCache = z.infer<typeof insertFinancialInstrumentsCacheSchema>;
+
+// ============================================================================
+// PROPOSAL ESIGN WORKFLOW - Multi-party document signing for proposals
+// Extends existing eSign infrastructure with proposal-specific workflow
+// ============================================================================
+
+// Proposal document signing workflow
+export const proposalEsignWorkflows = pgTable("proposal_esign_workflows", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Link to proposal
+  proposalId: varchar("proposal_id").references(() => prospectProposals.id).notNull(),
+  proposalType: varchar("proposal_type").notNull(), // sample_portfolio, fresh_investment
+  
+  // Document details
+  documentNumber: varchar("document_number").notNull().unique(),
+  documentName: varchar("document_name").notNull(),
+  documentType: varchar("document_type").notNull().default("investment_agreement"),
+  
+  // Document content
+  currentVersion: integer("current_version").default(1).notNull(),
+  originalDocumentUrl: varchar("original_document_url"),
+  currentDocumentUrl: varchar("current_document_url"),
+  signedDocumentUrl: varchar("signed_document_url"),
+  documentHash: varchar("document_hash"),
+  
+  // Editing controls
+  allowEditing: boolean("allow_editing").default(false).notNull(),
+  editingLockedAt: timestamp("editing_locked_at"),
+  editingLockedBy: varchar("editing_locked_by"),
+  
+  // Workflow settings
+  isSequential: boolean("is_sequential").default(true).notNull(),
+  requireAllSignatures: boolean("require_all_signatures").default(true).notNull(),
+  negotiationRound: integer("negotiation_round").default(1).notNull(),
+  
+  // Deadlines
+  deadline: timestamp("deadline"),
+  reminderDays: integer("reminder_days").default(3),
+  escalationDays: integer("escalation_days").default(7),
+  escalationEmail: varchar("escalation_email"),
+  lastReminderSentAt: timestamp("last_reminder_sent_at"),
+  
+  // Status
+  status: varchar("status").notNull().default("draft"), // draft, pending_edit, pending_approval, pending_signature, partially_signed, completed, declined, expired, cancelled
+  statusChangedAt: timestamp("status_changed_at").defaultNow(),
+  statusChangedBy: varchar("status_changed_by"),
+  
+  // Completion
+  completedAt: timestamp("completed_at"),
+  declinedAt: timestamp("declined_at"),
+  declinedBy: varchar("declined_by"),
+  declineReason: text("decline_reason"),
+  
+  // External provider references
+  zohoSignRequestId: varchar("zoho_sign_request_id"),
+  esignTransactionId: varchar("esign_transaction_id"), // Links to esignRequests.transactionId
+  
+  // Zoho CRM sync
+  zohoCrmDealId: varchar("zoho_crm_deal_id"),
+  zohoCrmContactId: varchar("zoho_crm_contact_id"),
+  zohoCrmSyncedAt: timestamp("zoho_crm_synced_at"),
+  
+  // Retention (SEBI 8-year requirement)
+  retentionPolicyYears: integer("retention_policy_years").default(8).notNull(),
+  retentionExpiresAt: timestamp("retention_expires_at"),
+  
+  // Creator
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdByRole: varchar("created_by_role"),
+  
+  // Metadata
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_proposal_esign_proposal").on(table.proposalId),
+  index("idx_proposal_esign_number").on(table.documentNumber),
+  index("idx_proposal_esign_status").on(table.status),
+  index("idx_proposal_esign_zoho").on(table.zohoSignRequestId),
+]);
+
+// Proposal document versions
+export const proposalEsignVersions = pgTable("proposal_esign_versions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: varchar("workflow_id").references(() => proposalEsignWorkflows.id, { onDelete: 'cascade' }).notNull(),
+  
+  versionNumber: integer("version_number").notNull(),
+  negotiationRound: integer("negotiation_round").default(1),
+  versionLabel: varchar("version_label"), // Original, Revision 1, Final
+  
+  documentUrl: varchar("document_url").notNull(),
+  documentHash: varchar("document_hash"),
+  fileSize: integer("file_size"),
+  
+  changeDescription: text("change_description"),
+  changesFromPrevious: jsonb("changes_from_previous").$type<{
+    fieldsModified: string[];
+    summary: string;
+  }>(),
+  
+  // Approval
+  approvalStatus: varchar("approval_status").default("pending"), // pending, approved, rejected
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  rejectedBy: varchar("rejected_by").references(() => users.id),
+  rejectedAt: timestamp("rejected_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  // Lock after signing
+  isLocked: boolean("is_locked").default(false),
+  lockedAt: timestamp("locked_at"),
+  
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdByName: varchar("created_by_name"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_proposal_esign_ver_workflow").on(table.workflowId),
+  index("idx_proposal_esign_ver_num").on(table.workflowId, table.versionNumber),
+]);
+
+// Proposal document participants
+export const proposalEsignParticipants = pgTable("proposal_esign_participants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: varchar("workflow_id").references(() => proposalEsignWorkflows.id, { onDelete: 'cascade' }).notNull(),
+  
+  // Participant (internal or external)
+  userId: varchar("user_id").references(() => users.id),
+  externalEmail: varchar("external_email"),
+  externalName: varchar("external_name"),
+  externalMobile: varchar("external_mobile"),
+  
+  // Role and order
+  role: varchar("role").notNull(), // creator, editor, reviewer, approver, signer, witness, cc
+  actionOrder: integer("action_order").default(1),
+  
+  // Permissions
+  canEdit: boolean("can_edit").default(false),
+  canComment: boolean("can_comment").default(true),
+  canApprove: boolean("can_approve").default(false),
+  canSign: boolean("can_sign").default(false),
+  
+  // Preferred signature method
+  preferredSignatureMethod: varchar("preferred_signature_method"), // zoho_sign, aadhaar_esign, dsc_token, otp
+  
+  // Status
+  actionStatus: varchar("action_status").default("pending"), // pending, waiting, in_progress, completed, declined
+  actionRequiredBy: timestamp("action_required_by"),
+  
+  // Tracking
+  hasEdited: boolean("has_edited").default(false),
+  lastEditedAt: timestamp("last_edited_at"),
+  editCount: integer("edit_count").default(0),
+  
+  hasApproved: boolean("has_approved").default(false),
+  approvedAt: timestamp("approved_at"),
+  approvalNotes: text("approval_notes"),
+  
+  hasSigned: boolean("has_signed").default(false),
+  signedAt: timestamp("signed_at"),
+  signatureMethod: varchar("signature_method"),
+  signatureData: jsonb("signature_data").$type<{
+    certificateId?: string;
+    signatureHash?: string;
+    signerName?: string;
+  }>(),
+  
+  hasDeclined: boolean("has_declined").default(false),
+  declinedAt: timestamp("declined_at"),
+  declineReason: text("decline_reason"),
+  
+  // View tracking
+  firstViewedAt: timestamp("first_viewed_at"),
+  lastViewedAt: timestamp("last_viewed_at"),
+  viewCount: integer("view_count").default(0),
+  
+  // Notifications
+  emailSentAt: timestamp("email_sent_at"),
+  remindersSent: integer("reminders_sent").default(0),
+  lastReminderAt: timestamp("last_reminder_at"),
+  
+  // Audit
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  deviceInfo: jsonb("device_info").$type<{ type?: string; os?: string; browser?: string; isMobile?: boolean }>(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_proposal_esign_part_workflow").on(table.workflowId),
+  index("idx_proposal_esign_part_user").on(table.userId),
+  index("idx_proposal_esign_part_email").on(table.externalEmail),
+  index("idx_proposal_esign_part_role").on(table.role),
+]);
+
+// Proposal document comments/annotations
+export const proposalEsignComments = pgTable("proposal_esign_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: varchar("workflow_id").references(() => proposalEsignWorkflows.id, { onDelete: 'cascade' }).notNull(),
+  versionId: varchar("version_id").references(() => proposalEsignVersions.id),
+  participantId: varchar("participant_id").references(() => proposalEsignParticipants.id),
+  
+  commentType: varchar("comment_type").notNull().default("comment"), // comment, suggestion, question, issue
+  content: text("content").notNull(),
+  
+  // Position for annotations
+  pageNumber: integer("page_number"),
+  xPosition: decimal("x_position", { precision: 10, scale: 4 }),
+  yPosition: decimal("y_position", { precision: 10, scale: 4 }),
+  highlightedText: text("highlighted_text"),
+  
+  // Threading
+  parentCommentId: varchar("parent_comment_id"),
+  threadResolved: boolean("thread_resolved").default(false),
+  resolvedBy: varchar("resolved_by").references(() => users.id),
+  resolvedAt: timestamp("resolved_at"),
+  
+  isInternal: boolean("is_internal").default(false),
+  
+  authorId: varchar("author_id").references(() => users.id),
+  authorName: varchar("author_name"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
+}, (table) => [
+  index("idx_proposal_esign_comm_workflow").on(table.workflowId),
+  index("idx_proposal_esign_comm_version").on(table.versionId),
+]);
+
+// Proposal document field edits for change tracking
+export const proposalEsignFieldEdits = pgTable("proposal_esign_field_edits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: varchar("workflow_id").references(() => proposalEsignWorkflows.id, { onDelete: 'cascade' }).notNull(),
+  versionId: varchar("version_id").references(() => proposalEsignVersions.id),
+  participantId: varchar("participant_id").references(() => proposalEsignParticipants.id),
+  
+  fieldName: varchar("field_name").notNull(),
+  fieldPath: varchar("field_path"),
+  
+  previousValue: text("previous_value"),
+  newValue: text("new_value"),
+  changeType: varchar("change_type").notNull(), // add, modify, delete
+  
+  approvalStatus: varchar("approval_status").default("pending"), // pending, approved, rejected
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  rejectedBy: varchar("rejected_by").references(() => users.id),
+  rejectedAt: timestamp("rejected_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  editedBy: varchar("edited_by").references(() => users.id),
+  editedByName: varchar("edited_by_name"),
+  
+  ipAddress: varchar("ip_address"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_proposal_esign_edit_workflow").on(table.workflowId),
+  index("idx_proposal_esign_edit_field").on(table.fieldName),
+  index("idx_proposal_esign_edit_approval").on(table.approvalStatus),
+]);
+
+// Proposal eSign audit log (immutable)
+export const proposalEsignAuditLogs = pgTable("proposal_esign_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: varchar("workflow_id").references(() => proposalEsignWorkflows.id).notNull(),
+  
+  action: varchar("action").notNull(), // created, viewed, edited, approved, signed, declined, sent, reminded
+  actionCategory: varchar("action_category").notNull(), // workflow, content, signature, notification
+  description: text("description").notNull(),
+  
+  actorId: varchar("actor_id").references(() => users.id),
+  actorName: varchar("actor_name"),
+  actorEmail: varchar("actor_email"),
+  actorRole: varchar("actor_role"),
+  actorType: varchar("actor_type"), // user, system, webhook
+  
+  participantId: varchar("participant_id").references(() => proposalEsignParticipants.id),
+  versionId: varchar("version_id").references(() => proposalEsignVersions.id),
+  
+  previousState: jsonb("previous_state"),
+  newState: jsonb("new_state"),
+  metadata: jsonb("metadata"),
+  
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  deviceType: varchar("device_type"),
+  geoLocation: jsonb("geo_location").$type<{ country?: string; city?: string }>(),
+  
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+}, (table) => [
+  index("idx_proposal_esign_audit_workflow").on(table.workflowId),
+  index("idx_proposal_esign_audit_action").on(table.action),
+  index("idx_proposal_esign_audit_actor").on(table.actorId),
+  index("idx_proposal_esign_audit_time").on(table.timestamp),
+]);
+
+// Insert schemas and types
+export const insertProposalEsignWorkflowSchema = createInsertSchema(proposalEsignWorkflows).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+export type ProposalEsignWorkflow = typeof proposalEsignWorkflows.$inferSelect;
+export type InsertProposalEsignWorkflow = z.infer<typeof insertProposalEsignWorkflowSchema>;
+
+export const insertProposalEsignVersionSchema = createInsertSchema(proposalEsignVersions).omit({
+  id: true, createdAt: true,
+});
+export type ProposalEsignVersion = typeof proposalEsignVersions.$inferSelect;
+export type InsertProposalEsignVersion = z.infer<typeof insertProposalEsignVersionSchema>;
+
+export const insertProposalEsignParticipantSchema = createInsertSchema(proposalEsignParticipants).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+export type ProposalEsignParticipant = typeof proposalEsignParticipants.$inferSelect;
+export type InsertProposalEsignParticipant = z.infer<typeof insertProposalEsignParticipantSchema>;
+
+export const insertProposalEsignCommentSchema = createInsertSchema(proposalEsignComments).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+export type ProposalEsignComment = typeof proposalEsignComments.$inferSelect;
+export type InsertProposalEsignComment = z.infer<typeof insertProposalEsignCommentSchema>;
+
+export const insertProposalEsignFieldEditSchema = createInsertSchema(proposalEsignFieldEdits).omit({
+  id: true, createdAt: true,
+});
+export type ProposalEsignFieldEdit = typeof proposalEsignFieldEdits.$inferSelect;
+export type InsertProposalEsignFieldEdit = z.infer<typeof insertProposalEsignFieldEditSchema>;
+
+export const insertProposalEsignAuditLogSchema = createInsertSchema(proposalEsignAuditLogs).omit({
+  id: true, timestamp: true,
+});
+export type ProposalEsignAuditLog = typeof proposalEsignAuditLogs.$inferSelect;
+export type InsertProposalEsignAuditLog = z.infer<typeof insertProposalEsignAuditLogSchema>;
