@@ -536,6 +536,11 @@ app.use((req, res, next) => {
   const proposalEsignRoutes = await import('./routes/proposal-esign-routes');
   app.use('/api/proposal-esign', proposalEsignRoutes.default);
   console.log('✅ Proposal eSign workflow routes registered');
+
+  // Register Document Upload routes
+  const documentUploadRoutes = await import('./routes/document-upload-routes');
+  app.use('/api/documents', documentUploadRoutes.default);
+  console.log('✅ Document upload routes registered');
   
   // Register CA (Chartered Accountant) routes
   const caRoutes = await import('./routes/ca-routes');

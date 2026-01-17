@@ -17035,7 +17035,13 @@ export const proposalShares = pgTable("proposal_shares", {
   
   // PDF/Document Details
   documentPath: text("document_path"),
-  documentHash: varchar("document_hash"), // For integrity verification
+  documentHash: varchar("document_hash"),
+  
+  // Document source (uploaded vs generated)
+  documentSource: varchar("document_source").default("generated"), // generated, uploaded
+  originalFileFormat: varchar("original_file_format"), // pdf, docx
+  uploadedByUserId: varchar("uploaded_by_user_id"),
+  uploadedAt: timestamp("uploaded_at"), // For integrity verification
   
   // Client Interaction Tracking
   viewCount: integer("view_count").default(0),
@@ -25109,7 +25115,13 @@ export const exchangeFilings = pgTable("exchange_filings", {
   filingType: varchar("filing_type").notNull(), // QUARTERLY | ANNUAL | HALF_YEARLY
   financialType: varchar("financial_type").default("STANDALONE"), // STANDALONE | CONSOLIDATED
   documentUrl: varchar("document_url").notNull(),
-  documentHash: varchar("document_hash"), // SHA256 for dedup
+  documentHash: varchar("document_hash"),
+  
+  // Document source (uploaded vs generated)
+  documentSource: varchar("document_source").default("generated"), // generated, uploaded
+  originalFileFormat: varchar("original_file_format"), // pdf, docx
+  uploadedByUserId: varchar("uploaded_by_user_id"),
+  uploadedAt: timestamp("uploaded_at"), // SHA256 for dedup
   filingDate: date("filing_date").notNull(),
   periodStart: date("period_start"),
   periodEnd: date("period_end"),
@@ -25153,6 +25165,12 @@ export const exchangeFinancialAuditLog = pgTable("exchange_financial_audit_log",
   currency: varchar("currency").default("INR"),
   documentUrl: varchar("document_url"),
   documentHash: varchar("document_hash"),
+  
+  // Document source (uploaded vs generated)
+  documentSource: varchar("document_source").default("generated"), // generated, uploaded
+  originalFileFormat: varchar("original_file_format"), // pdf, docx
+  uploadedByUserId: varchar("uploaded_by_user_id"),
+  uploadedAt: timestamp("uploaded_at"),
   extractionMethod: varchar("extraction_method").notNull(), // XBRL | EXCEL | PDF_TABLE | OCR
   extractionConfidence: numeric("extraction_confidence"),
   extractedBy: varchar("extracted_by").notNull(), // AUTO | ADMIN
@@ -26783,6 +26801,12 @@ export const proposalEsignWorkflows = pgTable("proposal_esign_workflows", {
   signedDocumentUrl: varchar("signed_document_url"),
   documentHash: varchar("document_hash"),
   
+  // Document source (uploaded vs generated)
+  documentSource: varchar("document_source").default("generated"), // generated, uploaded
+  originalFileFormat: varchar("original_file_format"), // pdf, docx
+  uploadedByUserId: varchar("uploaded_by_user_id"),
+  uploadedAt: timestamp("uploaded_at"),
+  
   // Editing controls
   allowEditing: boolean("allow_editing").default(false).notNull(),
   editingLockedAt: timestamp("editing_locked_at"),
@@ -26851,6 +26875,12 @@ export const proposalEsignVersions = pgTable("proposal_esign_versions", {
   
   documentUrl: varchar("document_url").notNull(),
   documentHash: varchar("document_hash"),
+  
+  // Document source (uploaded vs generated)
+  documentSource: varchar("document_source").default("generated"), // generated, uploaded
+  originalFileFormat: varchar("original_file_format"), // pdf, docx
+  uploadedByUserId: varchar("uploaded_by_user_id"),
+  uploadedAt: timestamp("uploaded_at"),
   fileSize: integer("file_size"),
   
   changeDescription: text("change_description"),
