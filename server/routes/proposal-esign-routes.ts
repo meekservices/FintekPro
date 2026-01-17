@@ -519,4 +519,50 @@ router.post('/webhooks/zoho-sign', async (req: Request, res: Response) => {
   }
 });
 
+import { investmentAgreementGenerator } from '../services/investment-agreement-generator';
+
+router.get('/agreements/:proposalId/preview', async (req: Request, res: Response) => {
+  try {
+    const { proposalId } = req.params;
+    const html = await investmentAgreementGenerator.previewAgreement(proposalId);
+    
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
+  } catch (error) {
+    console.error('Preview agreement error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to generate preview' });
+  }
+});
+
+router.post('/agreements/:proposalId/generate', async (req: Request, res: Response) => {
+  try {
+    const { proposalId } = req.params;
+    const { versionNumber, watermark } = req.body;
+
+    let agreement;
+    if (versionNumber && versionNumber > 1) {
+      agreement = await investmentAgreementGenerator.createRevisedAgreement(proposalId, versionNumber, watermark);
+    } else {
+      agreement = await investmentAgreementGenerator.createFinalAgreement(proposalId);
+    }
+
+    res.json({ success: true, agreement });
+  } catch (error) {
+    console.error('Generate agreement error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to generate agreement' });
+  }
+});
+
+router.get('/agreements/:proposalId/fields', async (req: Request, res: Response) => {
+  try {
+    const { proposalId } = req.params;
+    const agreement = await investmentAgreementGenerator.createFinalAgreement(proposalId);
+
+    res.json({ success: true, editableFields: agreement.editableFields });
+  } catch (error) {
+    console.error('Get editable fields error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to get editable fields' });
+  }
+});
+
 export default router;
