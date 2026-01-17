@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { prospectProposals, users, agents, prospects, proposalEsignWorkflows, proposalEsignVersions } from '@shared/schema';
+import { prospectProposals, users, agents, prospectLeads } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
@@ -62,8 +62,8 @@ class InvestmentAgreementGenerator {
       throw new Error('Proposal not found');
     }
 
-    const [prospect] = await db.select().from(prospects)
-      .where(eq(prospects.id, proposal.prospectId))
+    const [prospect] = await db.select().from(prospectLeads)
+      .where(eq(prospectLeads.id, proposal.prospectId))
       .limit(1);
 
     const [agent] = await db.select().from(agents)
