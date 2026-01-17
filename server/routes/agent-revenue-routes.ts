@@ -5,7 +5,7 @@ import { eq, and, sql, gte, desc } from "drizzle-orm";
 
 const router = Router();
 
-router.get("/api/agent/revenue/metrics", async (req, res) => {
+router.get("/api/agent/revenue/metrics/:period?", async (req, res) => {
   try {
     const agentId = (req as any).user?.id;
 
@@ -77,7 +77,7 @@ router.get("/api/agent/revenue/product-mix", async (req, res) => {
   }
 });
 
-router.get("/api/agent/revenue/trends", async (req, res) => {
+router.get("/api/agent/revenue/trends/:period?", async (req, res) => {
   try {
     const months = ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const trends = months.map((month, index) => ({
