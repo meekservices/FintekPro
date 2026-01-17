@@ -104,9 +104,6 @@ router.post("/upload/for-signing", upload.single("document"), async (req: Reques
     }
 
     const { proposalId } = req.body;
-    if (!proposalId) {
-      return res.status(400).json({ error: "Proposal ID is required" });
-    }
 
     const validation = await documentUploadService.validateFile(req.file.buffer, req.file.originalname);
     if (!validation.valid) {
@@ -116,7 +113,7 @@ router.post("/upload/for-signing", upload.single("document"), async (req: Reques
     const result = await documentUploadService.uploadDocument(req.file.buffer, {
       userId: user.id,
       fileName: req.file.originalname,
-      proposalId,
+      proposalId: proposalId || undefined,
     });
 
     res.json({

@@ -47,7 +47,9 @@ import {
   ChevronRight,
   MessageSquare,
   MousePointer2,
-  CalendarDays
+  CalendarDays,
+  Loader2,
+  FileType
 } from "lucide-react";
 
 interface Client {
@@ -81,6 +83,16 @@ interface SendOptions {
   email: boolean;
   whatsapp: boolean;
   autoFillDate: boolean;
+}
+
+interface UploadedDocumentData {
+  originalUrl: string;
+  displayUrl: string;
+  documentHash: string;
+  originalFormat: string;
+  convertedFormat: string;
+  fileName: string;
+  htmlContent?: string;
 }
 
 interface ESignRequest {
@@ -161,6 +173,9 @@ export default function AgentESignPage() {
     whatsapp: false,
     autoFillDate: true,
   });
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadedDocumentData, setUploadedDocumentData] = useState<UploadedDocumentData | null>(null);
+  const [showDocumentPreview, setShowDocumentPreview] = useState(false);
 
   const { data: clients, isLoading: clientsLoading } = useQuery<Client[]>({
     queryKey: ['/api/agent/clients'],
@@ -248,17 +263,59 @@ export default function AgentESignPage() {
     }
   });
 
+  const uploadDocument = async (file: File) => {
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('document', file);
+
+      const response = await fetch('/api/documents/upload/for-signing', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Upload failed');
+      }
+
+      const result = await response.json();
+      if (result.success && result.document) {
+        setUploadedDocumentData(result.document);
+        toast({ title: "Document Uploaded", description: `${file.name} uploaded successfully` });
+      }
+    } catch (error) {
+      toast({ 
+        title: "Upload Failed", 
+        description: error instanceof Error ? error.message : "Failed to upload document", 
+        variant: "destructive" 
+      });
+      setUploadedFile(null);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
-    if (file && file.type === 'application/pdf') {
+    if (!file) return;
+
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    const isDocx = file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
+                   file.name.toLowerCase().endsWith('.docx');
+
+    if (isPdf || isDocx) {
       setUploadedFile(file);
+      const baseName = file.name.replace(/\.(pdf|docx)$/i, '');
       if (!documentName) {
-        setDocumentName(file.name.replace('.pdf', ''));
+        setDocumentName(baseName);
       }
+      uploadDocument(file);
     } else {
       toast({ 
         title: "Invalid File", 
-        description: "Please upload a PDF file", 
+        description: "Please upload a PDF or DOCX file", 
         variant: "destructive" 
       });
     }
@@ -266,8 +323,12 @@ export default function AgentESignPage() {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { 'application/pdf': ['.pdf'] },
+    accept: { 
+      'application/pdf': ['.pdf'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx']
+    },
     maxFiles: 1,
+    maxSize: 10 * 1024 * 1024,
   });
 
   const handleAddSigner = (clientId?: string) => {
@@ -326,6 +387,7 @@ export default function AgentESignPage() {
   const handleCloseDialog = () => {
     setShowNewRequestDialog(false);
     setUploadedFile(null);
+    setUploadedDocumentData(null);
     setDocumentName("");
     setDocumentType("");
     setSigners([]);
@@ -334,6 +396,12 @@ export default function AgentESignPage() {
     setDocumentSource('upload');
     setSignatureFields([]);
     setSendOptions({ email: true, whatsapp: false, autoFillDate: true });
+    setIsUploading(false);
+  };
+
+  const handleRemoveFile = () => {
+    setUploadedFile(null);
+    setUploadedDocumentData(null);
   };
 
   const handleSendRequest = () => {
@@ -341,6 +409,15 @@ export default function AgentESignPage() {
       toast({ 
         title: "Incomplete Form", 
         description: "Please fill all required fields and add at least one signer", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    if (documentSource === 'upload' && !uploadedDocumentData) {
+      toast({ 
+        title: "Document Required", 
+        description: "Please upload a document first", 
         variant: "destructive" 
       });
       return;
@@ -360,6 +437,7 @@ export default function AgentESignPage() {
       documentType,
       signers,
       deadline: deadline?.toISOString(),
+      documentHash: uploadedDocumentData?.documentHash,
       signatureFields,
       sendOptions,
     });
@@ -686,7 +764,8 @@ export default function AgentESignPage() {
                   >
                     <CardContent className="flex flex-col items-center justify-center p-6">
                       <Upload className="h-8 w-8 text-emerald-600 mb-2" />
-                      <span className="font-medium">Upload PDF</span>
+                      <span className="font-medium">Upload Document</span>
+                      <span className="text-xs text-muted-foreground">PDF or DOCX</span>
                     </CardContent>
                   </Card>
                   <Card 
@@ -724,34 +803,70 @@ export default function AgentESignPage() {
                     {...getRootProps()}
                     className={cn(
                       "border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors",
-                      isDragActive ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30" : "border-border hover:border-emerald-400"
+                      isDragActive ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30" : "border-border hover:border-emerald-400",
+                      isUploading && "pointer-events-none opacity-70"
                     )}
                     data-testid="dropzone-upload"
                   >
                     <input {...getInputProps()} data-testid="input-file-upload" />
-                    {uploadedFile ? (
+                    {isUploading ? (
+                      <div className="flex flex-col items-center gap-3">
+                        <Loader2 className="h-12 w-12 text-emerald-600 animate-spin" />
+                        <p className="font-medium">Uploading document...</p>
+                        <p className="text-sm text-muted-foreground">Please wait while we process your file</p>
+                      </div>
+                    ) : uploadedFile ? (
                       <div className="flex items-center justify-center gap-3">
-                        <FileText className="h-8 w-8 text-emerald-600" />
+                        <div className="relative">
+                          {uploadedFile.name.toLowerCase().endsWith('.docx') ? (
+                            <FileType className="h-8 w-8 text-blue-600" />
+                          ) : (
+                            <FileText className="h-8 w-8 text-red-600" />
+                          )}
+                          {uploadedDocumentData && (
+                            <CheckCircle2 className="h-4 w-4 text-emerald-600 absolute -bottom-1 -right-1 bg-white dark:bg-slate-900 rounded-full" />
+                          )}
+                        </div>
                         <div className="text-left">
                           <p className="font-medium">{uploadedFile.name}</p>
                           <p className="text-sm text-muted-foreground">
                             {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
+                            {uploadedDocumentData && (
+                              <span className="ml-2 text-emerald-600">
+                                {uploadedDocumentData.originalFormat === 'docx' 
+                                  ? `Converted to ${uploadedDocumentData.convertedFormat}` 
+                                  : 'Ready for signing'}
+                              </span>
+                            )}
                           </p>
                         </div>
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={(e) => { e.stopPropagation(); setUploadedFile(null); }}
-                          data-testid="button-remove-file"
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
+                        <div className="flex gap-1">
+                          {uploadedDocumentData && (
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={(e) => { e.stopPropagation(); setShowDocumentPreview(true); }}
+                              data-testid="button-preview-document"
+                            >
+                              <Eye className="h-4 w-4 text-emerald-600" />
+                            </Button>
+                          )}
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={(e) => { e.stopPropagation(); handleRemoveFile(); }}
+                            data-testid="button-remove-file"
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </div>
                       </div>
                     ) : (
                       <>
                         <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                        <p className="text-lg font-medium mb-1">Drop your PDF here</p>
-                        <p className="text-sm text-muted-foreground">or click to browse</p>
+                        <p className="text-lg font-medium mb-1">Drop your document here</p>
+                        <p className="text-sm text-muted-foreground">PDF or Word (DOCX) - Max 10MB</p>
+                        <p className="text-xs text-muted-foreground mt-2">DOCX files will be converted for viewing in the signing workflow</p>
                       </>
                     )}
                   </div>
@@ -1285,6 +1400,60 @@ export default function AgentESignPage() {
                 )}
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showDocumentPreview} onOpenChange={setShowDocumentPreview}>
+          <DialogContent className="max-w-4xl max-h-[90vh]" data-testid="dialog-document-preview">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Eye className="h-5 w-5 text-emerald-600" />
+                Document Preview
+              </DialogTitle>
+              <DialogDescription>
+                {uploadedDocumentData?.fileName} 
+                {uploadedDocumentData?.originalFormat === 'docx' && (
+                  <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-1 rounded">
+                    Converted from DOCX
+                  </span>
+                )}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="h-[60vh] overflow-auto border rounded-lg bg-white dark:bg-slate-900">
+              {uploadedDocumentData?.convertedFormat === 'html' && uploadedDocumentData?.htmlContent ? (
+                <div 
+                  className="p-6 prose dark:prose-invert max-w-none"
+                  dangerouslySetInnerHTML={{ __html: uploadedDocumentData.htmlContent }}
+                />
+              ) : uploadedDocumentData?.displayUrl ? (
+                <iframe
+                  src={uploadedDocumentData.displayUrl}
+                  className="w-full h-full"
+                  title="Document Preview"
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  <div className="text-center">
+                    <FileText className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                    <p>Preview not available</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowDocumentPreview(false)}>
+                Close
+              </Button>
+              {uploadedDocumentData?.originalUrl && (
+                <Button 
+                  variant="outline"
+                  onClick={() => window.open(uploadedDocumentData.originalUrl, '_blank')}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Original
+                </Button>
+              )}
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
