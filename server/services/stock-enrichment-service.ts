@@ -356,30 +356,41 @@ class StockEnrichmentService {
     complete: number;
     failed: number;
   }> {
-    const [stats] = await db.execute(sql`
-      SELECT 
-        COUNT(*) as total,
-        COUNT(cin) as with_cin,
-        COUNT(company_pan) as with_pan,
-        COUNT(broad_sector) as with_broad_sector,
-        COUNT(pe_ratio) as with_pe,
-        COUNT(CASE WHEN enrichment_status = 'pending' THEN 1 END) as pending,
-        COUNT(CASE WHEN enrichment_status = 'complete' THEN 1 END) as complete,
-        COUNT(CASE WHEN enrichment_status = 'failed' THEN 1 END) as failed
-      FROM listed_stocks
-    `);
+    try {
+      const result = await db.execute(sql`
+        SELECT 
+          COUNT(*) as total,
+          COUNT(cin) as with_cin,
+          COUNT(company_pan) as with_pan,
+          COUNT(broad_sector) as with_broad_sector,
+          COUNT(pe_ratio) as with_pe,
+          COUNT(CASE WHEN enrichment_status = 'pending' THEN 1 END) as pending,
+          COUNT(CASE WHEN enrichment_status = 'complete' THEN 1 END) as complete,
+          COUNT(CASE WHEN enrichment_status = 'failed' THEN 1 END) as failed
+        FROM listed_stocks
+      `);
 
-    const row = stats as any;
-    return {
-      total: parseInt(row.total) || 0,
-      withCin: parseInt(row.with_cin) || 0,
-      withPan: parseInt(row.with_pan) || 0,
-      withBroadSector: parseInt(row.with_broad_sector) || 0,
-      withPe: parseInt(row.with_pe) || 0,
-      pending: parseInt(row.pending) || 0,
-      complete: parseInt(row.complete) || 0,
-      failed: parseInt(row.failed) || 0,
-    };
+      const rows = result.rows || result;
+      const row = (Array.isArray(rows) ? rows[0] : rows) as any;
+      
+      if (!row) {
+        return { total: 0, withCin: 0, withPan: 0, withBroadSector: 0, withPe: 0, pending: 0, complete: 0, failed: 0 };
+      }
+      
+      return {
+        total: parseInt(row.total) || 0,
+        withCin: parseInt(row.with_cin) || 0,
+        withPan: parseInt(row.with_pan) || 0,
+        withBroadSector: parseInt(row.with_broad_sector) || 0,
+        withPe: parseInt(row.with_pe) || 0,
+        pending: parseInt(row.pending) || 0,
+        complete: parseInt(row.complete) || 0,
+        failed: parseInt(row.failed) || 0,
+      };
+    } catch (error) {
+      console.error("[StockEnrichment] Error getting enrichment stats:", error);
+      return { total: 0, withCin: 0, withPan: 0, withBroadSector: 0, withPe: 0, pending: 0, complete: 0, failed: 0 };
+    }
   }
 }
 
