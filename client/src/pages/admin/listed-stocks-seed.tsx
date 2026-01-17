@@ -38,6 +38,10 @@ interface ListedStock {
   targetPrice?: string;
   isPublished: boolean;
   lastUpdated?: string;
+  broadSector?: string;
+  enrichmentStatus?: string;
+  cin?: string;
+  companyPan?: string;
 }
 
 interface SyncProgress {
@@ -53,6 +57,33 @@ interface SyncProgress {
   errorMessage?: string;
 }
 
+interface EnrichmentStats {
+  total: number;
+  withCin: number;
+  withPan: number;
+  withBroadSector: number;
+  withPe: number;
+  pending: number;
+  complete: number;
+  failed: number;
+}
+
+const BROAD_SECTORS = [
+  'Technology',
+  'Banking & Finance',
+  'Healthcare & Pharma',
+  'Manufacturing',
+  'Infrastructure & Construction',
+  'Consumer Goods & Retail',
+  'Energy & Utilities',
+  'Metals & Mining',
+  'Chemicals',
+  'Real Estate',
+  'Services',
+  'Others'
+];
+
+// Legacy sectors (for backward compatibility)
 const SECTORS = [
   'Information Technology',
   'Financial Services',
@@ -77,6 +108,7 @@ export default function ListedStocksSeed() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [sectorFilter, setSectorFilter] = useState<string>("all");
+  const [broadSectorFilter, setBroadSectorFilter] = useState<string>("all");
   const [marketCapFilter, setMarketCapFilter] = useState<string>("all");
   const [exchangeFilter, setExchangeFilter] = useState<string>("all");
   const [selectedStocks, setSelectedStocks] = useState<Set<string>>(new Set());

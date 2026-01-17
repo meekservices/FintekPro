@@ -3978,10 +3978,16 @@ export const listedStocks = pgTable("listed_stocks", {
   companyName: text("company_name").notNull(),
   
   // Classification
-  sector: varchar("sector"), // IT, Banking, Pharma, FMCG, etc.
+  
+  // Company unique identifiers (for enrichment and deduplication)
+  cin: varchar("cin").unique(), // Corporate Identity Number (MCA format)
+  companyPan: varchar("company_pan").unique(), // Company PAN (AAACR1234A format)
+  sector: varchar("sector"), // 185 granular sectors from NSE/BSE
+  broadSector: varchar("broad_sector"), // Consolidated to 12 broad sectors for AI recommendations
   industry: varchar("industry"), // More specific classification
   marketCap: varchar("market_cap"), // Large Cap, Mid Cap, Small Cap
   indexMembership: jsonb("index_membership").default([]), // ['NIFTY50', 'SENSEX', 'NIFTY100', etc.]
+  exchangeInfo: jsonb("exchange_info").default({}), // Multi-exchange: {nse: {symbol, listed}, bse: {code, listed}, global: [...]}
   
   // Price data
   currentPrice: decimal("current_price", { precision: 15, scale: 2 }),
@@ -4036,6 +4042,9 @@ export const listedStocks = pgTable("listed_stocks", {
   
   // Metadata
   dataSource: varchar("data_source").default("nse"), // 'nse', 'bse', 'manual'
+  enrichmentStatus: varchar("enrichment_status").default("pending"), // 'pending', 'partial', 'complete', 'failed'
+  lastEnrichedAt: timestamp("last_enriched_at"), // Last successful enrichment
+  enrichmentSource: varchar("enrichment_source"), // 'probe42', 'nse', 'bse', 'finnhub'
   lastUpdated: timestamp("last_updated").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
 });

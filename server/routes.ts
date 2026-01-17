@@ -124,6 +124,7 @@ import adminApiUsageRoutes from "./routes/admin-api-usage-routes";
 import derivativesRoutes from "./routes/derivatives-routes";
 import listedStocksAdminRoutes from "./routes/listed-stocks-admin";
 import demoProposalsRoutes, { agentDemoRouter } from "./routes/demo-proposals";
+import stockEnrichmentRoutes from "./routes/stock-enrichment-routes";
 import exchangeStockSyncRoutes from './routes/exchange-stock-sync';
 import unifiedCartRoutes from "./routes/unified-cart";
 import aiProposalRoutes from "./routes/ai-proposal-routes";
@@ -595,6 +596,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/derivatives", derivativesRoutes);
   app.use("/api/unified-cart", unifiedCartRoutes);
   app.use("/api/admin", requireAdmin, listedStocksAdminRoutes);
+  app.use("/api/admin/stocks", requireAdmin, stockEnrichmentRoutes);
   app.use("/api/admin/demo-proposals", requireAdmin, demoProposalsRoutes);
   app.use("/api/agent/demo-proposals", isAuthenticated, agentDemoRouter);
   app.use("/api/agent", portfolioImportRoutes);
