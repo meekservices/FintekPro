@@ -245,7 +245,7 @@ router.post("/sync/:productType", requireAdmin, async (req, res) => {
     } else if (productType === "reit" || productType === "invit") {
       sourceData = await db.select().from(reits);
     } else if (productType === "unlisted_stock") {
-      sourceData = await db.select().from(preIpoCompanies).where(eq(preIpoCompanies.isActive, true));
+      sourceData = await db.select().from(preIpoCompanies).where(eq(preIpoCompanies.isAvailableForInvestment, true));
     } else {
       return res.status(400).json({ error: "Invalid productType" });
     }
@@ -296,7 +296,7 @@ router.post("/sync/:productType", requireAdmin, async (req, res) => {
           productData = {
             ...productData,
             amc: item.sponsor || item.manager,
-            sector: item.sector,
+            sector: item.broadSector || item.sector,
             category: `${productType.toUpperCase()} - ${item.sector}`,
             currentPrice: item.currentPrice,
             dividendYield: item.distributionYield?.toString(),
@@ -309,8 +309,8 @@ router.post("/sync/:productType", requireAdmin, async (req, res) => {
         } else if (productType === "unlisted_stock") {
           productData = {
             ...productData,
-            sector: item.sector,
-            category: `Unlisted - ${item.sector}`,
+            sector: item.broadSector || item.sector,
+            category: `Unlisted - ${item.broadSector || item.sector}`,
             riskLevel: "High",
             minimumInvestment: item.minInvestmentAmount,
             requiresEnhancedKYC: true,
