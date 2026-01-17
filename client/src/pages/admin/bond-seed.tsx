@@ -18,7 +18,8 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   RefreshCw, Search, Loader2, ArrowLeft, Building2, Landmark, FileText, 
   TrendingUp, AlertTriangle, History, Eye, Shield, DollarSign, Percent,
-  Plus, Upload, Download, Check, X, ChevronDown, ChevronUp, ExternalLink
+  Plus, Upload, Download, Check, X, ChevronDown, ChevronUp, ExternalLink,
+  Play, Pause, Clock, Activity, Database
 } from "lucide-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
@@ -103,6 +104,27 @@ interface NetYieldResult {
   };
   regulatoryCompliant: boolean;
   violations: string[];
+}
+
+interface RefreshStatusResponse {
+  success: boolean;
+  status: {
+    isRefreshing: boolean;
+    lastRefreshTime: string | null;
+    lastRefreshResults: {
+      gsec: { count: number; error?: string };
+      corporate: { count: number; error?: string };
+      sgb: { count: number; error?: string };
+      taxFree: { count: number; error?: string };
+      infrastructure: { count: number; error?: string };
+    } | null;
+  };
+  stats: {
+    governmentSecurities: number;
+    corporateBonds: number;
+    catalogTotal: number;
+    publishedBonds: number;
+  };
 }
 
 const INSTRUMENT_TYPES = [
@@ -208,6 +230,11 @@ export default function BondSeedAdmin() {
     queryKey: ['/api/admin/bond-seed/audit-logs'],
   });
 
+  const { data: refreshStatusData, isLoading: isLoadingRefreshStatus, refetch: refetchRefreshStatus } = useQuery<RefreshStatusResponse>({
+    queryKey: ['/api/admin/bond-seed/refresh/status'],
+    refetchInterval: 5000,
+  });
+
   const bonds = catalogData?.bonds || [];
   const feeProfiles = feeProfilesData?.profiles || [];
   const auditLogs = auditLogsData?.logs || [];
@@ -251,6 +278,70 @@ export default function BondSeedAdmin() {
         description: error.message || "Failed to sync from BSE",
         variant: "destructive",
       });
+    },
+  });
+
+  const refreshAllMutation = useMutation({
+    mutationFn: () => apiRequest('/api/admin/bond-seed/refresh/all', { method: 'POST' }),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/bond-seed/catalog'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/bond-seed/refresh/status'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/bond-seed/audit-logs'] });
+      const results = data.results;
+      const total = (results?.gsec?.count || 0) + (results?.corporate?.count || 0) + 
+                    (results?.sgb?.count || 0) + (results?.taxFree?.count || 0) + (results?.infrastructure?.count || 0);
+      toast({
+        title: "Refresh Complete",
+        description: `Refreshed ${total} bonds from all sources`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Refresh Failed",
+        description: error.message || "Failed to refresh bonds",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const refreshCategoryMutation = useMutation({
+    mutationFn: (category: string) => apiRequest(`/api/admin/bond-seed/refresh/${category}`, { method: 'POST' }),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/bond-seed/catalog'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/bond-seed/refresh/status'] });
+      toast({
+        title: "Category Refresh Complete",
+        description: `Refreshed ${data.count || 0} ${data.type || 'bonds'}`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Refresh Failed",
+        description: error.message || "Failed to refresh category",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const schedulerStartMutation = useMutation({
+    mutationFn: () => apiRequest('/api/admin/bond-seed/scheduler/start', { method: 'POST' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/bond-seed/refresh/status'] });
+      toast({ title: "Scheduler Started", description: "Auto-refresh is now enabled (1-hour interval)" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed", description: error.message || "Failed to start scheduler", variant: "destructive" });
+    },
+  });
+
+  const schedulerStopMutation = useMutation({
+    mutationFn: () => apiRequest('/api/admin/bond-seed/scheduler/stop', { method: 'POST' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/bond-seed/refresh/status'] });
+      toast({ title: "Scheduler Stopped", description: "Auto-refresh is now disabled" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed", description: error.message || "Failed to stop scheduler", variant: "destructive" });
     },
   });
 
@@ -966,7 +1057,7 @@ export default function BondSeedAdmin() {
       </Alert>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="government" className="flex items-center gap-2" data-testid="tab-government">
             <Landmark className="h-4 w-4" />
             Government Securities
@@ -982,6 +1073,10 @@ export default function BondSeedAdmin() {
           <TabsTrigger value="fees" className="flex items-center gap-2" data-testid="tab-fees">
             <Percent className="h-4 w-4" />
             Fee Profiles
+          </TabsTrigger>
+          <TabsTrigger value="refresh" className="flex items-center gap-2" data-testid="tab-refresh">
+            <Activity className="h-4 w-4" />
+            Data Refresh
           </TabsTrigger>
           <TabsTrigger value="audit" className="flex items-center gap-2" data-testid="tab-audit">
             <History className="h-4 w-4" />
@@ -1003,6 +1098,229 @@ export default function BondSeedAdmin() {
 
         <TabsContent value="fees" className="mt-6">
           {renderFeeProfilesTable()}
+        </TabsContent>
+
+        <TabsContent value="refresh" className="mt-6">
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Landmark className="h-4 w-4" />
+                    Government Securities
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{refreshStatusData?.stats?.governmentSecurities || 0}</div>
+                  <p className="text-xs text-muted-foreground">G-Secs, T-Bills, SDLs, SGBs</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Building2 className="h-4 w-4" />
+                    Corporate Bonds
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{refreshStatusData?.stats?.corporateBonds || 0}</div>
+                  <p className="text-xs text-muted-foreground">NCDs, Tax-Free, Infrastructure</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Database className="h-4 w-4" />
+                    Catalog Total
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{refreshStatusData?.stats?.catalogTotal || 0}</div>
+                  <p className="text-xs text-muted-foreground">All bonds in catalog</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Check className="h-4 w-4 text-green-600" />
+                    Published
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-green-600">{refreshStatusData?.stats?.publishedBonds || 0}</div>
+                  <p className="text-xs text-muted-foreground">Live in marketplace</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="h-5 w-5" />
+                    Scheduler Status
+                  </CardTitle>
+                  <CardDescription>Auto-refresh runs every hour to keep bond data current</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {refreshStatusData?.status?.isRefreshing ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                          <span className="text-sm font-medium">Refreshing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <div className="h-2 w-2 rounded-full bg-green-500" />
+                          <span className="text-sm font-medium">Idle</span>
+                        </>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => schedulerStartMutation.mutate()}
+                        disabled={schedulerStartMutation.isPending}
+                      >
+                        <Play className="h-4 w-4 mr-1" />
+                        Start
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => schedulerStopMutation.mutate()}
+                        disabled={schedulerStopMutation.isPending}
+                      >
+                        <Pause className="h-4 w-4 mr-1" />
+                        Stop
+                      </Button>
+                    </div>
+                  </div>
+                  {refreshStatusData?.status?.lastRefreshTime && (
+                    <div className="text-sm text-muted-foreground">
+                      Last refresh: {format(new Date(refreshStatusData.status.lastRefreshTime), 'PPp')}
+                    </div>
+                  )}
+                  {refreshStatusData?.status?.lastRefreshResults && (
+                    <div className="text-xs space-y-1 pt-2 border-t">
+                      <div className="flex justify-between">
+                        <span>G-Secs:</span>
+                        <span className={refreshStatusData.status.lastRefreshResults.gsec.error ? 'text-red-500' : ''}>
+                          {refreshStatusData.status.lastRefreshResults.gsec.count} 
+                          {refreshStatusData.status.lastRefreshResults.gsec.error && ' (error)'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Corporate:</span>
+                        <span className={refreshStatusData.status.lastRefreshResults.corporate.error ? 'text-red-500' : ''}>
+                          {refreshStatusData.status.lastRefreshResults.corporate.count}
+                          {refreshStatusData.status.lastRefreshResults.corporate.error && ' (error)'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>SGBs:</span>
+                        <span className={refreshStatusData.status.lastRefreshResults.sgb.error ? 'text-red-500' : ''}>
+                          {refreshStatusData.status.lastRefreshResults.sgb.count}
+                          {refreshStatusData.status.lastRefreshResults.sgb.error && ' (error)'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Tax-Free:</span>
+                        <span className={refreshStatusData.status.lastRefreshResults.taxFree.error ? 'text-red-500' : ''}>
+                          {refreshStatusData.status.lastRefreshResults.taxFree.count}
+                          {refreshStatusData.status.lastRefreshResults.taxFree.error && ' (error)'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Infrastructure:</span>
+                        <span className={refreshStatusData.status.lastRefreshResults.infrastructure.error ? 'text-red-500' : ''}>
+                          {refreshStatusData.status.lastRefreshResults.infrastructure.count}
+                          {refreshStatusData.status.lastRefreshResults.infrastructure.error && ' (error)'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <RefreshCw className="h-5 w-5" />
+                    Manual Refresh
+                  </CardTitle>
+                  <CardDescription>Trigger immediate data refresh from exchange APIs</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Button 
+                    className="w-full" 
+                    onClick={() => refreshAllMutation.mutate()}
+                    disabled={refreshAllMutation.isPending || refreshStatusData?.status?.isRefreshing}
+                  >
+                    {refreshAllMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                    )}
+                    Refresh All Bond Data
+                  </Button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => refreshCategoryMutation.mutate('gsec')}
+                      disabled={refreshCategoryMutation.isPending}
+                    >
+                      G-Secs
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => refreshCategoryMutation.mutate('sgb')}
+                      disabled={refreshCategoryMutation.isPending}
+                    >
+                      SGBs
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => refreshCategoryMutation.mutate('corporate')}
+                      disabled={refreshCategoryMutation.isPending}
+                    >
+                      Corporate
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => refreshCategoryMutation.mutate('tax-free')}
+                      disabled={refreshCategoryMutation.isPending}
+                    >
+                      Tax-Free
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => refreshCategoryMutation.mutate('infrastructure')}
+                      disabled={refreshCategoryMutation.isPending}
+                      className="col-span-2"
+                    >
+                      Infrastructure Bonds
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Alert>
+              <Activity className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Data Sources:</strong> Government securities from NSE NCB API, Corporate bonds from BSE Bond Platform. 
+                Auto-refresh interval: 1 hour. Manual refresh available anytime.
+              </AlertDescription>
+            </Alert>
+          </div>
         </TabsContent>
 
         <TabsContent value="audit" className="mt-6">
