@@ -136,292 +136,266 @@ export class BondCatalogService {
   
   /**
    * Refresh government securities (G-Secs, T-Bills, SDLs)
+   * Throws on error so caller can handle and track failures
    */
   async refreshGovernmentSecurities(): Promise<number> {
-    try {
-      // Fetch upcoming auctions from NSE NCB
-      const auctions = await nseNcbApi.getUpcomingAuctions();
+    const auctions = await nseNcbApi.getUpcomingAuctions();
+    const yieldCurve = await nseNcbApi.getYieldCurve();
+    
+    for (const auction of auctions) {
+      const existing = await db
+        .select()
+        .from(governmentSecurities)
+        .where(eq(governmentSecurities.isin, auction.isin))
+        .limit(1);
       
-      // Fetch yield curve for current market pricing
-      const yieldCurve = await nseNcbApi.getYieldCurve();
+      const securityData = {
+        isin: auction.isin,
+        securityName: auction.securityName,
+        securityType: auction.securityType,
+        issuer: auction.issuer,
+        issueDate: auction.auctionDate,
+        maturityDate: auction.maturityDate,
+        faceValue: '100',
+        couponRate: auction.couponRate?.toString() || '0',
+        couponFrequency: auction.couponRate ? 'semi_annual' : 'zero_coupon',
+        currentPrice: auction.cutOffPrice?.toString() || '100',
+        yieldToMaturity: auction.cutOffYield?.toString() || '0',
+        creditRating: 'AAA',
+        ratingAgency: 'Government of India',
+        minimumInvestment: auction.minimumBid?.toString() || '10000',
+        tradingStatus: auction.status === 'ongoing' ? 'active' : 'upcoming',
+        lastUpdated: new Date()
+      };
       
-      for (const auction of auctions) {
-        // Check if security already exists
-        const existing = await db
-          .select()
-          .from(governmentSecurities)
-          .where(eq(governmentSecurities.isin, auction.isin))
-          .limit(1);
-        
-        const securityData = {
-          isin: auction.isin,
-          securityName: auction.securityName,
-          securityType: auction.securityType,
-          issuer: auction.issuer,
-          issueDate: auction.auctionDate,
-          maturityDate: auction.maturityDate,
-          faceValue: '100',
-          couponRate: auction.couponRate?.toString() || '0',
-          couponFrequency: auction.couponRate ? 'semi_annual' : 'zero_coupon',
-          currentPrice: auction.cutOffPrice?.toString() || '100',
-          yieldToMaturity: auction.cutOffYield?.toString() || '0',
-          creditRating: 'AAA',
-          ratingAgency: 'Government of India',
-          minimumInvestment: auction.minimumBid?.toString() || '10000',
-          tradingStatus: auction.status === 'ongoing' ? 'active' : 'upcoming',
-          lastUpdated: new Date()
-        };
-        
-        if (existing.length > 0) {
-          // Update existing security
-          await db
-            .update(governmentSecurities)
-            .set(securityData)
-            .where(eq(governmentSecurities.isin, auction.isin));
-        } else {
-          // Insert new security
-          await db
-            .insert(governmentSecurities)
-            .values(securityData);
-        }
+      if (existing.length > 0) {
+        await db
+          .update(governmentSecurities)
+          .set(securityData)
+          .where(eq(governmentSecurities.isin, auction.isin));
+      } else {
+        await db
+          .insert(governmentSecurities)
+          .values(securityData);
       }
-      
-      console.log(`✅ Refreshed ${auctions.length} government securities`);
-      return auctions.length;
-    } catch (error) {
-      console.error('Error refreshing government securities:', error);
-      return 0;
     }
+    
+    console.log(`✅ Refreshed ${auctions.length} government securities`);
+    return auctions.length;
   }
   
   /**
    * Refresh corporate bonds from BSE
+   * Throws on error so caller can handle and track failures
    */
   async refreshCorporateBonds(): Promise<number> {
-    try {
-      const bonds = await bseBondApi.getTradableBonds();
+    const bonds = await bseBondApi.getTradableBonds();
+    
+    for (const bond of bonds) {
+      const existing = await db
+        .select()
+        .from(corporateBonds)
+        .where(eq(corporateBonds.isin, bond.isin))
+        .limit(1);
       
-      for (const bond of bonds) {
-        const existing = await db
-          .select()
-          .from(corporateBonds)
-          .where(eq(corporateBonds.isin, bond.isin))
-          .limit(1);
-        
-        const bondData = {
-          isin: bond.isin,
-          securityCode: bond.securityCode,
-          bondName: bond.bondName,
-          issuer: bond.issuer,
-          bondType: bond.bondType,
-          issueDate: new Date().toISOString().split('T')[0],
-          maturityDate: bond.maturityDate,
-          faceValue: bond.faceValue.toString(),
-          couponType: bond.couponType,
-          couponRate: bond.couponRate.toString(),
-          couponFrequency: bond.couponFrequency,
-          currentPrice: bond.currentPrice.toString(),
-          yieldToMaturity: bond.yieldToMaturity.toString(),
-          creditRating: bond.creditRating,
-          ratingAgency: bond.ratingAgency,
-          minimumLotSize: bond.minimumLotSize.toString(),
-          tradingStatus: bond.tradingStatus,
-          lastTradedPrice: bond.lastTradedPrice.toString(),
-          volume: bond.volume.toString(),
-          lastUpdated: new Date()
-        };
-        
-        if (existing.length > 0) {
-          await db
-            .update(corporateBonds)
-            .set(bondData)
-            .where(eq(corporateBonds.isin, bond.isin));
-        } else {
-          await db
-            .insert(corporateBonds)
-            .values(bondData);
-        }
+      const bondData = {
+        isin: bond.isin,
+        securityCode: bond.securityCode,
+        bondName: bond.bondName,
+        issuer: bond.issuer,
+        bondType: bond.bondType,
+        issueDate: new Date().toISOString().split('T')[0],
+        maturityDate: bond.maturityDate,
+        faceValue: bond.faceValue.toString(),
+        couponType: bond.couponType,
+        couponRate: bond.couponRate.toString(),
+        couponFrequency: bond.couponFrequency,
+        currentPrice: bond.currentPrice.toString(),
+        yieldToMaturity: bond.yieldToMaturity.toString(),
+        creditRating: bond.creditRating,
+        ratingAgency: bond.ratingAgency,
+        minimumLotSize: bond.minimumLotSize.toString(),
+        tradingStatus: bond.tradingStatus,
+        lastTradedPrice: bond.lastTradedPrice.toString(),
+        volume: bond.volume.toString(),
+        lastUpdated: new Date()
+      };
+      
+      if (existing.length > 0) {
+        await db
+          .update(corporateBonds)
+          .set(bondData)
+          .where(eq(corporateBonds.isin, bond.isin));
+      } else {
+        await db
+          .insert(corporateBonds)
+          .values(bondData);
       }
-      
-      console.log(`✅ Refreshed ${bonds.length} corporate bonds`);
-      return bonds.length;
-    } catch (error) {
-      console.error('Error refreshing corporate bonds:', error);
-      return 0;
     }
+    
+    console.log(`✅ Refreshed ${bonds.length} corporate bonds`);
+    return bonds.length;
   }
   
   /**
    * Refresh Sovereign Gold Bonds
+   * Throws on error so caller can handle and track failures
    */
   async refreshSovereignGoldBonds(): Promise<number> {
-    try {
-      const sgbs = await nseNcbApi.getSGBData();
+    const sgbs = await nseNcbApi.getSGBData();
+    
+    for (const sgb of sgbs) {
+      const existing = await db
+        .select()
+        .from(governmentSecurities)
+        .where(eq(governmentSecurities.isin, sgb.isin))
+        .limit(1);
       
-      for (const sgb of sgbs) {
-        const existing = await db
-          .select()
-          .from(governmentSecurities)
-          .where(eq(governmentSecurities.isin, sgb.isin))
-          .limit(1);
-        
-        const sgbData = {
-          isin: sgb.isin,
-          securityName: sgb.securityName,
-          securityType: sgb.securityType,
-          issuer: sgb.issuer,
-          issueDate: sgb.subscriptionStartDate,
-          maturityDate: sgb.maturityDate,
-          faceValue: sgb.goldWeight.toString(),
-          couponRate: sgb.couponRate.toString(),
-          couponFrequency: 'semi_annual',
-          currentPrice: sgb.issuePrice.toString(),
-          yieldToMaturity: sgb.yieldToMaturity?.toString() || sgb.couponRate.toString(),
-          creditRating: sgb.creditRating,
-          ratingAgency: sgb.ratingAgency,
-          minimumInvestment: sgb.minimumInvestment.toString(),
-          tradingStatus: sgb.tradingStatus,
-          sgbGoldPrice: sgb.goldReferencePrice.toString(),
-          sgbRedemptionValue: (sgb.goldReferencePrice * sgb.goldWeight).toString(),
-          sgbEarlyRedemption: sgb.earlyRedemptionAllowed.toString(),
-          lastUpdated: new Date()
-        };
-        
-        if (existing.length > 0) {
-          await db
-            .update(governmentSecurities)
-            .set(sgbData)
-            .where(eq(governmentSecurities.isin, sgb.isin));
-        } else {
-          await db
-            .insert(governmentSecurities)
-            .values(sgbData);
-        }
+      const sgbData = {
+        isin: sgb.isin,
+        securityName: sgb.securityName,
+        securityType: sgb.securityType,
+        issuer: sgb.issuer,
+        issueDate: sgb.subscriptionStartDate,
+        maturityDate: sgb.maturityDate,
+        faceValue: sgb.goldWeight.toString(),
+        couponRate: sgb.couponRate.toString(),
+        couponFrequency: 'semi_annual',
+        currentPrice: sgb.issuePrice.toString(),
+        yieldToMaturity: sgb.yieldToMaturity?.toString() || sgb.couponRate.toString(),
+        creditRating: sgb.creditRating,
+        ratingAgency: sgb.ratingAgency,
+        minimumInvestment: sgb.minimumInvestment.toString(),
+        tradingStatus: sgb.tradingStatus,
+        sgbGoldPrice: sgb.goldReferencePrice.toString(),
+        sgbRedemptionValue: (sgb.goldReferencePrice * sgb.goldWeight).toString(),
+        sgbEarlyRedemption: sgb.earlyRedemptionAllowed.toString(),
+        lastUpdated: new Date()
+      };
+      
+      if (existing.length > 0) {
+        await db
+          .update(governmentSecurities)
+          .set(sgbData)
+          .where(eq(governmentSecurities.isin, sgb.isin));
+      } else {
+        await db
+          .insert(governmentSecurities)
+          .values(sgbData);
       }
-      
-      console.log(`✅ Refreshed ${sgbs.length} Sovereign Gold Bonds`);
-      return sgbs.length;
-    } catch (error) {
-      console.error('Error refreshing SGBs:', error);
-      return 0;
     }
+    
+    console.log(`✅ Refreshed ${sgbs.length} Sovereign Gold Bonds`);
+    return sgbs.length;
   }
   
   /**
    * Refresh tax-free bonds
+   * Throws on error so caller can handle and track failures
    */
   async refreshTaxFreeBonds(): Promise<number> {
-    try {
-      const taxFreeBonds = await bseBondApi.getTaxFreeBonds();
+    const taxFreeBonds = await bseBondApi.getTaxFreeBonds();
+    
+    for (const bond of taxFreeBonds) {
+      const existing = await db
+        .select()
+        .from(corporateBonds)
+        .where(eq(corporateBonds.isin, bond.isin))
+        .limit(1);
       
-      for (const bond of taxFreeBonds) {
-        const existing = await db
-          .select()
-          .from(corporateBonds)
-          .where(eq(corporateBonds.isin, bond.isin))
-          .limit(1);
-        
-        const bondData = {
-          isin: bond.isin,
-          securityCode: bond.securityCode,
-          bondName: bond.bondName,
-          issuer: bond.issuer,
-          bondType: bond.bondType,
-          issueDate: new Date().toISOString().split('T')[0],
-          maturityDate: bond.maturityDate,
-          faceValue: bond.faceValue.toString(),
-          couponType: bond.couponType,
-          couponRate: bond.couponRate.toString(),
-          couponFrequency: bond.couponFrequency,
-          currentPrice: bond.currentPrice.toString(),
-          yieldToMaturity: bond.yieldToMaturity.toString(),
-          creditRating: bond.creditRating,
-          ratingAgency: bond.ratingAgency,
-          minimumLotSize: bond.minimumLotSize.toString(),
-          tradingStatus: bond.tradingStatus,
-          lastTradedPrice: bond.lastTradedPrice.toString(),
-          volume: bond.volume.toString(),
-          taxBenefit: bond.taxBenefit,
-          lastUpdated: new Date()
-        };
-        
-        if (existing.length > 0) {
-          await db
-            .update(corporateBonds)
-            .set(bondData)
-            .where(eq(corporateBonds.isin, bond.isin));
-        } else {
-          await db
-            .insert(corporateBonds)
-            .values(bondData);
-        }
+      const bondData = {
+        isin: bond.isin,
+        securityCode: bond.securityCode,
+        bondName: bond.bondName,
+        issuer: bond.issuer,
+        bondType: bond.bondType,
+        issueDate: new Date().toISOString().split('T')[0],
+        maturityDate: bond.maturityDate,
+        faceValue: bond.faceValue.toString(),
+        couponType: bond.couponType,
+        couponRate: bond.couponRate.toString(),
+        couponFrequency: bond.couponFrequency,
+        currentPrice: bond.currentPrice.toString(),
+        yieldToMaturity: bond.yieldToMaturity.toString(),
+        creditRating: bond.creditRating,
+        ratingAgency: bond.ratingAgency,
+        minimumLotSize: bond.minimumLotSize.toString(),
+        tradingStatus: bond.tradingStatus,
+        lastTradedPrice: bond.lastTradedPrice.toString(),
+        volume: bond.volume.toString(),
+        taxBenefit: bond.taxBenefit,
+        lastUpdated: new Date()
+      };
+      
+      if (existing.length > 0) {
+        await db
+          .update(corporateBonds)
+          .set(bondData)
+          .where(eq(corporateBonds.isin, bond.isin));
+      } else {
+        await db
+          .insert(corporateBonds)
+          .values(bondData);
       }
-      
-      console.log(`✅ Refreshed ${taxFreeBonds.length} tax-free bonds`);
-      return taxFreeBonds.length;
-    } catch (error) {
-      console.error('Error refreshing tax-free bonds:', error);
-      return 0;
     }
+    
+    console.log(`✅ Refreshed ${taxFreeBonds.length} tax-free bonds`);
+    return taxFreeBonds.length;
   }
   
   /**
    * Refresh infrastructure bonds
+   * Throws on error so caller can handle and track failures
    */
   async refreshInfrastructureBonds(): Promise<number> {
-    try {
-      const infraBonds = await bseBondApi.getInfrastructureBonds();
+    const infraBonds = await bseBondApi.getInfrastructureBonds();
+    
+    for (const bond of infraBonds) {
+      const existing = await db
+        .select()
+        .from(corporateBonds)
+        .where(eq(corporateBonds.isin, bond.isin))
+        .limit(1);
       
-      for (const bond of infraBonds) {
-        const existing = await db
-          .select()
-          .from(corporateBonds)
-          .where(eq(corporateBonds.isin, bond.isin))
-          .limit(1);
-        
-        const bondData = {
-          isin: bond.isin,
-          securityCode: bond.securityCode,
-          bondName: bond.bondName,
-          issuer: bond.issuer,
-          bondType: bond.bondType,
-          issueDate: new Date().toISOString().split('T')[0],
-          maturityDate: bond.maturityDate,
-          faceValue: bond.faceValue.toString(),
-          couponType: bond.couponType,
-          couponRate: bond.couponRate.toString(),
-          couponFrequency: bond.couponFrequency,
-          currentPrice: bond.currentPrice.toString(),
-          yieldToMaturity: bond.yieldToMaturity.toString(),
-          creditRating: bond.creditRating,
-          ratingAgency: bond.ratingAgency,
-          minimumLotSize: bond.minimumLotSize.toString(),
-          tradingStatus: bond.tradingStatus,
-          lastTradedPrice: bond.lastTradedPrice.toString(),
-          volume: bond.volume.toString(),
-          infraSector: bond.sector,
-          infraProjectType: bond.projectType,
-          lastUpdated: new Date()
-        };
-        
-        if (existing.length > 0) {
-          await db
-            .update(corporateBonds)
-            .set(bondData)
-            .where(eq(corporateBonds.isin, bond.isin));
-        } else {
-          await db
-            .insert(corporateBonds)
-            .values(bondData);
-        }
+      const bondData = {
+        isin: bond.isin,
+        securityCode: bond.securityCode,
+        bondName: bond.bondName,
+        issuer: bond.issuer,
+        bondType: bond.bondType,
+        issueDate: new Date().toISOString().split('T')[0],
+        maturityDate: bond.maturityDate,
+        faceValue: bond.faceValue.toString(),
+        couponType: bond.couponType,
+        couponRate: bond.couponRate.toString(),
+        couponFrequency: bond.couponFrequency,
+        currentPrice: bond.currentPrice.toString(),
+        yieldToMaturity: bond.yieldToMaturity.toString(),
+        creditRating: bond.creditRating,
+        ratingAgency: bond.ratingAgency,
+        minimumLotSize: bond.minimumLotSize.toString(),
+        tradingStatus: bond.tradingStatus,
+        lastTradedPrice: bond.lastTradedPrice.toString(),
+        volume: bond.volume.toString(),
+        infraSector: bond.sector,
+        infraProjectType: bond.projectType,
+        lastUpdated: new Date()
+      };
+      
+      if (existing.length > 0) {
+        await db
+          .update(corporateBonds)
+          .set(bondData)
+          .where(eq(corporateBonds.isin, bond.isin));
+      } else {
+        await db
+          .insert(corporateBonds)
+          .values(bondData);
       }
-      
-      console.log(`✅ Refreshed ${infraBonds.length} infrastructure bonds`);
-      return infraBonds.length;
-    } catch (error) {
-      console.error('Error refreshing infrastructure bonds:', error);
-      return 0;
     }
+    
+    console.log(`✅ Refreshed ${infraBonds.length} infrastructure bonds`);
+    return infraBonds.length;
   }
   
   /**

@@ -110,6 +110,7 @@ interface RefreshStatusResponse {
   success: boolean;
   status: {
     isRefreshing: boolean;
+    schedulerActive: boolean;
     lastRefreshTime: string | null;
     lastRefreshResults: {
       gsec: { count: number; error?: string };
@@ -118,6 +119,7 @@ interface RefreshStatusResponse {
       taxFree: { count: number; error?: string };
       infrastructure: { count: number; error?: string };
     } | null;
+    refreshIntervalMs: number;
   };
   stats: {
     governmentSecurities: number;
@@ -1170,10 +1172,15 @@ export default function BondSeedAdmin() {
                           <Loader2 className="h-4 w-4 animate-spin text-primary" />
                           <span className="text-sm font-medium">Refreshing...</span>
                         </>
+                      ) : refreshStatusData?.status?.schedulerActive ? (
+                        <>
+                          <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                          <span className="text-sm font-medium text-green-600">Auto-refresh Active</span>
+                        </>
                       ) : (
                         <>
-                          <div className="h-2 w-2 rounded-full bg-green-500" />
-                          <span className="text-sm font-medium">Idle</span>
+                          <div className="h-2 w-2 rounded-full bg-yellow-500" />
+                          <span className="text-sm font-medium text-yellow-600">Scheduler Stopped</span>
                         </>
                       )}
                     </div>
@@ -1182,7 +1189,7 @@ export default function BondSeedAdmin() {
                         variant="outline" 
                         size="sm"
                         onClick={() => schedulerStartMutation.mutate()}
-                        disabled={schedulerStartMutation.isPending}
+                        disabled={schedulerStartMutation.isPending || refreshStatusData?.status?.schedulerActive}
                       >
                         <Play className="h-4 w-4 mr-1" />
                         Start
@@ -1191,7 +1198,7 @@ export default function BondSeedAdmin() {
                         variant="outline" 
                         size="sm"
                         onClick={() => schedulerStopMutation.mutate()}
-                        disabled={schedulerStopMutation.isPending}
+                        disabled={schedulerStopMutation.isPending || !refreshStatusData?.status?.schedulerActive}
                       >
                         <Pause className="h-4 w-4 mr-1" />
                         Stop
