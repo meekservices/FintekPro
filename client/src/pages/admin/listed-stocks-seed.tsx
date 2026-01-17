@@ -126,7 +126,7 @@ export default function ListedStocksSeed() {
 
   // Enrichment mutation
   const enrichMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/admin/stocks/enrichment/start'),
+    mutationFn: () => apiRequest('/api/admin/stocks/enrichment/start', 'POST'),
     onSuccess: () => {
       toast({
         title: "Enrichment Started",
