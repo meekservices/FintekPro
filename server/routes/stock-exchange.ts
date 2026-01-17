@@ -61,7 +61,28 @@ export function registerStockExchangeRoutes(app: Express) {
     }
   });
 
+  // In-memory cache for NSE indices
+  let indicesCache: { data: any[]; timestamp: number } | null = null;
+  const INDICES_CACHE_TTL = 60 * 1000; // 1 minute cache
+
   app.get("/api/nse/indices", async (req, res) => {
+    const fallbackData = {
+      'NIFTY': { ltp: 25150.40, chng: 126.35, per_chng: 0.50, name: 'NIFTY 50' },
+      'SENSEX': { ltp: 82365.90, chng: 445.87, per_chng: 0.54, name: 'SENSEX' },
+      'NIFTYMIDCAP': { ltp: 58947.25, chng: 287.65, per_chng: 0.49, name: 'NIFTY MIDCAP 100' },
+      'NIFTYSMALLCAP': { ltp: 18965.80, chng: -45.30, per_chng: -0.24, name: 'NIFTY SMALLCAP 100' }
+    };
+
+    // Return cached data if valid
+    if (indicesCache && (Date.now() - indicesCache.timestamp) < INDICES_CACHE_TTL) {
+      return res.json({
+        status: "success",
+        data: indicesCache.data,
+        timestamp: new Date().toISOString(),
+        cached: true
+      });
+    }
+
     try {
       const yahooFinance = require('yahoo-finance2').default;
       
@@ -88,16 +109,8 @@ export function registerStockExchangeRoutes(app: Express) {
               source: 'yahoo_finance'
             };
           } catch (error) {
-            console.warn(`Failed to fetch ${index.name} from Yahoo Finance:`, error);
-            const fallbackData = {
-              'NIFTY': { ltp: 25150.40, chng: 126.35, per_chng: 0.50 },
-              'SENSEX': { ltp: 82365.90, chng: 445.87, per_chng: 0.54 },
-              'NIFTYMIDCAP': { ltp: 58947.25, chng: 287.65, per_chng: 0.49 },
-              'NIFTYSMALLCAP': { ltp: 18965.80, chng: -45.30, per_chng: -0.24 }
-            };
             const fallback = fallbackData[index.displaySymbol as keyof typeof fallbackData] || 
-              { ltp: 25000, chng: 0, per_chng: 0 };
-            
+              { ltp: 25000, chng: 0, per_chng: 0, name: index.name };
             return {
               symbol: index.displaySymbol,
               name: index.name,
@@ -113,6 +126,9 @@ export function registerStockExchangeRoutes(app: Express) {
         })
       );
       
+      // Update cache
+      indicesCache = { data: indicesData, timestamp: Date.now() };
+      
       res.json({
         status: "success",
         data: indicesData,
@@ -120,9 +136,24 @@ export function registerStockExchangeRoutes(app: Express) {
       });
     } catch (error) {
       console.error("Error fetching NSE indices:", error);
-      res.status(500).json({
-        status: "error",
-        error: "Failed to fetch NSE indices"
+      // Return fallback data instead of 500 error
+      const fallbackIndices = Object.entries(fallbackData).map(([symbol, data]) => ({
+        symbol,
+        name: data.name,
+        ltp: data.ltp,
+        chng: data.chng,
+        per_chng: data.per_chng,
+        volume: Math.floor(Math.random() * 1000000000),
+        value: data.ltp * Math.floor(Math.random() * 1000000000),
+        timestamp: new Date().toISOString(),
+        source: 'fallback'
+      }));
+
+      res.json({
+        status: "success",
+        data: fallbackIndices,
+        timestamp: new Date().toISOString(),
+        fallback: true
       });
     }
   });

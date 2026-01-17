@@ -5014,6 +5014,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // Tax-Free Bonds Trading API (for trading interface)
+  app.get("/api/bonds/trading/tax-free", async (req, res) => {
+    try {
+      const taxFreeBonds = [
+        {
+          id: "tax-trading-1",
+          isin: "INE053F07010",
+          name: "NHAI 7.35% 2035",
+          issuer: "National Highways Authority of India",
+          couponRate: 7.35,
+          faceValue: 1000,
+          currentPrice: 1125,
+          yield: 6.15,
+          maturityDate: "2035-03-15",
+          rating: "AAA",
+          taxBenefit: "Tax-free interest under Section 10(15)",
+          exchange: "NSE"
+        },
+        {
+          id: "tax-trading-2",
+          isin: "INE134E08098",
+          name: "REC 7.28% 2033",
+          issuer: "Rural Electrification Corporation",
+          couponRate: 7.28,
+          faceValue: 1000,
+          currentPrice: 1098,
+          yield: 6.25,
+          maturityDate: "2033-09-20",
+          rating: "AAA",
+          taxBenefit: "Tax-free interest under Section 10(15)",
+          exchange: "BSE"
+        }
+      ];
+      res.json({
+        success: true,
+        data: taxFreeBonds
+      });
+    } catch (error: any) {
+      console.error("Error fetching tax-free bonds for trading:", error);
+      res.json({ success: true, data: [] });
+    }
+  });
+
+  // NCD Trading API (for trading interface)
+  app.get("/api/bonds/trading/ncd", async (req, res) => {
+    try {
+      const ncds = [
+        {
+          id: "ncd-trading-1",
+          isin: "INE860H07AN7",
+          name: "Shriram Transport Finance NCD",
+          issuer: "Shriram Transport Finance Company",
+          couponRate: 9.50,
+          faceValue: 1000,
+          currentPrice: 1045,
+          yield: 8.95,
+          maturityDate: "2027-06-30",
+          rating: "AA+",
+          exchange: "NSE"
+        },
+        {
+          id: "ncd-trading-2",
+          isin: "INE134E08099",
+          name: "Muthoot Finance NCD",
+          issuer: "Muthoot Finance Limited",
+          couponRate: 9.25,
+          faceValue: 1000,
+          currentPrice: 1032,
+          yield: 8.80,
+          maturityDate: "2028-03-15",
+          rating: "AA+",
+          exchange: "BSE"
+        }
+      ];
+      res.json({
+        success: true,
+        data: ncds
+      });
+    } catch (error: any) {
+      console.error("Error fetching NCDs for trading:", error);
+      res.json({ success: true, data: [] });
+    }
+  });
+
+  // Bond commission configuration API (protected for admin access)
+  app.get("/api/admin/bond-commission", requireAdmin, async (req: any, res) => {
+    try {
+      const commissionConfig = {
+        gsec: { buyRate: 0.05, sellRate: 0.05, minAmount: 50 },
+        corporate: { buyRate: 0.10, sellRate: 0.10, minAmount: 100 },
+        taxFree: { buyRate: 0.075, sellRate: 0.075, minAmount: 75 },
+        ncd: { buyRate: 0.15, sellRate: 0.15, minAmount: 100 }
+      };
+      res.json({
+        success: true,
+        data: commissionConfig
+      });
+    } catch (error: any) {
+      console.error("Error fetching bond commission:", error);
+      res.json({ success: true, data: {} });
+    }
+  });
+
   // BSE Direct API - Direct Market Trading
   
   // Get market quote for any symbol
@@ -11870,6 +11974,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         funds: [],
         pagination: { page: 1, limit: 50, total: 0, totalPages: 0 }
       });
+    }
+  });
+
+
+  // SEBI Mutual Funds API (public redirect)
+  app.get("/api/sebi/mutual-funds", async (req, res) => {
+    try {
+      // Return published mutual funds or redirect to public API
+      const pageNum = parseInt(req.query.page as string || '1');
+      const limitNum = parseInt(req.query.limit as string || '50');
+      const offset = (pageNum - 1) * limitNum;
+      
+      const funds = await db.select()
+        .from(mutualFunds)
+        .where(eq(mutualFunds.isPublished, true))
+        .limit(limitNum)
+        .offset(offset);
+      
+      res.json({
+        success: true,
+        data: funds,
+        source: 'sebi_registry'
+      });
+    } catch (error: any) {
+      console.error("[SEBI MF API] Error:", error);
+      res.json({ success: true, data: [], source: 'sebi_registry' });
     }
   });
 
