@@ -11,14 +11,52 @@ import { nseNcbApi } from './nseNcbApi';
 import { bseBondApi } from './bseBondApi';
 import { eq } from 'drizzle-orm';
 
+export interface BondRefreshResult {
+  gsec: { count: number; error?: string };
+  corporate: { count: number; error?: string };
+  sgb: { count: number; error?: string };
+  taxFree: { count: number; error?: string };
+  infrastructure: { count: number; error?: string };
+}
+
+export interface BondCatalogStatus {
+  isRefreshing: boolean;
+  schedulerActive: boolean;
+  lastRefreshTime: Date | null;
+  lastRefreshResults: BondRefreshResult | null;
+  refreshIntervalMs: number;
+}
+
 export class BondCatalogService {
   private refreshInterval: NodeJS.Timeout | null = null;
   private readonly REFRESH_INTERVAL_MS = 1000 * 60 * 60; // 1 hour
+  
+  private isRefreshing: boolean = false;
+  private lastRefreshTime: Date | null = null;
+  private lastRefreshResults: BondRefreshResult | null = null;
+  
+  /**
+   * Get current status of the bond catalog service
+   */
+  getStatus(): BondCatalogStatus {
+    return {
+      isRefreshing: this.isRefreshing,
+      schedulerActive: this.refreshInterval !== null,
+      lastRefreshTime: this.lastRefreshTime,
+      lastRefreshResults: this.lastRefreshResults,
+      refreshIntervalMs: this.REFRESH_INTERVAL_MS
+    };
+  }
   
   /**
    * Start automatic bond catalog refresh
    */
   startAutoRefresh(intervalMs: number = this.REFRESH_INTERVAL_MS) {
+    if (this.refreshInterval) {
+      console.log('⚠️ Bond catalog auto-refresh already running');
+      return;
+    }
+    
     console.log('🔄 Starting bond catalog auto-refresh...');
     
     // Initial refresh
@@ -48,11 +86,28 @@ export class BondCatalogService {
   /**
    * Refresh all bonds from all sources
    */
-  async refreshAllBonds() {
+  async refreshAllBonds(): Promise<BondRefreshResult> {
+    if (this.isRefreshing) {
+      console.log('⚠️ Bond refresh already in progress');
+      return this.lastRefreshResults || {
+        gsec: { count: 0 }, corporate: { count: 0 }, sgb: { count: 0 },
+        taxFree: { count: 0 }, infrastructure: { count: 0 }
+      };
+    }
+    
+    this.isRefreshing = true;
     console.log('🔄 Refreshing bond catalog from NSE and BSE...');
     
+    const results: BondRefreshResult = {
+      gsec: { count: 0 },
+      corporate: { count: 0 },
+      sgb: { count: 0 },
+      taxFree: { count: 0 },
+      infrastructure: { count: 0 }
+    };
+    
     try {
-      await Promise.all([
+      const [gsec, corporate, sgb, taxFree, infra] = await Promise.allSettled([
         this.refreshGovernmentSecurities(),
         this.refreshCorporateBonds(),
         this.refreshSovereignGoldBonds(),
@@ -60,17 +115,29 @@ export class BondCatalogService {
         this.refreshInfrastructureBonds()
       ]);
       
+      results.gsec = gsec.status === 'fulfilled' ? { count: gsec.value } : { count: 0, error: (gsec as PromiseRejectedResult).reason?.message };
+      results.corporate = corporate.status === 'fulfilled' ? { count: corporate.value } : { count: 0, error: (corporate as PromiseRejectedResult).reason?.message };
+      results.sgb = sgb.status === 'fulfilled' ? { count: sgb.value } : { count: 0, error: (sgb as PromiseRejectedResult).reason?.message };
+      results.taxFree = taxFree.status === 'fulfilled' ? { count: taxFree.value } : { count: 0, error: (taxFree as PromiseRejectedResult).reason?.message };
+      results.infrastructure = infra.status === 'fulfilled' ? { count: infra.value } : { count: 0, error: (infra as PromiseRejectedResult).reason?.message };
+      
+      this.lastRefreshTime = new Date();
+      this.lastRefreshResults = results;
+      
       console.log('✅ Bond catalog refresh completed successfully');
+      return results;
     } catch (error) {
       console.error('❌ Error refreshing bond catalog:', error);
       throw error;
+    } finally {
+      this.isRefreshing = false;
     }
   }
   
   /**
    * Refresh government securities (G-Secs, T-Bills, SDLs)
    */
-  async refreshGovernmentSecurities() {
+  async refreshGovernmentSecurities(): Promise<number> {
     try {
       // Fetch upcoming auctions from NSE NCB
       const auctions = await nseNcbApi.getUpcomingAuctions();
@@ -120,15 +187,17 @@ export class BondCatalogService {
       }
       
       console.log(`✅ Refreshed ${auctions.length} government securities`);
+      return auctions.length;
     } catch (error) {
       console.error('Error refreshing government securities:', error);
+      return 0;
     }
   }
   
   /**
    * Refresh corporate bonds from BSE
    */
-  async refreshCorporateBonds() {
+  async refreshCorporateBonds(): Promise<number> {
     try {
       const bonds = await bseBondApi.getTradableBonds();
       
@@ -175,15 +244,17 @@ export class BondCatalogService {
       }
       
       console.log(`✅ Refreshed ${bonds.length} corporate bonds`);
+      return bonds.length;
     } catch (error) {
       console.error('Error refreshing corporate bonds:', error);
+      return 0;
     }
   }
   
   /**
    * Refresh Sovereign Gold Bonds
    */
-  async refreshSovereignGoldBonds() {
+  async refreshSovereignGoldBonds(): Promise<number> {
     try {
       const sgbs = await nseNcbApi.getSGBData();
       
@@ -229,15 +300,17 @@ export class BondCatalogService {
       }
       
       console.log(`✅ Refreshed ${sgbs.length} Sovereign Gold Bonds`);
+      return sgbs.length;
     } catch (error) {
       console.error('Error refreshing SGBs:', error);
+      return 0;
     }
   }
   
   /**
    * Refresh tax-free bonds
    */
-  async refreshTaxFreeBonds() {
+  async refreshTaxFreeBonds(): Promise<number> {
     try {
       const taxFreeBonds = await bseBondApi.getTaxFreeBonds();
       
@@ -285,15 +358,17 @@ export class BondCatalogService {
       }
       
       console.log(`✅ Refreshed ${taxFreeBonds.length} tax-free bonds`);
+      return taxFreeBonds.length;
     } catch (error) {
       console.error('Error refreshing tax-free bonds:', error);
+      return 0;
     }
   }
   
   /**
    * Refresh infrastructure bonds
    */
-  async refreshInfrastructureBonds() {
+  async refreshInfrastructureBonds(): Promise<number> {
     try {
       const infraBonds = await bseBondApi.getInfrastructureBonds();
       
@@ -342,8 +417,10 @@ export class BondCatalogService {
       }
       
       console.log(`✅ Refreshed ${infraBonds.length} infrastructure bonds`);
+      return infraBonds.length;
     } catch (error) {
       console.error('Error refreshing infrastructure bonds:', error);
+      return 0;
     }
   }
   

@@ -2,7 +2,8 @@ import { Router, Request, Response, NextFunction } from "express";
 import { db } from "../db";
 import { bondFeeProfiles, bondFeeOverrides, bondCatalog, governmentSecurities, corporateBonds, bondMarketplaceAuditLogs } from "@shared/schema";
 import { bondFeeCalibrationService, REGULATORY_FEE_CAPS, type InstrumentType } from "../services/bond-fee-calibration-service";
-import { eq, and, desc, sql, or, ilike } from "drizzle-orm";
+import { bondCatalogService } from "../bond-catalog-service";
+import { eq, and, desc, sql, or, ilike, count } from "drizzle-orm";
 
 const router = Router();
 
@@ -639,6 +640,144 @@ router.post("/sync/bse", async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error("Error syncing BSE bonds:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
+// DATA REFRESH API (Auto-refresh controls)
+// ============================================
+
+// Get data refresh status
+router.get("/refresh/status", async (req: Request, res: Response) => {
+  try {
+    const status = bondCatalogService.getStatus();
+    
+    // Get bond counts by category
+    const [gsecCount] = await db.select({ count: count() }).from(governmentSecurities);
+    const [corpCount] = await db.select({ count: count() }).from(corporateBonds);
+    const [catalogCount] = await db.select({ count: count() }).from(bondCatalog);
+    const [publishedCount] = await db.select({ count: count() }).from(bondCatalog).where(eq(bondCatalog.status, 'published'));
+    
+    res.json({
+      success: true,
+      status,
+      stats: {
+        governmentSecurities: gsecCount?.count || 0,
+        corporateBonds: corpCount?.count || 0,
+        catalogTotal: catalogCount?.count || 0,
+        publishedBonds: publishedCount?.count || 0
+      }
+    });
+  } catch (error: any) {
+    console.error("Error getting refresh status:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Refresh all bonds manually
+router.post("/refresh/all", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    
+    const results = await bondCatalogService.refreshAllBonds();
+    
+    // Audit log
+    await db.insert(bondMarketplaceAuditLogs).values({
+      userId,
+      userEmail: (req as any).user?.email,
+      userRole: 'admin',
+      action: 'refresh_all_bonds',
+      entityType: 'bond_catalog',
+      entityId: 'bulk',
+      afterValue: results,
+      changeDescription: `Manual refresh: G-Sec ${results.gsec.count}, Corporate ${results.corporate.count}, SGB ${results.sgb.count}, Tax-Free ${results.taxFree.count}, Infra ${results.infrastructure.count}`,
+      complianceRelated: false,
+      riskLevel: 'low',
+      ipAddress: req.ip,
+      retentionExpiresAt: new Date(Date.now() + 7 * 365 * 24 * 60 * 60 * 1000),
+    });
+    
+    res.json({ success: true, results });
+  } catch (error: any) {
+    console.error("Error refreshing all bonds:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Refresh G-Secs only
+router.post("/refresh/gsec", async (req: Request, res: Response) => {
+  try {
+    const count = await bondCatalogService.refreshGovernmentSecurities();
+    res.json({ success: true, count, type: 'gsec' });
+  } catch (error: any) {
+    console.error("Error refreshing G-Secs:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Refresh SGBs only
+router.post("/refresh/sgb", async (req: Request, res: Response) => {
+  try {
+    const count = await bondCatalogService.refreshSovereignGoldBonds();
+    res.json({ success: true, count, type: 'sgb' });
+  } catch (error: any) {
+    console.error("Error refreshing SGBs:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Refresh corporate bonds only
+router.post("/refresh/corporate", async (req: Request, res: Response) => {
+  try {
+    const count = await bondCatalogService.refreshCorporateBonds();
+    res.json({ success: true, count, type: 'corporate' });
+  } catch (error: any) {
+    console.error("Error refreshing corporate bonds:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Refresh tax-free bonds only
+router.post("/refresh/tax-free", async (req: Request, res: Response) => {
+  try {
+    const count = await bondCatalogService.refreshTaxFreeBonds();
+    res.json({ success: true, count, type: 'tax-free' });
+  } catch (error: any) {
+    console.error("Error refreshing tax-free bonds:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Refresh infrastructure bonds only
+router.post("/refresh/infrastructure", async (req: Request, res: Response) => {
+  try {
+    const count = await bondCatalogService.refreshInfrastructureBonds();
+    res.json({ success: true, count, type: 'infrastructure' });
+  } catch (error: any) {
+    console.error("Error refreshing infrastructure bonds:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Start scheduler
+router.post("/scheduler/start", async (req: Request, res: Response) => {
+  try {
+    bondCatalogService.startAutoRefresh();
+    res.json({ success: true, message: "Scheduler started" });
+  } catch (error: any) {
+    console.error("Error starting scheduler:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Stop scheduler
+router.post("/scheduler/stop", async (req: Request, res: Response) => {
+  try {
+    bondCatalogService.stopAutoRefresh();
+    res.json({ success: true, message: "Scheduler stopped" });
+  } catch (error: any) {
+    console.error("Error stopping scheduler:", error);
     res.status(500).json({ error: error.message });
   }
 });
