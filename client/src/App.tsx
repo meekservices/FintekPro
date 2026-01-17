@@ -106,6 +106,7 @@ const BondSeedAdmin = lazy(() => import("@/pages/admin/bond-seed"));
 const MldSeedAdmin = lazy(() => import("@/pages/admin/mld-seed"));
 const AifSeedAdmin = lazy(() => import("@/pages/admin/aif-seed"));
 const PmsSeedAdmin = lazy(() => import("@/pages/admin/pms-seed"));
+const GoldSeedAdmin = lazy(() => import("@/pages/admin/gold-seed"));
 const MutualFundsSeeding = lazy(() => import("@/pages/admin/mutual-funds-seeding"));
 const ListedStocksSeed = lazy(() => import("@/pages/admin/listed-stocks-seed"));
 const ReitsInvitsSeed = lazy(() => import("@/pages/admin/reits-invits-seed"));
@@ -1226,6 +1227,15 @@ function AdminRoutes() {
           <AdminLayout>
             <Suspense fallback={<LoadingState variant="dashboard" />}>
               <PmsSeedAdmin />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/store/seed/gold">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <GoldSeedAdmin />
             </Suspense>
           </AdminLayout>
         )}
