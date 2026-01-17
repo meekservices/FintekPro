@@ -49,16 +49,16 @@ interface Product {
   badge?: string;
 }
 
-// Category quick links for navigation
+// Category quick links for navigation (SEBI/IFSCA/RBI compliant)
 const categoryLinks = [
   { name: "Mutual Funds", icon: TrendingUp, path: "/mutual-funds", color: "from-blue-500 to-blue-600" },
-  { name: "IPO & Unlisted", icon: Sparkles, path: "/ipo", color: "from-purple-500 to-purple-600" },
-  { name: "Bonds & NCDs", icon: FileText, path: "/bonds", color: "from-green-500 to-green-600" },
-  { name: "Global Investing", icon: Globe, path: "/global-trading", color: "from-indigo-500 to-indigo-600" },
+  { name: "Listed Securities", icon: Banknote, path: "/stocks", color: "from-emerald-500 to-emerald-600" },
+  { name: "Fixed Income", icon: FileText, path: "/bonds", color: "from-green-500 to-green-600" },
+  { name: "Pre-IPO & Unlisted", icon: Sparkles, path: "/ipo", color: "from-purple-500 to-purple-600" },
+  { name: "Loans & Credit", icon: CreditCard, path: "/store?category=Loans+%26+Credit", color: "from-yellow-500 to-yellow-600" },
+  { name: "GIFT City / IFSC", icon: Globe, path: "/global-trading", color: "from-indigo-500 to-indigo-600" },
   { name: "Insurance", icon: Shield, path: "/policybazaar", color: "from-red-500 to-red-600" },
-  { name: "Banking Products", icon: CreditCard, path: "/hdfc-banking", color: "from-yellow-500 to-yellow-600" },
-  { name: "Tax Services", icon: FileText, path: "/itr-tax-services", color: "from-orange-500 to-orange-600" },
-  { name: "Wealth Advisory", icon: Target, path: "/wealth-management", color: "from-teal-500 to-teal-600" },
+  { name: "Services", icon: Briefcase, path: "/itr-tax-services", color: "from-orange-500 to-orange-600" },
 ];
 
 type SortField = "name" | "returns" | "investment" | "risk";
@@ -74,6 +74,8 @@ export default function StorePage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedSubcategory, setSelectedSubcategory] = useState("all");
+  const [selectedProvider, setSelectedProvider] = useState("all");
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [selectedLockedProduct, setSelectedLockedProduct] = useState<Product | null>(null);
   const [requiredTier, setRequiredTier] = useState<string>("");
@@ -387,6 +389,29 @@ export default function StorePage() {
   // Get hot deals (products with HOT badge or new products)
   const hotDealsProducts = products.filter(p => p.badge === "HOT" || p.isNew || p.badge === "PREMIUM");
 
+  // Get subcategories for current category (for Loans filtering)
+  const getCurrentCategorySubcategories = () => {
+    if (selectedCategory === "all") return [];
+    const currentCat = storeCategories.find(c => c.name === selectedCategory);
+    return currentCat?.subcategories || [];
+  };
+
+  // Get unique providers for current category products
+  const getCurrentCategoryProviders = () => {
+    const categoryProducts = selectedCategory === "all" 
+      ? products 
+      : products.filter(p => p.category === selectedCategory);
+    const providers = [...new Set(categoryProducts.map(p => p.provider).filter(Boolean))];
+    return providers.sort();
+  };
+
+  // Reset subcategory and provider when category changes
+  const handleCategoryChange = (category: string) => {
+    setSelectedCategory(category);
+    setSelectedSubcategory("all");
+    setSelectedProvider("all");
+  };
+
   // Search filtering
   const getFilteredProducts = (products: Product[]) => {
     let filtered = products;
@@ -398,6 +423,16 @@ export default function StorePage() {
         (product.shortDescription || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (product.provider || '').toLowerCase().includes(searchTerm.toLowerCase())
       );
+    }
+
+    // Filter by subcategory (for Loans and other categories with subcategories)
+    if (selectedSubcategory !== "all") {
+      filtered = filtered.filter(p => p.subcategory === selectedSubcategory);
+    }
+
+    // Filter by provider/financier
+    if (selectedProvider !== "all") {
+      filtered = filtered.filter(p => p.provider === selectedProvider);
     }
 
     // Filter by risk level
@@ -760,7 +795,7 @@ export default function StorePage() {
             </div>
           </div>
           
-          <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
+          <Tabs value={selectedCategory} onValueChange={handleCategoryChange} className="w-full">
             <ScrollableTabsList>
               <TabsTrigger value="all" className="flex-shrink-0" data-testid="category-all">
                 All Products
@@ -783,10 +818,44 @@ export default function StorePage() {
                 />
               ) : (
                 <div className="space-y-4">
-                  {/* Pre-Approved Loan Offers for Banking Products */}
-                  {selectedCategory === "Banking Products" && (
+                  {/* Pre-Approved Loan Offers for Loans & Credit */}
+                  {selectedCategory === "Loans & Credit" && (
                     <div className="mb-6">
                       <LoanOffersCard />
+                    </div>
+                  )}
+
+                  {/* Subcategory and Provider filters for categories with subcategories */}
+                  {getCurrentCategorySubcategories().length > 0 && (
+                    <div className="flex flex-wrap gap-4 p-4 bg-muted/50 rounded-lg">
+                      <div className="flex-1 min-w-[200px]">
+                        <label className="text-sm font-medium text-muted-foreground mb-1 block">Loan Type</label>
+                        <Select value={selectedSubcategory} onValueChange={setSelectedSubcategory}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="All Loan Types" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Loan Types</SelectItem>
+                            {getCurrentCategorySubcategories().map((sub) => (
+                              <SelectItem key={sub.id} value={sub.name}>{sub.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex-1 min-w-[200px]">
+                        <label className="text-sm font-medium text-muted-foreground mb-1 block">Bank / Financier</label>
+                        <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="All Financiers" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Financiers</SelectItem>
+                            {getCurrentCategoryProviders().map((provider) => (
+                              <SelectItem key={provider} value={provider}>{provider}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   )}
                   
