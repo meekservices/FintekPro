@@ -1,14 +1,15 @@
 import mammoth from "mammoth";
 import { createHash } from "crypto";
-import { ObjectStorageService, objectStorageClient } from "../objectStorage";
+import { ObjectStorageService, objectStorageClient, parseObjectPath } from "../objectStorage";
 
 const objectStorageService = new ObjectStorageService();
 
 export interface DocumentUploadResult {
   originalUrl: string;
-  pdfUrl: string;
+  displayUrl: string;
   documentHash: string;
   originalFormat: string;
+  convertedFormat: string;
   htmlContent?: string;
 }
 
@@ -20,9 +21,8 @@ export interface UploadOptions {
 }
 
 class DocumentUploadService {
-  private readonly PRIVATE_DIR = process.env.PRIVATE_OBJECT_DIR || ".private";
   private readonly MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-  private readonly ALLOWED_TYPES = [".docx", ".doc", ".pdf"];
+  private readonly ALLOWED_TYPES = [".docx", ".pdf"];
 
   async validateFile(buffer: Buffer, fileName: string): Promise<{ valid: boolean; error?: string }> {
     if (buffer.length > this.MAX_FILE_SIZE) {
@@ -70,34 +70,29 @@ class DocumentUploadService {
     return createHash("sha256").update(buffer).digest("hex");
   }
 
-  private parseObjectPath(path: string): { bucketName: string; objectName: string } {
-    let normalizedPath = path;
-    if (!normalizedPath.startsWith("/")) {
-      normalizedPath = `/${normalizedPath}`;
-    }
-    const pathParts = normalizedPath.split("/");
-    if (pathParts.length < 3) {
-      throw new Error("Invalid path: must contain at least a bucket name");
-    }
-    return {
-      bucketName: pathParts[1],
-      objectName: pathParts.slice(2).join("/"),
-    };
-  }
-
-  private async uploadToStorage(path: string, buffer: Buffer): Promise<void> {
-    const { bucketName, objectName } = this.parseObjectPath(path);
+  private async uploadToStorage(path: string, buffer: Buffer, contentType?: string): Promise<void> {
+    const { bucketName, objectName } = parseObjectPath(path);
     const bucket = objectStorageClient.bucket(bucketName);
     const file = bucket.file(objectName);
-    await file.save(buffer);
+    await file.save(buffer, {
+      metadata: contentType ? { contentType } : undefined,
+    });
   }
 
   private async downloadFromStorage(path: string): Promise<Buffer> {
-    const { bucketName, objectName } = this.parseObjectPath(path);
+    const { bucketName, objectName } = parseObjectPath(path);
     const bucket = objectStorageClient.bucket(bucketName);
     const file = bucket.file(objectName);
     const [contents] = await file.download();
     return contents;
+  }
+
+  private getPrivateDir(): string {
+    try {
+      return objectStorageService.getPrivateObjectDir();
+    } catch {
+      return process.env.PRIVATE_OBJECT_DIR || "";
+    }
   }
 
   async uploadDocument(buffer: Buffer, options: UploadOptions): Promise<DocumentUploadResult> {
@@ -107,64 +102,85 @@ class DocumentUploadService {
     const sanitizedName = baseName.replace(/[^a-zA-Z0-9-_]/g, "_");
     
     const documentHash = this.generateHash(buffer);
-    const privateDir = objectStorageService.getPrivateObjectDir();
+    const privateDir = this.getPrivateDir();
+    
+    if (!privateDir) {
+      throw new Error("Object storage not configured. Please set up object storage first.");
+    }
     
     const originalPath = `${privateDir}/documents/${options.proposalId || "general"}/${timestamp}_${sanitizedName}${ext}`;
     
-    await this.uploadToStorage(originalPath, buffer);
+    const contentType = ext === ".pdf" 
+      ? "application/pdf" 
+      : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
     
-    let pdfUrl = originalPath;
+    await this.uploadToStorage(originalPath, buffer, contentType);
+    
+    let displayUrl = originalPath;
+    let convertedFormat = ext.replace(".", "");
     let htmlContent: string | undefined;
     
     if (ext === ".docx") {
       const result = await mammoth.convertToHtml({ buffer });
       htmlContent = result.value;
       
-      const pdfPath = `${privateDir}/documents/${options.proposalId || "general"}/${timestamp}_${sanitizedName}.html`;
-      const htmlBuffer = await this.generatePdfFromHtml(htmlContent, options.fileName);
-      await this.uploadToStorage(pdfPath, htmlBuffer);
-      pdfUrl = pdfPath;
+      const htmlPath = `${privateDir}/documents/${options.proposalId || "general"}/${timestamp}_${sanitizedName}.html`;
+      const htmlBuffer = this.generateStyledHtml(htmlContent, options.fileName);
+      await this.uploadToStorage(htmlPath, htmlBuffer, "text/html");
+      displayUrl = htmlPath;
+      convertedFormat = "html";
     }
     
     return {
       originalUrl: originalPath,
-      pdfUrl,
+      displayUrl,
       documentHash,
       originalFormat: ext.replace(".", ""),
+      convertedFormat,
       htmlContent,
     };
   }
 
-  private async generatePdfFromHtml(html: string, title: string): Promise<Buffer> {
-    const fullHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>${title}</title>
-        <style>
-          body {
-            font-family: 'Times New Roman', serif;
-            font-size: 12pt;
-            line-height: 1.5;
-            margin: 72pt;
-            color: #000;
-          }
-          h1 { font-size: 18pt; margin-bottom: 12pt; }
-          h2 { font-size: 16pt; margin-bottom: 10pt; }
-          h3 { font-size: 14pt; margin-bottom: 8pt; }
-          p { margin-bottom: 12pt; text-align: justify; }
-          table { border-collapse: collapse; width: 100%; margin: 12pt 0; }
-          td, th { border: 1px solid #000; padding: 6pt; }
-          ul, ol { margin-bottom: 12pt; padding-left: 24pt; }
-          li { margin-bottom: 6pt; }
-        </style>
-      </head>
-      <body>
-        ${html}
-      </body>
-      </html>
-    `;
+  private generateStyledHtml(html: string, title: string): Buffer {
+    const fullHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>${title}</title>
+  <style>
+    body {
+      font-family: 'Times New Roman', serif;
+      font-size: 12pt;
+      line-height: 1.6;
+      margin: 40px auto;
+      max-width: 800px;
+      padding: 20px;
+      color: #333;
+      background: #fff;
+    }
+    h1 { font-size: 20pt; margin-bottom: 16pt; color: #1a1a1a; }
+    h2 { font-size: 16pt; margin-bottom: 12pt; color: #2a2a2a; }
+    h3 { font-size: 14pt; margin-bottom: 10pt; color: #3a3a3a; }
+    p { margin-bottom: 12pt; text-align: justify; }
+    table { border-collapse: collapse; width: 100%; margin: 16pt 0; }
+    td, th { border: 1px solid #ddd; padding: 8pt; text-align: left; }
+    th { background: #f5f5f5; font-weight: bold; }
+    ul, ol { margin-bottom: 12pt; padding-left: 24pt; }
+    li { margin-bottom: 6pt; }
+    .signature-block {
+      margin-top: 40px;
+      padding: 20px;
+      border-top: 2px solid #333;
+    }
+    @media print {
+      body { margin: 0; padding: 0; }
+    }
+  </style>
+</head>
+<body>
+${html}
+</body>
+</html>`;
     
     return Buffer.from(fullHtml, "utf-8");
   }

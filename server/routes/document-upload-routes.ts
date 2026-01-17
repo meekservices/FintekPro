@@ -16,17 +16,16 @@ const upload = multer({
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "application/msword",
       "application/pdf",
     ];
-    const allowedExtensions = [".docx", ".doc", ".pdf"];
+    const allowedExtensions = [".docx", ".pdf"];
     
     const ext = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf("."));
     
     if (allowedTypes.includes(file.mimetype) || allowedExtensions.includes(ext)) {
       cb(null, true);
     } else {
-      cb(new Error("Only .docx, .doc, and .pdf files are allowed"));
+      cb(new Error("Only .docx and .pdf files are allowed"));
     }
   },
 });
@@ -60,7 +59,7 @@ router.post("/upload", upload.single("document"), async (req: Request, res: Resp
       await db.update(proposalEsignWorkflows)
         .set({
           originalDocumentUrl: result.originalUrl,
-          currentDocumentUrl: result.pdfUrl,
+          currentDocumentUrl: result.displayUrl,
           documentHash: result.documentHash,
           documentSource: "uploaded",
           originalFileFormat: result.originalFormat,
@@ -75,9 +74,10 @@ router.post("/upload", upload.single("document"), async (req: Request, res: Resp
       success: true,
       document: {
         originalUrl: result.originalUrl,
-        pdfUrl: result.pdfUrl,
+        displayUrl: result.displayUrl,
         documentHash: result.documentHash,
         originalFormat: result.originalFormat,
+        convertedFormat: result.convertedFormat,
         fileName: req.file.originalname,
       },
     });
@@ -123,9 +123,10 @@ router.post("/upload/for-signing", upload.single("document"), async (req: Reques
       success: true,
       document: {
         originalUrl: result.originalUrl,
-        pdfUrl: result.pdfUrl,
+        displayUrl: result.displayUrl,
         documentHash: result.documentHash,
         originalFormat: result.originalFormat,
+        convertedFormat: result.convertedFormat,
         htmlContent: result.htmlContent,
         fileName: req.file.originalname,
       },

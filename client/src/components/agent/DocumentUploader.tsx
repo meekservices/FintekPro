@@ -24,9 +24,10 @@ interface DocumentUploaderProps {
 
 interface UploadedDocument {
   originalUrl: string;
-  pdfUrl: string;
+  displayUrl: string;
   documentHash: string;
   originalFormat: string;
+  convertedFormat: string;
   fileName: string;
   htmlContent?: string;
 }
@@ -36,7 +37,7 @@ export default function DocumentUploader({
   workflowId,
   onUploadSuccess,
   onUploadError,
-  allowedTypes = ['.docx', '.doc', '.pdf'],
+  allowedTypes = ['.docx', '.pdf'],
   maxSizeMB = 10,
 }: DocumentUploaderProps) {
   const { toast } = useToast();
@@ -306,7 +307,7 @@ export default function DocumentUploader({
         <div className="text-sm text-muted-foreground space-y-1">
           <p className="font-medium">Supported formats:</p>
           <ul className="list-disc list-inside space-y-1">
-            <li><strong>.docx</strong> - Microsoft Word documents (will be converted for signing)</li>
+            <li><strong>.docx</strong> - Microsoft Word documents (converted to viewable format for signing)</li>
             <li><strong>.pdf</strong> - PDF documents (ready for signing)</li>
           </ul>
         </div>
