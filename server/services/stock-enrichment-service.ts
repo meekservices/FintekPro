@@ -10,7 +10,7 @@ import { db } from "../db";
 import { listedStocks } from "@shared/schema";
 import { eq, isNull, or, and, sql } from "drizzle-orm";
 import { probe42Service } from "./probe42-service";
-import { dataEnrichmentService } from "./data-enrichment-service";
+import { finnhubService } from "./finnhub-service";
 import { exchangeStockService } from "./exchange-stock-service";
 import { mapToBroadSector } from "../utils/sector-consolidation";
 
@@ -170,7 +170,8 @@ class StockEnrichmentService {
         }
       }
 
-      if (!stock.peRatio || !stock.roe || !stock.roce) {
+      // Priority 1: Probe42 for ROE/ROCE
+      if (!stock.roe || !stock.roce) {
         try {
           if (stock.cin) {
             const financials = await probe42Service.getCompanyFinancials(stock.cin);
@@ -189,21 +190,92 @@ class StockEnrichmentService {
             }
           }
         } catch (error) {
-          console.log(`[StockEnrichment] Financials failed for ${stock.symbol}:`, error);
+          console.log(`[StockEnrichment] Probe42 financials failed for ${stock.symbol}:`, error);
         }
       }
 
-      if (fieldsEnriched.length > 0) {
-        updateData.enrichmentStatus = 'complete';
-        updateData.lastEnrichedAt = new Date();
-        updateData.enrichmentSource = primarySource;
-        updateData.lastUpdated = new Date();
-
-        await db
-          .update(listedStocks)
-          .set(updateData)
-          .where(eq(listedStocks.id, stock.id));
+      // Priority 2: NSE/BSE for PE ratio, price, BSE code
+      if (!stock.peRatio || !stock.bseCode || !stock.currentPrice) {
+        try {
+          const exchangeData = await exchangeStockService.getStockData(stock.symbol);
+          
+          if (exchangeData) {
+            if (!stock.peRatio && exchangeData.peRatio) {
+              updateData.peRatio = String(exchangeData.peRatio);
+              fieldsEnriched.push('peRatio');
+            }
+            if (!stock.bseCode && exchangeData.bseCode) {
+              updateData.bseCode = exchangeData.bseCode;
+              fieldsEnriched.push('bseCode');
+            }
+            if (!stock.currentPrice && exchangeData.currentPrice) {
+              updateData.currentPrice = String(exchangeData.currentPrice);
+              fieldsEnriched.push('currentPrice');
+            }
+            if (!stock.previousClose && exchangeData.previousClose) {
+              updateData.previousClose = String(exchangeData.previousClose);
+              fieldsEnriched.push('previousClose');
+            }
+            if (!stock.weekHigh52 && exchangeData.weekHigh52) {
+              updateData.weekHigh52 = String(exchangeData.weekHigh52);
+              fieldsEnriched.push('weekHigh52');
+            }
+            if (!stock.weekLow52 && exchangeData.weekLow52) {
+              updateData.weekLow52 = String(exchangeData.weekLow52);
+              fieldsEnriched.push('weekLow52');
+            }
+            
+            if (fieldsEnriched.some(f => ['peRatio', 'bseCode', 'currentPrice'].includes(f))) {
+              primarySource = 'nse_bse';
+            }
+          }
+        } catch (error) {
+          console.log(`[StockEnrichment] NSE/BSE failed for ${stock.symbol}:`, error);
+        }
       }
+
+      // Priority 3: Finnhub fallback for PE ratio (try .NS for NSE, .BO for BSE-only)
+      if (!updateData.peRatio && !stock.peRatio) {
+        try {
+          // Try with .NS suffix for NSE stocks first
+          let finnhubSymbol = stock.nseCode ? `${stock.symbol}.NS` : 
+                              stock.bseCode ? `${stock.symbol}.BO` : stock.symbol;
+          let finnhubResult = await finnhubService.getBasicFinancials(finnhubSymbol);
+          
+          // If .NS failed and has BSE code, try .BO
+          if (!finnhubResult.success && stock.nseCode && stock.bseCode) {
+            finnhubSymbol = `${stock.symbol}.BO`;
+            finnhubResult = await finnhubService.getBasicFinancials(finnhubSymbol);
+          }
+          
+          if (finnhubResult.success && finnhubResult.data?.metric?.peBasicExclExtraTTM) {
+            updateData.peRatio = String(finnhubResult.data.metric.peBasicExclExtraTTM);
+            fieldsEnriched.push('peRatio');
+            primarySource = primarySource === 'local' ? 'finnhub' : primarySource;
+          }
+        } catch (error) {
+          console.log(`[StockEnrichment] Finnhub failed for ${stock.symbol}:`, error);
+        }
+      }
+
+      // Determine enrichment status based on key fields
+      const hasBroadSector = Boolean(stock.broadSector || updateData.broadSector);
+      const hasPeRatio = Boolean(stock.peRatio || updateData.peRatio);
+      const hasCin = Boolean(stock.cin || updateData.cin);
+      const allKeyFieldsFilled = hasBroadSector && hasPeRatio && hasCin;
+      const someKeyFieldsFilled = hasBroadSector || hasPeRatio || hasCin;
+      
+      // Mark complete if all key fields are filled (even if no new enrichment happened)
+      updateData.enrichmentStatus = allKeyFieldsFilled ? 'complete' : 
+                                    someKeyFieldsFilled ? 'partial' : 'pending';
+      updateData.lastEnrichedAt = new Date();
+      updateData.enrichmentSource = primarySource;
+      updateData.lastUpdated = new Date();
+
+      await db
+        .update(listedStocks)
+        .set(updateData)
+        .where(eq(listedStocks.id, stock.id));
 
       return {
         stockId: stock.id,

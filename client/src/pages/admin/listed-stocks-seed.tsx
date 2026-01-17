@@ -119,6 +119,30 @@ export default function ListedStocksSeed() {
     queryKey: ['/api/admin/listed-stocks'],
   });
 
+  // Enrichment stats query
+  const { data: enrichmentStats, refetch: refetchEnrichmentStats } = useQuery<EnrichmentStats>({
+    queryKey: ['/api/admin/stocks/enrichment/stats'],
+  });
+
+  // Enrichment mutation
+  const enrichMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/stocks/enrichment/start'),
+    onSuccess: () => {
+      toast({
+        title: "Enrichment Started",
+        description: "Stock data enrichment is now running in the background.",
+      });
+      refetchEnrichmentStats();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Enrichment Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
   // Poll for sync progress when syncing
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -228,11 +252,12 @@ export default function ListedStocksSeed() {
       stock.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
       stock.companyName.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesSector = sectorFilter === "all" || stock.sector === sectorFilter;
+    const matchesBroadSector = broadSectorFilter === "all" || stock.broadSector === broadSectorFilter;
     const matchesMarketCap = marketCapFilter === "all" || stock.marketCap === marketCapFilter;
     const matchesExchange = exchangeFilter === "all" || 
       (exchangeFilter === "NSE" && stock.nseCode) ||
       (exchangeFilter === "BSE" && stock.bseCode);
-    return matchesSearch && matchesSector && matchesMarketCap && matchesExchange;
+    return matchesSearch && matchesSector && matchesBroadSector && matchesMarketCap && matchesExchange;
   }) || [];
 
   const handleSelectAll = () => {
@@ -494,6 +519,64 @@ export default function ListedStocksSeed() {
           </Card>
         </div>
 
+        {/* Data Enrichment Card */}
+        <Card className="bg-slate-800 border-slate-700 mb-6">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-purple-500/20">
+                  <BarChart3 className="h-5 w-5 text-purple-400" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg text-white">Data Enrichment</CardTitle>
+                  <CardDescription className="text-slate-400">
+                    Fill missing PE ratios, CIN, PAN, and BSE codes using external APIs
+                  </CardDescription>
+                </div>
+              </div>
+              <Button 
+                onClick={() => enrichMutation.mutate()}
+                disabled={enrichMutation.isPending}
+                className="bg-purple-600 hover:bg-purple-700"
+                data-testid="button-enrich"
+              >
+                {enrichMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                {enrichMutation.isPending ? 'Enriching...' : 'Enrich Missing Data'}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {enrichmentStats && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-slate-700/50 rounded-lg p-3">
+                  <div className="text-sm text-slate-400">With Broad Sector</div>
+                  <div className="text-xl font-bold text-white">{enrichmentStats.withBroadSector}/{enrichmentStats.total}</div>
+                  <Progress value={(enrichmentStats.withBroadSector / enrichmentStats.total) * 100} className="h-1 mt-2" />
+                </div>
+                <div className="bg-slate-700/50 rounded-lg p-3">
+                  <div className="text-sm text-slate-400">With PE Ratio</div>
+                  <div className="text-xl font-bold text-white">{enrichmentStats.withPe}/{enrichmentStats.total}</div>
+                  <Progress value={(enrichmentStats.withPe / enrichmentStats.total) * 100} className="h-1 mt-2" />
+                </div>
+                <div className="bg-slate-700/50 rounded-lg p-3">
+                  <div className="text-sm text-slate-400">With CIN</div>
+                  <div className="text-xl font-bold text-white">{enrichmentStats.withCin}/{enrichmentStats.total}</div>
+                  <Progress value={(enrichmentStats.withCin / enrichmentStats.total) * 100} className="h-1 mt-2" />
+                </div>
+                <div className="bg-slate-700/50 rounded-lg p-3">
+                  <div className="text-sm text-slate-400">With PAN</div>
+                  <div className="text-xl font-bold text-white">{enrichmentStats.withPan}/{enrichmentStats.total}</div>
+                  <Progress value={(enrichmentStats.withPan / enrichmentStats.total) * 100} className="h-1 mt-2" />
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Filters and Bulk Actions */}
         <Card className="bg-slate-800 border-slate-700 mb-6">
           <CardContent className="pt-4">
@@ -525,6 +608,17 @@ export default function ListedStocksSeed() {
                 <SelectContent>
                   <SelectItem value="all">All Sectors</SelectItem>
                   {SECTORS.map(sector => (
+                    <SelectItem key={sector} value={sector}>{sector}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={broadSectorFilter} onValueChange={setBroadSectorFilter}>
+                <SelectTrigger className="w-[200px] bg-slate-700 border-slate-600 text-white" data-testid="select-broad-sector">
+                  <SelectValue placeholder="Broad Sector" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Broad Sectors</SelectItem>
+                  {BROAD_SECTORS.map(sector => (
                     <SelectItem key={sector} value={sector}>{sector}</SelectItem>
                   ))}
                 </SelectContent>
