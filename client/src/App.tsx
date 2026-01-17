@@ -946,6 +946,15 @@ function AdminRoutes() {
           </AdminLayout>
         )}
       </Route>
+      <Route path="/admin/store/seed/pre-ipo-unlisted">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <SeedUnlistedPage />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
       <Route path="/admin/unlisted/preview/:id">
         {() => (
           <AdminLayout>
