@@ -279,7 +279,7 @@ router.post("/sync/:productType", requireAdmin, async (req, res) => {
         if (productType === "listed_stock") {
           productData = {
             ...productData,
-            sector: item.sector,
+            sector: item.broadSector || item.sector, // Use broad_sector for AI recommendations
             category: `Stock - ${item.marketCap || "Large Cap"}`,
             marketCap: item.marketCap,
             currentPrice: item.currentPrice,

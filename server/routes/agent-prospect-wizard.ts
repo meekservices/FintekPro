@@ -1,5 +1,13 @@
 import { Router, Request, Response } from "express";
-import { agentProspectWizardService, ProspectPortfolioHolding, ProspectRiskProfile, DuplicateCheckResult } from "../services/agent-prospect-wizard-service";
+import { 
+  agentProspectWizardService, 
+  ProspectPortfolioHolding, 
+  ProspectRiskProfile, 
+  DuplicateCheckResult,
+  getListedStocksBySector,
+  getAvailableBroadSectors,
+  getListedStockRecommendations
+} from "../services/agent-prospect-wizard-service";
 import { z } from "zod";
 import { ZohoCRMService } from "../zoho/services/crm";
 import { ZohoConnectionResolver } from "../zoho/connection-resolver";
@@ -1122,6 +1130,63 @@ router.post("/zoho/webhook", async (req: Request, res: Response) => {
     res.json({ success: true, message: "Webhook processed" });
   } catch (error: any) {
     console.error("[Zoho Webhook] Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ==========================================
+// Listed Stocks by Sector API (Dynamic DB)
+// ==========================================
+
+// Get available broad sectors with stock counts
+router.get("/listed-stocks/sectors", async (req: Request, res: Response) => {
+  try {
+    const sectors = await getAvailableBroadSectors();
+    res.json({ success: true, sectors });
+  } catch (error: any) {
+    console.error("[ListedStocks] Error fetching sectors:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Get listed stocks by broad sector
+router.get("/listed-stocks/by-sector/:sector", async (req: Request, res: Response) => {
+  try {
+    const { sector } = req.params;
+    const limit = parseInt(req.query.limit as string) || 10;
+    
+    const stocks = await getListedStocksBySector(sector, limit);
+    res.json({ success: true, stocks, count: stocks.length });
+  } catch (error: any) {
+    console.error("[ListedStocks] Error fetching stocks by sector:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Get stock recommendations for a risk profile (uses broad_sector filtering)
+router.get("/listed-stocks/recommendations", async (req: Request, res: Response) => {
+  try {
+    const riskProfile = (req.query.riskProfile as string) || 'moderate';
+    const sectorsParam = req.query.sectors as string;
+    const limit = parseInt(req.query.limit as string) || 10;
+    
+    const preferredSectors = sectorsParam ? sectorsParam.split(',') : undefined;
+    
+    const recommendations = await getListedStockRecommendations(
+      riskProfile as any,
+      preferredSectors,
+      limit
+    );
+    
+    res.json({ 
+      success: true, 
+      recommendations, 
+      count: recommendations.length,
+      riskProfile,
+      sectors: preferredSectors || 'default'
+    });
+  } catch (error: any) {
+    console.error("[ListedStocks] Error fetching recommendations:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 });

@@ -6,9 +6,10 @@ import {
   InsertProspectClient,
   users,
   onboardingInvitations,
-  agentClientMappingRequests
+  agentClientMappingRequests,
+  listedStocks
 } from "@shared/schema";
-import { eq, and, desc, or } from "drizzle-orm";
+import { eq, and, desc, or, isNotNull, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { aiInvestmentOrchestrator } from "./ai-investment-orchestrator";
 import { aiResponseCacheService } from "./ai-response-cache-service";
@@ -514,6 +515,148 @@ initializeRecommendationsFromDatabase().catch(err => {
 
 // Export for manual refresh
 export { initializeRecommendationsFromDatabase };
+
+// Fetch listed stocks by broad sector for AI recommendations
+// This queries the enriched listed_stocks table directly
+
+export interface ListedStockRecommendation {
+  id: string;
+  name: string;
+  symbol: string;
+  broadSector: string;
+  sector: string;
+  peRatio?: string;
+  currentPrice?: string;
+  marketCap?: string;
+  dividendYield?: string;
+  nseCode?: string;
+  bseCode?: string;
+  returns1Y?: string;
+  returns3Y?: string;
+  riskLevel: string;
+}
+
+export async function getListedStocksBySector(
+  broadSector: string,
+  limit: number = 10
+): Promise<ListedStockRecommendation[]> {
+  try {
+    const stocks = await db
+      .select({
+        id: listedStocks.id,
+        name: listedStocks.companyName,
+        symbol: listedStocks.symbol,
+        broadSector: listedStocks.broadSector,
+        sector: listedStocks.sector,
+        peRatio: listedStocks.peRatio,
+        currentPrice: listedStocks.currentPrice,
+        marketCap: listedStocks.marketCap,
+        dividendYield: listedStocks.dividendYield,
+        nseCode: listedStocks.nseCode,
+        bseCode: listedStocks.bseCode,
+        returns1Y: listedStocks.returns1Y,
+        returns3Y: listedStocks.returns3Y,
+      })
+      .from(listedStocks)
+      .where(
+        and(
+          eq(listedStocks.broadSector, broadSector),
+          eq(listedStocks.isPublished, true)
+        )
+      )
+      .orderBy(desc(listedStocks.marketCap))
+      .limit(limit);
+    
+    return stocks.map(stock => ({
+      ...stock,
+      name: stock.name || stock.symbol,
+      symbol: stock.symbol || '',
+      broadSector: stock.broadSector || 'Others',
+      sector: stock.sector || 'General',
+      riskLevel: determineRiskLevel(stock.marketCap),
+    }));
+  } catch (error) {
+    console.error(`[ListedStocks] Error fetching stocks for sector ${broadSector}:`, error);
+    return [];
+  }
+}
+
+function determineRiskLevel(marketCap?: string | null): string {
+  if (!marketCap) return 'Moderate';
+  const cap = marketCap.toLowerCase();
+  if (cap.includes('large')) return 'Moderate';
+  if (cap.includes('mid')) return 'Moderately High';
+  if (cap.includes('small')) return 'High';
+  return 'Moderate';
+}
+
+// Get available broad sectors with stock counts
+export async function getAvailableBroadSectors(): Promise<{ sector: string; count: number }[]> {
+  try {
+    const sectors = await db
+      .select({
+        sector: listedStocks.broadSector,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(listedStocks)
+      .where(
+        and(
+          eq(listedStocks.isPublished, true),
+          isNotNull(listedStocks.broadSector)
+        )
+      )
+      .groupBy(listedStocks.broadSector)
+      .orderBy(desc(sql`count(*)`));
+    
+    return sectors.map(s => ({
+      sector: s.sector || 'Others',
+      count: s.count,
+    }));
+  } catch (error) {
+    console.error('[ListedStocks] Error fetching available sectors:', error);
+    return [];
+  }
+}
+
+// Get recommended stocks for a risk profile from multiple sectors
+export async function getListedStockRecommendations(
+  riskProfile: 'conservative' | 'moderate' | 'aggressive' | 'very_aggressive',
+  preferredSectors?: string[],
+  limit: number = 10
+): Promise<ListedStockRecommendation[]> {
+  try {
+    // Default sectors by risk profile if none specified
+    const defaultSectorsByRisk = {
+      conservative: ['Banking & Finance', 'Infrastructure & Construction', 'Consumer Goods & Retail'],
+      moderate: ['Technology', 'Banking & Finance', 'Healthcare & Pharma', 'Manufacturing'],
+      aggressive: ['Technology', 'Healthcare & Pharma', 'Chemicals', 'Manufacturing'],
+      very_aggressive: ['Technology', 'Real Estate', 'Energy & Utilities', 'Metals & Mining'],
+    };
+    
+    const sectors = preferredSectors && preferredSectors.length > 0 
+      ? preferredSectors 
+      : defaultSectorsByRisk[riskProfile];
+    
+    // Fetch stocks from each sector
+    const stockPromises = sectors.map(sector => 
+      getListedStocksBySector(sector, Math.ceil(limit / sectors.length))
+    );
+    
+    const stockArrays = await Promise.all(stockPromises);
+    const allStocks = stockArrays.flat();
+    
+    // Sort by market cap and return limited results
+    return allStocks
+      .sort((a, b) => {
+        const capOrder: Record<string, number> = { 'Large Cap': 3, 'Mid Cap': 2, 'Small Cap': 1 };
+        return (capOrder[b.marketCap || ''] || 0) - (capOrder[a.marketCap || ''] || 0);
+      })
+      .slice(0, limit);
+  } catch (error) {
+    console.error('[ListedStocks] Error fetching recommendations:', error);
+    return [];
+  }
+}
 
 // Target allocations by risk profile (expanded with global regions - stocks excluded by default, only in very_aggressive)
 const TARGET_ALLOCATIONS = {
