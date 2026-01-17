@@ -452,8 +452,8 @@ export default function Loans() {
             <div>
               <h2 className="text-2xl font-bold text-gray-900 mb-6">Our Partner Network</h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {loanProviders?.data?.slice(0, 8).map((provider: any) => (
-                  <Card key={provider.id} className="p-4">
+                {loanProviders?.data?.slice(0, 8).map((provider: any, index: number) => (
+                  <Card key={provider.id || `provider-${index}`} className="p-4">
                     <div className="text-center">
                       <div className="w-12 h-12 bg-muted rounded-lg mx-auto mb-2 flex items-center justify-center">
                         <Building2 className="h-6 w-6 text-muted-foreground" />
