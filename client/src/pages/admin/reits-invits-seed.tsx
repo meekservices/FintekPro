@@ -112,6 +112,46 @@ export default function ReitsInvitsSeedPage() {
     queryKey: ["/api/reit-invit/store/invits/admin"],
   });
 
+  // Data refresh status and controls
+  const { data: refreshStatusData, refetch: refetchStatus } = useQuery<{
+    success: boolean;
+    status: { isRefreshing: boolean; lastRefreshTime: string | null; scheduledRefreshActive: boolean };
+  }>({
+    queryKey: ["/api/reit-invit/data-refresh/status"],
+    refetchInterval: 10000,
+  });
+
+  const refreshAllMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("/api/reit-invit/data-refresh/all", "POST");
+    },
+    onSuccess: (data: any) => {
+      toast({ 
+        title: "Data Refresh Complete", 
+        description: `REITs: ${data.reits?.success || 0}/${data.reits?.total || 0}, InvITs: ${data.invits?.success || 0}/${data.invits?.total || 0}` 
+      });
+      refetchReits();
+      refetchInvits();
+      refetchStatus();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Refresh Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const toggleSchedulerMutation = useMutation({
+    mutationFn: async (action: "start" | "stop") => {
+      return apiRequest(`/api/reit-invit/data-refresh/scheduler/${action}`, "POST", { intervalHours: 6 });
+    },
+    onSuccess: (_, action) => {
+      toast({ title: action === "start" ? "Scheduler Started" : "Scheduler Stopped" });
+      refetchStatus();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
   const reits = reitsData?.reits || [];
   const invits = invitsData?.invits || [];
 
@@ -283,6 +323,10 @@ export default function ReitsInvitsSeedPage() {
             <Factory className="h-4 w-4" />
             InvITs ({invits.length})
           </TabsTrigger>
+          <TabsTrigger value="data-refresh" className="flex items-center gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Data Refresh
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="reits">
@@ -429,6 +473,101 @@ export default function ReitsInvitsSeedPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+        <TabsContent value="data-refresh">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <RefreshCw className="h-5 w-5" />
+                Data Refresh Controls
+              </CardTitle>
+              <CardDescription>
+                Update REIT and InvIT prices and yields from NSE/BSE/Yahoo Finance
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2">
+                      <div className={`h-3 w-3 rounded-full ${refreshStatusData?.status?.scheduledRefreshActive ? "bg-green-500" : "bg-gray-300"}`} />
+                      <span className="text-sm font-medium">
+                        {refreshStatusData?.status?.scheduledRefreshActive ? "Scheduler Active" : "Scheduler Inactive"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Auto-refresh every 6 hours</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">Last Refresh</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {refreshStatusData?.status?.lastRefreshTime
+                        ? new Date(refreshStatusData.status.lastRefreshTime).toLocaleString()
+                        : "Never"}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2">
+                      {refreshStatusData?.status?.isRefreshing ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      )}
+                      <span className="text-sm">
+                        {refreshStatusData?.status?.isRefreshing ? "Refreshing..." : "Ready"}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="flex gap-4">
+                <Button
+                  onClick={() => refreshAllMutation.mutate()}
+                  disabled={refreshAllMutation.isPending || refreshStatusData?.status?.isRefreshing}
+                >
+                  {refreshAllMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                  )}
+                  Refresh All Data
+                </Button>
+                {refreshStatusData?.status?.scheduledRefreshActive ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => toggleSchedulerMutation.mutate("stop")}
+                    disabled={toggleSchedulerMutation.isPending}
+                  >
+                    Stop Scheduler
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={() => toggleSchedulerMutation.mutate("start")}
+                    disabled={toggleSchedulerMutation.isPending}
+                  >
+                    Start Scheduler
+                  </Button>
+                )}
+              </div>
+
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  Data is fetched from NSE India API with Yahoo Finance as fallback.
+                  Rate limiting is applied to prevent API blocks.
+                </AlertDescription>
+              </Alert>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
