@@ -1202,6 +1202,15 @@ function AdminRoutes() {
           </AdminLayout>
         )}
       </Route>
+      <Route path="/admin/store/seed/aif">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <AifSeedAdmin />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
       <Route path="/admin/recommendation-products">
         {() => (
           <AdminLayout>
