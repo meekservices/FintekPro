@@ -172,12 +172,33 @@ export default function Loans() {
       if (!response.ok) throw new Error("Failed to generate offers");
       
       const offersResponse = await response.json();
-      setOffers(offersResponse.data || []);
+      const generatedOffers = offersResponse.data || [];
+      setOffers(generatedOffers);
       setActiveTab("compare");
+      
+      const borderlineOffers = generatedOffers.filter(
+        (o: LoanOffer) => o.eligibilityScore >= 40 && o.eligibilityScore < 70
+      );
+      
+      if (borderlineOffers.length > 0 || generatedOffers.length === 0) {
+        try {
+          await fetch("/api/loans/background-routing", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              requestId,
+              reason: generatedOffers.length === 0 ? 'borderline_credit' : 'income_edge',
+            }),
+          });
+        } catch (bgError) {
+          console.log("Background routing initiated for additional offers");
+        }
+      }
       
       toast({
         title: "Offers Generated",
-        description: `Found ${offersResponse.data?.length || 0} loan offers for you!`,
+        description: `Found ${generatedOffers.length} loan offers for you!`,
       });
     } catch (error) {
       toast({
@@ -787,7 +808,10 @@ export default function Loans() {
                               variant="link"
                               size="sm"
                               className="p-0 h-auto mt-2 text-blue-600"
-                              onClick={() => window.open(offer.kfsUrl || `/api/loans/kfs/${offer.id}`, '_blank')}
+                              onClick={() => {
+                              const kfsUrl = offer.kfsUrl || `/api/loans/kfs/${offer.id}?amount=${offer.amount}&tenure=${offer.tenure}&rate=${offer.interestRate}&provider=${encodeURIComponent(offer.providerName || 'Partner Lender')}&fee=${offer.processingFee}`;
+                              window.open(kfsUrl, '_blank');
+                            }}
                               data-testid={`kfs-${offer.id}`}
                             >
                               <ExternalLink className="h-3 w-3 mr-1" />

@@ -591,20 +591,15 @@ export function registerLoanRoutes(app: Express) {
   app.get("/api/loans/kfs/:offerId", async (req: any, res: any) => {
     try {
       const { offerId } = req.params;
+      const { amount: qAmount, tenure: qTenure, rate: qRate, provider: qProvider, fee: qFee } = req.query;
       
-      const offer = await storage.getLoanOffer(offerId);
+      let offer = await storage.getLoanOffer(offerId);
       
-      if (!offer) {
-        return res.status(404).json({
-          success: false,
-          error: "Offer not found"
-        });
-      }
-
-      const amount = Number(offer.amount || 500000);
-      const tenure = Number(offer.tenure || 60);
-      const baseRate = Number(offer.interestRate || 10);
-      const processingFeePercent = Number(offer.processingFee || 1);
+      const amount = Number(offer?.amount || qAmount || 500000);
+      const tenure = Number(offer?.tenure || qTenure || 60);
+      const baseRate = Number(offer?.interestRate || qRate || 10);
+      const processingFeePercent = Number(offer?.processingFee || qFee || 1);
+      const providerName = offer?.providerName || qProvider || 'Partner Lender';
       
       const monthlyRate = baseRate / 12 / 100;
       const emi = amount * monthlyRate * Math.pow(1 + monthlyRate, tenure) / 
@@ -619,7 +614,7 @@ export function registerLoanRoutes(app: Express) {
         validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         
         lenderDetails: {
-          name: offer.providerName || 'Partner Lender',
+          name: providerName,
           licenseNumber: 'RBI-NBFC-XXXX',
           regulator: 'Reserve Bank of India',
           registeredAddress: 'Mumbai, Maharashtra',

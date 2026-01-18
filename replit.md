@@ -50,6 +50,8 @@ FEMA Compliance & International Transaction Management includes RBI Purpose Code
 
 Offline & Slow-Internet Resilience is achieved through PWA capabilities: Global Network State Manager, PWA Service Worker, Draft Auto-Save Engine, Action Queue & Sync Engine, Backend Execution Guardrails, Adaptive Low-Data Mode, Role-Based Offline RBAC, and User Communication Layer. Immutable Audit Logs are maintained.
 
+A DSA Multi-Financier Loan Routing System enables multi-bank loan applications with RBI Digital Lending Directions 2025 compliance. Features include: 8 database tables (applications, connectors, eligibility rules, routing history, documents, audit logs, commission tracking, webhook events), a credit engine matching applicants to 7 partner banks (ICICI, HDFC, Axis, Kotak, SBI, Bajaj Finance, Tata Capital), 3 routing strategies (parallel, waterfall, priority_first), and a unified bank connector layer with factory pattern. Key Facts Statement (KFS) generation provides RBI-mandated disclosure with APR, fees, cooling-off period, and grievance redressal. A simplified loan flow at `/loans` shows loan products first, then financier offers with KFS links. Background multi-bank routing automatically triggers for borderline eligibility cases (scores 40-70%) to improve offer discovery. Admin DSA Dashboard at `/admin/dsa-loans` displays funnel metrics and bank performance stats. Client navigation simplified to single "Loans" entry point.
+
 ### System Design Choices
 The platform uses a subdomain-based portal architecture for Admin, Partner, and Client portals, ensuring isolated experiences, security, and role-based access control.
 
