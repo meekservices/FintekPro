@@ -80,9 +80,11 @@ export default function TaxServicesSeed() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [formValues, setFormValues] = useState(defaultFormValues);
 
-  const { data: pricingConfigs, isLoading } = useQuery<ItrPricingConfig[]>({
+  const { data: pricingConfigsResponse, isLoading } = useQuery<{ success: boolean; data: ItrPricingConfig[] }>({
     queryKey: ["/api/admin/tax-services/pricing"],
   });
+  
+  const pricingConfigs = pricingConfigsResponse?.data || [];
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof defaultFormValues) => {
