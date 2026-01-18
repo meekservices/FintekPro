@@ -588,6 +588,138 @@ export function registerLoanRoutes(app: Express) {
     }
   });
 
+  app.get("/api/loans/kfs/:offerId", async (req: any, res: any) => {
+    try {
+      const { offerId } = req.params;
+      
+      const offer = await storage.getLoanOffer(offerId);
+      
+      if (!offer) {
+        return res.status(404).json({
+          success: false,
+          error: "Offer not found"
+        });
+      }
+
+      const amount = Number(offer.amount || 500000);
+      const tenure = Number(offer.tenure || 60);
+      const baseRate = Number(offer.interestRate || 10);
+      const processingFeePercent = Number(offer.processingFee || 1);
+      
+      const monthlyRate = baseRate / 12 / 100;
+      const emi = amount * monthlyRate * Math.pow(1 + monthlyRate, tenure) / 
+                  (Math.pow(1 + monthlyRate, tenure) - 1);
+      const totalPayment = emi * tenure;
+      const totalInterest = totalPayment - amount;
+      const apr = baseRate + (processingFeePercent * 12 / tenure);
+
+      const kfsData = {
+        kfsId: `KFS-MKT-${offerId}`,
+        generatedAt: new Date().toISOString(),
+        validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        
+        lenderDetails: {
+          name: offer.providerName || 'Partner Lender',
+          licenseNumber: 'RBI-NBFC-XXXX',
+          regulator: 'Reserve Bank of India',
+          registeredAddress: 'Mumbai, Maharashtra',
+          grievanceOfficer: 'grievance@lender.com',
+        },
+
+        loanTerms: {
+          principalAmount: amount,
+          tenure: tenure,
+          tenureUnit: 'months',
+          interestRate: baseRate,
+          interestType: 'Fixed/Floating (as applicable)',
+          apr: parseFloat(apr.toFixed(2)),
+          emi: Math.round(emi),
+          totalInterest: Math.round(totalInterest),
+          totalRepayment: Math.round(totalPayment),
+        },
+
+        fees: {
+          processingFee: `${processingFeePercent}% of loan amount`,
+          processingFeeAmount: Math.round(amount * processingFeePercent / 100),
+          stampDuty: 'As per state regulations',
+          documentationCharges: '₹500',
+          insuranceCharges: 'Optional - ₹0 if declined',
+          prepaymentCharges: 'Nil for floating rate, 2% for fixed rate',
+          latePaymentFee: '2% per month on overdue amount',
+          bounceCharges: '₹500 per instance',
+        },
+
+        cooling_off: {
+          period: '3 days',
+          description: 'Borrower can exit the loan within 3 days of disbursement by repaying principal plus pro-rata interest. No prepayment charges apply during this period.',
+        },
+
+        grievanceRedressal: {
+          lenderOfficer: {
+            name: 'Grievance Officer',
+            email: 'grievance@lender.com',
+            phone: '1800-XXX-XXXX',
+          },
+          escalation: {
+            ombudsman: 'RBI Ombudsman',
+            website: 'https://cms.rbi.org.in',
+            email: 'rbiombudsman@rbi.org.in',
+          },
+        },
+
+        rbiDisclosure: {
+          statement: 'This Key Facts Statement (KFS) is provided as per RBI Digital Lending Directions 2025.',
+          annualPercentageRate: `The Annual Percentage Rate (APR) of ${apr.toFixed(2)}% includes all costs - interest rate, processing fee, and other charges.`,
+          coolingOff: 'You have a 3-day cooling-off period after disbursement to exit the loan.',
+        },
+      };
+
+      res.json({
+        success: true,
+        data: kfsData
+      });
+    } catch (error: any) {
+      console.error("Error generating KFS:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to generate KFS document"
+      });
+    }
+  });
+
+  app.post("/api/loans/background-routing", requireLevel1, async (req: any, res: any) => {
+    try {
+      const { requestId, reason } = req.body;
+      
+      if (!requestId || !reason) {
+        return res.status(400).json({
+          success: false,
+          error: "Missing requestId or reason"
+        });
+      }
+
+      const { dsaLoanService } = await import('../../services/dsa-loan-service');
+      
+      const result = await dsaLoanService.triggerBackgroundRouting(
+        requestId, 
+        reason as 'borderline_credit' | 'income_edge' | 'manual_review',
+        req.user?.id
+      );
+
+      res.json({
+        success: true,
+        data: result,
+        message: 'Background multi-bank routing initiated for better offer discovery'
+      });
+    } catch (error: any) {
+      console.error("Error triggering background routing:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message || "Failed to trigger background routing"
+      });
+    }
+  });
+
   console.log('✅ Loan routes (ICICI, Marketplace) registered');
 }
 

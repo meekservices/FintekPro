@@ -787,7 +787,7 @@ export default function Loans() {
                               variant="link"
                               size="sm"
                               className="p-0 h-auto mt-2 text-blue-600"
-                              onClick={() => window.open(offer.kfsUrl || `/api/dsa-loans/kfs/${offer.id}`, '_blank')}
+                              onClick={() => window.open(offer.kfsUrl || `/api/loans/kfs/${offer.id}`, '_blank')}
                               data-testid={`kfs-${offer.id}`}
                             >
                               <ExternalLink className="h-3 w-3 mr-1" />
