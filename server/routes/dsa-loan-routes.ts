@@ -470,4 +470,62 @@ router.post("/check-eligibility", async (req: Request, res: Response) => {
   }
 });
 
+router.get("/kfs/:offerId", async (req: Request, res: Response) => {
+  try {
+    const { offerId } = req.params;
+    
+    const kfsData = await dsaLoanService.generateKFS(offerId);
+    
+    if (!kfsData) {
+      return res.status(404).json({
+        success: false,
+        error: 'Offer not found or KFS not available',
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: kfsData,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+router.post("/background-routing", async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      applicationId: z.string(),
+      reason: z.enum(['borderline_credit', 'income_edge', 'manual_review']),
+    });
+    
+    const { applicationId, reason } = schema.parse(req.body);
+    const agentId = (req as any).user?.id;
+    
+    const result = await dsaLoanService.triggerBackgroundRouting(applicationId, reason, agentId);
+    
+    res.json({
+      success: true,
+      data: result,
+      message: 'Background multi-bank routing initiated for better offer discovery',
+    });
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({
+        success: false,
+        error: 'Validation failed',
+        details: error.errors,
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+});
+
 export default router;

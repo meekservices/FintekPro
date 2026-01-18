@@ -728,6 +728,175 @@ class DsaLoanService {
       banks: eligibleBanks,
     };
   }
+
+  async generateKFS(offerId: string): Promise<any | null> {
+    const routing = await db
+      .select()
+      .from(loanRoutingHistory)
+      .where(eq(loanRoutingHistory.id, offerId))
+      .limit(1);
+
+    if (!routing[0]) {
+      return null;
+    }
+
+    const application = await this.getApplication(routing[0].applicationId!);
+    if (!application) {
+      return null;
+    }
+
+    const connector = await db
+      .select()
+      .from(bankConnectors)
+      .where(eq(bankConnectors.id, routing[0].bankConnectorId!))
+      .limit(1);
+
+    const bank = connector[0];
+    const amount = parseInt(application.requestedAmount || '0');
+    const tenure = application.requestedTenure || 12;
+    const baseRate = parseFloat(bank?.config?.minRate as string || '10');
+    const processingFee = parseFloat(bank?.config?.processingFee as string || '1');
+    
+    const monthlyRate = baseRate / 12 / 100;
+    const emi = amount * monthlyRate * Math.pow(1 + monthlyRate, tenure) / 
+                (Math.pow(1 + monthlyRate, tenure) - 1);
+    const totalPayment = emi * tenure;
+    const totalInterest = totalPayment - amount;
+    const apr = baseRate + (processingFee * 12 / tenure);
+
+    return {
+      kfsId: `KFS-${offerId}`,
+      generatedAt: new Date().toISOString(),
+      validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      
+      lenderDetails: {
+        name: bank?.bankName || 'Unknown Lender',
+        licenseNumber: bank?.config?.licenseNumber || 'RBI-NBFC-XXXX',
+        regulator: 'Reserve Bank of India',
+        registeredAddress: bank?.config?.address || 'Mumbai, Maharashtra',
+        grievanceOfficer: bank?.config?.grievanceEmail || 'grievance@bank.com',
+      },
+
+      loanTerms: {
+        principalAmount: amount,
+        tenure: tenure,
+        tenureUnit: 'months',
+        interestRate: baseRate,
+        interestType: 'Fixed/Floating (as applicable)',
+        apr: parseFloat(apr.toFixed(2)),
+        emi: Math.round(emi),
+        totalInterest: Math.round(totalInterest),
+        totalRepayment: Math.round(totalPayment),
+      },
+
+      fees: {
+        processingFee: `${processingFee}% of loan amount`,
+        processingFeeAmount: Math.round(amount * processingFee / 100),
+        stampDuty: 'As per state regulations',
+        documentationCharges: bank?.config?.docCharges || '₹500',
+        insuranceCharges: 'Optional - ₹0 if declined',
+        prepaymentCharges: bank?.config?.prepaymentCharges || 'Nil for floating rate, 2% for fixed rate',
+        latePaymentFee: bank?.config?.latePaymentFee || '2% per month on overdue amount',
+        bounceCharges: bank?.config?.bounceCharges || '₹500 per instance',
+      },
+
+      cooling_off: {
+        period: '3 days',
+        description: 'Borrower can exit the loan within 3 days of disbursement by repaying principal plus pro-rata interest. No prepayment charges apply during this period.',
+      },
+
+      grievanceRedressal: {
+        lenderOfficer: {
+          name: bank?.config?.grievanceOfficerName || 'Grievance Officer',
+          email: bank?.config?.grievanceEmail || 'grievance@bank.com',
+          phone: bank?.config?.grievancePhone || '1800-XXX-XXXX',
+        },
+        escalation: {
+          ombudsman: 'RBI Ombudsman',
+          website: 'https://cms.rbi.org.in',
+          email: 'rbiombudsman@rbi.org.in',
+        },
+      },
+
+      rbiDisclosure: {
+        statement: 'This Key Facts Statement (KFS) is provided as per RBI Digital Lending Directions 2025.',
+        annualPercentageRate: `The Annual Percentage Rate (APR) of ${apr.toFixed(2)}% includes all costs - interest rate, processing fee, and other charges.`,
+        coolingOff: 'You have a 3-day cooling-off period after disbursement to exit the loan.',
+      },
+    };
+  }
+
+  async triggerBackgroundRouting(
+    applicationId: string,
+    reason: 'borderline_credit' | 'income_edge' | 'manual_review',
+    agentId?: string
+  ): Promise<any> {
+    const application = await this.getApplication(applicationId);
+    if (!application) {
+      throw new Error('Application not found');
+    }
+
+    await this.createAuditLog({
+      applicationId,
+      action: 'background_routing_triggered',
+      actionCategory: 'system',
+      actorId: agentId,
+      newState: { reason, triggeredAt: new Date().toISOString() },
+    });
+
+    const eligibilityResults = await this.runEligibilityCheck(applicationId);
+    
+    const borderlineResults = eligibilityResults.filter(
+      r => r.matchScore >= 40 && r.matchScore < 70
+    );
+
+    if (borderlineResults.length === 0) {
+      return {
+        status: 'no_additional_options',
+        message: 'No additional banks available for borderline routing',
+        existingOffers: eligibilityResults.filter(r => r.eligible).length,
+      };
+    }
+
+    const routingPromises = borderlineResults.map(async (result) => {
+      const connector = await db
+        .select()
+        .from(bankConnectors)
+        .where(eq(bankConnectors.bankCode, result.bankCode))
+        .limit(1);
+
+      if (connector[0]) {
+        const [routing] = await db
+          .insert(loanRoutingHistory)
+          .values({
+            applicationId,
+            bankConnectorId: connector[0].id,
+            status: 'pending_review',
+            routingStrategy: 'waterfall',
+            priority: 99,
+            metadata: {
+              reason,
+              borderlineScore: result.matchScore,
+              triggeredAt: new Date().toISOString(),
+            },
+          } as any)
+          .returning();
+        return routing;
+      }
+      return null;
+    });
+
+    const routingResults = await Promise.all(routingPromises);
+    const successfulRoutings = routingResults.filter(Boolean);
+
+    return {
+      status: 'background_routing_initiated',
+      reason,
+      additionalBanksRouted: successfulRoutings.length,
+      bankNames: borderlineResults.map(r => r.bankName),
+      message: `${successfulRoutings.length} additional bank(s) added for extended review`,
+    };
+  }
 }
 
 export const dsaLoanService = new DsaLoanService();

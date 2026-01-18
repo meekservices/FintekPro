@@ -11,7 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
-import { Home, Car, User, Building2, Calculator, Clock, CheckCircle, IndianRupee, GraduationCap, Star, TrendingUp, Shield, RefreshCw, Search, Filter, ArrowRight, Plus, GitCompare, Target, Zap } from "lucide-react";
+import { Home, Car, User, Building2, Calculator, Clock, CheckCircle, IndianRupee, GraduationCap, Star, TrendingUp, Shield, RefreshCw, Search, Filter, ArrowRight, Plus, GitCompare, Target, Zap, FileText, ExternalLink, Info, AlertTriangle } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
@@ -47,6 +47,14 @@ interface LoanOffer {
   approvalProbability: number;
   responseTime: string;
   status: string;
+  kfsUrl?: string;
+  apr?: number;
+  prepaymentCharges?: string;
+  latePaymentFee?: string;
+  insuranceCharges?: string;
+  otherCharges?: { name: string; amount: string }[];
+  regulator?: string;
+  licenseNumber?: string;
 }
 
 interface CreditProfile {
@@ -757,6 +765,36 @@ export default function Loans() {
                             </div>
                           </div>
 
+                          {/* RBI Mandated KFS Link */}
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <div className="flex items-center gap-2 mb-2">
+                              <FileText className="h-4 w-4 text-blue-600" />
+                              <span className="text-xs font-medium text-blue-800">Key Facts Statement (KFS)</span>
+                            </div>
+                            <div className="space-y-1 text-xs text-blue-700">
+                              <div className="flex justify-between">
+                                <span>APR (All-in Cost):</span>
+                                <span className="font-semibold">{offer.apr || (offer.interestRate + 0.5).toFixed(2)}%</span>
+                              </div>
+                              {offer.prepaymentCharges && (
+                                <div className="flex justify-between">
+                                  <span>Prepayment:</span>
+                                  <span>{offer.prepaymentCharges}</span>
+                                </div>
+                              )}
+                            </div>
+                            <Button
+                              variant="link"
+                              size="sm"
+                              className="p-0 h-auto mt-2 text-blue-600"
+                              onClick={() => window.open(offer.kfsUrl || `/api/dsa-loans/kfs/${offer.id}`, '_blank')}
+                              data-testid={`kfs-${offer.id}`}
+                            >
+                              <ExternalLink className="h-3 w-3 mr-1" />
+                              View Full KFS Document
+                            </Button>
+                          </div>
+
                           <div className="pt-2 space-y-2">
                             <Button
                               className="w-full"
@@ -1309,6 +1347,77 @@ export default function Loans() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* RBI Digital Lending Directions 2025 Compliance Footer */}
+        <Card className="mt-8 bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Info className="h-5 w-5 text-amber-600" />
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">RBI Digital Lending Disclosure</h3>
+                  <p className="text-sm text-muted-foreground">
+                    As per RBI Digital Lending Directions 2025, we are committed to transparent and unbiased loan offer presentation.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-green-600" />
+                      Ranking Methodology
+                    </h4>
+                    <p className="text-muted-foreground">
+                      Offers are ranked by: (1) Lowest APR (All-in Cost), (2) Eligibility match score based on your profile, 
+                      (3) Processing time. No lender pays for preferential placement.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-blue-600" />
+                      Key Facts Statement (KFS)
+                    </h4>
+                    <p className="text-muted-foreground">
+                      Each offer includes a standardized KFS document with APR, fees, charges, and terms 
+                      as mandated by RBI for borrower protection.
+                    </p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3 text-green-500" />
+                    <span>RBI Registered LSP</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3 text-green-500" />
+                    <span>No Hidden Fees</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3 text-green-500" />
+                    <span>Unbiased Offer Display</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3 text-green-500" />
+                    <span>Data Privacy Compliant</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  <p className="text-xs text-muted-foreground">
+                    <strong>Grievance Redressal:</strong> For complaints, contact our Nodal Officer at grievance@fintekpro.com 
+                    or escalate to RBI Ombudsman at rbiombudsman@rbi.org.in
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
