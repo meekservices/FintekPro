@@ -12299,6 +12299,55 @@ export const insertLeadActivitySchema = createInsertSchema(leadActivities).omit(
 export type LeadActivity = typeof leadActivities.$inferSelect;
 export type InsertLeadActivity = z.infer<typeof insertLeadActivitySchema>;
 
+// Agent Leads - Individual lead tracking for agent CRM
+export const agentLeads = pgTable("agent_leads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Agent assignment
+  agentId: varchar("agent_id").references(() => users.id),
+  
+  // Lead details
+  name: varchar("name").notNull(),
+  email: varchar("email"),
+  phone: varchar("phone"),
+  
+  // Pipeline stage
+  stage: varchar("stage").notNull().default("new"), // new, contacted, proposal_sent, negotiating, converted, lost
+  
+  // Lead source and scoring
+  source: varchar("source").default("manual"), // website, referral, linkedin, event, cold_call, manual
+  potentialValue: numeric("potential_value").default("0"),
+  score: integer("score").default(50), // 0-100 lead score
+  
+  // Notes and follow-ups
+  notes: text("notes"),
+  lastContactAt: timestamp("last_contact_at"),
+  nextFollowUpAt: timestamp("next_follow_up_at"),
+  
+  // Tags for categorization
+  tags: text("tags").array(),
+  
+  // Conversion tracking
+  convertedToUserId: varchar("converted_to_user_id").references(() => users.id),
+  convertedAt: timestamp("converted_at"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_agent_leads_agent").on(table.agentId),
+  index("idx_agent_leads_stage").on(table.stage),
+  index("idx_agent_leads_created").on(table.createdAt),
+]);
+
+export const insertAgentLeadSchema = createInsertSchema(agentLeads).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type AgentLead = typeof agentLeads.$inferSelect;
+export type InsertAgentLead = z.infer<typeof insertAgentLeadSchema>;
+
 export const insertClientIntelligenceSchema = createInsertSchema(clientIntelligence).omit({
   id: true,
   createdAt: true,
