@@ -20,7 +20,7 @@ import {
   TrendingUp, AlertTriangle, Eye, EyeOff, Plus, Edit, Trash2,
   DollarSign, Percent, IndianRupee, Clock, Shield, Check, X,
   Briefcase, Crown, Banknote, Target, ArrowDownToLine, ArrowUpFromLine,
-  Scale, FileCheck, Users
+  Scale, FileCheck, Users, Database, Sparkles, Package
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -232,6 +232,35 @@ export default function GiftCityIfscSeed() {
     }
   });
 
+  const bulkSeedMutation = useMutation({
+    mutationFn: async (template: string) => {
+      return apiRequest(`/api/store/gift-city/admin/bulk-seed`, "POST", { template });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/store/gift-city/admin"] });
+      toast({ 
+        title: "Products seeded successfully", 
+        description: `Added ${data.count || 0} new products` 
+      });
+    },
+    onError: () => {
+      toast({ title: "Failed to seed products", variant: "destructive" });
+    }
+  });
+
+  const clearAllMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest(`/api/store/gift-city/admin/clear-all`, "DELETE");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/store/gift-city/admin"] });
+      toast({ title: "All products cleared" });
+    },
+    onError: () => {
+      toast({ title: "Failed to clear products", variant: "destructive" });
+    }
+  });
+
   const resetForm = () => {
     setFormData({
       name: "",
@@ -432,6 +461,104 @@ export default function GiftCityIfscSeed() {
         </Card>
       </div>
 
+      <Card className="border-dashed">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Database className="h-4 w-4 text-indigo-500" />
+            Bulk Seeding Options
+          </CardTitle>
+          <CardDescription>
+            Quickly populate products using predefined IFSCA-compliant templates
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              variant="outline"
+              onClick={() => bulkSeedMutation.mutate("inbound")}
+              disabled={bulkSeedMutation.isPending}
+              className="border-emerald-300 hover:bg-emerald-50"
+            >
+              {bulkSeedMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <ArrowDownToLine className="h-4 w-4 mr-2 text-emerald-600" />
+              )}
+              Seed Inbound Bundle (FPI Products)
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => bulkSeedMutation.mutate("outbound")}
+              disabled={bulkSeedMutation.isPending}
+              className="border-blue-300 hover:bg-blue-50"
+            >
+              {bulkSeedMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <ArrowUpFromLine className="h-4 w-4 mr-2 text-blue-600" />
+              )}
+              Seed Outbound Bundle (LRS Products)
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => bulkSeedMutation.mutate("all")}
+              disabled={bulkSeedMutation.isPending}
+              className="border-purple-300 hover:bg-purple-50"
+            >
+              {bulkSeedMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Package className="h-4 w-4 mr-2 text-purple-600" />
+              )}
+              Seed All IFSC Products
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => bulkSeedMutation.mutate("aif")}
+              disabled={bulkSeedMutation.isPending}
+            >
+              {bulkSeedMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Building2 className="h-4 w-4 mr-2" />
+              )}
+              Seed AIFs Only
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => bulkSeedMutation.mutate("global-funds")}
+              disabled={bulkSeedMutation.isPending}
+            >
+              {bulkSeedMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Globe className="h-4 w-4 mr-2" />
+              )}
+              Seed Global Funds
+            </Button>
+            <div className="ml-auto">
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => {
+                  if (confirm("Are you sure you want to delete ALL products? This cannot be undone.")) {
+                    clearAllMutation.mutate();
+                  }
+                }}
+                disabled={clearAllMutation.isPending || stats.total === 0}
+              >
+                {clearAllMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4 mr-2" />
+                )}
+                Clear All ({stats.total})
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -480,8 +607,9 @@ export default function GiftCityIfscSeed() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-24">ID</TableHead>
                       <TableHead>Product</TableHead>
-                      <TableHead>Category</TableHead>
+                      <TableHead>Category / Type</TableHead>
                       <TableHead>Flow</TableHead>
                       <TableHead>Provider</TableHead>
                       <TableHead>Min Investment</TableHead>
@@ -495,6 +623,11 @@ export default function GiftCityIfscSeed() {
                     {filteredProducts.map((product) => (
                       <TableRow key={product.id}>
                         <TableCell>
+                          <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">
+                            {product.id.substring(0, 8)}
+                          </code>
+                        </TableCell>
+                        <TableCell>
                           <div className="flex items-center gap-2">
                             {product.isPremium && <Crown className="h-4 w-4 text-amber-500" />}
                             <div>
@@ -506,9 +639,27 @@ export default function GiftCityIfscSeed() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            {getCategoryIcon(product.category)}
-                            <span className="text-sm">{product.category}</span>
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2">
+                              {getCategoryIcon(product.category)}
+                              <span className="text-sm">{product.category}</span>
+                            </div>
+                            {product.subcategory && (
+                              <Badge 
+                                variant="secondary" 
+                                className={`text-xs w-fit ${
+                                  product.subcategory.includes("Category I") && !product.subcategory.includes("II") && !product.subcategory.includes("III")
+                                    ? "bg-green-100 text-green-700 border-green-300"
+                                    : product.subcategory.includes("Category II") && !product.subcategory.includes("III")
+                                    ? "bg-blue-100 text-blue-700 border-blue-300"
+                                    : product.subcategory.includes("Category III")
+                                    ? "bg-purple-100 text-purple-700 border-purple-300"
+                                    : ""
+                                }`}
+                              >
+                                {product.subcategory}
+                              </Badge>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -525,7 +676,21 @@ export default function GiftCityIfscSeed() {
                             )}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-sm">{product.provider || "—"}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium">{product.provider || "—"}</span>
+                            {product.provider && (
+                              <span className="text-xs text-muted-foreground">
+                                {product.category === "Alternative Investment Funds" ? "Fund Manager" :
+                                 product.category === "IFSC Banking" ? "Banking Unit" :
+                                 product.category === "Insurance & Reinsurance" ? "Insurer" :
+                                 product.category === "Family Office Services" ? "Multi-Family Office" :
+                                 product.category === "Aircraft Leasing" ? "Lessor" :
+                                 "Provider"}
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>
                           {formatCurrency(product.minimumInvestment, product.currency || undefined)}
                         </TableCell>
