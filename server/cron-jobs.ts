@@ -14,6 +14,7 @@ import { db } from './db';
 import { users, unlistedCompanies } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { reitInvitDataService } from './services/reit-invit-data-service';
+import { giftCityMaintenanceService } from './services/gift-city-maintenance-service';
 
 /**
  * Initialize scheduled cron jobs
@@ -645,6 +646,25 @@ export function initializeCronJobs(): void {
     }
   });
   console.log('📊 [DailyReconciliation] Daily reconciliation scheduled (1:00 AM IST)');
+  
+  // GIFT City Product Maintenance - Run daily at 2:00 AM IST (8:30 PM UTC previous day)
+  // Validates product data, cleans duplicates, and refreshes stale entries
+  cron.schedule('30 20 * * *', async () => {
+    console.log('[CRON] Starting GIFT City product maintenance...');
+    try {
+      const result = await giftCityMaintenanceService.runMaintenance();
+      console.log(`[CRON] GIFT City maintenance completed:`);
+      console.log(`  - Total products: ${result.totalProducts}`);
+      console.log(`  - Validated: ${result.validatedProducts}`);
+      console.log(`  - Updated: ${result.updatedProducts}`);
+      if (result.issues.length > 0) {
+        console.warn(`  - Issues found: ${result.issues.length}`);
+      }
+    } catch (error: any) {
+      console.error('[CRON] GIFT City maintenance job failed:', error.message);
+    }
+  });
+  console.log('🏙️ [GiftCityMaintenance] Daily maintenance scheduled (2:00 AM IST)');
   
   console.log('✓ Cron jobs initialized successfully');
 }

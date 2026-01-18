@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { db } from "../db";
 import { giftCityProducts, insertGiftCityProductSchema } from "@shared/schema";
 import { eq, ilike, or, and, desc, sql } from "drizzle-orm";
+import { giftCityMaintenanceService } from "../services/gift-city-maintenance-service";
 
 const router = Router();
 
@@ -516,6 +517,73 @@ router.delete("/admin/clear-all", async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Error clearing Gift City products:", error);
     res.status(500).json({ error: "Failed to clear products" });
+  }
+});
+
+router.get("/admin/maintenance/stats", async (req: Request, res: Response) => {
+  try {
+    const stats = await giftCityMaintenanceService.getMaintenanceStats();
+    res.json({ success: true, stats });
+  } catch (error) {
+    console.error("Error fetching maintenance stats:", error);
+    res.status(500).json({ error: "Failed to fetch maintenance stats" });
+  }
+});
+
+router.get("/admin/maintenance/health", async (req: Request, res: Response) => {
+  try {
+    const health = await giftCityMaintenanceService.getProductHealth();
+    res.json({ success: true, health });
+  } catch (error) {
+    console.error("Error fetching product health:", error);
+    res.status(500).json({ error: "Failed to fetch product health" });
+  }
+});
+
+router.post("/admin/maintenance/run", async (req: Request, res: Response) => {
+  try {
+    if (giftCityMaintenanceService.isMaintenanceRunning()) {
+      return res.status(409).json({ error: "Maintenance is already running" });
+    }
+    const result = await giftCityMaintenanceService.runMaintenance();
+    res.json({ success: true, result });
+  } catch (error) {
+    console.error("Error running maintenance:", error);
+    res.status(500).json({ error: "Failed to run maintenance" });
+  }
+});
+
+router.post("/admin/maintenance/refresh-pricing", async (req: Request, res: Response) => {
+  try {
+    const result = await giftCityMaintenanceService.refreshProductPricing();
+    res.json({ success: true, result });
+  } catch (error) {
+    console.error("Error refreshing pricing:", error);
+    res.status(500).json({ error: "Failed to refresh pricing" });
+  }
+});
+
+router.post("/admin/maintenance/cleanup-duplicates", async (req: Request, res: Response) => {
+  try {
+    const result = await giftCityMaintenanceService.cleanupDuplicates();
+    res.json({ success: true, result });
+  } catch (error) {
+    console.error("Error cleaning up duplicates:", error);
+    res.status(500).json({ error: "Failed to cleanup duplicates" });
+  }
+});
+
+router.put("/admin/maintenance/interval", async (req: Request, res: Response) => {
+  try {
+    const { hours } = req.body;
+    if (!hours || typeof hours !== "number") {
+      return res.status(400).json({ error: "Hours must be a number" });
+    }
+    giftCityMaintenanceService.setRefreshInterval(hours);
+    res.json({ success: true, interval: hours });
+  } catch (error: any) {
+    console.error("Error setting interval:", error);
+    res.status(400).json({ error: error.message || "Failed to set interval" });
   }
 });
 
