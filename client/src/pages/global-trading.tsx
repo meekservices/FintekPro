@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,15 +7,17 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
 import { 
   Globe, TrendingUp, TrendingDown, BarChart3, PieChart, 
   Clock, RefreshCw, ArrowUpRight, ArrowDownRight, Search,
   Zap, Shield, Bell, Star, Eye, Play, Square,
   Activity, Target, DollarSign, Banknote, CreditCard,
   Moon, Sun, Calendar, AlertCircle, CheckCircle,
-  Building2, MapPin, Percent, Users, Settings
+  Building2, MapPin, Percent, Users, Settings, Wallet
 } from "lucide-react";
 
 interface GlobalStock {
@@ -292,9 +295,64 @@ export default function GlobalTrading() {
   const { isAuthenticated, user } = useAuth();
   const { toast } = useToast();
 
+  // Fetch real market data from US Trading API
+  const { data: stocksData, isLoading: loadingStocks } = useQuery<{ success: boolean; stocks: any[]; fxRate: number }>({
+    queryKey: ["/api/us-trading/market/stocks"],
+  });
+
+  const { data: etfsData, isLoading: loadingEtfs } = useQuery<{ success: boolean; etfs: any[]; fxRate: number }>({
+    queryKey: ["/api/us-trading/market/etfs"],
+  });
+
+  const { data: positionsData, isLoading: loadingPositions } = useQuery<{
+    positions: any[];
+    totalValueUSD: number;
+    totalValueINR: number;
+    totalGainLossUSD: number;
+    totalGainLossPercent: number;
+  }>({
+    queryKey: ["/api/us-trading/positions"],
+  });
+
+  const { data: eligibilityData } = useQuery<{
+    eligible: boolean;
+    lrsUsed: number;
+    lrsLimit: number;
+    lrsRemaining: number;
+  }>({
+    queryKey: ["/api/us-trading/eligibility"],
+  });
+
+  const { data: searchResults, isLoading: searching } = useQuery<{ success: boolean; results: any[] }>({
+    queryKey: ["/api/us-trading/market/search", searchTerm],
+    enabled: searchTerm.length >= 2,
+  });
+
+  const fxRate = stocksData?.fxRate || 83.5;
+  const apiStocks = stocksData?.stocks || [];
+  const apiEtfs = etfsData?.etfs || [];
+  const apiPositions = positionsData?.positions || [];
+
   const markets = ["ALL", "US", "Europe", "Asia", "Emerging"];
 
-  const filteredStocks = globalStocks.filter(stock => {
+  // Merge API data with fallback mock data
+  const displayStocks = apiStocks.length > 0 ? apiStocks.map((s: any) => ({
+    symbol: s.symbol,
+    name: s.name,
+    exchange: s.primaryExchange || "NASDAQ",
+    country: "United States",
+    currency: s.currency || "USD",
+    price: s.price || 0,
+    change: s.change || 0,
+    changePercent: s.changePercent || 0,
+    volume: s.volume || 0,
+    marketCap: s.marketCap ? `$${(s.marketCap / 1e12).toFixed(2)}T` : "N/A",
+    sector: "Technology",
+    timezone: "EST",
+    isMarketOpen: false
+  })) : globalStocks;
+
+  const filteredStocks = displayStocks.filter((stock: GlobalStock) => {
     const matchesSearch = stock.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          stock.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesMarket = selectedMarket === "ALL" || 
@@ -304,7 +362,9 @@ export default function GlobalTrading() {
     return matchesSearch && matchesMarket;
   });
 
-  const totalGlobalPnL = globalPositions.reduce((sum, pos) => sum + pos.pnlInINR, 0);
+  const totalGlobalPnL = apiPositions.length > 0 
+    ? (positionsData?.totalGainLossUSD || 0) * fxRate
+    : globalPositions.reduce((sum, pos) => sum + pos.pnlInINR, 0);
 
   const getCurrentTimeForMarket = (timezone: string) => {
     // Simplified time calculation for demo
@@ -342,13 +402,25 @@ export default function GlobalTrading() {
           </h1>
           <p className="text-muted-foreground">International Stock Markets • 24/5 Trading • Multi-Currency</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+        <div className="flex items-center gap-4">
+          <div className="text-right">
+            <p className="text-xs text-muted-foreground">USD/INR</p>
+            <p className="font-bold">₹{fxRate.toFixed(2)}</p>
+          </div>
+          <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
             <div className="w-2 h-2 bg-blue-500 rounded-full mr-1 animate-pulse"></div>
             24/5 Trading Active
           </Badge>
-          <Button variant="outline" size="sm">
-            <RefreshCw className="h-4 w-4 mr-1" />
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => {
+              queryClient.invalidateQueries({ queryKey: ["/api/us-trading/market/stocks"] });
+              queryClient.invalidateQueries({ queryKey: ["/api/us-trading/market/etfs"] });
+              queryClient.invalidateQueries({ queryKey: ["/api/us-trading/positions"] });
+            }}
+          >
+            <RefreshCw className={`h-4 w-4 mr-1 ${loadingStocks ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>
@@ -387,7 +459,7 @@ export default function GlobalTrading() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Active Positions</p>
-                <p className="text-lg font-bold">{globalPositions.length}</p>
+                <p className="text-lg font-bold">{apiPositions.length || globalPositions.length}</p>
               </div>
               <Target className="h-6 w-6 text-purple-600" />
             </div>
@@ -398,10 +470,10 @@ export default function GlobalTrading() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Buying Power</p>
-                <p className="text-lg font-bold">$12,580</p>
+                <p className="text-sm text-muted-foreground">LRS Available</p>
+                <p className="text-lg font-bold">${((eligibilityData?.lrsRemaining || 250000) / 1000).toFixed(0)}K</p>
               </div>
-              <DollarSign className="h-6 w-6 text-green-600" />
+              <Shield className="h-6 w-6 text-blue-600" />
             </div>
           </CardContent>
         </Card>
@@ -489,7 +561,37 @@ export default function GlobalTrading() {
                   </div>
                 </CardHeader>
                 <CardContent>
+                  {loadingStocks ? (
+                    <div className="space-y-3">
+                      {[...Array(5)].map((_, i) => (
+                        <div key={i} className="flex items-center justify-between p-2">
+                          <div className="flex items-center gap-4">
+                            <Skeleton className="h-10 w-16" />
+                            <Skeleton className="h-4 w-32" />
+                          </div>
+                          <Skeleton className="h-8 w-20" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
                   <div className="overflow-x-auto">
+                    {searchTerm.length >= 2 && searchResults?.results && searchResults.results.length > 0 && (
+                      <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                        <p className="text-sm font-medium mb-2">Search Results ({searchResults.results.length})</p>
+                        <div className="flex flex-wrap gap-2">
+                          {searchResults.results.map((result: any) => (
+                            <Badge 
+                              key={result.symbol} 
+                              variant="outline" 
+                              className="cursor-pointer hover:bg-primary hover:text-primary-foreground"
+                              onClick={() => handleGlobalTrade({ ...result, price: 0, change: 0, changePercent: 0, volume: 0, marketCap: '', sector: '', timezone: 'EST', isMarketOpen: false, country: 'United States', exchange: result.primaryExchange })}
+                            >
+                              {result.symbol} - {result.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <table className="w-full">
                       <thead>
                         <tr className="border-b">
@@ -502,7 +604,7 @@ export default function GlobalTrading() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredStocks.map(stock => (
+                        {filteredStocks.map((stock: GlobalStock) => (
                           <tr 
                             key={`${stock.symbol}-${stock.exchange}`}
                             className="border-b hover:bg-muted dark:hover:bg-card/50"
@@ -565,6 +667,7 @@ export default function GlobalTrading() {
                       </tbody>
                     </table>
                   </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
