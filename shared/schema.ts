@@ -19598,6 +19598,11 @@ export const giftCityProducts = pgTable("gift_city_products", {
   description: text("description"),
   category: varchar("category", { length: 100 }).notNull(),
   subcategory: varchar("subcategory", { length: 100 }),
+  flowDirection: varchar("flow_direction", { length: 20 }).default("inbound").notNull(), // inbound or outbound per IFSCA regulations
+  regulatoryFramework: varchar("regulatory_framework", { length: 100 }), // IFSCA Fund Management, IFSCA Banking, FEMA LRS
+  investorType: varchar("investor_type", { length: 100 }), // Resident Indian, NRI, Foreign Investor, FPI, Institutional
+  lrsApplicable: boolean("lrs_applicable").default(false).notNull(), // LRS limits apply for outbound
+  lrsCategory: varchar("lrs_category", { length: 100 }), // Capital Account, Current Account, Investment
   minimumInvestment: decimal("minimum_investment", { precision: 20, scale: 2 }),
   currency: varchar("currency", { length: 20 }).default("USD"),
   expectedReturns: varchar("expected_returns", { length: 50 }),
@@ -19606,6 +19611,8 @@ export const giftCityProducts = pgTable("gift_city_products", {
   features: text("features").array(),
   regulatoryBenefits: text("regulatory_benefits").array(),
   eligibility: text("eligibility").array(),
+  complianceRequirements: text("compliance_requirements").array(), // KYC, FATCA, CRS requirements
+  taxImplications: text("tax_implications"), // Tax treatment notes
   isPublished: boolean("is_published").default(true).notNull(),
   isPremium: boolean("is_premium").default(false).notNull(),
   isLimited: boolean("is_limited").default(false).notNull(),
@@ -19614,6 +19621,7 @@ export const giftCityProducts = pgTable("gift_city_products", {
 }, (table) => [
   index("idx_gift_city_products_category").on(table.category),
   index("idx_gift_city_products_published").on(table.isPublished),
+  index("idx_gift_city_products_flow").on(table.flowDirection),
 ]);
 
 export const insertGiftCityProductSchema = createInsertSchema(giftCityProducts).omit({
@@ -23752,6 +23760,11 @@ export const productFundamentalsCache = pgTable("product_fundamentals_cache", {
   industry: varchar("industry", { length: 100 }),
   category: varchar("category", { length: 100 }),
   subcategory: varchar("subcategory", { length: 100 }),
+  flowDirection: varchar("flow_direction", { length: 20 }).default("inbound").notNull(), // inbound or outbound per IFSCA regulations
+  regulatoryFramework: varchar("regulatory_framework", { length: 100 }), // IFSCA Fund Management, IFSCA Banking, FEMA LRS
+  investorType: varchar("investor_type", { length: 100 }), // Resident Indian, NRI, Foreign Investor, FPI, Institutional
+  lrsApplicable: boolean("lrs_applicable").default(false).notNull(), // LRS limits apply for outbound
+  lrsCategory: varchar("lrs_category", { length: 100 }), // Capital Account, Current Account, Investment
   
   // Manager Info (for funds)
   fundManagerId: varchar("fund_manager_id"),

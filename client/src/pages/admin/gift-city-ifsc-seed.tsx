@@ -19,7 +19,8 @@ import {
   RefreshCw, Search, Loader2, ArrowLeft, Globe, Building2, 
   TrendingUp, AlertTriangle, Eye, EyeOff, Plus, Edit, Trash2,
   DollarSign, Percent, IndianRupee, Clock, Shield, Check, X,
-  Briefcase, Crown, Banknote, Target
+  Briefcase, Crown, Banknote, Target, ArrowDownToLine, ArrowUpFromLine,
+  Scale, FileCheck, Users
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -29,6 +30,11 @@ interface GiftCityProduct {
   description: string | null;
   category: string;
   subcategory: string | null;
+  flowDirection: string;
+  regulatoryFramework: string | null;
+  investorType: string | null;
+  lrsApplicable: boolean;
+  lrsCategory: string | null;
   minimumInvestment: string | null;
   currency: string | null;
   expectedReturns: string | null;
@@ -37,6 +43,8 @@ interface GiftCityProduct {
   features: string[] | null;
   regulatoryBenefits: string[] | null;
   eligibility: string[] | null;
+  complianceRequirements: string[] | null;
+  taxImplications: string | null;
   isPublished: boolean;
   isPremium: boolean;
   isLimited: boolean;
@@ -59,6 +67,44 @@ const CATEGORIES = [
 
 const RISK_LEVELS = ["Low", "Medium", "Medium-High", "High", "Very High"];
 const CURRENCIES = ["USD", "EUR", "GBP", "INR", "Multi-Currency"];
+
+const FLOW_DIRECTIONS = [
+  { value: "inbound", label: "Inbound", description: "Foreign investors investing in India via IFSC" },
+  { value: "outbound", label: "Outbound", description: "Indian residents investing abroad via IFSC" }
+];
+
+const REGULATORY_FRAMEWORKS = [
+  "IFSCA Fund Management",
+  "IFSCA Banking Regulations",
+  "IFSCA Insurance",
+  "FEMA LRS (Liberalised Remittance Scheme)",
+  "FEMA ODI Regulations",
+  "RBI Guidelines",
+  "SEBI Regulations",
+  "IFSCA Bullion Exchange"
+];
+
+const INVESTOR_TYPES = [
+  "Resident Indian",
+  "NRI (Non-Resident Indian)",
+  "Foreign Investor",
+  "FPI (Foreign Portfolio Investor)",
+  "Institutional Investor",
+  "HNI (High Net Worth Individual)",
+  "Family Office",
+  "Sovereign Wealth Fund"
+];
+
+const LRS_CATEGORIES = [
+  "Capital Account - Investment",
+  "Capital Account - Gift/Donation",
+  "Current Account - Education",
+  "Current Account - Medical",
+  "Current Account - Travel",
+  "Capital Account - Property Purchase",
+  "Investment in Equity/Debt",
+  "Investment in Mutual Funds"
+];
 
 function formatCurrency(value: string | null | undefined, currency?: string): string {
   if (!value) return "—";
@@ -86,6 +132,11 @@ export default function GiftCityIfscSeed() {
     description: "",
     category: "",
     subcategory: "",
+    flowDirection: "inbound",
+    regulatoryFramework: "",
+    investorType: "",
+    lrsApplicable: false,
+    lrsCategory: "",
     minimumInvestment: "",
     currency: "USD",
     expectedReturns: "",
@@ -94,6 +145,8 @@ export default function GiftCityIfscSeed() {
     features: "",
     regulatoryBenefits: "",
     eligibility: "",
+    complianceRequirements: "",
+    taxImplications: "",
     isPublished: true,
     isPremium: false,
     isLimited: false
@@ -112,6 +165,8 @@ export default function GiftCityIfscSeed() {
       product.provider?.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesTab = activeTab === "all" ||
+      (activeTab === "inbound" && product.flowDirection === "inbound") ||
+      (activeTab === "outbound" && product.flowDirection === "outbound") ||
       (activeTab === "published" && product.isPublished) ||
       (activeTab === "unpublished" && !product.isPublished) ||
       (activeTab === "premium" && product.isPremium) ||
@@ -121,6 +176,9 @@ export default function GiftCityIfscSeed() {
     
     return matchesSearch && matchesTab;
   });
+  
+  const inboundCount = products.filter(p => p.flowDirection === "inbound").length;
+  const outboundCount = products.filter(p => p.flowDirection === "outbound").length;
 
   const togglePublishMutation = useMutation({
     mutationFn: async ({ id, isPublished }: { id: string; isPublished: boolean }) => {
@@ -142,6 +200,7 @@ export default function GiftCityIfscSeed() {
         features: data.features.split(",").map(s => s.trim()).filter(Boolean),
         regulatoryBenefits: data.regulatoryBenefits.split(",").map(s => s.trim()).filter(Boolean),
         eligibility: data.eligibility.split(",").map(s => s.trim()).filter(Boolean),
+        complianceRequirements: data.complianceRequirements.split(",").map(s => s.trim()).filter(Boolean),
       };
       if (data.id) {
         return apiRequest(`/api/store/gift-city/admin/${data.id}`, "PUT", payload);
@@ -179,6 +238,11 @@ export default function GiftCityIfscSeed() {
       description: "",
       category: "",
       subcategory: "",
+      flowDirection: "inbound",
+      regulatoryFramework: "",
+      investorType: "",
+      lrsApplicable: false,
+      lrsCategory: "",
       minimumInvestment: "",
       currency: "USD",
       expectedReturns: "",
@@ -187,6 +251,8 @@ export default function GiftCityIfscSeed() {
       features: "",
       regulatoryBenefits: "",
       eligibility: "",
+      complianceRequirements: "",
+      taxImplications: "",
       isPublished: true,
       isPremium: false,
       isLimited: false
@@ -201,6 +267,11 @@ export default function GiftCityIfscSeed() {
       description: product.description || "",
       category: product.category,
       subcategory: product.subcategory || "",
+      flowDirection: product.flowDirection || "inbound",
+      regulatoryFramework: product.regulatoryFramework || "",
+      investorType: product.investorType || "",
+      lrsApplicable: product.lrsApplicable || false,
+      lrsCategory: product.lrsCategory || "",
       minimumInvestment: product.minimumInvestment || "",
       currency: product.currency || "USD",
       expectedReturns: product.expectedReturns || "",
@@ -209,6 +280,8 @@ export default function GiftCityIfscSeed() {
       features: product.features?.join(", ") || "",
       regulatoryBenefits: product.regulatoryBenefits?.join(", ") || "",
       eligibility: product.eligibility?.join(", ") || "",
+      complianceRequirements: product.complianceRequirements?.join(", ") || "",
+      taxImplications: product.taxImplications || "",
       isPublished: product.isPublished,
       isPremium: product.isPremium,
       isLimited: product.isLimited
@@ -242,7 +315,9 @@ export default function GiftCityIfscSeed() {
     published: products.filter(p => p.isPublished).length,
     premium: products.filter(p => p.isPremium).length,
     aifCount: products.filter(p => p.category === "Alternative Investment Funds").length,
-    bankingCount: products.filter(p => p.category === "IFSC Banking").length
+    bankingCount: products.filter(p => p.category === "IFSC Banking").length,
+    inbound: inboundCount,
+    outbound: outboundCount
   };
 
   return (
@@ -277,7 +352,7 @@ export default function GiftCityIfscSeed() {
         </div>
       </div>
 
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-7 gap-4">
         <Card>
           <CardContent className="pt-4">
             <div className="flex items-center gap-2">
@@ -285,6 +360,28 @@ export default function GiftCityIfscSeed() {
               <div>
                 <p className="text-2xl font-bold">{stats.total}</p>
                 <p className="text-xs text-muted-foreground">Total Products</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-emerald-200 bg-emerald-50/50">
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2">
+              <ArrowDownToLine className="h-5 w-5 text-emerald-600" />
+              <div>
+                <p className="text-2xl font-bold text-emerald-700">{stats.inbound}</p>
+                <p className="text-xs text-emerald-600">Inbound (FPI)</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-blue-200 bg-blue-50/50">
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2">
+              <ArrowUpFromLine className="h-5 w-5 text-blue-600" />
+              <div>
+                <p className="text-2xl font-bold text-blue-700">{stats.outbound}</p>
+                <p className="text-xs text-blue-600">Outbound (LRS)</p>
               </div>
             </div>
           </CardContent>
@@ -353,6 +450,14 @@ export default function GiftCityIfscSeed() {
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="mb-4">
               <TabsTrigger value="all">All ({stats.total})</TabsTrigger>
+              <TabsTrigger value="inbound" className="text-emerald-600">
+                <ArrowDownToLine className="h-3 w-3 mr-1" />
+                Inbound ({stats.inbound})
+              </TabsTrigger>
+              <TabsTrigger value="outbound" className="text-blue-600">
+                <ArrowUpFromLine className="h-3 w-3 mr-1" />
+                Outbound ({stats.outbound})
+              </TabsTrigger>
               <TabsTrigger value="published">Published ({stats.published})</TabsTrigger>
               <TabsTrigger value="unpublished">Unpublished ({stats.total - stats.published})</TabsTrigger>
               <TabsTrigger value="premium">Premium ({stats.premium})</TabsTrigger>
@@ -377,6 +482,7 @@ export default function GiftCityIfscSeed() {
                     <TableRow>
                       <TableHead>Product</TableHead>
                       <TableHead>Category</TableHead>
+                      <TableHead>Flow</TableHead>
                       <TableHead>Provider</TableHead>
                       <TableHead>Min Investment</TableHead>
                       <TableHead>Returns</TableHead>
@@ -404,6 +510,20 @@ export default function GiftCityIfscSeed() {
                             {getCategoryIcon(product.category)}
                             <span className="text-sm">{product.category}</span>
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant="outline" 
+                            className={product.flowDirection === "inbound" 
+                              ? "border-emerald-300 bg-emerald-50 text-emerald-700" 
+                              : "border-blue-300 bg-blue-50 text-blue-700"}
+                          >
+                            {product.flowDirection === "inbound" ? (
+                              <><ArrowDownToLine className="h-3 w-3 mr-1" />Inbound</>
+                            ) : (
+                              <><ArrowUpFromLine className="h-3 w-3 mr-1" />Outbound</>
+                            )}
+                          </Badge>
                         </TableCell>
                         <TableCell className="text-sm">{product.provider || "—"}</TableCell>
                         <TableCell>
@@ -533,6 +653,103 @@ export default function GiftCityIfscSeed() {
               </div>
             </div>
 
+            <div className="border-t pt-4 mt-2">
+              <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                <Scale className="h-4 w-4 text-indigo-500" />
+                Regulatory Classification (IFSCA)
+              </h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Flow Direction *</Label>
+                  <Select
+                    value={formData.flowDirection}
+                    onValueChange={(value) => setFormData({ ...formData, flowDirection: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FLOW_DIRECTIONS.map((fd) => (
+                        <SelectItem key={fd.value} value={fd.value}>
+                          <div className="flex items-center gap-2">
+                            {fd.value === "inbound" ? (
+                              <ArrowDownToLine className="h-3 w-3 text-emerald-600" />
+                            ) : (
+                              <ArrowUpFromLine className="h-3 w-3 text-blue-600" />
+                            )}
+                            {fd.label}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {formData.flowDirection === "inbound" 
+                      ? "Foreign investors investing in India via IFSC"
+                      : "Indian residents investing abroad via IFSC"}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Regulatory Framework</Label>
+                  <Select
+                    value={formData.regulatoryFramework}
+                    onValueChange={(value) => setFormData({ ...formData, regulatoryFramework: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select framework" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {REGULATORY_FRAMEWORKS.map((rf) => (
+                        <SelectItem key={rf} value={rf}>{rf}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                <div className="space-y-2">
+                  <Label>Investor Type</Label>
+                  <Select
+                    value={formData.investorType}
+                    onValueChange={(value) => setFormData({ ...formData, investorType: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select investor type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {INVESTOR_TYPES.map((it) => (
+                        <SelectItem key={it} value={it}>{it}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>LRS Category</Label>
+                  <Select
+                    value={formData.lrsCategory}
+                    onValueChange={(value) => setFormData({ ...formData, lrsCategory: value })}
+                    disabled={formData.flowDirection !== "outbound"}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select LRS category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {LRS_CATEGORIES.map((lc) => (
+                        <SelectItem key={lc} value={lc}>{lc}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 mt-4">
+                <Switch
+                  checked={formData.lrsApplicable}
+                  onCheckedChange={(checked) => setFormData({ ...formData, lrsApplicable: checked })}
+                />
+                <Label className="text-sm">LRS Limits Apply ($250,000/year for outbound)</Label>
+              </div>
+            </div>
+
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Minimum Investment</Label>
@@ -612,6 +829,26 @@ export default function GiftCityIfscSeed() {
                 value={formData.eligibility}
                 onChange={(e) => setFormData({ ...formData, eligibility: e.target.value })}
                 placeholder="HNI, Institutional Investors, NRIs"
+                rows={2}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Compliance Requirements (comma-separated)</Label>
+              <Textarea
+                value={formData.complianceRequirements}
+                onChange={(e) => setFormData({ ...formData, complianceRequirements: e.target.value })}
+                placeholder="KYC verification, FATCA declaration, CRS reporting, PAN verification"
+                rows={2}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tax Implications</Label>
+              <Textarea
+                value={formData.taxImplications}
+                onChange={(e) => setFormData({ ...formData, taxImplications: e.target.value })}
+                placeholder="Enter tax treatment details, withholding tax rates, DTAA benefits, etc."
                 rows={2}
               />
             </div>
