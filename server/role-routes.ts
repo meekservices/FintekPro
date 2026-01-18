@@ -552,78 +552,7 @@ export function registerRoleRoutes(app: Express) {
     }
   ];
 
-  app.get('/api/agent/leads', async (req: any, res: Response) => {
-    try {
-      res.json(mockLeads);
-    } catch (error: any) {
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch agent leads',
-        error: error.message
-      });
-    }
-  });
-
-  app.get('/api/agent/leads/stats', async (req: any, res: Response) => {
-    try {
-      const stats = {
-        total: mockLeads.length,
-        new: mockLeads.filter(l => l.stage === 'new').length,
-        contacted: mockLeads.filter(l => l.stage === 'contacted').length,
-        proposalSent: mockLeads.filter(l => l.stage === 'proposal_sent').length,
-        negotiating: mockLeads.filter(l => l.stage === 'negotiating').length,
-        converted: mockLeads.filter(l => l.stage === 'converted').length,
-        lost: mockLeads.filter(l => l.stage === 'lost').length,
-        conversionRate: Math.round((mockLeads.filter(l => l.stage === 'converted').length / mockLeads.length) * 100),
-        avgDealValue: Math.round(mockLeads.reduce((sum, l) => sum + l.potentialValue, 0) / mockLeads.length),
-        pipelineValue: mockLeads.filter(l => !['converted', 'lost'].includes(l.stage)).reduce((sum, l) => sum + l.potentialValue, 0)
-      };
-      res.json(stats);
-    } catch (error: any) {
-      res.status(500).json({ success: false, message: 'Failed to fetch lead stats', error: error.message });
-    }
-  });
-
-  app.post('/api/agent/leads', async (req: any, res: Response) => {
-    try {
-      const { name, email, phone, source, potentialValue, notes } = req.body;
-      const newLead = {
-        id: `lead-${Date.now()}`,
-        name,
-        email,
-        phone,
-        stage: 'new' as const,
-        source: source || 'Manual',
-        potentialValue: parseFloat(potentialValue) || 0,
-        score: 50,
-        notes: notes || '',
-        createdAt: new Date().toISOString(),
-        tags: []
-      };
-      mockLeads.push(newLead);
-      res.status(201).json(newLead);
-    } catch (error: any) {
-      res.status(500).json({ success: false, message: 'Failed to create lead', error: error.message });
-    }
-  });
-
-  app.patch('/api/agent/leads/:id/stage', async (req: any, res: Response) => {
-    try {
-      const { id } = req.params;
-      const { stage } = req.body;
-      const lead = mockLeads.find(l => l.id === id);
-      if (!lead) {
-        return res.status(404).json({ success: false, message: 'Lead not found' });
-      }
-      (lead as any).stage = stage;
-      (lead as any).lastContact = new Date().toISOString();
-      res.json(lead);
-    } catch (error: any) {
-      res.status(500).json({ success: false, message: 'Failed to update lead stage', error: error.message });
-    }
-  });
-
-  // Agent Reports List
+  // Agent Reports List  // Agent Reports List
   app.get('/api/agent/reports', async (req: any, res: Response) => {
     try {
       res.json([

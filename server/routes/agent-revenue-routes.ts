@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "../db";
-import { users, investmentProposals, proposalItems, ckycRecords } from "@shared/schema";
+import { users, investmentProposals, proposalItems, ckycRecords, agentLeads } from "@shared/schema";
 import { eq, and, sql, gte, desc } from "drizzle-orm";
 
 const router = Router();
@@ -111,18 +111,30 @@ router.get("/api/agent/revenue/commissions", async (req, res) => {
 
 router.get("/api/agent/leads", async (req, res) => {
   try {
-    const leads = [
-      { id: '1', name: 'Rajesh Sharma', email: 'rajesh@example.com', phone: '9876543210', stage: 'new', source: 'Website', potentialValue: 2500000, score: 85, notes: 'Interested in mutual funds and PMS', createdAt: '2024-12-20', tags: ['HNI', 'Retirement'], nextFollowUp: '2024-12-23' },
-      { id: '2', name: 'Priya Patel', email: 'priya@example.com', phone: '9876543211', stage: 'new', source: 'Referral', potentialValue: 1500000, score: 72, notes: 'Looking for tax-saving investments', createdAt: '2024-12-19', tags: ['Tax-saver'], nextFollowUp: '2024-12-22' },
-      { id: '3', name: 'Amit Kumar', email: 'amit@example.com', phone: '9876543212', stage: 'contacted', source: 'LinkedIn', potentialValue: 5000000, score: 90, notes: 'Met at conference, very interested in AIF', lastContact: '2024-12-21', createdAt: '2024-12-15', tags: ['AIF', 'UHNI'], nextFollowUp: '2024-12-24' },
-      { id: '4', name: 'Sunita Reddy', email: 'sunita@example.com', phone: '9876543213', stage: 'contacted', source: 'Webinar', potentialValue: 800000, score: 65, notes: 'First-time investor', lastContact: '2024-12-20', createdAt: '2024-12-18', tags: ['New Investor'] },
-      { id: '5', name: 'Vikram Singh', email: 'vikram@example.com', phone: '9876543214', stage: 'proposal_sent', source: 'Referral', potentialValue: 10000000, score: 95, notes: 'Corporate client, interested in treasury management', lastContact: '2024-12-19', createdAt: '2024-12-10', tags: ['Corporate', 'Treasury'] },
-      { id: '6', name: 'Meera Gupta', email: 'meera@example.com', phone: '9876543215', stage: 'proposal_sent', source: 'Event', potentialValue: 3000000, score: 78, notes: 'Wants to diversify portfolio', lastContact: '2024-12-18', createdAt: '2024-12-12', tags: ['Diversification'] },
-      { id: '7', name: 'Arjun Nair', email: 'arjun@example.com', phone: '9876543216', stage: 'negotiating', source: 'Referral', potentialValue: 7500000, score: 88, notes: 'Negotiating fees, close to conversion', lastContact: '2024-12-21', createdAt: '2024-12-05', tags: ['HNI', 'Fee-sensitive'] },
-      { id: '8', name: 'Kavita Iyer', email: 'kavita@example.com', phone: '9876543217', stage: 'converted', source: 'Website', potentialValue: 2000000, score: 100, notes: 'Converted! Started with MF SIPs', lastContact: '2024-12-21', createdAt: '2024-12-01', tags: ['SIP'] },
-      { id: '9', name: 'Rahul Joshi', email: 'rahul@example.com', phone: '9876543218', stage: 'lost', source: 'Cold Call', potentialValue: 500000, score: 30, notes: 'Not interested at this time', lastContact: '2024-12-15', createdAt: '2024-12-08', tags: [] }
-    ];
-    res.json(leads);
+    const agentId = (req as any).user?.id;
+    
+    const leads = await db.select().from(agentLeads)
+      .where(eq(agentLeads.agentId, agentId || ''))
+      .orderBy(desc(agentLeads.createdAt));
+    
+    // Transform to match frontend interface
+    const formattedLeads = leads.map(lead => ({
+      id: lead.id,
+      name: lead.name,
+      email: lead.email || '',
+      phone: lead.phone || '',
+      stage: lead.stage as 'new' | 'contacted' | 'proposal_sent' | 'negotiating' | 'converted' | 'lost',
+      source: lead.source || 'manual',
+      potentialValue: parseFloat(lead.potentialValue || '0'),
+      score: lead.score || 50,
+      notes: lead.notes || '',
+      lastContact: lead.lastContactAt?.toISOString(),
+      nextFollowUp: lead.nextFollowUpAt?.toISOString(),
+      createdAt: lead.createdAt?.toISOString() || new Date().toISOString(),
+      tags: lead.tags || []
+    }));
+    
+    res.json(formattedLeads);
   } catch (error) {
     console.error("Error fetching leads:", error);
     res.status(500).json({ error: "Failed to fetch leads" });
@@ -131,18 +143,37 @@ router.get("/api/agent/leads", async (req, res) => {
 
 router.get("/api/agent/leads/stats", async (req, res) => {
   try {
+    const agentId = (req as any).user?.id;
+    const whereClause = eq(agentLeads.agentId, agentId || '');
+    
+    const leads = await db.select().from(agentLeads).where(whereClause);
+    
+    const total = leads.length;
+    const newCount = leads.filter(l => l.stage === 'new').length;
+    const contacted = leads.filter(l => l.stage === 'contacted').length;
+    const proposalSent = leads.filter(l => l.stage === 'proposal_sent').length;
+    const negotiating = leads.filter(l => l.stage === 'negotiating').length;
+    const converted = leads.filter(l => l.stage === 'converted').length;
+    const lost = leads.filter(l => l.stage === 'lost').length;
+    
+    const totalValue = leads.reduce((sum, l) => sum + parseFloat(l.potentialValue || '0'), 0);
+    const pipelineValue = leads
+      .filter(l => !['converted', 'lost'].includes(l.stage))
+      .reduce((sum, l) => sum + parseFloat(l.potentialValue || '0'), 0);
+    
     const stats = {
-      total: 9,
-      new: 2,
-      contacted: 2,
-      proposalSent: 2,
-      negotiating: 1,
-      converted: 1,
-      lost: 1,
-      conversionRate: 11.1,
-      avgDealValue: 2000000,
-      pipelineValue: 31800000
+      total,
+      new: newCount,
+      contacted,
+      proposalSent,
+      negotiating,
+      converted,
+      lost,
+      conversionRate: total > 0 ? Math.round((converted / total) * 100) : 0,
+      avgDealValue: total > 0 ? Math.round(totalValue / total) : 0,
+      pipelineValue
     };
+    
     res.json(stats);
   } catch (error) {
     console.error("Error fetching lead stats:", error);
@@ -152,24 +183,37 @@ router.get("/api/agent/leads/stats", async (req, res) => {
 
 router.post("/api/agent/leads", async (req, res) => {
   try {
+    const agentId = (req as any).user?.id;
     const { name, email, phone, source, potentialValue, notes } = req.body;
     
-    const newLead = {
-      id: Date.now().toString(),
+    const [newLead] = await db.insert(agentLeads).values({
+      agentId,
       name,
-      email,
-      phone,
-      source,
-      potentialValue: parseInt(potentialValue) || 0,
-      notes,
+      email: email || null,
+      phone: phone || null,
       stage: 'new',
+      source: source || 'manual',
+      potentialValue: potentialValue?.toString() || '0',
       score: 50,
-      createdAt: new Date().toISOString().split('T')[0],
-      tags: [],
-      nextFollowUp: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      notes: notes || null,
+      tags: []
+    }).returning();
+    
+    const formattedLead = {
+      id: newLead.id,
+      name: newLead.name,
+      email: newLead.email || '',
+      phone: newLead.phone || '',
+      stage: newLead.stage as 'new' | 'contacted' | 'proposal_sent' | 'negotiating' | 'converted' | 'lost',
+      source: newLead.source || 'manual',
+      potentialValue: parseFloat(newLead.potentialValue || '0'),
+      score: newLead.score || 50,
+      notes: newLead.notes || '',
+      createdAt: newLead.createdAt?.toISOString() || new Date().toISOString(),
+      tags: newLead.tags || []
     };
     
-    res.json(newLead);
+    res.json(formattedLead);
   } catch (error) {
     console.error("Error creating lead:", error);
     res.status(500).json({ error: "Failed to create lead" });
@@ -181,7 +225,36 @@ router.patch("/api/agent/leads/:id/stage", async (req, res) => {
     const { id } = req.params;
     const { stage } = req.body;
     
-    res.json({ id, stage, updated: true });
+    const [updatedLead] = await db.update(agentLeads)
+      .set({ 
+        stage, 
+        lastContactAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(agentLeads.id, id))
+      .returning();
+    
+    if (!updatedLead) {
+      return res.status(404).json({ error: "Lead not found" });
+    }
+    
+    const formattedLead = {
+      id: updatedLead.id,
+      name: updatedLead.name,
+      email: updatedLead.email || '',
+      phone: updatedLead.phone || '',
+      stage: updatedLead.stage as 'new' | 'contacted' | 'proposal_sent' | 'negotiating' | 'converted' | 'lost',
+      source: updatedLead.source || 'manual',
+      potentialValue: parseFloat(updatedLead.potentialValue || '0'),
+      score: updatedLead.score || 50,
+      notes: updatedLead.notes || '',
+      lastContact: updatedLead.lastContactAt?.toISOString(),
+      nextFollowUp: updatedLead.nextFollowUpAt?.toISOString(),
+      createdAt: updatedLead.createdAt?.toISOString() || new Date().toISOString(),
+      tags: updatedLead.tags || []
+    };
+    
+    res.json(formattedLead);
   } catch (error) {
     console.error("Error updating lead stage:", error);
     res.status(500).json({ error: "Failed to update lead stage" });
