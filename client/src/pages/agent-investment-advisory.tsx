@@ -2554,13 +2554,14 @@ function ItrServicesTab({ clientId }: { clientId: string }) {
                         <SelectValue placeholder="Assign CA" />
                       </SelectTrigger>
                       <SelectContent>
-                        {availableCas?.map((ca: any) => (
-                          <SelectItem key={ca.user_id} value={ca.user_id}>
-                            {ca.full_name} ({ca.membership_type})
-                          </SelectItem>
-                        ))}
-                        {(!availableCas || availableCas.length === 0) && (
-                          <SelectItem value="none" disabled>No CAs available</SelectItem>
+                        {availableCas && availableCas.length > 0 ? (
+                          availableCas.map((ca: any) => (
+                            <SelectItem key={ca.user_id} value={ca.user_id}>
+                              {ca.full_name} ({ca.membership_type})
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem key="no-cas" value="none" disabled>No CAs available</SelectItem>
                         )}
                       </SelectContent>
                     </Select>
