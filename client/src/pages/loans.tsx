@@ -453,7 +453,7 @@ export default function Loans() {
                             </div>
                             <div className="flex justify-between">
                               <span>Tenure:</span>
-                              <span className="font-semibold">{product.minTenure} - {product.maxTenure} years</span>
+                              <span className="font-semibold">{Math.round(product.minTenure / 12)} - {Math.round(product.maxTenure / 12)} years</span>
                             </div>
                           </div>
                           
@@ -1006,7 +1006,7 @@ export default function Loans() {
                                 return (
                                   <td key={offerId} className="py-4 px-4 text-center" data-testid={`tenure-${offerId}`}>
                                     <div className="text-sm text-muted-foreground">
-                                      {offer.minTenure} - {offer.maxTenure} years
+                                      {Math.round(offer.minTenure / 12)} - {Math.round(offer.maxTenure / 12)} years
                                     </div>
                                   </td>
                                 );
