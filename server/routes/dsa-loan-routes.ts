@@ -428,4 +428,46 @@ router.post("/routing/:routingId/response", async (req: Request, res: Response) 
   }
 });
 
+router.get("/my-applications", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    const userPhone = (req as any).user?.phone;
+    const userEmail = (req as any).user?.email;
+    
+    const applications = await dsaLoanService.getApplicationsByUser(userId, userPhone, userEmail);
+    
+    res.json(applications);
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+router.post("/check-eligibility", async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      loanType: z.string(),
+      monthlyIncome: z.number(),
+      creditScore: z.number().optional(),
+    });
+    
+    const { loanType, monthlyIncome, creditScore } = schema.parse(req.body);
+    
+    const eligibility = await dsaLoanService.checkEligibilityByCriteria({
+      loanType,
+      monthlyIncome: monthlyIncome.toString(),
+      creditScore,
+    });
+    
+    res.json(eligibility);
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
 export default router;

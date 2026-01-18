@@ -1,0 +1,633 @@
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { 
+  Building2, 
+  FileText, 
+  Clock, 
+  CheckCircle2, 
+  XCircle, 
+  AlertCircle,
+  Upload,
+  IndianRupee,
+  Calendar,
+  User,
+  Phone,
+  Mail,
+  Briefcase,
+  CreditCard,
+  ArrowRight,
+  Building,
+  Loader2,
+  TrendingUp
+} from "lucide-react";
+
+const loanApplicationSchema = z.object({
+  loanType: z.enum(["personal", "home", "car", "business"]),
+  requestedAmount: z.string().min(1, "Amount is required"),
+  requestedTenure: z.string().min(1, "Tenure is required"),
+  applicantName: z.string().min(2, "Name is required"),
+  applicantEmail: z.string().email("Valid email required"),
+  applicantPhone: z.string().regex(/^[6-9]\d{9}$/, "Valid 10-digit phone required"),
+  dateOfBirth: z.string().min(1, "Date of birth required"),
+  applicantPan: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN format"),
+  employmentType: z.enum(["salaried", "self_employed", "business"]),
+  monthlyIncome: z.string().min(1, "Monthly income required"),
+  creditScore: z.string().optional(),
+  routingStrategy: z.enum(["parallel", "waterfall", "priority_first"]).default("parallel"),
+});
+
+type LoanApplicationForm = z.infer<typeof loanApplicationSchema>;
+
+const statusColors: Record<string, string> = {
+  draft: "bg-gray-100 text-gray-800",
+  submitted: "bg-blue-100 text-blue-800",
+  eligibility_check: "bg-purple-100 text-purple-800",
+  routed: "bg-indigo-100 text-indigo-800",
+  pending_with_banks: "bg-yellow-100 text-yellow-800",
+  in_review: "bg-orange-100 text-orange-800",
+  approved: "bg-green-100 text-green-800",
+  rejected: "bg-red-100 text-red-800",
+  disbursed: "bg-emerald-100 text-emerald-800",
+};
+
+const statusIcons: Record<string, any> = {
+  draft: FileText,
+  submitted: Clock,
+  eligibility_check: AlertCircle,
+  routed: ArrowRight,
+  pending_with_banks: Building,
+  in_review: Loader2,
+  approved: CheckCircle2,
+  rejected: XCircle,
+  disbursed: CheckCircle2,
+};
+
+export default function LoanApplyPage() {
+  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("apply");
+  const [selectedApplication, setSelectedApplication] = useState<string | null>(null);
+
+  const form = useForm<LoanApplicationForm>({
+    resolver: zodResolver(loanApplicationSchema),
+    defaultValues: {
+      loanType: "personal",
+      requestedAmount: "",
+      requestedTenure: "36",
+      applicantName: "",
+      applicantEmail: "",
+      applicantPhone: "",
+      dateOfBirth: "",
+      applicantPan: "",
+      employmentType: "salaried",
+      monthlyIncome: "",
+      creditScore: "",
+      routingStrategy: "parallel",
+    },
+  });
+
+  const { data: myApplications, isLoading: loadingApplications } = useQuery<any[]>({
+    queryKey: ["/api/dsa-loans/my-applications"],
+  });
+
+  const createApplicationMutation = useMutation({
+    mutationFn: async (data: LoanApplicationForm) => {
+      const payload = {
+        ...data,
+        requestedAmount: parseInt(data.requestedAmount),
+        requestedTenure: parseInt(data.requestedTenure),
+        monthlyIncome: parseInt(data.monthlyIncome),
+        creditScore: data.creditScore ? parseInt(data.creditScore) : undefined,
+      };
+      return apiRequest("/api/dsa-loans/applications", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Application Submitted", description: "Your loan application has been submitted for processing." });
+      queryClient.invalidateQueries({ queryKey: ["/api/dsa-loans/my-applications"] });
+      form.reset();
+      setActiveTab("track");
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to submit application", variant: "destructive" });
+    },
+  });
+
+  const onSubmit = (data: LoanApplicationForm) => {
+    createApplicationMutation.mutate(data);
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800">
+      <div className="container mx-auto py-8 px-4 max-w-5xl">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            Multi-Bank Loan Application
+          </h1>
+          <p className="text-gray-600 dark:text-gray-300">
+            Apply once, get offers from multiple partner banks instantly
+          </p>
+        </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsTrigger value="apply" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Apply for Loan
+            </TabsTrigger>
+            <TabsTrigger value="track" className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Track Applications
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="apply">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Building2 className="h-5 w-5 text-blue-600" />
+                      Loan Application Form
+                    </CardTitle>
+                    <CardDescription>
+                      Fill in your details to check eligibility across 7+ partner banks
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Form {...form}>
+                      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="loanType"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Loan Type</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select loan type" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="personal">Personal Loan</SelectItem>
+                                    <SelectItem value="home">Home Loan</SelectItem>
+                                    <SelectItem value="car">Car Loan</SelectItem>
+                                    <SelectItem value="business">Business Loan</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="requestedAmount"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Loan Amount (₹)</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <IndianRupee className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <Input {...field} type="number" placeholder="500000" className="pl-10" />
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="requestedTenure"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Tenure (Months)</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select tenure" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="12">12 Months</SelectItem>
+                                    <SelectItem value="24">24 Months</SelectItem>
+                                    <SelectItem value="36">36 Months</SelectItem>
+                                    <SelectItem value="48">48 Months</SelectItem>
+                                    <SelectItem value="60">60 Months</SelectItem>
+                                    <SelectItem value="84">84 Months</SelectItem>
+                                    <SelectItem value="120">120 Months</SelectItem>
+                                    <SelectItem value="180">180 Months</SelectItem>
+                                    <SelectItem value="240">240 Months</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="routingStrategy"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Application Strategy</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select strategy" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="parallel">All Banks (Fastest)</SelectItem>
+                                    <SelectItem value="waterfall">Sequential (Best Rate)</SelectItem>
+                                    <SelectItem value="priority_first">Priority Banks First</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
+                        <Separator />
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="applicantName"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Full Name (as per PAN)</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <Input {...field} placeholder="John Doe" className="pl-10" />
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="applicantPan"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>PAN Number</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <CreditCard className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <Input {...field} placeholder="ABCDE1234F" className="pl-10 uppercase" />
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="applicantEmail"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Email Address</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <Input {...field} type="email" placeholder="john@example.com" className="pl-10" />
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="applicantPhone"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Mobile Number</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <Input {...field} placeholder="9876543210" className="pl-10" />
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="dateOfBirth"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Date of Birth</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <Calendar className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <Input {...field} type="date" className="pl-10" />
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="employmentType"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Employment Type</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select employment" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="salaried">Salaried</SelectItem>
+                                    <SelectItem value="self_employed">Self-Employed</SelectItem>
+                                    <SelectItem value="business">Business Owner</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="monthlyIncome"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Monthly Income (₹)</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <Briefcase className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <Input {...field} type="number" placeholder="75000" className="pl-10" />
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="creditScore"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Credit Score (Optional)</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <TrendingUp className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <Input {...field} type="number" placeholder="750" className="pl-10" />
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
+                        <Button 
+                          type="submit" 
+                          className="w-full" 
+                          size="lg"
+                          disabled={createApplicationMutation.isPending}
+                        >
+                          {createApplicationMutation.isPending ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Processing...
+                            </>
+                          ) : (
+                            <>
+                              <ArrowRight className="mr-2 h-4 w-4" />
+                              Submit Application
+                            </>
+                          )}
+                        </Button>
+                      </form>
+                    </Form>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Building className="h-5 w-5 text-green-600" />
+                      Partner Banks
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {["ICICI Bank", "HDFC Bank", "Axis Bank", "Kotak Mahindra", "SBI", "Bajaj Finance", "Tata Capital"].map((bank, i) => (
+                      <div key={bank} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <span className="font-medium text-sm">{bank}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {8.5 + i * 0.5}% - {12 + i * 0.5}%
+                        </Badge>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <CheckCircle2 className="h-5 w-5 text-blue-600" />
+                      Benefits
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" />
+                      <span>Single application for multiple banks</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" />
+                      <span>Compare offers side-by-side</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" />
+                      <span>Best rates guaranteed</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" />
+                      <span>100% paperless process</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" />
+                      <span>RBI compliant & secure</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="track">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-blue-600" />
+                  Your Applications
+                </CardTitle>
+                <CardDescription>
+                  Track the status of your loan applications across all banks
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loadingApplications ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                  </div>
+                ) : myApplications && myApplications.length > 0 ? (
+                  <div className="space-y-4">
+                    {myApplications.map((app: any) => {
+                      const StatusIcon = statusIcons[app.status] || FileText;
+                      return (
+                        <div 
+                          key={app.id}
+                          className="border rounded-lg p-4 hover:border-blue-300 transition-colors cursor-pointer"
+                          onClick={() => setSelectedApplication(app.id)}
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-semibold capitalize">{app.loanType} Loan</h3>
+                                <Badge className={statusColors[app.status]}>
+                                  <StatusIcon className="h-3 w-3 mr-1" />
+                                  {app.status.replace(/_/g, " ")}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-gray-500">
+                                Application ID: {app.applicationNumber || app.id}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold text-lg">{formatCurrency(app.requestedAmount)}</p>
+                              <p className="text-sm text-gray-500">{app.requestedTenure} months</p>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-4 text-sm mb-3">
+                            <div>
+                              <p className="text-gray-500">Applied On</p>
+                              <p className="font-medium">{formatDate(app.createdAt)}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-500">Banks Routed</p>
+                              <p className="font-medium">{app.routedBanks?.length || 0} banks</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-500">Strategy</p>
+                              <p className="font-medium capitalize">{app.routingStrategy}</p>
+                            </div>
+                          </div>
+
+                          {app.routedBanks && app.routedBanks.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {app.routedBanks.map((bank: string, i: number) => (
+                                <Badge key={i} variant="outline" className="text-xs">
+                                  <Building className="h-3 w-3 mr-1" />
+                                  {bank}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="mt-3">
+                            <div className="flex justify-between text-xs text-gray-500 mb-1">
+                              <span>Application Progress</span>
+                              <span>
+                                {app.status === "disbursed" ? "100%" : 
+                                 app.status === "approved" ? "90%" :
+                                 app.status === "in_review" ? "70%" :
+                                 app.status === "pending_with_banks" ? "50%" :
+                                 app.status === "routed" ? "40%" :
+                                 app.status === "eligibility_check" ? "30%" :
+                                 app.status === "submitted" ? "20%" : "10%"}
+                              </span>
+                            </div>
+                            <Progress 
+                              value={
+                                app.status === "disbursed" ? 100 : 
+                                app.status === "approved" ? 90 :
+                                app.status === "in_review" ? 70 :
+                                app.status === "pending_with_banks" ? 50 :
+                                app.status === "routed" ? 40 :
+                                app.status === "eligibility_check" ? 30 :
+                                app.status === "submitted" ? 20 : 10
+                              } 
+                              className="h-2"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">
+                      No Applications Yet
+                    </h3>
+                    <p className="text-gray-500 mb-4">
+                      Start by applying for a loan to see your applications here
+                    </p>
+                    <Button onClick={() => setActiveTab("apply")}>
+                      Apply for Loan
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+}

@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { eq, and, desc, sql, inArray, gte, lte } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, gte, lte, or } from "drizzle-orm";
 import {
   dsaLoanApplications,
   bankConnectors,
@@ -656,6 +656,76 @@ class DsaLoanService {
       byLoanType,
       totalDisbursed,
       approvalRate: completed > 0 ? (approved / completed) * 100 : 0,
+    };
+  }
+
+  async getApplicationsByUser(
+    userId?: string,
+    userPhone?: string,
+    userEmail?: string
+  ): Promise<any[]> {
+    const conditions = [];
+
+    if (userId) {
+      conditions.push(eq(dsaLoanApplications.agentId, userId));
+    }
+    if (userPhone) {
+      conditions.push(eq(dsaLoanApplications.applicantPhone, userPhone));
+    }
+    if (userEmail) {
+      conditions.push(eq(dsaLoanApplications.applicantEmail, userEmail));
+    }
+
+    if (conditions.length === 0) {
+      return [];
+    }
+
+    return db
+      .select()
+      .from(dsaLoanApplications)
+      .where(or(...conditions))
+      .orderBy(desc(dsaLoanApplications.createdAt));
+  }
+
+  async checkEligibilityByCriteria(criteria: {
+    loanType: string;
+    monthlyIncome: string;
+    creditScore?: number;
+  }): Promise<{ eligible: boolean; banks: string[] }> {
+    const rules = await db
+      .select()
+      .from(loanEligibilityRules)
+      .where(
+        and(
+          eq(loanEligibilityRules.isActive, true),
+          eq(loanEligibilityRules.loanType, criteria.loanType)
+        )
+      );
+
+    const income = parseInt(criteria.monthlyIncome) || 0;
+    const score = criteria.creditScore || 700;
+    const eligibleBanks: string[] = [];
+
+    for (const rule of rules) {
+      const minIncome = parseInt(rule.minIncome || "0");
+      const minScore = rule.minCreditScore || 600;
+
+      if (income >= minIncome && score >= minScore) {
+        const connector = await db
+          .select()
+          .from(bankConnectors)
+          .where(eq(bankConnectors.id, rule.bankConnectorId!))
+          .limit(1);
+
+        if (connector[0] && !eligibleBanks.includes(connector[0].bankName)) {
+          eligibleBanks.push(connector[0].bankName);
+        }
+      }
+    }
+
+    return {
+      eligible: eligibleBanks.length > 0,
+      banks: eligibleBanks,
     };
   }
 }

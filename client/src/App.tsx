@@ -121,6 +121,7 @@ import BBPSPage from "@/pages/BBPSPage";
 import DigiLockerPage from "@/pages/DigiLockerPage";
 import LoanApplication from "@/pages/loan-application";
 import LoanDashboard from "@/pages/loan-dashboard";
+import LoanApplyPage from "@/pages/loan-apply";
 import ProposalsPage from "@/pages/proposals";
 import BrokingPage from "@/pages/broking";
 const AgentPortal = lazy(() => import("@/pages/agent-portal"));
@@ -487,6 +488,7 @@ function UserProtectedRoutes() {
         <Route path="/digilocker" component={DigiLockerPage} />
         <Route path="/loan-application" component={LoanApplication} />
         <Route path="/loan-dashboard" component={LoanDashboard} />
+        <Route path="/loan-apply" component={LoanApplyPage} />
         <Route path="/families" component={FamilyList} />
         <Route path="/families/:id" component={FamilyDashboard} />
         <Route path="/corporate-kyc" component={CorporateKYCPage} />
