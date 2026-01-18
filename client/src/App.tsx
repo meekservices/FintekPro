@@ -258,6 +258,7 @@ import FixedIncomeAdmin from "@/pages/admin/FixedIncomeAdmin";
 import BondCommissionSettings from "@/pages/admin/bond-commission-settings";
 import CommissionMaster from "@/pages/admin/commission-master";
 import AdminLoanManagement from "@/pages/admin-loan-management";
+import AdminDsaLoanDashboard from "@/pages/admin/dsa-loan-dashboard";
 import AdminDLM from "@/pages/admin-dlm";
 import AdminDLMNegotiate from "@/pages/admin-dlm-negotiate";
 import AdminStoreManager from "@/pages/admin/store-manager";
@@ -1093,6 +1094,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <AdminLoanManagement />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/dsa-loans">
+        {() => (
+          <AdminLayout>
+            <AdminDsaLoanDashboard />
           </AdminLayout>
         )}
       </Route>
