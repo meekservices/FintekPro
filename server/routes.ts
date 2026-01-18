@@ -126,6 +126,7 @@ import adminMutualFundsRoutes from "./routes/admin-mutual-funds-routes";
 import adminAadhaarRoutes from "./routes/admin-aadhaar-routes";
 import adminApiUsageRoutes from "./routes/admin-api-usage-routes";
 import derivativesRoutes from "./routes/derivatives-routes";
+import taxServicesRoutes from "./routes/tax-services-routes";
 import listedStocksAdminRoutes from "./routes/listed-stocks-admin";
 import demoProposalsRoutes, { agentDemoRouter } from "./routes/demo-proposals";
 import stockEnrichmentRoutes from "./routes/stock-enrichment-routes";
@@ -599,6 +600,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(adminAadhaarRoutes);
   app.use(adminApiUsageRoutes);
   app.use("/api/derivatives", derivativesRoutes);
+  app.use("/api/admin/tax-services", requireAdmin, taxServicesRoutes);
   app.use("/api/unified-cart", unifiedCartRoutes);
   app.use("/api/admin", requireAdmin, listedStocksAdminRoutes);
   app.use("/api/admin/stocks", requireAdmin, stockEnrichmentRoutes);
