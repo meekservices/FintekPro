@@ -129,10 +129,32 @@ const allNavItems = agentNavCategories.flatMap(cat => cat.items);
 export function AgentLayout({ children }: AgentLayoutProps) {
   const { user, isLoading } = useAuth();
   const [location, navigate] = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(["Dashboard", "Leads & CRM"]));
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('agent-sidebar-open');
+      return saved !== null ? saved === 'true' : true;
+    }
+    return true;
+  });
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('agent-expanded-categories');
+      return saved ? new Set(JSON.parse(saved)) : new Set(["Dashboard", "Leads & CRM"]);
+    }
+    return new Set(["Dashboard", "Leads & CRM"]);
+  });
   const [searchOpen, setSearchOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  
+  // Persist sidebar state
+  useEffect(() => {
+    localStorage.setItem('agent-sidebar-open', String(sidebarOpen));
+  }, [sidebarOpen]);
+  
+  // Persist expanded categories
+  useEffect(() => {
+    localStorage.setItem('agent-expanded-categories', JSON.stringify(Array.from(expandedCategories)));
+  }, [expandedCategories]);
 
   const {
     isSupported,
