@@ -27085,20 +27085,21 @@ export const proposalEsignFieldEdits = pgTable("proposal_esign_field_edits", {
   index("idx_proposal_esign_edit_approval").on(table.approvalStatus),
 ]);
 
+
 // Proposal eSign audit log (immutable)
 export const proposalEsignAuditLogs = pgTable("proposal_esign_audit_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   workflowId: varchar("workflow_id").references(() => proposalEsignWorkflows.id).notNull(),
   
-  action: varchar("action").notNull(), // created, viewed, edited, approved, signed, declined, sent, reminded
-  actionCategory: varchar("action_category").notNull(), // workflow, content, signature, notification
+  action: varchar("action").notNull(),
+  actionCategory: varchar("action_category").notNull(),
   description: text("description").notNull(),
   
   actorId: varchar("actor_id").references(() => users.id),
   actorName: varchar("actor_name"),
   actorEmail: varchar("actor_email"),
   actorRole: varchar("actor_role"),
-  actorType: varchar("actor_type"), // user, system, webhook
+  actorType: varchar("actor_type"),
   
   participantId: varchar("participant_id").references(() => proposalEsignParticipants.id),
   versionId: varchar("version_id").references(() => proposalEsignVersions.id),
@@ -27156,3 +27157,45 @@ export const insertProposalEsignAuditLogSchema = createInsertSchema(proposalEsig
 });
 export type ProposalEsignAuditLog = typeof proposalEsignAuditLogs.$inferSelect;
 export type InsertProposalEsignAuditLog = z.infer<typeof insertProposalEsignAuditLogSchema>;
+
+// DSA Multi-Financier Loan Routing System (Re-exports)
+export {
+  dsaLoanApplications,
+  bankConnectors,
+  loanEligibilityRules,
+  loanRoutingHistory,
+  dsaLoanDocuments,
+  dsaLoanAuditLogs,
+  dsaCommissionTracking,
+  loanWebhookEvents,
+  dsaLoanStatusEnum,
+  routingStrategyEnum,
+  bankConnectorTypeEnum,
+  insertDsaLoanApplicationSchema,
+  insertBankConnectorSchema,
+  insertLoanEligibilityRuleSchema,
+  insertLoanRoutingHistorySchema,
+  insertDsaLoanDocumentSchema,
+  insertDsaLoanAuditLogSchema,
+  insertDsaCommissionTrackingSchema,
+  insertLoanWebhookEventSchema,
+} from './dsa-loan-schema';
+
+export type {
+  DsaLoanApplication,
+  InsertDsaLoanApplication,
+  BankConnector,
+  InsertBankConnector,
+  LoanEligibilityRule,
+  InsertLoanEligibilityRule,
+  LoanRoutingHistory,
+  InsertLoanRoutingHistory,
+  DsaLoanDocument,
+  InsertDsaLoanDocument,
+  DsaLoanAuditLog,
+  InsertDsaLoanAuditLog,
+  DsaCommissionTracking,
+  InsertDsaCommissionTracking,
+  LoanWebhookEvent,
+  InsertLoanWebhookEvent,
+} from './dsa-loan-schema';

@@ -15,6 +15,7 @@ import { registerLoanRoutes, registerLoanProcessingRoutes, registerLoanCompariso
 import { registerPreIPORoutes } from './routes/pre-ipo';
 import { registerCartRoutes } from './routes/cart';
 import { registerDLMRoutes } from './routes/dlm-routes';
+import dsaLoanRoutes from "./routes/dsa-loan-routes";
 import { registerFinancialDataRoutes } from './routes/financial-data-routes';
 import knowledgeHubRoutes from './routes/knowledge-hub-routes';
 import mcaIntelligenceRoutes from './routes/mca-intelligence-routes';
@@ -28916,6 +28917,8 @@ Provide analysis in JSON format with these sections:
   registerLoanRoutes(app);
   await registerLoanProcessingRoutes(app);
   registerLoanComparisonRoutes(app);
+  app.use("/api/dsa-loans", dsaLoanRoutes);
+  console.log("✅ DSA Multi-Financier Loan routes registered");
   registerPreIPORoutes(app);
   registerCartRoutes(app);
   registerPartnerPortalRoutes(app);
