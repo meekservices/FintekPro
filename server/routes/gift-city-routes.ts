@@ -491,19 +491,34 @@ router.post("/admin/bulk-seed", async (req: Request, res: Response) => {
         );
         break;
       default:
-        return res.status(400).json({ error: "Invalid template" });
+        return res.status(400).json({ error: "Invalid template. Valid options: inbound, outbound, all, aif, global-funds" });
     }
 
     if (productsToSeed.length === 0) {
       return res.json({ count: 0, message: "No products to seed" });
     }
 
+    const existingProducts = await db
+      .select({ name: giftCityProducts.name })
+      .from(giftCityProducts);
+    const existingNames = new Set(existingProducts.map(p => p.name));
+
+    const newProducts = productsToSeed.filter(p => !existingNames.has(p.name));
+
+    if (newProducts.length === 0) {
+      return res.json({ count: 0, skipped: productsToSeed.length, message: "All products already exist" });
+    }
+
     const inserted = await db
       .insert(giftCityProducts)
-      .values(productsToSeed)
+      .values(newProducts)
       .returning();
 
-    res.json({ count: inserted.length, products: inserted });
+    res.json({ 
+      count: inserted.length, 
+      skipped: productsToSeed.length - newProducts.length,
+      products: inserted 
+    });
   } catch (error) {
     console.error("Error bulk seeding Gift City products:", error);
     res.status(500).json({ error: "Failed to seed products" });
