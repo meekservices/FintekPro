@@ -476,6 +476,8 @@ export function AgentLayout({ children }: AgentLayoutProps) {
               size="icon"
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="text-slate-400 hover:text-white"
+              data-testid="toggle-agent-sidebar"
+              aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
             >
               {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
@@ -596,11 +598,12 @@ export function AgentLayout({ children }: AgentLayoutProps) {
         </CommandList>
       </CommandDialog>
 
-      <div className="flex">
+      <div className="flex min-h-[calc(100vh-73px)]">
         <aside
+          data-testid="agent-sidebar"
           className={cn(
-            "bg-slate-900 border-r border-slate-800 transition-all duration-300 overflow-y-auto sticky top-[73px] h-[calc(100vh-73px)]",
-            sidebarOpen ? "w-72" : "w-0 border-0"
+            "bg-slate-900 border-r border-slate-800 transition-all duration-300 sticky top-[73px] h-[calc(100vh-73px)] flex-shrink-0",
+            sidebarOpen ? "w-72 min-w-[288px] overflow-y-auto" : "w-0 min-w-0 overflow-hidden border-0"
           )}
         >
           {sidebarOpen && sidebarContent}
