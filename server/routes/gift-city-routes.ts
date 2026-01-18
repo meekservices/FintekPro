@@ -467,7 +467,8 @@ router.post("/admin", async (req: Request, res: Response) => {
 
 router.post("/admin/bulk-seed", async (req: Request, res: Response) => {
   try {
-    const { template } = req.body;
+    console.log("[bulk-seed] Request body:", JSON.stringify(req.body));
+    const { template } = req.body || {};
     let productsToSeed: any[] = [];
 
     switch (template) {
