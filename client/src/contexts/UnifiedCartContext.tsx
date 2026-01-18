@@ -35,6 +35,9 @@ export function UnifiedCartProvider({ children }: { children: ReactNode }) {
 
   const { data: cartData, isLoading, error, refetch } = useQuery<{ items: UnifiedCartItem[]; count: number }>({
     queryKey: ["/api/unified-cart"],
+    staleTime: 30 * 1000, // Cache for 30 seconds
+    refetchOnMount: false, // Don't refetch on every mount
+    placeholderData: { items: [], count: 0 }, // Show empty cart immediately
   });
 
   const items = cartData?.items || [];

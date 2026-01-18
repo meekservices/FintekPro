@@ -347,8 +347,51 @@ export function AgentLayout({ children }: AgentLayoutProps) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500"></div>
+      <div className="min-h-screen bg-slate-950 text-gray-100">
+        {/* Skeleton Header */}
+        <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-slate-800 rounded animate-pulse" />
+              <div>
+                <div className="h-5 w-32 bg-slate-800 rounded animate-pulse mb-1" />
+                <div className="h-3 w-24 bg-slate-800 rounded animate-pulse" />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-slate-800 rounded-full animate-pulse" />
+              <div className="w-8 h-8 bg-slate-800 rounded-full animate-pulse" />
+            </div>
+          </div>
+        </header>
+        
+        <div className="flex">
+          {/* Skeleton Sidebar */}
+          <aside className="w-64 bg-slate-900 border-r border-slate-800 min-h-[calc(100vh-64px)] p-4">
+            <div className="space-y-4">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="space-y-2">
+                  <div className="h-4 w-20 bg-slate-800 rounded animate-pulse" />
+                  <div className="h-8 w-full bg-slate-800 rounded animate-pulse" />
+                  <div className="h-8 w-full bg-slate-800 rounded animate-pulse" />
+                </div>
+              ))}
+            </div>
+          </aside>
+          
+          {/* Skeleton Main Content */}
+          <main className="flex-1 p-6">
+            <div className="space-y-6">
+              <div className="h-8 w-48 bg-slate-800 rounded animate-pulse" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-32 bg-slate-800 rounded-lg animate-pulse" />
+                ))}
+              </div>
+              <div className="h-64 bg-slate-800 rounded-lg animate-pulse" />
+            </div>
+          </main>
+        </div>
       </div>
     );
   }

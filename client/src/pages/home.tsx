@@ -114,7 +114,8 @@ export default function Home() {
     return sum + (holding.currentValue || 0);
   }, 0) : 2850000; // Updated realistic fallback
 
-  // Fetch real platform statistics (moved before platformFeatures for proper hook ordering)
+  // Fetch real platform statistics with stale-while-revalidate pattern
+  // Uses placeholderData to show instant content while loading
   const { data: platformStatsData, isLoading: statsLoading } = useQuery<{
     activeUsers: string;
     portfolioValue: string;
@@ -130,6 +131,20 @@ export default function Home() {
   }>({
     queryKey: ["/api/platform/stats"],
     refetchInterval: 60000, // Refresh every minute
+    staleTime: 2 * 60 * 1000, // Consider data fresh for 2 minutes
+    placeholderData: {
+      activeUsers: "...",
+      portfolioValue: "...",
+      avgPortfolioValue: "₹2.5L",
+      portfoliosCount: "...",
+      dailyTrades: "...",
+      monthlyTrades: "...",
+      mutualFundsCount: "14K+",
+      bondsCount: "20+",
+      stocksCount: "2.8K+",
+      activeIpos: "3",
+      investmentOptions: "14K+"
+    }
   });
 
   const platformFeatures = [
