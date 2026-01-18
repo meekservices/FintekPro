@@ -239,14 +239,12 @@ export function EnhancedNavigation() {
           description: isKycComplete ? "Equity & derivatives" : "Complete KYC to access trading",
           subItems: tradingSubItems
         },
-        // GIFT City only for premium users
-        ...(isPremium ? [{
+        {
           name: "GIFT City IFSC",
           href: "/gift-city",
           icon: Crown,
-          description: "International financial services",
-          badge: "PREMIUM"
-        }] : [])
+          description: "International financial services"
+        }
       ]
     },
 
