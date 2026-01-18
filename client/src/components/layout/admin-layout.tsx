@@ -153,6 +153,7 @@ const navCategories: NavCategory[] = [
           { title: "Deals", href: "/admin/bonds/deals", icon: Handshake, description: "Matched deals" },
         ]
       },
+      { title: "DSA Loan Dashboard", href: "/admin/dsa-loans", icon: Landmark, description: "Multi-bank loan routing" },
       { title: "Duplicate Detection", href: "/admin/duplicates", icon: AlertCircle, description: "Detect & resolve duplicates" },
     ]
   },

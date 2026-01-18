@@ -260,6 +260,7 @@ export function EnhancedNavigation() {
           description: "All loan types with smart filters",
           subItems: [
             { name: "All Loans", href: "/loans", description: "Personal, Home, Car, LAP, LAS, Business, Gold" },
+            { name: "Apply for Multi-Bank Loan", href: "/loan-apply", description: "One application, 7+ bank offers" },
             { name: "Loan Comparison", href: "/loan-comparison", description: "Compare offers across lenders" }
           ]
         },
