@@ -7199,6 +7199,140 @@ export const referralPayoutTransactions = pgTable("referral_payout_transactions"
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+
+// Bank Eligibility Rules - Configurable eligibility matrix per bank/product
+export const bankEligibilityRules = pgTable("bank_eligibility_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Bank & Product
+  bankCode: varchar("bank_code").notNull(), // ICICI, HDFC, AXIS, KOTAK, SBI, BAJAJ, TATA
+  productType: varchar("product_type").notNull(), // personal, business, home, lap, car, education, gold, securities
+  
+  // Employment Eligibility
+  allowedEmploymentTypes: text("allowed_employment_types").array().default([]), // ['salaried', 'self_employed', 'professional', 'business_owner']
+  
+  // Credit Score Requirements
+  minCibilScore: integer("min_cibil_score").default(650),
+  maxCibilScore: integer("max_cibil_score").default(900),
+  
+  // Income Requirements
+  minMonthlyIncome: decimal("min_monthly_income", { precision: 12, scale: 2 }).default("20000"),
+  maxMonthlyIncome: decimal("max_monthly_income", { precision: 12, scale: 2 }),
+  
+  // Business Loan Specific
+  minBusinessVintageMonths: integer("min_business_vintage_months"), // Minimum business age in months
+  minAnnualTurnover: decimal("min_annual_turnover", { precision: 15, scale: 2 }),
+  
+  // Loan Parameters
+  minLoanAmount: decimal("min_loan_amount", { precision: 15, scale: 2 }).default("50000"),
+  maxLoanAmount: decimal("max_loan_amount", { precision: 15, scale: 2 }),
+  minTenureMonths: integer("min_tenure_months").default(12),
+  maxTenureMonths: integer("max_tenure_months").default(60),
+  
+  // LAP/Home Loan Specific
+  allowedPropertyTypes: text("allowed_property_types").array().default([]), // ['residential', 'commercial', 'mixed']
+  maxLtvRatio: decimal("max_ltv_ratio", { precision: 5, scale: 2 }), // Loan-to-Value ratio
+  
+  // Age Requirements
+  minAge: integer("min_age").default(21),
+  maxAge: integer("max_age").default(60),
+  
+  // Geographic Restrictions
+  allowedCities: text("allowed_cities").array().default([]), // Empty = all cities
+  excludedCities: text("excluded_cities").array().default([]),
+  
+  // Routing Priority (lower = higher priority)
+  routingPriority: integer("routing_priority").default(100),
+  
+  // Status & Notes
+  isActive: boolean("is_active").default(true),
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Commission Payments - Track payments from Bank/Master DSA for reconciliation
+export const commissionPayments = pgTable("commission_payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Reference to Commission Ledger
+  commissionLedgerId: varchar("commission_ledger_id").references(() => loanCommissionLedger.id),
+  applicationId: varchar("application_id"), // Redundant for quick lookup
+  
+  // Payer Information
+  paidBy: varchar("paid_by").notNull(), // 'bank', 'master_dsa'
+  payerName: varchar("payer_name"), // Bank name or Master DSA name
+  payerReference: varchar("payer_reference"), // Their internal reference
+  
+  // Payment Details
+  expectedAmount: decimal("expected_amount", { precision: 12, scale: 2 }).notNull(),
+  paidAmount: decimal("paid_amount", { precision: 12, scale: 2 }).notNull(),
+  paymentDate: timestamp("payment_date").notNull(),
+  utrNumber: varchar("utr_number"), // Unique Transaction Reference
+  paymentMode: varchar("payment_mode"), // neft, rtgs, cheque, upi
+  
+  // Matching Status
+  matchStatus: varchar("match_status").notNull().default("pending"), // pending, matched, partial, disputed, unmatched
+  matchVariance: decimal("match_variance", { precision: 12, scale: 2 }).default("0"), // Difference from expected
+  matchedAt: timestamp("matched_at"),
+  matchedBy: varchar("matched_by"), // System or user ID
+  
+  // Tolerance Settings (for this payment)
+  toleranceAmount: decimal("tolerance_amount", { precision: 12, scale: 2 }).default("100"), // ±100 default
+  
+  // Dispute Details
+  disputeReason: text("dispute_reason"),
+  disputeRaisedAt: timestamp("dispute_raised_at"),
+  disputeResolvedAt: timestamp("dispute_resolved_at"),
+  disputeResolution: text("dispute_resolution"),
+  
+  // Revenue Recognition
+  revenueStatus: varchar("revenue_status").notNull().default("accrued"), // accrued, realized, suspense
+  recognizedDate: timestamp("recognized_date"),
+  
+  // Source File (for uploaded statements)
+  sourceFileName: varchar("source_file_name"),
+  sourceFileRowNum: integer("source_file_row_num"),
+  uploadBatchId: varchar("upload_batch_id"),
+  
+  // Audit Trail
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Commission Payment Upload Batches - Track CSV/statement file uploads
+export const commissionPaymentBatches = pgTable("commission_payment_batches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Upload Details
+  fileName: varchar("file_name").notNull(),
+  fileType: varchar("file_type").notNull(), // bank_statement, dsa_statement
+  sourceType: varchar("source_type").notNull(), // ICICI, HDFC, AXIS, KOTAK, MASTER_DSA
+  
+  // Processing Stats
+  totalRows: integer("total_rows").default(0),
+  processedRows: integer("processed_rows").default(0),
+  matchedRows: integer("matched_rows").default(0),
+  unmatchedRows: integer("unmatched_rows").default(0),
+  disputedRows: integer("disputed_rows").default(0),
+  
+  // Amounts
+  totalAmount: decimal("total_amount", { precision: 15, scale: 2 }).default("0"),
+  matchedAmount: decimal("matched_amount", { precision: 15, scale: 2 }).default("0"),
+  
+  // Status
+  status: varchar("status").notNull().default("pending"), // pending, processing, completed, failed
+  errorMessage: text("error_message"),
+  
+  // Upload Info
+  uploadedBy: varchar("uploaded_by"),
+  processedAt: timestamp("processed_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
 // Lead Management for Loan Marketplace
 export const loanLeads = pgTable("loan_leads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -7344,11 +7478,32 @@ export const insertLoanLeadsSchema = createInsertSchema(loanLeads).omit({
   createdAt: true,
   updatedAt: true,
 });
-
 export const insertLeadActivityLogSchema = createInsertSchema(leadActivityLog).omit({
   id: true,
   createdAt: true,
 });
+
+// Bank Eligibility Rules Schemas
+export const insertBankEligibilityRulesSchema = createInsertSchema(bankEligibilityRules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Commission Payments Schemas
+export const insertCommissionPaymentsSchema = createInsertSchema(commissionPayments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Commission Payment Batches Schemas
+export const insertCommissionPaymentBatchesSchema = createInsertSchema(commissionPaymentBatches).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 
 // Export types for new tables
 export type LenderStaff = typeof lenderStaff.$inferSelect;
@@ -7363,6 +7518,12 @@ export type ReferralPayoutConfig = typeof referralPayoutConfig.$inferSelect;
 export type InsertReferralPayoutConfig = z.infer<typeof insertReferralPayoutConfigSchema>;
 export type ReferralPayoutTransactions = typeof referralPayoutTransactions.$inferSelect;
 export type InsertReferralPayoutTransactions = z.infer<typeof insertReferralPayoutTransactionsSchema>;
+export type BankEligibilityRules = typeof bankEligibilityRules.$inferSelect;
+export type InsertBankEligibilityRules = z.infer<typeof insertBankEligibilityRulesSchema>;
+export type CommissionPayments = typeof commissionPayments.$inferSelect;
+export type InsertCommissionPayments = z.infer<typeof insertCommissionPaymentsSchema>;
+export type CommissionPaymentBatches = typeof commissionPaymentBatches.$inferSelect;
+export type InsertCommissionPaymentBatches = z.infer<typeof insertCommissionPaymentBatchesSchema>;
 export type LoanLeads = typeof loanLeads.$inferSelect;
 export type InsertLoanLeads = z.infer<typeof insertLoanLeadsSchema>;
 export type LeadActivityLog = typeof leadActivityLog.$inferSelect;

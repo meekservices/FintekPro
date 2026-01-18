@@ -13,6 +13,7 @@ import { registerStockExchangeRoutes } from './routes/stock-exchange';
 import { registerBankingRoutes } from './routes/banking';
 import { registerLoanRoutes, registerLoanProcessingRoutes, registerLoanComparisonRoutes } from './routes/loans';
 import { registerLoanCommissionRoutes } from './routes/loan-commission-routes';
+import { registerEligibilityMatrixRoutes } from './routes/eligibility-matrix-routes';
 import { registerPreIPORoutes } from './routes/pre-ipo';
 import { registerCartRoutes } from './routes/cart';
 import { registerDLMRoutes } from './routes/dlm-routes';
@@ -28923,6 +28924,7 @@ Provide analysis in JSON format with these sections:
   app.use("/api/admin/dsa-loans", adminDsaLoanRoutes);
   console.log("✅ DSA Multi-Financier Loan routes registered");
   registerLoanCommissionRoutes(app);
+  registerEligibilityMatrixRoutes(app);
   registerPreIPORoutes(app);
   registerCartRoutes(app);
   registerPartnerPortalRoutes(app);

@@ -261,6 +261,7 @@ import CommissionMaster from "@/pages/admin/commission-master";
 import AdminLoanManagement from "@/pages/admin-loan-management";
 import AdminDsaLoanDashboard from "@/pages/admin/dsa-loan-dashboard";
 import CommissionLedger from "@/pages/admin/commission-ledger";
+import EligibilityMatrix from "@/pages/admin/eligibility-matrix";
 import AdminDLM from "@/pages/admin-dlm";
 import AdminDLMNegotiate from "@/pages/admin-dlm-negotiate";
 import AdminStoreManager from "@/pages/admin/store-manager";
@@ -1104,6 +1105,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <CommissionLedger />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/eligibility-matrix">
+        {() => (
+          <AdminLayout>
+            <EligibilityMatrix />
           </AdminLayout>
         )}
       </Route>

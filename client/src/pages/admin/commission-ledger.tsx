@@ -25,8 +25,15 @@ import {
   Download,
   Calculator,
   Wallet,
-  PiggyBank
+  PiggyBank,
+  Upload,
+  XCircle,
+  Link2,
+  BarChart3
 } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 
 interface CommissionEntry {
   id: string;
@@ -250,6 +257,7 @@ export default function CommissionLedgerPage() {
           <TabsTrigger value="rates">Commission Rates</TabsTrigger>
           <TabsTrigger value="calculator">Calculator</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="reconciliation">Reconciliation</TabsTrigger>
         </TabsList>
 
         <TabsContent value="ledger" className="space-y-4">
@@ -605,7 +613,308 @@ export default function CommissionLedgerPage() {
             </Card>
           </div>
         </TabsContent>
+
+        <TabsContent value="reconciliation" className="space-y-4">
+          <ReconciliationTab />
+        </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function ReconciliationTab() {
+  const { toast } = useToast();
+  const [csvData, setCsvData] = useState<string>("");
+  const [isUploading, setIsUploading] = useState(false);
+
+  const { data: reconciliationSummary, isLoading: summaryLoading } = useQuery<{ data: any }>({
+    queryKey: ["/api/commission-reconciliation/summary"],
+  });
+
+  const { data: kpis } = useQuery<{ data: any }>({
+    queryKey: ["/api/commission-reconciliation/kpis"],
+  });
+
+  const { data: unmatchedPayments } = useQuery<{ data: any[] }>({
+    queryKey: ["/api/commission-reconciliation/payments/unmatched"],
+  });
+
+  const { data: disputedPayments } = useQuery<{ data: any[] }>({
+    queryKey: ["/api/commission-reconciliation/payments/disputed"],
+  });
+
+  const { data: overdueCommissions } = useQuery<{ data: any[] }>({
+    queryKey: ["/api/commission-reconciliation/overdue"],
+  });
+
+  const summary = reconciliationSummary?.data || {};
+  const kpiData = kpis?.data || {};
+
+  const handleUpload = async () => {
+    if (!csvData.trim()) {
+      toast({ title: "Please paste CSV data", variant: "destructive" });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const lines = csvData.trim().split("\n");
+      const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
+      const rows = lines.slice(1).map(line => {
+        const values = line.split(",");
+        const row: any = {};
+        headers.forEach((h, i) => {
+          if (h.includes("amount") || h.includes("commission")) {
+            row.commissionAmount = parseFloat(values[i]?.replace(/[^\d.-]/g, "") || "0");
+          } else if (h.includes("date")) {
+            row.paymentDate = values[i]?.trim() || new Date().toISOString();
+          } else if (h.includes("utr")) {
+            row.utrNumber = values[i]?.trim();
+          } else if (h.includes("application") || h.includes("loan_id")) {
+            row.applicationId = values[i]?.trim();
+          }
+        });
+        return row;
+      }).filter(r => r.commissionAmount > 0);
+
+      const response = await apiRequest("/api/commission-reconciliation/upload-statement", {
+        method: "POST",
+        body: JSON.stringify({
+          rows,
+          sourceType: "bank",
+          paidBy: "bank",
+          fileName: `manual_upload_${Date.now()}.csv`,
+        }),
+      });
+
+      toast({ 
+        title: "Upload Complete", 
+        description: `Processed ${response.data?.totalProcessed || 0} rows, ${response.data?.matched || 0} matched` 
+      });
+      setCsvData("");
+      queryClient.invalidateQueries({ queryKey: ["/api/commission-reconciliation"] });
+    } catch (error: any) {
+      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const formatCurrency = (value: number) => {
+    if (!value) return "₹0";
+    if (value >= 10000000) return `₹${(value / 10000000).toFixed(1)} Cr`;
+    if (value >= 100000) return `₹${(value / 100000).toFixed(1)} L`;
+    if (value >= 1000) return `₹${(value / 1000).toFixed(0)} K`;
+    return `₹${value.toFixed(0)}`;
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Expected</p>
+                <p className="text-xl font-bold">{formatCurrency(summary.totalExpected || 0)}</p>
+              </div>
+              <IndianRupee className="h-8 w-8 text-blue-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Received</p>
+                <p className="text-xl font-bold text-green-600">{formatCurrency(summary.totalReceived || 0)}</p>
+              </div>
+              <CheckCircle className="h-8 w-8 text-green-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Pending</p>
+                <p className="text-xl font-bold text-yellow-600">{summary.pendingReconciliation || 0}</p>
+              </div>
+              <Clock className="h-8 w-8 text-yellow-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Disputed</p>
+                <p className="text-xl font-bold text-red-600">{summary.disputedCount || 0}</p>
+              </div>
+              <XCircle className="h-8 w-8 text-red-500" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              Upload Payment Statement
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Paste CSV Data (columns: application_id, amount, date, utr)</Label>
+              <Textarea
+                placeholder="application_id,amount,date,utr&#10;APP001,25000,2026-01-15,UTR12345&#10;APP002,18500,2026-01-16,UTR12346"
+                value={csvData}
+                onChange={(e) => setCsvData(e.target.value)}
+                rows={6}
+                className="font-mono text-sm"
+              />
+            </div>
+            <Button onClick={handleUpload} disabled={isUploading}>
+              {isUploading ? "Processing..." : "Process Statement"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              KPIs
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground">Avg Days to Payment</span>
+              <Badge variant="outline">{kpiData.avgDaysToPayment || 0} days</Badge>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground">Avg Commission/Loan</span>
+              <Badge variant="outline">{formatCurrency(kpiData.avgCommissionPerLoan || 0)}</Badge>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground">Dispute Rate</span>
+              <Badge variant={kpiData.disputeRate > 5 ? "destructive" : "secondary"}>
+                {kpiData.disputeRate || 0}%
+              </Badge>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground">Match Rate</span>
+              <Badge variant="default">
+                {summary.totalCommissions > 0 
+                  ? Math.round((summary.matchedCount / summary.totalCommissions) * 100) 
+                  : 0}%
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-yellow-600">
+              <Clock className="h-5 w-5" />
+              Overdue Payments ({overdueCommissions?.data?.length || 0})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {overdueCommissions?.data?.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">No overdue payments</p>
+            ) : (
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {overdueCommissions?.data?.slice(0, 10).map((item: any) => (
+                  <div key={item.id} className="flex justify-between items-center p-2 bg-yellow-50 dark:bg-yellow-950/20 rounded">
+                    <div>
+                      <p className="font-mono text-sm">{item.applicationId}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(item.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Badge variant="outline">{formatCurrency(parseFloat(item.netCommission) || 0)}</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              Disputed Payments ({disputedPayments?.data?.length || 0})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {disputedPayments?.data?.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">No disputed payments</p>
+            ) : (
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {disputedPayments?.data?.slice(0, 10).map((item: any) => (
+                  <div key={item.id} className="flex justify-between items-center p-2 bg-red-50 dark:bg-red-950/20 rounded">
+                    <div>
+                      <p className="font-mono text-sm">{item.applicationId || item.id.slice(0, 8)}</p>
+                      <p className="text-xs text-muted-foreground">{item.disputeReason || "Variance exceeded tolerance"}</p>
+                    </div>
+                    <div className="text-right">
+                      <Badge variant="destructive">{formatCurrency(parseFloat(item.matchVariance) || 0)}</Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Link2 className="h-5 w-5" />
+            Unmatched Payments ({unmatchedPayments?.data?.length || 0})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {unmatchedPayments?.data?.length === 0 ? (
+            <p className="text-muted-foreground text-center py-4">No unmatched payments</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Payment ID</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>UTR</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {unmatchedPayments?.data?.slice(0, 10).map((payment: any) => (
+                  <TableRow key={payment.id}>
+                    <TableCell className="font-mono text-sm">{payment.id.slice(0, 8)}</TableCell>
+                    <TableCell>{formatCurrency(parseFloat(payment.paidAmount) || 0)}</TableCell>
+                    <TableCell>{payment.paymentDate ? new Date(payment.paymentDate).toLocaleDateString() : "-"}</TableCell>
+                    <TableCell>{payment.utrNumber || "-"}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{payment.matchStatus}</Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

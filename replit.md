@@ -13,47 +13,49 @@ Do not make changes to the file `Y`.
 ## System Architecture
 
 ### UI/UX Decisions
-The frontend uses React 18, TypeScript, shadcn/ui (Radix UI), Tailwind CSS, and Recharts, following a mobile-first approach. It features a responsive `ScrollableTabsList`, a consistent three-part layout (Left Sidebar Navigation, Main Content, Footer), and a collapsible, state-persisted sidebar. Reusable components like `LoadingState` and `EmptyState` are standardized.
+The frontend utilizes React 18, TypeScript, shadcn/ui (Radix UI), Tailwind CSS, and Recharts, designed with a mobile-first approach. It features a responsive `ScrollableTabsList`, a consistent three-part layout (Left Sidebar Navigation, Main Content, Footer), and a collapsible, state-persisted sidebar. Reusable components like `LoadingState` and `EmptyState` are standardized.
 
 ### Technical Implementations
-The frontend leverages Wouter for routing, TanStack Query for state management, and React Hook Form with Zod for validation, powered by Vite. The backend is an Express.js application with TypeScript, utilizing PostgreSQL via Drizzle ORM and a RESTful API. Authentication includes mandatory two-factor OTP and unified login via Passport.js. KYC features include PAN verification, verified profile display, real-time product eligibility, and duplicate detection. An Admin portal provides user management. Marketing automation integrates B2B lead prospecting, email campaigns, and WhatsApp broadcasts. A Stakeholders Management System offers CRUD operations and APIs.
+The frontend uses Wouter for routing, TanStack Query for state management, and React Hook Form with Zod for validation, powered by Vite. The backend is an Express.js application with TypeScript, utilizing PostgreSQL via Drizzle ORM and a RESTful API. Authentication includes mandatory two-factor OTP and unified login via Passport.js. The platform features comprehensive KYC including PAN verification, real-time product eligibility, and duplicate detection. An Admin portal provides user management and marketing automation.
 
-The Unlisted Marketplace is SEBI/RBI-compliant, sourcing data from an internal database and Sandbox.co.in. It features a multi-methodology price suggestion engine, an atomic transaction-based deal matching system, and a compliance framework. An Admin Negotiation Console facilitates deal management. Trading access requires Enhanced/Accredited KYC.
+The Unlisted Marketplace is SEBI/RBI-compliant, sourcing data from an internal database and Sandbox.co.in, featuring a multi-methodology price suggestion engine, atomic transaction-based deal matching, and a compliance framework. Trading access requires Enhanced/Accredited KYC.
 
-A Multi-Source Financial Data Enrichment System reduces API costs by integrating Probe42 (primary), Finnhub (secondary), and Yahoo Finance (tertiary) with priority-based source selection and rate limit handling. Key components include an Identity Confidence Engine, metric-level source merging, a "Why This Number?" API for auditability, SEBI-compliant immutable audit logging, and AI guardrails.
+A Multi-Source Financial Data Enrichment System reduces API costs by integrating Probe42 (primary), Finnhub (secondary), and Yahoo Finance (tertiary) with priority-based source selection, rate limit handling, and an AI guardrail system. An API cost optimization system minimizes external API calls through request deduplication, AI response caching, and proactive cache warming.
 
-A comprehensive API cost optimization system minimizes external API calls through: Request Deduplication, AI Response Cache, Batch Company Enrichment, Unified Stock Price Service, Company Data Auto-Refresh Scheduler, Onboarding Cache, Proactive Cache Warming, and a Cache Admin Dashboard for monitoring.
+A Historical NAV Data Service provides 10+ year historical data for portfolio metric calculations, sourcing from MFAPI.in with append-only storage and daily background refreshes. It calculates real metrics like Volatility, Max Drawdown, CAGR, and Sharpe Ratio, with graceful fallback to estimation.
 
-A Historical NAV Data Service provides real 10+ year historical data for portfolio metric calculations. It sources data from MFAPI.in (mutual funds) with an append-only storage strategy ensuring no data loss. Features include: database caching with 24-hour TTL, daily background refresh jobs, real metric calculations (Volatility, Max Drawdown, CAGR, Sharpe Ratio, Sortino Ratio, Beta, Alpha) from actual historical data, and graceful fallback to estimation formulas when real data is unavailable. The system currently stores 38,000+ NAV records spanning nearly 20 years (2006-2026).
+The Corporate Treasury Management module is SEBI-compliant, with a configurable Maker-Checker workflow, a four-bucket allocation system, and optimized proposals.
 
-The Corporate Treasury Management module is SEBI-compliant with a configurable Maker-Checker workflow, a four-bucket allocation system, and optimized proposals. Compliance controls include self-approval prevention and immutable audit trails. A PAN-driven intelligent onboarding system auto-detects entity types and routes users to appropriate flows.
+The Unified Tax & Compliance Module is SEBI-compliant, offering PAN-driven ITR filing, a Unified eSign Service, and Form 15CA/15CB support. It includes tax notice management, a Document Vault, and RBAC with immutable audit logging.
 
-The Unified Tax & Compliance Module is SEBI-compliant, offering PAN-driven ITR filing with a self-file wizard, CA-assisted filing, and a "Lock-Before-Pay" pattern. A Unified eSign Service provides multi-provider abstraction for legally valid electronic signatures. It supports Form 15CA/15CB with a Rule 37BB determination engine. Tax notice management, a Document Vault, CA Desk, and Agent Tax Dashboard are included. RBAC is implemented with extensive immutable audit logging.
+External data integration includes a Financial Calendar (RBI, SEBI, NSE, BSE) and a Market Holiday Service. A Portfolio Import System is available.
 
-An External Financial Calendar integrates multi-source data from RBI, SEBI, NSE, and BSE. A Market Holiday Service provides comprehensive holiday calendar data for Indian exchanges. A Portfolio Import System allows users to import existing portfolios from external sources. An Admin Prospect Dashboard provides centralized oversight of all prospects.
+The platform includes real-time portfolio/market data, financial calculators, multi-asset support, family collaboration, a 3-tier KYC system, and an AI Chat Assistant (Google Gemini).
 
-Key features include real-time portfolio/market data, financial calculators, multi-asset support, family collaboration, a 3-tier KYC system, and an AI Chat Assistant (Google Gemini). 
+A Comprehensive Zoho Ecosystem Integration spans Zoho CRM, Books, Campaigns, Meeting, and Sign on India data centers. Zoho CRM acts as the single source of truth for lead management with a two-way sync. Zoho Books handles commission invoicing, Zoho Campaigns manages email marketing, Zoho Meeting facilitates client consultations, and Zoho Sign manages e-signatures for KYC and agreements.
 
-A Comprehensive Zoho Ecosystem Integration spans 5 applications (CRM, Books, Campaigns, Meeting, Sign) on India data center (zohoapis.in). Zoho CRM serves as the single source of truth for agent lead management, with a simplified agent portal (6 categories, 16 menu items) and automatic proposal sync back to Zoho. A Two-Way Zoho CRM Sync System enables: auto-push of new prospects to Zoho as Leads, bulk import of Zoho leads/contacts as prospects, webhook-based real-time sync when Zoho records change, and manual sync-back of prospect updates to Zoho. Entity mappings track bidirectional sync status with timestamp-based conflict resolution. Zoho Books handles commission invoicing, partner revenue share tracking, and payment reconciliation. Zoho Campaigns provides email marketing with festival greeting integration, investor newsletters, and segment-based marketing. Zoho Meeting enables client consultation scheduling and investor education webinars with bulk registration. Zoho Sign manages KYC document e-signatures, investment agreement signing, and FATCA/CRS declarations. An Admin Zoho Dashboard provides unified status monitoring across all 5 applications. Partner/Agent dashboards track P&L and performance. Fresh Investment Discovery offers AI-curated opportunities. Client Smart Proposals allow manual portfolio entry and AI recommendations. Dynamic wealth management analysis, multi-currency support, customizable alerts, and a financial product marketplace with KYC-based eligibility are provided. Payment processing uses Cashfree and PhonePe. Advanced features include AI-powered expense tracking, BBPS-Expense integration, a regulation-compliant Client KYC Dashboard, Partner Revenue Sharing, and Agent Onboarding/Management. A Post-KYC Auto-Population System integrates with data sources. A Portfolio Analytics Engine performs XIRR/IRR, CAGR, automated asset allocation, algorithm-based risk profiling, and category tracking. A 17-step KYC onboarding workflow orchestrator manages the compliance journey.
+The Profit-Optimized AI Recommendation Engine provides multi-mode recommendations (Conservative, Balanced, Growth-Optimized) with deterministic numeric scoring and suitability scores. It includes agent governance and an A/B testing framework.
 
-The Profit-Optimized AI Recommendation Engine provides multi-mode recommendations (Conservative, Balanced, Growth-Optimized) with deterministic numeric scoring, suitability scores, and upside scores. Agent governance includes mode selection, override controls with reason logging, and immutable audit trails. An A/B testing framework is included. Client-facing disclosure banners and risk footers ensure SEBI compliance.
+A Database-Driven Recommendation Products System manages investment product catalogs for AI-powered proposal generation, storing listed stocks, unlisted stocks, REITs, and InvITs with risk profiles and expected returns. An Admin UI allows CRUD operations and bulk status updates, with a caching service for performance.
 
-A Database-Driven Recommendation Products System manages investment product catalogs for AI-powered proposal generation. The `recommendation_products` table stores listed stocks, unlisted stocks, REITs, and InvITs with risk profiles, expected returns, and priority. Features include: Admin UI at `/admin/recommendation-products` with tabs for each product type, search/filter capabilities, CRUD operations, bulk status updates, and sync from source tables. A caching service provides 5-minute TTL with cache invalidation. On startup, `initializeRecommendationsFromDatabase()` preloads DB products into `FUND_RECOMMENDATIONS_BY_CATEGORY` for synchronous access in wizard services, enabling dynamic product management without code changes.
+A Stock Enrichment System consolidates 2,800+ NSE/BSE listed stocks into 12 broad sectors, utilizing Probe42, NSE/BSE, and Finnhub for data enrichment.
 
-A Stock Enrichment System consolidates 2,800+ NSE/BSE listed stocks into 12 broad sectors (Technology, Banking & Finance, Healthcare & Pharma, Manufacturing, Infrastructure & Construction, Consumer Goods & Retail, Energy & Utilities, Metals & Mining, Chemicals, Real Estate, Services, Others). The `listed_stocks` table includes `cin`, `company_pan`, `broad_sector`, and `enrichment_status` columns. A priority-based API fallback enriches stocks: Probe42 (CIN/PAN/ROE/ROCE) → NSE/BSE (PE ratio/BSE codes/price) → Finnhub (.NS/.BO suffix for Indian stocks). API endpoints at `/api/agent-wizard/listed-stocks/sectors`, `/api/agent-wizard/listed-stocks/by-sector/:sector`, and `/api/agent-wizard/listed-stocks/recommendations` enable dynamic stock recommendations based on broad_sector filtering and risk profile alignment.
+The Agent Knowledge Hub provides market intelligence, product knowledge, and client communication tools, including a Gemini-powered Daily AI Market Brief Engine and Client Explanation Templates.
 
-The Agent Knowledge Hub provides comprehensive market intelligence, product knowledge, and client communication tools. Features include a Gemini-powered Daily AI Market Brief Engine, Product Knowledge Cards, Client Explanation Templates, an optional certification system, SEBI-compliant immutable audit logging, and Admin Content Governance. IEX Cloud is integrated for global market insights.
+The platform implements comprehensive SEBI/RBI-compliant payment handling, including HMAC Signature Verification, Client Money Segregation, Daily Reconciliation, and Trustee Escrow Validation.
 
-The platform implements comprehensive SEBI/RBI-compliant payment handling, including HMAC Signature Verification for webhooks, Client Money Segregation, a Daily Reconciliation System, External Remittance Tracking, MF Batch Credential Validator, DIS Verification Service, and Trustee Escrow Validation. Compliance Persistence Tables maintain 8-year retention.
+FEMA Compliance & International Transaction Management includes RBI Purpose Code Validation, LRS Limit Tracking, TCS Calculation Engine, and RBI A2 Form Generation.
 
-FEMA Compliance & International Transaction Management includes RBI Purpose Code Validation, LRS Limit Tracking, TCS Calculation Engine, RBI A2 Form Generation, and AD Bank Certificate Management. Integration points include Form 15CA/15CB, payment gateways, and Zoho Books.
+Offline & Slow-Internet Resilience is achieved through PWA capabilities including a Global Network State Manager, Service Worker, Draft Auto-Save Engine, and Action Queue & Sync Engine.
 
-Offline & Slow-Internet Resilience is achieved through PWA capabilities: Global Network State Manager, PWA Service Worker, Draft Auto-Save Engine, Action Queue & Sync Engine, Backend Execution Guardrails, Adaptive Low-Data Mode, Role-Based Offline RBAC, and User Communication Layer. Immutable Audit Logs are maintained.
+A DSA Multi-Financier Loan Routing System enables multi-bank loan applications with RBI Digital Lending Directions 2025 compliance. It features a credit engine matching applicants to 7 partner banks using multiple routing strategies (parallel, waterfall, priority_first) and generates Key Facts Statements (KFS).
 
-A DSA Multi-Financier Loan Routing System enables multi-bank loan applications with RBI Digital Lending Directions 2025 compliance. Features include: 8 database tables (applications, connectors, eligibility rules, routing history, documents, audit logs, commission tracking, webhook events), a credit engine matching applicants to 7 partner banks (ICICI, HDFC, Axis, Kotak, SBI, Bajaj Finance, Tata Capital), 3 routing strategies (parallel, waterfall, priority_first), and a unified bank connector layer with factory pattern. Key Facts Statement (KFS) generation provides RBI-mandated disclosure with APR, fees, cooling-off period, and grievance redressal. A simplified loan flow at `/loans` shows loan products first, then financier offers with KFS links. Background multi-bank routing automatically triggers for borderline eligibility cases (scores 40-70%) to improve offer discovery. Admin DSA Dashboard at `/admin/dsa-loans` displays funnel metrics and bank performance stats. Client navigation simplified to single "Loans" entry point.
+A DSA Bank Eligibility Matrix System provides configurable bank-specific eligibility rules, evaluating multi-criteria factors and offering priority-based bank recommendations.
+
+A Commission Reconciliation Automation System automates payment tracking and matching, supporting payment statement uploads, auto-matching, and dispute handling.
 
 ### System Design Choices
-The platform uses a subdomain-based portal architecture for Admin, Partner, and Client portals, ensuring isolated experiences, security, and role-based access control.
+The platform utilizes a subdomain-based portal architecture for Admin, Partner, and Client portals, ensuring isolated experiences, security, and role-based access control.
 
 ## External Dependencies
 
@@ -80,11 +82,11 @@ The platform uses a subdomain-based portal architecture for Admin, Partner, and 
 - AMFI Registry API (Simulated)
 - Turtlefin Insurance API
 - CIBIL
-- Zoho CRM (Lead management, contact sync)
-- Zoho Books (Commission invoicing, reconciliation)
-- Zoho Campaigns (Email marketing, festival greetings)
-- Zoho Meeting (Client meetings, webinars)
-- Zoho Sign (KYC e-signatures, agreements)
+- Zoho CRM
+- Zoho Books
+- Zoho Campaigns
+- Zoho Meeting
+- Zoho Sign
 - IEX Cloud
 
 ### Database Services
