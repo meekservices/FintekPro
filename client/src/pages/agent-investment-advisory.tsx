@@ -2555,8 +2555,8 @@ function ItrServicesTab({ clientId }: { clientId: string }) {
                       </SelectTrigger>
                       <SelectContent>
                         {availableCas && availableCas.length > 0 ? (
-                          availableCas.map((ca: any) => (
-                            <SelectItem key={ca.user_id} value={ca.user_id}>
+                          availableCas.map((ca: any, idx: number) => (
+                            <SelectItem key={ca.user_id || `ca-${idx}`} value={ca.user_id}>
                               {ca.full_name} ({ca.membership_type})
                             </SelectItem>
                           ))
