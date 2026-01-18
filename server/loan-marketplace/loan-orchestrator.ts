@@ -1056,6 +1056,28 @@ const LOAN_PRODUCTS: LoanProductData[] = [
     features: ['Higher loan amount', 'Lower interest rates', 'Long tenure', 'Multipurpose usage'],
     eligibilityCriteria: ['Age 25-70 years', 'Own property (residential/commercial)', 'Clear title', 'CIBIL score 650+'],
     isActive: true
+  },
+  {
+    productKey: 'securities',
+    productName: 'Loan Against Securities',
+    category: 'secured',
+    collateralType: 'securities',
+    description: 'Get funds against your shares, mutual funds, bonds, and other securities without selling them.',
+    icon: 'TrendingUp',
+    minAmount: 100000,
+    maxAmount: 200000000,
+    minTenure: 12,
+    maxTenure: 36,
+    minInterestRate: 9.00,
+    maxInterestRate: 12.50,
+    minAge: 21,
+    maxAge: 70,
+    minIncome: 50000,
+    minCibilScore: 700,
+    documentsRequired: ['PAN Card', 'Aadhaar Card', 'Demat Account Statement', 'Securities Pledge Agreement', 'Bank Statements (6 months)', 'Income Proof'],
+    features: ['Retain ownership of securities', 'Continue earning dividends', 'No foreclosure charges', 'Overdraft facility available', 'Quick disbursement'],
+    eligibilityCriteria: ['Age 21-70 years', 'Demat account with approved securities', 'Minimum portfolio value ₹5 Lakhs', 'CIBIL score 700+'],
+    isActive: true
   }
 ];
 
@@ -1076,7 +1098,8 @@ const LOAN_PROVIDERS: LoanProviderData[] = [
       { productKey: 'home', productName: 'Home Loan', interestRateMin: 8.40, interestRateMax: 10.05, processingFee: 0.50, maxProcessingFee: 10000, maxLTV: 80, commissionRate: 0.40, features: ['Balance transfer benefit', 'Property search assistance'], isActive: true },
       { productKey: 'car', productName: 'Car Loan', interestRateMin: 7.75, interestRateMax: 12.00, processingFee: 0.50, maxProcessingFee: 6000, maxLTV: 100, commissionRate: 0.50, features: ['100% on-road funding', 'Used car loans available'], isActive: true },
       { productKey: 'business', productName: 'Business Loan', interestRateMin: 14.00, interestRateMax: 20.00, processingFee: 2.00, commissionRate: 1.00, features: ['Overdraft facility', 'Quick turnaround'], isActive: true },
-      { productKey: 'lap', productName: 'Loan Against Property', interestRateMin: 9.25, interestRateMax: 12.50, processingFee: 1.00, maxLTV: 65, commissionRate: 0.50, features: ['High loan amount', 'Balance transfer option'], isActive: true }
+      { productKey: 'lap', productName: 'Loan Against Property', interestRateMin: 9.25, interestRateMax: 12.50, processingFee: 1.00, maxLTV: 65, commissionRate: 0.50, features: ['High loan amount', 'Balance transfer option'], isActive: true },
+      { productKey: 'securities', productName: 'Loan Against Securities', interestRateMin: 9.00, interestRateMax: 11.50, processingFee: 0.50, maxLTV: 50, commissionRate: 0.35, features: ['Overdraft facility', 'Retain dividends', 'Quick disbursement'], isActive: true }
     ],
     isActive: true
   },
@@ -1095,7 +1118,8 @@ const LOAN_PROVIDERS: LoanProviderData[] = [
       { productKey: 'home', productName: 'Home Loan', interestRateMin: 8.35, interestRateMax: 9.90, processingFee: 0.50, maxProcessingFee: 15000, maxLTV: 85, commissionRate: 0.35, features: ['Top-up facility', 'Part-prepayment allowed'], isActive: true },
       { productKey: 'car', productName: 'Car Loan', interestRateMin: 7.50, interestRateMax: 13.00, processingFee: 0.40, maxLTV: 100, commissionRate: 0.55, features: ['Pre-approved for existing customers', 'Zero foreclosure charges'], isActive: true },
       { productKey: 'business', productName: 'Business Loan', interestRateMin: 13.50, interestRateMax: 19.50, processingFee: 1.75, commissionRate: 0.90, features: ['Working capital finance', 'GST-linked loans'], isActive: true },
-      { productKey: 'education', productName: 'Education Loan', interestRateMin: 9.55, interestRateMax: 13.25, processingFee: 1.00, commissionRate: 0.40, features: ['Moratorium benefit', 'Top foreign universities covered'], isActive: true }
+      { productKey: 'education', productName: 'Education Loan', interestRateMin: 9.55, interestRateMax: 13.25, processingFee: 1.00, commissionRate: 0.40, features: ['Moratorium benefit', 'Top foreign universities covered'], isActive: true },
+      { productKey: 'securities', productName: 'Loan Against Securities', interestRateMin: 9.25, interestRateMax: 11.75, processingFee: 0.50, maxLTV: 50, commissionRate: 0.30, features: ['HDFC Demat integration', 'No prepayment charges', 'Overdraft facility'], isActive: true }
     ],
     isActive: true
   },
@@ -1152,7 +1176,8 @@ const LOAN_PROVIDERS: LoanProviderData[] = [
       { productKey: 'car', productName: 'Car Loan', interestRateMin: 7.99, interestRateMax: 12.50, processingFee: 0.50, maxLTV: 100, commissionRate: 0.52, features: ['Pre-approved for salary accounts', 'Zero documentation'], isActive: true },
       { productKey: 'business', productName: 'Business Loan', interestRateMin: 14.00, interestRateMax: 20.00, processingFee: 1.50, commissionRate: 0.95, features: ['Trade finance', 'Bill discounting'], isActive: true },
       { productKey: 'gold', productName: 'Gold Loan', interestRateMin: 8.00, interestRateMax: 15.00, processingFee: 0.50, maxLTV: 75, commissionRate: 0.55, features: ['Online gold loan', 'Flexible repayment'], isActive: true },
-      { productKey: 'lap', productName: 'Loan Against Property', interestRateMin: 9.00, interestRateMax: 12.00, processingFee: 1.00, maxLTV: 65, commissionRate: 0.55, features: ['Competitive rates', 'Fast processing'], isActive: true }
+      { productKey: 'lap', productName: 'Loan Against Property', interestRateMin: 9.00, interestRateMax: 12.00, processingFee: 1.00, maxLTV: 65, commissionRate: 0.55, features: ['Competitive rates', 'Fast processing'], isActive: true },
+      { productKey: 'securities', productName: 'Loan Against Securities', interestRateMin: 9.50, interestRateMax: 12.00, processingFee: 0.50, maxLTV: 50, commissionRate: 0.35, features: ['Kotak Securities integration', 'Zero margin calls', 'Instant credit line'], isActive: true }
     ],
     isActive: true
   }

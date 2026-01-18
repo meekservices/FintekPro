@@ -257,10 +257,12 @@ export default function Loans() {
     const icons = {
       personal: User,
       home: Home,
+      car: Car,
       vehicle: Car,
       business: Building2,
       education: GraduationCap,
-      securities: IndianRupee,
+      gold: Star,
+      securities: TrendingUp,
       lap: Building2,
     };
     return icons[productKey as keyof typeof icons] || User;
