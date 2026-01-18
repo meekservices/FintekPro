@@ -107,6 +107,7 @@ export function withPortalParams(path: string): string {
 export function useSubdomain() {
   // Use state to ensure re-render when subdomain is detected
   const [subdomain, setSubdomain] = useState<string>(() => detectSubdomain());
+  const [currentPath, setCurrentPath] = useState(() => window.location.pathname);
   
   // Re-detect on mount and URL changes
   useEffect(() => {
@@ -119,11 +120,29 @@ export function useSubdomain() {
     const handlePopState = () => {
       const newSubdomain = detectSubdomain();
       setSubdomain(newSubdomain);
+      setCurrentPath(window.location.pathname);
     };
     
+    // Poll for pathname changes (handles pushState navigation)
+    const checkPathChange = () => {
+      const newPath = window.location.pathname;
+      if (newPath !== currentPath) {
+        setCurrentPath(newPath);
+        const newSubdomain = detectSubdomain();
+        if (newSubdomain !== subdomain) {
+          setSubdomain(newSubdomain);
+        }
+      }
+    };
+    
+    const interval = setInterval(checkPathChange, 100);
+    
     window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      clearInterval(interval);
+    };
+  }, [subdomain, currentPath]);
   
   const isAdminPortal = subdomain === 'admin';
   const isPartnerPortal = subdomain === 'partner';
