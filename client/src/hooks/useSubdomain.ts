@@ -13,30 +13,16 @@ function detectSubdomain(): string {
   const isReplitEnv = hostname.includes('replit.dev') || hostname.includes('replit.app');
   const isDev = import.meta.env.DEV || isReplitEnv;
   
-  // Debug logging for all non-localhost environments
-  if (typeof window !== 'undefined') {
-    console.log('[Subdomain Detection]', { 
-      hostname, 
-      search, 
-      pathname,
-      isDev, 
-      isReplitEnv,
-      adminParam: urlParams.get('admin'),
-      agentParam: urlParams.get('agent'),
-      partnerParam: urlParams.get('partner')
-    });
-  }
+  // Debug logging only on initial detection (not during polling)
+  // Note: Removed frequent console.log to improve performance
   
   // PRIORITY 1: Query params for development/Replit environments
   if (isDev) {
     if (urlParams.get('admin') === 'true') {
-      console.log('[Subdomain Detection] Query param detected: admin');
       return 'admin';
     } else if (urlParams.get('partner') === 'true') {
-      console.log('[Subdomain Detection] Query param detected: partner');
       return 'partner';
     } else if (urlParams.get('agent') === 'true') {
-      console.log('[Subdomain Detection] Query param detected: agent');
       return 'agent';
     }
   }
@@ -67,14 +53,12 @@ function detectSubdomain(): string {
   // PRIORITY 4: Production subdomain detection (admin.fintekpro.com, etc.)
   const firstPart = parts[0];
   if (parts.length >= 2 && KNOWN_SUBDOMAINS.includes(firstPart as KnownSubdomain)) {
-    console.log('[Subdomain Detection] Detected known subdomain:', firstPart);
     return firstPart;
   }
   
   // PRIORITY 5: Fallback pattern matching
   for (const sub of KNOWN_SUBDOMAINS) {
     if (hostname.startsWith(`${sub}.`) || hostname.startsWith(`${sub}-`)) {
-      console.log('[Subdomain Detection] Fallback detected subdomain:', sub);
       return sub;
     }
   }
@@ -135,7 +119,8 @@ export function useSubdomain() {
       }
     };
     
-    const interval = setInterval(checkPathChange, 100);
+    // Use 500ms polling interval - balances responsiveness with performance
+    const interval = setInterval(checkPathChange, 500);
     
     window.addEventListener('popstate', handlePopState);
     return () => {
