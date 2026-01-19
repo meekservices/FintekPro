@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { isinIntelligenceService, type ISINMetadata } from '../services/isin-intelligence-service';
-import { isAuthenticated, hasRole } from '../replitAuth';
+import { isAuthenticated } from '../replitAuth';
 
 const router = Router();
 
@@ -154,8 +154,17 @@ router.get('/lookup/:isin', isAuthenticated, async (req: Request, res: Response)
   }
 });
 
-router.post('/register', isAuthenticated, hasRole('admin', 'agent'), async (req: Request, res: Response) => {
+router.post('/register', isAuthenticated, async (req: Request, res: Response) => {
   try {
+    // Role check - only agents and admins can register instruments
+    const user = (req as any).user;
+    if (user?.role !== 'admin' && user?.role !== 'agent') {
+      return res.status(403).json({ 
+        success: false, 
+        error: 'Only agents and admins can register instruments' 
+      });
+    }
+    
     const { isin, metadata, autoDetect = true } = req.body;
     
     if (!isin) {

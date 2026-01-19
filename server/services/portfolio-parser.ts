@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 import { PDFParse } from 'pdf-parse';
 import { liveMFDataService } from './live-mf-data-service';
+import { isinIntelligenceService } from './isin-intelligence-service';
 
 export interface ImportedHolding {
   id?: string;
@@ -18,6 +19,10 @@ export interface ImportedHolding {
   folioNumber?: string;
   broker?: string;
   confidenceScore?: number;
+  // ISIN Intelligence Layer enrichment
+  instrumentType?: string;
+  regulator?: string;
+  isEdgeCase?: boolean;
 }
 
 export interface ImportedAllocation {
@@ -707,7 +712,106 @@ function parseCAMSKfintechTableFormat(text: string): ImportedHolding[] {
   return holdings;
 }
 
+async function enrichWithISINIntelligence(holdings: ImportedHolding[]): Promise<ImportedHolding[]> {
+  const holdingsWithISIN = holdings.filter(h => h.isin && h.isin.length === 12);
+  
+  if (holdingsWithISIN.length === 0) {
+    console.log('[ISIN Intelligence] No ISINs found for classification');
+    return holdings;
+  }
+  
+  console.log(`[ISIN Intelligence] Classifying ${holdingsWithISIN.length} instruments by ISIN prefix`);
+  
+  const classificationMap = new Map<string, {
+    assetType: 'equity' | 'mutual_fund' | 'etf' | 'bond' | 'gold' | 'fd' | 'other';
+    regulator: string;
+    instrumentType: string;
+    isEdgeCase: boolean;
+  }>();
+  
+  for (const holding of holdingsWithISIN) {
+    try {
+      // Build metadata from holding information for better classification
+      const metadata = {
+        schemeName: holding.name,
+        amcName: holding.broker,
+        // Detect ETF indicators from name
+        isETF: holding.name?.toUpperCase().includes('ETF') || 
+               holding.name?.toUpperCase().includes('BEES') ||
+               holding.name?.toUpperCase().includes('EXCHANGE TRADED')
+      };
+      
+      const detection = await isinIntelligenceService.detectInstrument(holding.isin!, metadata);
+      
+      // Map ISIN Intelligence asset class to ImportedHolding asset type
+      let assetType: 'equity' | 'mutual_fund' | 'etf' | 'bond' | 'gold' | 'fd' | 'other' = 'other';
+      
+      switch (detection.assetClass) {
+        case 'Equity':
+          assetType = 'equity';
+          break;
+        case 'Mutual Fund':
+          assetType = detection.instrumentType === 'ETF' ? 'etf' : 'mutual_fund';
+          break;
+        case 'Fixed Income':
+        case 'Debt':
+          assetType = 'bond';
+          break;
+        case 'Commodities':
+          if (detection.subAssetClass?.includes('Gold')) {
+            assetType = 'gold';
+          } else {
+            assetType = 'other';
+          }
+          break;
+        case 'Alternatives':
+          assetType = detection.instrumentType === 'REIT' || detection.instrumentType === 'InvIT' 
+            ? 'equity'  // REITs/InvITs traded like equities
+            : 'other';
+          break;
+        default:
+          assetType = 'other';
+      }
+      
+      classificationMap.set(holding.isin!, {
+        assetType,
+        regulator: detection.primaryRegulator || 'Unknown',
+        instrumentType: detection.instrumentType,
+        isEdgeCase: detection.isEdgeCase
+      });
+      
+      if (detection.isEdgeCase) {
+        console.log(`[ISIN Intelligence] Edge case detected: ${holding.isin} → ${detection.instrumentType} (${detection.edgeCaseType})`);
+      }
+    } catch (error: any) {
+      console.warn(`[ISIN Intelligence] Failed to classify ${holding.isin}: ${error.message}`);
+    }
+  }
+  
+  console.log(`[ISIN Intelligence] Classified ${classificationMap.size} instruments`);
+  
+  // Apply classifications to holdings
+  return holdings.map(holding => {
+    if (holding.isin && classificationMap.has(holding.isin)) {
+      const classification = classificationMap.get(holding.isin)!;
+      
+      // Update asset type and persist additional classification info
+      return {
+        ...holding,
+        assetType: classification.assetType !== 'other' ? classification.assetType : holding.assetType,
+        instrumentType: classification.instrumentType,
+        regulator: classification.regulator,
+        isEdgeCase: classification.isEdgeCase
+      };
+    }
+    return holding;
+  });
+}
+
 export async function enrichHoldingsWithDatabaseLookup(holdings: ImportedHolding[]): Promise<ImportedHolding[]> {
+  // First, enrich all holdings with ISIN Intelligence classification
+  holdings = await enrichWithISINIntelligence(holdings);
+  
   const isins = holdings
     .filter(h => h.isin && h.isin.length === 12 && h.isin.startsWith('INF'))
     .map(h => h.isin!);

@@ -34,6 +34,8 @@ export interface ISINMetadata {
   hasEquityFlag?: boolean;
   trustType?: 'REIT' | 'InvIT';
   amcName?: string;
+  schemeName?: string;
+  isETF?: boolean;
 }
 
 const KNOWN_BANKS = [
@@ -107,7 +109,22 @@ class ISINIntelligenceService {
       errors.push('WARNING: INF prefix typically does not have maturity date');
     }
     
-    const isETF = isin.includes('ETF') || metadata?.amcName?.toUpperCase().includes('ETF');
+    // ETF detection: Check metadata fields for ETF indicators
+    // - scheme name containing 'ETF' or 'Exchange Traded'
+    // - AMC name for ETF-specific AMCs (Nippon ETF, SBI ETF, etc.)
+    // - explicit isETF flag in metadata
+    const schemeName = (metadata?.schemeName || '').toUpperCase();
+    const amcName = (metadata?.amcName || '').toUpperCase();
+    
+    const isETF = metadata?.isETF === true ||
+      schemeName.includes('ETF') ||
+      schemeName.includes('EXCHANGE TRADED') ||
+      schemeName.includes('NIFTY BEES') ||
+      schemeName.includes('GOLD BEES') ||
+      schemeName.includes('JUNIOR BEES') ||
+      schemeName.includes('BANK BEES') ||
+      amcName.includes('ETF') ||
+      (schemeName.includes('NIFTY') && schemeName.includes('INDEX'));
     
     return {
       isin,
