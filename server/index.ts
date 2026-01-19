@@ -511,6 +511,11 @@ app.use((req, res, next) => {
   const isinIntelligenceRoutes = await import('./routes/isin-intelligence');
   app.use('/api/isin', isinIntelligenceRoutes.default);
   console.log('✅ ISIN Intelligence Layer routes registered');
+
+  // Register Pick of the Day routes
+  const pickOfTheDayRoutes = await import('./routes/pick-of-the-day');
+  app.use('/api/picks', pickOfTheDayRoutes.default);
+  console.log('✅ Pick of the Day routes registered');
   
   // Register MF Order Execution routes (SEBI-compliant buy/sell order management)
   const mfOrdersRoutes = await import('./routes/mf-orders');

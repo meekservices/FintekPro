@@ -58,6 +58,18 @@ An ISIN Intelligence Layer provides automatic instrument classification from Ind
 - **Coverage Dashboard**: Real-time ISIN and region coverage statistics by table and asset class
 - **API Endpoints**: /api/isin/detect, /api/isin/validate, /api/isin/checksum/verify, /api/isin/coverage
 
+A **Pick of the Day** feature provides daily investment recommendations for agents with AI-generated rationale:
+- **Asset Categories**: Listed Stocks, Mutual Funds, Bonds, Unlisted Companies, Global Stocks, ETFs, REITs, FDs, SGBs
+- **Tracking Fields**: Date of recommendation, price at recommendation, target price, stoploss price, current price
+- **Status Tracking**: live, target_hit, stoploss_hit, expired
+- **AI Rationale**: Gemini-powered investment rationale generation
+- **Scoring Algorithms**: Deterministic scoring using analyst ratings, returns, P/E ratios, CRISIL ratings, credit ratings
+- **Target/Stoploss**: Stocks (15%/8%), MFs (12%/5%), Bonds (8%/3%), Unlisted (25%/15%)
+- **Validity Periods**: Stocks (30d), MFs (90d), Bonds (180d), Unlisted (365d)
+- **Performance Stats**: Hit rate, average return, category-wise statistics
+- **Frontend**: Dashboard widget + dedicated /agent/picks page with filtering and history
+- **API Endpoints**: /api/picks/today, /api/picks/live, /api/picks/history, /api/picks/stats, /api/picks/generate
+
 The Agent Knowledge Hub provides market intelligence, product knowledge, and client communication tools, including a Gemini-powered Daily AI Market Brief Engine and Client Explanation Templates.
 
 The platform implements comprehensive SEBI/RBI-compliant payment handling, including HMAC Signature Verification, Client Money Segregation, Daily Reconciliation, and Trustee Escrow Validation.

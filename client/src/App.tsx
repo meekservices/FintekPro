@@ -41,6 +41,7 @@ import CapitalGainsReports from "@/pages/capital-gains-reports";
 import ReportsHub from "@/pages/reports-hub";
 import TransactionReports from "@/pages/transaction-reports";
 import AgentDashboard from "@/pages/agent-dashboard";
+import AgentPicks from "@/pages/agent-picks";
 import IBTradingPage from "@/pages/ib-trading";
 import StorePage from "@/pages/store";
 import GiftCity from "@/pages/gift-city";
@@ -1450,6 +1451,15 @@ function AgentRoutes() {
           <AgentLayout>
             <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
               <FieldAgentPortal />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/picks">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentPicks />
             </Suspense>
           </AgentLayout>
         )}

@@ -12,6 +12,7 @@ import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import AINextActions from "@/components/agent/ai-next-actions";
+import PickOfTheDayWidget from "@/components/agent/pick-of-the-day-widget";
 import { 
   Shield, 
   Bell, 
@@ -834,6 +835,13 @@ export default function AgentDashboard() {
                       </div>
                     </CardContent>
                   </Card>
+                </div>
+
+                {/* Pick of the Day Widget */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div className="lg:col-span-2">
+                    <PickOfTheDayWidget />
+                  </div>
                 </div>
 
                 {/* Action Items & Client Distribution */}
