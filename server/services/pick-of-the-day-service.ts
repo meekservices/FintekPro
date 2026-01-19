@@ -23,6 +23,7 @@ export interface DailyPickData {
   instrumentName: string;
   isin?: string;
   symbol?: string;
+  market?: string;
   recoDate: string;
   recoPrice: number;
   targetPrice: number;
@@ -642,6 +643,42 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
     return date.toISOString().split('T')[0];
   }
 
+  private detectMarketRegion(symbol?: string, exchange?: string, name?: string): string | undefined {
+    if (!symbol && !exchange && !name) return undefined;
+    
+    const text = `${symbol || ""} ${exchange || ""} ${name || ""}`.toUpperCase();
+    
+    // US Markets
+    if (text.includes("NYSE") || text.includes("NASDAQ") || text.includes(".US") ||
+        text.match(/\.(N|O)$/) || exchange?.includes("US") ||
+        ["AAPL", "GOOGL", "MSFT", "AMZN", "TSLA", "META", "NVDA"].some(s => text.includes(s))) {
+      return "us";
+    }
+    
+    // China Markets
+    if (text.includes("SHANGHAI") || text.includes("SHENZHEN") || text.includes(".SS") ||
+        text.includes(".SZ") || text.includes(".HK") || exchange?.includes("CN") ||
+        text.includes("ALIBABA") || text.includes("TENCENT") || text.includes("BAIDU")) {
+      return "china";
+    }
+    
+    // UK/Europe Markets
+    if (text.includes(".L") || text.includes("LSE") || text.includes("LONDON") ||
+        text.includes(".PA") || text.includes(".DE") || text.includes(".AS") ||
+        text.includes("EURONEXT") || text.includes("FRANKFURT") || exchange?.includes("EU")) {
+      return "uk_europe";
+    }
+    
+    // Japan Markets
+    if (text.includes(".T") || text.includes("TOKYO") || text.includes("NIKKEI") ||
+        text.includes("TSE") || exchange?.includes("JP")) {
+      return "japan";
+    }
+    
+    // Default to other for any global stock without specific market
+    return "other";
+  }
+
   private async savePick(pick: DailyPickData): Promise<void> {
     await db.insert(dailyPicks).values({
       category: pick.category,
@@ -649,6 +686,7 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
       instrumentName: pick.instrumentName,
       isin: pick.isin,
       symbol: pick.symbol,
+      market: pick.market,
       recoDate: pick.recoDate,
       recoPrice: pick.recoPrice.toString(),
       targetPrice: pick.targetPrice.toString(),
@@ -771,6 +809,7 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
       instrumentName: pick.instrumentName,
       isin: pick.isin,
       symbol: pick.symbol,
+      market: pick.market,
       recoDate: pick.recoDate,
       recoPrice: parseFloat(pick.recoPrice),
       targetPrice: parseFloat(pick.targetPrice),
