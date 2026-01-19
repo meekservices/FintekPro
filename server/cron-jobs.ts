@@ -15,6 +15,7 @@ import { users, unlistedCompanies } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { reitInvitDataService } from './services/reit-invit-data-service';
 import { giftCityMaintenanceService } from './services/gift-city-maintenance-service';
+import { runDailyFixedIncomeRefresh } from "./cron/fixed-income-daily-refresh";
 
 /**
  * Initialize scheduled cron jobs
@@ -668,3 +669,23 @@ export function initializeCronJobs(): void {
   
   console.log('✓ Cron jobs initialized successfully');
 }
+
+// Fixed Income Status Engine - Run daily at 6:00 AM IST (12:30 AM UTC)
+// SEBI compliant: Re-evaluate all active bonds for SELLABLE/VISIBLE/HIDDEN status
+cron.schedule('30 0 * * *', async () => {
+  console.log('[CRON] Starting Fixed Income status refresh...');
+  try {
+    const result = await runDailyFixedIncomeRefresh();
+    if (result.success) {
+      console.log(`[CRON] Fixed Income refresh completed: ${result.message}`);
+      if (result.stats) {
+        console.log(`[CRON] Status distribution: ${result.stats.sellable} SELLABLE, ${result.stats.visible} VISIBLE, ${result.stats.hidden} HIDDEN`);
+      }
+    } else {
+      console.error(`[CRON] Fixed Income refresh failed: ${result.message}`);
+    }
+  } catch (error: any) {
+    console.error('[CRON] Fixed Income refresh job failed:', error.message);
+  }
+});
+console.log('📈 [FixedIncomeStatus] Daily status refresh scheduled (6:00 AM IST)');
