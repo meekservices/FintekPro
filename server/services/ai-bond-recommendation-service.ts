@@ -193,6 +193,7 @@ class AIBondRecommendationService {
         .where(
           and(
             eq(corporateBonds.tradingStatus, 'active'),
+            eq(corporateBonds.instrumentStatus, 'SELLABLE'),
             inArray(corporateBonds.bondType, allowedTypes)
           )
         )

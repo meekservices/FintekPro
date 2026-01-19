@@ -214,7 +214,7 @@ class AIInvestmentOrchestratorService {
             .where(eq(governmentSecurities.tradingStatus, 'active'))
             .limit(25);
           const corpBonds = await db.select().from(corporateBonds)
-            .where(eq(corporateBonds.tradingStatus, 'active'))
+            .where(and(eq(corporateBonds.tradingStatus, 'active'), eq(corporateBonds.instrumentStatus, 'SELLABLE')))
             .limit(25);
           return [
             ...normalizeProducts(govBonds, 'BOND'),
