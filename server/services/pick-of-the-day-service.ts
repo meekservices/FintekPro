@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { dailyPicks, listedStocks, mutualFunds, bondCatalog, unlistedCompanies } from "@shared/schema";
+import { dailyPicks, listedStocks, mutualFunds, bondCatalog, unlistedCompanies, globalInstruments } from "@shared/schema";
 import { eq, and, desc, gte, sql } from "drizzle-orm";
 import { GoogleGenAI } from "@google/genai";
 
@@ -201,6 +201,9 @@ class PickOfTheDayService {
     if (bondPick) picks.push(bondPick);
 
     const unlistedPick = await this.generateUnlistedPick();
+
+    const globalStockPick = await this.generateGlobalStockPick();
+    if (globalStockPick) picks.push(globalStockPick);
     if (unlistedPick) picks.push(unlistedPick);
 
     for (const pick of picks) {
@@ -487,6 +490,124 @@ class PickOfTheDayService {
       };
     } catch (error) {
       console.error("[PickOfTheDay] Error generating unlisted pick:", error);
+      return null;
+    }
+  }
+
+  private mapMarketCode(market: string): string {
+    const marketMap: Record<string, string> = {
+      "US": "us",
+      "UK": "uk_europe",
+      "EU": "uk_europe",
+      "DE": "uk_europe",
+      "FR": "uk_europe",
+      "JP": "japan",
+      "HK": "china",
+      "CN": "china",
+      "SG": "other",
+      "AU": "other",
+      "IN": "other",
+    };
+    return marketMap[market?.toUpperCase()] || "other";
+  }
+
+  private scoreGlobalStock(instrument: any): number {
+    let score = 0;
+    
+    const returns1Y = instrument.returns1Y ? parseFloat(instrument.returns1Y) : 0;
+    if (returns1Y > 30) score += 25;
+    else if (returns1Y > 15) score += 18;
+    else if (returns1Y > 0) score += 10;
+    
+    const pe = instrument.peRatio ? parseFloat(instrument.peRatio) : 0;
+    if (pe > 0 && pe < 15) score += 15;
+    else if (pe >= 15 && pe < 25) score += 10;
+    else if (pe >= 25 && pe < 40) score += 5;
+    
+    const marketCap = parseFloat(instrument.marketCap || "0");
+    if (marketCap > 100000000000) score += 15;
+    else if (marketCap > 10000000000) score += 10;
+    else if (marketCap > 1000000000) score += 5;
+    
+    const epsGrowth = parseFloat(instrument.epsGrowth || "0");
+    if (epsGrowth > 20) score += 10;
+    else if (epsGrowth > 10) score += 5;
+    
+    return score;
+  }
+
+  private async generateGlobalStockPick(): Promise<DailyPickData | null> {
+    try {
+      const instruments = await db
+        .select()
+        .from(globalInstruments)
+        .where(
+          and(
+            eq(globalInstruments.assetClass, "stock"),
+            eq(globalInstruments.isActive, true),
+            sql`${globalInstruments.lastPrice} IS NOT NULL`
+          )
+        )
+        .limit(30);
+
+      if (instruments.length === 0) {
+        console.log("[PickOfTheDay] No global stocks found in database");
+        return null;
+      }
+
+      const scoredInstruments = instruments.map(inst => ({
+        instrument: inst,
+        score: this.scoreGlobalStock(inst),
+      })).sort((a, b) => b.score - a.score);
+
+      const topInstrument = scoredInstruments[0].instrument;
+      const currentPrice = parseFloat(topInstrument.lastPrice || "0");
+      const targetPrice = Math.round(currentPrice * (1 + this.STOCK_TARGET_PCT) * 100) / 100;
+      const stoplossPrice = Math.round(currentPrice * (1 - this.STOCK_STOPLOSS_PCT) * 100) / 100;
+      const market = this.mapMarketCode(topInstrument.market);
+
+      const rationale = await this.generateRationale({
+        category: "global_stocks",
+        name: topInstrument.name,
+        symbol: topInstrument.symbol,
+        sector: topInstrument.sector,
+        currentPrice,
+        targetPrice,
+        stoplossPrice,
+        returns1Y: topInstrument.returns1Y ? parseFloat(topInstrument.returns1Y) : undefined,
+        peRatio: topInstrument.peRatio ? parseFloat(topInstrument.peRatio) : undefined,
+      });
+
+      console.log(`[PickOfTheDay] Generated global stock pick: ${topInstrument.symbol} (${market})`);
+
+      return {
+        category: "global_stocks",
+        instrumentId: topInstrument.id,
+        instrumentName: topInstrument.name,
+        isin: topInstrument.isin || undefined,
+        symbol: topInstrument.symbol,
+        market,
+        recoDate: new Date().toISOString().split("T")[0],
+        recoPrice: currentPrice,
+        targetPrice,
+        stoplossPrice,
+        currentPrice,
+        status: "live",
+        expiryDate: this.getExpiryDate(this.DEFAULT_VALIDITY_DAYS),
+        rationale,
+        riskLevel: "medium",
+        suitableFor: ["Balanced", "Aggressive"],
+        keyMetrics: {
+          exchange: topInstrument.exchange,
+          market: topInstrument.market,
+          currency: topInstrument.currency,
+          pe: topInstrument.peRatio ? parseFloat(topInstrument.peRatio) : null,
+          returns1y: topInstrument.returns1Y ? parseFloat(topInstrument.returns1Y) : null,
+          sector: topInstrument.sector,
+        },
+      };
+    } catch (error) {
+      console.error("[PickOfTheDay] Error generating global stock pick:", error);
       return null;
     }
   }
