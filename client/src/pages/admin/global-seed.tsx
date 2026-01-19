@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,9 +15,9 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   Globe, Search, Loader2, ArrowLeft, Plus, Upload, Trash2, Edit, 
-  TrendingUp, Building2, RefreshCw, Database, BarChart3, Check, X
+  TrendingUp, Building2, RefreshCw, Database, BarChart3, Check, X, Plug
 } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 
 interface GlobalInstrument {
   id: string;
@@ -92,12 +92,36 @@ const marketCapCategories = [
   { value: "micro", label: "Micro Cap (<$300M)" },
 ];
 
+const tradingApiProviders: Record<string, { name: string; description: string; markets: string[] }> = {
+  alpaca: { name: "Alpaca", description: "Commission-free US stock trading API", markets: ["US"] },
+  iex_cloud: { name: "IEX Cloud", description: "Real-time and historical market data", markets: ["US"] },
+  polygon: { name: "Polygon.io", description: "Real-time and historical stock data", markets: ["US"] },
+  ibkr: { name: "Interactive Brokers", description: "Global multi-asset trading platform", markets: ["US", "UK", "EU", "JP", "HK", "SG"] },
+  saxo: { name: "Saxo Bank", description: "European multi-asset trading", markets: ["UK", "EU"] },
+  futu: { name: "Futu/Moomoo", description: "Hong Kong and China stock trading", markets: ["HK", "CN"] },
+  tiger: { name: "Tiger Brokers", description: "Asia-Pacific trading platform", markets: ["HK", "CN", "SG"] },
+};
+
 export default function GlobalSeedAdmin() {
   const { toast } = useToast();
+  const searchParams = useSearch();
   const [activeTab, setActiveTab] = useState("stock");
   const [marketFilter, setMarketFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams);
+    const marketParam = params.get("market");
+    const assetClassParam = params.get("assetClass");
+    
+    if (marketParam && markets.some(m => m.value === marketParam)) {
+      setMarketFilter(marketParam);
+    }
+    if (assetClassParam && assetClasses.some(a => a.value === assetClassParam)) {
+      setActiveTab(assetClassParam);
+    }
+  }, [searchParams]);
   const [editingInstrument, setEditingInstrument] = useState<GlobalInstrument | null>(null);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [bulkData, setBulkData] = useState("");
@@ -347,6 +371,45 @@ export default function GlobalSeedAdmin() {
               </Card>
             ))}
           </div>
+        )}
+
+        {/* Trading API Configuration - Shows when a market is selected */}
+        {marketFilter !== "all" && (
+          <Card className="border-blue-500/30 bg-blue-500/5">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Plug className="h-4 w-4 text-blue-500" />
+                Trading API Configuration - {markets.find(m => m.value === marketFilter)?.label}
+              </CardTitle>
+              <CardDescription>
+                Available trading APIs for this market. Configure API credentials in Settings to enable live trading.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {Object.entries(tradingApiProviders)
+                  .filter(([_, provider]) => provider.markets.includes(marketFilter))
+                  .map(([key, provider]) => (
+                    <div key={key} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+                      <div className="h-10 w-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                        <TrendingUp className="h-5 w-5 text-blue-500" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{provider.name}</p>
+                        <p className="text-xs text-muted-foreground">{provider.description}</p>
+                      </div>
+                      <Badge variant="outline" className="text-xs">
+                        Not Configured
+                      </Badge>
+                    </div>
+                  ))}
+                {Object.entries(tradingApiProviders)
+                  .filter(([_, provider]) => provider.markets.includes(marketFilter)).length === 0 && (
+                  <p className="text-muted-foreground col-span-full">No trading APIs available for this market yet.</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         <Card>
