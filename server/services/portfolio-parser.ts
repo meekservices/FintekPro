@@ -703,6 +703,23 @@ function parseCAMSKfintechTableFormat(text: string): ImportedHolding[] {
           schemeName += ' - ' + suffixMatch[1];
         }
         
+        // Filter out false positives: total lines, page info, non-fund entries
+        const isInvalidEntry = 
+          schemeName.toLowerCase().includes('page') ||
+          schemeName.toLowerCase().includes('loads') ||
+          schemeName.toLowerCase().includes('total') ||
+          schemeName.toLowerCase().includes('consolidated') ||
+          schemeName.toLowerCase().includes('account summary') ||
+          schemeName.toLowerCase().includes('version') ||
+          schemeName.match(/\d{1,2}-[A-Za-z]{3}-\d{4}/) || // Date pattern
+          schemeName.match(/^\d{2}-\d{4}/) || // Date pattern like "04-Dec-2025"
+          !schemeName.toLowerCase().includes('fund') && !schemeName.toLowerCase().includes('plan'); // Must have Fund or Plan
+        
+        if (isInvalidEntry) {
+          console.log('[CAMS Table Parser] Skipping invalid entry (total/page/non-fund):', schemeName);
+          continue;
+        }
+        
         if (marketValue > 100 && schemeName.length > 5) {
           holdings.push({
             id: `cas-isin-${Date.now()}-${holdings.length}`,
