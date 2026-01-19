@@ -1076,9 +1076,9 @@ export default function StoreManagement() {
                                       const getMarketCode = (sub: Subcategory) => {
                                         const slug = sub.slug || sub.id;
                                         if (slug === 'us-market' || sub.name.includes('US')) return 'US';
-                                        if (slug === 'uk-europe-market' || sub.name.includes('UK') || sub.name.includes('Europe')) return 'UK';
+                                        if (slug === 'uk-europe-market' || sub.name.includes('UK') || sub.name.includes('Europe')) return 'EU';
                                         if (slug === 'japan-market' || sub.name.includes('Japan')) return 'JP';
-                                        if (slug === 'china-hk-market' || sub.name.includes('China') || sub.name.includes('Hong Kong')) return 'HK';
+                                        if (slug === 'china-hk-market' || sub.name.includes('China') || sub.name.includes('Hong Kong')) return 'CN';
                                         if (slug === 'other-markets') return 'SG';
                                         return null;
                                       };

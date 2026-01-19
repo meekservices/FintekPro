@@ -54,10 +54,10 @@ const assetClasses = [
 const markets = [
   { value: "US", label: "United States" },
   { value: "UK", label: "United Kingdom" },
-  { value: "EU", label: "Europe" },
+  { value: "EU", label: "UK & Europe" },
   { value: "JP", label: "Japan" },
   { value: "HK", label: "Hong Kong" },
-  { value: "CN", label: "China" },
+  { value: "CN", label: "China & Hong Kong" },
   { value: "SG", label: "Singapore" },
   { value: "IN", label: "India" },
 ];
@@ -96,7 +96,7 @@ const tradingApiProviders: Record<string, { name: string; description: string; m
   alpaca: { name: "Alpaca", description: "Commission-free US stock trading API", markets: ["US"] },
   iex_cloud: { name: "IEX Cloud", description: "Real-time and historical market data", markets: ["US"] },
   polygon: { name: "Polygon.io", description: "Real-time and historical stock data", markets: ["US"] },
-  ibkr: { name: "Interactive Brokers", description: "Global multi-asset trading platform", markets: ["US", "UK", "EU", "JP", "HK", "SG"] },
+  ibkr: { name: "Interactive Brokers", description: "Global multi-asset trading platform", markets: ["US", "UK", "EU", "JP", "HK", "CN", "SG"] },
   saxo: { name: "Saxo Bank", description: "European multi-asset trading", markets: ["UK", "EU"] },
   futu: { name: "Futu/Moomoo", description: "Hong Kong and China stock trading", markets: ["HK", "CN"] },
   tiger: { name: "Tiger Brokers", description: "Asia-Pacific trading platform", markets: ["HK", "CN", "SG"] },
