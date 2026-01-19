@@ -180,3 +180,27 @@ router.get('/status/log', requireAuth, requireRole(['admin']), async (req: Reque
 });
 
 export default router;
+
+// Admin routes for bond universe seeding
+import { seedBondUniverse, getBondUniverseStats } from '../services/bond-universe-seeder';
+
+router.post('/admin/seed-universe', requireAuth, requireRole(['admin']), async (req: Request, res: Response) => {
+  try {
+    const { count = 8000 } = req.body;
+    const result = await seedBondUniverse(Math.min(count, 12000));
+    return apiResponse.success(res, result);
+  } catch (error: any) {
+    console.error('Error seeding bond universe:', error);
+    return apiResponse.serverError(res, 'Failed to seed bond universe');
+  }
+});
+
+router.get('/admin/universe-stats', requireAuth, requireRole(['admin']), async (req: Request, res: Response) => {
+  try {
+    const stats = await getBondUniverseStats();
+    return apiResponse.success(res, stats);
+  } catch (error: any) {
+    console.error('Error fetching universe stats:', error);
+    return apiResponse.serverError(res, 'Failed to fetch universe stats');
+  }
+});
