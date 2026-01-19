@@ -610,66 +610,100 @@ function parseCAMSKfintechTableFormat(text: string): ImportedHolding[] {
   if (holdings.length === 0 && uniqueISINs.length > 0) {
     console.log('[CAMS Table Parser] Trying ISIN-based extraction...');
     
-    // Process each ISIN and find its corresponding data in the text
-    // CAMS format: Folio | MarketValue | SchemeCode | ISIN | SchemeName | Cost | Units | Date | NAV | MarketValue | Registrar
+    // CAMS PDF format after text extraction:
+    // ...SchemeName Units Date NAV Registrar ISIN Cost Folio MarketValue SchemeCode - NextSchemeName...
+    // The market value appears AFTER the ISIN: ISIN -> Cost -> Folio -> MarketValue -> SchemeCode
+    // Example: "INF846K01J79  80,000.000 91085045342/0 91,703.02128AFGPG - Axis..."
+    
     for (const isin of uniqueISINs) {
       const isinIndex = text.indexOf(isin);
       if (isinIndex >= 0) {
-        // Look for data BEFORE the ISIN - this contains the folio and first market value
-        const beforeIsin = text.substring(Math.max(0, isinIndex - 100), isinIndex);
-        // Look for data AFTER the ISIN - this contains scheme name, cost, units, etc.
-        const afterIsin = text.substring(isinIndex + isin.length, Math.min(text.length, isinIndex + isin.length + 400));
+        // Look for data AFTER the ISIN - contains cost, folio, market value, scheme info
+        const afterIsin = text.substring(isinIndex + isin.length, Math.min(text.length, isinIndex + isin.length + 500));
+        // Also look before for context
+        const beforeIsin = text.substring(Math.max(0, isinIndex - 200), isinIndex);
         
-        console.log('[CAMS Table Parser] Before ISIN:', beforeIsin.substring(beforeIsin.length - 50));
-        console.log('[CAMS Table Parser] After ISIN:', afterIsin.substring(0, 80));
+        console.log('[CAMS Table Parser] After ISIN:', afterIsin.substring(0, 120));
         
-        // Pattern before ISIN: "91085045342/0" "96,931.64" "128OGGPG"
-        // Sometimes merged as: "91085045342/0 96,931.64128OGGPG"
-        // The market value is the last numeric before ISIN
-        const beforeMatch = beforeIsin.match(/(\d{1,3}(?:,\d{3})*\.\d{2})(?=[A-Z0-9]+\s*$)/);
+        // Pattern after ISIN: " 80,000.000\n91085045342/0 91,703.02128AFGPG - Axis..."
+        // The market value is the SECOND decimal number after folio pattern
+        // Or pattern: "Cost FolioNo MarketValueSchemeCode - SchemeName"
+        
+        // Look for: folio pattern followed by market value (XX,XXX.XX) followed by scheme code
+        const afterPattern = afterIsin.match(/\d{5,}(?:\/\d+)?\s+([\d,]+\.\d{2})(\d*[A-Z]+)\s*-\s*(.+?)(?:\n|Growth|IDCW|Regular|Direct)/i);
+        
         let marketValue = 0;
-        if (beforeMatch) {
-          marketValue = parseFloat(beforeMatch[1].replace(/,/g, ''));
+        let schemeName = '';
+        let folio = '';
+        
+        if (afterPattern) {
+          marketValue = parseFloat(afterPattern[1].replace(/,/g, ''));
+          schemeName = afterPattern[3].trim();
+          console.log('[CAMS Table Parser] Matched after pattern:', afterPattern[1], afterPattern[3]);
         } else {
-          // Try alternate pattern - find the last decimal number before ISIN
-          const allNumbers = beforeIsin.match(/\d{1,3}(?:,\d{3})*\.\d{2}/g);
-          if (allNumbers && allNumbers.length > 0) {
-            marketValue = parseFloat(allNumbers[allNumbers.length - 1].replace(/,/g, ''));
+          // Alternate: look for all decimal numbers after ISIN, skip cost (first big one), take next one
+          const allDecimals = afterIsin.match(/(\d{1,3}(?:,\d{3})*\.\d{2})/g);
+          console.log('[CAMS Table Parser] All decimals after ISIN:', allDecimals?.slice(0, 5));
+          
+          if (allDecimals && allDecimals.length >= 2) {
+            // Pattern: First decimal is cost (80,000.000), second is market value (91,703.02)
+            // But we need the one that looks like a market value (tens of thousands typically)
+            const parsedValues = allDecimals.map(v => parseFloat(v.replace(/,/g, '')));
+            
+            // Find folio in afterIsin to locate the market value
+            const folioInAfter = afterIsin.match(/(\d{5,}(?:\/\d+)?)/);
+            if (folioInAfter) {
+              folio = folioInAfter[1];
+              // Market value comes right after folio
+              const afterFolioIdx = afterIsin.indexOf(folioInAfter[0]) + folioInAfter[0].length;
+              const afterFolio = afterIsin.substring(afterFolioIdx);
+              const mvMatch = afterFolio.match(/^\s*([\d,]+\.\d{2})/);
+              if (mvMatch) {
+                marketValue = parseFloat(mvMatch[1].replace(/,/g, ''));
+                console.log('[CAMS Table Parser] Market value after folio:', marketValue);
+              }
+            }
+            
+            // Fallback: take the value that's in reasonable MF range (10K - 10L typically)
+            if (marketValue === 0) {
+              const reasonableValues = parsedValues.filter(v => v >= 1000 && v <= 1000000);
+              if (reasonableValues.length > 0) {
+                // Take the second reasonable value if available (first is often cost)
+                marketValue = reasonableValues.length > 1 ? reasonableValues[1] : reasonableValues[0];
+              }
+            }
           }
         }
         
-        // Extract folio from before ISIN
-        const folioMatch = beforeIsin.match(/(\d{5,}(?:\/\d+)?)/);
-        const folio = folioMatch ? folioMatch[1] : '';
-        
-        // Extract scheme name from after ISIN
-        // Pattern: "SchemeCode - Scheme Name ... Growth/IDCW/Regular"
-        let schemeName = '';
-        const schemeMatch = afterIsin.match(/^([A-Z0-9]+)\s*-\s*([A-Za-z][A-Za-z0-9\s&\-()]+(?:Fund|Plan)[A-Za-z0-9\s&\-()]*)/i);
-        if (schemeMatch) {
-          schemeName = schemeMatch[2].trim();
-        } else {
-          // Try simpler pattern
-          const simpleMatch = afterIsin.match(/([A-Za-z][A-Za-z0-9\s&\-()]+(?:Fund|Plan)[A-Za-z0-9\s&\-()]*)/i);
-          schemeName = simpleMatch ? simpleMatch[1].trim() : `Unknown Fund (${isin})`;
+        // Extract scheme name from after ISIN if not already found
+        if (!schemeName) {
+          // Look for "SchemeCode - SchemeName" pattern
+          const schemeMatch = afterIsin.match(/[A-Z0-9]+\s*-\s*([A-Za-z][A-Za-z0-9\s&\-()]+(?:Fund|Plan)[A-Za-z0-9\s&\-()]*)/i);
+          schemeName = schemeMatch ? schemeMatch[1].trim() : '';
         }
         
-        // Clean up scheme name - remove trailing garbage, newlines, numbers
+        // Also try to get scheme name from BEFORE the ISIN (same line context)
+        if (!schemeName) {
+          const beforeScheme = beforeIsin.match(/([A-Za-z][A-Za-z0-9\s&\-()]+(?:Fund|Plan)[A-Za-z0-9\s&\-()]*)\s*$/i);
+          schemeName = beforeScheme ? beforeScheme[1].trim() : `Unknown Fund (${isin})`;
+        }
+        
+        // Clean up scheme name
         schemeName = schemeName
           .replace(/\n/g, ' ')
           .replace(/\s+/g, ' ')
-          .replace(/\s*\d+\s*$/, '') // Remove trailing numbers
-          .replace(/\s*(KFINTECH|CAMS)\s*$/i, '') // Remove registrar
-          .replace(/\s*\d{1,2}-[A-Za-z]{3}-\d{4}\s*$/, '') // Remove dates
+          .replace(/\s*\d+\s*$/, '')
+          .replace(/\s*(KFINTECH|CAMS)\s*$/i, '')
+          .replace(/\s*\d{1,2}-[A-Za-z]{3}-\d{4}\s*$/, '')
           .trim();
         
-        // Add Growth/IDCW/Regular suffix if present
+        // Add suffix if present
         const suffixMatch = afterIsin.match(/\b(Growth|IDCW|Regular\s*Plan|Direct\s*Plan)\b/i);
         if (suffixMatch && !schemeName.toLowerCase().includes(suffixMatch[1].toLowerCase())) {
           schemeName += ' - ' + suffixMatch[1];
         }
         
-        if (marketValue > 0 && schemeName.length > 5) {
+        if (marketValue > 100 && schemeName.length > 5) {
           holdings.push({
             id: `cas-isin-${Date.now()}-${holdings.length}`,
             name: schemeName,
