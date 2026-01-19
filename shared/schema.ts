@@ -9983,11 +9983,39 @@ export const corporateBonds = pgTable("corporate_bonds", {
   specialFeatures: jsonb("special_features").default([]),
   lockinPeriod: varchar("lockin_period"),
   
+  // Instrument Classification (SELLABLE/VISIBLE/HIDDEN)
+  instrumentStatus: varchar("instrument_status", { length: 16 }).default("HIDDEN").notNull(), // 'SELLABLE', 'VISIBLE', 'HIDDEN'
+  isListed: boolean("is_listed").default(true).notNull(), // Listed on exchange vs unlisted/privately placed
+  liquidityScore: integer("liquidity_score"), // 0-100 score
+  ratingCurrent: varchar("rating_current", { length: 10 }), // Current credit rating
+  ratingTrend: varchar("rating_trend", { length: 10 }), // 'improving', 'stable', 'deteriorating'
+  structureComplexity: integer("structure_complexity"), // 1-5 complexity score
+  regulatoryEligibility: varchar("regulatory_eligibility", { length: 32 }), // 'retail', 'institutional', 'qib_only', 'hni_only'
+  bidAskSpread: decimal("bid_ask_spread", { precision: 5, scale: 2 }), // Spread percentage
+  statusReason: text("status_reason"), // Explanation for current status
+  statusLastUpdated: timestamp("status_last_updated"), // When status was last evaluated
+  
   // Metadata
   dataSource: varchar("data_source").default("bse_bond"), // 'bse_bond', 'manual'
   lastUpdated: timestamp("last_updated").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+// Fixed Income Status Transition Log - Audit trail for status changes (SEBI compliant)
+export const fixedIncomeStatusLog = pgTable("fixed_income_status_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  isin: varchar("isin").notNull(),
+  previousStatus: varchar("previous_status", { length: 16 }),
+  newStatus: varchar("new_status", { length: 16 }).notNull(),
+  changeReason: text("change_reason").notNull(),
+  evaluationGates: jsonb("evaluation_gates").default({}), // Gate-by-gate results
+  triggeredBy: varchar("triggered_by", { length: 50 }).default("daily_refresh"), // 'daily_refresh', 'manual', 'price_update', 'rating_change'
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type FixedIncomeStatusLog = typeof fixedIncomeStatusLog.$inferSelect;
+export type InsertFixedIncomeStatusLog = typeof fixedIncomeStatusLog.$inferInsert;
+export const insertFixedIncomeStatusLogSchema = createInsertSchema(fixedIncomeStatusLog).omit({ id: true, createdAt: true });
 
 // Bond Orders table - Purchase and sale orders
 
