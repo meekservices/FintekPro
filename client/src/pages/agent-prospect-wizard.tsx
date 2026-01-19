@@ -399,6 +399,13 @@ export default function AgentProspectWizard() {
     currentValue: 0
   });
   const [editingHoldingIndex, setEditingHoldingIndex] = useState<number | null>(null);
+  
+  // Product search state for autocomplete
+  const [productSearchQuery, setProductSearchQuery] = useState("");
+  const [productSearchResults, setProductSearchResults] = useState<any[]>([]);
+  const [isSearchingProducts, setIsSearchingProducts] = useState(false);
+  const [showProductDropdown, setShowProductDropdown] = useState(false);
+  const [selectedInstrumentPrice, setSelectedInstrumentPrice] = useState<number | null>(null);
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [savedHoldingsLoaded, setSavedHoldingsLoaded] = useState(false);
 
@@ -1189,6 +1196,69 @@ export default function AgentProspectWizard() {
     setSavedHoldingsLoaded(false);
   }, [prospectId]);
 
+  // Product search for autocomplete - debounced search
+  useEffect(() => {
+    const searchProducts = async () => {
+      if (productSearchQuery.length < 3) {
+        setProductSearchResults([]);
+        setShowProductDropdown(false);
+        return;
+      }
+
+      setIsSearchingProducts(true);
+      try {
+        // Map frontend productType to backend assetClass
+        const assetClassMap: Record<string, string> = {
+          'mutual_fund': 'mutual_fund',
+          'equity': 'equity',
+          'etf': 'etf',
+          'bond': 'bond',
+          'fd': 'fixed_deposit',
+          'gold': 'gold',
+        };
+        const assetClass = assetClassMap[newHolding.productType || 'mutual_fund'] || '';
+        
+        const response = await fetch(`/api/instruments/search?q=${encodeURIComponent(productSearchQuery)}&assetClass=${assetClass}&limit=10`);
+        if (response.ok) {
+          const data = await response.json();
+          setProductSearchResults(data.instruments || []);
+          setShowProductDropdown(data.instruments?.length > 0);
+        }
+      } catch (error) {
+        console.error("Product search error:", error);
+      } finally {
+        setIsSearchingProducts(false);
+      }
+    };
+
+    const debounceTimer = setTimeout(searchProducts, 300);
+    return () => clearTimeout(debounceTimer);
+  }, [productSearchQuery, newHolding.productType]);
+
+  // Handle selecting a product from search results
+  const selectProduct = (instrument: any) => {
+    const price = parseFloat(instrument.lastPrice) || parseFloat(instrument.nav) || 0;
+    setNewHolding({
+      ...newHolding,
+      productName: instrument.name || instrument.shortName,
+      isin: instrument.isin,
+      currentValue: price * (newHolding.quantity || 1)
+    });
+    setSelectedInstrumentPrice(price);
+    setProductSearchQuery(instrument.name || instrument.shortName);
+    setShowProductDropdown(false);
+  };
+
+  // Recalculate current value when units change
+  const handleUnitsChange = (units: number) => {
+    const calculatedValue = selectedInstrumentPrice ? units * selectedInstrumentPrice : newHolding.currentValue || 0;
+    setNewHolding({
+      ...newHolding,
+      quantity: units,
+      currentValue: selectedInstrumentPrice ? calculatedValue : newHolding.currentValue || 0
+    });
+  };
+
   useEffect(() => {
     // When risk profile changes, reset both allocations AND categories to defaults
     const defaultAllocations = DEFAULT_ALLOCATIONS[riskProfile.riskTolerance];
@@ -1902,6 +1972,9 @@ export default function AgentProspectWizard() {
       setHoldings([...holdings, holdingToAdd]);
     }
     setNewHolding({ productType: "mutual_fund", productName: "", quantity: 1, currentValue: 0 });
+    setProductSearchQuery("");
+    setSelectedInstrumentPrice(null);
+    setProductSearchResults([]);
   };
 
   const removeHolding = (index: number) => {
@@ -1919,8 +1992,11 @@ export default function AgentProspectWizard() {
       productType: holdingToEdit.productType,
       productName: holdingToEdit.productName,
       quantity: holdingToEdit.quantity ?? 1,
-      currentValue: holdingToEdit.currentValue ?? 0
+      currentValue: holdingToEdit.currentValue ?? 0,
+      isin: holdingToEdit.isin
     });
+    setProductSearchQuery(holdingToEdit.productName);
+    setSelectedInstrumentPrice(null);
     setImportMode('manual');
   };
 
@@ -1942,11 +2018,17 @@ export default function AgentProspectWizard() {
       setEditingHoldingIndex(null);
     }
     setNewHolding({ productType: "mutual_fund", productName: "", quantity: 1, currentValue: 0 });
+    setProductSearchQuery("");
+    setSelectedInstrumentPrice(null);
+    setProductSearchResults([]);
   };
 
   const cancelEditHolding = () => {
     setEditingHoldingIndex(null);
     setNewHolding({ productType: "mutual_fund", productName: "", quantity: 1, currentValue: 0 });
+    setProductSearchQuery("");
+    setSelectedInstrumentPrice(null);
+    setProductSearchResults([]);
   };
 
   const steps = [
@@ -2742,7 +2824,7 @@ export default function AgentProspectWizard() {
                   Editing holding #{editingHoldingIndex + 1}
                 </div>
               )}
-              <div className="grid md:grid-cols-6 gap-3 items-end">
+              <div className="grid md:grid-cols-7 gap-3 items-end">
                 <div className="space-y-2">
                   <Label>Product Type</Label>
                   <Select value={newHolding.productType} onValueChange={(v) => setNewHolding({ ...newHolding, productType: v })}>
@@ -2756,14 +2838,66 @@ export default function AgentProspectWizard() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Product Name</Label>
+                <div className="space-y-2 md:col-span-2 relative">
+                  <Label>Product Name / ISIN</Label>
+                  <div className="relative">
+                    <Input 
+                      placeholder="Search by name or ISIN (min 3 chars)"
+                      value={productSearchQuery || newHolding.productName || ''}
+                      onChange={(e) => {
+                        setProductSearchQuery(e.target.value);
+                        setNewHolding({ ...newHolding, productName: e.target.value });
+                        if (e.target.value !== newHolding.productName) {
+                          setSelectedInstrumentPrice(null);
+                        }
+                      }}
+                      onFocus={() => productSearchResults.length > 0 && setShowProductDropdown(true)}
+                      data-testid="product-name-input"
+                    />
+                    {isSearchingProducts && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      </div>
+                    )}
+                    {showProductDropdown && productSearchResults.length > 0 && (
+                      <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto">
+                        {productSearchResults.map((instrument, idx) => (
+                          <button
+                            key={instrument.id || idx}
+                            className="w-full px-3 py-2 text-left hover:bg-muted/50 border-b last:border-0 text-sm"
+                            onClick={() => selectProduct(instrument)}
+                            type="button"
+                          >
+                            <div className="font-medium truncate">{instrument.name || instrument.shortName}</div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              {instrument.isin && <span className="font-mono">{instrument.isin}</span>}
+                              {instrument.lastPrice && <span>₹{parseFloat(instrument.lastPrice).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>}
+                              {instrument.category && <Badge variant="outline" className="text-[10px] h-4">{instrument.category}</Badge>}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {newHolding.isin && (
+                    <p className="text-xs text-muted-foreground">ISIN: {newHolding.isin}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Units Held</Label>
                   <Input 
-                    placeholder="HDFC Flexi Cap Fund"
-                    value={newHolding.productName}
-                    onChange={(e) => setNewHolding({ ...newHolding, productName: e.target.value })}
-                    data-testid="product-name-input"
+                    type="number"
+                    placeholder="100"
+                    step="0.0001"
+                    value={newHolding.quantity || ''}
+                    onChange={(e) => handleUnitsChange(parseFloat(e.target.value) || 0)}
+                    data-testid="product-units-input"
                   />
+                  {selectedInstrumentPrice && (
+                    <p className="text-xs text-muted-foreground">
+                      Price: ₹{selectedInstrumentPrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Current Value (₹)</Label>
@@ -2773,7 +2907,11 @@ export default function AgentProspectWizard() {
                     value={newHolding.currentValue || ''}
                     onChange={(e) => setNewHolding({ ...newHolding, currentValue: parseFloat(e.target.value) || 0 })}
                     data-testid="product-value-input"
+                    className={selectedInstrumentPrice ? "bg-muted/30" : ""}
                   />
+                  {selectedInstrumentPrice && newHolding.quantity && (
+                    <p className="text-xs text-green-600">Auto-calculated from units × price</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label className="flex items-center gap-1">
