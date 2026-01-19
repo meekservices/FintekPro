@@ -498,20 +498,33 @@ router.post(
         isin: h.isin || '',
         quantity: h.quantity || 0,
         averagePrice: h.averageCost || 0,
+        investedValue: h.investedValue || 0,
         currentValue: h.currentValue || 0,
+        currentNav: h.currentNav || 0,
+        unrealizedGain: h.unrealizedGain || 0,
+        unrealizedGainPercent: h.unrealizedGainPercent || 0,
         assetType: h.assetType || 'mutual_fund',
         folioNumber: h.folioNumber || '',
         confidenceScore: h.confidenceScore || 85,
         broker: parseResult.brokerDetected || (statementType === 'cas' ? 'CAMS/KFintech' : 'NSDL/CDSL')
       }));
       
+      const totalValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
+      const totalInvested = holdings.reduce((sum, h) => sum + (h.investedValue || 0), 0);
+      const fundsCount = holdings.length;
+      
+      // Generate import summary message
+      const importSummary = `${fundsCount} mutual fund${fundsCount > 1 ? 's' : ''} imported. Current value calculated using today's NAV from FintekPro database.`;
+      
       res.json({
         success: true,
         holdings,
         brokerDetected: parseResult.brokerDetected || (statementType === 'cas' ? 'CAMS/KFintech CAS' : 'NSDL/CDSL Demat'),
         confidenceScore: parseResult.confidenceScore,
-        totalValue: holdings.reduce((sum, h) => sum + h.currentValue, 0),
-        holdingsCount: holdings.length
+        totalValue: totalValue,
+        totalInvested: totalInvested,
+        holdingsCount: fundsCount,
+        importSummary: importSummary
       });
     } catch (error: any) {
       console.error('CAS parsing error:', error);

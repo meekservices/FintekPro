@@ -607,133 +607,95 @@ function parseCAMSKfintechTableFormat(text: string): ImportedHolding[] {
   }
   
   // If we still have no holdings, try to extract from the full text using ISIN-based approach
-  if (holdings.length === 0 && uniqueISINs.length > 0) {
-    console.log('[CAMS Table Parser] Trying ISIN-based extraction...');
+  // Only process ISINs starting with "INF" (mutual funds)
+  const mfISINs = uniqueISINs.filter(isin => isin.startsWith('INF'));
+  
+  if (holdings.length === 0 && mfISINs.length > 0) {
+    console.log('[CAMS Table Parser] Trying ISIN-based extraction for', mfISINs.length, 'mutual fund ISINs...');
     
-    // CAMS PDF format after text extraction:
-    // ...SchemeName Units Date NAV Registrar ISIN Cost Folio MarketValue SchemeCode - NextSchemeName...
-    // The market value appears AFTER the ISIN: ISIN -> Cost -> Folio -> MarketValue -> SchemeCode
-    // Example: "INF846K01J79  80,000.000 91085045342/0 91,703.02128AFGPG - Axis..."
+    // CAMS PDF format after text extraction (from logs):
+    // BEFORE ISIN: "...SchemeName\nUnits Date NAV Registrar\n"
+    // Example: "Growth\n2,908.240 03-Dec-2025 33.33 KFINTECH\n"
+    // AFTER ISIN: " Cost\nFolio MarketValueSchemeCode - NextSchemeName..."
+    // Example: " 80,000.000\n91085045342/0 91,703.02128AFGPG - Axis..."
     
-    for (const isin of uniqueISINs) {
+    for (const isin of mfISINs) {
       const isinIndex = text.indexOf(isin);
       if (isinIndex >= 0) {
-        // Look for data AFTER the ISIN - contains cost, folio, market value, scheme info
-        const afterIsin = text.substring(isinIndex + isin.length, Math.min(text.length, isinIndex + isin.length + 500));
-        // Also look before for context
-        const beforeIsin = text.substring(Math.max(0, isinIndex - 200), isinIndex);
+        // Look for data BEFORE the ISIN - contains Units, Date, NAV, Registrar
+        const beforeIsin = text.substring(Math.max(0, isinIndex - 300), isinIndex);
+        // Look for data AFTER the ISIN - contains Cost, Folio, MarketValue, NextScheme
+        const afterIsin = text.substring(isinIndex + isin.length, Math.min(text.length, isinIndex + isin.length + 400));
         
-        console.log('[CAMS Table Parser] After ISIN:', afterIsin.substring(0, 120));
+        console.log('[CAMS Table Parser] ISIN:', isin);
+        console.log('[CAMS Table Parser] Before ISIN (last 100):', beforeIsin.slice(-100));
+        console.log('[CAMS Table Parser] After ISIN (first 100):', afterIsin.substring(0, 100));
         
-        // Pattern after ISIN: " 80,000.000\n91085045342/0 91,703.02128AFGPG - Axis..."
-        // The market value is the SECOND decimal number after folio pattern
-        // Or pattern: "Cost FolioNo MarketValueSchemeCode - SchemeName"
+        // Extract Units from BEFORE ISIN
+        // Pattern: "Growth\n2,908.240 03-Dec-2025 33.33 KFINTECH\n"
+        // Units is typically the first decimal number before the date (DD-Mon-YYYY)
+        const unitsMatch = beforeIsin.match(/(\d{1,3}(?:,\d{3})*\.\d{2,4})\s+\d{1,2}-[A-Za-z]{3}-\d{4}/);
+        let units = 0;
+        if (unitsMatch) {
+          units = parseFloat(unitsMatch[1].replace(/,/g, ''));
+          console.log('[CAMS Table Parser] Extracted units:', units);
+        }
         
-        // Look for: folio pattern followed by market value (XX,XXX.XX) followed by scheme code
-        const afterPattern = afterIsin.match(/\d{5,}(?:\/\d+)?\s+([\d,]+\.\d{2})(\d*[A-Z]+)\s*-\s*(.+?)(?:\n|Growth|IDCW|Regular|Direct)/i);
+        // Extract Statement NAV Date from before ISIN
+        const navDateMatch = beforeIsin.match(/(\d{1,2}-[A-Za-z]{3}-\d{4})/);
+        const statementNavDate = navDateMatch ? navDateMatch[1] : '';
         
-        let marketValue = 0;
-        let schemeName = '';
-        let folio = '';
+        // Extract Cost (invested value) from AFTER ISIN - first decimal number
+        const costMatch = afterIsin.match(/^\s*([\d,]+\.\d{2,3})/);
+        let investedValue = 0;
+        if (costMatch) {
+          investedValue = parseFloat(costMatch[1].replace(/,/g, ''));
+          console.log('[CAMS Table Parser] Extracted cost/invested:', investedValue);
+        }
         
-        if (afterPattern) {
-          marketValue = parseFloat(afterPattern[1].replace(/,/g, ''));
-          schemeName = afterPattern[3].trim();
-          console.log('[CAMS Table Parser] Matched after pattern:', afterPattern[1], afterPattern[3]);
-        } else {
-          // Alternate: look for all decimal numbers after ISIN, skip cost (first big one), take next one
-          const allDecimals = afterIsin.match(/(\d{1,3}(?:,\d{3})*\.\d{2})/g);
-          console.log('[CAMS Table Parser] All decimals after ISIN:', allDecimals?.slice(0, 5));
-          
-          if (allDecimals && allDecimals.length >= 2) {
-            // Pattern: First decimal is cost (80,000.000), second is market value (91,703.02)
-            // But we need the one that looks like a market value (tens of thousands typically)
-            const parsedValues = allDecimals.map(v => parseFloat(v.replace(/,/g, '')));
-            
-            // Find folio in afterIsin to locate the market value
-            const folioInAfter = afterIsin.match(/(\d{5,}(?:\/\d+)?)/);
-            if (folioInAfter) {
-              folio = folioInAfter[1];
-              // Market value comes right after folio
-              const afterFolioIdx = afterIsin.indexOf(folioInAfter[0]) + folioInAfter[0].length;
-              const afterFolio = afterIsin.substring(afterFolioIdx);
-              const mvMatch = afterFolio.match(/^\s*([\d,]+\.\d{2})/);
-              if (mvMatch) {
-                marketValue = parseFloat(mvMatch[1].replace(/,/g, ''));
-                console.log('[CAMS Table Parser] Market value after folio:', marketValue);
-              }
-            }
-            
-            // Fallback: take the value that's in reasonable MF range (10K - 10L typically)
-            if (marketValue === 0) {
-              const reasonableValues = parsedValues.filter(v => v >= 1000 && v <= 1000000);
-              if (reasonableValues.length > 0) {
-                // Take the second reasonable value if available (first is often cost)
-                marketValue = reasonableValues.length > 1 ? reasonableValues[1] : reasonableValues[0];
-              }
-            }
+        // Extract Folio from AFTER ISIN
+        const folioMatch = afterIsin.match(/(\d{5,}(?:\/\d+)?)/);
+        const folio = folioMatch ? folioMatch[1] : '';
+        
+        // Extract Statement Market Value from AFTER ISIN (after folio)
+        let statementMarketValue = 0;
+        if (folioMatch) {
+          const afterFolio = afterIsin.substring(afterIsin.indexOf(folioMatch[0]) + folioMatch[0].length);
+          const mvMatch = afterFolio.match(/^\s*([\d,]+\.\d{2})/);
+          if (mvMatch) {
+            statementMarketValue = parseFloat(mvMatch[1].replace(/,/g, ''));
+            console.log('[CAMS Table Parser] Extracted statement market value:', statementMarketValue);
           }
         }
         
-        // Extract scheme name from after ISIN if not already found
-        if (!schemeName) {
-          // Look for "SchemeCode - SchemeName" pattern
-          const schemeMatch = afterIsin.match(/[A-Z0-9]+\s*-\s*([A-Za-z][A-Za-z0-9\s&\-()]+(?:Fund|Plan)[A-Za-z0-9\s&\-()]*)/i);
-          schemeName = schemeMatch ? schemeMatch[1].trim() : '';
-        }
-        
-        // Also try to get scheme name from BEFORE the ISIN (same line context)
-        if (!schemeName) {
-          const beforeScheme = beforeIsin.match(/([A-Za-z][A-Za-z0-9\s&\-()]+(?:Fund|Plan)[A-Za-z0-9\s&\-()]*)\s*$/i);
-          schemeName = beforeScheme ? beforeScheme[1].trim() : `Unknown Fund (${isin})`;
-        }
-        
-        // Clean up scheme name
-        schemeName = schemeName
-          .replace(/\n/g, ' ')
-          .replace(/\s+/g, ' ')
-          .replace(/\s*\d+\s*$/, '')
-          .replace(/\s*(KFINTECH|CAMS)\s*$/i, '')
-          .replace(/\s*\d{1,2}-[A-Za-z]{3}-\d{4}\s*$/, '')
-          .trim();
-        
-        // Add suffix if present
-        const suffixMatch = afterIsin.match(/\b(Growth|IDCW|Regular\s*Plan|Direct\s*Plan)\b/i);
-        if (suffixMatch && !schemeName.toLowerCase().includes(suffixMatch[1].toLowerCase())) {
-          schemeName += ' - ' + suffixMatch[1];
-        }
-        
-        // Filter out false positives: total lines, page info, non-fund entries
-        const isInvalidEntry = 
-          schemeName.toLowerCase().includes('page') ||
-          schemeName.toLowerCase().includes('loads') ||
-          schemeName.toLowerCase().includes('total') ||
-          schemeName.toLowerCase().includes('consolidated') ||
-          schemeName.toLowerCase().includes('account summary') ||
-          schemeName.toLowerCase().includes('version') ||
-          schemeName.match(/\d{1,2}-[A-Za-z]{3}-\d{4}/) || // Date pattern
-          schemeName.match(/^\d{2}-\d{4}/) || // Date pattern like "04-Dec-2025"
-          !schemeName.toLowerCase().includes('fund') && !schemeName.toLowerCase().includes('plan'); // Must have Fund or Plan
-        
-        if (isInvalidEntry) {
-          console.log('[CAMS Table Parser] Skipping invalid entry (total/page/non-fund):', schemeName);
+        // Skip if we couldn't extract essential data
+        if (units === 0 && investedValue === 0 && statementMarketValue === 0) {
+          console.log('[CAMS Table Parser] Skipping ISIN - no valid data extracted:', isin);
           continue;
         }
         
-        if (marketValue > 100 && schemeName.length > 5) {
+        // Use units if we got it, otherwise estimate from market value / typical NAV
+        const quantity = units > 0 ? units : 0;
+        
+        // For now, use statement market value - will be recalculated with current NAV later
+        const currentValue = statementMarketValue > 0 ? statementMarketValue : investedValue;
+        
+        if (currentValue > 100) {
           holdings.push({
             id: `cas-isin-${Date.now()}-${holdings.length}`,
-            name: schemeName,
+            name: `ISIN: ${isin}`, // Will be enriched from database
             isin: isin,
             assetType: 'mutual_fund',
-            quantity: 0,
-            currentValue: marketValue,
+            quantity: quantity,
+            averageCost: quantity > 0 && investedValue > 0 ? investedValue / quantity : 0,
+            investedValue: investedValue,
+            currentValue: currentValue,
             folioNumber: folio,
             broker: 'CAMS/KFintech',
-            confidenceScore: 80
+            confidenceScore: 85
           });
           
-          console.log('[CAMS Table Parser] Found holding (ISIN-based):', schemeName, 'Value:', marketValue);
+          console.log('[CAMS Table Parser] Found holding:', isin, 'Units:', quantity, 'Cost:', investedValue, 'Value:', currentValue);
         }
       }
     }
@@ -747,15 +709,15 @@ function parseCAMSKfintechTableFormat(text: string): ImportedHolding[] {
 
 export async function enrichHoldingsWithDatabaseLookup(holdings: ImportedHolding[]): Promise<ImportedHolding[]> {
   const isins = holdings
-    .filter(h => h.isin && h.isin.length === 12)
+    .filter(h => h.isin && h.isin.length === 12 && h.isin.startsWith('INF'))
     .map(h => h.isin!);
   
   if (isins.length === 0) {
-    console.log('[CAS Parser] No ISINs to lookup for enrichment');
+    console.log('[CAS Parser] No mutual fund ISINs to lookup for enrichment');
     return holdings;
   }
   
-  console.log(`[CAS Parser] Looking up ${isins.length} ISINs in database for fund name enrichment`);
+  console.log(`[CAS Parser] Looking up ${isins.length} ISINs in database for fund name and NAV enrichment`);
   
   const fundLookup = await liveMFDataService.getFundsByIsinBatch(isins);
   console.log(`[CAS Parser] Found ${fundLookup.size} funds in database`);
@@ -763,20 +725,45 @@ export async function enrichHoldingsWithDatabaseLookup(holdings: ImportedHolding
   return holdings.map(holding => {
     if (holding.isin && fundLookup.has(holding.isin)) {
       const dbFund = fundLookup.get(holding.isin)!;
-      const needsEnrichment = holding.name.includes('Unknown') || 
-                              holding.name.includes('ISIN:') ||
-                              holding.name.length < 20;
+      const currentNav = dbFund.nav || 0;
       
-      if (needsEnrichment) {
-        console.log(`[CAS Parser] Enriched "${holding.name}" -> "${dbFund.schemeName}" from database`);
-        return {
-          ...holding,
-          name: dbFund.schemeName,
-          broker: holding.broker || dbFund.fundHouse
-        };
+      // Calculate current value using today's NAV from database
+      // If we have units, use: units × current NAV
+      // Otherwise keep the statement value as fallback
+      let calculatedCurrentValue = holding.currentValue;
+      if (holding.quantity > 0 && currentNav > 0) {
+        calculatedCurrentValue = holding.quantity * currentNav;
+        console.log(`[CAS Parser] Calculated current value: ${holding.quantity} units × ₹${currentNav} NAV = ₹${calculatedCurrentValue.toFixed(2)}`);
       }
+      
+      // Calculate unrealized gain if we have invested value
+      let unrealizedGain = 0;
+      let unrealizedGainPercent = 0;
+      if (holding.investedValue && holding.investedValue > 0) {
+        unrealizedGain = calculatedCurrentValue - holding.investedValue;
+        unrealizedGainPercent = (unrealizedGain / holding.investedValue) * 100;
+      }
+      
+      console.log(`[CAS Parser] Enriched: ${dbFund.schemeName} | Folio: ${holding.folioNumber} | Units: ${holding.quantity} | NAV: ₹${currentNav} | Value: ₹${calculatedCurrentValue.toFixed(2)}`);
+      
+      return {
+        ...holding,
+        name: dbFund.schemeName,
+        currentNav: currentNav,
+        currentValue: calculatedCurrentValue,
+        unrealizedGain: unrealizedGain,
+        unrealizedGainPercent: unrealizedGainPercent,
+        broker: holding.broker || dbFund.fundHouse,
+        confidenceScore: 90 // Higher confidence when enriched from database
+      };
     }
-    return holding;
+    
+    // If not found in database, keep original but mark lower confidence
+    console.log(`[CAS Parser] Fund not found in database: ${holding.isin}`);
+    return {
+      ...holding,
+      confidenceScore: 60
+    };
   });
 }
 
