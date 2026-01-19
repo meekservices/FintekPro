@@ -983,10 +983,30 @@ export default function StoreManagement() {
                                 if (slug === 'stocks' || slug === 'listed-stocks' || slug === 'equities' || cat.name.includes('Listed Stocks') || cat.name.includes('Equities')) {
                                   return '/admin/listed-stocks-seed';
                                 }
-                                if (slug === 'global' || slug === 'global-stocks' || slug === 'international' || slug === 'us-stocks' || slug === 'global-etf' || cat.name.includes('Global') || cat.name.includes('International') || cat.name.includes('US Stocks') || cat.name.includes('ETF')) {
+                                if (slug === 'global-markets' || slug === 'global' || slug === 'global-stocks' || slug === 'international' || cat.name.includes('Global Markets') || cat.name.includes('International')) {
                                   return '/admin/global-seed';
                                 }
                                 return `/admin/store/seed/${slug}`;
+                              };
+                              
+                              const getSubcategorySeedRoute = (sub: Subcategory) => {
+                                const slug = sub.slug || sub.id;
+                                if (slug === 'us-market' || sub.name.includes('US Market')) {
+                                  return '/admin/global-seed?market=US';
+                                }
+                                if (slug === 'uk-europe-market' || sub.name.includes('UK') || sub.name.includes('Europe')) {
+                                  return '/admin/global-seed?market=UK';
+                                }
+                                if (slug === 'japan-market' || sub.name.includes('Japan')) {
+                                  return '/admin/global-seed?market=JP';
+                                }
+                                if (slug === 'china-hk-market' || sub.name.includes('China') || sub.name.includes('Hong Kong')) {
+                                  return '/admin/global-seed?market=HK';
+                                }
+                                if (slug === 'other-markets' || sub.name.includes('Other')) {
+                                  return '/admin/global-seed?market=SG';
+                                }
+                                return null;
                               };
                               return (
                                 <Link href={getSeedRoute(category)}>
@@ -1051,6 +1071,35 @@ export default function StoreManagement() {
                                         Parent Disabled
                                       </Badge>
                                     )}
+                                    {/* Seed button for global market subcategories */}
+                                    {(category.slug === 'global-markets' || category.name.includes('Global Markets')) && (() => {
+                                      const getMarketCode = (sub: Subcategory) => {
+                                        const slug = sub.slug || sub.id;
+                                        if (slug === 'us-market' || sub.name.includes('US')) return 'US';
+                                        if (slug === 'uk-europe-market' || sub.name.includes('UK') || sub.name.includes('Europe')) return 'UK';
+                                        if (slug === 'japan-market' || sub.name.includes('Japan')) return 'JP';
+                                        if (slug === 'china-hk-market' || sub.name.includes('China') || sub.name.includes('Hong Kong')) return 'HK';
+                                        if (slug === 'other-markets') return 'SG';
+                                        return null;
+                                      };
+                                      const marketCode = getMarketCode(subcategory);
+                                      if (marketCode) {
+                                        return (
+                                          <Link href={`/admin/global-seed?market=${marketCode}`}>
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="bg-emerald-600/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-600/30"
+                                              data-testid={`button-seed-${subcategory.slug || subcategory.id}`}
+                                            >
+                                              <Sprout className="w-3 h-3 mr-1" />
+                                              Seed
+                                            </Button>
+                                          </Link>
+                                        );
+                                      }
+                                      return null;
+                                    })()}
                                     <Switch
                                       checked={subcategory.isActive}
                                       onCheckedChange={(checked) => handleToggle('subcategory', subcategory, checked)}
