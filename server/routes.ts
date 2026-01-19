@@ -123,6 +123,7 @@ import { marketMoversCache } from './services/market-movers-cache';
 import { platformStatsCache } from './services/platform-stats-cache';
 import * as schema from "@shared/schema";
 import adminMutualFundsRoutes from "./routes/admin-mutual-funds-routes";
+import adminGlobalInstrumentsRoutes from "./routes/admin-global-instruments";
 import adminAadhaarRoutes from "./routes/admin-aadhaar-routes";
 import adminApiUsageRoutes from "./routes/admin-api-usage-routes";
 import derivativesRoutes from "./routes/derivatives-routes";
@@ -598,6 +599,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Seed products endpoint
   // Admin Mutual Funds Management Routes
   app.use("/api/admin", requireAdmin, adminMutualFundsRoutes);
+  app.use("/api/admin/global-instruments", requireAdmin, adminGlobalInstrumentsRoutes);
   app.use(adminAadhaarRoutes);
   app.use(adminApiUsageRoutes);
   app.use("/api/derivatives", derivativesRoutes);
