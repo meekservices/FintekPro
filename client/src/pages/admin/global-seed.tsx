@@ -18,6 +18,7 @@ import {
   TrendingUp, Building2, RefreshCw, Database, BarChart3, Check, X, Plug
 } from "lucide-react";
 import { Link, useLocation, useSearch } from "wouter";
+import { AdminLayout } from "@/components/layout/admin-layout";
 
 interface GlobalInstrument {
   id: string;
@@ -315,38 +316,39 @@ export default function GlobalSeedAdmin() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/admin/store-management">
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="h-5 w-5" />
+    <AdminLayout>
+      <div className="p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Link href="/admin/store-management">
+                <Button variant="ghost" size="icon">
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+              </Link>
+              <div>
+                <h1 className="text-2xl font-bold flex items-center gap-2">
+                  <Globe className="h-6 w-6 text-blue-500" />
+                  Global Instruments Seeding
+                </h1>
+                <p className="text-muted-foreground">Manage global stocks, ETFs, mutual funds, and bonds</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => seedSampleMutation.mutate()} disabled={seedSampleMutation.isPending}>
+                {seedSampleMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Database className="h-4 w-4 mr-2" />}
+                Seed Sample Data
               </Button>
-            </Link>
-            <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
-                <Globe className="h-6 w-6 text-blue-500" />
-                Global Instruments Seeding
-              </h1>
-              <p className="text-muted-foreground">Manage global stocks, ETFs, mutual funds, and bonds</p>
+              <Button variant="outline" onClick={() => setBulkDialogOpen(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                Bulk Import
+              </Button>
+              <Button onClick={() => { resetForm(); setAddDialogOpen(true); }}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Instrument
+              </Button>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => seedSampleMutation.mutate()} disabled={seedSampleMutation.isPending}>
-              {seedSampleMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Database className="h-4 w-4 mr-2" />}
-              Seed Sample Data
-            </Button>
-            <Button variant="outline" onClick={() => setBulkDialogOpen(true)}>
-              <Upload className="h-4 w-4 mr-2" />
-              Bulk Import
-            </Button>
-            <Button onClick={() => { resetForm(); setAddDialogOpen(true); }}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Instrument
-            </Button>
-          </div>
-        </div>
 
         {stats && (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
@@ -680,7 +682,8 @@ SPY,SPDR S&P 500 ETF Trust,etf,NYSE,US,USD,,Index"
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
-    </div>
+    </AdminLayout>
   );
 }
