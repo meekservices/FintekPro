@@ -100,16 +100,35 @@ const riskColors: Record<string, string> = {
   high: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
 };
 
+const allCategories = [
+  { key: "all", label: "All", icon: Sparkles },
+  { key: "listed_stocks", label: "Stocks", icon: TrendingUp },
+  { key: "mutual_funds", label: "Mutual Funds", icon: BarChart3 },
+  { key: "bonds", label: "Bonds", icon: Landmark },
+  { key: "unlisted", label: "Unlisted", icon: Building2 },
+  { key: "global_stocks", label: "Global", icon: Globe },
+  { key: "etfs", label: "ETFs", icon: Coins },
+  { key: "reits_invits", label: "REITs", icon: Building2 },
+  { key: "fixed_deposits", label: "FDs", icon: Shield },
+  { key: "sgb", label: "SGBs", icon: Coins },
+];
+
 export default function AgentPicksPage() {
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [todayCategoryFilter, setTodayCategoryFilter] = useState<string>("all");
+  const [liveCategoryFilter, setLiveCategoryFilter] = useState<string>("all");
+  const [historyCategoryFilter, setHistoryCategoryFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const { data: todayData, isLoading: loadingToday } = useQuery<{ success: boolean; picks: DailyPick[] }>({
     queryKey: ["/api/picks/today"],
   });
 
+  const { data: liveData, isLoading: loadingLive } = useQuery<{ success: boolean; picks: DailyPick[] }>({
+    queryKey: ["/api/picks/live"],
+  });
+
   const { data: historyData, isLoading: loadingHistory } = useQuery<{ success: boolean; picks: DailyPick[] }>({
-    queryKey: ["/api/picks/history", categoryFilter],
+    queryKey: ["/api/picks/history"],
   });
 
   const { data: statsData, isLoading: loadingStats } = useQuery<{ success: boolean; stats: PickStats }>({
@@ -117,14 +136,35 @@ export default function AgentPicksPage() {
   });
 
   const todayPicks = todayData?.picks || [];
+  const livePicks = liveData?.picks || [];
   const historyPicks = historyData?.picks || [];
   const stats = statsData?.stats;
 
+  const filteredTodayPicks = todayCategoryFilter === "all" 
+    ? todayPicks 
+    : todayPicks.filter(p => p.category === todayCategoryFilter);
+
+  const filteredLivePicks = liveCategoryFilter === "all"
+    ? livePicks
+    : livePicks.filter(p => p.category === liveCategoryFilter);
+
   const filteredHistory = historyPicks.filter((pick) => {
-    if (categoryFilter !== "all" && pick.category !== categoryFilter) return false;
+    if (historyCategoryFilter !== "all" && pick.category !== historyCategoryFilter) return false;
     if (statusFilter !== "all" && pick.status !== statusFilter) return false;
     return true;
   });
+
+  const getCategoryCounts = (picks: DailyPick[]) => {
+    const counts: Record<string, number> = { all: picks.length };
+    picks.forEach(p => {
+      counts[p.category] = (counts[p.category] || 0) + 1;
+    });
+    return counts;
+  };
+
+  const todayCounts = getCategoryCounts(todayPicks);
+  const liveCounts = getCategoryCounts(livePicks);
+  const historyCounts = getCategoryCounts(historyPicks);
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -225,23 +265,48 @@ export default function AgentPicksPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {/* Category Filter Tabs */}
+              <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b">
+                {allCategories.map(({ key, label, icon: Icon }) => {
+                  const count = todayCounts[key] || 0;
+                  const isActive = todayCategoryFilter === key;
+                  return (
+                    <Button
+                      key={key}
+                      variant={isActive ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setTodayCategoryFilter(key)}
+                      className="flex items-center gap-1.5"
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {label}
+                      {count > 0 && (
+                        <Badge variant={isActive ? "secondary" : "outline"} className="ml-1 text-[10px] px-1.5">
+                          {count}
+                        </Badge>
+                      )}
+                    </Button>
+                  );
+                })}
+              </div>
+
               {loadingToday ? (
                 <div className="space-y-4">
                   {[1, 2, 3, 4].map((i) => (
                     <Skeleton key={i} className="h-32" />
                   ))}
                 </div>
-              ) : todayPicks.length === 0 ? (
+              ) : filteredTodayPicks.length === 0 ? (
                 <div className="text-center py-12">
                   <Sparkles className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <h3 className="text-lg font-medium mb-2">No Picks Yet Today</h3>
+                  <h3 className="text-lg font-medium mb-2">No Picks {todayCategoryFilter !== 'all' ? `for ${categoryLabels[todayCategoryFilter] || todayCategoryFilter}` : 'Yet Today'}</h3>
                   <p className="text-muted-foreground">
                     Picks are generated automatically each morning based on market analysis
                   </p>
                 </div>
               ) : (
                 <div className="grid gap-4 md:grid-cols-2">
-                  {todayPicks.map((pick) => (
+                  {filteredTodayPicks.map((pick) => (
                     <PickCard key={pick.id} pick={pick} />
                   ))}
                 </div>
@@ -259,24 +324,46 @@ export default function AgentPicksPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {loadingHistory ? (
+              {/* Category Filter Tabs */}
+              <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b">
+                {allCategories.map(({ key, label, icon: Icon }) => {
+                  const count = liveCounts[key] || 0;
+                  const isActive = liveCategoryFilter === key;
+                  return (
+                    <Button
+                      key={key}
+                      variant={isActive ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setLiveCategoryFilter(key)}
+                      className="flex items-center gap-1.5"
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {label}
+                      {count > 0 && (
+                        <Badge variant={isActive ? "secondary" : "outline"} className="ml-1 text-[10px] px-1.5">
+                          {count}
+                        </Badge>
+                      )}
+                    </Button>
+                  );
+                })}
+              </div>
+
+              {loadingLive ? (
                 <div className="space-y-4">
                   {[1, 2, 3].map((i) => (
                     <Skeleton key={i} className="h-32" />
                   ))}
                 </div>
+              ) : filteredLivePicks.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No live recommendations {liveCategoryFilter !== 'all' ? `for ${categoryLabels[liveCategoryFilter] || liveCategoryFilter}` : 'at the moment'}
+                </div>
               ) : (
                 <div className="space-y-4">
-                  {historyPicks
-                    .filter((p) => p.status === "live")
-                    .map((pick) => (
-                      <PickCard key={pick.id} pick={pick} showDetails />
-                    ))}
-                  {historyPicks.filter((p) => p.status === "live").length === 0 && (
-                    <div className="text-center py-8 text-muted-foreground">
-                      No live recommendations at the moment
-                    </div>
-                  )}
+                  {filteredLivePicks.map((pick) => (
+                    <PickCard key={pick.id} pick={pick} showDetails />
+                  ))}
                 </div>
               )}
             </CardContent>
@@ -292,17 +379,6 @@ export default function AgentPicksPage() {
                   <CardDescription>Track the performance of past recommendations</CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                    <SelectTrigger className="w-[160px]">
-                      <SelectValue placeholder="Category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Categories</SelectItem>
-                      {Object.entries(categoryLabels).map(([key, label]) => (
-                        <SelectItem key={key} value={key}>{label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger className="w-[140px]">
                       <SelectValue placeholder="Status" />
@@ -319,6 +395,31 @@ export default function AgentPicksPage() {
               </div>
             </CardHeader>
             <CardContent>
+              {/* Category Filter Tabs */}
+              <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b">
+                {allCategories.map(({ key, label, icon: Icon }) => {
+                  const count = historyCounts[key] || 0;
+                  const isActive = historyCategoryFilter === key;
+                  return (
+                    <Button
+                      key={key}
+                      variant={isActive ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setHistoryCategoryFilter(key)}
+                      className="flex items-center gap-1.5"
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {label}
+                      {count > 0 && (
+                        <Badge variant={isActive ? "secondary" : "outline"} className="ml-1 text-[10px] px-1.5">
+                          {count}
+                        </Badge>
+                      )}
+                    </Button>
+                  );
+                })}
+              </div>
+
               {loadingHistory ? (
                 <div className="space-y-4">
                   {[1, 2, 3, 4, 5].map((i) => (
