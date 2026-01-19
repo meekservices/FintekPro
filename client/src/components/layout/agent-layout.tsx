@@ -40,7 +40,8 @@ import {
   BookOpen,
   Lightbulb,
   Shield,
-  FileCheck
+  FileCheck,
+  Star
 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { cn } from "@/lib/utils";
@@ -73,6 +74,7 @@ const agentNavCategories: NavCategory[] = [
     icon: Home,
     items: [
       { title: "Overview", href: "/agent", icon: Home, description: "Overview and metrics" },
+      { title: "Pick of the Day", href: "/agent/picks", icon: Star, description: "Daily investment picks" },
       { title: "Leaderboard", href: "/agent/leaderboard", icon: Trophy, description: "Agent rankings" },
     ]
   },
