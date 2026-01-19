@@ -158,6 +158,7 @@ import giftCityRoutes from "./routes/gift-city-routes";
 import aiInvestmentRoutes from "./routes/ai-investment-routes";
 import unifiedAdvisoryRoutes from "./routes/unified-advisory-routes";
 import bondRecommendationsRoutes from "./routes/bond-recommendations";
+import fixedIncomeStatusRoutes from "./routes/fixed-income-status-routes";
 import commodityRecommendationsRoutes from "./routes/commodity-recommendations";
 import { taxRoutes } from "./tax-routes";
 import meetingBookingsRoutes from "./routes/meeting-bookings";
@@ -638,6 +639,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/unified-advisory", unifiedAdvisoryRoutes);
   app.use("/api/bond-recommendations", bondRecommendationsRoutes);
   app.use("/api/commodity-recommendations", commodityRecommendationsRoutes);
+  app.use("/api/fixed-income", fixedIncomeStatusRoutes);
   app.use("/api/tax", taxRoutes);
   app.use("/api/meetings", meetingBookingsRoutes);
   app.use("/api/sebi-risk-profiling", sebiRiskProfilingRoutes);

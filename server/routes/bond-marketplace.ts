@@ -57,7 +57,7 @@ router.get('/catalog', async (req: Request, res: Response) => {
     // Fetch corporate bonds
     if (!type || type === 'all' || type === 'corporate') {
       let corpQuery = db.select().from(schema.corporateBonds)
-        .where(eq(schema.corporateBonds.tradingStatus, 'active'));
+        .where(and(eq(schema.corporateBonds.tradingStatus, 'active'), sql`${schema.corporateBonds.instrumentStatus} IN ('SELLABLE', 'VISIBLE')`));
       
       const corpBonds = await corpQuery.limit(parseInt(limit as string));
       bonds.push(...corpBonds.map(b => ({
