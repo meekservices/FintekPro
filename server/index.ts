@@ -507,6 +507,11 @@ app.use((req, res, next) => {
   const regulatoryFrameworkRoutes = await import('./routes/regulatory-framework-routes');
   app.use('/api/regulatory', regulatoryFrameworkRoutes.default);
   
+  // Register ISIN Intelligence Layer routes (Detection, Validation, Compliance)
+  const isinIntelligenceRoutes = await import('./routes/isin-intelligence');
+  app.use('/api/isin', isinIntelligenceRoutes.default);
+  console.log('✅ ISIN Intelligence Layer routes registered');
+  
   // Register MF Order Execution routes (SEBI-compliant buy/sell order management)
   const mfOrdersRoutes = await import('./routes/mf-orders');
   app.use(mfOrdersRoutes.default);

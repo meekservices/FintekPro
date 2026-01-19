@@ -1,0 +1,564 @@
+import { db } from '../db';
+import { instrumentMaster, type InstrumentMaster } from '@shared/schema';
+import { eq, and, or, isNull } from 'drizzle-orm';
+
+export interface ISINDetectionResult {
+  isin: string;
+  prefix: 'INF' | 'INE' | 'INS' | 'INV' | 'INX' | 'UNKNOWN';
+  instrumentFamily: string;
+  instrumentType: string;
+  assetClass: string;
+  subAssetClass: string;
+  primaryRegulator: 'SEBI' | 'RBI' | null;
+  secondaryRegulator: 'SEBI' | 'RBI' | null;
+  issuerType: string | null;
+  riskLevel: 'low' | 'moderate' | 'high' | 'very_high';
+  isEdgeCase: boolean;
+  edgeCaseType?: 'MLD' | 'AT1' | 'SGB' | 'CONVERTIBLE' | 'PERPETUAL';
+  validationStatus: 'validated' | 'conflict' | 'unknown';
+  validationErrors: string[];
+  confidence: number;
+}
+
+export interface ISINMetadata {
+  coupon?: number;
+  maturityDate?: Date;
+  faceValue?: number;
+  issuerName?: string;
+  issuerType?: 'bank' | 'nbfc' | 'corporate' | 'government' | 'amc' | 'trust';
+  isPerpetual?: boolean;
+  isStructured?: boolean;
+  isGoldLinked?: boolean;
+  isConvertible?: boolean;
+  isSecured?: boolean;
+  hasEquityFlag?: boolean;
+  trustType?: 'REIT' | 'InvIT';
+  amcName?: string;
+}
+
+const KNOWN_BANKS = [
+  'STATE BANK', 'SBI', 'ICICI', 'HDFC', 'AXIS', 'KOTAK', 'IDBI', 'PUNJAB NATIONAL',
+  'BANK OF BARODA', 'CANARA', 'UNION BANK', 'INDIAN BANK', 'CENTRAL BANK',
+  'INDIAN OVERSEAS', 'UCO BANK', 'BANK OF INDIA', 'BANK OF MAHARASHTRA',
+  'YES BANK', 'FEDERAL BANK', 'BANDHAN', 'INDUSIND', 'RBL', 'AU SMALL FINANCE',
+  'EQUITAS', 'UJJIVAN', 'SURYODAY', 'UTKARSH', 'IDFC FIRST', 'SOUTH INDIAN BANK'
+];
+
+const KNOWN_NBFCS = [
+  'BAJAJ FINANCE', 'BAJAJ FINSERV', 'SHRIRAM', 'MAHINDRA FINANCE', 'CHOLAMANDALAM',
+  'SUNDARAM FINANCE', 'MUTHOOT', 'MANAPPURAM', 'L&T FINANCE', 'PIRAMAL',
+  'IIFL FINANCE', 'TATA CAPITAL', 'ADITYA BIRLA', 'HDB FINANCIAL', 'CREDITACCESS',
+  'AROHAN', 'SATIN CREDITCARE', 'SPANDANA', 'UJJIVAN', 'FUSION'
+];
+
+const KNOWN_AMCS = [
+  'HDFC MUTUAL', 'ICICI PRUDENTIAL', 'SBI MUTUAL', 'AXIS MUTUAL', 'KOTAK',
+  'ADITYA BIRLA', 'NIPPON', 'UTI', 'DSP', 'FRANKLIN TEMPLETON',
+  'TATA MUTUAL', 'MIRAE', 'EDELWEISS', 'INVESCO', 'MOTILAL OSWAL',
+  'PGIM', 'CANARA ROBECO', 'BARODA BNP', 'BANDHAN', 'QUANT',
+  'PPFAS', 'SUNDARAM', 'HSBC', 'MAHINDRA MANULIFE', 'TRUST'
+];
+
+class ISINIntelligenceService {
+  
+  async detectInstrument(isin: string, metadata?: ISINMetadata): Promise<ISINDetectionResult> {
+    const validationErrors: string[] = [];
+    
+    if (!isin || isin.length !== 12) {
+      return this.createUnknownResult(isin, ['Invalid ISIN length']);
+    }
+    
+    const prefix = isin.substring(0, 3).toUpperCase() as 'INF' | 'INE' | 'INS' | 'INV' | 'INX';
+    
+    let result: ISINDetectionResult;
+    
+    switch (prefix) {
+      case 'INF':
+        result = this.detectMutualFundOrETF(isin, metadata, validationErrors);
+        break;
+      case 'INS':
+        result = this.detectGovernmentSecurity(isin, metadata, validationErrors);
+        break;
+      case 'INV':
+        result = this.detectSecuritisedInstrument(isin, metadata, validationErrors);
+        break;
+      case 'INX':
+        result = this.detectEntitlementInstrument(isin, metadata, validationErrors);
+        break;
+      case 'INE':
+        result = this.deepResolveINE(isin, metadata, validationErrors);
+        break;
+      default:
+        result = this.createUnknownResult(isin, ['Unknown ISIN prefix']);
+    }
+    
+    result.validationErrors = validationErrors;
+    result.validationStatus = validationErrors.length === 0 ? 'validated' : 
+                              validationErrors.some(e => e.includes('REJECT')) ? 'conflict' : 'validated';
+    
+    return result;
+  }
+  
+  private detectMutualFundOrETF(isin: string, metadata: ISINMetadata | undefined, errors: string[]): ISINDetectionResult {
+    if (metadata?.coupon) {
+      errors.push('REJECT: INF prefix should not have coupon defined');
+    }
+    if (metadata?.maturityDate) {
+      errors.push('WARNING: INF prefix typically does not have maturity date');
+    }
+    
+    const isETF = isin.includes('ETF') || metadata?.amcName?.toUpperCase().includes('ETF');
+    
+    return {
+      isin,
+      prefix: 'INF',
+      instrumentFamily: 'mutual_fund',
+      instrumentType: isETF ? 'ETF' : 'Mutual Fund',
+      assetClass: 'Mutual Fund',
+      subAssetClass: isETF ? 'Exchange Traded Fund' : 'Open-Ended Fund',
+      primaryRegulator: 'SEBI',
+      secondaryRegulator: null,
+      issuerType: 'amc',
+      riskLevel: 'moderate',
+      isEdgeCase: false,
+      validationStatus: 'validated',
+      validationErrors: errors,
+      confidence: 95
+    };
+  }
+  
+  private detectGovernmentSecurity(isin: string, metadata: ISINMetadata | undefined, errors: string[]): ISINDetectionResult {
+    if (metadata?.issuerType && !['government'].includes(metadata.issuerType)) {
+      errors.push('REJECT: INS prefix should have government issuer');
+    }
+    
+    const isGoldLinked = metadata?.isGoldLinked || false;
+    const isTBill = !metadata?.coupon && metadata?.maturityDate;
+    
+    let instrumentType = 'Government Security';
+    let subAssetClass = 'G-Sec';
+    let isEdgeCase = false;
+    let edgeCaseType: 'SGB' | undefined;
+    
+    if (isGoldLinked) {
+      instrumentType = 'Sovereign Gold Bond';
+      subAssetClass = 'Gold-Linked Bond';
+      isEdgeCase = true;
+      edgeCaseType = 'SGB';
+    } else if (isTBill) {
+      instrumentType = 'Treasury Bill';
+      subAssetClass = 'T-Bill';
+    }
+    
+    return {
+      isin,
+      prefix: 'INS',
+      instrumentFamily: 'government_security',
+      instrumentType,
+      assetClass: isGoldLinked ? 'Commodities' : 'Fixed Income',
+      subAssetClass,
+      primaryRegulator: 'RBI',
+      secondaryRegulator: null,
+      issuerType: 'government',
+      riskLevel: 'low',
+      isEdgeCase,
+      edgeCaseType,
+      validationStatus: 'validated',
+      validationErrors: errors,
+      confidence: 90
+    };
+  }
+  
+  private detectSecuritisedInstrument(isin: string, metadata: ISINMetadata | undefined, errors: string[]): ISINDetectionResult {
+    if (!metadata?.issuerName) {
+      errors.push('WARNING: INV prefix should have issuer name for securitised instruments');
+    }
+    
+    return {
+      isin,
+      prefix: 'INV',
+      instrumentFamily: 'securitised',
+      instrumentType: 'Securitised Instrument',
+      assetClass: 'Fixed Income',
+      subAssetClass: 'Securitised Debt',
+      primaryRegulator: 'SEBI',
+      secondaryRegulator: 'RBI',
+      issuerType: metadata?.issuerType || null,
+      riskLevel: 'high',
+      isEdgeCase: false,
+      validationStatus: 'validated',
+      validationErrors: errors,
+      confidence: 85
+    };
+  }
+  
+  private detectEntitlementInstrument(isin: string, metadata: ISINMetadata | undefined, errors: string[]): ISINDetectionResult {
+    if (metadata?.maturityDate) {
+      errors.push('REJECT: INX prefix (entitlement) should have expiry_date, not maturity_date');
+    }
+    
+    return {
+      isin,
+      prefix: 'INX',
+      instrumentFamily: 'entitlement',
+      instrumentType: 'Entitlement/Rights',
+      assetClass: 'Equity',
+      subAssetClass: 'Rights Entitlement',
+      primaryRegulator: 'SEBI',
+      secondaryRegulator: null,
+      issuerType: 'corporate',
+      riskLevel: 'high',
+      isEdgeCase: false,
+      validationStatus: 'validated',
+      validationErrors: errors,
+      confidence: 80
+    };
+  }
+  
+  private deepResolveINE(isin: string, metadata: ISINMetadata | undefined, errors: string[]): ISINDetectionResult {
+    const issuerName = metadata?.issuerName?.toUpperCase() || '';
+    const hasCoupon = metadata?.coupon !== undefined && metadata.coupon !== null;
+    const hasEquityFlag = metadata?.hasEquityFlag || false;
+    const isPerpetual = metadata?.isPerpetual || false;
+    const isStructured = metadata?.isStructured || false;
+    const hasMaturity = metadata?.maturityDate !== undefined;
+    const isConvertible = metadata?.isConvertible || false;
+    const trustType = metadata?.trustType;
+    
+    let detectedIssuerType: string | null = null;
+    if (KNOWN_BANKS.some(b => issuerName.includes(b))) {
+      detectedIssuerType = 'bank';
+    } else if (KNOWN_NBFCS.some(n => issuerName.includes(n))) {
+      detectedIssuerType = 'nbfc';
+    } else if (metadata?.issuerType) {
+      detectedIssuerType = metadata.issuerType;
+    } else {
+      detectedIssuerType = 'corporate';
+    }
+    
+    if (hasCoupon && hasEquityFlag && !isConvertible) {
+      errors.push('FLAG: INE has both coupon and equity_flag - may be convertible instrument');
+    }
+    
+    if (trustType === 'REIT' || trustType === 'InvIT') {
+      return this.createREITInvITResult(isin, trustType, errors);
+    }
+    
+    if (isStructured && !hasCoupon) {
+      return this.createMLDResult(isin, detectedIssuerType, errors);
+    }
+    
+    if (detectedIssuerType === 'bank' && isPerpetual) {
+      return this.createAT1Result(isin, errors);
+    }
+    
+    if (detectedIssuerType === 'bank' && hasCoupon && hasMaturity) {
+      return this.createBankBondResult(isin, isPerpetual, errors);
+    }
+    
+    if ((detectedIssuerType === 'nbfc' || detectedIssuerType === 'corporate') && hasCoupon && hasMaturity) {
+      return this.createNCDResult(isin, detectedIssuerType, metadata?.isSecured, errors);
+    }
+    
+    if (isConvertible && hasCoupon && hasEquityFlag) {
+      return this.createConvertibleResult(isin, errors);
+    }
+    
+    if (hasEquityFlag || (!hasCoupon && !hasMaturity && !isStructured)) {
+      return this.createEquityResult(isin, errors);
+    }
+    
+    return {
+      isin,
+      prefix: 'INE',
+      instrumentFamily: 'equity',
+      instrumentType: 'Listed Security',
+      assetClass: 'Equity',
+      subAssetClass: 'Common Stock',
+      primaryRegulator: 'SEBI',
+      secondaryRegulator: null,
+      issuerType: detectedIssuerType,
+      riskLevel: 'high',
+      isEdgeCase: false,
+      validationStatus: 'validated',
+      validationErrors: errors,
+      confidence: 70
+    };
+  }
+  
+  private createMLDResult(isin: string, issuerType: string | null, errors: string[]): ISINDetectionResult {
+    return {
+      isin,
+      prefix: 'INE',
+      instrumentFamily: 'debt',
+      instrumentType: 'Market Linked Debenture',
+      assetClass: 'Fixed Income',
+      subAssetClass: 'Structured Debt',
+      primaryRegulator: 'SEBI',
+      secondaryRegulator: null,
+      issuerType,
+      riskLevel: 'very_high',
+      isEdgeCase: true,
+      edgeCaseType: 'MLD',
+      validationStatus: 'validated',
+      validationErrors: errors,
+      confidence: 85
+    };
+  }
+  
+  private createAT1Result(isin: string, errors: string[]): ISINDetectionResult {
+    return {
+      isin,
+      prefix: 'INE',
+      instrumentFamily: 'debt',
+      instrumentType: 'AT1 Bond',
+      assetClass: 'Fixed Income',
+      subAssetClass: 'Bank Capital Instrument',
+      primaryRegulator: 'RBI',
+      secondaryRegulator: 'SEBI',
+      issuerType: 'bank',
+      riskLevel: 'very_high',
+      isEdgeCase: true,
+      edgeCaseType: 'AT1',
+      validationStatus: 'validated',
+      validationErrors: errors,
+      confidence: 90
+    };
+  }
+  
+  private createBankBondResult(isin: string, isPerpetual: boolean, errors: string[]): ISINDetectionResult {
+    return {
+      isin,
+      prefix: 'INE',
+      instrumentFamily: 'debt',
+      instrumentType: isPerpetual ? 'Tier-2 Perpetual Bond' : 'Bank Bond',
+      assetClass: 'Fixed Income',
+      subAssetClass: isPerpetual ? 'Perpetual Debt' : 'Bank Debt',
+      primaryRegulator: 'RBI',
+      secondaryRegulator: 'SEBI',
+      issuerType: 'bank',
+      riskLevel: isPerpetual ? 'very_high' : 'moderate',
+      isEdgeCase: isPerpetual,
+      edgeCaseType: isPerpetual ? 'PERPETUAL' : undefined,
+      validationStatus: 'validated',
+      validationErrors: errors,
+      confidence: 88
+    };
+  }
+  
+  private createNCDResult(isin: string, issuerType: string, isSecured: boolean | undefined, errors: string[]): ISINDetectionResult {
+    return {
+      isin,
+      prefix: 'INE',
+      instrumentFamily: 'debt',
+      instrumentType: issuerType === 'nbfc' ? 'NBFC NCD' : 'Corporate NCD',
+      assetClass: 'Fixed Income',
+      subAssetClass: 'Corporate Debt',
+      primaryRegulator: issuerType === 'nbfc' ? 'RBI' : 'SEBI',
+      secondaryRegulator: issuerType === 'nbfc' ? 'SEBI' : null,
+      issuerType,
+      riskLevel: isSecured ? 'moderate' : 'high',
+      isEdgeCase: false,
+      validationStatus: 'validated',
+      validationErrors: errors,
+      confidence: 85
+    };
+  }
+  
+  private createConvertibleResult(isin: string, errors: string[]): ISINDetectionResult {
+    return {
+      isin,
+      prefix: 'INE',
+      instrumentFamily: 'debt',
+      instrumentType: 'Convertible Debenture',
+      assetClass: 'Fixed Income',
+      subAssetClass: 'Equity-Linked Debt',
+      primaryRegulator: 'SEBI',
+      secondaryRegulator: null,
+      issuerType: 'corporate',
+      riskLevel: 'high',
+      isEdgeCase: true,
+      edgeCaseType: 'CONVERTIBLE',
+      validationStatus: 'validated',
+      validationErrors: errors,
+      confidence: 80
+    };
+  }
+  
+  private createREITInvITResult(isin: string, trustType: 'REIT' | 'InvIT', errors: string[]): ISINDetectionResult {
+    return {
+      isin,
+      prefix: 'INE',
+      instrumentFamily: 'trust_unit',
+      instrumentType: trustType === 'REIT' ? 'REIT Unit' : 'InvIT Unit',
+      assetClass: trustType === 'REIT' ? 'Real Estate' : 'Infrastructure',
+      subAssetClass: 'Trust Unit',
+      primaryRegulator: 'SEBI',
+      secondaryRegulator: null,
+      issuerType: 'trust',
+      riskLevel: 'moderate',
+      isEdgeCase: false,
+      validationStatus: 'validated',
+      validationErrors: errors,
+      confidence: 92
+    };
+  }
+  
+  private createEquityResult(isin: string, errors: string[]): ISINDetectionResult {
+    return {
+      isin,
+      prefix: 'INE',
+      instrumentFamily: 'equity',
+      instrumentType: 'Equity Share',
+      assetClass: 'Equity',
+      subAssetClass: 'Common Stock',
+      primaryRegulator: 'SEBI',
+      secondaryRegulator: null,
+      issuerType: 'corporate',
+      riskLevel: 'high',
+      isEdgeCase: false,
+      validationStatus: 'validated',
+      validationErrors: errors,
+      confidence: 75
+    };
+  }
+  
+  private createUnknownResult(isin: string, errors: string[]): ISINDetectionResult {
+    return {
+      isin,
+      prefix: 'UNKNOWN',
+      instrumentFamily: 'unknown',
+      instrumentType: 'Unknown',
+      assetClass: 'Unknown',
+      subAssetClass: 'Unknown',
+      primaryRegulator: null,
+      secondaryRegulator: null,
+      issuerType: null,
+      riskLevel: 'high',
+      isEdgeCase: false,
+      validationStatus: 'unknown',
+      validationErrors: errors,
+      confidence: 0
+    };
+  }
+  
+  async validateISIN(isin: string, metadata: ISINMetadata): Promise<{valid: boolean; errors: string[]}> {
+    const errors: string[] = [];
+    const prefix = isin.substring(0, 3).toUpperCase();
+    
+    switch (prefix) {
+      case 'INF':
+        if (metadata.coupon) errors.push('INF prefix should not have coupon');
+        if (metadata.maturityDate) errors.push('INF prefix should not have maturity date');
+        break;
+      case 'INS':
+        if (!metadata.maturityDate && !metadata.isGoldLinked) errors.push('INS prefix requires maturity date');
+        if (metadata.issuerType && metadata.issuerType !== 'government') errors.push('INS must have government issuer');
+        break;
+      case 'INE':
+        if (metadata.coupon && metadata.hasEquityFlag && !metadata.isConvertible) {
+          errors.push('INE has both coupon and equity flag without convertible marker');
+        }
+        break;
+      case 'INV':
+        if (!metadata.issuerName) errors.push('INV requires issuer identification');
+        break;
+      case 'INX':
+        if (metadata.maturityDate) errors.push('INX should have expiry date, not maturity date');
+        break;
+      default:
+        errors.push('Unknown ISIN prefix');
+    }
+    
+    return { valid: errors.length === 0, errors };
+  }
+  
+  async lookupISIN(isin: string): Promise<InstrumentMaster | null> {
+    try {
+      const [instrument] = await db
+        .select()
+        .from(instrumentMaster)
+        .where(eq(instrumentMaster.isin, isin))
+        .limit(1);
+      return instrument || null;
+    } catch (error) {
+      console.error('[ISINIntelligence] Lookup error:', error);
+      return null;
+    }
+  }
+  
+  async upsertInstrument(isin: string, detection: ISINDetectionResult, metadata?: ISINMetadata): Promise<InstrumentMaster | null> {
+    try {
+      const existingInstrument = await this.lookupISIN(isin);
+      
+      const instrumentData = {
+        isin,
+        isinPrefix: detection.prefix === 'UNKNOWN' ? null : detection.prefix,
+        instrumentFamily: detection.instrumentFamily,
+        issuerType: detection.issuerType,
+        primaryRegulator: detection.primaryRegulator,
+        secondaryRegulator: detection.secondaryRegulator,
+        complianceRegime: this.determineComplianceRegime(detection),
+        name: metadata?.issuerName || `${detection.instrumentType} - ${isin}`,
+        assetClass: detection.assetClass.toLowerCase().replace(/\s+/g, '_'),
+        subType: detection.subAssetClass.toLowerCase().replace(/\s+/g, '_'),
+        riskLevel: detection.riskLevel,
+        coupon: metadata?.coupon ? String(metadata.coupon) : null,
+        maturityDate: metadata?.maturityDate || null,
+        faceValue: metadata?.faceValue ? String(metadata.faceValue) : null,
+        isPerpetual: metadata?.isPerpetual || false,
+        isStructured: metadata?.isStructured || false,
+        isGoldLinked: metadata?.isGoldLinked || false,
+        isConvertible: metadata?.isConvertible || false,
+        isSecured: metadata?.isSecured || false,
+        hasEquityFlag: metadata?.hasEquityFlag || false,
+        isEdgeCaseInstrument: detection.isEdgeCase,
+        validationStatus: detection.validationStatus,
+        validationNotes: detection.validationErrors.length > 0 ? detection.validationErrors.join('; ') : null,
+        lastVerifiedAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      if (existingInstrument) {
+        const [updated] = await db
+          .update(instrumentMaster)
+          .set(instrumentData)
+          .where(eq(instrumentMaster.isin, isin))
+          .returning();
+        return updated;
+      } else {
+        const [inserted] = await db
+          .insert(instrumentMaster)
+          .values({
+            ...instrumentData,
+            issuer: metadata?.issuerName || null,
+            firstSeenAt: new Date()
+          })
+          .returning();
+        return inserted;
+      }
+    } catch (error) {
+      console.error('[ISINIntelligence] Upsert error:', error);
+      return null;
+    }
+  }
+  
+  private determineComplianceRegime(detection: ISINDetectionResult): string {
+    if (detection.prefix === 'INF') return 'sebi_mf';
+    if (detection.prefix === 'INS') return 'rbi_gsec';
+    if (detection.primaryRegulator === 'RBI' && detection.secondaryRegulator === 'SEBI') return 'dual';
+    if (detection.primaryRegulator === 'SEBI') return 'sebi_listed';
+    if (detection.primaryRegulator === 'RBI') return 'rbi_bank_bond';
+    return 'unknown';
+  }
+  
+  getRegulatorInfo(detection: ISINDetectionResult): { primary: string; secondary: string | null; regime: string } {
+    return {
+      primary: detection.primaryRegulator || 'UNKNOWN',
+      secondary: detection.secondaryRegulator,
+      regime: this.determineComplianceRegime(detection)
+    };
+  }
+}
+
+export const isinIntelligenceService = new ISINIntelligenceService();

@@ -19356,11 +19356,19 @@ export const instrumentMaster = pgTable("instrument_master", {
   isin: varchar("isin").notNull().unique(),
   symbol: varchar("symbol"),
   
+  // ISIN Intelligence Layer fields
+  isinPrefix: varchar("isin_prefix", { length: 3 }), // INF, INE, INS, INV, INX
+  instrumentFamily: varchar("instrument_family"), // mutual_fund, equity, debt, government_security, securitised, entitlement
+  issuerType: varchar("issuer_type"), // bank, nbfc, corporate, government, amc, trust
+  primaryRegulator: varchar("primary_regulator"), // SEBI, RBI
+  secondaryRegulator: varchar("secondary_regulator"), // SEBI, RBI (for dual-regulated)
+  complianceRegime: varchar("compliance_regime"), // sebi_mf, sebi_listed, rbi_gsec, rbi_bank_bond, dual
+  
   // Instrument details
   name: varchar("name").notNull(),
   shortName: varchar("short_name"),
   assetClass: varchar("asset_class").notNull(), // equity, mutual_fund, bond, etf, mld, unlisted, aif, pms
-  subType: varchar("sub_type"), // large_cap, mid_cap, gilt, corporate_bond, etc.
+  subType: varchar("sub_type"), // large_cap, mid_cap, gilt, corporate_bond, ncd, at1, tier2, sgb, mld
   category: varchar("category"), // AMFI category for MFs
   
   // Issuer/AMC details
@@ -19373,21 +19381,35 @@ export const instrumentMaster = pgTable("instrument_master", {
   priceSource: varchar("price_source"), // nse, bse, amfi, manual
   priceUpdatedAt: timestamp("price_updated_at"),
   
-  // Additional metadata
+  // Instrument attributes (for edge case detection)
+  coupon: decimal("coupon", { precision: 8, scale: 4 }), // Interest rate for bonds
   faceValue: decimal("face_value", { precision: 15, scale: 4 }),
   maturityDate: timestamp("maturity_date"),
   creditRating: varchar("credit_rating"),
-  riskLevel: varchar("risk_level"), // low, moderate, high
+  riskLevel: varchar("risk_level"), // low, moderate, high, very_high
+  
+  // Special instrument flags (edge case handling)
+  isPerpetual: boolean("is_perpetual").default(false), // AT1, Tier-2 perpetual bonds
+  isStructured: boolean("is_structured").default(false), // MLDs
+  isGoldLinked: boolean("is_gold_linked").default(false), // SGBs
+  isConvertible: boolean("is_convertible").default(false), // Convertible debentures
+  isSecured: boolean("is_secured").default(false), // Secured NCDs
+  hasEquityFlag: boolean("has_equity_flag").default(false), // For INE instruments
   
   // Source reference (for linking to original tables)
   sourceTable: varchar("source_table"), // mutual_funds, bond_catalog, unlisted_companies
   sourceId: varchar("source_id"),
   
-  // Status
+  // Status and verification
   isActive: boolean("is_active").default(true),
+  isEdgeCaseInstrument: boolean("is_edge_case_instrument").default(false),
+  validationStatus: varchar("validation_status").default("pending"), // pending, validated, conflict, unknown
+  validationNotes: text("validation_notes"),
   metadata: jsonb("metadata"),
   
-  // Timestamps
+  // Audit timestamps
+  firstSeenAt: timestamp("first_seen_at").defaultNow(),
+  lastVerifiedAt: timestamp("last_verified_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => [
@@ -19395,6 +19417,9 @@ export const instrumentMaster = pgTable("instrument_master", {
   index("idx_instrument_master_name").on(table.name),
   index("idx_instrument_master_asset_class").on(table.assetClass),
   index("idx_instrument_master_symbol").on(table.symbol),
+  index("idx_instrument_master_prefix").on(table.isinPrefix),
+  index("idx_instrument_master_regulator").on(table.primaryRegulator),
+  index("idx_instrument_master_issuer_type").on(table.issuerType),
 ]);
 
 export const insertInstrumentMasterSchema = createInsertSchema(instrumentMaster).omit({
