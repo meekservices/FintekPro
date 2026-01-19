@@ -610,27 +610,66 @@ function parseCAMSKfintechTableFormat(text: string): ImportedHolding[] {
   if (holdings.length === 0 && uniqueISINs.length > 0) {
     console.log('[CAMS Table Parser] Trying ISIN-based extraction...');
     
-    // Look for pattern: ISIN followed by scheme info and market value
+    // Process each ISIN and find its corresponding data in the text
+    // CAMS format: Folio | MarketValue | SchemeCode | ISIN | SchemeName | Cost | Units | Date | NAV | MarketValue | Registrar
     for (const isin of uniqueISINs) {
       const isinIndex = text.indexOf(isin);
       if (isinIndex >= 0) {
-        // Get surrounding text (500 chars before and after)
-        const start = Math.max(0, isinIndex - 300);
-        const end = Math.min(text.length, isinIndex + 300);
-        const context = text.substring(start, end);
+        // Look for data BEFORE the ISIN - this contains the folio and first market value
+        const beforeIsin = text.substring(Math.max(0, isinIndex - 100), isinIndex);
+        // Look for data AFTER the ISIN - this contains scheme name, cost, units, etc.
+        const afterIsin = text.substring(isinIndex + isin.length, Math.min(text.length, isinIndex + isin.length + 400));
         
-        // Look for market value in context (format: XX,XXX.XX or XXXXX.XX)
-        const valueMatch = context.match(/(\d{1,3}(?:,\d{3})*(?:\.\d{2}))/g);
-        const values = valueMatch ? valueMatch.map(v => parseFloat(v.replace(/,/g, ''))) : [];
+        console.log('[CAMS Table Parser] Before ISIN:', beforeIsin.substring(beforeIsin.length - 50));
+        console.log('[CAMS Table Parser] After ISIN:', afterIsin.substring(0, 80));
         
-        // Look for scheme name (contains "Fund" and possibly "Growth/IDCW/Plan")
-        const schemeMatch = context.match(/([A-Z][A-Za-z0-9\s&\-()]+(?:Fund|Plan)[A-Za-z0-9\s&\-()]*(?:Growth|IDCW|Regular|Direct)?)/i);
-        const schemeName = schemeMatch ? schemeMatch[1].trim() : `Unknown Fund (${isin})`;
+        // Pattern before ISIN: "91085045342/0" "96,931.64" "128OGGPG"
+        // Sometimes merged as: "91085045342/0 96,931.64128OGGPG"
+        // The market value is the last numeric before ISIN
+        const beforeMatch = beforeIsin.match(/(\d{1,3}(?:,\d{3})*\.\d{2})(?=[A-Z0-9]+\s*$)/);
+        let marketValue = 0;
+        if (beforeMatch) {
+          marketValue = parseFloat(beforeMatch[1].replace(/,/g, ''));
+        } else {
+          // Try alternate pattern - find the last decimal number before ISIN
+          const allNumbers = beforeIsin.match(/\d{1,3}(?:,\d{3})*\.\d{2}/g);
+          if (allNumbers && allNumbers.length > 0) {
+            marketValue = parseFloat(allNumbers[allNumbers.length - 1].replace(/,/g, ''));
+          }
+        }
         
-        // Get the largest value as market value (usually the current value)
-        const marketValue = values.length > 0 ? Math.max(...values.filter(v => v > 100 && v < 10000000)) : 0;
+        // Extract folio from before ISIN
+        const folioMatch = beforeIsin.match(/(\d{5,}(?:\/\d+)?)/);
+        const folio = folioMatch ? folioMatch[1] : '';
         
-        if (marketValue > 0) {
+        // Extract scheme name from after ISIN
+        // Pattern: "SchemeCode - Scheme Name ... Growth/IDCW/Regular"
+        let schemeName = '';
+        const schemeMatch = afterIsin.match(/^([A-Z0-9]+)\s*-\s*([A-Za-z][A-Za-z0-9\s&\-()]+(?:Fund|Plan)[A-Za-z0-9\s&\-()]*)/i);
+        if (schemeMatch) {
+          schemeName = schemeMatch[2].trim();
+        } else {
+          // Try simpler pattern
+          const simpleMatch = afterIsin.match(/([A-Za-z][A-Za-z0-9\s&\-()]+(?:Fund|Plan)[A-Za-z0-9\s&\-()]*)/i);
+          schemeName = simpleMatch ? simpleMatch[1].trim() : `Unknown Fund (${isin})`;
+        }
+        
+        // Clean up scheme name - remove trailing garbage, newlines, numbers
+        schemeName = schemeName
+          .replace(/\n/g, ' ')
+          .replace(/\s+/g, ' ')
+          .replace(/\s*\d+\s*$/, '') // Remove trailing numbers
+          .replace(/\s*(KFINTECH|CAMS)\s*$/i, '') // Remove registrar
+          .replace(/\s*\d{1,2}-[A-Za-z]{3}-\d{4}\s*$/, '') // Remove dates
+          .trim();
+        
+        // Add Growth/IDCW/Regular suffix if present
+        const suffixMatch = afterIsin.match(/\b(Growth|IDCW|Regular\s*Plan|Direct\s*Plan)\b/i);
+        if (suffixMatch && !schemeName.toLowerCase().includes(suffixMatch[1].toLowerCase())) {
+          schemeName += ' - ' + suffixMatch[1];
+        }
+        
+        if (marketValue > 0 && schemeName.length > 5) {
           holdings.push({
             id: `cas-isin-${Date.now()}-${holdings.length}`,
             name: schemeName,
@@ -638,8 +677,9 @@ function parseCAMSKfintechTableFormat(text: string): ImportedHolding[] {
             assetType: 'mutual_fund',
             quantity: 0,
             currentValue: marketValue,
+            folioNumber: folio,
             broker: 'CAMS/KFintech',
-            confidenceScore: 70
+            confidenceScore: 80
           });
           
           console.log('[CAMS Table Parser] Found holding (ISIN-based):', schemeName, 'Value:', marketValue);
