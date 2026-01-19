@@ -384,4 +384,123 @@ router.get('/edge-cases', isAuthenticated, async (req: Request, res: Response) =
   });
 });
 
+// ISIN Coverage Dashboard endpoint
+router.get('/coverage', isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const { db } = await import('../db');
+    const { sql } = await import('drizzle-orm');
+    
+    // Get coverage stats from all product tables
+    const coverageStats = await db.execute(sql`
+      SELECT 
+        'listed_stocks' as table_name,
+        COUNT(*)::integer as total,
+        COUNT(CASE WHEN isin IS NOT NULL AND isin != '' THEN 1 END)::integer as with_isin,
+        COUNT(CASE WHEN region IS NOT NULL THEN 1 END)::integer as with_region
+      FROM listed_stocks
+      UNION ALL
+      SELECT 'bond_catalog', COUNT(*)::integer, 
+        COUNT(CASE WHEN isin IS NOT NULL AND isin != '' THEN 1 END)::integer,
+        COUNT(CASE WHEN region IS NOT NULL THEN 1 END)::integer
+      FROM bond_catalog
+      UNION ALL
+      SELECT 'unlisted_companies', COUNT(*)::integer, 
+        COUNT(CASE WHEN isin IS NOT NULL AND isin != '' THEN 1 END)::integer,
+        COUNT(CASE WHEN region IS NOT NULL THEN 1 END)::integer
+      FROM unlisted_companies
+      UNION ALL
+      SELECT 'instrument_master', COUNT(*)::integer, 
+        COUNT(CASE WHEN isin IS NOT NULL AND isin != '' THEN 1 END)::integer,
+        COUNT(CASE WHEN region IS NOT NULL THEN 1 END)::integer
+      FROM instrument_master
+      ORDER BY table_name
+    `);
+    
+    // Get region distribution from instrument_master
+    const regionDistribution = await db.execute(sql`
+      SELECT region, country, exchange, COUNT(*)::integer as count
+      FROM instrument_master
+      WHERE region IS NOT NULL
+      GROUP BY region, country, exchange
+      ORDER BY count DESC
+    `);
+    
+    // Get ISIN prefix distribution for Indian instruments
+    const prefixDistribution = await db.execute(sql`
+      SELECT 
+        SUBSTRING(isin, 1, 3) as isin_prefix,
+        COUNT(*)::integer as count
+      FROM instrument_master
+      WHERE isin LIKE 'IN%'
+      GROUP BY SUBSTRING(isin, 1, 3)
+      ORDER BY count DESC
+    `);
+    
+    // Calculate overall coverage
+    const totalRecords = coverageStats.rows.reduce((sum: number, r: any) => sum + (r.total || 0), 0);
+    const totalWithISIN = coverageStats.rows.reduce((sum: number, r: any) => sum + (r.with_isin || 0), 0);
+    const totalWithRegion = coverageStats.rows.reduce((sum: number, r: any) => sum + (r.with_region || 0), 0);
+    
+    res.json({
+      success: true,
+      coverage: {
+        overall: {
+          totalRecords,
+          withISIN: totalWithISIN,
+          withRegion: totalWithRegion,
+          isinCoveragePct: totalRecords > 0 ? Math.round((totalWithISIN / totalRecords) * 1000) / 10 : 0,
+          regionCoveragePct: totalRecords > 0 ? Math.round((totalWithRegion / totalRecords) * 1000) / 10 : 0
+        },
+        byTable: coverageStats.rows.map((r: any) => ({
+          tableName: r.table_name,
+          total: r.total,
+          withISIN: r.with_isin,
+          withRegion: r.with_region,
+          isinCoveragePct: r.total > 0 ? Math.round((r.with_isin / r.total) * 1000) / 10 : 0,
+          regionCoveragePct: r.total > 0 ? Math.round((r.with_region / r.total) * 1000) / 10 : 0
+        })),
+        byRegion: regionDistribution.rows,
+        byPrefix: prefixDistribution.rows
+      },
+      lastUpdated: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('[ISIN Intelligence] Coverage stats error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to fetch coverage stats' 
+    });
+  }
+});
+
+// Coverage by asset class
+router.get('/coverage/by-asset-class', isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const { db } = await import('../db');
+    const { sql } = await import('drizzle-orm');
+    
+    const assetClassStats = await db.execute(sql`
+      SELECT 
+        asset_class,
+        region,
+        COUNT(*)::integer as count,
+        COUNT(CASE WHEN isin IS NOT NULL AND isin != '' THEN 1 END)::integer as with_isin
+      FROM instrument_master
+      GROUP BY asset_class, region
+      ORDER BY count DESC
+    `);
+    
+    res.json({
+      success: true,
+      assetClassCoverage: assetClassStats.rows
+    });
+  } catch (error: any) {
+    console.error('[ISIN Intelligence] Asset class coverage error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to fetch asset class coverage' 
+    });
+  }
+});
+
 export default router;
