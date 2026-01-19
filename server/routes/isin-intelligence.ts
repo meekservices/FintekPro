@@ -91,27 +91,106 @@ router.post('/validate', isAuthenticated, async (req: Request, res: Response) =>
   try {
     const { isin, metadata } = req.body;
     
-    if (!isin || !metadata) {
+    if (!isin) {
       return res.status(400).json({ 
         success: false, 
-        error: 'ISIN and metadata are required' 
+        error: 'ISIN is required' 
       });
     }
     
     const cleanedISIN = isin.trim().toUpperCase();
-    const validation = await isinIntelligenceService.validateISIN(cleanedISIN, metadata as ISINMetadata);
+    const validation = await isinIntelligenceService.validateISIN(cleanedISIN, metadata as ISINMetadata || {});
     
     res.json({
       success: true,
       isin: cleanedISIN,
       valid: validation.valid,
-      errors: validation.errors
+      errors: validation.errors,
+      checksumValid: validation.checksumValid
     });
   } catch (error: any) {
     console.error('[ISIN Intelligence] Validation error:', error);
     res.status(500).json({ 
       success: false, 
       error: error.message || 'Validation failed' 
+    });
+  }
+});
+
+router.post('/checksum/verify', isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const { isin } = req.body;
+    
+    if (!isin || typeof isin !== 'string') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'ISIN is required' 
+      });
+    }
+    
+    const cleanedISIN = isin.trim().toUpperCase();
+    const result = isinIntelligenceService.verifyISINChecksum(cleanedISIN);
+    
+    res.json({
+      success: true,
+      isin: cleanedISIN,
+      checksumValid: result.valid,
+      computedCheckDigit: result.computedCheckDigit,
+      providedCheckDigit: result.providedCheckDigit,
+      correctedISIN: result.valid ? cleanedISIN : cleanedISIN.slice(0, 11) + result.computedCheckDigit
+    });
+  } catch (error: any) {
+    console.error('[ISIN Intelligence] Checksum verification error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Checksum verification failed' 
+    });
+  }
+});
+
+router.post('/checksum/batch', isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const { isins } = req.body;
+    
+    if (!Array.isArray(isins) || isins.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'ISINs array is required' 
+      });
+    }
+    
+    if (isins.length > 1000) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Maximum 1000 ISINs per batch' 
+      });
+    }
+    
+    const results = isins.map((isin: string) => {
+      const cleanedISIN = isin.trim().toUpperCase();
+      const result = isinIntelligenceService.verifyISINChecksum(cleanedISIN);
+      return {
+        isin: cleanedISIN,
+        valid: result.valid,
+        computedCheckDigit: result.computedCheckDigit,
+        providedCheckDigit: result.providedCheckDigit
+      };
+    });
+    
+    res.json({
+      success: true,
+      results,
+      summary: {
+        total: results.length,
+        valid: results.filter(r => r.valid).length,
+        invalid: results.filter(r => !r.valid).length
+      }
+    });
+  } catch (error: any) {
+    console.error('[ISIN Intelligence] Batch checksum error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Batch checksum verification failed' 
     });
   }
 });

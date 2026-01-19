@@ -95,6 +95,75 @@ const KNOWN_AMCS = [
 
 class ISINIntelligenceService {
   
+  /**
+   * Verify ISIN checksum using Luhn algorithm (ISO 6166)
+   * @returns { valid: boolean, computedCheckDigit: number }
+   */
+  verifyISINChecksum(isin: string): { valid: boolean; computedCheckDigit: number; providedCheckDigit: number } {
+    if (!isin || isin.length !== 12) {
+      return { valid: false, computedCheckDigit: -1, providedCheckDigit: -1 };
+    }
+    
+    const upperISIN = isin.toUpperCase();
+    const providedCheckDigit = parseInt(upperISIN.charAt(11), 10);
+    
+    // Convert ISIN to numeric string (A=10, B=11, ..., Z=35)
+    let numericString = '';
+    for (let i = 0; i < 11; i++) {
+      const char = upperISIN.charAt(i);
+      if (char >= 'A' && char <= 'Z') {
+        numericString += (char.charCodeAt(0) - 55).toString(); // A=10, B=11, etc.
+      } else if (char >= '0' && char <= '9') {
+        numericString += char;
+      } else {
+        return { valid: false, computedCheckDigit: -1, providedCheckDigit };
+      }
+    }
+    
+    // Apply Luhn algorithm (double every second digit from right, starting from the rightmost)
+    let sum = 0;
+    let doubleDigit = true; // Start doubling from the rightmost position
+    
+    for (let i = numericString.length - 1; i >= 0; i--) {
+      let digit = parseInt(numericString.charAt(i), 10);
+      
+      if (doubleDigit) {
+        digit *= 2;
+        if (digit > 9) {
+          digit = Math.floor(digit / 10) + (digit % 10); // Sum of digits
+        }
+      }
+      
+      sum += digit;
+      doubleDigit = !doubleDigit;
+    }
+    
+    const computedCheckDigit = (10 - (sum % 10)) % 10;
+    
+    return {
+      valid: computedCheckDigit === providedCheckDigit,
+      computedCheckDigit,
+      providedCheckDigit
+    };
+  }
+  
+  /**
+   * Generate valid ISIN check digit
+   */
+  generateISINCheckDigit(isinWithoutCheck: string): number {
+    if (!isinWithoutCheck || isinWithoutCheck.length !== 11) {
+      return -1;
+    }
+    
+    const result = this.verifyISINChecksum(isinWithoutCheck + '0');
+    // Calculate correct check digit
+    const tempResult = this.verifyISINChecksum(isinWithoutCheck + '0');
+    if (tempResult.computedCheckDigit === 0) {
+      return 0;
+    }
+    return (10 - (tempResult.computedCheckDigit + 10) % 10) % 10 || tempResult.computedCheckDigit;
+  }
+  
   // Get region info from ISIN country prefix (first 2 characters)
   private getRegionFromISIN(isin: string): { region: 'APAC' | 'EMEA' | 'Americas' | 'Global' | null; country: string | null; exchange: string | null; marketType: 'domestic' | 'international' | 'gift_city' | null } {
     if (!isin || isin.length < 2) {
@@ -526,35 +595,63 @@ class ISINIntelligenceService {
     };
   }
   
-  async validateISIN(isin: string, metadata: ISINMetadata): Promise<{valid: boolean; errors: string[]}> {
+  async validateISIN(isin: string, metadata: ISINMetadata): Promise<{valid: boolean; errors: string[]; checksumValid?: boolean}> {
     const errors: string[] = [];
-    const prefix = isin.substring(0, 3).toUpperCase();
     
-    switch (prefix) {
-      case 'INF':
-        if (metadata.coupon) errors.push('INF prefix should not have coupon');
-        if (metadata.maturityDate) errors.push('INF prefix should not have maturity date');
-        break;
-      case 'INS':
-        if (!metadata.maturityDate && !metadata.isGoldLinked) errors.push('INS prefix requires maturity date');
-        if (metadata.issuerType && metadata.issuerType !== 'government') errors.push('INS must have government issuer');
-        break;
-      case 'INE':
-        if (metadata.coupon && metadata.hasEquityFlag && !metadata.isConvertible) {
-          errors.push('INE has both coupon and equity flag without convertible marker');
-        }
-        break;
-      case 'INV':
-        if (!metadata.issuerName) errors.push('INV requires issuer identification');
-        break;
-      case 'INX':
-        if (metadata.maturityDate) errors.push('INX should have expiry date, not maturity date');
-        break;
-      default:
-        errors.push('Unknown ISIN prefix');
+    // Basic format validation
+    if (!isin || isin.length !== 12) {
+      errors.push('ISIN must be exactly 12 characters');
+      return { valid: false, errors, checksumValid: false };
     }
     
-    return { valid: errors.length === 0, errors };
+    // Checksum verification (ISO 6166 Luhn algorithm)
+    const checksumResult = this.verifyISINChecksum(isin);
+    if (!checksumResult.valid) {
+      errors.push(`Invalid ISIN checksum: expected ${checksumResult.computedCheckDigit}, got ${checksumResult.providedCheckDigit}`);
+    }
+    
+    // Country code validation
+    const countryCode = isin.substring(0, 2).toUpperCase();
+    if (!ISIN_COUNTRY_MAP[countryCode] && !countryCode.match(/^[A-Z]{2}$/)) {
+      errors.push(`Invalid country code: ${countryCode}`);
+    }
+    
+    const prefix = isin.substring(0, 3).toUpperCase();
+    
+    // Indian ISIN prefix-specific validation
+    if (countryCode === 'IN') {
+      switch (prefix) {
+        case 'INF':
+          if (metadata.coupon) errors.push('INF prefix should not have coupon');
+          if (metadata.maturityDate) errors.push('INF prefix should not have maturity date');
+          break;
+        case 'INS':
+          if (!metadata.maturityDate && !metadata.isGoldLinked) errors.push('INS prefix requires maturity date');
+          if (metadata.issuerType && metadata.issuerType !== 'government') errors.push('INS must have government issuer');
+          break;
+        case 'INE':
+          if (metadata.coupon && metadata.hasEquityFlag && !metadata.isConvertible) {
+            errors.push('INE has both coupon and equity flag without convertible marker');
+          }
+          break;
+        case 'INV':
+          if (!metadata.issuerName) errors.push('INV requires issuer identification');
+          break;
+        case 'INX':
+          if (metadata.maturityDate) errors.push('INX should have expiry date, not maturity date');
+          break;
+        default:
+          if (!prefix.startsWith('IN')) {
+            errors.push(`Unknown Indian ISIN prefix: ${prefix}`);
+          }
+      }
+    }
+    
+    return { 
+      valid: errors.length === 0, 
+      errors,
+      checksumValid: checksumResult.valid 
+    };
   }
   
   async lookupISIN(isin: string): Promise<InstrumentMaster | null> {
