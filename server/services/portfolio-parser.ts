@@ -497,6 +497,169 @@ function parseCASFormat(text: string): ImportedHolding[] {
   return holdings;
 }
 
+/**
+ * Parse CAMS/KFintech tabular CAS format
+ * Format: Folio No. | ISIN | Scheme Name | Cost Value | Unit Balance | NAV Date | NAV | Market Value | Registrar
+ * Example: 91085045342/0 INF846K01J79   128OGGPG - Axis Large & Mid Cap Fund -       80,000.000        2,908.240 03-Dec-2025       33.33          96,931.64 KFINTECH
+ */
+function parseCAMSKfintechTableFormat(text: string): ImportedHolding[] {
+  const holdings: ImportedHolding[] = [];
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  
+  console.log('[CAMS Table Parser] Starting parse, total lines:', lines.length);
+  
+  // Pattern to match CAMS/KFintech table rows
+  // Folio/0 | ISIN (12 chars) | Scheme Code - Scheme Name | Cost | Units | Date | NAV | Market Value | Registrar
+  const tableRowPattern = /^(\d{5,}(?:\/\d+)?)\s+(INF[A-Z0-9]{9}|IN[A-Z0-9]{10})\s+([A-Z0-9]+\s*-\s*.+?)\s+(\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s+(\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s+(\d{1,2}-[A-Za-z]{3}-\d{4})\s+(\d+(?:\.\d+)?)\s+(\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s+(KFINTECH|CAMS)\s*$/i;
+  
+  // Simpler pattern for lines that may have scheme name on next line
+  const partialRowPattern = /^(\d{5,}(?:\/\d+)?)\s+(INF[A-Z0-9]{9}|IN[A-Z0-9]{10})\s+(.+)$/i;
+  
+  // Pattern for continuation lines (just scheme name continuation)
+  const continuationPattern = /^\s*([A-Za-z][A-Za-z0-9\s\-&()]+(?:Growth|IDCW|Dividend|Plan)?)\s*$/i;
+  
+  // Pattern for numeric data line (Cost | Units | Date | NAV | Market Value | Registrar)
+  const numericLinePattern = /(\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s+(\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s+(\d{1,2}-[A-Za-z]{3}-\d{4})\s+(\d+(?:\.\d+)?)\s+(\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s+(KFINTECH|CAMS)/i;
+  
+  let pendingFolio = '';
+  let pendingISIN = '';
+  let pendingSchemeName = '';
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    
+    // Skip header lines
+    if (line.includes('Folio No') || line.includes('Scheme Name') || line.includes('Market Value') || 
+        line.includes('Cost Value') || line.includes('Unit Balance') || line.includes('NAV Date') ||
+        line.includes('Registrar') || line.includes('ISIN') || line.match(/^\s*\(INR\)\s*$/)) {
+      continue;
+    }
+    
+    // Skip footer/disclaimer lines
+    if (line.includes('Entry Load') || line.includes('Exit Load') || line.includes('w.e.f') ||
+        line.includes('IDCW -') || line.includes('Total') || line.includes('Loads and Fees') ||
+        line.includes('Page ') || line.includes('CAMSCASWS') || line.includes('Version:')) {
+      continue;
+    }
+    
+    // Try full row pattern first
+    let fullMatch = line.match(tableRowPattern);
+    if (fullMatch) {
+      const [, folio, isin, schemeName, costValue, units, navDate, nav, marketValue, registrar] = fullMatch;
+      
+      // Clean scheme name (remove scheme code prefix like "128OGGPG - ")
+      const cleanSchemeName = schemeName.replace(/^[A-Z0-9]+\s*-\s*/i, '').trim();
+      
+      holdings.push({
+        id: `cas-table-${Date.now()}-${holdings.length}`,
+        name: cleanSchemeName,
+        isin: isin,
+        assetType: 'mutual_fund',
+        quantity: parseFloat(units.replace(/,/g, '')),
+        investedValue: parseFloat(costValue.replace(/,/g, '')),
+        currentNav: parseFloat(nav),
+        currentValue: parseFloat(marketValue.replace(/,/g, '')),
+        folioNumber: folio,
+        broker: registrar,
+        confidenceScore: 95
+      });
+      
+      console.log('[CAMS Table Parser] Found holding:', cleanSchemeName, 'Value:', marketValue);
+      continue;
+    }
+    
+    // Try partial row (folio, ISIN, start of scheme name)
+    const partialMatch = line.match(partialRowPattern);
+    if (partialMatch) {
+      pendingFolio = partialMatch[1];
+      pendingISIN = partialMatch[2];
+      pendingSchemeName = partialMatch[3];
+      
+      // Check if this line also has numeric data
+      const numericMatch = line.match(numericLinePattern);
+      if (numericMatch) {
+        const [, costValue, units, navDate, nav, marketValue, registrar] = numericMatch;
+        
+        // Extract scheme name (everything between ISIN and cost value)
+        const isinIndex = line.indexOf(pendingISIN) + pendingISIN.length;
+        const costIndex = line.indexOf(costValue);
+        let schemeName = line.substring(isinIndex, costIndex).trim();
+        schemeName = schemeName.replace(/^[A-Z0-9]+\s*-\s*/i, '').trim();
+        
+        holdings.push({
+          id: `cas-table-${Date.now()}-${holdings.length}`,
+          name: schemeName,
+          isin: pendingISIN,
+          assetType: 'mutual_fund',
+          quantity: parseFloat(units.replace(/,/g, '')),
+          investedValue: parseFloat(costValue.replace(/,/g, '')),
+          currentNav: parseFloat(nav),
+          currentValue: parseFloat(marketValue.replace(/,/g, '')),
+          folioNumber: pendingFolio,
+          broker: registrar,
+          confidenceScore: 95
+        });
+        
+        console.log('[CAMS Table Parser] Found holding (inline):', schemeName, 'Value:', marketValue);
+        pendingFolio = '';
+        pendingISIN = '';
+        pendingSchemeName = '';
+      }
+      continue;
+    }
+    
+    // Check for continuation of scheme name + numeric data
+    if (pendingISIN && pendingSchemeName) {
+      const numericMatch = line.match(numericLinePattern);
+      if (numericMatch) {
+        const [, costValue, units, navDate, nav, marketValue, registrar] = numericMatch;
+        
+        // Check if line has continuation text before numeric data
+        const numericStartIndex = line.search(/\d{1,3}(?:,\d{3})*(?:\.\d+)?\s+\d{1,3}(?:,\d{3})*(?:\.\d+)?\s+\d{1,2}-[A-Za-z]{3}-\d{4}/);
+        let schemeContinuation = numericStartIndex > 0 ? line.substring(0, numericStartIndex).trim() : '';
+        
+        let fullSchemeName = pendingSchemeName;
+        if (schemeContinuation) {
+          fullSchemeName = pendingSchemeName + ' ' + schemeContinuation;
+        }
+        fullSchemeName = fullSchemeName.replace(/^[A-Z0-9]+\s*-\s*/i, '').trim();
+        
+        holdings.push({
+          id: `cas-table-${Date.now()}-${holdings.length}`,
+          name: fullSchemeName,
+          isin: pendingISIN,
+          assetType: 'mutual_fund',
+          quantity: parseFloat(units.replace(/,/g, '')),
+          investedValue: parseFloat(costValue.replace(/,/g, '')),
+          currentNav: parseFloat(nav),
+          currentValue: parseFloat(marketValue.replace(/,/g, '')),
+          folioNumber: pendingFolio,
+          broker: registrar,
+          confidenceScore: 95
+        });
+        
+        console.log('[CAMS Table Parser] Found holding (multi-line):', fullSchemeName, 'Value:', marketValue);
+        pendingFolio = '';
+        pendingISIN = '';
+        pendingSchemeName = '';
+        continue;
+      }
+      
+      // Just a continuation line (scheme name continues)
+      const contMatch = line.match(continuationPattern);
+      if (contMatch) {
+        pendingSchemeName += ' ' + contMatch[1].trim();
+        continue;
+      }
+    }
+  }
+  
+  console.log('[CAMS Table Parser] Total holdings found:', holdings.length);
+  console.log('[CAMS Table Parser] Total value:', holdings.reduce((sum, h) => sum + h.currentValue, 0));
+  
+  return holdings;
+}
+
 export async function enrichHoldingsWithDatabaseLookup(holdings: ImportedHolding[]): Promise<ImportedHolding[]> {
   const isins = holdings
     .filter(h => h.isin && h.isin.length === 12)
@@ -805,7 +968,12 @@ export async function parsePDFPortfolio(buffer: Buffer, fileName: string): Promi
     const expectedCount = expectedCountMatch ? parseInt(expectedCountMatch[1], 10) : undefined;
     
     if (broker === 'CAMS/KFintech CAS') {
-      holdings = parseCASFormat(text);
+      // Try table format first (newer format with columns)
+      holdings = parseCAMSKfintechTableFormat(text);
+      // Fall back to MFCentral format if table parsing fails
+      if (holdings.length === 0) {
+        holdings = parseCASFormat(text);
+      }
     } else if (broker === 'Wealthy.in') {
       holdings = parseWealthyPDFFormat(text);
     } else if (broker === 'Zerodha') {
@@ -816,7 +984,12 @@ export async function parsePDFPortfolio(buffer: Buffer, fileName: string): Promi
       holdings = parseMFCentralFormat(text);
     }
     
-    // If no holdings found with specific parser, try CAS format first (common for MF statements)
+    // If no holdings found with specific parser, try CAMS table format first (common for CAS statements)
+    if (holdings.length === 0) {
+      holdings = parseCAMSKfintechTableFormat(text);
+    }
+    
+    // If still no holdings, try CAS format (MFCentral style)
     if (holdings.length === 0) {
       holdings = parseCASFormat(text);
     }
