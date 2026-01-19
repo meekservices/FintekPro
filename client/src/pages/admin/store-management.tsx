@@ -983,6 +983,9 @@ export default function StoreManagement() {
                                 if (slug === 'stocks' || slug === 'listed-stocks' || slug === 'equities' || cat.name.includes('Listed Stocks') || cat.name.includes('Equities')) {
                                   return '/admin/listed-stocks-seed';
                                 }
+                                if (slug === 'global' || slug === 'global-stocks' || slug === 'international' || slug === 'us-stocks' || slug === 'global-etf' || cat.name.includes('Global') || cat.name.includes('International') || cat.name.includes('US Stocks') || cat.name.includes('ETF')) {
+                                  return '/admin/global-seed';
+                                }
                                 return `/admin/store/seed/${slug}`;
                               };
                               return (
