@@ -1198,7 +1198,7 @@ function AdminRoutes() {
         )}
       </Route>
       <Route path="/admin/global-seed">
-          <Suspense fallback={<LoadingFallback />}>
+          <Suspense fallback={<LoadingState variant="dashboard" />}>
             <GlobalSeedAdmin />
           </Suspense>
         </Route>
