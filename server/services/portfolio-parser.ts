@@ -508,6 +508,16 @@ function parseCAMSKfintechTableFormat(text: string): ImportedHolding[] {
   
   console.log('[CAMS Table Parser] Starting parse, total lines:', lines.length);
   
+  // Log first 30 lines for debugging
+  console.log('[CAMS Table Parser] First 30 lines of extracted text:');
+  lines.slice(0, 30).forEach((line, idx) => {
+    console.log(`[CAMS Table Parser] Line ${idx}: "${line.substring(0, 120)}${line.length > 120 ? '...' : ''}"`);
+  });
+  
+  // Check for ISIN patterns in the text
+  const isinMatches = text.match(/INF[A-Z0-9]{9}/gi) || [];
+  console.log('[CAMS Table Parser] Found ISINs in text:', isinMatches.length, isinMatches.slice(0, 5));
+  
   // Pattern to match CAMS/KFintech table rows
   // Folio/0 | ISIN (12 chars) | Scheme Code - Scheme Name | Cost | Units | Date | NAV | Market Value | Registrar
   const tableRowPattern = /^(\d{5,}(?:\/\d+)?)\s+(INF[A-Z0-9]{9}|IN[A-Z0-9]{10})\s+([A-Z0-9]+\s*-\s*.+?)\s+(\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s+(\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s+(\d{1,2}-[A-Za-z]{3}-\d{4})\s+(\d+(?:\.\d+)?)\s+(\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s+(KFINTECH|CAMS)\s*$/i;
