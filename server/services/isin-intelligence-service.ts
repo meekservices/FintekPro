@@ -97,7 +97,13 @@ class ISINIntelligenceService {
   
   /**
    * Verify ISIN checksum using Luhn algorithm (ISO 6166)
-   * @returns { valid: boolean, computedCheckDigit: number }
+   * Reference: https://en.wikipedia.org/wiki/International_Securities_Identification_Number
+   * 
+   * Algorithm:
+   * 1. Convert letters to numbers (A=10, B=11, ..., Z=35)
+   * 2. Starting from the rightmost digit (second position), double every second digit
+   * 3. Sum all digits (for doubled values >9, sum the individual digits)
+   * 4. Check digit = (10 - (sum % 10)) % 10
    */
   verifyISINChecksum(isin: string): { valid: boolean; computedCheckDigit: number; providedCheckDigit: number } {
     if (!isin || isin.length !== 12) {
@@ -107,7 +113,11 @@ class ISINIntelligenceService {
     const upperISIN = isin.toUpperCase();
     const providedCheckDigit = parseInt(upperISIN.charAt(11), 10);
     
-    // Convert ISIN to numeric string (A=10, B=11, ..., Z=35)
+    if (isNaN(providedCheckDigit)) {
+      return { valid: false, computedCheckDigit: -1, providedCheckDigit: -1 };
+    }
+    
+    // Convert first 11 characters to numeric string (A=10, B=11, ..., Z=35)
     let numericString = '';
     for (let i = 0; i < 11; i++) {
       const char = upperISIN.charAt(i);
@@ -120,22 +130,23 @@ class ISINIntelligenceService {
       }
     }
     
-    // Apply Luhn algorithm (double every second digit from right, starting from the rightmost)
+    // Apply Luhn algorithm
+    // Start from the rightmost digit, double every SECOND digit (not the first)
     let sum = 0;
-    let doubleDigit = true; // Start doubling from the rightmost position
+    const digits = numericString.split('').map(d => parseInt(d, 10));
     
-    for (let i = numericString.length - 1; i >= 0; i--) {
-      let digit = parseInt(numericString.charAt(i), 10);
-      
-      if (doubleDigit) {
+    for (let i = digits.length - 1; i >= 0; i--) {
+      let digit = digits[i];
+      // Double every second digit from the right (odd positions when 0-indexed from right)
+      // Position from right: 0, 1, 2, 3, ... - double positions 0, 2, 4, ...
+      const positionFromRight = digits.length - 1 - i;
+      if (positionFromRight % 2 === 0) {
         digit *= 2;
         if (digit > 9) {
-          digit = Math.floor(digit / 10) + (digit % 10); // Sum of digits
+          digit = Math.floor(digit / 10) + (digit % 10);
         }
       }
-      
       sum += digit;
-      doubleDigit = !doubleDigit;
     }
     
     const computedCheckDigit = (10 - (sum % 10)) % 10;
@@ -148,20 +159,47 @@ class ISINIntelligenceService {
   }
   
   /**
-   * Generate valid ISIN check digit
+   * Generate valid ISIN check digit for an 11-character ISIN prefix
    */
   generateISINCheckDigit(isinWithoutCheck: string): number {
     if (!isinWithoutCheck || isinWithoutCheck.length !== 11) {
       return -1;
     }
     
-    const result = this.verifyISINChecksum(isinWithoutCheck + '0');
-    // Calculate correct check digit
-    const tempResult = this.verifyISINChecksum(isinWithoutCheck + '0');
-    if (tempResult.computedCheckDigit === 0) {
-      return 0;
+    const upperPrefix = isinWithoutCheck.toUpperCase();
+    
+    // Convert to numeric string
+    let numericString = '';
+    for (let i = 0; i < 11; i++) {
+      const char = upperPrefix.charAt(i);
+      if (char >= 'A' && char <= 'Z') {
+        numericString += (char.charCodeAt(0) - 55).toString();
+      } else if (char >= '0' && char <= '9') {
+        numericString += char;
+      } else {
+        return -1;
+      }
     }
-    return (10 - (tempResult.computedCheckDigit + 10) % 10) % 10 || tempResult.computedCheckDigit;
+    
+    // Calculate check digit using Luhn
+    let sum = 0;
+    const digits = numericString.split('').map(d => parseInt(d, 10));
+    
+    // For check digit calculation, double starting from position 1 (second from right in final ISIN)
+    for (let i = digits.length - 1; i >= 0; i--) {
+      let digit = digits[i];
+      const positionFromRight = digits.length - 1 - i;
+      // Since check digit will be at position 0, positions shift by 1
+      if ((positionFromRight + 1) % 2 === 0) {
+        digit *= 2;
+        if (digit > 9) {
+          digit = Math.floor(digit / 10) + (digit % 10);
+        }
+      }
+      sum += digit;
+    }
+    
+    return (10 - (sum % 10)) % 10;
   }
   
   // Get region info from ISIN country prefix (first 2 characters)

@@ -49,6 +49,15 @@ A Database-Driven Recommendation Products System manages investment product cata
 
 A Stock Enrichment System consolidates 2,800+ NSE/BSE listed stocks into 12 broad sectors, utilizing Probe42, NSE/BSE, and Finnhub for data enrichment.
 
+An ISIN Intelligence Layer provides automatic instrument classification from Indian and international ISINs with multi-region support. Features include:
+- **Prefix Detection**: INF (MF), INE (Equity/Debt), INS (Govt Securities), INV (AIF), INX (Derivatives)
+- **Deep INE Resolution**: Differentiates equity, NCD, MLD, AT1 bonds, and convertibles
+- **Edge Case Handling**: MLDs, AT1 bonds, SGBs, convertibles, perpetual instruments
+- **Multi-Region Support**: 24 countries across APAC, EMEA, and Americas with regulator mapping
+- **ISO 6166 Checksum Validation**: Luhn algorithm for ISIN integrity verification
+- **Coverage Dashboard**: Real-time ISIN and region coverage statistics by table and asset class
+- **API Endpoints**: /api/isin/detect, /api/isin/validate, /api/isin/checksum/verify, /api/isin/coverage
+
 The Agent Knowledge Hub provides market intelligence, product knowledge, and client communication tools, including a Gemini-powered Daily AI Market Brief Engine and Client Explanation Templates.
 
 The platform implements comprehensive SEBI/RBI-compliant payment handling, including HMAC Signature Verification, Client Money Segregation, Daily Reconciliation, and Trustee Escrow Validation.
