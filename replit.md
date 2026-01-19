@@ -10,6 +10,15 @@ Ask before making major changes.
 Do not make changes to the folder `Z`.
 Do not make changes to the file `Y`.
 
+## Pending Features (January 19, 2026)
+- **New Prospect Automation Workflow** - When agent adds a new prospect:
+  - Notifications (email/SMS confirmation)
+  - Zoho CRM auto-sync
+  - Auto-generate follow-up tasks
+  - Initial lead scoring based on potential value
+  - Assignment rules routing
+  - Welcome email to prospect
+
 ## System Architecture
 
 ### UI/UX Decisions
