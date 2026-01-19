@@ -37,6 +37,7 @@ interface DailyPick {
   instrumentName: string;
   symbol?: string;
   isin?: string;
+  market?: string;
   recoDate: string;
   recoPrice: number;
   targetPrice: number;
@@ -113,11 +114,23 @@ const allCategories = [
   { key: "sgb", label: "SGBs", icon: Coins },
 ];
 
+const marketFilters = [
+  { key: "all", label: "All Markets" },
+  { key: "us", label: "US Stocks" },
+  { key: "china", label: "China Stocks" },
+  { key: "uk_europe", label: "UK/Europe" },
+  { key: "japan", label: "Japan" },
+  { key: "other", label: "Other Markets" },
+];
+
 export default function AgentPicksPage() {
   const [todayCategoryFilter, setTodayCategoryFilter] = useState<string>("all");
   const [liveCategoryFilter, setLiveCategoryFilter] = useState<string>("all");
   const [historyCategoryFilter, setHistoryCategoryFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [todayMarketFilter, setTodayMarketFilter] = useState<string>("all");
+  const [liveMarketFilter, setLiveMarketFilter] = useState<string>("all");
+  const [historyMarketFilter, setHistoryMarketFilter] = useState<string>("all");
 
   const { data: todayData, isLoading: loadingToday } = useQuery<{ success: boolean; picks: DailyPick[] }>({
     queryKey: ["/api/picks/today"],
@@ -140,16 +153,26 @@ export default function AgentPicksPage() {
   const historyPicks = historyData?.picks || [];
   const stats = statsData?.stats;
 
-  const filteredTodayPicks = todayCategoryFilter === "all" 
-    ? todayPicks 
-    : todayPicks.filter(p => p.category === todayCategoryFilter);
+  const filterByMarket = (pick: DailyPick, marketFilter: string) => {
+    if (marketFilter === "all") return true;
+    return pick.market === marketFilter;
+  };
 
-  const filteredLivePicks = liveCategoryFilter === "all"
-    ? livePicks
-    : livePicks.filter(p => p.category === liveCategoryFilter);
+  const filteredTodayPicks = todayPicks.filter(p => {
+    if (todayCategoryFilter !== "all" && p.category !== todayCategoryFilter) return false;
+    if (todayCategoryFilter === "global_stocks" && !filterByMarket(p, todayMarketFilter)) return false;
+    return true;
+  });
+
+  const filteredLivePicks = livePicks.filter(p => {
+    if (liveCategoryFilter !== "all" && p.category !== liveCategoryFilter) return false;
+    if (liveCategoryFilter === "global_stocks" && !filterByMarket(p, liveMarketFilter)) return false;
+    return true;
+  });
 
   const filteredHistory = historyPicks.filter((pick) => {
     if (historyCategoryFilter !== "all" && pick.category !== historyCategoryFilter) return false;
+    if (historyCategoryFilter === "global_stocks" && !filterByMarket(pick, historyMarketFilter)) return false;
     if (statusFilter !== "all" && pick.status !== statusFilter) return false;
     return true;
   });
@@ -162,9 +185,24 @@ export default function AgentPicksPage() {
     return counts;
   };
 
+  const getMarketCounts = (picks: DailyPick[]) => {
+    const globalPicks = picks.filter(p => p.category === "global_stocks");
+    const counts: Record<string, number> = { all: globalPicks.length };
+    globalPicks.forEach(p => {
+      if (p.market) {
+        counts[p.market] = (counts[p.market] || 0) + 1;
+      }
+    });
+    return counts;
+  };
+
   const todayCounts = getCategoryCounts(todayPicks);
   const liveCounts = getCategoryCounts(livePicks);
   const historyCounts = getCategoryCounts(historyPicks);
+
+  const todayMarketCounts = getMarketCounts(todayPicks);
+  const liveMarketCounts = getMarketCounts(livePicks);
+  const historyMarketCounts = getMarketCounts(historyPicks);
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -290,6 +328,33 @@ export default function AgentPicksPage() {
                 })}
               </div>
 
+              {/* Market Filter for Global Stocks */}
+              {todayCategoryFilter === "global_stocks" && (
+                <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b">
+                  <span className="text-sm text-muted-foreground mr-2 self-center">Market:</span>
+                  {marketFilters.map(({ key, label }) => {
+                    const count = todayMarketCounts[key] || 0;
+                    const isActive = todayMarketFilter === key;
+                    return (
+                      <Button
+                        key={key}
+                        variant={isActive ? "secondary" : "ghost"}
+                        size="sm"
+                        onClick={() => setTodayMarketFilter(key)}
+                        className="text-xs"
+                      >
+                        {label}
+                        {count > 0 && (
+                          <Badge variant="outline" className="ml-1 text-[10px] px-1">
+                            {count}
+                          </Badge>
+                        )}
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
+
               {loadingToday ? (
                 <div className="space-y-4">
                   {[1, 2, 3, 4].map((i) => (
@@ -348,6 +413,33 @@ export default function AgentPicksPage() {
                   );
                 })}
               </div>
+
+              {/* Market Filter for Global Stocks */}
+              {liveCategoryFilter === "global_stocks" && (
+                <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b">
+                  <span className="text-sm text-muted-foreground mr-2 self-center">Market:</span>
+                  {marketFilters.map(({ key, label }) => {
+                    const count = liveMarketCounts[key] || 0;
+                    const isActive = liveMarketFilter === key;
+                    return (
+                      <Button
+                        key={key}
+                        variant={isActive ? "secondary" : "ghost"}
+                        size="sm"
+                        onClick={() => setLiveMarketFilter(key)}
+                        className="text-xs"
+                      >
+                        {label}
+                        {count > 0 && (
+                          <Badge variant="outline" className="ml-1 text-[10px] px-1">
+                            {count}
+                          </Badge>
+                        )}
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
 
               {loadingLive ? (
                 <div className="space-y-4">
@@ -419,6 +511,33 @@ export default function AgentPicksPage() {
                   );
                 })}
               </div>
+
+              {/* Market Filter for Global Stocks */}
+              {historyCategoryFilter === "global_stocks" && (
+                <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b">
+                  <span className="text-sm text-muted-foreground mr-2 self-center">Market:</span>
+                  {marketFilters.map(({ key, label }) => {
+                    const count = historyMarketCounts[key] || 0;
+                    const isActive = historyMarketFilter === key;
+                    return (
+                      <Button
+                        key={key}
+                        variant={isActive ? "secondary" : "ghost"}
+                        size="sm"
+                        onClick={() => setHistoryMarketFilter(key)}
+                        className="text-xs"
+                      >
+                        {label}
+                        {count > 0 && (
+                          <Badge variant="outline" className="ml-1 text-[10px] px-1">
+                            {count}
+                          </Badge>
+                        )}
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
 
               {loadingHistory ? (
                 <div className="space-y-4">
