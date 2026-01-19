@@ -599,7 +599,11 @@ export default function AgentProspectWizard() {
     isin?: string;
     quantity: number;
     averagePrice: number;
+    investedValue?: number;
     currentValue: number;
+    currentNav?: number;
+    unrealizedGain?: number;
+    unrealizedGainPercent?: number;
     assetType: string;
     folioNumber?: string;
     confidenceScore?: number;
@@ -607,6 +611,7 @@ export default function AgentProspectWizard() {
   }>>([]);
   const [casPreviewError, setCasPreviewError] = useState<string | null>(null);
   const [casPreviewMode, setCasPreviewMode] = useState(false);
+  const [casImportSummary, setCasImportSummary] = useState<string | null>(null);
   const [rebalancing, setRebalancing] = useState<RebalanceRecommendation[]>([]);
   const [taxSummary, setTaxSummary] = useState<any>(null);
   const [freshInvestments, setFreshInvestments] = useState<FreshInvestmentSuggestion[]>([]);
@@ -1494,11 +1499,13 @@ export default function AgentProspectWizard() {
         setCasPreviewHoldings(data.holdings);
         setCasPreviewMode(true);
         setCasPreviewError(null);
+        setCasImportSummary(data.importSummary || null);
         if (data.holdings.some((h: any) => (h.confidenceScore || 100) < 70)) {
           setCasPreviewError(`Some holdings have low confidence. Please review before importing.`);
         }
       } else {
         setCasPreviewError(data.errors?.join('; ') || data.error || 'No holdings found in the PDF');
+        setCasImportSummary(null);
       }
     },
     onError: (error: any) => {
@@ -1537,6 +1544,7 @@ export default function AgentProspectWizard() {
         setCasPreviewHoldings([]);
         setCasPreviewMode(false);
         setCasPreviewError(null);
+        setCasImportSummary(null);
         
         queryClient.invalidateQueries({ 
           predicate: (query) => {
@@ -2393,10 +2401,11 @@ export default function AgentProspectWizard() {
                               <TableRow className="bg-muted/50">
                                 <TableHead>Fund Name</TableHead>
                                 <TableHead className="text-right">Units</TableHead>
-                                <TableHead className="text-right">Avg Cost</TableHead>
-                                <TableHead className="text-right">Value</TableHead>
-                                <TableHead>Type</TableHead>
-                                <TableHead className="text-center">Confidence</TableHead>
+                                <TableHead className="text-right">Invested</TableHead>
+                                <TableHead className="text-right">NAV</TableHead>
+                                <TableHead className="text-right">Current Value</TableHead>
+                                <TableHead className="text-right">Gain/Loss</TableHead>
+                                <TableHead className="text-center">Status</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -2407,14 +2416,29 @@ export default function AgentProspectWizard() {
                                     {holding.folioNumber && (
                                       <div className="text-xs text-muted-foreground">Folio: {holding.folioNumber}</div>
                                     )}
+                                    {holding.isin && (
+                                      <div className="text-xs text-muted-foreground/70">{holding.isin}</div>
+                                    )}
                                   </TableCell>
                                   <TableCell className="text-right">{holding.quantity.toFixed(3)}</TableCell>
-                                  <TableCell className="text-right">{formatCurrency(holding.averagePrice)}</TableCell>
+                                  <TableCell className="text-right text-muted-foreground">
+                                    {formatCurrency(holding.investedValue || holding.averagePrice * holding.quantity)}
+                                  </TableCell>
+                                  <TableCell className="text-right text-muted-foreground">
+                                    {holding.currentNav ? `₹${holding.currentNav.toFixed(2)}` : '-'}
+                                  </TableCell>
                                   <TableCell className="text-right font-medium">{formatCurrency(holding.currentValue)}</TableCell>
-                                  <TableCell>
-                                    <Badge variant="outline" className="text-xs">
-                                      {holding.assetType === 'mutual_fund' ? 'MF' : holding.assetType.toUpperCase()}
-                                    </Badge>
+                                  <TableCell className="text-right">
+                                    {holding.unrealizedGain !== undefined ? (
+                                      <div className={holding.unrealizedGain >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                        <div className="font-medium">
+                                          {holding.unrealizedGain >= 0 ? '+' : ''}{formatCurrency(Math.abs(holding.unrealizedGain))}
+                                        </div>
+                                        <div className="text-xs">
+                                          ({holding.unrealizedGainPercent?.toFixed(1) || 0}%)
+                                        </div>
+                                      </div>
+                                    ) : '-'}
                                   </TableCell>
                                   <TableCell className="text-center">
                                     {(holding.confidenceScore || 100) >= 70 ? (
@@ -2429,11 +2453,35 @@ export default function AgentProspectWizard() {
                           </Table>
                         </div>
                         
-                        <div className="flex items-center justify-between text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
-                          <span>{casPreviewHoldings.length} holdings ready to import</span>
-                          <span className="font-medium">
-                            Total Value: {formatCurrency(casPreviewHoldings.reduce((sum, h) => sum + h.currentValue, 0))}
-                          </span>
+                        <div className="bg-muted/50 p-4 rounded-lg space-y-2">
+                          {casImportSummary && (
+                            <div className="flex items-center gap-2 text-sm text-primary">
+                              <CheckCircle className="h-4 w-4" />
+                              <span>{casImportSummary}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">{casPreviewHoldings.length} holdings ready to import</span>
+                            <div className="text-right space-y-1">
+                              <div className="text-muted-foreground">
+                                Invested: {formatCurrency(casPreviewHoldings.reduce((sum, h) => sum + (h.investedValue || 0), 0))}
+                              </div>
+                              <div className="font-semibold">
+                                Current Value: {formatCurrency(casPreviewHoldings.reduce((sum, h) => sum + h.currentValue, 0))}
+                              </div>
+                              {(() => {
+                                const totalInvested = casPreviewHoldings.reduce((sum, h) => sum + (h.investedValue || 0), 0);
+                                const totalCurrent = casPreviewHoldings.reduce((sum, h) => sum + h.currentValue, 0);
+                                const totalGain = totalCurrent - totalInvested;
+                                const gainPercent = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0;
+                                return totalInvested > 0 ? (
+                                  <div className={totalGain >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                    Total Gain: {totalGain >= 0 ? '+' : ''}{formatCurrency(Math.abs(totalGain))} ({gainPercent.toFixed(1)}%)
+                                  </div>
+                                ) : null;
+                              })()}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     ) : !casUploadType ? (
