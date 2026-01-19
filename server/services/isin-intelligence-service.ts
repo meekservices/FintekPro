@@ -9,8 +9,8 @@ export interface ISINDetectionResult {
   instrumentType: string;
   assetClass: string;
   subAssetClass: string;
-  primaryRegulator: 'SEBI' | 'RBI' | null;
-  secondaryRegulator: 'SEBI' | 'RBI' | null;
+  primaryRegulator: 'SEBI' | 'RBI' | 'SEC' | 'FCA' | 'CSRC' | 'SFC' | 'MAS' | 'FSA' | null;
+  secondaryRegulator: 'SEBI' | 'RBI' | 'SEC' | 'FCA' | 'CSRC' | 'SFC' | 'MAS' | 'FSA' | null;
   issuerType: string | null;
   riskLevel: 'low' | 'moderate' | 'high' | 'very_high';
   isEdgeCase: boolean;
@@ -18,6 +18,11 @@ export interface ISINDetectionResult {
   validationStatus: 'validated' | 'conflict' | 'unknown';
   validationErrors: string[];
   confidence: number;
+  // Region fields
+  region: 'APAC' | 'EMEA' | 'Americas' | 'Global' | null;
+  country: string | null; // ISO 3166-1 alpha-2
+  exchange: string | null;
+  marketType: 'domestic' | 'international' | 'gift_city' | null;
 }
 
 export interface ISINMetadata {
@@ -53,6 +58,33 @@ const KNOWN_NBFCS = [
   'AROHAN', 'SATIN CREDITCARE', 'SPANDANA', 'UJJIVAN', 'FUSION'
 ];
 
+// ISIN Country Prefix to Region/Country mapping
+const ISIN_COUNTRY_MAP: Record<string, { country: string; region: 'APAC' | 'EMEA' | 'Americas' | 'Global'; regulator: string; exchanges: string[] }> = {
+  'IN': { country: 'IN', region: 'APAC', regulator: 'SEBI/RBI', exchanges: ['NSE', 'BSE'] },
+  'US': { country: 'US', region: 'Americas', regulator: 'SEC', exchanges: ['NYSE', 'NASDAQ', 'AMEX'] },
+  'GB': { country: 'GB', region: 'EMEA', regulator: 'FCA', exchanges: ['LSE'] },
+  'CN': { country: 'CN', region: 'APAC', regulator: 'CSRC', exchanges: ['SSE', 'SZSE'] },
+  'HK': { country: 'HK', region: 'APAC', regulator: 'SFC', exchanges: ['HKEX'] },
+  'SG': { country: 'SG', region: 'APAC', regulator: 'MAS', exchanges: ['SGX'] },
+  'JP': { country: 'JP', region: 'APAC', regulator: 'FSA', exchanges: ['TSE', 'OSE'] },
+  'DE': { country: 'DE', region: 'EMEA', regulator: 'BaFin', exchanges: ['XETRA', 'FSE'] },
+  'FR': { country: 'FR', region: 'EMEA', regulator: 'AMF', exchanges: ['EPA'] },
+  'AU': { country: 'AU', region: 'APAC', regulator: 'ASIC', exchanges: ['ASX'] },
+  'CA': { country: 'CA', region: 'Americas', regulator: 'CSA', exchanges: ['TSX', 'TSXV'] },
+  'CH': { country: 'CH', region: 'EMEA', regulator: 'FINMA', exchanges: ['SIX'] },
+  'KR': { country: 'KR', region: 'APAC', regulator: 'FSC', exchanges: ['KRX'] },
+  'TW': { country: 'TW', region: 'APAC', regulator: 'FSC', exchanges: ['TWSE'] },
+  'BR': { country: 'BR', region: 'Americas', regulator: 'CVM', exchanges: ['B3'] },
+  'ZA': { country: 'ZA', region: 'EMEA', regulator: 'FSCA', exchanges: ['JSE'] },
+  'AE': { country: 'AE', region: 'EMEA', regulator: 'SCA', exchanges: ['DFM', 'ADX'] },
+  'SA': { country: 'SA', region: 'EMEA', regulator: 'CMA', exchanges: ['TADAWUL'] },
+  'ID': { country: 'ID', region: 'APAC', regulator: 'OJK', exchanges: ['IDX'] },
+  'MY': { country: 'MY', region: 'APAC', regulator: 'SC', exchanges: ['BURSA'] },
+  'TH': { country: 'TH', region: 'APAC', regulator: 'SEC', exchanges: ['SET'] },
+  'PH': { country: 'PH', region: 'APAC', regulator: 'SEC', exchanges: ['PSE'] },
+  'VN': { country: 'VN', region: 'APAC', regulator: 'SSC', exchanges: ['HOSE', 'HNX'] },
+};
+
 const KNOWN_AMCS = [
   'HDFC MUTUAL', 'ICICI PRUDENTIAL', 'SBI MUTUAL', 'AXIS MUTUAL', 'KOTAK',
   'ADITYA BIRLA', 'NIPPON', 'UTI', 'DSP', 'FRANKLIN TEMPLETON',
@@ -62,6 +94,29 @@ const KNOWN_AMCS = [
 ];
 
 class ISINIntelligenceService {
+  
+  // Get region info from ISIN country prefix (first 2 characters)
+  private getRegionFromISIN(isin: string): { region: 'APAC' | 'EMEA' | 'Americas' | 'Global' | null; country: string | null; exchange: string | null; marketType: 'domestic' | 'international' | 'gift_city' | null } {
+    if (!isin || isin.length < 2) {
+      return { region: null, country: null, exchange: null, marketType: null };
+    }
+    
+    const countryCode = isin.substring(0, 2).toUpperCase();
+    const countryInfo = ISIN_COUNTRY_MAP[countryCode];
+    
+    if (countryInfo) {
+      const isIndian = countryCode === 'IN';
+      return {
+        region: countryInfo.region,
+        country: countryInfo.country,
+        exchange: countryInfo.exchanges[0] || null,
+        marketType: isIndian ? 'domestic' : 'international'
+      };
+    }
+    
+    // Unknown country code
+    return { region: 'Global', country: countryCode, exchange: null, marketType: 'international' };
+  }
   
   async detectInstrument(isin: string, metadata?: ISINMetadata): Promise<ISINDetectionResult> {
     const validationErrors: string[] = [];
@@ -182,7 +237,8 @@ class ISINIntelligenceService {
       edgeCaseType,
       validationStatus: 'validated',
       validationErrors: errors,
-      confidence: 90
+      confidence: 90,
+      ...this.getRegionFromISIN(isin)
     };
   }
   
@@ -205,7 +261,8 @@ class ISINIntelligenceService {
       isEdgeCase: false,
       validationStatus: 'validated',
       validationErrors: errors,
-      confidence: 85
+      confidence: 85,
+      ...this.getRegionFromISIN(isin)
     };
   }
   
@@ -228,7 +285,8 @@ class ISINIntelligenceService {
       isEdgeCase: false,
       validationStatus: 'validated',
       validationErrors: errors,
-      confidence: 80
+      confidence: 80,
+      ...this.getRegionFromISIN(isin)
     };
   }
   
@@ -299,7 +357,8 @@ class ISINIntelligenceService {
       isEdgeCase: false,
       validationStatus: 'validated',
       validationErrors: errors,
-      confidence: 70
+      confidence: 70,
+      ...this.getRegionFromISIN(isin)
     };
   }
   
@@ -319,7 +378,8 @@ class ISINIntelligenceService {
       edgeCaseType: 'MLD',
       validationStatus: 'validated',
       validationErrors: errors,
-      confidence: 85
+      confidence: 85,
+      ...this.getRegionFromISIN(isin)
     };
   }
   
@@ -339,7 +399,8 @@ class ISINIntelligenceService {
       edgeCaseType: 'AT1',
       validationStatus: 'validated',
       validationErrors: errors,
-      confidence: 90
+      confidence: 90,
+      ...this.getRegionFromISIN(isin)
     };
   }
   
@@ -359,7 +420,8 @@ class ISINIntelligenceService {
       edgeCaseType: isPerpetual ? 'PERPETUAL' : undefined,
       validationStatus: 'validated',
       validationErrors: errors,
-      confidence: 88
+      confidence: 88,
+      ...this.getRegionFromISIN(isin)
     };
   }
   
@@ -378,7 +440,8 @@ class ISINIntelligenceService {
       isEdgeCase: false,
       validationStatus: 'validated',
       validationErrors: errors,
-      confidence: 85
+      confidence: 85,
+      ...this.getRegionFromISIN(isin)
     };
   }
   
@@ -398,7 +461,8 @@ class ISINIntelligenceService {
       edgeCaseType: 'CONVERTIBLE',
       validationStatus: 'validated',
       validationErrors: errors,
-      confidence: 80
+      confidence: 80,
+      ...this.getRegionFromISIN(isin)
     };
   }
   
@@ -417,7 +481,8 @@ class ISINIntelligenceService {
       isEdgeCase: false,
       validationStatus: 'validated',
       validationErrors: errors,
-      confidence: 92
+      confidence: 92,
+      ...this.getRegionFromISIN(isin)
     };
   }
   
@@ -436,7 +501,8 @@ class ISINIntelligenceService {
       isEdgeCase: false,
       validationStatus: 'validated',
       validationErrors: errors,
-      confidence: 75
+      confidence: 75,
+      ...this.getRegionFromISIN(isin)
     };
   }
   
@@ -455,7 +521,8 @@ class ISINIntelligenceService {
       isEdgeCase: false,
       validationStatus: 'unknown',
       validationErrors: errors,
-      confidence: 0
+      confidence: 0,
+      ...this.getRegionFromISIN(isin)
     };
   }
   

@@ -19375,6 +19375,12 @@ export const instrumentMaster = pgTable("instrument_master", {
   issuer: varchar("issuer"), // AMC name for MFs, company name for equity
   sector: varchar("sector"),
   
+  // Region and Market fields
+  region: varchar("region"), // APAC, EMEA, Americas, Global
+  country: varchar("country", { length: 2 }), // ISO 3166-1 alpha-2: IN, US, CN, GB, HK, SG, JP
+  exchange: varchar("exchange"), // NSE, BSE, NYSE, NASDAQ, LSE, HKEX, SGX, SSE, SZSE
+  marketType: varchar("market_type"), // domestic, international, gift_city
+  
   // Pricing
   lastPrice: decimal("last_price", { precision: 15, scale: 4 }),
   currency: varchar("currency").default("INR"),
@@ -19420,6 +19426,9 @@ export const instrumentMaster = pgTable("instrument_master", {
   index("idx_instrument_master_prefix").on(table.isinPrefix),
   index("idx_instrument_master_regulator").on(table.primaryRegulator),
   index("idx_instrument_master_issuer_type").on(table.issuerType),
+  index("idx_instrument_master_region").on(table.region),
+  index("idx_instrument_master_country").on(table.country),
+  index("idx_instrument_master_exchange").on(table.exchange),
 ]);
 
 export const insertInstrumentMasterSchema = createInsertSchema(instrumentMaster).omit({
