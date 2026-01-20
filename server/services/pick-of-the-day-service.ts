@@ -37,6 +37,9 @@ export interface DailyPickData {
   riskLevel: string;
   suitableFor: string[];
   keyMetrics?: Record<string, any>;
+  timeHorizon?: string; // short_term, medium_term, long_term
+  confidenceScore?: number; // 0-100
+  sectorCategory?: string;
 }
 
 interface StockCandidate {
@@ -73,6 +76,49 @@ class PickOfTheDayService {
       this.genAI = new GoogleGenAI({ apiKey: process.env.OPENAI_API_KEY });
     }
     console.log("✅ Pick of the Day Service initialized");
+  }
+
+  // Get time horizon by category
+  private getTimeHorizon(category: PickCategory): string {
+    switch (category) {
+      case 'listed_stocks':
+      case 'global_stocks':
+      case 'etfs':
+        return 'short_term'; // 0-1 year
+      case 'mutual_funds':
+      case 'bonds':
+      case 'fixed_deposits':
+        return 'medium_term'; // 1-3 years
+      case 'unlisted':
+      case 'reits_invits':
+      case 'sgb':
+        return 'long_term'; // 3+ years
+      default:
+        return 'medium_term';
+    }
+  }
+
+  // Get confidence score based on data quality and scoring
+  private getConfidenceScore(category: PickCategory, score: number, maxScore: number): number {
+    // Base confidence from scoring ratio (50-90 range)
+    const scoreRatio = score / Math.max(maxScore, 1);
+    let confidence = Math.round(50 + scoreRatio * 40);
+    
+    // Category adjustments
+    switch (category) {
+      case 'listed_stocks':
+      case 'mutual_funds':
+        confidence += 5; // More data available
+        break;
+      case 'unlisted':
+        confidence -= 10; // Less liquid, more uncertainty
+        break;
+      case 'global_stocks':
+        confidence -= 5; // Currency risk
+        break;
+    }
+    
+    return Math.min(100, Math.max(0, confidence));
   }
 
   async getTodaysPicks(): Promise<DailyPickData[]> {
@@ -288,6 +334,9 @@ class PickOfTheDayService {
         rationale,
         riskLevel: this.getRiskLevel(topStock.volatility ? parseFloat(topStock.volatility) : 20),
         suitableFor: ['Balanced', 'Aggressive'],
+        timeHorizon: this.getTimeHorizon('listed_stocks'),
+        confidenceScore: this.getConfidenceScore('listed_stocks', scoredStocks[0].score, 70),
+        sectorCategory: topStock.sector,
         keyMetrics: {
           pe: topStock.peRatio ? parseFloat(topStock.peRatio) : null,
           returns1y: topStock.returns1Y ? parseFloat(topStock.returns1Y) : null,
@@ -360,6 +409,9 @@ class PickOfTheDayService {
         rationale,
         riskLevel: topFund.riskLevel || 'medium',
         suitableFor: ['Conservative', 'Balanced'],
+        timeHorizon: this.getTimeHorizon('listed_stocks'),
+        confidenceScore: this.getConfidenceScore('listed_stocks', scoredStocks[0].score, 70),
+        sectorCategory: topStock.sector,
         keyMetrics: {
           returns1y: topFund.returns1Y ? parseFloat(topFund.returns1Y) : null,
           returns3y: topFund.returns3Y ? parseFloat(topFund.returns3Y) : null,
@@ -432,6 +484,9 @@ class PickOfTheDayService {
         rationale,
         riskLevel: 'low',
         suitableFor: ['Conservative', 'Balanced'],
+        timeHorizon: this.getTimeHorizon('listed_stocks'),
+        confidenceScore: this.getConfidenceScore('listed_stocks', scoredStocks[0].score, 70),
+        sectorCategory: topStock.sector,
         keyMetrics: {
           yield: topBond.yieldToMaturity ? parseFloat(topBond.yieldToMaturity) : null,
           couponRate: topBond.couponRate ? parseFloat(topBond.couponRate) : null,
@@ -498,6 +553,9 @@ class PickOfTheDayService {
         rationale,
         riskLevel: 'high',
         suitableFor: ['Aggressive'],
+        timeHorizon: this.getTimeHorizon('listed_stocks'),
+        confidenceScore: this.getConfidenceScore('listed_stocks', scoredStocks[0].score, 70),
+        sectorCategory: topStock.sector,
         keyMetrics: {
           sector: topCompany.sector,
           ipoExpected: topCompany.expectedListingDate,
@@ -632,6 +690,9 @@ class PickOfTheDayService {
         rationale,
         riskLevel: "medium",
         suitableFor: ["Balanced", "Aggressive"],
+        timeHorizon: this.getTimeHorizon('listed_stocks'),
+        confidenceScore: this.getConfidenceScore('listed_stocks', scoredStocks[0].score, 70),
+        sectorCategory: topStock.sector,
         keyMetrics: {
           exchange: topInstrument.exchange,
           market: topInstrument.market,
@@ -714,6 +775,9 @@ class PickOfTheDayService {
         rationale,
         riskLevel: 'medium',
         suitableFor: ['Conservative', 'Balanced'],
+        timeHorizon: this.getTimeHorizon('listed_stocks'),
+        confidenceScore: this.getConfidenceScore('listed_stocks', scoredStocks[0].score, 70),
+        sectorCategory: topStock.sector,
         keyMetrics: {
           issuer: topETF.issuer,
           category: topETF.category,
@@ -873,6 +937,9 @@ class PickOfTheDayService {
         rationale,
         riskLevel: 'medium',
         suitableFor: ['Balanced', 'Aggressive'],
+        timeHorizon: this.getTimeHorizon('listed_stocks'),
+        confidenceScore: this.getConfidenceScore('listed_stocks', scoredStocks[0].score, 70),
+        sectorCategory: topStock.sector,
         keyMetrics: {
           category: topReit.category,
           issuer: topReit.issuer,
@@ -951,6 +1018,9 @@ class PickOfTheDayService {
         rationale,
         riskLevel: 'low',
         suitableFor: ['Conservative', 'Balanced'],
+        timeHorizon: this.getTimeHorizon('listed_stocks'),
+        confidenceScore: this.getConfidenceScore('listed_stocks', scoredStocks[0].score, 70),
+        sectorCategory: topStock.sector,
         keyMetrics: {
           issuer: topFD.issuer,
           category: topFD.category,
@@ -1218,6 +1288,9 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
       riskLevel: pick.riskLevel,
       suitableFor: pick.suitableFor,
       keyMetrics: pick.keyMetrics,
+      timeHorizon: pick.timeHorizon || this.getTimeHorizon(pick.category),
+      confidenceScore: pick.confidenceScore || 70,
+      sectorCategory: pick.sectorCategory,
       generatedBy: 'ai',
     });
   }
@@ -1359,6 +1432,9 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
       riskLevel: pick.riskLevel || 'medium',
       suitableFor: pick.suitableFor || [],
       keyMetrics: pick.keyMetrics,
+      timeHorizon: pick.timeHorizon || this.getTimeHorizon(pick.category),
+      confidenceScore: pick.confidenceScore || 70,
+      sectorCategory: pick.sectorCategory,
     };
   }
 }
