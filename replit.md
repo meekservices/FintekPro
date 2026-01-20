@@ -39,6 +39,16 @@ The Unified Tax & Compliance Module is SEBI-compliant, offering PAN-driven ITR f
 
 External data integration includes a Financial Calendar (RBI, SEBI, NSE, BSE) and a Market Holiday Service. A Portfolio Import System is available.
 
+A **Unified Portfolio Storage System** consolidates portfolio data for both prospects/leads and registered clients:
+- **Unified Tables**: `portfolios` and `portfolioHoldings` tables serve both prospect and client portfolios
+- **Source Tracking**: Portfolio source field tracks origin: 'manual', 'uploaded', 'cas_fetch', 'pan_fetch', 'broker_sync'
+- **Prospect Support**: Added `prospectId`, `sourceFileName`, `lastFetchedAt`, `isVerified` fields to portfolios table
+- **Enhanced Holdings**: `portfolioHoldings` includes name, isin, currentValue, investedValue, productType, folioNumber, broker, confidenceScore
+- **Dual-Write Compatibility**: Portfolio imports write to both JSONB fields and unified tables during migration
+- **KYC Completion Flow**: Transfers prospect portfolios to verified user accounts, marks as verified, triggers background BSE STAR CAS refresh
+- **CAS Refresh**: Asynchronous background refresh using transaction-safe atomic updates; replaces MF holdings with authoritative CAS data while preserving non-MF holdings
+- **API Endpoints**: `/api/agent/prospects/:id/portfolio/unified` for unified prospect portfolio data
+
 The platform includes real-time portfolio/market data, financial calculators, multi-asset support, family collaboration, a 3-tier KYC system, and an AI Chat Assistant (Google Gemini).
 
 A Comprehensive Zoho Ecosystem Integration spans Zoho CRM, Books, Campaigns, Meeting, and Sign on India data centers. Zoho CRM acts as the single source of truth for lead management with a two-way sync. Zoho Books handles commission invoicing, Zoho Campaigns manages email marketing, Zoho Meeting facilitates client consultations, and Zoho Sign manages e-signatures for KYC and agreements.
