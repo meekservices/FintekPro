@@ -63,7 +63,7 @@ export interface CoverageStats {
 const FINANCIAL_FIELDS = [
   'revenue', 'profitBeforeTax', 'profitAfterTax', 'netWorth', 
   'totalAssets', 'totalLiabilities', 'shareCapital', 'reserves',
-  'longTermBorrowing', 'shortTermBorrowing'
+  'longTermBorrowing', 'shortTermBorrowing', 'ebitda', 'operatingCashFlow'
 ];
 
 class McaFinancialBackfillService {
@@ -109,6 +109,8 @@ class McaFinancialBackfillService {
         reserves: data.reserves?.toString(),
         longTermBorrowing: data.longTermBorrowing?.toString(),
         shortTermBorrowing: data.shortTermBorrowing?.toString(),
+        ebitda: data.ebitda?.toString(),
+        operatingCashFlow: data.operatingCashFlow?.toString(),
       };
 
       Object.keys(updateData).forEach(key => {
@@ -299,6 +301,54 @@ class McaFinancialBackfillService {
     }
 
     return Math.round((filledFields / totalFields) * 100);
+  }
+
+  async getFieldCoverageStats(): Promise<{
+    totalSnapshots: number;
+    fields: Array<{
+      fieldName: string;
+      displayName: string;
+      filledCount: number;
+      missingCount: number;
+      coverage: number;
+    }>;
+  }> {
+    const snapshots = await db.select().from(mcaFinancialSnapshot);
+    const totalSnapshots = snapshots.length;
+
+    const fieldNames: Record<string, string> = {
+      revenue: 'Revenue',
+      profitBeforeTax: 'Profit Before Tax',
+      profitAfterTax: 'Profit After Tax (PAT)',
+      netWorth: 'Net Worth',
+      totalAssets: 'Total Assets',
+      totalLiabilities: 'Total Liabilities',
+      shareCapital: 'Share Capital',
+      reserves: 'Reserves',
+      longTermBorrowing: 'Long Term Borrowing',
+      shortTermBorrowing: 'Short Term Borrowing',
+      ebitda: 'EBITDA',
+      operatingCashFlow: 'Operating Cash Flow',
+    };
+
+    const fields = FINANCIAL_FIELDS.map(field => {
+      let filledCount = 0;
+      for (const snapshot of snapshots) {
+        const value = (snapshot as any)[field];
+        if (value !== null && value !== undefined && parseFloat(value) !== 0) {
+          filledCount++;
+        }
+      }
+      return {
+        fieldName: field,
+        displayName: fieldNames[field] || field,
+        filledCount,
+        missingCount: totalSnapshots - filledCount,
+        coverage: totalSnapshots > 0 ? Math.round((filledCount / totalSnapshots) * 100) : 0,
+      };
+    });
+
+    return { totalSnapshots, fields };
   }
 
   async getCoverageStats(): Promise<CoverageStats> {

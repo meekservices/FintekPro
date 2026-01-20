@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { mcaFinancialBackfillService, FinancialDataInput } from '../services/mca-financial-backfill-service';
+import { mcaFinancialRefreshScheduler } from '../services/mca-financial-refresh-scheduler';
 
 const router = Router();
 
@@ -38,6 +39,15 @@ router.get('/coverage/stats', async (req: Request, res: Response) => {
   try {
     const stats = await mcaFinancialBackfillService.getCoverageStats();
     res.json({ success: true, stats });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get('/coverage/fields', async (req: Request, res: Response) => {
+  try {
+    const fieldStats = await mcaFinancialBackfillService.getFieldCoverageStats();
+    res.json({ success: true, ...fieldStats });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -176,6 +186,43 @@ router.post('/import-bulk', async (req: Request, res: Response) => {
       ...result,
       validationErrors,
     });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get('/scheduler/status', async (req: Request, res: Response) => {
+  try {
+    const status = await mcaFinancialRefreshScheduler.getSchedulerStatus();
+    res.json({ success: true, ...status });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/scheduler/start', async (req: Request, res: Response) => {
+  try {
+    mcaFinancialRefreshScheduler.start();
+    res.json({ success: true, message: 'Scheduler started' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/scheduler/stop', async (req: Request, res: Response) => {
+  try {
+    mcaFinancialRefreshScheduler.stop();
+    res.json({ success: true, message: 'Scheduler stopped' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/scheduler/trigger', async (req: Request, res: Response) => {
+  try {
+    const { cins } = req.body;
+    const result = await mcaFinancialRefreshScheduler.triggerManualRefresh(cins);
+    res.json({ success: true, ...result });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
