@@ -3911,6 +3911,13 @@ export const mutualFunds = pgTable("mutual_funds", {
   publishedAt: timestamp("published_at"), // When scheme was published
   publishedBy: varchar("published_by"), // Admin who published
   
+  // Search resilience & AMFI alignment fields
+  amfiCode: varchar("amfi_code"), // AMFI unique identifier (indexed)
+  optionType: varchar("option_type"), // 'growth' or 'idcw' (dividend)
+  schemeStatus: varchar("scheme_status").default("active"), // 'active', 'merged', 'wound_up'
+  lastVerifiedAt: timestamp("last_verified_at"), // Last API verification timestamp
+  dataSource: varchar("data_source"), // 'AMFI', 'MFAPI', 'CACHED'
+  
   lastUpdated: timestamp("last_updated").defaultNow(),
 });
 
