@@ -97,6 +97,11 @@ export default function RevenueAnalytics() {
   
   const { data, isLoading, refetch, isFetching } = useQuery<RevenueAnalyticsData>({
     queryKey: ["/api/admin/revenue-analytics", period],
+    queryFn: async () => {
+      const response = await fetch(`/api/admin/revenue-analytics?period=${period}`, { credentials: "include" });
+      if (!response.ok) throw new Error("Failed to fetch revenue analytics");
+      return response.json();
+    },
   });
 
   if (isLoading) {

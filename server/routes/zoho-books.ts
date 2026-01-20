@@ -3,12 +3,23 @@ import { ZohoBooksService, getZohoBooksService } from '../zoho/services/books';
 import { zohoTransactionSyncService, ProductType } from '../services/zoho-transaction-sync-service';
 
 // Role-based access middleware for admin and accounts team
-const requireAdminOrAccounts = (req: Request, res: Response, next: NextFunction) => {
+const requireAdminOrAccounts = async (req: Request, res: Response, next: NextFunction) => {
+  if (!req.isAuthenticated || !req.isAuthenticated()) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  
   const user = (req as any).user;
   if (!user) {
     return res.status(401).json({ error: 'Authentication required' });
   }
   
+  // Check using adminService pattern
+  const { adminService } = await import('../admin-service');
+  if (await adminService.isAdmin(user.id)) {
+    return next();
+  }
+  
+  // Fallback to role-based check for accounts/finance roles
   const allowedRoles = ['admin', 'super_admin', 'accounts', 'finance_admin', 'finance_manager'];
   const userRole = user.role || user.userRole || '';
   
@@ -568,6 +579,67 @@ export function registerZohoBooksRoutes(app: Express) {
       res.json(result);
     } catch (error: any) {
       console.error('Error approving payout:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Unified Payouts endpoint for admin payout management
+  app.get('/api/admin/payouts', requireAdminOrAccounts, async (req, res) => {
+    try {
+      // Aggregate payout data from partner settlements and referral payouts
+      const { db } = await import('../db');
+      const { partnerSettlements, users, referralPayoutTransactions } = await import('@shared/schema');
+      const { eq, sql, desc } = await import('drizzle-orm');
+      
+      // Get partner settlements as payouts
+      const settlements = await db.select({
+        id: partnerSettlements.id,
+        partnerId: partnerSettlements.partnerId,
+        amount: partnerSettlements.finalPayoutAmount,
+        status: partnerSettlements.status,
+        createdAt: partnerSettlements.createdAt,
+        processedAt: partnerSettlements.cashfreePayoutCompletedAt,
+        referenceNumber: partnerSettlements.cashfreePayoutId,
+      }).from(partnerSettlements).orderBy(desc(partnerSettlements.createdAt)).limit(100);
+      
+      // Format as PayoutRequest objects
+      const payouts = await Promise.all(settlements.map(async (s) => {
+        // Get user info
+        const [user] = await db.select({
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+        }).from(users).where(eq(users.id, parseInt(s.partnerId || '0'))).limit(1);
+        
+        const statusMap: Record<string, string> = {
+          'pending': 'pending',
+          'approved': 'approved',
+          'processing': 'processing',
+          'completed': 'completed',
+          'paid': 'completed',
+          'failed': 'rejected',
+        };
+        
+        return {
+          id: s.id,
+          userId: s.partnerId || '',
+          userName: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Unknown',
+          userType: 'partner' as const,
+          email: user?.email || '',
+          amount: parseFloat(s.amount || '0'),
+          requestDate: s.createdAt?.toISOString() || new Date().toISOString(),
+          status: statusMap[s.status || 'pending'] || 'pending',
+          bankName: 'Bank Account',
+          accountEnding: '****',
+          ifsc: '',
+          processedDate: s.processedAt?.toISOString(),
+          referenceNumber: s.referenceNumber || undefined,
+        };
+      }));
+      
+      res.json(payouts);
+    } catch (error: any) {
+      console.error('Error fetching payouts:', error);
       res.status(500).json({ error: error.message });
     }
   });
