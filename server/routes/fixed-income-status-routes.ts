@@ -204,3 +204,26 @@ router.get('/admin/universe-stats', requireAuth, requireRole(['admin']), async (
     return apiResponse.serverError(res, 'Failed to fetch universe stats');
   }
 });
+
+router.get('/admin/audit-logs', requireAuth, requireRole(['admin']), async (req: Request, res: Response) => {
+  try {
+    const logs = await db.select().from(fixedIncomeStatusLog).orderBy(desc(fixedIncomeStatusLog.createdAt)).limit(100);
+    const formattedLogs = logs.map(log => ({
+      id: log.id.toString(),
+      userId: log.userId || 'system',
+      eventType: log.eventType || 'status_change',
+      entityType: 'fixed_income',
+      entityId: log.isin || 'N/A',
+      eventDetails: {
+        status: log.status,
+        field: log.field,
+        details: log.details
+      },
+      createdAt: log.createdAt?.toISOString() || new Date().toISOString()
+    }));
+    return apiResponse.success(res, formattedLogs);
+  } catch (error: any) {
+    console.error('Error fetching fixed income audit logs:', error);
+    return apiResponse.serverError(res, 'Failed to fetch audit logs');
+  }
+});

@@ -61,11 +61,25 @@ export default function UnlistedComplianceAlerts() {
 
   const { data: statsData, isLoading: isLoadingStats } = useQuery<{ success: boolean; data: ComplianceStats }>({
     queryKey: ['/api/unlisted/admin/compliance/stats', refreshKey],
+    queryFn: async () => {
+      const response = await fetch('/api/unlisted/admin/compliance/stats', { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch compliance stats');
+      return response.json();
+    },
     retry: false,
   });
 
   const { data: alertsData, isLoading: isLoadingAlerts, refetch } = useQuery<{ success: boolean; data: ComplianceAlert[] }>({
-    queryKey: ['/api/unlisted/admin/compliance/alerts', { type: activeTab !== 'all' ? activeTab : undefined, severity: severityFilter !== 'all' ? severityFilter : undefined }, refreshKey],
+    queryKey: ['/api/unlisted/admin/compliance/alerts', activeTab, severityFilter, refreshKey],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (activeTab !== 'all') params.set('type', activeTab);
+      if (severityFilter !== 'all') params.set('severity', severityFilter);
+      const url = `/api/unlisted/admin/compliance/alerts${params.toString() ? `?${params.toString()}` : ''}`;
+      const response = await fetch(url, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch compliance alerts');
+      return response.json();
+    },
     retry: false,
   });
 
