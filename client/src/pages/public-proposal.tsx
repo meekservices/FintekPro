@@ -1374,21 +1374,51 @@ export default function PublicProposalPage() {
                   const amount = rec.recommendedAmount || rec.suggestedAmount || rec.changeAmount || 0;
                   if (amount > 0) {
                     totalRecommendedAmount += amount;
-                    // Map category to asset class
-                    const category = (rec.category || rec.productType || 'Other').toLowerCase();
+                    // Map category and productType to asset class
+                    const category = (rec.category || '').toLowerCase();
+                    const productType = (rec.productType || '').toLowerCase();
+                    const combined = `${category} ${productType}`;
                     let assetClass = 'Other';
-                    if (category.includes('equity') || category.includes('large cap') || category.includes('mid cap') || category.includes('small cap') || category.includes('flexi') || category.includes('multi')) {
+                    
+                    // Equity: stocks, large/mid/small cap, flexi cap, multi cap, equity funds
+                    if (combined.includes('equity') || combined.includes('large_cap') || combined.includes('large cap') || 
+                        combined.includes('mid_cap') || combined.includes('mid cap') || combined.includes('small_cap') || 
+                        combined.includes('small cap') || combined.includes('flexi') || combined.includes('multi') ||
+                        combined.includes('listed_stock') || combined.includes('unlisted_stock') || combined.includes('stock') ||
+                        combined.includes('pre_ipo') || combined.includes('pre-ipo')) {
                       assetClass = 'Equity';
-                    } else if (category.includes('debt') || category.includes('liquid') || category.includes('overnight') || category.includes('money market') || category.includes('gilt') || category.includes('bond')) {
+                    // Debt: bonds, liquid, money market, gilt, NCDs
+                    } else if (combined.includes('debt') || combined.includes('liquid') || combined.includes('overnight') || 
+                               combined.includes('money market') || combined.includes('gilt') || combined.includes('bond') ||
+                               combined.includes('ncd') || combined.includes('fixed_income') || combined.includes('credit')) {
                       assetClass = 'Debt';
-                    } else if (category.includes('hybrid') || category.includes('balanced') || category.includes('aggressive')) {
+                    // Hybrid: balanced, aggressive hybrid, conservative hybrid
+                    } else if (combined.includes('hybrid') || combined.includes('balanced') || combined.includes('aggressive hybrid') ||
+                               combined.includes('conservative hybrid') || combined.includes('dynamic asset')) {
                       assetClass = 'Hybrid';
-                    } else if (category.includes('gold') || category.includes('silver') || category.includes('commodity')) {
+                    // Real Assets: REITs, InvITs, infrastructure
+                    } else if (combined.includes('reit') || combined.includes('invit') || combined.includes('infrastructure') ||
+                               combined.includes('real estate') || combined.includes('commercial_office') || 
+                               combined.includes('roads_highways') || combined.includes('power_transmission')) {
+                      assetClass = 'Real Assets';
+                    // Gold/Commodities
+                    } else if (combined.includes('gold') || combined.includes('silver') || combined.includes('commodity') ||
+                               combined.includes('sgb') || combined.includes('sovereign gold')) {
                       assetClass = 'Gold/Commodities';
-                    } else if (category.includes('international') || category.includes('global') || category.includes('overseas')) {
+                    // International: global, overseas, us markets, emerging markets
+                    } else if (combined.includes('international') || combined.includes('global') || combined.includes('overseas') ||
+                               combined.includes('us_market') || combined.includes('europe_market') || combined.includes('asia_pacific') ||
+                               combined.includes('emerging_market') || combined.includes('international_fund') || 
+                               combined.includes('international_etf')) {
                       assetClass = 'International';
-                    } else if (category.includes('index') || category.includes('etf')) {
+                    // Index/ETF
+                    } else if (combined.includes('index') || combined.includes('etf') || combined.includes('nifty') || 
+                               combined.includes('sensex')) {
                       assetClass = 'Index/ETF';
+                    // Mutual Funds (fallback for MF categories)
+                    } else if (combined.includes('mutual_fund') || combined.includes('mutual fund') || combined.includes('elss') ||
+                               combined.includes('tax_saving') || combined.includes('sectoral') || combined.includes('thematic')) {
+                      assetClass = 'Equity'; // Most MFs are equity-oriented
                     }
                     
                     if (!allocationMap[assetClass]) {
