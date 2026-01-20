@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import fetch from 'node-fetch';
 import { db } from '../db';
-import { prospectClients } from '@shared/schema';
+import { prospectClients, portfolios, portfolioHoldings } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { isAuthenticated } from '../replitAuth';
 import { parsePDFPortfolio, parseURLPortfolio, createPortfolioSnapshot } from '../services/portfolio-parser';
@@ -49,6 +49,84 @@ function deriveAllocation(holdings: any[]): Record<string, number> {
   
   return allocation;
 }
+
+// Helper function to upsert portfolio into unified tables
+async function upsertProspectPortfolio(
+  prospectId: string,
+  prospectName: string,
+  holdings: any[],
+  source: string,
+  sourceFileName?: string,
+  confidenceScore?: number
+): Promise<string> {
+  // Check if portfolio already exists for this prospect
+  const [existingPortfolio] = await db
+    .select()
+    .from(portfolios)
+    .where(eq(portfolios.prospectId, prospectId))
+    .limit(1);
+
+  let portfolioId: string;
+  const totalValue = holdings.reduce((sum: number, h: any) => sum + (h.currentValue || h.value || 0), 0);
+
+  if (existingPortfolio) {
+    // Update existing portfolio
+    portfolioId = existingPortfolio.id;
+    await db
+      .update(portfolios)
+      .set({
+        totalValue: totalValue.toString(),
+        source,
+        sourceFileName,
+        updatedAt: new Date()
+      })
+      .where(eq(portfolios.id, portfolioId));
+    
+    // Delete existing holdings and insert new ones
+    await db
+      .delete(portfolioHoldings)
+      .where(eq(portfolioHoldings.portfolioId, portfolioId));
+  } else {
+    // Create new portfolio
+    const [newPortfolio] = await db
+      .insert(portfolios)
+      .values({
+        prospectId,
+        name: `${prospectName}'s Portfolio`,
+        totalValue: totalValue.toString(),
+        source,
+        sourceFileName,
+        isDefault: true,
+        isVerified: false
+      })
+      .returning();
+    portfolioId = newPortfolio.id;
+  }
+
+  // Insert holdings into unified table
+  if (holdings.length > 0) {
+    await db.insert(portfolioHoldings).values(
+      holdings.map(h => ({
+        portfolioId,
+        symbol: h.symbol || null,
+        name: h.name || h.productName || 'Unknown',
+        isin: h.isin || null,
+        quantity: (h.quantity || 1).toString(),
+        avgPrice: h.avgPrice?.toString() || h.averageCost?.toString() || null,
+        currentValue: (h.currentValue || h.value || 0).toString(),
+        investedValue: h.investedValue?.toString() || null,
+        assetType: normalizeAssetType(h.assetType || h.type || h.productType),
+        productType: h.productType || null,
+        folioNumber: h.folioNumber || null,
+        broker: h.broker || null,
+        confidenceScore: confidenceScore || null
+      }))
+    );
+  }
+
+  return portfolioId;
+}
+
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -155,6 +233,16 @@ router.post(
           updatedAt: new Date()
         })
         .where(eq(prospectClients.id, prospectId));
+      
+      // Also save to unified portfolio tables
+      await upsertProspectPortfolio(
+        prospectId,
+        prospect.name,
+        snapshot.holdings,
+        "uploaded",
+        req.file.originalname,
+        parseResult.confidenceScore
+      );
       
       // Build the success message based on import results
       let message = '';
@@ -281,6 +369,16 @@ router.post(
           updatedAt: new Date()
         })
         .where(eq(prospectClients.id, prospectId));
+      
+      // Also save to unified portfolio tables
+      await upsertProspectPortfolio(
+        prospectId,
+        prospect.name,
+        snapshot.holdings,
+        "cas_fetch",
+        undefined,
+        parseResult.confidenceScore
+      );
       
       res.json({
         success: true,
