@@ -736,8 +736,8 @@ export default function McaIntelligence() {
                     </TableHeader>
                     <TableBody>
                       {profitableData?.result && profitableData.result.length > 0 ? (
-                        profitableData.result.map((company: ProfitableCompany) => (
-                          <TableRow key={company.cin}>
+                        profitableData.result.map((company: ProfitableCompany, index: number) => (
+                          <TableRow key={`${company.cin}-${company.financialYear}-${index}`}>
                             <TableCell className="font-medium">{company.companyName}</TableCell>
                             <TableCell className="font-mono text-xs">{company.cin}</TableCell>
                             <TableCell>{company.state || '-'}</TableCell>
