@@ -82,7 +82,17 @@ export default function UnlistedAuditLog() {
   const [page, setPage] = useState(1);
   
   const { data: responseData, isLoading, refetch } = useQuery<{ success: boolean; data: AuditLogResponse }>({
-    queryKey: ['/api/unlisted/admin/audit-log', { page, actionType: actionFilter !== 'all' ? actionFilter : undefined }],
+    queryKey: ['/api/unlisted/admin/audit-log', page, actionFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.set('page', page.toString());
+      if (actionFilter !== 'all') {
+        params.set('actionType', actionFilter);
+      }
+      const response = await fetch(`/api/unlisted/admin/audit-log?${params.toString()}`, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch audit log');
+      return response.json();
+    },
   });
   const data = responseData?.data;
   
