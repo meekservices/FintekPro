@@ -41,7 +41,7 @@ import { sql, eq, and, or, like, desc, asc, count, inArray, gte, lte, lt } from 
 import { db } from "./db";
 import { setupAuth as setupReplitAuth, isAuthenticated } from "./replitAuth";
 import { setupAuth as setupLocalAuth } from "./auth";
-import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema, insertCkycDocumentSchema, userCart, userCartItems, storeProducts, storeCategories, storeProductInquiries, storeTransactionLogs, fundComparisons, portfolioComparisons, comparisonHistory, insertFamilyGroupSchema, insertFamilyMemberSchema, insertFamilyGoalSchema, insertFamilyGoalContributionSchema, insertFamilyActivityLogSchema, insertFamilyDiscussionSchema, insertFamilyBudgetSchema, kycFormProgress, insertProductAccountPreferenceSchema, mutualFunds, mutualFundAmcs, prospectClients, proposalInteractions, proposalApprovals, insertProspectClientSchema, insertProposalInteractionSchema, insertProposalApprovalSchema, prospectProposals } from "@shared/schema";
+import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema, insertCkycDocumentSchema, userCart, userCartItems, storeProducts, storeCategories, storeProductInquiries, storeTransactionLogs, fundComparisons, portfolioComparisons, comparisonHistory, insertFamilyGroupSchema, insertFamilyMemberSchema, insertFamilyGoalSchema, insertFamilyGoalContributionSchema, insertFamilyActivityLogSchema, insertFamilyDiscussionSchema, insertFamilyBudgetSchema, kycFormProgress, insertProductAccountPreferenceSchema, mutualFunds, mutualFundAmcs, agentLeads, prospectClients, proposalInteractions, proposalApprovals, insertProspectClientSchema, insertProposalInteractionSchema, insertProposalApprovalSchema, prospectProposals } from "@shared/schema";
 import { marketStoryService, type MarketData as StoryMarketData } from "./market-story-service";
 import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "./gemini";
 import { whatsappService } from "./whatsapp";
@@ -18359,13 +18359,164 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Agent leads stats for notification center
+  // Agent leads - Full CRUD for lead pipeline
+  // GET all leads for agent
+  app.get("/api/agent/leads", requireAgent, async (req, res) => {
+    try {
+      const leads = await db.select()
+        .from(agentLeads)
+        .where(eq(agentLeads.agentId, req.user.id))
+        .orderBy(desc(agentLeads.createdAt));
+      
+      // Transform to match frontend Lead interface
+      const transformedLeads = leads.map(lead => ({
+        id: lead.id,
+        name: lead.name || '',
+        email: lead.email || '',
+        phone: lead.phone || '',
+        stage: lead.stage || 'new',
+        source: lead.source || 'manual',
+        potentialValue: Number(lead.potentialValue) || 0,
+        score: lead.score || 50,
+        notes: lead.notes || '',
+        lastContact: lead.lastContactAt?.toISOString(),
+        nextFollowUp: lead.nextFollowUpAt?.toISOString(),
+        createdAt: lead.createdAt?.toISOString() || new Date().toISOString(),
+        tags: lead.tags || []
+      }));
+      
+      res.json(transformedLeads);
+    } catch (error) {
+      console.error("Error fetching agent leads:", error);
+      res.status(500).json({ error: "Failed to fetch leads" });
+    }
+  });
+
+  // GET leads stats with full metrics
   app.get("/api/agent/leads/stats", requireAgent, async (req, res) => {
     try {
-      res.json({ newLeadsCount: 2 });
+      const leads = await db.select()
+        .from(agentLeads)
+        .where(eq(agentLeads.agentId, req.user.id));
+      
+      const stageCounts = {
+        new: 0,
+        contacted: 0,
+        proposal_sent: 0,
+        negotiating: 0,
+        converted: 0,
+        lost: 0
+      };
+      
+      let totalValue = 0;
+      let convertedValue = 0;
+      
+      leads.forEach(lead => {
+        const stage = lead.stage as keyof typeof stageCounts;
+        if (stageCounts.hasOwnProperty(stage)) {
+          stageCounts[stage]++;
+        }
+        const val = Number(lead.potentialValue) || 0;
+        if (stage !== 'lost' && stage !== 'converted') {
+          totalValue += val;
+        }
+        if (stage === 'converted') {
+          convertedValue += val;
+        }
+      });
+      
+      const stats = {
+        total: leads.length,
+        new: stageCounts.new,
+        contacted: stageCounts.contacted,
+        proposalSent: stageCounts.proposal_sent,
+        negotiating: stageCounts.negotiating,
+        converted: stageCounts.converted,
+        lost: stageCounts.lost,
+        conversionRate: leads.length > 0 ? Math.round((stageCounts.converted / leads.length) * 100) : 0,
+        avgDealValue: stageCounts.converted > 0 ? Math.round(convertedValue / stageCounts.converted) : 0,
+        pipelineValue: totalValue,
+        newLeadsCount: stageCounts.new
+      };
+      
+      res.json(stats);
     } catch (error) {
       console.error("Error fetching agent leads stats:", error);
-      res.json({ newLeadsCount: 0 });
+      res.json({ newLeadsCount: 0, total: 0 });
+    }
+  });
+
+  // POST create new lead
+  app.post("/api/agent/leads", requireAgent, async (req, res) => {
+    try {
+      const { name, email, phone, source, potentialValue, notes } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ error: "Lead name is required" });
+      }
+      
+      const [newLead] = await db.insert(agentLeads)
+        .values({
+          agentId: req.user.id,
+          name,
+          email: email || null,
+          phone: phone || null,
+          source: source || 'manual',
+          potentialValue: potentialValue ? String(potentialValue) : '0',
+          notes: notes || null,
+          stage: 'new',
+          score: 50,
+          tags: []
+        })
+        .returning();
+      
+      res.json({
+        id: newLead.id,
+        name: newLead.name,
+        email: newLead.email || '',
+        phone: newLead.phone || '',
+        stage: newLead.stage,
+        source: newLead.source,
+        potentialValue: Number(newLead.potentialValue) || 0,
+        score: newLead.score || 50,
+        notes: newLead.notes || '',
+        createdAt: newLead.createdAt?.toISOString(),
+        tags: newLead.tags || []
+      });
+    } catch (error) {
+      console.error("Error creating lead:", error);
+      res.status(500).json({ error: "Failed to create lead" });
+    }
+  });
+
+  // PATCH update lead stage
+  app.patch("/api/agent/leads/:id/stage", requireAgent, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { stage } = req.body;
+      
+      const validStages = ['new', 'contacted', 'proposal_sent', 'negotiating', 'converted', 'lost'];
+      if (!validStages.includes(stage)) {
+        return res.status(400).json({ error: "Invalid stage" });
+      }
+      
+      const [updated] = await db.update(agentLeads)
+        .set({ 
+          stage, 
+          updatedAt: new Date(),
+          lastContactAt: new Date()
+        })
+        .where(and(eq(agentLeads.id, id), eq(agentLeads.agentId, req.user.id)))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      
+      res.json({ success: true, lead: updated });
+    } catch (error) {
+      console.error("Error updating lead stage:", error);
+      res.status(500).json({ error: "Failed to update lead stage" });
     }
   });
 
