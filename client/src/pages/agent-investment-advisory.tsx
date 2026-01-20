@@ -670,7 +670,11 @@ export default function AgentInvestmentAdvisory() {
                 {selectedClient ? (
                   <span className="flex items-center gap-2 truncate">
                     <User className="h-4 w-4 shrink-0" />
-                    {selectedClient.firstName} {selectedClient.lastName}
+                    <span className="truncate">
+                      {(selectedClient.firstName || selectedClient.lastName) 
+                        ? `${selectedClient.firstName || ''} ${selectedClient.lastName || ''}`.trim()
+                        : (selectedClient.name || selectedClient.email?.split('@')[0] || 'Unnamed')}
+                    </span>
                     {selectedClient.prospectState === 'lead' ? (
                       <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
                         Lead
@@ -736,14 +740,18 @@ export default function AgentInvestmentAdvisory() {
                         />
                         <div className="flex flex-col flex-1">
                           <div className="flex items-center gap-2">
-                            <span>{client.firstName} {client.lastName}</span>
+                            <span className="truncate">
+                              {(client.firstName || client.lastName) 
+                                ? `${client.firstName || ''} ${client.lastName || ''}`.trim()
+                                : (client.name || client.email?.split('@')[0] || 'Unnamed')}
+                            </span>
                             {client.prospectState === 'lead' ? (
                               <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
                                 Lead {client.leadQuality === 'hot' && '🔥'}
                               </Badge>
                             ) : client.isProspect ? (
                               <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800">
-                                {client.prospectState === 'onboarded' ? 'Prospect' : 'Prospect'}
+                                Prospect
                               </Badge>
                             ) : (
                               <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800">
@@ -752,7 +760,7 @@ export default function AgentInvestmentAdvisory() {
                             )}
                           </div>
                           <span className="text-xs text-muted-foreground truncate">
-                            {client.companyName || client.email || client.uuid?.slice(0, 8) + '...'}
+                            {client.email || client.companyName || client.phone || client.uuid?.slice(0, 8) + '...'}
                           </span>
                         </div>
                       </CommandItem>
