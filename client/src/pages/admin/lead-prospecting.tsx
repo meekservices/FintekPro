@@ -966,7 +966,7 @@ export default function LeadProspecting() {
                       </h4>
                       <div className="text-sm space-y-1">
                         {lead.listingStatus && (
-                          <p className="flex items-center gap-1">
+                          <div className="flex items-center gap-1">
                             <strong>Status:</strong>
                             <Badge 
                               variant={lead.listingStatus === 'Listed' ? 'default' : 'secondary'} 
@@ -974,10 +974,10 @@ export default function LeadProspecting() {
                             >
                               {lead.listingStatus}
                             </Badge>
-                          </p>
+                          </div>
                         )}
                         {lead.activeCompliance && (
-                          <p className="flex items-center gap-1">
+                          <div className="flex items-center gap-1">
                             <strong>Compliance:</strong>
                             <Badge 
                               variant={lead.activeCompliance?.toLowerCase().includes('compliant') && !lead.activeCompliance?.toLowerCase().includes('non') ? 'default' : 'destructive'} 
@@ -985,14 +985,14 @@ export default function LeadProspecting() {
                             >
                               {lead.activeCompliance}
                             </Badge>
-                          </p>
+                          </div>
                         )}
                         {lead.entityType && (
                           <p className="text-xs text-muted-foreground truncate" title={lead.entityType}>
                             {lead.entityType.length > 30 ? lead.entityType.substring(0, 30) + '...' : lead.entityType}
                           </p>
                         )}
-                        <p className="flex items-center gap-1">
+                        <div className="flex items-center gap-1">
                           <strong>GST:</strong> 
                           {lead.gstStatus ? (
                             <Badge 
@@ -1002,7 +1002,7 @@ export default function LeadProspecting() {
                               {lead.gstStatus}
                             </Badge>
                           ) : <span className="text-muted-foreground text-xs ml-1">Unknown</span>}
-                        </p>
+                        </div>
                       </div>
                     </div>
 
@@ -1012,7 +1012,7 @@ export default function LeadProspecting() {
                         <CreditCard className="h-3 w-3" /> Credit
                       </h4>
                       <div className="text-sm space-y-1">
-                        <p className="flex items-center gap-1">
+                        <div className="flex items-center gap-1">
                           <strong>Rating:</strong> 
                           {lead.creditRating ? (
                             <>
@@ -1029,12 +1029,12 @@ export default function LeadProspecting() {
                               )}
                             </>
                           ) : <span className="text-muted-foreground text-xs ml-1">Unknown</span>}
-                        </p>
+                        </div>
                         {lead.creditRatingAgency && <p className="text-xs text-muted-foreground">{lead.creditRatingAgency}</p>}
-                        <p><strong>Charges:</strong> {(lead.openChargesCount || 0) === 0 ? 
+                        <div className="flex items-center gap-1"><strong>Charges:</strong> {(lead.openChargesCount || 0) === 0 ? 
                           <Badge variant="secondary" className="text-xs ml-1">None</Badge> : 
                           <Badge variant="destructive" className="text-xs ml-1">{lead.openChargesCount} open</Badge>}
-                        </p>
+                        </div>
                         {lead.totalChargesAmount && parseFloat(lead.totalChargesAmount) > 0 && (
                           <p className="text-xs">₹{(parseFloat(lead.totalChargesAmount) / 10000000).toFixed(2)}Cr</p>
                         )}
@@ -1047,14 +1047,14 @@ export default function LeadProspecting() {
                         <Scale className="h-3 w-3" /> Legal & Size
                       </h4>
                       <div className="text-sm space-y-1">
-                        <p className="flex items-center gap-1">
+                        <div className="flex items-center gap-1">
                           <strong>Legal Cases:</strong>
                           {(lead.activeLegalCases || 0) > 0 ? (
                             <Badge variant="destructive" className="text-xs ml-1">{lead.activeLegalCases} active</Badge>
                           ) : (
                             <Badge variant="secondary" className="text-xs ml-1">None</Badge>
                           )}
-                        </p>
+                        </div>
                         {lead.suitFiledCasesCount !== undefined && lead.suitFiledCasesCount > 0 && (
                           <p className="text-xs text-muted-foreground">{lead.suitFiledCasesCount} suits filed</p>
                         )}
