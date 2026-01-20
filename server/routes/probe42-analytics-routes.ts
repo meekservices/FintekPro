@@ -13,13 +13,21 @@
 import { Router, Request, Response } from 'express';
 import { getProbe42AnalyticsService } from '../services/probe42-analytics-service';
 import { apiResponse } from '../utils/responses';
+import { adminService } from '../admin-service';
 
 const router = Router();
 const analyticsService = getProbe42AnalyticsService();
 
-// Middleware to check admin access
-const requireAdmin = (req: any, res: Response, next: any) => {
-  if (req.user?.role !== 'admin' && req.user?.role !== 'super_admin') {
+// Middleware to check admin access (matches pattern from routes.ts)
+const requireAdmin = async (req: any, res: Response, next: any) => {
+  // Check if user is authenticated
+  if (!req.isAuthenticated || !req.isAuthenticated() || !req.user) {
+    return res.status(401).json({ message: 'Authentication required' });
+  }
+  
+  // Check if user is admin using adminService
+  const isAdmin = await adminService.isAdmin(req.user.id);
+  if (!isAdmin) {
     return apiResponse.forbidden(res, 'Admin access required');
   }
   next();
