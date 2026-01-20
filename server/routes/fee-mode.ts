@@ -1,9 +1,29 @@
-import { Router, Request, Response } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { clientFeeModeService, FeeMode } from "../services/client-fee-mode-service";
 import { resolveClientCapabilities } from "../middleware/client-capability-resolver";
+import { adminService } from "../admin-service";
 import { z } from "zod";
 
 const router = Router();
+
+// Admin authentication middleware using proper pattern
+const requireAdmin = async (req: Request, res: Response, next: NextFunction) => {
+  if (!req.isAuthenticated || !req.isAuthenticated()) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
+  
+  const user = (req as any).user;
+  if (!user?.id) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
+  
+  const isAdmin = await adminService.isAdmin(user.id);
+  if (!isAdmin) {
+    return res.status(403).json({ error: "Admin access required" });
+  }
+  
+  next();
+};
 
 const selectFeeModeSchema = z.object({
   feeMode: z.enum(['ADVISORY_PLATFORM', 'PLATFORM_ONLY']),
@@ -151,13 +171,8 @@ router.get("/audit-log", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/admin/settings", async (req: Request, res: Response) => {
+router.get("/admin/settings", requireAdmin, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    if (!user?.isAdmin && user?.role !== 'admin') {
-      return res.status(403).json({ error: "Admin access required" });
-    }
-
     const settings = await clientFeeModeService.getAdminSettings();
     res.json({ success: true, settings });
   } catch (error) {
@@ -166,13 +181,9 @@ router.get("/admin/settings", async (req: Request, res: Response) => {
   }
 });
 
-router.put("/admin/settings", async (req: Request, res: Response) => {
+router.put("/admin/settings", requireAdmin, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
-    if (!user?.isAdmin && user?.role !== 'admin') {
-      return res.status(403).json({ error: "Admin access required" });
-    }
-
     const validation = updateAdminSettingsSchema.safeParse(req.body);
     if (!validation.success) {
       return res.status(400).json({ 
@@ -197,13 +208,9 @@ router.put("/admin/settings", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/admin/override", async (req: Request, res: Response) => {
+router.post("/admin/override", requireAdmin, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
-    if (!user?.isAdmin && user?.role !== 'admin') {
-      return res.status(403).json({ error: "Admin access required" });
-    }
-
     const validation = adminOverrideSchema.safeParse(req.body);
     if (!validation.success) {
       return res.status(400).json({ 
@@ -234,13 +241,8 @@ router.post("/admin/override", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/admin/statistics", async (req: Request, res: Response) => {
+router.get("/admin/statistics", requireAdmin, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    if (!user?.isAdmin && user?.role !== 'admin') {
-      return res.status(403).json({ error: "Admin access required" });
-    }
-
     const statistics = await clientFeeModeService.getFeeModeStatistics();
     res.json({ success: true, statistics });
   } catch (error) {
@@ -249,13 +251,8 @@ router.get("/admin/statistics", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/admin/audit-log", async (req: Request, res: Response) => {
+router.get("/admin/audit-log", requireAdmin, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    if (!user?.isAdmin && user?.role !== 'admin') {
-      return res.status(403).json({ error: "Admin access required" });
-    }
-
     const clientId = req.query.clientId as string | undefined;
     const limit = parseInt(req.query.limit as string) || 100;
     
@@ -267,13 +264,8 @@ router.get("/admin/audit-log", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/admin/export/:clientId", async (req: Request, res: Response) => {
+router.get("/admin/export/:clientId", requireAdmin, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    if (!user?.isAdmin && user?.role !== 'admin') {
-      return res.status(403).json({ error: "Admin access required" });
-    }
-
     const { clientId } = req.params;
     const exportBundle = await clientFeeModeService.generateSebiExportBundle(clientId);
 
