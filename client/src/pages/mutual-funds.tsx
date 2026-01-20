@@ -20,7 +20,7 @@ import { KYCWarningBanner } from "@/components/KYCWarningBanner";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Sparkles, ThumbsUp, ThumbsDown, Edit2, Bot, UserCheck, Trash2, CreditCard, AlertOctagon, Database } from "lucide-react";
+import { Sparkles, ThumbsUp, ThumbsDown, Edit2, Bot, UserCheck, Trash2, CreditCard, AlertOctagon, Database, Activity } from "lucide-react";
 import { ClientTransactionHistory } from "@/components/store/ClientTransactionHistory";
 
 // Proposals Tab Component
@@ -554,7 +554,7 @@ function FundCard({ fund, sebiData, onInvestClick }: { fund: MutualFundData; seb
               <Building2 className="w-4 h-4 text-muted-foreground" />
               <p className="text-sm text-muted-foreground dark:text-muted-foreground font-medium">{fund.fundHouse}</p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {fund.category && (
                 <Badge variant="secondary" className="bg-finance-blue/10 text-finance-blue border-finance-blue/20 hover:bg-finance-blue hover:text-white transition-colors">
                   {fund.category}
@@ -564,6 +564,18 @@ function FundCard({ fund, sebiData, onInvestClick }: { fund: MutualFundData; seb
                 <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50 dark:bg-green-900/20">
                   <Shield className="w-3 h-3 mr-1" />
                   SEBI Verified
+                </Badge>
+              )}
+              {(fund as any).provenance?.dataSource === 'LIVE_API' && (
+                <Badge variant="outline" className="text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 text-xs">
+                  <Activity className="w-3 h-3 mr-1" />
+                  Live
+                </Badge>
+              )}
+              {(fund as any).provenance?.dataSource === 'CACHED_DB' && (
+                <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-900/20 text-xs">
+                  <Database className="w-3 h-3 mr-1" />
+                  Cached
                 </Badge>
               )}
             </div>

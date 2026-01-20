@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { FundExtended, FundCore, FundPerformance, Provenance, NAVRecord, FundSearchParams, FundListResponse, SourceStatus, MultiSourceStatus } from '@shared/schema';
 import FintekProRatingService, { FintekProAnalysis } from './fintekpro-rating-service';
+import { CircuitBreaker, CircuitState } from '../utils/circuitBreaker';
 import type { IStorage } from '../storage';
 
 // Cache configuration
@@ -25,6 +26,8 @@ export class MultiSourceMFService {
   private cache: CacheConfig;
   private sourceHealth: Map<string, SourceHealth>;
   private storage: IStorage;
+  private amfiCircuitBreaker: CircuitBreaker;
+  private mfapiCircuitBreaker: CircuitBreaker;
   private readonly CACHE_TTL = {
     SCHEMES: 24 * 60 * 60 * 1000, // 24 hours
     NAV: 5 * 60 * 1000, // 5 minutes
@@ -50,6 +53,38 @@ export class MultiSourceMFService {
       ['MFAPI', { isHealthy: true, errorRate: 0, consecutiveFailures: 0 }],
       ['FINTEKPRO_RATING', { isHealthy: true, errorRate: 0, consecutiveFailures: 0 }],
     ]);
+
+    // Initialize circuit breakers for API resilience
+    this.amfiCircuitBreaker = new CircuitBreaker('AMFI', {
+      failureThreshold: 3,
+      successThreshold: 2,
+      timeout: 60000, // 1 minute cooldown
+      onStateChange: (state, name) => {
+        console.log(`[CircuitBreaker] ${name} state changed to: ${state}`);
+      },
+      onFailure: (error, name) => {
+        console.warn(`[CircuitBreaker] ${name} failure recorded:`, error.message);
+      }
+    });
+
+    this.mfapiCircuitBreaker = new CircuitBreaker('MFAPI', {
+      failureThreshold: 3,
+      successThreshold: 2,
+      timeout: 60000,
+      onStateChange: (state, name) => {
+        console.log(`[CircuitBreaker] ${name} state changed to: ${state}`);
+      },
+      onFailure: (error, name) => {
+        console.warn(`[CircuitBreaker] ${name} failure recorded:`, error.message);
+      }
+    });
+  }
+
+  getCircuitBreakerStatus(): { amfi: string; mfapi: string } {
+    return {
+      amfi: this.amfiCircuitBreaker.getState(),
+      mfapi: this.mfapiCircuitBreaker.getState()
+    };
   }
 
   // ===== PUBLIC METHODS =====
@@ -146,32 +181,167 @@ export class MultiSourceMFService {
   }
 
   /**
-   * Search funds across sources
+   * Search funds with parallel API calls and DB fallback
+   * Uses Promise.allSettled for resilient parallel execution
    */
   async searchFunds(query: string): Promise<FundExtended[]> {
-    const sources = this.getOrderedSources();
-    
-    for (const source of sources) {
-      try {
-        const funds = await this.fetchFromSource(source, 'search', query);
-        if (funds && funds.length > 0) {
-          return funds.map((fund: any) => ({
-            ...fund,
-            provenance: {
-              primarySource: source as any,
-              sourceChain: [source],
-              lastRefreshed: new Date().toISOString(),
-              dataVersion: this.generateDataVersion(fund)
-            }
-          }));
+    const SEARCH_TIMEOUT = 3000; // 3 second timeout for search APIs
+    const startTime = Date.now();
+
+    // Helper to add timeout to a promise
+    const withTimeout = <T>(promise: Promise<T>, timeoutMs: number, source: string): Promise<T> => {
+      return Promise.race([
+        promise,
+        new Promise<T>((_, reject) => 
+          setTimeout(() => reject(new Error(`${source} search timeout after ${timeoutMs}ms`)), timeoutMs)
+        )
+      ]);
+    };
+
+    // Execute AMFI and MFAPI searches in parallel with circuit breakers
+    const [amfiResult, mfapiResult] = await Promise.allSettled([
+      this.amfiCircuitBreaker.execute(() => 
+        withTimeout(this.fetchFromSource('AMFI', 'search', query), SEARCH_TIMEOUT, 'AMFI')
+      ),
+      this.mfapiCircuitBreaker.execute(() =>
+        withTimeout(this.fetchFromSource('MFAPI', 'search', query), SEARCH_TIMEOUT, 'MFAPI')
+      )
+    ]);
+
+    // Collect results and track sources
+    const allFunds: FundExtended[] = [];
+    const usedSources: string[] = [];
+
+    // Process AMFI results
+    if (amfiResult.status === 'fulfilled' && amfiResult.value?.length > 0) {
+      this.updateSourceHealth('AMFI', true, Date.now() - startTime);
+      usedSources.push('AMFI');
+      const amfiFunds = amfiResult.value.map((fund: any) => ({
+        ...fund,
+        provenance: {
+          primarySource: 'AMFI' as any,
+          sourceChain: ['AMFI'],
+          lastRefreshed: new Date().toISOString(),
+          dataVersion: this.generateDataVersion(fund),
+          dataSource: 'LIVE_API' as const,
+          freshnessScore: 'fresh' as const
         }
-      } catch (error) {
-        this.updateSourceHealth(source, false);
-        console.warn(`Search failed for source ${source}:`, error);
-      }
+      }));
+      allFunds.push(...amfiFunds);
+    } else if (amfiResult.status === 'rejected') {
+      this.updateSourceHealth('AMFI', false);
+      console.warn(`⚠️ AMFI search failed:`, amfiResult.reason);
     }
 
+    // Process MFAPI results
+    if (mfapiResult.status === 'fulfilled' && mfapiResult.value?.length > 0) {
+      this.updateSourceHealth('MFAPI', true, Date.now() - startTime);
+      usedSources.push('MFAPI');
+      const mfapiFunds = mfapiResult.value.map((fund: any) => ({
+        ...fund,
+        provenance: {
+          primarySource: 'MFAPI' as any,
+          sourceChain: ['MFAPI'],
+          lastRefreshed: new Date().toISOString(),
+          dataVersion: this.generateDataVersion(fund),
+          dataSource: 'LIVE_API' as const,
+          freshnessScore: 'fresh' as const
+        }
+      }));
+      allFunds.push(...mfapiFunds);
+    } else if (mfapiResult.status === 'rejected') {
+      this.updateSourceHealth('MFAPI', false);
+      console.warn(`⚠️ MFAPI search failed:`, mfapiResult.reason);
+    }
+
+    // Deduplicate by schemeCode (prefer AMFI data)
+    const dedupedFunds = this.deduplicateFunds(allFunds);
+
+    // If we got results from APIs, cache them and return
+    if (dedupedFunds.length > 0) {
+      console.log(`✅ Search found ${dedupedFunds.length} funds from ${usedSources.join(', ')} in ${Date.now() - startTime}ms`);
+      
+      // Save to database asynchronously for future fallback
+      this.cacheSearchResultsToDb(dedupedFunds).catch(err => 
+        console.warn('Failed to cache search results:', err)
+      );
+      
+      return dedupedFunds;
+    }
+
+    // FALLBACK: Query local database
+    console.log(`⚠️ All APIs failed/empty for query "${query}", falling back to database...`);
+    try {
+      const dbFunds = await this.storage.searchMutualFunds(query);
+      if (dbFunds.length > 0) {
+        console.log(`✅ Database fallback found ${dbFunds.length} cached funds`);
+        return dbFunds.map(dbFund => {
+          const freshness = this.calculateFreshness(dbFund.lastUpdated);
+          return {
+            ...this.convertDbToExtended(dbFund),
+            provenance: {
+              primarySource: 'DATABASE' as any,
+              sourceChain: ['DATABASE'],
+              lastRefreshed: dbFund.lastUpdated?.toISOString() || new Date().toISOString(),
+              dataVersion: this.generateDataVersion(dbFund),
+              dataSource: 'CACHED_DB' as const,
+              freshnessScore: freshness
+            }
+          };
+        });
+      }
+    } catch (dbError) {
+      console.error('Database fallback failed:', dbError);
+    }
+
+    console.log(`❌ No results found for query "${query}" from any source`);
     return [];
+  }
+
+  /**
+   * Deduplicate funds by schemeCode, preferring AMFI data
+   */
+  private deduplicateFunds(funds: FundExtended[]): FundExtended[] {
+    const seen = new Map<string, FundExtended>();
+    for (const fund of funds) {
+      if (!fund.schemeCode) continue;
+      const existing = seen.get(fund.schemeCode);
+      // Prefer AMFI over MFAPI
+      if (!existing || fund.provenance?.primarySource === 'AMFI') {
+        seen.set(fund.schemeCode, fund);
+      }
+    }
+    return Array.from(seen.values());
+  }
+
+  /**
+   * Calculate freshness tier based on last update time
+   */
+  private calculateFreshness(lastUpdated: Date | null | undefined): 'fresh' | 'stale' | 'old' {
+    if (!lastUpdated) return 'old';
+    const ageMs = Date.now() - new Date(lastUpdated).getTime();
+    const hours = ageMs / (1000 * 60 * 60);
+    if (hours < 24) return 'fresh';
+    if (hours < 168) return 'stale'; // 7 days
+    return 'old';
+  }
+
+  /**
+   * Cache search results to database for future fallback
+   */
+  private async cacheSearchResultsToDb(funds: FundExtended[]): Promise<void> {
+    const now = new Date();
+    for (const fund of funds.slice(0, 50)) { // Limit to avoid overload
+      try {
+        await this.saveFundToDatabase({
+          ...fund,
+          lastVerifiedAt: now,
+          dataSource: fund.provenance?.primarySource || 'LIVE_API'
+        } as any);
+      } catch (error) {
+        // Silent fail - caching is best effort
+      }
+    }
   }
 
   /**
@@ -1050,7 +1220,13 @@ export class MultiSourceMFService {
         crisilConcentrationScore: fund.crisilConcentrationScore?.toString() || null,
         crisilOverallScore: fund.crisilOverallScore?.toString() || null,
         crisilDataSource: fund.crisilDataSource || 'calculated',
-        crisilLastUpdated: fund.crisilLastUpdated || new Date()
+        crisilLastUpdated: fund.crisilLastUpdated || new Date(),
+        // Search resilience fields
+        amfiCode: (fund as any).amfiCode || fund.schemeCode || null,
+        optionType: this.detectOptionType(fund.schemeName),
+        schemeStatus: (fund as any).schemeStatus || 'active',
+        lastVerifiedAt: new Date(),
+        dataSource: fund.provenance?.primarySource || 'LIVE_API'
       };
       
       // Store full FundExtended in extendedData for complete round-trip fidelity
@@ -1078,6 +1254,17 @@ export class MultiSourceMFService {
       console.error('Error saving fund to database:', error);
       throw error;
     }
+  }
+
+  /**
+   * Detect option type from scheme name (Growth vs IDCW/Dividend)
+   */
+  private detectOptionType(schemeName: string): string | null {
+    if (!schemeName) return null;
+    const name = schemeName.toUpperCase();
+    if (name.includes('IDCW') || name.includes('DIVIDEND')) return 'idcw';
+    if (name.includes('GROWTH')) return 'growth';
+    return null;
   }
 
   /**

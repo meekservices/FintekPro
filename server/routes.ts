@@ -12401,6 +12401,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Query param style search handler - MUST be before :schemeCode route to prevent shadowing
+  app.get("/api/mutual-funds/search", async (req, res) => {
+    try {
+      const query = req.query.q as string;
+      if (!query || query.length < 2) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Query too short",
+          message: "Search query must be at least 2 characters"
+        });
+      }
+      
+      console.log(`🔍 Searching funds with query param: ${query}`);
+      const searchResults = await multiSourceMFService.searchFunds(query);
+      
+      if (searchResults.length > 0) {
+        console.log(`✅ Query param search found ${searchResults.length} funds`);
+        return res.json({ success: true, data: searchResults });
+      }
+      
+      return res.json({ success: true, data: [], message: "No funds found matching query" });
+    } catch (error: any) {
+      console.error("❌ Error in query param search:", error);
+      return res.status(500).json({
+        success: false,
+        error: "Search failed",
+        message: error.message
+      });
+    }
+  });
+
   app.get("/api/mutual-funds/:schemeCode", async (req, res) => {
     try {
       const { schemeCode } = req.params;

@@ -1209,4 +1209,60 @@ router.get("/amfi-import/progress", async (req: Request, res: Response) => {
   }
 });
 
+// ============ MF Sync Scheduler Endpoints ============
+
+router.get("/sync/status", async (req: Request, res: Response) => {
+  try {
+    const { mfSyncScheduler } = await import('../services/mf-sync-scheduler');
+    const status = await mfSyncScheduler.getStatus();
+    res.json({ success: true, ...status });
+  } catch (error: any) {
+    console.error("[Admin MF] Error getting sync status:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/sync/trigger", async (req: Request, res: Response) => {
+  try {
+    const { mfSyncScheduler } = await import('../services/mf-sync-scheduler');
+    
+    res.json({
+      success: true,
+      message: 'AMFI sync started in background',
+    });
+    
+    mfSyncScheduler.triggerManualSync().then((result) => {
+      console.log('[Admin MF] Manual sync completed:', result);
+    }).catch((error) => {
+      console.error('[Admin MF] Manual sync failed:', error);
+    });
+    
+  } catch (error: any) {
+    console.error("[Admin MF] Error triggering sync:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/sync/start", async (req: Request, res: Response) => {
+  try {
+    const { mfSyncScheduler } = await import('../services/mf-sync-scheduler');
+    mfSyncScheduler.start();
+    res.json({ success: true, message: 'MF Sync scheduler started' });
+  } catch (error: any) {
+    console.error("[Admin MF] Error starting scheduler:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/sync/stop", async (req: Request, res: Response) => {
+  try {
+    const { mfSyncScheduler } = await import('../services/mf-sync-scheduler');
+    mfSyncScheduler.stop();
+    res.json({ success: true, message: 'MF Sync scheduler stopped' });
+  } catch (error: any) {
+    console.error("[Admin MF] Error stopping scheduler:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 export default router;
