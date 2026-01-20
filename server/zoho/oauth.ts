@@ -102,6 +102,14 @@ export class ZohoOAuthService {
         }
       );
 
+      console.log('[Zoho OAuth] Refresh response:', JSON.stringify(response.data));
+      
+      // Validate response has required fields
+      if (!response.data?.access_token) {
+        console.error('[Zoho OAuth] Invalid refresh response - no access_token:', response.data);
+        throw new Error('Zoho returned invalid token response: ' + JSON.stringify(response.data));
+      }
+
       return response.data;
     } catch (error: any) {
       console.error('Zoho token refresh failed:', error.response?.data || error.message);
@@ -243,6 +251,7 @@ export class ZohoOAuthService {
       let accessTokenToStore: string;
       if (isLegacyFormat) {
         console.log('[Zoho OAuth] Storing new access token in legacy format (unencrypted)');
+        console.log('[Zoho OAuth] Token starts with:', tokenResponse.access_token.substring(0, 10));
         accessTokenToStore = tokenResponse.access_token;
       } else {
         // Encrypt new access token
