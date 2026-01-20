@@ -27504,6 +27504,11 @@ export const dailyPicks = pgTable("daily_picks", {
   rationale: text("rationale").notNull(),
   riskLevel: varchar("risk_level", { length: 20 }).default("medium"),
   suitableFor: text("suitable_for").array(),
+  
+  // Enhanced pick fields
+  timeHorizon: varchar("time_horizon", { length: 20 }).default("medium_term"), // short_term, medium_term, long_term
+  confidenceScore: integer("confidence_score").default(70), // 0-100 AI confidence
+  sectorCategory: varchar("sector_category", { length: 100 }), // For sector diversification tracking
   keyMetrics: jsonb("key_metrics").$type<{
     pe?: number;
     returns1y?: number;
@@ -27512,6 +27517,11 @@ export const dailyPicks = pgTable("daily_picks", {
     sharpeRatio?: number;
     yield?: number;
     rating?: string;
+    peerComparison?: {
+      avgReturn?: number;
+      percentileRank?: number;
+      betterThanPeers?: boolean;
+    };
     [key: string]: any;
   }>(),
   
