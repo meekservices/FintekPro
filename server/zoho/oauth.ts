@@ -138,7 +138,11 @@ export class ZohoOAuthService {
     connectionName: string,
     services: string[]
   ): Promise<string> {
-    const expiresAt = new Date(Date.now() + tokenResponse.expires_in * 1000);
+    // Default to 1 hour expiry if expires_in is missing or invalid
+    const expiresInMs = (tokenResponse.expires_in && typeof tokenResponse.expires_in === 'number') 
+      ? tokenResponse.expires_in * 1000 
+      : 3600 * 1000;
+    const expiresAt = new Date(Date.now() + expiresInMs);
 
     // Encrypt tokens before storing
     const encryptedAccessToken = encryptionService.encrypt(tokenResponse.access_token);
@@ -209,23 +213,50 @@ export class ZohoOAuthService {
     // Check if token is expired or will expire in next 5 minutes
     const expiryBuffer = 5 * 60 * 1000; // 5 minutes
     const now = new Date();
-    const expiresAt = new Date(connection.expiresAt);
+    
+    // Handle null or invalid expiresAt - treat as expired
+    let expiresAt: Date;
+    try {
+      expiresAt = connection.expiresAt ? new Date(connection.expiresAt) : new Date(0);
+      if (isNaN(expiresAt.getTime())) {
+        expiresAt = new Date(0); // Treat invalid date as expired
+      }
+    } catch {
+      expiresAt = new Date(0); // Treat parse errors as expired
+    }
 
     if (now.getTime() + expiryBuffer >= expiresAt.getTime()) {
       // Token expired or expiring soon, refresh it
       const tokenResponse = await this.refreshAccessToken(decryptedRefreshToken);
-      const newExpiresAt = new Date(Date.now() + tokenResponse.expires_in * 1000);
+      
+      // Default to 1 hour expiry if expires_in is missing or invalid
+      const expiresInMs = (tokenResponse.expires_in && typeof tokenResponse.expires_in === 'number') 
+        ? tokenResponse.expires_in * 1000 
+        : 3600 * 1000;
+      const newExpiresAt = new Date(Date.now() + expiresInMs);
 
-      // Encrypt new access token
-      const encryptedAccessToken = encryptionService.encrypt(tokenResponse.access_token);
-      if (!encryptedAccessToken) {
-        throw new Error('Failed to encrypt new access token');
+      // For legacy unencrypted tokens, store the new token unencrypted too
+      // This maintains consistency with the connection's storage format
+      const isLegacyFormat = connection.accessToken?.startsWith('1000.') || 
+                             connection.refreshToken?.startsWith('1000.');
+      
+      let accessTokenToStore: string;
+      if (isLegacyFormat) {
+        console.log('[Zoho OAuth] Storing new access token in legacy format (unencrypted)');
+        accessTokenToStore = tokenResponse.access_token;
+      } else {
+        // Encrypt new access token
+        const encryptedAccessToken = encryptionService.encrypt(tokenResponse.access_token);
+        if (!encryptedAccessToken) {
+          throw new Error('Failed to encrypt new access token');
+        }
+        accessTokenToStore = encryptedAccessToken;
       }
 
       await db
         .update(zohoConnections)
         .set({
-          accessToken: encryptedAccessToken,
+          accessToken: accessTokenToStore,
           expiresAt: newExpiresAt,
           updatedAt: new Date()
         })
