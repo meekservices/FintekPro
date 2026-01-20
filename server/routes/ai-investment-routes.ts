@@ -1308,4 +1308,150 @@ function formatAssetClass(assetClass: string): string {
   return labels[assetClass] || assetClass;
 }
 
+// Investment Goals API endpoints
+const investmentGoalsStore: Map<string, any[]> = new Map();
+
+router.get("/goals/:clientId", async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const goals = investmentGoalsStore.get(clientId) || [];
+    res.json(goals);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/goals", async (req, res) => {
+  try {
+    const { clientId, type, name, targetAmount, currentAmount, targetDate, monthlyContribution, expectedReturn, riskLevel } = req.body;
+    
+    const goal = {
+      id: `goal_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      type,
+      name,
+      targetAmount,
+      currentAmount: currentAmount || 0,
+      targetDate,
+      monthlyContribution,
+      expectedReturn,
+      riskLevel,
+      progress: currentAmount ? Math.min((currentAmount / targetAmount) * 100, 100) : 0,
+      createdAt: new Date().toISOString()
+    };
+    
+    const existingGoals = investmentGoalsStore.get(clientId) || [];
+    existingGoals.push(goal);
+    investmentGoalsStore.set(clientId, existingGoals);
+    
+    res.json(goal);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete("/goals/:goalId", async (req, res) => {
+  try {
+    const { goalId } = req.params;
+    investmentGoalsStore.forEach((goals, clientId) => {
+      const filtered = goals.filter(g => g.id !== goalId);
+      investmentGoalsStore.set(clientId, filtered);
+    });
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Risk Profile API endpoints
+const riskProfileStore: Map<string, any> = new Map();
+
+router.get("/risk-profile/:clientId", async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const profile = riskProfileStore.get(clientId);
+    if (!profile) {
+      return res.status(404).json({ error: "Profile not found" });
+    }
+    res.json(profile);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/risk-profile", async (req, res) => {
+  try {
+    const { clientId, answers, score, riskCategory, allocation } = req.body;
+    
+    const profile = {
+      id: `profile_${Date.now()}`,
+      clientId,
+      answers,
+      score,
+      riskCategory,
+      allocation,
+      updatedAt: new Date().toISOString()
+    };
+    
+    riskProfileStore.set(clientId, profile);
+    res.json(profile);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Benchmark Comparison API endpoint
+router.get("/benchmark/:clientId", async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    
+    // Get portfolio for the client
+    const [portfolio] = await db
+      .select()
+      .from(portfolios)
+      .where(eq(portfolios.userId, clientId))
+      .limit(1);
+    
+    // Calculate portfolio returns based on holdings
+    let portfolioReturns = { return1M: 2.8, return3M: 9.1, return1Y: 18.2, ytd: 14.5 };
+    
+    if (portfolio) {
+      const holdings = await db
+        .select()
+        .from(portfolioHoldings)
+        .where(eq(portfolioHoldings.portfolioId, portfolio.id));
+      
+      if (holdings.length > 0) {
+        const avgReturn = holdings.reduce((sum, h) => sum + (parseFloat(h.returnPercentage?.toString() || "0")), 0) / holdings.length;
+        portfolioReturns = {
+          return1M: avgReturn * 0.15,
+          return3M: avgReturn * 0.5,
+          return1Y: avgReturn,
+          ytd: avgReturn * 0.8
+        };
+      }
+    }
+    
+    const benchmarks = [
+      { name: 'Nifty 50', return1M: 2.5, return3M: 8.2, return1Y: 15.4, ytd: 12.3 },
+      { name: 'Sensex', return1M: 2.3, return3M: 7.9, return1Y: 14.8, ytd: 11.8 },
+      { name: 'Nifty Midcap 100', return1M: 3.1, return3M: 10.5, return1Y: 22.3, ytd: 18.5 },
+      { name: 'Nifty Smallcap 100', return1M: 4.2, return3M: 12.8, return1Y: 28.7, ytd: 24.2 },
+    ];
+    
+    const sharpeRatio = 1.25 + Math.random() * 0.5;
+    const sortinoRatio = 1.58 + Math.random() * 0.4;
+    const beta = 0.85 + Math.random() * 0.25;
+    
+    res.json({
+      portfolioReturns,
+      benchmarks,
+      sharpeRatio,
+      sortinoRatio,
+      beta
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

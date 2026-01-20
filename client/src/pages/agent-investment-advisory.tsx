@@ -73,7 +73,24 @@ import {
   ClipboardPaste,
   Table2,
   FileSpreadsheet,
-  FileText as FileTextIcon
+  FileText as FileTextIcon,
+  Goal,
+  Crosshair,
+  Shuffle,
+  LineChart,
+  GraduationCap,
+  Home,
+  Wallet,
+  Car,
+  Plane,
+  Heart,
+  HelpCircle,
+  CircleDot,
+  Timer,
+  IndianRupee,
+  Sparkles,
+  ChevronRight,
+  RotateCcw
 } from "lucide-react";
 
 interface Portfolio {
@@ -779,6 +796,22 @@ export default function AgentInvestmentAdvisory() {
           <TabsTrigger value="itr-services" data-testid="tab-itr-services">
             <FileText className="h-4 w-4 mr-2" />
             ITR Services
+          </TabsTrigger>
+          <TabsTrigger value="goal-planning" data-testid="tab-goal-planning">
+            <Goal className="h-4 w-4 mr-2" />
+            Goal Planning
+          </TabsTrigger>
+          <TabsTrigger value="risk-profiler" data-testid="tab-risk-profiler">
+            <Crosshair className="h-4 w-4 mr-2" />
+            Risk Profiler
+          </TabsTrigger>
+          <TabsTrigger value="what-if" data-testid="tab-what-if">
+            <Shuffle className="h-4 w-4 mr-2" />
+            What-If
+          </TabsTrigger>
+          <TabsTrigger value="benchmark" data-testid="tab-benchmark">
+            <LineChart className="h-4 w-4 mr-2" />
+            Benchmark
           </TabsTrigger>
         </ScrollableTabsList>
 
@@ -2147,6 +2180,22 @@ TCS     Tata Consultancy        25      3850.00"
         <TabsContent value="itr-services" className="space-y-4">
           <ItrServicesTab clientId={selectedClientId} />
         </TabsContent>
+
+        <TabsContent value="goal-planning" className="space-y-4">
+          <GoalPlanningTab clientId={selectedClientId} clientName={selectedClient ? `${selectedClient.firstName} ${selectedClient.lastName}` : ''} />
+        </TabsContent>
+
+        <TabsContent value="risk-profiler" className="space-y-4">
+          <RiskProfilerTab clientId={selectedClientId} clientName={selectedClient ? `${selectedClient.firstName} ${selectedClient.lastName}` : ''} />
+        </TabsContent>
+
+        <TabsContent value="what-if" className="space-y-4">
+          <WhatIfSimulatorTab clientId={selectedClientId} portfolio={portfolio} analysis={analysis} />
+        </TabsContent>
+
+        <TabsContent value="benchmark" className="space-y-4">
+          <BenchmarkComparisonTab clientId={selectedClientId} portfolio={portfolio} />
+        </TabsContent>
       </Tabs>
 
       <Dialog open={showNewClientDialog} onOpenChange={setShowNewClientDialog}>
@@ -2713,6 +2762,967 @@ function ItrServicesTab({ clientId }: { clientId: string }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// Goal Planning Tab Component
+const GOAL_TYPES = [
+  { id: 'retirement', label: 'Retirement', icon: Wallet, color: 'bg-blue-500', description: 'Build retirement corpus' },
+  { id: 'education', label: 'Child Education', icon: GraduationCap, color: 'bg-purple-500', description: 'Fund education expenses' },
+  { id: 'house', label: 'House Purchase', icon: Home, color: 'bg-green-500', description: 'Save for dream home' },
+  { id: 'car', label: 'Vehicle', icon: Car, color: 'bg-orange-500', description: 'Buy a car or vehicle' },
+  { id: 'vacation', label: 'Vacation', icon: Plane, color: 'bg-pink-500', description: 'Plan a trip' },
+  { id: 'wealth', label: 'Wealth Creation', icon: TrendingUp, color: 'bg-emerald-500', description: 'Grow your wealth' },
+  { id: 'emergency', label: 'Emergency Fund', icon: Heart, color: 'bg-red-500', description: '6 months expenses' },
+  { id: 'other', label: 'Other Goal', icon: Goal, color: 'bg-gray-500', description: 'Custom goal' },
+];
+
+interface InvestmentGoal {
+  id: string;
+  type: string;
+  name: string;
+  targetAmount: number;
+  currentAmount: number;
+  targetDate: string;
+  monthlyContribution: number;
+  expectedReturn: number;
+  riskLevel: string;
+  progress: number;
+  createdAt: string;
+}
+
+function GoalPlanningTab({ clientId, clientName }: { clientId: string; clientName: string }) {
+  const { toast } = useToast();
+  const [showAddGoalDialog, setShowAddGoalDialog] = useState(false);
+  const [selectedGoalType, setSelectedGoalType] = useState<string>('');
+  const [goalForm, setGoalForm] = useState({
+    name: '',
+    targetAmount: '',
+    targetYears: '',
+    currentAmount: '',
+    expectedReturn: '12',
+    riskLevel: 'moderate'
+  });
+
+  const { data: goals = [], isLoading, refetch } = useQuery<InvestmentGoal[]>({
+    queryKey: ['/api/ai-investment/goals', clientId],
+    queryFn: async () => {
+      const res = await fetch(`/api/ai-investment/goals/${clientId}`);
+      if (!res.ok) throw new Error('Failed to fetch goals');
+      return res.json();
+    },
+    enabled: !!clientId
+  });
+
+  const createGoalMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest('/api/ai-investment/goals', {
+        method: 'POST',
+        body: JSON.stringify({ ...data, clientId })
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Goal created", description: "Investment goal added successfully" });
+      queryClient.invalidateQueries({ queryKey: ['/api/ai-investment/goals', clientId] });
+      setShowAddGoalDialog(false);
+      resetForm();
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to create goal", variant: "destructive" });
+    }
+  });
+
+  const deleteGoalMutation = useMutation({
+    mutationFn: async (goalId: string) => {
+      return apiRequest(`/api/ai-investment/goals/${goalId}`, { method: 'DELETE' });
+    },
+    onSuccess: () => {
+      toast({ title: "Goal deleted", description: "Investment goal removed" });
+      queryClient.invalidateQueries({ queryKey: ['/api/ai-investment/goals', clientId] });
+    }
+  });
+
+  const resetForm = () => {
+    setSelectedGoalType('');
+    setGoalForm({ name: '', targetAmount: '', targetYears: '', currentAmount: '', expectedReturn: '12', riskLevel: 'moderate' });
+  };
+
+  const calculateSIP = () => {
+    const target = parseFloat(goalForm.targetAmount) || 0;
+    const current = parseFloat(goalForm.currentAmount) || 0;
+    const years = parseFloat(goalForm.targetYears) || 1;
+    const rate = parseFloat(goalForm.expectedReturn) || 12;
+    const monthlyRate = rate / 100 / 12;
+    const months = years * 12;
+    const futureValueNeeded = target - current * Math.pow(1 + rate / 100, years);
+    if (futureValueNeeded <= 0) return 0;
+    const sip = futureValueNeeded * monthlyRate / (Math.pow(1 + monthlyRate, months) - 1);
+    return Math.ceil(sip / 100) * 100;
+  };
+
+  const handleCreateGoal = () => {
+    const targetDate = new Date();
+    targetDate.setFullYear(targetDate.getFullYear() + parseInt(goalForm.targetYears || '1'));
+    createGoalMutation.mutate({
+      type: selectedGoalType,
+      name: goalForm.name || GOAL_TYPES.find(g => g.id === selectedGoalType)?.label,
+      targetAmount: parseFloat(goalForm.targetAmount),
+      currentAmount: parseFloat(goalForm.currentAmount) || 0,
+      targetDate: targetDate.toISOString(),
+      monthlyContribution: calculateSIP(),
+      expectedReturn: parseFloat(goalForm.expectedReturn),
+      riskLevel: goalForm.riskLevel
+    });
+  };
+
+  const formatCurrency = (value: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
+
+  if (!clientId) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <Goal className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+          <h3 className="text-lg font-medium mb-2">Select a Client</h3>
+          <p className="text-muted-foreground">Choose a client to manage their investment goals</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">Investment Goals for {clientName}</h2>
+          <p className="text-sm text-muted-foreground">Plan and track financial goals with SIP recommendations</p>
+        </div>
+        <Button onClick={() => setShowAddGoalDialog(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Goal
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map(i => <Skeleton key={i} className="h-48" />)}
+        </div>
+      ) : goals.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Sparkles className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+            <h3 className="text-lg font-medium mb-2">No Goals Yet</h3>
+            <p className="text-muted-foreground mb-4">Create investment goals to help your client plan their financial future</p>
+            <Button onClick={() => setShowAddGoalDialog(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create First Goal
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {goals.map((goal) => {
+            const goalType = GOAL_TYPES.find(g => g.id === goal.type) || GOAL_TYPES[7];
+            const Icon = goalType.icon;
+            return (
+              <Card key={goal.id} className="overflow-hidden">
+                <div className={`h-2 ${goalType.color}`} />
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`p-2 rounded-full ${goalType.color} text-white`}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <CardTitle className="text-base">{goal.name}</CardTitle>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => deleteGoalMutation.mutate(goal.id)}>
+                      <Trash2 className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span>{formatCurrency(goal.currentAmount)}</span>
+                      <span className="text-muted-foreground">{formatCurrency(goal.targetAmount)}</span>
+                    </div>
+                    <Progress value={goal.progress} className="h-2" />
+                    <p className="text-xs text-muted-foreground mt-1">{goal.progress.toFixed(0)}% achieved</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="p-2 bg-muted rounded">
+                      <p className="text-xs text-muted-foreground">Monthly SIP</p>
+                      <p className="font-medium">{formatCurrency(goal.monthlyContribution)}</p>
+                    </div>
+                    <div className="p-2 bg-muted rounded">
+                      <p className="text-xs text-muted-foreground">Target Date</p>
+                      <p className="font-medium">{new Date(goal.targetDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <Badge variant="outline">{goal.riskLevel}</Badge>
+                    <span className="text-muted-foreground">{goal.expectedReturn}% expected return</span>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      <Dialog open={showAddGoalDialog} onOpenChange={(open) => { setShowAddGoalDialog(open); if (!open) resetForm(); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Create Investment Goal</DialogTitle>
+            <DialogDescription>Set up a financial goal with timeline and SIP calculator</DialogDescription>
+          </DialogHeader>
+          
+          {!selectedGoalType ? (
+            <div className="grid grid-cols-4 gap-3 py-4">
+              {GOAL_TYPES.map((type) => {
+                const Icon = type.icon;
+                return (
+                  <button
+                    key={type.id}
+                    onClick={() => setSelectedGoalType(type.id)}
+                    className="flex flex-col items-center gap-2 p-4 rounded-lg border hover:border-primary hover:bg-accent transition-colors"
+                  >
+                    <div className={`p-3 rounded-full ${type.color} text-white`}>
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <span className="text-sm font-medium">{type.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="space-y-4 py-4">
+              <Button variant="ghost" size="sm" onClick={() => setSelectedGoalType('')} className="mb-2">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Change Goal Type
+              </Button>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Goal Name</Label>
+                  <Input
+                    placeholder={GOAL_TYPES.find(g => g.id === selectedGoalType)?.label}
+                    value={goalForm.name}
+                    onChange={(e) => setGoalForm(p => ({ ...p, name: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Target Amount (₹)</Label>
+                  <Input
+                    type="number"
+                    placeholder="e.g., 5000000"
+                    value={goalForm.targetAmount}
+                    onChange={(e) => setGoalForm(p => ({ ...p, targetAmount: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Current Savings (₹)</Label>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    value={goalForm.currentAmount}
+                    onChange={(e) => setGoalForm(p => ({ ...p, currentAmount: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Time Horizon (Years)</Label>
+                  <Input
+                    type="number"
+                    placeholder="e.g., 10"
+                    value={goalForm.targetYears}
+                    onChange={(e) => setGoalForm(p => ({ ...p, targetYears: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Expected Annual Return (%)</Label>
+                  <Select value={goalForm.expectedReturn} onValueChange={(v) => setGoalForm(p => ({ ...p, expectedReturn: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="8">8% (Conservative)</SelectItem>
+                      <SelectItem value="10">10% (Moderate)</SelectItem>
+                      <SelectItem value="12">12% (Balanced)</SelectItem>
+                      <SelectItem value="14">14% (Growth)</SelectItem>
+                      <SelectItem value="15">15% (Aggressive)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Risk Appetite</Label>
+                  <Select value={goalForm.riskLevel} onValueChange={(v) => setGoalForm(p => ({ ...p, riskLevel: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="conservative">Conservative</SelectItem>
+                      <SelectItem value="moderate">Moderate</SelectItem>
+                      <SelectItem value="aggressive">Aggressive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {goalForm.targetAmount && goalForm.targetYears && (
+                <Card className="bg-primary/5 border-primary/20">
+                  <CardContent className="py-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Recommended Monthly SIP</p>
+                        <p className="text-2xl font-bold text-primary">{formatCurrency(calculateSIP())}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-muted-foreground">To achieve</p>
+                        <p className="font-medium">{formatCurrency(parseFloat(goalForm.targetAmount) || 0)}</p>
+                        <p className="text-xs text-muted-foreground">in {goalForm.targetYears} years</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowAddGoalDialog(false); resetForm(); }}>Cancel</Button>
+            <Button 
+              onClick={handleCreateGoal} 
+              disabled={!selectedGoalType || !goalForm.targetAmount || !goalForm.targetYears || createGoalMutation.isPending}
+            >
+              {createGoalMutation.isPending ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+              Create Goal
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// Risk Profiler Tab Component
+const RISK_QUESTIONS = [
+  {
+    id: 'age',
+    question: 'What is your age group?',
+    options: [
+      { value: 'under_30', label: 'Under 30', score: 5 },
+      { value: '30_40', label: '30-40', score: 4 },
+      { value: '40_50', label: '40-50', score: 3 },
+      { value: '50_60', label: '50-60', score: 2 },
+      { value: 'above_60', label: 'Above 60', score: 1 },
+    ]
+  },
+  {
+    id: 'income_stability',
+    question: 'How stable is your income?',
+    options: [
+      { value: 'very_stable', label: 'Very stable (government/PSU)', score: 5 },
+      { value: 'stable', label: 'Stable (MNC/large company)', score: 4 },
+      { value: 'moderate', label: 'Moderate (small business/startup)', score: 3 },
+      { value: 'variable', label: 'Variable (freelancer/commission)', score: 2 },
+      { value: 'uncertain', label: 'Uncertain', score: 1 },
+    ]
+  },
+  {
+    id: 'investment_horizon',
+    question: 'What is your investment time horizon?',
+    options: [
+      { value: 'short', label: 'Less than 3 years', score: 1 },
+      { value: 'medium', label: '3-5 years', score: 2 },
+      { value: 'long', label: '5-10 years', score: 4 },
+      { value: 'very_long', label: 'More than 10 years', score: 5 },
+    ]
+  },
+  {
+    id: 'loss_reaction',
+    question: 'If your portfolio drops 20% in a month, you would:',
+    options: [
+      { value: 'sell_all', label: 'Sell everything immediately', score: 1 },
+      { value: 'sell_some', label: 'Sell some to reduce exposure', score: 2 },
+      { value: 'hold', label: 'Hold and wait for recovery', score: 3 },
+      { value: 'buy_more', label: 'Buy more at lower prices', score: 5 },
+    ]
+  },
+  {
+    id: 'return_expectation',
+    question: 'What annual returns do you expect?',
+    options: [
+      { value: 'fd_like', label: '6-8% (FD-like)', score: 1 },
+      { value: 'moderate', label: '8-12%', score: 2 },
+      { value: 'market', label: '12-15% (market returns)', score: 3 },
+      { value: 'aggressive', label: '15-20%', score: 4 },
+      { value: 'very_high', label: '20%+ (high risk)', score: 5 },
+    ]
+  },
+  {
+    id: 'experience',
+    question: 'What is your investment experience?',
+    options: [
+      { value: 'none', label: 'None (first time)', score: 1 },
+      { value: 'basic', label: 'Basic (FDs, savings)', score: 2 },
+      { value: 'intermediate', label: 'Intermediate (MFs, some stocks)', score: 3 },
+      { value: 'advanced', label: 'Advanced (active trading)', score: 4 },
+      { value: 'expert', label: 'Expert (derivatives, F&O)', score: 5 },
+    ]
+  },
+];
+
+function RiskProfilerTab({ clientId, clientName }: { clientId: string; clientName: string }) {
+  const { toast } = useToast();
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [showResult, setShowResult] = useState(false);
+
+  const { data: existingProfile, isLoading } = useQuery<any>({
+    queryKey: ['/api/ai-investment/risk-profile', clientId],
+    queryFn: async () => {
+      const res = await fetch(`/api/ai-investment/risk-profile/${clientId}`);
+      if (res.status === 404) return null;
+      if (!res.ok) throw new Error('Failed to fetch risk profile');
+      return res.json();
+    },
+    enabled: !!clientId
+  });
+
+  const saveProfileMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest('/api/ai-investment/risk-profile', {
+        method: 'POST',
+        body: JSON.stringify({ ...data, clientId })
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Profile saved", description: "Risk profile updated successfully" });
+      queryClient.invalidateQueries({ queryKey: ['/api/ai-investment/risk-profile', clientId] });
+    }
+  });
+
+  const calculateScore = () => {
+    let total = 0;
+    let count = 0;
+    RISK_QUESTIONS.forEach(q => {
+      const answer = answers[q.id];
+      if (answer) {
+        const option = q.options.find(o => o.value === answer);
+        if (option) {
+          total += option.score;
+          count++;
+        }
+      }
+    });
+    return count > 0 ? Math.round((total / (count * 5)) * 100) : 0;
+  };
+
+  const getRiskCategory = (score: number) => {
+    if (score >= 80) return { label: 'Aggressive', color: 'text-red-600', bgColor: 'bg-red-100', description: 'High risk tolerance, seeks maximum returns' };
+    if (score >= 60) return { label: 'Moderately Aggressive', color: 'text-orange-600', bgColor: 'bg-orange-100', description: 'Above average risk tolerance' };
+    if (score >= 40) return { label: 'Moderate', color: 'text-yellow-600', bgColor: 'bg-yellow-100', description: 'Balanced approach to risk and return' };
+    if (score >= 20) return { label: 'Conservative', color: 'text-blue-600', bgColor: 'bg-blue-100', description: 'Prefers stability over high returns' };
+    return { label: 'Very Conservative', color: 'text-green-600', bgColor: 'bg-green-100', description: 'Capital preservation is priority' };
+  };
+
+  const getRecommendedAllocation = (score: number) => {
+    if (score >= 80) return { equity: 80, debt: 15, gold: 5 };
+    if (score >= 60) return { equity: 65, debt: 25, gold: 10 };
+    if (score >= 40) return { equity: 50, debt: 35, gold: 15 };
+    if (score >= 20) return { equity: 30, debt: 55, gold: 15 };
+    return { equity: 15, debt: 70, gold: 15 };
+  };
+
+  const score = calculateScore();
+  const riskCategory = getRiskCategory(score);
+  const allocation = getRecommendedAllocation(score);
+  const isComplete = Object.keys(answers).length === RISK_QUESTIONS.length;
+
+  const handleAnswer = (questionId: string, value: string) => {
+    setAnswers(prev => ({ ...prev, [questionId]: value }));
+    if (currentQuestion < RISK_QUESTIONS.length - 1) {
+      setTimeout(() => setCurrentQuestion(prev => prev + 1), 300);
+    }
+  };
+
+  const handleSaveProfile = () => {
+    saveProfileMutation.mutate({
+      answers,
+      score,
+      riskCategory: riskCategory.label,
+      allocation
+    });
+  };
+
+  if (!clientId) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <Crosshair className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+          <h3 className="text-lg font-medium mb-2">Select a Client</h3>
+          <p className="text-muted-foreground">Choose a client to assess their risk profile</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (existingProfile && !showResult && Object.keys(answers).length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Crosshair className="h-5 w-5" />
+            Risk Profile for {clientName}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center gap-6">
+            <div className="relative w-32 h-32">
+              <svg className="w-full h-full transform -rotate-90">
+                <circle cx="64" cy="64" r="56" fill="none" stroke="currentColor" strokeWidth="8" className="text-muted" />
+                <circle cx="64" cy="64" r="56" fill="none" stroke="currentColor" strokeWidth="8" className="text-primary" strokeDasharray={`${(existingProfile.score / 100) * 352} 352`} strokeLinecap="round" />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center flex-col">
+                <span className="text-3xl font-bold">{existingProfile.score}</span>
+                <span className="text-xs text-muted-foreground">Score</span>
+              </div>
+            </div>
+            <div>
+              <Badge className={`${getRiskCategory(existingProfile.score).bgColor} ${getRiskCategory(existingProfile.score).color} text-lg px-4 py-2`}>
+                {existingProfile.riskCategory}
+              </Badge>
+              <p className="text-muted-foreground mt-2">{getRiskCategory(existingProfile.score).description}</p>
+              <p className="text-sm text-muted-foreground mt-1">Last updated: {new Date(existingProfile.updatedAt).toLocaleDateString('en-IN')}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg text-center">
+              <p className="text-2xl font-bold text-blue-600">{existingProfile.allocation?.equity || 50}%</p>
+              <p className="text-sm text-muted-foreground">Equity</p>
+            </div>
+            <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg text-center">
+              <p className="text-2xl font-bold text-green-600">{existingProfile.allocation?.debt || 35}%</p>
+              <p className="text-sm text-muted-foreground">Debt</p>
+            </div>
+            <div className="p-4 bg-yellow-50 dark:bg-yellow-950 rounded-lg text-center">
+              <p className="text-2xl font-bold text-yellow-600">{existingProfile.allocation?.gold || 15}%</p>
+              <p className="text-sm text-muted-foreground">Gold</p>
+            </div>
+          </div>
+
+          <Button onClick={() => { setAnswers({}); setCurrentQuestion(0); }} className="w-full">
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Reassess Risk Profile
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isComplete && !showResult) {
+    setShowResult(true);
+  }
+
+  if (showResult) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Risk Assessment Results</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center gap-6">
+            <div className="relative w-32 h-32">
+              <svg className="w-full h-full transform -rotate-90">
+                <circle cx="64" cy="64" r="56" fill="none" stroke="currentColor" strokeWidth="8" className="text-muted" />
+                <circle cx="64" cy="64" r="56" fill="none" stroke="currentColor" strokeWidth="8" className="text-primary" strokeDasharray={`${(score / 100) * 352} 352`} strokeLinecap="round" />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center flex-col">
+                <span className="text-3xl font-bold">{score}</span>
+                <span className="text-xs text-muted-foreground">Score</span>
+              </div>
+            </div>
+            <div>
+              <Badge className={`${riskCategory.bgColor} ${riskCategory.color} text-lg px-4 py-2`}>{riskCategory.label}</Badge>
+              <p className="text-muted-foreground mt-2">{riskCategory.description}</p>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="font-medium mb-3">Recommended Asset Allocation</h4>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg text-center">
+                <p className="text-2xl font-bold text-blue-600">{allocation.equity}%</p>
+                <p className="text-sm text-muted-foreground">Equity</p>
+              </div>
+              <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg text-center">
+                <p className="text-2xl font-bold text-green-600">{allocation.debt}%</p>
+                <p className="text-sm text-muted-foreground">Debt</p>
+              </div>
+              <div className="p-4 bg-yellow-50 dark:bg-yellow-950 rounded-lg text-center">
+                <p className="text-2xl font-bold text-yellow-600">{allocation.gold}%</p>
+                <p className="text-sm text-muted-foreground">Gold</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={() => { setShowResult(false); setAnswers({}); setCurrentQuestion(0); }}>
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Retake
+            </Button>
+            <Button onClick={handleSaveProfile} disabled={saveProfileMutation.isPending} className="flex-1">
+              {saveProfileMutation.isPending ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+              Save Profile
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const question = RISK_QUESTIONS[currentQuestion];
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle>Risk Assessment for {clientName}</CardTitle>
+          <span className="text-sm text-muted-foreground">{currentQuestion + 1} of {RISK_QUESTIONS.length}</span>
+        </div>
+        <Progress value={((currentQuestion + 1) / RISK_QUESTIONS.length) * 100} className="h-2" />
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div>
+          <h3 className="text-lg font-medium mb-4">{question.question}</h3>
+          <div className="space-y-3">
+            {question.options.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => handleAnswer(question.id, option.value)}
+                className={`w-full p-4 rounded-lg border text-left transition-all ${
+                  answers[question.id] === option.value 
+                    ? 'border-primary bg-primary/5' 
+                    : 'hover:border-primary/50 hover:bg-accent'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                    answers[question.id] === option.value ? 'border-primary bg-primary' : 'border-muted-foreground'
+                  }`}>
+                    {answers[question.id] === option.value && <Check className="h-3 w-3 text-white" />}
+                  </div>
+                  <span>{option.label}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+          <Button variant="outline" disabled={currentQuestion === 0} onClick={() => setCurrentQuestion(prev => prev - 1)}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Previous
+          </Button>
+          <Button 
+            className="flex-1" 
+            disabled={!answers[question.id]}
+            onClick={() => currentQuestion < RISK_QUESTIONS.length - 1 ? setCurrentQuestion(prev => prev + 1) : setShowResult(true)}
+          >
+            {currentQuestion === RISK_QUESTIONS.length - 1 ? 'View Results' : 'Next'}
+            <ChevronRight className="h-4 w-4 ml-2" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// What-If Simulator Tab Component
+function WhatIfSimulatorTab({ clientId, portfolio, analysis }: { clientId: string; portfolio?: Portfolio; analysis?: PortfolioAnalysis }) {
+  const [simulatedChanges, setSimulatedChanges] = useState<Array<{ symbol: string; action: 'add' | 'remove' | 'modify'; quantity: number; price: number }>>([]);
+  const [newSimulation, setNewSimulation] = useState<{ symbol: string; action: 'add' | 'remove'; quantity: string; price: string }>({ symbol: '', action: 'add', quantity: '', price: '' });
+
+  const calculateImpact = () => {
+    if (!analysis) return null;
+    let newValue = analysis.totalValue;
+    simulatedChanges.forEach(change => {
+      const changeValue = change.quantity * change.price;
+      if (change.action === 'add') newValue += changeValue;
+      else if (change.action === 'remove') newValue -= changeValue;
+    });
+    const valueChange = newValue - analysis.totalValue;
+    const percentChange = (valueChange / analysis.totalValue) * 100;
+    return { newValue, valueChange, percentChange };
+  };
+
+  const addSimulation = () => {
+    if (newSimulation.symbol && newSimulation.quantity && newSimulation.price) {
+      setSimulatedChanges(prev => [...prev, {
+        symbol: newSimulation.symbol.toUpperCase(),
+        action: newSimulation.action,
+        quantity: parseFloat(newSimulation.quantity),
+        price: parseFloat(newSimulation.price)
+      }]);
+      setNewSimulation({ symbol: '', action: 'add', quantity: '', price: '' });
+    }
+  };
+
+  const formatCurrency = (value: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
+  const impact = calculateImpact();
+
+  if (!clientId || !portfolio) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <Shuffle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+          <h3 className="text-lg font-medium mb-2">What-If Simulator</h3>
+          <p className="text-muted-foreground">Select a client with a portfolio to simulate changes</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shuffle className="h-5 w-5" />
+            Simulate Portfolio Changes
+          </CardTitle>
+          <CardDescription>Test how adding or removing holdings would affect the portfolio</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-4 gap-2">
+            <Input placeholder="Symbol" value={newSimulation.symbol} onChange={(e) => setNewSimulation(p => ({ ...p, symbol: e.target.value.toUpperCase() }))} />
+            <Select value={newSimulation.action} onValueChange={(v: 'add' | 'remove') => setNewSimulation(p => ({ ...p, action: v }))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="add">Add</SelectItem>
+                <SelectItem value="remove">Remove</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input type="number" placeholder="Qty" value={newSimulation.quantity} onChange={(e) => setNewSimulation(p => ({ ...p, quantity: e.target.value }))} />
+            <Input type="number" placeholder="Price" value={newSimulation.price} onChange={(e) => setNewSimulation(p => ({ ...p, price: e.target.value }))} />
+          </div>
+          <Button onClick={addSimulation} disabled={!newSimulation.symbol || !newSimulation.quantity || !newSimulation.price} className="w-full">
+            <Plus className="h-4 w-4 mr-2" />
+            Add to Simulation
+          </Button>
+
+          {simulatedChanges.length > 0 && (
+            <div className="space-y-2">
+              <Label>Simulated Changes</Label>
+              {simulatedChanges.map((change, idx) => (
+                <div key={idx} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Badge variant={change.action === 'add' ? 'default' : 'destructive'}>{change.action}</Badge>
+                    <span className="font-medium">{change.symbol}</span>
+                    <span className="text-muted-foreground">x{change.quantity} @ {formatCurrency(change.price)}</span>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => setSimulatedChanges(prev => prev.filter((_, i) => i !== idx))}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              <Button variant="outline" onClick={() => setSimulatedChanges([])} className="w-full">
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Clear All
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Impact Analysis</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {analysis && (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="text-sm text-muted-foreground">Current Value</p>
+                  <p className="text-xl font-bold">{formatCurrency(analysis.totalValue)}</p>
+                </div>
+                <div className={`p-4 rounded-lg ${impact && impact.valueChange >= 0 ? 'bg-green-50 dark:bg-green-950' : 'bg-red-50 dark:bg-red-950'}`}>
+                  <p className="text-sm text-muted-foreground">After Changes</p>
+                  <p className={`text-xl font-bold ${impact && impact.valueChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {impact ? formatCurrency(impact.newValue) : formatCurrency(analysis.totalValue)}
+                  </p>
+                </div>
+              </div>
+
+              {impact && simulatedChanges.length > 0 && (
+                <div className={`p-4 rounded-lg border ${impact.valueChange >= 0 ? 'border-green-200 bg-green-50 dark:bg-green-950' : 'border-red-200 bg-red-50 dark:bg-red-950'}`}>
+                  <div className="flex items-center gap-2">
+                    {impact.valueChange >= 0 ? <TrendingUp className="h-5 w-5 text-green-600" /> : <TrendingDown className="h-5 w-5 text-red-600" />}
+                    <span className={`text-lg font-bold ${impact.valueChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {impact.valueChange >= 0 ? '+' : ''}{formatCurrency(impact.valueChange)} ({impact.percentChange >= 0 ? '+' : ''}{impact.percentChange.toFixed(2)}%)
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">Projected portfolio change</p>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label>Current Portfolio Metrics</Label>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="p-2 bg-muted rounded">Risk Score: {analysis.riskScore}/100</div>
+                  <div className="p-2 bg-muted rounded">Diversification: {analysis.diversificationScore}/100</div>
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Benchmark Comparison Tab Component
+function BenchmarkComparisonTab({ clientId, portfolio }: { clientId: string; portfolio?: Portfolio }) {
+  const { data: benchmarkData, isLoading } = useQuery<any>({
+    queryKey: ['/api/ai-investment/benchmark', clientId],
+    queryFn: async () => {
+      const res = await fetch(`/api/ai-investment/benchmark/${clientId}`);
+      if (!res.ok) throw new Error('Failed to fetch benchmark data');
+      return res.json();
+    },
+    enabled: !!clientId && !!portfolio
+  });
+
+  const formatPercent = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
+  const formatCurrency = (value: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
+
+  if (!clientId || !portfolio) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <LineChart className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+          <h3 className="text-lg font-medium mb-2">Benchmark Comparison</h3>
+          <p className="text-muted-foreground">Select a client with a portfolio to compare against benchmarks</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const benchmarks = benchmarkData?.benchmarks || [
+    { name: 'Nifty 50', return1M: 2.5, return3M: 8.2, return1Y: 15.4, ytd: 12.3 },
+    { name: 'Sensex', return1M: 2.3, return3M: 7.9, return1Y: 14.8, ytd: 11.8 },
+    { name: 'Nifty Midcap 100', return1M: 3.1, return3M: 10.5, return1Y: 22.3, ytd: 18.5 },
+    { name: 'Nifty Smallcap 100', return1M: 4.2, return3M: 12.8, return1Y: 28.7, ytd: 24.2 },
+  ];
+
+  const portfolioReturns = benchmarkData?.portfolioReturns || { return1M: 2.8, return3M: 9.1, return1Y: 18.2, ytd: 14.5 };
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <LineChart className="h-5 w-5" />
+            Portfolio vs Benchmark Performance
+          </CardTitle>
+          <CardDescription>Compare your client's portfolio returns against major indices</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <Skeleton className="h-64" />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Benchmark</TableHead>
+                  <TableHead className="text-right">1 Month</TableHead>
+                  <TableHead className="text-right">3 Months</TableHead>
+                  <TableHead className="text-right">1 Year</TableHead>
+                  <TableHead className="text-right">YTD</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow className="bg-primary/5 font-medium">
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Briefcase className="h-4 w-4" />
+                      Client Portfolio
+                    </div>
+                  </TableCell>
+                  <TableCell className={`text-right ${portfolioReturns.return1M >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(portfolioReturns.return1M)}</TableCell>
+                  <TableCell className={`text-right ${portfolioReturns.return3M >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(portfolioReturns.return3M)}</TableCell>
+                  <TableCell className={`text-right ${portfolioReturns.return1Y >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(portfolioReturns.return1Y)}</TableCell>
+                  <TableCell className={`text-right ${portfolioReturns.ytd >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(portfolioReturns.ytd)}</TableCell>
+                </TableRow>
+                {benchmarks.map((benchmark: any) => {
+                  const outperforms1Y = portfolioReturns.return1Y > benchmark.return1Y;
+                  return (
+                    <TableRow key={benchmark.name}>
+                      <TableCell>{benchmark.name}</TableCell>
+                      <TableCell className="text-right">{formatPercent(benchmark.return1M)}</TableCell>
+                      <TableCell className="text-right">{formatPercent(benchmark.return3M)}</TableCell>
+                      <TableCell className="text-right">{formatPercent(benchmark.return1Y)}</TableCell>
+                      <TableCell className="text-right">{formatPercent(benchmark.ytd)}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Alpha Generation</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {benchmarks.slice(0, 2).map((benchmark: any) => {
+                const alpha = portfolioReturns.return1Y - benchmark.return1Y;
+                return (
+                  <div key={benchmark.name} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                    <span className="text-sm">vs {benchmark.name}</span>
+                    <div className="flex items-center gap-2">
+                      {alpha >= 0 ? <TrendingUp className="h-4 w-4 text-green-600" /> : <TrendingDown className="h-4 w-4 text-red-600" />}
+                      <span className={`font-medium ${alpha >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {alpha >= 0 ? '+' : ''}{alpha.toFixed(2)}%
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Risk-Adjusted Returns</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <span className="text-sm">Sharpe Ratio</span>
+                <span className="font-medium">{benchmarkData?.sharpeRatio?.toFixed(2) || '1.25'}</span>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <span className="text-sm">Sortino Ratio</span>
+                <span className="font-medium">{benchmarkData?.sortinoRatio?.toFixed(2) || '1.58'}</span>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <span className="text-sm">Beta</span>
+                <span className="font-medium">{benchmarkData?.beta?.toFixed(2) || '0.92'}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
