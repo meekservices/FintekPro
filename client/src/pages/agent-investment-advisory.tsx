@@ -3221,12 +3221,6 @@ function RiskProfilerTab({ clientId, clientName }: { clientId: string; clientNam
 
   const { data: existingProfile, isLoading } = useQuery<any>({
     queryKey: ['/api/ai-investment/risk-profile', clientId],
-    queryFn: async () => {
-      const res = await fetch(`/api/ai-investment/risk-profile/${clientId}`);
-      if (res.status === 404) return null;
-      if (!res.ok) throw new Error('Failed to fetch risk profile');
-      return res.json();
-    },
     enabled: !!clientId
   });
 

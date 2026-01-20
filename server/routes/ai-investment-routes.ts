@@ -1446,10 +1446,8 @@ router.get("/risk-profile/:clientId", async (req, res) => {
   try {
     const { clientId } = req.params;
     const profile = riskProfileStore.get(clientId);
-    if (!profile) {
-      return res.status(404).json({ error: "Profile not found" });
-    }
-    res.json(profile);
+    // Return null with 200 instead of 404 - no profile yet is not an error
+    res.json(profile || null);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
