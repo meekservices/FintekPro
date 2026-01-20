@@ -1,7 +1,8 @@
 import type { KycVerificationSession } from "@shared/schema";
 import { db } from "../db";
 import * as schema from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { portfolios, prospectClients } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
 
 /**
  * Transfer verified KYC data from verification session to user profile
@@ -94,4 +95,292 @@ export async function transferVerifiedKYCData(
       currentStep: "completed",
     })
     .where(eq(schema.kycVerificationSessions.id, session.id));
+  
+  // Trigger portfolio auto-fetch and verification
+  // This transfers any existing prospect portfolio to the user's verified portfolio
+  try {
+    await transferProspectPortfolioToUser(userId);
+  } catch (error) {
+    console.error('[KYC Completion] Failed to transfer prospect portfolio:', error);
+    // Don't fail KYC completion if portfolio transfer fails
+  }
+}
+
+/**
+ * Transfer prospect portfolio data to user portfolio when KYC is completed
+ * Marks the portfolio as verified since it's now associated with a verified user
+ * Also marks any existing user portfolio as verified
+ */
+async function transferProspectPortfolioToUser(userId: string): Promise<void> {
+  const user = await db.query.users.findFirst({
+    where: eq(schema.users.id, userId),
+  });
+  
+  if (!user) return;
+  
+  // First, check if user already has a portfolio and mark it as verified
+  const existingUserPortfolio = await db
+    .select()
+    .from(portfolios)
+    .where(eq(portfolios.userId, userId))
+    .limit(1);
+  
+  if (existingUserPortfolio.length > 0) {
+    // Mark existing portfolio as verified after KYC
+    await db
+      .update(portfolios)
+      .set({
+        isVerified: true,
+        lastFetchedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(portfolios.id, existingUserPortfolio[0].id));
+    
+    console.log('[KYC Completion] Marked existing user portfolio as verified:', userId);
+    
+    // Trigger background portfolio refresh from authoritative sources
+    triggerPortfolioRefresh(userId, user.panNumber);
+    return;
+  }
+  
+  // Try to find a matching prospect using multiple matching strategies
+  let matchingProspect = await db.query.prospectClients.findFirst({
+    where: eq(prospectClients.convertedUserId, userId),
+  });
+  
+  // Fallback: Try matching by PAN if convertedUserId not set
+  if (!matchingProspect && user.panNumber) {
+    matchingProspect = await db.query.prospectClients.findFirst({
+      where: eq(prospectClients.pan, user.panNumber),
+    });
+    if (matchingProspect) {
+      console.log('[KYC Completion] Found prospect by PAN match');
+    }
+  }
+  
+  // Fallback: Try matching by email
+  if (!matchingProspect && user.email) {
+    matchingProspect = await db.query.prospectClients.findFirst({
+      where: eq(prospectClients.email, user.email),
+    });
+    if (matchingProspect) {
+      console.log('[KYC Completion] Found prospect by email match');
+    }
+  }
+  
+  // Fallback: Try matching by mobile
+  if (!matchingProspect && user.mobileNumber) {
+    matchingProspect = await db.query.prospectClients.findFirst({
+      where: eq(prospectClients.mobile, user.mobileNumber),
+    });
+    if (matchingProspect) {
+      console.log('[KYC Completion] Found prospect by mobile match');
+    }
+  }
+  
+  if (!matchingProspect) {
+    console.log('[KYC Completion] No matching prospect found for user:', userId, 
+      '- checked convertedUserId, PAN, email, and mobile');
+    return;
+  }
+  
+  // Check if prospect has portfolio data in unified tables
+  const prospectPortfolio = await db
+    .select()
+    .from(portfolios)
+    .where(eq(portfolios.prospectId, matchingProspect.id))
+    .limit(1);
+  
+  if (prospectPortfolio.length === 0) {
+    console.log('[KYC Completion] No prospect portfolio found to transfer for prospect:', matchingProspect.id);
+    return;
+  }
+  
+  const portfolio = prospectPortfolio[0];
+  
+  // Transfer the portfolio to the user and mark as verified
+  await db
+    .update(portfolios)
+    .set({
+      userId,
+      prospectId: null, // Remove prospect association
+      isVerified: true,
+      lastFetchedAt: new Date(),
+      updatedAt: new Date()
+    })
+    .where(eq(portfolios.id, portfolio.id));
+  
+  // Also update the prospect to link to the user
+  await db
+    .update(prospectClients)
+    .set({
+      convertedUserId: userId,
+      state: 'active_client',
+      convertedAt: new Date(),
+      updatedAt: new Date()
+    })
+    .where(eq(prospectClients.id, matchingProspect.id));
+  
+  console.log('[KYC Completion] Successfully transferred and verified portfolio for user:', userId);
+  
+  // Trigger background portfolio refresh from authoritative sources
+  triggerPortfolioRefresh(userId, user.panNumber);
+}
+
+/**
+ * Trigger a background portfolio refresh from authoritative sources
+ * This attempts to fetch holdings from BSE STAR CAS, CAMS, or other official sources
+ * Runs asynchronously and won't block KYC completion
+ * 
+ * Uses database transactions to ensure atomicity - either all holdings are updated or none
+ */
+function triggerPortfolioRefresh(userId: string, panNumber?: string | null): void {
+  if (!panNumber) {
+    console.log('[Portfolio Refresh] No PAN available for user, skipping auto-fetch:', userId);
+    return;
+  }
+  
+  // Schedule refresh asynchronously - don't await or block KYC completion
+  setImmediate(async () => {
+    try {
+      console.log('[Portfolio Refresh] Starting background portfolio fetch for user:', userId);
+      
+      // Fetch user details for CAS request
+      const user = await db.query.users.findFirst({
+        where: eq(schema.users.id, userId),
+      });
+      
+      if (!user) {
+        console.log('[Portfolio Refresh] User not found:', userId);
+        return;
+      }
+      
+      // Validate required fields for CAS fetch
+      const userName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+      if (!userName || !user.dateOfBirth) {
+        console.log('[Portfolio Refresh] Missing required user data (name or DOB), skipping CAS fetch:', userId);
+        // Portfolio remains with uploaded data until user completes profile
+        return;
+      }
+      
+      // Import BSE STAR CAS service dynamically to avoid circular dependencies
+      const { BSEStarCASService } = await import('./bse-star-cas-service');
+      const casService = new BSEStarCASService();
+      
+      // Attempt to fetch portfolio from BSE STAR CAS
+      const casResult = await casService.fetchCAS({
+        panNumber: panNumber,
+        name: userName,
+        dob: user.dateOfBirth,
+        mobile: user.mobileNumber || undefined,
+        email: user.email || undefined
+      });
+      
+      if (!casResult.success) {
+        console.log('[Portfolio Refresh] CAS fetch failed:', casResult.message);
+        // Keep existing portfolio data - don't clear on failure
+        return;
+      }
+      
+      if (casResult.holdings.length === 0) {
+        console.log('[Portfolio Refresh] CAS returned no holdings - user may have no MF investments');
+        // Keep existing portfolio data - empty CAS doesn't mean delete uploaded data
+        return;
+      }
+      
+      console.log('[Portfolio Refresh] Successfully fetched', casResult.holdings.length, 'holdings from CAS');
+      
+      const { portfolioHoldings } = await import('@shared/schema');
+      
+      // Use transaction for atomic update - either all changes succeed or none
+      // CAS-verified holdings have confidenceScore=100, uploaded holdings have lower scores
+      await db.transaction(async (tx) => {
+        // Get or create portfolio for user
+        let userPortfolio = await tx.query.portfolios.findFirst({
+          where: eq(schema.portfolios.userId, userId),
+        });
+        
+        if (!userPortfolio) {
+          // Create new portfolio within transaction
+          const [newPortfolio] = await tx
+            .insert(schema.portfolios)
+            .values({
+              userId,
+              name: `${userName}'s Portfolio`,
+              totalValue: casResult.totalValue.toString(),
+              source: 'cas_fetch',
+              lastFetchedAt: new Date(),
+              isVerified: true,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            })
+            .returning();
+          
+          userPortfolio = newPortfolio;
+          console.log('[Portfolio Refresh] Created new portfolio for user:', userId);
+        } else {
+          // Delete all mutual fund holdings - CAS data is authoritative for MFs
+          // This includes legacy CAS holdings and uploaded MF data
+          // Non-MF holdings (stocks, bonds, etc.) are preserved
+          await tx
+            .delete(portfolioHoldings)
+            .where(
+              and(
+                eq(portfolioHoldings.portfolioId, userPortfolio.id),
+                eq(portfolioHoldings.assetType, 'mutual_fund')
+              )
+            );
+          
+          // Update portfolio with fresh CAS data
+          await tx
+            .update(schema.portfolios)
+            .set({
+              totalValue: casResult.totalValue.toString(),
+              source: 'cas_fetch',
+              lastFetchedAt: new Date(),
+              isVerified: true,
+              updatedAt: new Date()
+            })
+            .where(eq(schema.portfolios.id, userPortfolio.id));
+        }
+        
+        // Insert fresh CAS holdings - deduplicate by schemeCode+folioNumber
+        // Set confidenceScore=100 to mark as CAS-verified
+        const insertedKeys = new Set<string>();
+        for (const holding of casResult.holdings) {
+          const dedupKey = `${holding.schemeCode}|${holding.folioNumber}`;
+          if (insertedKeys.has(dedupKey)) {
+            console.log('[Portfolio Refresh] Skipping duplicate holding:', dedupKey);
+            continue;
+          }
+          insertedKeys.add(dedupKey);
+          
+          await tx
+            .insert(portfolioHoldings)
+            .values({
+              portfolioId: userPortfolio.id,
+              assetType: 'mutual_fund',
+              symbol: holding.schemeCode,
+              name: holding.schemeName,
+              quantity: holding.units.toString(),
+              avgPrice: holding.averageNav.toString(),
+              currentValue: holding.currentValue.toString(),
+              investedValue: holding.investedAmount.toString(),
+              productType: 'mutual_fund',
+              folioNumber: holding.folioNumber,
+              broker: holding.amcName,
+              confidenceScore: 100, // Mark as CAS-verified
+              updatedAt: new Date()
+            });
+        }
+        
+        console.log('[Portfolio Refresh] Transaction complete - refreshed', insertedKeys.size, 'holdings for user:', userId);
+      });
+      
+    } catch (error) {
+      // Log but don't throw - this is a background task
+      // Transaction automatically rolls back on error - existing data preserved
+      console.error('[Portfolio Refresh] Background fetch failed for user:', userId, error);
+    }
+  });
 }
