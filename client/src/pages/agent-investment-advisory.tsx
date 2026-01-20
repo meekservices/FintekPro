@@ -275,21 +275,49 @@ export default function AgentInvestmentAdvisory() {
     queryKey: ['/api/agent/clients'],
   });
 
-  // Filter clients based on search query (search by name or UUID)
+  // Fetch prospects (leads) for searchable dropdown - use standard fetcher with proper error handling
+  const { data: prospects = [], isLoading: prospectsLoading, error: prospectsError } = useQuery<any[]>({
+    queryKey: ['/api/agent-wizard/prospects'],
+    retry: false,
+    staleTime: 30000,
+  });
+
+  // Combined loading state for client selector
+  const isLoadingClientsOrProspects = clientsLoading || prospectsLoading;
+
+  // Combine clients and prospects for unified dropdown
+  const allClientsAndProspects = useMemo(() => {
+    const clientsList: Client[] = clients.map(c => ({ ...c, isProspect: false }));
+    const prospectsList: Client[] = prospects.map(p => ({
+      id: p.id,
+      uuid: p.id?.toString() || '',
+      firstName: p.firstName || p.first_name || '',
+      lastName: p.lastName || p.last_name || '',
+      email: p.email || null,
+      mobile: p.phone || p.mobile || null,
+      isProspect: true,
+      prospectState: p.status || 'new',
+      leadQuality: p.leadQuality || p.lead_quality || null,
+      createdAt: p.createdAt || p.created_at || null
+    }));
+    return [...clientsList, ...prospectsList];
+  }, [clients, prospects]);
+
+  // Filter clients/prospects based on search query (search by name or UUID)
   const filteredClients = useMemo(() => {
-    if (!clientSearchQuery.trim()) return clients;
+    if (!clientSearchQuery.trim()) return allClientsAndProspects;
     const query = clientSearchQuery.toLowerCase();
-    return clients.filter(client => {
+    return allClientsAndProspects.filter(client => {
       const fullName = `${client.firstName} ${client.lastName}`.toLowerCase();
       const uuid = client.uuid?.toLowerCase() || '';
       return fullName.includes(query) || uuid.includes(query);
     });
-  }, [clients, clientSearchQuery]);
+  }, [allClientsAndProspects, clientSearchQuery]);
 
   // Get the selected client display name
   const selectedClient = useMemo(() => {
-    return clients.find(c => c.uuid === selectedClientId || String(c.id) === selectedClientId);
-  }, [clients, selectedClientId]);
+    return allClientsAndProspects.find(c => c.uuid === selectedClientId || String(c.id) === selectedClientId);
+  }, [allClientsAndProspects, selectedClientId]);
 
   const { data: portfolio, isLoading: portfolioLoading } = useQuery<Portfolio>({
     queryKey: ['/api/ai-investment/portfolio', selectedClientId],
@@ -669,9 +697,9 @@ export default function AgentInvestmentAdvisory() {
                 />
                 <CommandList>
                   <CommandEmpty>
-                    {clientsLoading ? "Loading clients..." : (
+                    {isLoadingClientsOrProspects ? "Loading clients & prospects..." : (
                       <div className="py-2">
-                        <p className="text-sm text-muted-foreground mb-2">No clients found.</p>
+                        <p className="text-sm text-muted-foreground mb-2">No clients or prospects found.</p>
                         <Button 
                           size="sm" 
                           variant="outline"
