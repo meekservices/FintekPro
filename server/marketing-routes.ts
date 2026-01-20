@@ -1632,14 +1632,12 @@ export function registerMarketingRoutes(app: any) {
         });
       }
 
-      // Fetch prospects
+      // Fetch prospects - prospectLeads uses primaryMobile/primaryEmail and companyName (no firstName/lastName)
       if (filter === 'all' || filter === 'all_contacts' || filter === 'all_prospects' || filter === 'prospects') {
         const prospects = await db.select({
           id: prospectLeads.id,
-          mobile: prospectLeads.phone,
-          email: prospectLeads.email,
-          firstName: prospectLeads.firstName,
-          lastName: prospectLeads.lastName,
+          mobile: prospectLeads.primaryMobile,
+          email: prospectLeads.primaryEmail,
           companyName: prospectLeads.companyName
         }).from(prospectLeads).limit(Number(limit));
 
@@ -1649,7 +1647,7 @@ export function registerMarketingRoutes(app: any) {
               id: p.id,
               mobile: p.mobile || '',
               email: p.email || '',
-              name: `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.companyName || 'Prospect',
+              name: p.companyName || 'Prospect',
               type: 'prospect'
             });
           }
