@@ -25488,16 +25488,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         filters.push(eq(schema.manualKycSubmissions.status, status as string));
       }
       if (tier && tier !== 'all') {
-        // Map tier filter to kycStatus values since kyc_tier column may not exist
-        const tierStatusMap: Record<string, string> = {
-          'tier1': 'pending',
-          'tier2': 'verified', 
-          'tier3': 'completed'
-        };
-        const mappedStatus = tierStatusMap[tier as string];
-        if (mappedStatus) {
-          filters.push(eq(schema.users.kycStatus, mappedStatus));
-        }
+        // Tier filter removed - users table does not have kycStatus field
+        // Could map to submission status if needed in future
       }
       if (search) {
         filters.push(or(
@@ -25507,21 +25499,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ));
       }
 
-      // Build base query with join - use kycStatus instead of kycTier
+
+      // Build base query - users table does not have kycStatus
       let query = db.select({
         id: schema.manualKycSubmissions.id,
         userId: schema.manualKycSubmissions.userId,
         userName: schema.manualKycSubmissions.fullName,
         userEmail: schema.manualKycSubmissions.email,
         type: schema.manualKycSubmissions.applicantType,
-        tier: schema.users.kycStatus,
         status: schema.manualKycSubmissions.status,
         submittedAt: schema.manualKycSubmissions.createdAt,
         reviewedAt: schema.manualKycSubmissions.reviewedAt,
         reviewedBy: schema.manualKycSubmissions.reviewedBy,
       })
-        .from(schema.manualKycSubmissions)
-        .leftJoin(schema.users, eq(schema.manualKycSubmissions.userId, schema.users.id));
+        .from(schema.manualKycSubmissions);
 
       // Apply filters only if we have any
       if (filters.length > 0) {
@@ -25533,7 +25524,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get total count with same filters
       let countQuery = db.select({ count: sql<number>`count(*)` })
         .from(schema.manualKycSubmissions)
-        .leftJoin(schema.users, eq(schema.manualKycSubmissions.userId, schema.users.id));
+        
 
       if (filters.length > 0) {
         countQuery = countQuery.where(filters.length === 1 ? filters[0] : and(...filters)) as any;
@@ -25545,7 +25536,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         data: submissions.map(s => ({
           ...s,
-          tier: s.tier || 'tier1',
+          tier: 'tier1', // Default tier since users table has no kycStatus
           submittedAt: s.submittedAt?.toISOString() || null,
           reviewedAt: s.reviewedAt?.toISOString() || null,
         })),
