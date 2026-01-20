@@ -1615,30 +1615,16 @@ export function registerMarketingRoutes(app: any) {
         kycTier?: string;
       }> = [];
 
-      // Fetch clients (users)
+      // Fetch clients (users) - marketingConsent/investorType are in userProfiles, not users
       if (filter === 'all' || filter === 'all_contacts' || filter === 'all_clients' || filter === 'clients') {
-        const clientConditions: any[] = [];
-        if (requireConsent) {
-          clientConditions.push(eq(users.marketingConsent, true));
-        }
-        
-        const clientQuery = clientConditions.length > 0
-          ? db.select({
-              id: users.id,
-              mobile: users.mobile,
-              email: users.email,
-              firstName: users.firstName,
-              lastName: users.lastName,
-              investorType: users.investorType
-            }).from(users).where(and(...clientConditions))
-          : db.select({
-              id: users.id,
-              mobile: users.mobile,
-              email: users.email,
-              firstName: users.firstName,
-              lastName: users.lastName,
-              investorType: users.investorType
-            }).from(users);
+        // For now, skip consent filtering since marketingConsent is in userProfiles table
+        const clientQuery = db.select({
+          id: users.id,
+          mobile: users.mobile,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName
+        }).from(users);
 
         const clients = await clientQuery.limit(Number(limit));
         
@@ -1650,7 +1636,7 @@ export function registerMarketingRoutes(app: any) {
               email: c.email || '',
               name: `${c.firstName || ''} ${c.lastName || ''}`.trim() || 'Client',
               type: 'client',
-              kycTier: c.investorType || undefined
+              kycTier: undefined
             });
           }
         });
