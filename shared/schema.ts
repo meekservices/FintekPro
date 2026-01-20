@@ -27582,3 +27582,48 @@ export type {
   LoanWebhookEvent,
   InsertLoanWebhookEvent,
 } from './dsa-loan-schema';
+
+// Picks Watchlist for agents to track favorite picks
+export const pickWatchlist = pgTable("pick_watchlist", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  pickId: integer("pick_id").references(() => dailyPicks.id).notNull(),
+  addedAt: timestamp("added_at").defaultNow().notNull(),
+  notes: text("notes"),
+  priceAlertEnabled: boolean("price_alert_enabled").default(false),
+  alertThreshold: decimal("alert_threshold", { precision: 8, scale: 2 }),
+  alertType: varchar("alert_type", { length: 20 }), // 'above', 'below', 'target_hit', 'stoploss_hit'
+  lastAlertSentAt: timestamp("last_alert_sent_at"),
+}, (table) => [
+  index("idx_pick_watchlist_user").on(table.userId),
+  index("idx_pick_watchlist_pick").on(table.pickId),
+]);
+
+export const insertPickWatchlistSchema = createInsertSchema(pickWatchlist).omit({
+  id: true, addedAt: true,
+});
+export type PickWatchlist = typeof pickWatchlist.$inferSelect;
+export type InsertPickWatchlist = z.infer<typeof insertPickWatchlistSchema>;
+
+// Price Alert History for tracking triggered alerts
+export const pickPriceAlerts = pgTable("pick_price_alerts", {
+  id: serial("id").primaryKey(),
+  pickId: integer("pick_id").references(() => dailyPicks.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  alertType: varchar("alert_type", { length: 20 }).notNull(), // 'target_hit', 'stoploss_hit', 'threshold_crossed'
+  triggerPrice: decimal("trigger_price", { precision: 18, scale: 4 }).notNull(),
+  previousPrice: decimal("previous_price", { precision: 18, scale: 4 }),
+  message: text("message"),
+  notificationSent: boolean("notification_sent").default(false),
+  notificationChannel: varchar("notification_channel", { length: 50 }), // 'email', 'whatsapp', 'both'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_pick_price_alerts_pick").on(table.pickId),
+  index("idx_pick_price_alerts_user").on(table.userId),
+]);
+
+export const insertPickPriceAlertSchema = createInsertSchema(pickPriceAlerts).omit({
+  id: true, createdAt: true,
+});
+export type PickPriceAlert = typeof pickPriceAlerts.$inferSelect;
+export type InsertPickPriceAlert = z.infer<typeof insertPickPriceAlertSchema>;

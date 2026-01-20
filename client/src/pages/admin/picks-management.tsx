@@ -44,6 +44,9 @@ interface DailyPick {
   riskLevel: string;
   suitableFor?: string[];
   keyMetrics?: Record<string, any>;
+  timeHorizon?: string;
+  confidenceScore?: number;
+  sectorCategory?: string;
   generatedBy: string;
   createdAt: string;
 }
@@ -685,7 +688,10 @@ export default function PicksManagement() {
                     <TableRow>
                       <TableHead>Instrument</TableHead>
                       <TableHead>Category</TableHead>
+                      <TableHead>Sector</TableHead>
                       <TableHead>Date</TableHead>
+                      <TableHead>Horizon</TableHead>
+                      <TableHead>Confidence</TableHead>
                       <TableHead className="text-right">Reco Price</TableHead>
                       <TableHead className="text-right">Target</TableHead>
                       <TableHead className="text-right">Stoploss</TableHead>
@@ -709,7 +715,24 @@ export default function PicksManagement() {
                           <Badge variant="outline">{getCategoryLabel(pick.category)}</Badge>
                         </TableCell>
                         <TableCell>
+                          <span className="text-sm">{pick.sectorCategory || '-'}</span>
+                        </TableCell>
+                        <TableCell>
                           {format(new Date(pick.recoDate), "MMM d, yyyy")}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="text-xs">
+                            {(pick.timeHorizon || 'medium_term').replace('_', ' ')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <div className={`w-2 h-2 rounded-full ${
+                              (pick.confidenceScore || 70) >= 80 ? 'bg-green-500' :
+                              (pick.confidenceScore || 70) >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+                            }`} />
+                            <span className="text-sm">{pick.confidenceScore || 70}%</span>
+                          </div>
                         </TableCell>
                         <TableCell className="text-right font-medium">
                           ₹{parseFloat(pick.recoPrice).toLocaleString()}
