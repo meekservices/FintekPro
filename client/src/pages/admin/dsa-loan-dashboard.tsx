@@ -101,7 +101,7 @@ export default function AdminDsaLoanDashboard() {
   });
 
   const { data: applicationsData, isLoading: applicationsLoading, refetch: refetchApplications } = useQuery<{ success: boolean; data: LoanApplication[]; meta: { total: number } }>({
-    queryKey: ["/api/admin/dsa-loans/applications", statusFilter],
+    queryKey: [statusFilter === "all" ? "/api/admin/dsa-loans/applications" : `/api/admin/dsa-loans/applications?status=${statusFilter}`],
   });
 
   const { data: banksData } = useQuery<{ success: boolean; data: any[] }>({
