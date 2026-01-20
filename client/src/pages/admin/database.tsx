@@ -225,45 +225,39 @@ export default function AdminDatabase() {
               <LoadingState variant="table" />
             ) : (
               <>
-                <ScrollArea className="h-[400px]">
+                <div className="overflow-x-auto max-h-[400px] overflow-y-auto border rounded-md">
                   <Table>
-                    <TableHeader>
+                    <TableHeader className="sticky top-0 bg-background z-10">
                       <TableRow>
-                        {columns.slice(0, 8).map((col) => (
-                          <TableHead key={col.name} className="font-mono text-xs">
+                        {columns.map((col) => (
+                          <TableHead key={col.name} className="font-mono text-xs whitespace-nowrap min-w-[120px]">
                             {col.name}
                             <span className="block text-[10px] text-muted-foreground">{col.type}</span>
                           </TableHead>
                         ))}
-                        {columns.length > 8 && (
-                          <TableHead className="text-xs">+{columns.length - 8} more</TableHead>
-                        )}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {rows.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={Math.min(columns.length, 8) + 1} className="text-center py-8 text-muted-foreground">
+                          <TableCell colSpan={columns.length || 1} className="text-center py-8 text-muted-foreground">
                             No data found
                           </TableCell>
                         </TableRow>
                       ) : (
                         rows.map((row, i) => (
                           <TableRow key={i}>
-                            {columns.slice(0, 8).map((col) => (
-                              <TableCell key={col.name} className="font-mono text-xs max-w-[200px] truncate">
+                            {columns.map((col) => (
+                              <TableCell key={col.name} className="font-mono text-xs whitespace-nowrap max-w-[250px] truncate">
                                 {formatCellValue(row[col.name])}
                               </TableCell>
                             ))}
-                            {columns.length > 8 && (
-                              <TableCell className="text-xs text-muted-foreground">...</TableCell>
-                            )}
                           </TableRow>
                         ))
                       )}
                     </TableBody>
                   </Table>
-                </ScrollArea>
+                </div>
 
                 {pagination && pagination.totalPages > 1 && (
                   <div className="flex items-center justify-between mt-4">
