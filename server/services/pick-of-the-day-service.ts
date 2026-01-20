@@ -376,7 +376,7 @@ class PickOfTheDayService {
         .from(bondCatalog)
         .where(
           and(
-            eq(bondCatalog.status, 'active'),
+            eq(bondCatalog.status, 'published'),
             sql`${bondCatalog.cleanPrice} IS NOT NULL`
           )
         )
@@ -644,7 +644,17 @@ class PickOfTheDayService {
   private async generateETFPick(): Promise<DailyPickData | null> {
     try {
       const etfs = await db
-        .select()
+        .select({
+          id: instrumentMaster.id,
+          name: instrumentMaster.name,
+          symbol: instrumentMaster.symbol,
+          isin: instrumentMaster.isin,
+          category: instrumentMaster.category,
+          assetClass: instrumentMaster.assetClass,
+          issuer: instrumentMaster.issuer,
+          currency: instrumentMaster.currency,
+          lastPrice: instrumentMaster.lastPrice,
+        })
         .from(instrumentMaster)
         .where(
           and(
@@ -1124,11 +1134,11 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
 
         case 'bonds':
           const bond = await db
-            .select({ currentPrice: bondCatalog.currentPrice })
+            .select({ cleanPrice: bondCatalog.cleanPrice })
             .from(bondCatalog)
-            .where(eq(bondCatalog.id, parseInt(pick.instrumentId)))
+            .where(eq(bondCatalog.id, pick.instrumentId))
             .limit(1);
-          return bond[0]?.currentPrice ? parseFloat(bond[0].currentPrice) : null;
+          return bond[0]?.cleanPrice ? parseFloat(bond[0].cleanPrice) : null;
 
         case 'unlisted':
           const company = await db
