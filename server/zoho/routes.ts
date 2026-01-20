@@ -310,7 +310,7 @@ router.post('/crm/sync/partner/:partnerId', async (req, res) => {
       return res.status(400).json({ message: 'Connection ID is required' });
     }
 
-    const crmService = new ZohoCRMService(connectionId);
+    const crmService = await ZohoCRMService.create(connectionId);
     const zohoAccountId = await crmService.syncPartnerToAccount(partnerId);
 
     res.json({
@@ -336,7 +336,7 @@ router.post('/crm/sync/user/:userId', async (req, res) => {
       return res.status(400).json({ message: 'Connection ID is required' });
     }
 
-    const crmService = new ZohoCRMService(connectionId);
+    const crmService = await ZohoCRMService.create(connectionId);
     const zohoContactId = await crmService.syncUserToContact(userId);
 
     res.json({
@@ -361,7 +361,7 @@ router.post('/crm/sync/bulk/partners', async (req, res) => {
       return res.status(400).json({ message: 'Connection ID and partner IDs array are required' });
     }
 
-    const crmService = new ZohoCRMService(connectionId);
+    const crmService = await ZohoCRMService.create(connectionId);
     await crmService.bulkSyncPartnersToAccounts(partnerIds);
 
     res.json({ message: 'Bulk sync initiated successfully' });
@@ -587,7 +587,7 @@ router.post('/crm/commission-deal', async (req, res) => {
       return res.status(400).json({ message: 'Connection ID and commission ID are required' });
     }
 
-    const crmService = new ZohoCRMService(connectionId);
+    const crmService = await ZohoCRMService.create(connectionId);
     const zohoDealId = await crmService.createCommissionDeal(commissionId);
 
     res.json({
@@ -613,7 +613,7 @@ router.patch('/crm/commission-deal/:commissionId', async (req, res) => {
       return res.status(400).json({ message: 'Connection ID and status are required' });
     }
 
-    const crmService = new ZohoCRMService(connectionId);
+    const crmService = await ZohoCRMService.create(connectionId);
     await crmService.updateCommissionDealStage(commissionId, status);
 
     res.json({ message: 'Commission deal stage updated successfully' });
@@ -636,7 +636,7 @@ router.get('/crm/partner/:partnerId/deals', async (req, res) => {
       return res.status(400).json({ message: 'Connection ID is required' });
     }
 
-    const crmService = new ZohoCRMService(connectionId as string);
+    const crmService = await ZohoCRMService.create(connectionId as string);
     const deals = await crmService.getPartnerDeals(partnerId);
 
     res.json(deals);
@@ -663,7 +663,7 @@ router.get('/crm/import/preview', async (req, res) => {
       return res.status(400).json({ message: 'Connection ID is required' });
     }
 
-    const crmService = new ZohoCRMService(connectionId as string);
+    const crmService = await ZohoCRMService.create(connectionId as string);
     const preview = await crmService.getImportPreview();
 
     res.json({
@@ -699,7 +699,7 @@ router.post('/crm/import/contacts', async (req, res) => {
     const isProduction = process.env.NODE_ENV === 'production';
     console.log(`[Zoho Import] Starting contacts import ${isProduction ? '(PRODUCTION)' : '(DRY RUN)'}`);
 
-    const crmService = new ZohoCRMService(connectionId as string);
+    const crmService = await ZohoCRMService.create(connectionId as string);
     const result = await crmService.importContactsAsProspects({
       agentId,
       skipDuplicates
@@ -738,7 +738,7 @@ router.post('/crm/import/leads', async (req, res) => {
     const isProduction = process.env.NODE_ENV === 'production';
     console.log(`[Zoho Import] Starting leads import ${isProduction ? '(PRODUCTION)' : '(DRY RUN)'}`);
 
-    const crmService = new ZohoCRMService(connectionId as string);
+    const crmService = await ZohoCRMService.create(connectionId as string);
     const result = await crmService.importLeadsAsProspects({
       agentId,
       skipDuplicates
@@ -770,7 +770,7 @@ router.get('/crm/import/status', async (req, res) => {
       return res.status(400).json({ message: 'Connection ID is required' });
     }
 
-    const crmService = new ZohoCRMService(connectionId as string);
+    const crmService = await ZohoCRMService.create(connectionId as string);
     const status = await crmService.getSyncStatus();
 
     res.json({

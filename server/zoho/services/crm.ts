@@ -1,6 +1,6 @@
 import { ZohoApiClient } from '../api-client';
 import { db } from '../../db';
-import { zohoEntityMappings, partners, users } from '@shared/schema';
+import { zohoEntityMappings, partners, users, zohoConnections } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 
 interface ZohoCRMContact {
@@ -80,6 +80,20 @@ export class ZohoCRMService {
   constructor(connectionId: string, dataCenter: string = 'com') {
     this.connectionId = connectionId;
     this.apiClient = new ZohoApiClient(connectionId, 'CRM', dataCenter);
+  }
+
+  /**
+   * Factory method that auto-detects data center from the connection
+   */
+  static async create(connectionId: string): Promise<ZohoCRMService> {
+    const [connection] = await db
+      .select({ dataCenter: zohoConnections.zohoDataCenter })
+      .from(zohoConnections)
+      .where(eq(zohoConnections.id, connectionId))
+      .limit(1);
+    
+    const dataCenter = connection?.dataCenter || 'in';
+    return new ZohoCRMService(connectionId, dataCenter);
   }
 
   /**
