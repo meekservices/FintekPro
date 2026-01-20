@@ -119,7 +119,8 @@ async function upsertProspectPortfolio(
         productType: h.productType || null,
         folioNumber: h.folioNumber || null,
         broker: h.broker || null,
-        confidenceScore: confidenceScore || null
+        confidenceScore: confidenceScore || null,
+        source: 'uploaded' // Track holding origin
       }))
     );
   }

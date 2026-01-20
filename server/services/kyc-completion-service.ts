@@ -235,14 +235,23 @@ async function transferProspectPortfolioToUser(userId: string): Promise<void> {
  * Uses database transactions to ensure atomicity - either all holdings are updated or none
  */
 function triggerPortfolioRefresh(userId: string, panNumber?: string | null): void {
-  if (!panNumber) {
-    console.log('[Portfolio Refresh] No PAN available for user, skipping auto-fetch:', userId);
-    return;
-  }
-  
   // Schedule refresh asynchronously - don't await or block KYC completion
   setImmediate(async () => {
     try {
+      // Handle missing PAN
+      if (!panNumber) {
+        console.log('[Portfolio Refresh] No PAN available for user, skipping auto-fetch:', userId);
+        await db
+          .update(schema.portfolios)
+          .set({
+            lastFetchStatus: 'skipped',
+            lastFetchError: 'No PAN available for CAS fetch',
+            updatedAt: new Date()
+          })
+          .where(eq(schema.portfolios.userId, userId));
+        return;
+      }
+      
       console.log('[Portfolio Refresh] Starting background portfolio fetch for user:', userId);
       
       // Fetch user details for CAS request
@@ -252,6 +261,14 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
       
       if (!user) {
         console.log('[Portfolio Refresh] User not found:', userId);
+        await db
+          .update(schema.portfolios)
+          .set({
+            lastFetchStatus: 'skipped',
+            lastFetchError: 'User record not found',
+            updatedAt: new Date()
+          })
+          .where(eq(schema.portfolios.userId, userId));
         return;
       }
       
@@ -259,7 +276,15 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
       const userName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
       if (!userName || !user.dateOfBirth) {
         console.log('[Portfolio Refresh] Missing required user data (name or DOB), skipping CAS fetch:', userId);
-        // Portfolio remains with uploaded data until user completes profile
+        // Update portfolio status to indicate skip
+        await db
+          .update(schema.portfolios)
+          .set({
+            lastFetchStatus: 'skipped',
+            lastFetchError: 'Missing required user data (name or DOB)',
+            updatedAt: new Date()
+          })
+          .where(eq(schema.portfolios.userId, userId));
         return;
       }
       
@@ -278,13 +303,30 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
       
       if (!casResult.success) {
         console.log('[Portfolio Refresh] CAS fetch failed:', casResult.message);
-        // Keep existing portfolio data - don't clear on failure
+        // Update portfolio status to indicate failure
+        await db
+          .update(schema.portfolios)
+          .set({
+            lastFetchStatus: 'failed',
+            lastFetchError: casResult.message || 'CAS fetch failed',
+            updatedAt: new Date()
+          })
+          .where(eq(schema.portfolios.userId, userId));
         return;
       }
       
       if (casResult.holdings.length === 0) {
         console.log('[Portfolio Refresh] CAS returned no holdings - user may have no MF investments');
-        // Keep existing portfolio data - empty CAS doesn't mean delete uploaded data
+        // Update portfolio status to indicate success but no holdings
+        await db
+          .update(schema.portfolios)
+          .set({
+            lastFetchStatus: 'success',
+            lastFetchError: null,
+            lastFetchedAt: new Date(),
+            updatedAt: new Date()
+          })
+          .where(eq(schema.portfolios.userId, userId));
         return;
       }
       
@@ -310,6 +352,8 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
               totalValue: casResult.totalValue.toString(),
               source: 'cas_fetch',
               lastFetchedAt: new Date(),
+              lastFetchStatus: 'success',
+              lastFetchError: null,
               isVerified: true,
               createdAt: new Date(),
               updatedAt: new Date()
@@ -338,6 +382,8 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
               totalValue: casResult.totalValue.toString(),
               source: 'cas_fetch',
               lastFetchedAt: new Date(),
+              lastFetchStatus: 'success',
+              lastFetchError: null,
               isVerified: true,
               updatedAt: new Date()
             })
@@ -370,6 +416,7 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
               folioNumber: holding.folioNumber,
               broker: holding.amcName,
               confidenceScore: 100, // Mark as CAS-verified
+              source: 'cas_fetch', // Track holding origin
               updatedAt: new Date()
             });
         }
@@ -381,6 +428,20 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
       // Log but don't throw - this is a background task
       // Transaction automatically rolls back on error - existing data preserved
       console.error('[Portfolio Refresh] Background fetch failed for user:', userId, error);
+      
+      // Update portfolio status to indicate failure
+      try {
+        await db
+          .update(schema.portfolios)
+          .set({
+            lastFetchStatus: 'failed',
+            lastFetchError: error instanceof Error ? error.message : 'Unknown error',
+            updatedAt: new Date()
+          })
+          .where(eq(schema.portfolios.userId, userId));
+      } catch (statusError) {
+        console.error('[Portfolio Refresh] Failed to update error status:', statusError);
+      }
     }
   });
 }
