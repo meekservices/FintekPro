@@ -276,11 +276,14 @@ export default function AgentInvestmentAdvisory() {
   });
 
   // Fetch prospects (leads) for searchable dropdown - use standard fetcher with proper error handling
-  const { data: prospects = [], isLoading: prospectsLoading, error: prospectsError } = useQuery<any[]>({
+  const { data: prospectsResponse, isLoading: prospectsLoading, error: prospectsError } = useQuery<{ success: boolean; prospects?: any[] }>({
     queryKey: ['/api/agent-wizard/prospects'],
     retry: false,
     staleTime: 30000,
   });
+
+  // Extract prospects array from response
+  const prospects = prospectsResponse?.prospects || [];
 
   // Combined loading state for client selector
   const isLoadingClientsOrProspects = clientsLoading || prospectsLoading;
@@ -288,7 +291,7 @@ export default function AgentInvestmentAdvisory() {
   // Combine clients and prospects for unified dropdown
   const allClientsAndProspects = useMemo(() => {
     const clientsList: Client[] = clients.map(c => ({ ...c, isProspect: false }));
-    const prospectsList: Client[] = prospects.map(p => ({
+    const prospectsList: Client[] = (Array.isArray(prospects) ? prospects : []).map(p => ({
       id: p.id,
       uuid: p.id?.toString() || '',
       firstName: p.firstName || p.first_name || '',
