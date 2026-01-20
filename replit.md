@@ -98,6 +98,16 @@ A DSA Bank Eligibility Matrix System provides configurable bank-specific eligibi
 
 A Commission Reconciliation Automation System automates payment tracking and matching, supporting payment statement uploads, auto-matching, and dispute handling.
 
+An **MCA (Ministry of Corporate Affairs) Integration System** provides comprehensive company financial data management:
+- **Direct Payment System**: 14 MCA fee types with direct portal payment (bypassing intermediaries)
+- **Zoho Books Auto-Sync**: All MCA payments automatically synced to Zoho Books for accounting
+- **Financial Data Backfill**: Cross-references company_financials table with MCA filings for historical data
+- **Auto-Refresh Scheduler**: Daily monitoring for new AOC-4 filings, triggers automatic backfill for companies with recent filings
+- **Per-Field Coverage Tracking**: 12 financial metrics (revenue, PAT, net worth, assets, liabilities, share capital, reserves, borrowings, EBITDA, operating cash flow)
+- **Bulk Import**: JSON import endpoint for historical financial data with validation error surfacing
+- **Admin UI**: /admin/mca-backfill with coverage dashboard, per-field statistics, search, bulk operations, and import functionality
+- **API Endpoints**: /api/admin/mca-backfill/*, /api/admin/mca-payments/*
+
 ### System Design Choices
 The platform utilizes a subdomain-based portal architecture for Admin, Partner, and Client portals, ensuring isolated experiences, security, and role-based access control.
 
