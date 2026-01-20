@@ -33,7 +33,22 @@ interface DailyPick {
   rationale: string;
   riskLevel: string;
   keyMetrics?: Record<string, any>;
+  timeHorizon?: 'short_term' | 'medium_term' | 'long_term';
+  confidenceScore?: number;
+  sectorCategory?: string;
 }
+
+const getConfidenceColor = (score: number) => {
+  if (score >= 80) return "text-green-600";
+  if (score >= 60) return "text-yellow-600";
+  return "text-red-600";
+};
+
+const getConfidenceDot = (score: number) => {
+  if (score >= 80) return "bg-green-500";
+  if (score >= 60) return "bg-yellow-500";
+  return "bg-red-500";
+};
 
 const categoryIcons: Record<string, any> = {
   listed_stocks: TrendingUp,
@@ -130,13 +145,19 @@ export default function PickOfTheDayWidget() {
                   <Icon className="h-4 w-4 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <span className="font-medium text-sm truncate">
                       {pick.instrumentName}
                     </span>
                     <Badge variant="secondary" className="text-[10px] shrink-0">
                       {categoryLabels[pick.category] || pick.category}
                     </Badge>
+                    {pick.confidenceScore && (
+                      <span className={`text-[10px] font-medium flex items-center gap-0.5 ${getConfidenceColor(pick.confidenceScore)}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${getConfidenceDot(pick.confidenceScore)}`} />
+                        {pick.confidenceScore}%
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">

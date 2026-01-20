@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,12 @@ import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   TrendingUp,
   TrendingDown,
@@ -29,6 +35,17 @@ import {
   Percent,
   History,
   Trophy,
+  Bookmark,
+  BookmarkCheck,
+  Share2,
+  Mail,
+  MessageSquare,
+  Plus,
+  Bell,
+  BrainCircuit,
+  Timer,
+  PieChart,
+  AlertTriangle,
 } from "lucide-react";
 
 interface DailyPick {
@@ -51,6 +68,26 @@ interface DailyPick {
   riskLevel: string;
   suitableFor: string[];
   keyMetrics?: Record<string, any>;
+  timeHorizon?: 'short_term' | 'medium_term' | 'long_term';
+  confidenceScore?: number;
+  sectorCategory?: string;
+}
+
+interface WatchlistItem {
+  id: number;
+  pickId: number;
+  priceAlertEnabled: boolean;
+  alertThreshold?: string;
+  alertType?: string;
+  addedAt: string;
+  pick?: DailyPick;
+}
+
+interface DiversificationData {
+  sectorAllocation: Record<string, { count: number; percentage: number }>;
+  concentrationRisk: string;
+  diversificationScore: number;
+  recommendations: string[];
 }
 
 interface PickStats {
@@ -101,6 +138,24 @@ const riskColors: Record<string, string> = {
   high: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
 };
 
+const horizonConfig: Record<string, { label: string; color: string; icon: string }> = {
+  short_term: { label: "Short Term", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300", icon: "⚡" },
+  medium_term: { label: "Medium Term", color: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300", icon: "📊" },
+  long_term: { label: "Long Term", color: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300", icon: "🎯" },
+};
+
+const getConfidenceColor = (score: number) => {
+  if (score >= 80) return "text-green-600";
+  if (score >= 60) return "text-yellow-600";
+  return "text-red-600";
+};
+
+const getConfidenceDot = (score: number) => {
+  if (score >= 80) return "bg-green-500";
+  if (score >= 60) return "bg-yellow-500";
+  return "bg-red-500";
+};
+
 const allCategories = [
   { key: "all", label: "All", icon: Sparkles },
   { key: "listed_stocks", label: "Stocks", icon: TrendingUp },
@@ -124,6 +179,7 @@ const marketFilters = [
 ];
 
 export default function AgentPicksPage() {
+  const { toast } = useToast();
   const [todayCategoryFilter, setTodayCategoryFilter] = useState<string>("all");
   const [liveCategoryFilter, setLiveCategoryFilter] = useState<string>("all");
   const [historyCategoryFilter, setHistoryCategoryFilter] = useState<string>("all");
@@ -131,6 +187,9 @@ export default function AgentPicksPage() {
   const [todayMarketFilter, setTodayMarketFilter] = useState<string>("all");
   const [liveMarketFilter, setLiveMarketFilter] = useState<string>("all");
   const [historyMarketFilter, setHistoryMarketFilter] = useState<string>("all");
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [sharePickId, setSharePickId] = useState<number | null>(null);
+  const [shareEmail, setShareEmail] = useState("");
 
   const { data: todayData, isLoading: loadingToday } = useQuery<{ success: boolean; picks: DailyPick[] }>({
     queryKey: ["/api/picks/today"],
@@ -147,6 +206,81 @@ export default function AgentPicksPage() {
   const { data: statsData, isLoading: loadingStats } = useQuery<{ success: boolean; stats: PickStats }>({
     queryKey: ["/api/picks/stats"],
   });
+
+  const { data: watchlistData, isLoading: loadingWatchlist } = useQuery<{ success: boolean; watchlist: WatchlistItem[] }>({
+    queryKey: ["/api/picks/watchlist"],
+  });
+
+  const { data: diversificationData } = useQuery<{ success: boolean } & DiversificationData>({
+    queryKey: ["/api/picks/diversification"],
+  });
+
+  const watchlist = watchlistData?.watchlist || [];
+  const watchlistPickIds = new Set(watchlist.map(w => w.pickId));
+
+  const addToWatchlistMutation = useMutation({
+    mutationFn: async (pickId: number) => {
+      return apiRequest('/api/picks/watchlist/add', {
+        method: 'POST',
+        body: JSON.stringify({ pickId }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/picks/watchlist'] });
+      toast({ title: "Added to Watchlist", description: "Pick added to your watchlist" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to add to watchlist", variant: "destructive" });
+    },
+  });
+
+  const removeFromWatchlistMutation = useMutation({
+    mutationFn: async (pickId: number) => {
+      return apiRequest(`/api/picks/watchlist/${pickId}`, { method: 'DELETE' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/picks/watchlist'] });
+      toast({ title: "Removed from Watchlist", description: "Pick removed from your watchlist" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to remove from watchlist", variant: "destructive" });
+    },
+  });
+
+  const shareMutation = useMutation({
+    mutationFn: async ({ pickId, channel, email }: { pickId: number; channel: 'email' | 'whatsapp'; email?: string }) => {
+      return apiRequest('/api/picks/share', {
+        method: 'POST',
+        body: JSON.stringify({ pickId, channel, recipientEmail: email }),
+      });
+    },
+    onSuccess: (data: any) => {
+      if (data.whatsappUrl) {
+        window.open(data.whatsappUrl, '_blank');
+      }
+      toast({ title: "Shared Successfully", description: data.message });
+      setShareDialogOpen(false);
+      setShareEmail("");
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to share pick", variant: "destructive" });
+    },
+  });
+
+  const handleShare = (pickId: number, channel: 'email' | 'whatsapp') => {
+    if (channel === 'email') {
+      setSharePickId(pickId);
+      setShareDialogOpen(true);
+    } else {
+      shareMutation.mutate({ pickId, channel });
+    }
+  };
+
+  const handleEmailShare = () => {
+    if (sharePickId && shareEmail) {
+      shareMutation.mutate({ pickId: sharePickId, channel: 'email', email: shareEmail });
+    }
+  };
 
   const todayPicks = todayData?.picks || [];
   const livePicks = liveData?.picks || [];
@@ -288,6 +422,13 @@ export default function AgentPicksPage() {
             <Clock className="h-4 w-4" />
             Live Recommendations
           </TabsTrigger>
+          <TabsTrigger value="watchlist" className="flex items-center gap-2">
+            <Bookmark className="h-4 w-4" />
+            My Watchlist
+            {watchlist.length > 0 && (
+              <Badge variant="secondary" className="ml-1 text-[10px] px-1.5">{watchlist.length}</Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="history" className="flex items-center gap-2">
             <History className="h-4 w-4" />
             History & Performance
@@ -372,7 +513,15 @@ export default function AgentPicksPage() {
               ) : (
                 <div className="grid gap-4 md:grid-cols-2">
                   {filteredTodayPicks.map((pick) => (
-                    <PickCard key={pick.id} pick={pick} />
+                    <PickCard 
+                      key={pick.id} 
+                      pick={pick}
+                      isWatchlisted={watchlistPickIds.has(pick.id)}
+                      onAddToWatchlist={(id) => addToWatchlistMutation.mutate(id)}
+                      onRemoveFromWatchlist={(id) => removeFromWatchlistMutation.mutate(id)}
+                      onShareEmail={(id) => handleShare(id, 'email')}
+                      onShareWhatsApp={(id) => handleShare(id, 'whatsapp')}
+                    />
                   ))}
                 </div>
               )}
@@ -454,7 +603,16 @@ export default function AgentPicksPage() {
               ) : (
                 <div className="space-y-4">
                   {filteredLivePicks.map((pick) => (
-                    <PickCard key={pick.id} pick={pick} showDetails />
+                    <PickCard 
+                      key={pick.id} 
+                      pick={pick} 
+                      showDetails
+                      isWatchlisted={watchlistPickIds.has(pick.id)}
+                      onAddToWatchlist={(id) => addToWatchlistMutation.mutate(id)}
+                      onRemoveFromWatchlist={(id) => removeFromWatchlistMutation.mutate(id)}
+                      onShareEmail={(id) => handleShare(id, 'email')}
+                      onShareWhatsApp={(id) => handleShare(id, 'whatsapp')}
+                    />
                   ))}
                 </div>
               )}
@@ -559,15 +717,173 @@ export default function AgentPicksPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="watchlist" className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Bookmark className="h-5 w-5" />
+                    My Watchlist
+                  </CardTitle>
+                  <CardDescription>
+                    Track picks you're interested in with price alerts
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {loadingWatchlist ? (
+                    <div className="space-y-4">
+                      {[1, 2, 3].map((i) => (
+                        <Skeleton key={i} className="h-24" />
+                      ))}
+                    </div>
+                  ) : watchlist.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Bookmark className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                      <h3 className="text-lg font-medium mb-2">No Picks in Watchlist</h3>
+                      <p className="text-muted-foreground text-sm">
+                        Add picks to your watchlist to track them and set price alerts
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {watchlist.map((item) => (
+                        <div key={item.id} className="flex items-center gap-4 p-3 rounded-lg border hover:bg-accent/50 transition-colors">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium truncate">Pick #{item.pickId}</span>
+                              {item.priceAlertEnabled && (
+                                <Badge variant="outline" className="text-[10px]">
+                                  <Bell className="h-3 w-3 mr-1" />
+                                  Alert Active
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              Added {new Date(item.addedAt).toLocaleDateString('en-IN')}
+                              {item.alertType && ` • Alert: ${item.alertType}`}
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeFromWatchlistMutation.mutate(item.pickId)}
+                          >
+                            <XCircle className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="space-y-4">
+              {diversificationData && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <PieChart className="h-5 w-5" />
+                      Sector Diversification
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Diversification Score</span>
+                      <span className="font-bold">{diversificationData.diversificationScore}/100</span>
+                    </div>
+                    <Progress value={diversificationData.diversificationScore} className="h-2" />
+                    
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-sm">Concentration Risk:</span>
+                      <Badge variant={
+                        diversificationData.concentrationRisk === 'low' ? 'default' :
+                        diversificationData.concentrationRisk === 'medium' ? 'secondary' : 'destructive'
+                      }>
+                        {diversificationData.concentrationRisk}
+                      </Badge>
+                    </div>
+
+                    {diversificationData.recommendations?.length > 0 && (
+                      <div className="mt-3 pt-3 border-t">
+                        <div className="text-sm font-medium mb-2 flex items-center gap-1">
+                          <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                          Recommendations
+                        </div>
+                        <ul className="text-xs text-muted-foreground space-y-1">
+                          {diversificationData.recommendations.slice(0, 3).map((rec, i) => (
+                            <li key={i}>• {rec}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
+        </TabsContent>
       </Tabs>
+
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Share Pick via Email</DialogTitle>
+            <DialogDescription>
+              Enter the recipient's email address to share this investment pick.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email Address</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="client@example.com"
+                value={shareEmail}
+                onChange={(e) => setShareEmail(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShareDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleEmailShare} disabled={!shareEmail || shareMutation.isPending}>
+              {shareMutation.isPending ? "Sending..." : "Send Email"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-function PickCard({ pick, showDetails = false, compact = false }: { pick: DailyPick; showDetails?: boolean; compact?: boolean }) {
+interface PickCardProps {
+  pick: DailyPick;
+  showDetails?: boolean;
+  compact?: boolean;
+  isWatchlisted?: boolean;
+  onAddToWatchlist?: (pickId: number) => void;
+  onRemoveFromWatchlist?: (pickId: number) => void;
+  onShareEmail?: (pickId: number) => void;
+  onShareWhatsApp?: (pickId: number) => void;
+}
+
+function PickCard({ 
+  pick, 
+  showDetails = false, 
+  compact = false,
+  isWatchlisted = false,
+  onAddToWatchlist,
+  onRemoveFromWatchlist,
+  onShareEmail,
+  onShareWhatsApp,
+}: PickCardProps) {
   const Icon = categoryIcons[pick.category] || TrendingUp;
   const status = statusConfig[pick.status] || statusConfig.live;
   const StatusIcon = status.icon;
+  const horizon = pick.timeHorizon ? horizonConfig[pick.timeHorizon] : null;
   
   const upside = ((pick.targetPrice - pick.recoPrice) / pick.recoPrice * 100).toFixed(1);
   const downside = ((pick.recoPrice - pick.stoplossPrice) / pick.recoPrice * 100).toFixed(1);
@@ -582,11 +898,24 @@ function PickCard({ pick, showDetails = false, compact = false }: { pick: DailyP
           <Icon className="h-4 w-4" />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium truncate">{pick.instrumentName}</span>
             <Badge variant="outline" className="text-[10px]">
               {categoryLabels[pick.category]}
             </Badge>
+            {pick.confidenceScore && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <span className={`text-[10px] font-medium flex items-center gap-0.5 ${getConfidenceColor(pick.confidenceScore)}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${getConfidenceDot(pick.confidenceScore)}`} />
+                      {pick.confidenceScore}%
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>AI Confidence Score</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
           <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
             <span>Reco: ₹{pick.recoPrice.toLocaleString()}</span>
@@ -622,10 +951,48 @@ function PickCard({ pick, showDetails = false, compact = false }: { pick: DailyP
                   <span className="text-sm text-muted-foreground">{pick.symbol}</span>
                 )}
               </div>
-              <Badge className={`${status.color} text-white`}>
-                <StatusIcon className="h-3 w-3 mr-1" />
-                {status.label}
-              </Badge>
+              <div className="flex items-center gap-2">
+                {pick.confidenceScore && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-muted">
+                          <BrainCircuit className="h-3 w-3" />
+                          <span className={`text-xs font-medium ${getConfidenceColor(pick.confidenceScore)}`}>
+                            {pick.confidenceScore}%
+                          </span>
+                          <span className={`w-2 h-2 rounded-full ${getConfidenceDot(pick.confidenceScore)}`} />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>AI Confidence Score</p>
+                        <p className="text-xs text-muted-foreground">
+                          {pick.confidenceScore >= 80 ? 'High confidence' : 
+                           pick.confidenceScore >= 60 ? 'Moderate confidence' : 'Lower confidence'}
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+                <Badge className={`${status.color} text-white`}>
+                  <StatusIcon className="h-3 w-3 mr-1" />
+                  {status.label}
+                </Badge>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              {horizon && (
+                <Badge variant="outline" className={horizon.color}>
+                  <Timer className="h-3 w-3 mr-1" />
+                  {horizon.label}
+                </Badge>
+              )}
+              {pick.sectorCategory && (
+                <Badge variant="secondary" className="text-xs">
+                  {pick.sectorCategory}
+                </Badge>
+              )}
             </div>
 
             <div className="grid grid-cols-3 gap-4 mt-4">
@@ -667,7 +1034,7 @@ function PickCard({ pick, showDetails = false, compact = false }: { pick: DailyP
 
             <p className="text-sm text-muted-foreground mt-3">{pick.rationale}</p>
 
-            <div className="flex items-center gap-2 mt-3">
+            <div className="flex items-center gap-2 mt-3 flex-wrap">
               <Badge variant="outline" className={riskColors[pick.riskLevel] || riskColors.medium}>
                 {pick.riskLevel} risk
               </Badge>
@@ -689,15 +1056,71 @@ function PickCard({ pick, showDetails = false, compact = false }: { pick: DailyP
               </div>
             )}
 
-            <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <Calendar className="h-3 w-3" />
-                {new Date(pick.recoDate).toLocaleDateString('en-IN')}
-              </span>
-              <span className="flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                Valid till {new Date(pick.expiryDate).toLocaleDateString('en-IN')}
-              </span>
+            <div className="flex items-center justify-between mt-3 pt-3 border-t">
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  {new Date(pick.recoDate).toLocaleDateString('en-IN')}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  Valid till {new Date(pick.expiryDate).toLocaleDateString('en-IN')}
+                </span>
+              </div>
+              
+              <div className="flex items-center gap-1">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => isWatchlisted ? onRemoveFromWatchlist?.(pick.id) : onAddToWatchlist?.(pick.id)}
+                      >
+                        {isWatchlisted ? (
+                          <BookmarkCheck className="h-4 w-4 text-primary" />
+                        ) : (
+                          <Bookmark className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{isWatchlisted ? 'Remove from Watchlist' : 'Add to Watchlist'}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => onShareEmail?.(pick.id)}
+                      >
+                        <Mail className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Share via Email</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => onShareWhatsApp?.(pick.id)}
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Share via WhatsApp</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
             </div>
           </div>
         </div>
