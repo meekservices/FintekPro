@@ -8,7 +8,9 @@ import {
   portfolioAlerts, 
   aiPortfolioAnalysis,
   aiTalkingPoints,
-  marketData
+  marketData,
+  prospectClients,
+  users
 } from "@shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -16,6 +18,54 @@ import multer from "multer";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
+
+// Helper to resolve clientId to prospect or user and return appropriate portfolio lookup
+async function resolveClientType(clientId: string): Promise<{
+  isProspect: boolean;
+  isUser: boolean;
+  prospect: any | null;
+  user: any | null;
+  portfolioWhereClause: ReturnType<typeof eq>;
+  getPortfolioCreateValues: (name: string, source?: string) => any;
+}> {
+  const [prospect] = await db
+    .select()
+    .from(prospectClients)
+    .where(eq(prospectClients.id, clientId))
+    .limit(1);
+  
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, clientId))
+    .limit(1);
+  
+  const isProspect = !!prospect;
+  const isUser = !!user;
+  
+  return {
+    isProspect,
+    isUser,
+    prospect,
+    user,
+    portfolioWhereClause: isProspect 
+      ? eq(portfolios.prospectId, clientId)
+      : eq(portfolios.userId, clientId),
+    getPortfolioCreateValues: (name: string, source?: string) => isProspect
+      ? {
+          prospectId: clientId,
+          name: `${prospect?.name || 'Prospect'}'s ${name}`,
+          isDefault: true,
+          source: source as any || 'manual',
+          isVerified: false
+        }
+      : {
+          userId: clientId,
+          name,
+          isDefault: true,
+        }
+  };
+}
 
 const manualEntrySchema = z.object({
   clientId: z.string(),
@@ -37,53 +87,21 @@ router.get("/portfolio/:clientId", async (req, res) => {
   try {
     const { clientId } = req.params;
     
+    // Resolve client type (prospect vs user)
+    const clientInfo = await resolveClientType(clientId);
+    
+    // Return 404 if client not found
+    if (!clientInfo.isProspect && !clientInfo.isUser) {
+      return res.status(404).json({ error: "Client not found" });
+    }
+    
     const [portfolio] = await db
       .select()
       .from(portfolios)
-      .where(eq(portfolios.userId, clientId))
+      .where(clientInfo.portfolioWhereClause)
       .limit(1);
 
     if (!portfolio) {
-      return res.json({
-        id: null,
-        clientId,
-        name: "No Portfolio",
-        totalValue: 0,
-        holdings: [],
-        lastUpdated: new Date().toISOString()
-      });
-      return res.json({
-        id: null,
-        clientId,
-        name: "No Portfolio",
-        totalValue: 0,
-        holdings: [],
-        lastUpdated: new Date().toISOString()
-      });
-      return res.json({
-        id: null,
-        clientId,
-        name: "No Portfolio",
-        totalValue: 0,
-        holdings: [],
-        lastUpdated: new Date().toISOString()
-      });
-      return res.json({
-        id: null,
-        clientId,
-        name: "No Portfolio",
-        totalValue: 0,
-        holdings: [],
-        lastUpdated: new Date().toISOString()
-      });
-      return res.json({
-        id: null,
-        clientId,
-        name: "No Portfolio",
-        totalValue: 0,
-        holdings: [],
-        lastUpdated: new Date().toISOString()
-      });
       return res.json({
         id: null,
         clientId,
@@ -156,18 +174,22 @@ router.post("/portfolio/manual-entry", async (req, res) => {
     const validatedData = manualEntrySchema.parse(req.body);
     const { clientId, holdings } = validatedData;
 
+    // Resolve client type (prospect vs user)
+    const clientInfo = await resolveClientType(clientId);
+    if (!clientInfo.isProspect && !clientInfo.isUser) {
+      return res.status(404).json({ error: "Client not found" });
+    }
+
     let [portfolio] = await db
       .select()
       .from(portfolios)
-      .where(eq(portfolios.userId, clientId))
+      .where(clientInfo.portfolioWhereClause)
       .limit(1);
 
     if (!portfolio) {
-      [portfolio] = await db.insert(portfolios).values({
-        userId: clientId,
-        name: "Manual Portfolio",
-        isDefault: true,
-      }).returning();
+      [portfolio] = await db.insert(portfolios).values(
+        clientInfo.getPortfolioCreateValues("Manual Portfolio", "manual")
+      ).returning();
     }
 
     const insertedHoldings = [];
@@ -238,18 +260,22 @@ router.post("/portfolio/upload-csv", upload.single('file'), async (req, res) => 
       });
     }
 
+    // Resolve client type (prospect vs user)
+    const clientInfo = await resolveClientType(clientId);
+    if (!clientInfo.isProspect && !clientInfo.isUser) {
+      return res.status(404).json({ error: "Client not found" });
+    }
+
     let [portfolio] = await db
       .select()
       .from(portfolios)
-      .where(eq(portfolios.userId, clientId))
+      .where(clientInfo.portfolioWhereClause)
       .limit(1);
 
     if (!portfolio) {
-      [portfolio] = await db.insert(portfolios).values({
-        userId: clientId,
-        name: "CSV Uploaded Portfolio",
-        isDefault: true,
-      }).returning();
+      [portfolio] = await db.insert(portfolios).values(
+        clientInfo.getPortfolioCreateValues("CSV Uploaded Portfolio", "uploaded")
+      ).returning();
     }
 
     const insertedHoldings = [];
@@ -732,18 +758,22 @@ router.post("/portfolio/:clientId/holdings", async (req, res) => {
     const { clientId } = req.params;
     const { symbol, name, quantity, averagePrice, assetType } = req.body;
 
+    // Resolve client type (prospect vs user)
+    const clientInfo = await resolveClientType(clientId);
+    if (!clientInfo.isProspect && !clientInfo.isUser) {
+      return res.status(404).json({ error: "Client not found" });
+    }
+
     let [portfolio] = await db
       .select()
       .from(portfolios)
-      .where(eq(portfolios.userId, clientId))
+      .where(clientInfo.portfolioWhereClause)
       .limit(1);
 
     if (!portfolio) {
-      [portfolio] = await db.insert(portfolios).values({
-        userId: clientId,
-        name: "Client Portfolio",
-        isDefault: true,
-      }).returning();
+      [portfolio] = await db.insert(portfolios).values(
+        clientInfo.getPortfolioCreateValues("Client Portfolio", "manual")
+      ).returning();
     }
 
     const [inserted] = await db.insert(portfolioHoldings).values({
@@ -770,18 +800,22 @@ router.post("/portfolio/:clientId/upload", upload.single('file'), async (req, re
       return res.status(400).json({ error: "No file uploaded" });
     }
 
+    // Resolve client type (prospect vs user)
+    const clientInfo = await resolveClientType(clientId);
+    if (!clientInfo.isProspect && !clientInfo.isUser) {
+      return res.status(404).json({ error: "Client not found" });
+    }
+
     let [portfolio] = await db
       .select()
       .from(portfolios)
-      .where(eq(portfolios.userId, clientId))
+      .where(clientInfo.portfolioWhereClause)
       .limit(1);
 
     if (!portfolio) {
-      [portfolio] = await db.insert(portfolios).values({
-        userId: clientId,
-        name: "Uploaded Portfolio",
-        isDefault: true,
-      }).returning();
+      [portfolio] = await db.insert(portfolios).values(
+        clientInfo.getPortfolioCreateValues("Uploaded Portfolio", "uploaded")
+      ).returning();
     }
 
     const csvContent = req.file.buffer.toString('utf-8');
@@ -841,18 +875,22 @@ router.post("/portfolio/:clientId/bulk-import", async (req, res) => {
     const invalidCount = holdings.length - validHoldings.length;
     const missingPriceCount = validHoldings.filter((h: any) => !h.averagePrice || parseFloat(h.averagePrice) <= 0).length;
 
+    // Resolve client type (prospect vs user)
+    const clientInfo = await resolveClientType(clientId);
+    if (!clientInfo.isProspect && !clientInfo.isUser) {
+      return res.status(404).json({ error: "Client not found" });
+    }
+
     let [portfolio] = await db
       .select()
       .from(portfolios)
-      .where(eq(portfolios.userId, clientId))
+      .where(clientInfo.portfolioWhereClause)
       .limit(1);
 
     if (!portfolio) {
-      [portfolio] = await db.insert(portfolios).values({
-        userId: clientId,
-        name: "Imported Portfolio",
-        isDefault: true,
-      }).returning();
+      [portfolio] = await db.insert(portfolios).values(
+        clientInfo.getPortfolioCreateValues("Imported Portfolio", "uploaded")
+      ).returning();
     }
 
     let imported = 0;
@@ -927,19 +965,26 @@ router.post("/portfolio/:clientId/import-previewed", async (req, res) => {
       return res.status(400).json({ error: "No holdings provided" });
     }
 
+    // Resolve client type (prospect vs user) using shared helper
+    const clientInfo = await resolveClientType(clientId);
+    if (!clientInfo.isProspect && !clientInfo.isUser) {
+      return res.status(404).json({ error: "Client not found. Must be a valid prospect or user." });
+    }
+
     let [portfolio] = await db
       .select()
       .from(portfolios)
-      .where(eq(portfolios.userId, clientId))
+      .where(clientInfo.portfolioWhereClause)
       .limit(1);
 
     if (!portfolio) {
-      [portfolio] = await db.insert(portfolios).values({
-        userId: clientId,
-        name: "Imported Portfolio",
-        isDefault: true,
-      }).returning();
+      [portfolio] = await db.insert(portfolios).values(
+        clientInfo.getPortfolioCreateValues("Imported Portfolio", "uploaded")
+      ).returning();
     }
+
+    // Delete existing holdings before importing new ones
+    await db.delete(portfolioHoldings).where(eq(portfolioHoldings.portfolioId, portfolio.id));
 
     let imported = 0;
     for (const holding of holdings) {
@@ -948,17 +993,31 @@ router.post("/portfolio/:clientId/import-previewed", async (req, res) => {
       await db.insert(portfolioHoldings).values({
         portfolioId: portfolio.id,
         symbol: symbol.toUpperCase(),
-        quantity: String(holding.quantity || 0),
-        avgPrice: String(holding.averagePrice || 0),
-        assetType: holding.assetType === 'mutual_fund' ? 'MF' : (holding.assetType || 'EQUITY'),
-        sector: holding.folioNumber ? `Folio: ${holding.folioNumber}` : undefined,
+        name: holding.name || holding.schemeName || symbol,
+        isin: holding.isin || null,
+        quantity: String(holding.quantity || holding.units || 0),
+        avgPrice: String(holding.averagePrice || holding.avgPrice || 0),
+        currentValue: String(holding.value || holding.currentValue || 0),
+        investedValue: String(holding.investedValue || 0),
+        assetType: holding.assetType === 'mutual_fund' ? 'mutual_fund' : (holding.assetType || 'equity'),
+        productType: holding.productType || (holding.assetType === 'mutual_fund' ? 'MF' : null),
+        folioNumber: holding.folioNumber || null,
+        source: 'uploaded',
       });
       imported++;
     }
 
+    // Update portfolio total value
+    const totalValue = holdings.reduce((sum: number, h: any) => sum + (h.value || h.currentValue || 0), 0);
+    await db.update(portfolios)
+      .set({ totalValue: totalValue.toString(), updatedAt: new Date() })
+      .where(eq(portfolios.id, portfolio.id));
+
     res.json({
       success: true,
-      imported
+      imported,
+      portfolioId: portfolio.id,
+      totalValue
     });
   } catch (error: any) {
     console.error("Error importing previewed holdings:", error);
@@ -975,6 +1034,12 @@ router.post("/portfolio/:clientId/upload-cas", upload.single('file'), async (req
       return res.status(400).json({ error: "No file uploaded" });
     }
 
+    // Resolve client type (prospect vs user) using shared helper
+    const clientInfo = await resolveClientType(clientId);
+    if (!clientInfo.isProspect && !clientInfo.isUser) {
+      return res.status(404).json({ error: "Client not found. Must be a valid prospect or user." });
+    }
+
     const { parsePDFPortfolio } = await import("../services/portfolio-parser");
     const result = await parsePDFPortfolio(req.file.buffer, req.file.originalname || 'cas.pdf');
 
@@ -988,16 +1053,17 @@ router.post("/portfolio/:clientId/upload-cas", upload.single('file'), async (req
     let [portfolio] = await db
       .select()
       .from(portfolios)
-      .where(eq(portfolios.userId, clientId))
+      .where(clientInfo.portfolioWhereClause)
       .limit(1);
 
     if (!portfolio) {
-      [portfolio] = await db.insert(portfolios).values({
-        userId: clientId,
-        name: "CAS Portfolio",
-        isDefault: true,
-      }).returning();
+      [portfolio] = await db.insert(portfolios).values(
+        clientInfo.getPortfolioCreateValues("CAS Portfolio", "cas_fetch")
+      ).returning();
     }
+
+    // Delete existing holdings before importing new ones
+    await db.delete(portfolioHoldings).where(eq(portfolioHoldings.portfolioId, portfolio.id));
 
     let imported = 0;
     for (const holding of result.holdings) {
@@ -1006,17 +1072,28 @@ router.post("/portfolio/:clientId/upload-cas", upload.single('file'), async (req
       await db.insert(portfolioHoldings).values({
         portfolioId: portfolio.id,
         symbol: symbol.toUpperCase(),
+        name: holding.name || symbol,
+        isin: holding.isin || null,
         quantity: String(holding.quantity || 0),
         avgPrice: String(holding.averageCost || (holding.currentValue / (holding.quantity || 1)) || 0),
-        assetType: holding.assetType === 'mutual_fund' ? 'MF' : 'EQUITY',
-        sector: holding.folioNumber ? `Folio: ${holding.folioNumber}` : undefined,
+        currentValue: String(holding.currentValue || 0),
+        assetType: holding.assetType === 'mutual_fund' ? 'mutual_fund' : 'equity',
+        folioNumber: holding.folioNumber || null,
+        source: 'cas_fetch',
       });
       imported++;
     }
 
+    // Update portfolio total value
+    const totalValue = result.holdings.reduce((sum: number, h: any) => sum + (h.currentValue || 0), 0);
+    await db.update(portfolios)
+      .set({ totalValue: totalValue.toString(), updatedAt: new Date() })
+      .where(eq(portfolios.id, portfolio.id));
+
     res.json({
       success: true,
       imported,
+      totalValue,
       brokerDetected: result.brokerDetected,
       confidenceScore: result.confidenceScore,
       warnings: result.errors,
@@ -1404,11 +1481,14 @@ router.get("/benchmark/:clientId", async (req, res) => {
   try {
     const { clientId } = req.params;
     
+    // Resolve client type (prospect vs user)
+    const clientInfo = await resolveClientType(clientId);
+    
     // Get portfolio for the client
     const [portfolio] = await db
       .select()
       .from(portfolios)
-      .where(eq(portfolios.userId, clientId))
+      .where(clientInfo.portfolioWhereClause)
       .limit(1);
     
     // Calculate portfolio returns based on holdings
