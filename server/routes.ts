@@ -23,6 +23,7 @@ import { registerFinancialDataRoutes } from './routes/financial-data-routes';
 import knowledgeHubRoutes from './routes/knowledge-hub-routes';
 import mcaIntelligenceRoutes from './routes/mca-intelligence-routes';
 import mcaDirectPaymentRoutes from './routes/mca-direct-payment-routes';
+import mcaFinancialBackfillRoutes from './routes/mca-financial-backfill-routes';
 import { registerSandboxWebhookRoutes } from './routes/sandbox-webhooks';
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
@@ -704,6 +705,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/mca", mcaIntelligenceRoutes);
   app.use("/api/mca/direct-payments", mcaDirectPaymentRoutes);
   console.log("✅ MCA Direct Payment routes registered");
+  app.use("/api/admin/mca-backfill", mcaFinancialBackfillRoutes);
+  console.log("✅ MCA Financial Backfill routes registered");
   console.log("✅ MCA Intelligence routes registered");
 
   app.use("/api/admin/recommendation-products", recommendationProductsRoutes);
