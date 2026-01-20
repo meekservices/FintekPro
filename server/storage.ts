@@ -2338,7 +2338,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getClientsForAgent(agentId: string): Promise<ClientAgentRelationship[]> {
-    return [];
+    try {
+      const relationships = await db
+        .select()
+        .from(schema.clientAgentRelationships)
+        .where(eq(schema.clientAgentRelationships.agentId, agentId));
+      return relationships;
+    } catch (error) {
+      console.error('Error in getClientsForAgent:', error);
+      return [];
+    }
   }
 
   async autoAssignDefaultAgent(userId: string): Promise<ClientAgentRelationship | null> {

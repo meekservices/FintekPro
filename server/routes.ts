@@ -18643,8 +18643,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { searchTerm } = req.query;
 
-      // Get clients assigned to this agent from users table
+      // Get clients assigned to this agent with full user data in single query
       const clientRelationships = await storage.getClientsForAgent(req.user.id);
+      
+      // Get client IDs for batch fetching
+      const clientIds = clientRelationships.map(r => r.clientId).filter(Boolean);
+      
+      // Batch fetch user details, KYC status, and portfolio values
+      let enrichedClients: any[] = [];
+      if (clientIds.length > 0) {
+        const clientsData = await db
+          .select({
+            id: schema.users.id,
+            firstName: schema.users.firstName,
+            lastName: schema.users.lastName,
+            email: schema.users.email,
+            mobile: schema.users.mobile,
+            panNumber: schema.users.panNumber,
+            riskTolerance: schema.users.riskTolerance,
+            investorType: schema.users.investorType,
+            clientType: schema.users.clientType,
+            isActive: schema.users.isActive,
+            createdAt: schema.users.createdAt,
+            kycStatus: schema.kycVault.kycStatus,
+          })
+          .from(schema.users)
+          .leftJoin(schema.kycVault, eq(schema.users.id, schema.kycVault.userId))
+          .where(inArray(schema.users.id, clientIds));
+
+        // Get portfolio values in batch
+        const portfolioValues = await db
+          .select({
+            userId: schema.portfolios.userId,
+            totalValue: sql<number>`COALESCE(SUM(CAST(${schema.portfolios.currentValue} AS NUMERIC)), 0)`,
+          })
+          .from(schema.portfolios)
+          .where(inArray(schema.portfolios.userId, clientIds))
+          .groupBy(schema.portfolios.userId);
+
+        const portfolioMap = new Map(portfolioValues.map(p => [p.userId, Number(p.totalValue) || 0]));
+
+        enrichedClients = clientsData.map(client => {
+          const totalPortfolioValue = portfolioMap.get(client.id) || 0;
+          let kycStatus: string = 'pending';
+          if (client.kycStatus === 'verified') kycStatus = 'enhanced';
+          else if (client.kycStatus === 'pending') kycStatus = 'pending';
+          else if (client.kycStatus) kycStatus = 'basic';
+
+          let clientCategory: string = client.clientType === 'corporate' ? 'corporate' : 'retail';
+          if (clientCategory !== 'corporate') {
+            if (totalPortfolioValue >= 50000000) clientCategory = 'bhni';
+            else if (totalPortfolioValue >= 10000000) clientCategory = 'shni';
+            else if (totalPortfolioValue >= 5000000) clientCategory = 'hni';
+          }
+
+          return {
+            id: client.id,
+            firstName: client.firstName || '',
+            lastName: client.lastName || '',
+            email: client.email || '',
+            mobile: client.mobile || '',
+            panNumber: client.panNumber || '',
+            kycStatus,
+            riskProfile: client.riskTolerance || 'moderate',
+            clientCategory,
+            totalPortfolioValue,
+            createdAt: client.createdAt?.toISOString() || new Date().toISOString(),
+            isActive: client.isActive ?? true,
+            isProspect: false,
+          };
+        });
+      }
       
       // Get prospects/leads entered by this agent from prospect_clients table
       const prospects = await db.select()
@@ -18658,25 +18727,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const lastName = nameParts.slice(1).join(' ') || '';
         
         return {
-          id: 0, // Placeholder numeric ID
-          uuid: prospect.id,
+          id: prospect.id,
           firstName: firstName,
           lastName: lastName,
           email: prospect.email || '',
           phone: prospect.mobile || '',
           mobile: prospect.mobile || '',
           panNumber: prospect.pan || '',
-          isProspect: true, // Flag to identify as prospect/lead
+          kycStatus: 'pending',
+          riskProfile: 'moderate',
+          clientCategory: 'retail',
+          totalPortfolioValue: 0,
+          createdAt: prospect.createdAt?.toISOString() || new Date().toISOString(),
+          isActive: true,
+          isProspect: true,
           prospectState: prospect.state,
           clientType: prospect.clientType
         };
       });
       
       // Combine clients and prospects
-      let allClientsAndProspects = [
-        ...clientRelationships.map(c => ({ ...c, isProspect: false })),
-        ...prospectsMapped
-      ];
+      let allClientsAndProspects = [...enrichedClients, ...prospectsMapped];
       
       // Filter by search term if provided
       if (searchTerm) {
