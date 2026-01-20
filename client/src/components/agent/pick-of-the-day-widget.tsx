@@ -152,7 +152,7 @@ export default function PickOfTheDayWidget() {
                     <Badge variant="secondary" className="text-[10px] shrink-0">
                       {categoryLabels[pick.category] || pick.category}
                     </Badge>
-                    {pick.confidenceScore && (
+                    {pick.confidenceScore !== undefined && (
                       <span className={`text-[10px] font-medium flex items-center gap-0.5 ${getConfidenceColor(pick.confidenceScore)}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${getConfidenceDot(pick.confidenceScore)}`} />
                         {pick.confidenceScore}%

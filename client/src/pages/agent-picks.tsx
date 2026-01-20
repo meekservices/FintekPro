@@ -903,7 +903,7 @@ function PickCard({
             <Badge variant="outline" className="text-[10px]">
               {categoryLabels[pick.category]}
             </Badge>
-            {pick.confidenceScore && (
+            {pick.confidenceScore !== undefined && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger>
@@ -952,7 +952,7 @@ function PickCard({
                 )}
               </div>
               <div className="flex items-center gap-2">
-                {pick.confidenceScore && (
+                {pick.confidenceScore !== undefined && (
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger>
