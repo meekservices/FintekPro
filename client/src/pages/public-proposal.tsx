@@ -1396,11 +1396,15 @@ export default function PublicProposalPage() {
                     } else if (combined.includes('hybrid') || combined.includes('balanced') || combined.includes('aggressive hybrid') ||
                                combined.includes('conservative hybrid') || combined.includes('dynamic asset')) {
                       assetClass = 'Hybrid';
-                    // Real Assets: REITs, InvITs, infrastructure
-                    } else if (combined.includes('reit') || combined.includes('invit') || combined.includes('infrastructure') ||
-                               combined.includes('real estate') || combined.includes('commercial_office') || 
-                               combined.includes('roads_highways') || combined.includes('power_transmission')) {
-                      assetClass = 'Real Assets';
+                    // REITs: Real Estate Investment Trusts
+                    } else if (combined.includes('reit') || combined.includes('real estate') || combined.includes('commercial_office') ||
+                               combined.includes('retail_mall') || combined.includes('warehouse') || combined.includes('hospitality')) {
+                      assetClass = 'REITs';
+                    // InvITs: Infrastructure Investment Trusts
+                    } else if (combined.includes('invit') || combined.includes('infrastructure') || combined.includes('roads_highways') || 
+                               combined.includes('power_transmission') || combined.includes('telecom_tower') || combined.includes('pipeline') ||
+                               combined.includes('renewable_energy')) {
+                      assetClass = 'InvITs';
                     // Gold/Commodities
                     } else if (combined.includes('gold') || combined.includes('silver') || combined.includes('commodity') ||
                                combined.includes('sgb') || combined.includes('sovereign gold')) {
