@@ -59,16 +59,17 @@ An ISIN Intelligence Layer provides automatic instrument classification from Ind
 - **API Endpoints**: /api/isin/detect, /api/isin/validate, /api/isin/checksum/verify, /api/isin/coverage
 
 A **Pick of the Day** feature provides daily investment recommendations for agents with AI-generated rationale:
-- **Asset Categories**: Listed Stocks, Mutual Funds, Bonds, Unlisted Companies, Global Stocks, ETFs, REITs, FDs, SGBs
+- **Asset Categories**: Listed Stocks, Mutual Funds, Bonds, Unlisted Companies, Global Stocks, ETFs, REITs/InvITs, Fixed Deposits, SGBs (9 categories total)
 - **Tracking Fields**: Date of recommendation, price at recommendation, target price, stoploss price, current price
 - **Status Tracking**: live, target_hit, stoploss_hit, expired
-- **AI Rationale**: Gemini-powered investment rationale generation
+- **AI Rationale**: Gemini-powered investment rationale generation with template fallback
 - **Scoring Algorithms**: Deterministic scoring using analyst ratings, returns, P/E ratios, CRISIL ratings, credit ratings
-- **Target/Stoploss**: Stocks (15%/8%), MFs (12%/5%), Bonds (8%/3%), Unlisted (25%/15%)
-- **Validity Periods**: Stocks (30d), MFs (90d), Bonds (180d), Unlisted (365d)
+- **Target/Stoploss**: Stocks (15%/8%), MFs (12%/5%), Bonds (8%/3%), Unlisted (25%/15%), ETFs (10%/5%), SGBs (8%/3%), REITs (12%/6%)
+- **Validity Periods**: Stocks (30d), MFs (90d), Bonds (180d), Unlisted (365d), SGBs (365d), REITs (180d)
 - **Performance Stats**: Hit rate, average return, category-wise statistics
 - **Frontend**: Dashboard widget + dedicated /agent/picks page with filtering and history
-- **API Endpoints**: /api/picks/today, /api/picks/live, /api/picks/history, /api/picks/stats, /api/picks/generate
+- **Admin Interface**: CRUD operations at /admin/picks with product search autocomplete (auth-protected)
+- **API Endpoints**: /api/picks/today, /api/picks/live, /api/picks/history, /api/picks/stats, /api/picks/generate, /api/picks/admin/*, /api/picks/search/products
 
 The Agent Knowledge Hub provides market intelligence, product knowledge, and client communication tools, including a Gemini-powered Daily AI Market Brief Engine and Client Explanation Templates.
 

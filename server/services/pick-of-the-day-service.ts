@@ -216,6 +216,12 @@ class PickOfTheDayService {
     const sgbPick = await this.generateSGBPick();
     if (sgbPick) picks.push(sgbPick);
 
+    const reitPick = await this.generateREITInvITPick();
+    if (reitPick) picks.push(reitPick);
+
+    const fdPick = await this.generateFixedDepositPick();
+    if (fdPick) picks.push(fdPick);
+
     for (const pick of picks) {
       await this.savePick(pick);
     }
@@ -796,6 +802,164 @@ class PickOfTheDayService {
         capitalGainsTaxExempt: sgb.capitalGainsTaxExempt,
       },
     };
+  }
+
+  private async generateREITInvITPick(): Promise<DailyPickData | null> {
+    try {
+      const reits = await db
+        .select({
+          id: instrumentMaster.id,
+          name: instrumentMaster.name,
+          symbol: instrumentMaster.symbol,
+          isin: instrumentMaster.isin,
+          category: instrumentMaster.category,
+          assetClass: instrumentMaster.assetClass,
+          issuer: instrumentMaster.issuer,
+          lastPrice: instrumentMaster.lastPrice,
+        })
+        .from(instrumentMaster)
+        .where(
+          and(
+            or(
+              eq(instrumentMaster.category, 'REIT'),
+              eq(instrumentMaster.category, 'InvIT'),
+              sql`LOWER(${instrumentMaster.assetClass}) LIKE '%reit%'`,
+              sql`LOWER(${instrumentMaster.assetClass}) LIKE '%invit%'`
+            ),
+            sql`${instrumentMaster.lastPrice} IS NOT NULL`
+          )
+        )
+        .limit(50);
+
+      if (reits.length === 0) {
+        console.log("[PickOfTheDay] No REITs/InvITs found in database - skipping category");
+        return null;
+      }
+
+      const scoredReits = reits.map(reit => ({
+        reit,
+        score: this.scoreREIT(reit),
+      })).sort((a, b) => b.score - a.score);
+
+      const topReit = scoredReits[0].reit;
+      const currentPrice = parseFloat(topReit.lastPrice || "0");
+      const targetPrice = Math.round(currentPrice * 1.12 * 100) / 100;
+      const stoplossPrice = Math.round(currentPrice * 0.94 * 100) / 100;
+
+      const rationale = await this.generateRationale({
+        category: 'reits_invits',
+        name: topReit.name,
+        symbol: topReit.symbol,
+        currentPrice,
+        targetPrice,
+        stoplossPrice,
+      });
+
+      console.log(`[PickOfTheDay] Generated REIT/InvIT pick: ${topReit.name}`);
+
+      return {
+        category: 'reits_invits',
+        instrumentId: topReit.id,
+        instrumentName: topReit.name,
+        isin: topReit.isin || undefined,
+        symbol: topReit.symbol,
+        recoDate: new Date().toISOString().split('T')[0],
+        recoPrice: currentPrice,
+        targetPrice,
+        stoplossPrice,
+        currentPrice,
+        status: 'live',
+        expiryDate: this.getExpiryDate(180),
+        rationale,
+        riskLevel: 'medium',
+        suitableFor: ['Balanced', 'Aggressive'],
+        keyMetrics: {
+          category: topReit.category,
+          issuer: topReit.issuer,
+        },
+      };
+    } catch (error) {
+      console.error("[PickOfTheDay] Error generating REIT/InvIT pick:", error);
+      return null;
+    }
+  }
+
+  private scoreREIT(reit: any): number {
+    let score = 0;
+    
+    const name = reit.name?.toLowerCase() || '';
+    if (name.includes('embassy') || name.includes('brookfield')) score += 20;
+    else if (name.includes('mindspace') || name.includes('nexus')) score += 18;
+    else score += 10;
+
+    const price = parseFloat(reit.lastPrice || '0');
+    if (price > 200 && price < 1000) score += 15;
+    else if (price > 0) score += 8;
+
+    return score;
+  }
+
+  private async generateFixedDepositPick(): Promise<DailyPickData | null> {
+    try {
+      const fds = await db
+        .select({
+          id: instrumentMaster.id,
+          name: instrumentMaster.name,
+          symbol: instrumentMaster.symbol,
+          isin: instrumentMaster.isin,
+          category: instrumentMaster.category,
+          assetClass: instrumentMaster.assetClass,
+          issuer: instrumentMaster.issuer,
+        })
+        .from(instrumentMaster)
+        .where(
+          or(
+            eq(instrumentMaster.category, 'FD'),
+            eq(instrumentMaster.assetClass, 'fixed_deposit'),
+            sql`LOWER(${instrumentMaster.category}) = 'fixed deposit'`
+          )
+        )
+        .limit(50);
+
+      if (fds.length === 0) {
+        console.log("[PickOfTheDay] No Fixed Deposits found in database - skipping category");
+        return null;
+      }
+
+      const topFD = fds[0];
+
+      const rationale = await this.generateRationale({
+        category: 'fixed_deposits',
+        name: topFD.name,
+        issuer: topFD.issuer,
+      });
+
+      console.log(`[PickOfTheDay] Generated Fixed Deposit pick: ${topFD.name}`);
+
+      return {
+        category: 'fixed_deposits',
+        instrumentId: topFD.id,
+        instrumentName: topFD.name,
+        symbol: topFD.symbol,
+        recoDate: new Date().toISOString().split('T')[0],
+        recoPrice: 0,
+        targetPrice: 0,
+        stoplossPrice: 0,
+        currentPrice: 0,
+        status: 'live',
+        expiryDate: this.getExpiryDate(365),
+        rationale,
+        riskLevel: 'low',
+        suitableFor: ['Conservative', 'Balanced'],
+        keyMetrics: {
+          issuer: topFD.issuer,
+          category: topFD.category,
+        },
+      };
+    } catch (error) {
+      console.error("[PickOfTheDay] Error generating Fixed Deposit pick:", error);
+      return null;
+    }
   }
 
   private scoreETF(etf: any): number {

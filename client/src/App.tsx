@@ -115,6 +115,7 @@ const ReitsInvitsSeed = lazy(() => import("@/pages/admin/reits-invits-seed"));
 const GiftCityIfscSeed = lazy(() => import("@/pages/admin/gift-city-ifsc-seed"));
 const GlobalSeedAdmin = lazy(() => import("@/pages/admin/global-seed"));
 const RecommendationProductsAdmin = lazy(() => import("@/pages/admin/recommendation-products"));
+const PicksManagement = lazy(() => import("@/pages/admin/picks-management"));
 const SeedUnlistedPage = lazy(() => import("@/pages/admin/seed-unlisted"));
 const UnlistedPreviewPage = lazy(() => import("@/pages/admin/unlisted-preview"));
 const UnlistedPricingPreviewPage = lazy(() => import("@/pages/admin/unlisted-pricing-preview"));
@@ -1290,6 +1291,13 @@ function AdminRoutes() {
               <RecommendationProductsAdmin />
             </Suspense>
           </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/picks">
+        {() => (
+          <Suspense fallback={<LoadingState variant="dashboard" />}>
+            <PicksManagement />
+          </Suspense>
         )}
       </Route>
       <Route path="/admin/reports">
