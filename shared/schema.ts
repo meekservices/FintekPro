@@ -1068,7 +1068,8 @@ export const familyMembers = pgTable("family_members", {
 
 export const portfolios = pgTable("portfolios", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id), // Nullable - for registered clients
+  prospectId: varchar("prospect_id"), // For prospects/leads (no FK - defined later in schema)
   name: text("name").notNull(),
   totalValue: decimal("total_value", { precision: 15, scale: 2 }),
   cash: decimal("cash", { precision: 15, scale: 2 }).default("0"),
@@ -1076,23 +1077,36 @@ export const portfolios = pgTable("portfolios", {
   isDefault: boolean("is_default").default(false),
   familyId: varchar("family_id").references(() => familyGroups.id), // Null for individual portfolios
   isShared: boolean("is_shared").default(false), // Whether this is a shared family portfolio
+  source: varchar("source").default("manual"), // manual, uploaded, cas_fetch, pan_fetch, broker_sync
+  sourceFileName: varchar("source_file_name"), // Original file name for uploads
+  lastFetchedAt: timestamp("last_fetched_at"), // When auto-fetch last refreshed
+  isVerified: boolean("is_verified").default(false), // True after KYC authenticated fetch
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const portfolioHoldings = pgTable("portfolio_holdings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   portfolioId: varchar("portfolio_id").references(() => portfolios.id).notNull(),
-  symbol: text("symbol").notNull(),
+  symbol: text("symbol"), // Can be null for MFs/bonds where only name is known
+  name: text("name"), // Full name of the holding
+  isin: text("isin"), // ISIN code for identification
   quantity: decimal("quantity", { precision: 15, scale: 4 }).notNull(),
-  avgPrice: decimal("avg_price", { precision: 15, scale: 4 }).notNull(),
+  avgPrice: decimal("avg_price", { precision: 15, scale: 4 }), // Can be null for uploaded portfolios
+  currentValue: decimal("current_value", { precision: 15, scale: 2 }), // Current market value
+  investedValue: decimal("invested_value", { precision: 15, scale: 2 }), // Total invested amount
   currency: varchar("currency").default("INR"), // Multi-currency support
-  assetType: text("asset_type").notNull(), // 'equity', 'bond', 'mf', 'gold', 'silver', 'commodity', 'alternative'
-  assetClass: text("asset_class"), // 'large_cap', 'mid_cap', 'small_cap', 'debt', 'hybrid', 'precious_metals', 'energy', 'agricultural'
+  assetType: text("asset_type").notNull(), // equity, bond, mf, gold, silver, commodity, alternative, pms, aif, insurance
+  productType: text("product_type"), // More specific type - pms, aif, ulip, etc.
+  assetClass: text("asset_class"), // large_cap, mid_cap, small_cap, debt, hybrid, precious_metals, energy, agricultural
   sector: text("sector"), // technology, banking, healthcare, energy, consumer_goods, etc.
+  folioNumber: text("folio_number"), // For MFs
+  broker: text("broker"), // Source broker/platform
   marketCap: decimal("market_cap", { precision: 20, scale: 0 }),
   beta: decimal("beta", { precision: 5, scale: 3 }),
   dividendYield: decimal("dividend_yield", { precision: 5, scale: 2 }),
   peRatio: decimal("pe_ratio", { precision: 8, scale: 2 }),
+  confidenceScore: integer("confidence_score"), // Parsing confidence 0-100
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
