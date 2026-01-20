@@ -79,6 +79,14 @@ interface ProspectClient {
   fetchedPortfolio?: any;
   uploadedPortfolio?: any;
   portfolioAnalysis?: any;
+  unifiedPortfolio?: {
+    portfolioId: string;
+    source: string;
+    sourceFileName?: string;
+    isVerified: boolean;
+    totalValue: number;
+    holdingsCount: number;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -154,6 +162,30 @@ export default function AgentClientAcquisitionPage() {
 
   const prospects = prospectsData?.prospects || [];
   const stats = prospectsData?.stats || { total: 0, prospects: 0, onboarded: 0, activeClients: 0 };
+  
+  // Helper function to check if prospect has portfolio data (prefers unified tables)
+  const hasPortfolioData = (prospect: ProspectClient) => {
+    return prospect.unifiedPortfolio || prospect.fetchedPortfolio || prospect.uploadedPortfolio;
+  };
+  
+  // Helper to get portfolio summary from unified or legacy data
+  const getPortfolioSummary = (prospect: ProspectClient) => {
+    if (prospect.unifiedPortfolio) {
+      return {
+        totalValue: prospect.unifiedPortfolio.totalValue,
+        holdingsCount: prospect.unifiedPortfolio.holdingsCount,
+        source: prospect.unifiedPortfolio.source,
+        isVerified: prospect.unifiedPortfolio.isVerified
+      };
+    }
+    const legacyPortfolio = prospect.fetchedPortfolio || prospect.uploadedPortfolio;
+    return legacyPortfolio ? {
+      totalValue: legacyPortfolio.totalValue || 0,
+      holdingsCount: legacyPortfolio.holdings?.length || legacyPortfolio.parsedHoldings?.length || 0,
+      source: legacyPortfolio.source || 'uploaded',
+      isVerified: false
+    } : null;
+  };
   const defaultProposalStats = { total: 0, draft: 0, shared: 0, viewed: 0, converted: 0, acceptanceRate: 0 };
   const prospectData = metricsData?.prospects || {};
   const proposalData = metricsData?.proposals || {};
@@ -565,10 +597,10 @@ export default function AgentClientAcquisitionPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {prospect.fetchedPortfolio || prospect.uploadedPortfolio ? (
-                            <Badge variant="outline" className="text-green-600">
+                          {hasPortfolioData(prospect) ? (
+                            <Badge variant="outline" className={prospect.unifiedPortfolio?.isVerified ? "text-blue-600" : "text-green-600"}>
                               <CheckCircle2 className="h-3 w-3 mr-1" />
-                              Available
+                              {prospect.unifiedPortfolio?.isVerified ? 'Verified' : 'Available'}
                             </Badge>
                           ) : (
                             <Badge variant="outline" className="text-muted-foreground">
@@ -590,7 +622,7 @@ export default function AgentClientAcquisitionPage() {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            {prospect.pan && !prospect.fetchedPortfolio && (
+                            {prospect.pan && !hasPortfolioData(prospect) && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -601,7 +633,7 @@ export default function AgentClientAcquisitionPage() {
                                 <RefreshCw className={`h-4 w-4 ${fetchPortfolioMutation.isPending ? 'animate-spin' : ''}`} />
                               </Button>
                             )}
-                            {(prospect.fetchedPortfolio || prospect.uploadedPortfolio) && (
+                            {hasPortfolioData(prospect) && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -762,18 +794,18 @@ export default function AgentClientAcquisitionPage() {
                 </TableHeader>
                 <TableBody>
                   {filteredProspects
-                    .filter(p => p.fetchedPortfolio || p.uploadedPortfolio)
+                    .filter(p => hasPortfolioData(p))
                     .map((prospect) => {
-                      const portfolio = prospect.fetchedPortfolio || prospect.uploadedPortfolio;
+                      const portfolioSummary = getPortfolioSummary(prospect);
                       const analysis = prospect.portfolioAnalysis;
                       return (
                         <TableRow key={prospect.id}>
                           <TableCell className="font-medium">{prospect.name}</TableCell>
                           <TableCell>
-                            ₹{(portfolio?.totalValue || 0).toLocaleString('en-IN')}
+                            ₹{(portfolioSummary?.totalValue || 0).toLocaleString('en-IN')}
                           </TableCell>
                           <TableCell>
-                            {portfolio?.holdings?.length || 0} holdings
+                            {portfolioSummary?.holdingsCount || 0} holdings
                           </TableCell>
                           <TableCell>
                             {analysis ? (
@@ -827,7 +859,7 @@ export default function AgentClientAcquisitionPage() {
                     })}
                 </TableBody>
               </Table>
-              {filteredProspects.filter(p => p.fetchedPortfolio || p.uploadedPortfolio).length === 0 && (
+              {filteredProspects.filter(p => hasPortfolioData(p)).length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
                   <FileUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No prospects with portfolio data yet</p>
@@ -1131,20 +1163,28 @@ export default function AgentClientAcquisitionPage() {
 
               <div>
                 <h4 className="font-semibold mb-2">Portfolio Data</h4>
-                {selectedProspect.fetchedPortfolio || selectedProspect.uploadedPortfolio ? (
+                {hasPortfolioData(selectedProspect) ? (
                   <div className="p-4 bg-muted rounded-lg">
                     <div className="flex justify-between items-center mb-2">
                       <span>Total Value</span>
                       <span className="font-bold">
-                        ₹{((selectedProspect.fetchedPortfolio || selectedProspect.uploadedPortfolio)?.totalValue || 0).toLocaleString('en-IN')}
+                        ₹{(getPortfolioSummary(selectedProspect)?.totalValue || 0).toLocaleString('en-IN')}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center mb-2">
                       <span>Holdings</span>
                       <span>
-                        {(selectedProspect.fetchedPortfolio || selectedProspect.uploadedPortfolio)?.holdings?.length || 0} items
+                        {getPortfolioSummary(selectedProspect)?.holdingsCount || 0} items
                       </span>
                     </div>
+                    {selectedProspect.unifiedPortfolio && (
+                      <div className="flex justify-between items-center">
+                        <span>Status</span>
+                        <Badge variant="outline" className={selectedProspect.unifiedPortfolio.isVerified ? "text-blue-600" : "text-amber-600"}>
+                          {selectedProspect.unifiedPortfolio.isVerified ? 'Verified' : 'Unverified'}
+                        </Badge>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="p-4 border border-dashed rounded-lg text-center text-muted-foreground">

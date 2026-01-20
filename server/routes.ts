@@ -28033,8 +28033,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from(prospectClients)
         .where(and(eq(prospectClients.agentId, agentId), eq(prospectClients.state, 'active_client')));
       
+      // Fetch unified portfolio summaries for these prospects
+      const prospectIds = clients.map(c => c.id);
+      
+      // Get portfolio data from unified tables
+      const portfolioData = await db
+        .select({
+          prospectId: portfolios.prospectId,
+          portfolioId: portfolios.id,
+          portfolioSource: portfolios.source,
+          isVerified: portfolios.isVerified,
+          sourceFileName: portfolios.sourceFileName,
+          totalValue: portfolios.totalValue
+        })
+        .from(portfolios)
+        .where(inArray(portfolios.prospectId, prospectIds.length > 0 ? prospectIds : ['__none__']));
+      
+      // Get holdings counts
+      const holdingsCounts = portfolioData.length > 0 
+        ? await db
+            .select({
+              portfolioId: portfolioHoldings.portfolioId,
+              count: sql<number>`count(*)`,
+              totalCurrentValue: sql<number>`sum(COALESCE(current_value, 0))`
+            })
+            .from(portfolioHoldings)
+            .where(inArray(portfolioHoldings.portfolioId, portfolioData.map(p => p.portfolioId)))
+            .groupBy(portfolioHoldings.portfolioId)
+        : [];
+      
+      // Create lookup maps
+      const portfolioByProspect = new Map(portfolioData.map(p => [p.prospectId, p]));
+      const holdingsByPortfolio = new Map(holdingsCounts.map(h => [h.portfolioId, h]));
+      
+      // Enhance clients with unified portfolio data
+      const enhancedClients = clients.map(client => {
+        const portfolio = portfolioByProspect.get(client.id);
+        const holdings = portfolio ? holdingsByPortfolio.get(portfolio.portfolioId) : null;
+        
+        return {
+          ...client,
+          unifiedPortfolio: portfolio ? {
+            portfolioId: portfolio.portfolioId,
+            source: portfolio.portfolioSource,
+            sourceFileName: portfolio.sourceFileName,
+            isVerified: portfolio.isVerified,
+            totalValue: Number(holdings?.totalCurrentValue || portfolio.totalValue || 0),
+            holdingsCount: Number(holdings?.count || 0)
+          } : null
+        };
+      });
+      
       res.json({
-        prospects: clients,
+        prospects: enhancedClients,
         stats: {
           total: Number(totalCount?.count || 0),
           prospects: Number(prospectCount?.count || 0),
