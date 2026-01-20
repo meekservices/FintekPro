@@ -42,11 +42,14 @@ External data integration includes a Financial Calendar (RBI, SEBI, NSE, BSE) an
 A **Unified Portfolio Storage System** consolidates portfolio data for both prospects/leads and registered clients:
 - **Unified Tables**: `portfolios` and `portfolioHoldings` tables serve both prospect and client portfolios
 - **Source Tracking**: Portfolio source field tracks origin: 'manual', 'uploaded', 'cas_fetch', 'pan_fetch', 'broker_sync'
+- **Holdings Source Tracking**: Each holding has a `source` field tracking its origin independently (manual, uploaded, cas_fetch, pan_fetch, broker_sync)
+- **Refresh Observability**: `lastFetchStatus` (pending/success/failed/skipped) and `lastFetchError` fields track all refresh outcomes
 - **Prospect Support**: Added `prospectId`, `sourceFileName`, `lastFetchedAt`, `isVerified` fields to portfolios table
-- **Enhanced Holdings**: `portfolioHoldings` includes name, isin, currentValue, investedValue, productType, folioNumber, broker, confidenceScore
+- **Enhanced Holdings**: `portfolioHoldings` includes name, isin, currentValue, investedValue, productType, folioNumber, broker, confidenceScore, source
 - **Dual-Write Compatibility**: Portfolio imports write to both JSONB fields and unified tables during migration
 - **KYC Completion Flow**: Transfers prospect portfolios to verified user accounts, marks as verified, triggers background BSE STAR CAS refresh
-- **CAS Refresh**: Asynchronous background refresh using transaction-safe atomic updates; replaces MF holdings with authoritative CAS data while preserving non-MF holdings
+- **CAS Refresh**: Asynchronous background refresh using transaction-safe atomic updates; replaces MF holdings with authoritative CAS data while preserving non-MF holdings; sets source='cas_fetch' and updates status fields
+- **Status Transitions**: All refresh paths update status (skipped for missing PAN/user/DOB, failed for CAS errors, success for completed)
 - **API Endpoints**: `/api/agent/prospects/:id/portfolio/unified` for unified prospect portfolio data
 
 The platform includes real-time portfolio/market data, financial calculators, multi-asset support, family collaboration, a 3-tier KYC system, and an AI Chat Assistant (Google Gemini).
