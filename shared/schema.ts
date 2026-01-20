@@ -1081,6 +1081,8 @@ export const portfolios = pgTable("portfolios", {
   sourceFileName: varchar("source_file_name"), // Original file name for uploads
   lastFetchedAt: timestamp("last_fetched_at"), // When auto-fetch last refreshed
   isVerified: boolean("is_verified").default(false), // True after KYC authenticated fetch
+  lastFetchStatus: varchar("last_fetch_status").default("pending"), // pending, success, failed, skipped
+  lastFetchError: text("last_fetch_error"), // Error message when refresh fails
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -1107,6 +1109,7 @@ export const portfolioHoldings = pgTable("portfolio_holdings", {
   dividendYield: decimal("dividend_yield", { precision: 5, scale: 2 }),
   peRatio: decimal("pe_ratio", { precision: 8, scale: 2 }),
   confidenceScore: integer("confidence_score"), // Parsing confidence 0-100
+  source: varchar("source").default("manual"), // manual, uploaded, cas_fetch, pan_fetch, broker_sync
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
