@@ -1,6 +1,6 @@
 import { db } from "../db";
-import { dailyPicks, listedStocks, mutualFunds, bondCatalog, unlistedCompanies, globalInstruments } from "@shared/schema";
-import { eq, and, desc, gte, sql } from "drizzle-orm";
+import { dailyPicks, listedStocks, mutualFunds, bondCatalog, unlistedCompanies, globalInstruments, instrumentMaster, sgbPrimaryIssues } from "@shared/schema";
+import { eq, and, desc, gte, sql, ilike } from "drizzle-orm";
 import { GoogleGenAI } from "@google/genai";
 
 export type PickCategory = 
@@ -63,6 +63,10 @@ class PickOfTheDayService {
   private readonly MF_STOPLOSS_PCT = 0.05; // 5% stoploss for MFs
   private readonly BOND_TARGET_PCT = 0.08; // 8% target for bonds
   private readonly BOND_STOPLOSS_PCT = 0.03; // 3% stoploss for bonds
+  private readonly ETF_TARGET_PCT = 0.10; // 10% target for ETFs
+  private readonly ETF_STOPLOSS_PCT = 0.05; // 5% stoploss for ETFs
+  private readonly SGB_TARGET_PCT = 0.08; // 8% target for SGBs
+  private readonly SGB_STOPLOSS_PCT = 0.03; // 3% stoploss for SGBs
 
   constructor() {
     if (process.env.OPENAI_API_KEY) {
@@ -201,10 +205,16 @@ class PickOfTheDayService {
     if (bondPick) picks.push(bondPick);
 
     const unlistedPick = await this.generateUnlistedPick();
+    if (unlistedPick) picks.push(unlistedPick);
 
     const globalStockPick = await this.generateGlobalStockPick();
     if (globalStockPick) picks.push(globalStockPick);
-    if (unlistedPick) picks.push(unlistedPick);
+
+    const etfPick = await this.generateETFPick();
+    if (etfPick) picks.push(etfPick);
+
+    const sgbPick = await this.generateSGBPick();
+    if (sgbPick) picks.push(sgbPick);
 
     for (const pick of picks) {
       await this.savePick(pick);
@@ -612,6 +622,195 @@ class PickOfTheDayService {
     }
   }
 
+  private async generateETFPick(): Promise<DailyPickData | null> {
+    try {
+      const etfs = await db
+        .select()
+        .from(instrumentMaster)
+        .where(
+          and(
+            eq(instrumentMaster.assetClass, 'mutual_fund'),
+            eq(instrumentMaster.category, 'ETF'),
+            sql`${instrumentMaster.lastPrice} IS NOT NULL`
+          )
+        )
+        .limit(100);
+
+      if (etfs.length === 0) {
+        console.log("[PickOfTheDay] No ETFs found in database");
+        return null;
+      }
+
+      const scoredETFs = etfs.map(etf => ({
+        etf,
+        score: this.scoreETF(etf),
+      })).sort((a, b) => b.score - a.score);
+
+      const topETF = scoredETFs[0].etf;
+      const currentPrice = parseFloat(topETF.lastPrice || "0");
+      const targetPrice = Math.round(currentPrice * (1 + this.ETF_TARGET_PCT) * 100) / 100;
+      const stoplossPrice = Math.round(currentPrice * (1 - this.ETF_STOPLOSS_PCT) * 100) / 100;
+
+      const rationale = await this.generateRationale({
+        category: 'etfs',
+        name: topETF.name,
+        issuer: topETF.issuer,
+        currentPrice,
+        targetPrice,
+        stoplossPrice,
+        trackingIndex: topETF.name.includes('Nifty') ? 'Nifty' : topETF.name.includes('Gold') ? 'Gold' : 'Other',
+      });
+
+      console.log(`[PickOfTheDay] Generated ETF pick: ${topETF.name}`);
+
+      return {
+        category: 'etfs',
+        instrumentId: topETF.id,
+        instrumentName: topETF.name,
+        isin: topETF.isin || undefined,
+        symbol: topETF.symbol || undefined,
+        recoDate: new Date().toISOString().split('T')[0],
+        recoPrice: currentPrice,
+        targetPrice,
+        stoplossPrice,
+        currentPrice,
+        status: 'live',
+        expiryDate: this.getExpiryDate(60), // 60 days for ETFs
+        rationale,
+        riskLevel: 'medium',
+        suitableFor: ['Conservative', 'Balanced'],
+        keyMetrics: {
+          issuer: topETF.issuer,
+          category: topETF.category,
+          currency: topETF.currency,
+        },
+      };
+    } catch (error) {
+      console.error("[PickOfTheDay] Error generating ETF pick:", error);
+      return null;
+    }
+  }
+
+  private async generateSGBPick(): Promise<DailyPickData | null> {
+    try {
+      const sgbs = await db
+        .select()
+        .from(sgbPrimaryIssues)
+        .where(eq(sgbPrimaryIssues.issueStatus, 'open'))
+        .limit(10);
+
+      if (sgbs.length === 0) {
+        // Fall back to upcoming SGBs
+        const upcomingSgbs = await db
+          .select()
+          .from(sgbPrimaryIssues)
+          .where(eq(sgbPrimaryIssues.issueStatus, 'upcoming'))
+          .limit(10);
+
+        if (upcomingSgbs.length === 0) {
+          console.log("[PickOfTheDay] No open or upcoming SGBs found");
+          return null;
+        }
+        
+        const topSGB = upcomingSgbs[0];
+        return this.createSGBPick(topSGB);
+      }
+
+      const topSGB = sgbs[0];
+      return this.createSGBPick(topSGB);
+    } catch (error) {
+      console.error("[PickOfTheDay] Error generating SGB pick:", error);
+      return null;
+    }
+  }
+
+  private async createSGBPick(sgb: any): Promise<DailyPickData> {
+    const issuePrice = parseFloat(sgb.issuePrice || sgb.issuePricePerGram || "0");
+    const targetPrice = Math.round(issuePrice * (1 + this.SGB_TARGET_PCT) * 100) / 100;
+    const stoplossPrice = Math.round(issuePrice * (1 - this.SGB_STOPLOSS_PCT) * 100) / 100;
+
+    const rationale = await this.generateRationale({
+      category: 'sgb',
+      name: sgb.seriesName,
+      seriesCode: sgb.seriesCode,
+      issuePrice,
+      targetPrice,
+      stoplossPrice,
+      interestRate: sgb.interestRate,
+      tenorYears: sgb.tenorYears,
+      maturityDate: sgb.maturityDate,
+    });
+
+    console.log(`[PickOfTheDay] Generated SGB pick: ${sgb.seriesName}`);
+
+    return {
+      category: 'sgb',
+      instrumentId: sgb.id,
+      instrumentName: sgb.seriesName,
+      symbol: sgb.seriesCode,
+      recoDate: new Date().toISOString().split('T')[0],
+      recoPrice: issuePrice,
+      targetPrice,
+      stoplossPrice,
+      currentPrice: issuePrice,
+      status: 'live',
+      expiryDate: this.getExpiryDate(365), // 365 days for SGBs
+      rationale,
+      riskLevel: 'low',
+      suitableFor: ['Conservative', 'Balanced'],
+      keyMetrics: {
+        seriesCode: sgb.seriesCode,
+        interestRate: sgb.interestRate,
+        tenorYears: sgb.tenorYears,
+        maturityDate: sgb.maturityDate,
+        issueStatus: sgb.issueStatus,
+        capitalGainsTaxExempt: sgb.capitalGainsTaxExempt,
+      },
+    };
+  }
+
+  private scoreETF(etf: any): number {
+    let score = 0;
+    
+    // Score by ETF type
+    const name = etf.name?.toLowerCase() || '';
+    if (name.includes('nifty 50') || name.includes('sensex')) score += 25; // Blue-chip tracking
+    else if (name.includes('gold') || name.includes('silver')) score += 20; // Precious metals
+    else if (name.includes('bank') || name.includes('it')) score += 18; // Sector ETFs
+    else if (name.includes('nifty')) score += 15; // Other index ETFs
+    
+    // Score by issuer reputation
+    const issuer = etf.issuer?.toLowerCase() || '';
+    if (issuer.includes('hdfc') || issuer.includes('sbi') || issuer.includes('icici')) score += 15;
+    else if (issuer.includes('nippon') || issuer.includes('kotak') || issuer.includes('axis')) score += 12;
+    else score += 8;
+
+    // Score by price (lower expense implied by bigger fund houses)
+    const price = parseFloat(etf.lastPrice || '0');
+    if (price > 100 && price < 500) score += 10; // Sweet spot for retail investors
+    else if (price > 50) score += 8;
+    
+    return score;
+  }
+
+  private scoreSGB(sgb: any): number {
+    let score = 0;
+    
+    // Prefer open issues over upcoming
+    if (sgb.issueStatus === 'open') score += 30;
+    else if (sgb.issueStatus === 'upcoming') score += 20;
+    
+    // Higher interest rate is better
+    const interestRate = parseFloat(sgb.interestRate || '0');
+    if (interestRate >= 2.5) score += 15;
+    else if (interestRate >= 2.0) score += 10;
+    
+    // Tax benefits
+    if (sgb.capitalGainsTaxExempt) score += 20;
+    
+    return score;
+  }
+
   private scoreStock(stock: any): number {
     let score = 0;
     
@@ -912,6 +1111,22 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
             .where(eq(unlistedCompanies.id, pick.instrumentId))
             .limit(1);
           return company[0]?.lastPrice ? parseFloat(company[0].lastPrice) : null;
+
+        case 'etfs':
+          const etf = await db
+            .select({ lastPrice: instrumentMaster.lastPrice })
+            .from(instrumentMaster)
+            .where(eq(instrumentMaster.id, pick.instrumentId))
+            .limit(1);
+          return etf[0]?.lastPrice ? parseFloat(etf[0].lastPrice) : null;
+
+        case 'sgb':
+          const sgb = await db
+            .select({ issuePrice: sgbPrimaryIssues.issuePrice })
+            .from(sgbPrimaryIssues)
+            .where(eq(sgbPrimaryIssues.id, pick.instrumentId))
+            .limit(1);
+          return sgb[0]?.issuePrice ? parseFloat(sgb[0].issuePrice) : null;
 
         default:
           return null;
