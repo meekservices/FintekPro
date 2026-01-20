@@ -116,6 +116,7 @@ const GiftCityIfscSeed = lazy(() => import("@/pages/admin/gift-city-ifsc-seed"))
 const GlobalSeedAdmin = lazy(() => import("@/pages/admin/global-seed"));
 const RecommendationProductsAdmin = lazy(() => import("@/pages/admin/recommendation-products"));
 const PicksManagement = lazy(() => import("@/pages/admin/picks-management"));
+const McaDirectPayments = lazy(() => import("@/pages/admin/mca-direct-payments"));
 const SeedUnlistedPage = lazy(() => import("@/pages/admin/seed-unlisted"));
 const UnlistedPreviewPage = lazy(() => import("@/pages/admin/unlisted-preview"));
 const UnlistedPricingPreviewPage = lazy(() => import("@/pages/admin/unlisted-pricing-preview"));
@@ -1081,6 +1082,15 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <FixedIncomeAdmin />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/mca-payments">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingPage />}>
+              <McaDirectPayments />
+            </Suspense>
           </AdminLayout>
         )}
       </Route>

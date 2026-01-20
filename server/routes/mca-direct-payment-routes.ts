@@ -1,8 +1,28 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { mcaDirectPaymentService, McaFeeType } from '../services/mca-direct-payment-service';
 
 const router = Router();
+
+const requireAuth = (req: Request, res: Response, next: NextFunction) => {
+  if (!req.isAuthenticated || !req.isAuthenticated()) {
+    return res.status(401).json({ success: false, error: 'Authentication required' });
+  }
+  next();
+};
+
+const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
+  if (!req.isAuthenticated || !req.isAuthenticated()) {
+    return res.status(401).json({ success: false, error: 'Authentication required' });
+  }
+  const user = (req as any).user;
+  if (user?.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+  next();
+};
+
+router.use(requireAdmin);
 
 const initiatePaymentSchema = z.object({
   cin: z.string().length(21, 'CIN must be exactly 21 characters'),
