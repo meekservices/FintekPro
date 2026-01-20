@@ -333,7 +333,7 @@ export default function AgentInvestmentAdvisory() {
   });
 
   const { data: profitPicks, isLoading: picksLoading, refetch: refetchPicks } = useQuery<AIProfitPick[]>({
-    queryKey: ['/api/ai-investment/profit-picks', selectedClientId, selectedHorizon, selectedProductTypes],
+    queryKey: ['/api/ai-investment/profit-picks', selectedClientId, selectedHorizon],
     enabled: !!selectedClientId && !!portfolio
   });
   
