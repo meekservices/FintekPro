@@ -403,17 +403,26 @@ export class MultiSourceMFService {
             ratedFunds = enrichedFunds; // Fallback to original enriched funds
           }
 
-          // Sort by best performance (1Y returns descending, then 3Y returns)
+          // Sort by FintekPro rating first (1 star = best, 5 star = worst), then by returns
           const sortedFunds = ratedFunds.sort((a, b) => {
+            // Priority 1: FintekPro Smart Rating (lower is better: 1 = exceptional)
+            // Rating is stored in crisilRating field (FintekPro rating system)
+            const aRating = a.crisilRating || 5;
+            const bRating = b.crisilRating || 5;
+            
+            if (aRating !== bRating) {
+              return aRating - bRating; // Ascending order (1 star = best)
+            }
+            
+            // Priority 2: 1Y returns (higher is better)
             const aReturns1Y = a.returns?.['1Y'] || 0;
             const bReturns1Y = b.returns?.['1Y'] || 0;
             
-            // First sort by 1Y returns
             if (aReturns1Y !== bReturns1Y) {
               return bReturns1Y - aReturns1Y; // Descending order
             }
             
-            // If 1Y returns are equal, sort by 3Y returns
+            // Priority 3: 3Y returns as tiebreaker
             const aReturns3Y = a.returns?.['3Y'] || 0;
             const bReturns3Y = b.returns?.['3Y'] || 0;
             return bReturns3Y - aReturns3Y; // Descending order

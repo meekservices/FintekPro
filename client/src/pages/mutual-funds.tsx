@@ -621,6 +621,24 @@ function FundCard({ fund, sebiData, onInvestClick }: { fund: MutualFundData; seb
           </div>
         </div>
         
+        {/* FintekPro Smart Rating Display */}
+        {((fund as any).fintekproRating || (fund as any).rating) && (
+          <div className="flex items-center justify-between mb-4 p-2 bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+            <div className="flex items-center gap-2">
+              <Award className="w-4 h-4 text-yellow-600" />
+              <span className="text-xs font-medium text-yellow-800 dark:text-yellow-200">FintekPro Rating</span>
+            </div>
+            <div className="flex items-center gap-1">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Star
+                  key={star}
+                  className={`w-4 h-4 ${star <= ((fund as any).fintekproRating || (fund as any).rating || 5) ? 'text-yellow-400 fill-current' : 'text-gray-300 dark:text-gray-600'}`}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+        
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           <Button 
             size="sm" 
