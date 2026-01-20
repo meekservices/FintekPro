@@ -57,9 +57,28 @@ interface ZohoWebinarRegistrant {
 
 export class ZohoMeetingService {
   private client: ZohoApiClient;
+  private zsoid: string;
 
-  constructor(connectionId: string, dataCenter: string = 'in') {
+  constructor(connectionId: string, dataCenter: string = 'in', zsoid?: string) {
     this.client = new ZohoApiClient(connectionId, 'Meeting', dataCenter);
+    this.zsoid = zsoid || '';
+  }
+
+  /**
+   * Set ZSOID after construction (for routes that fetch it from connection)
+   */
+  setZsoid(zsoid: string): void {
+    this.zsoid = zsoid;
+  }
+
+  /**
+   * Get API base path with ZSOID included
+   */
+  private getBasePath(): string {
+    if (!this.zsoid) {
+      throw new Error('ZSOID not configured - cannot make Meeting API requests');
+    }
+    return `/api/v2/${this.zsoid}`;
   }
 
   // ==================== Meetings ====================
@@ -74,12 +93,12 @@ export class ZohoMeetingService {
     if (options?.fromDate) params.from_date = options.fromDate.toISOString().split('T')[0];
     if (options?.toDate) params.to_date = options.toDate.toISOString().split('T')[0];
 
-    const response = await this.client.get('/api/v2/meetings.json', { params });
-    return response.data?.session?.meetings || [];
+    const response = await this.client.get(`${this.getBasePath()}/sessions.json`, { params });
+    return response.data?.session || [];
   }
 
   async getMeetingDetails(meetingKey: string): Promise<ZohoMeeting | null> {
-    const response = await this.client.get(`/api/v2/meetings/${meetingKey}.json`);
+    const response = await this.client.get(`${this.getBasePath()}/sessions/${meetingKey}.json`);
     return response.data?.session || null;
   }
 
@@ -102,7 +121,7 @@ export class ZohoMeetingService {
       }
     };
 
-    const response = await this.client.post('/api/v2/meetings.json', payload);
+    const response = await this.client.post(`${this.getBasePath()}/sessions.json`, payload);
     
     if (!response.data?.session) {
       throw new Error('Failed to create meeting');
@@ -129,12 +148,12 @@ export class ZohoMeetingService {
     if (updates.startTime) payload.session.start_time = updates.startTime.toISOString();
     if (updates.duration) payload.session.duration = updates.duration;
 
-    const response = await this.client.put(`/api/v2/meetings/${meetingKey}.json`, payload);
+    const response = await this.client.put(`${this.getBasePath()}/sessions/${meetingKey}.json`, payload);
     return response.data?.session || null;
   }
 
   async deleteMeeting(meetingKey: string): Promise<boolean> {
-    const response = await this.client.delete(`/api/v2/meetings/${meetingKey}.json`);
+    const response = await this.client.delete(`${this.getBasePath()}/sessions/${meetingKey}.json`);
     return response.status === 200 || response.status === 204;
   }
 
@@ -142,7 +161,7 @@ export class ZohoMeetingService {
     email: string;
     name: string;
   }>): Promise<boolean> {
-    const response = await this.client.post(`/api/v2/meetings/${meetingKey}/participants.json`, {
+    const response = await this.client.post(`${this.getBasePath()}/sessions/${meetingKey}/participants.json`, {
       participants: participants.map(p => ({
         email: p.email,
         name: p.name,
@@ -153,12 +172,12 @@ export class ZohoMeetingService {
   }
 
   async getMeetingParticipants(meetingKey: string): Promise<ZohoMeetingParticipant[]> {
-    const response = await this.client.get(`/api/v2/meetings/${meetingKey}/participants.json`);
+    const response = await this.client.get(`${this.getBasePath()}/sessions/${meetingKey}/participants.json`);
     return response.data?.participants || [];
   }
 
   async getMeetingRecording(meetingKey: string): Promise<string | null> {
-    const response = await this.client.get(`/api/v2/meetings/${meetingKey}/recording.json`);
+    const response = await this.client.get(`${this.getBasePath()}/sessions/${meetingKey}/recording.json`);
     return response.data?.recording_url || null;
   }
 
@@ -174,12 +193,12 @@ export class ZohoMeetingService {
     if (options?.fromDate) params.from_date = options.fromDate.toISOString().split('T')[0];
     if (options?.toDate) params.to_date = options.toDate.toISOString().split('T')[0];
 
-    const response = await this.client.get('/api/v2/webinars.json', { params });
-    return response.data?.session?.webinars || [];
+    const response = await this.client.get(`${this.getBasePath()}/webinar.json`, { params });
+    return response.data?.session || [];
   }
 
   async getWebinarDetails(webinarKey: string): Promise<ZohoWebinar | null> {
-    const response = await this.client.get(`/api/v2/webinars/${webinarKey}.json`);
+    const response = await this.client.get(`${this.getBasePath()}/webinar/${webinarKey}.json`);
     return response.data?.session || null;
   }
 
@@ -204,7 +223,7 @@ export class ZohoMeetingService {
       }
     };
 
-    const response = await this.client.post('/api/v2/webinars.json', payload);
+    const response = await this.client.post(`${this.getBasePath()}/webinar.json`, payload);
     
     if (!response.data?.session) {
       throw new Error('Failed to create webinar');
@@ -214,7 +233,7 @@ export class ZohoMeetingService {
   }
 
   async registerForWebinar(webinarKey: string, registrant: ZohoWebinarRegistrant): Promise<string> {
-    const response = await this.client.post(`/api/v2/webinars/${webinarKey}/registrants.json`, {
+    const response = await this.client.post(`${this.getBasePath()}/webinar/${webinarKey}/registrants.json`, {
       registrant: {
         email: registrant.email,
         first_name: registrant.first_name,
@@ -233,12 +252,12 @@ export class ZohoMeetingService {
   }
 
   async getWebinarRegistrants(webinarKey: string): Promise<ZohoWebinarRegistrant[]> {
-    const response = await this.client.get(`/api/v2/webinars/${webinarKey}/registrants.json`);
+    const response = await this.client.get(`${this.getBasePath()}/webinar/${webinarKey}/registrants.json`);
     return response.data?.registrants || [];
   }
 
   async getWebinarAttendees(webinarKey: string): Promise<ZohoWebinarRegistrant[]> {
-    const response = await this.client.get(`/api/v2/webinars/${webinarKey}/attendees.json`);
+    const response = await this.client.get(`${this.getBasePath()}/webinar/${webinarKey}/attendees.json`);
     return response.data?.attendees || [];
   }
 

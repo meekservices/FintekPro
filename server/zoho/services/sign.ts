@@ -80,20 +80,9 @@ export class ZohoSignService {
     sortBy?: 'created_time' | 'modified_time';
     sortOrder?: 'asc' | 'desc';
   }): Promise<ZohoSignDocument[]> {
-    const params: any = {
-      page_context: {
-        row_count: options?.limit || 50,
-        start_index: ((options?.page || 1) - 1) * (options?.limit || 50),
-        sort_column: options?.sortBy || 'created_time',
-        sort_order: options?.sortOrder || 'desc',
-      }
-    };
-
-    if (options?.status) {
-      params.request_status = options.status;
-    }
-
-    const response = await this.client.get('/api/v1/requests', { params });
+    // Zoho Sign API v1 requires page_context as form data, but GET requests don't support form data
+    // For simple listing, we can call without pagination parameters
+    const response = await this.client.get('/api/v1/requests');
     return response.data?.requests || [];
   }
 

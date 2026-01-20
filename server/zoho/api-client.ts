@@ -67,14 +67,16 @@ export class ZohoApiClient {
   private getServiceBaseUrl(): string {
     const serviceUrls: Record<string, string> = {
       CRM: `https://www.zohoapis.${this.dataCenter}/crm/v6`,
-      Books: `https://books.zoho.${this.dataCenter}/api/v3`,
+      Books: `https://www.zohoapis.${this.dataCenter}/books/v3`,
       Desk: `https://desk.zoho.${this.dataCenter}/api/v1`,
       WorkDrive: `https://www.zohoapis.${this.dataCenter}/workdrive/api/v1`,
       People: `https://people.zoho.${this.dataCenter}/people/api`,
       Recruit: `https://recruit.zoho.${this.dataCenter}/recruit/v2`,
       Campaigns: `https://campaigns.zoho.${this.dataCenter}/api/v1.1`,
       Analytics: `https://analyticsapi.zoho.${this.dataCenter}`,
-      Projects: `https://projectsapi.zoho.${this.dataCenter}/restapi`
+      Projects: `https://projectsapi.zoho.${this.dataCenter}/restapi`,
+      Meeting: `https://meeting.zoho.${this.dataCenter}`,
+      Sign: `https://sign.zoho.${this.dataCenter}`
     };
 
     return serviceUrls[this.service] || `https://www.zohoapis.${this.dataCenter}`;

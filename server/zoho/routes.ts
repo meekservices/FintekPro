@@ -13,6 +13,22 @@ import { zohoRateLimiter } from './rate-limiter';
 const router = Router();
 
 /**
+ * Helper function to get connection details including ZSOID
+ */
+async function getConnectionWithZsoid(connectionId: string): Promise<{connection: any; zsoid: string | null}> {
+  const [connection] = await db
+    .select()
+    .from(zohoConnections)
+    .where(eq(zohoConnections.id, connectionId))
+    .limit(1);
+  
+  return {
+    connection,
+    zsoid: connection?.zohoOrgId || null
+  };
+}
+
+/**
  * Extended Request interface for raw body access
  * The express.json() middleware is configured with 'verify' to store raw body
  */
@@ -1207,7 +1223,15 @@ router.get('/meeting/meetings', async (req, res) => {
       return res.status(400).json({ message: 'connectionId required' });
     }
     
-    const service = new ZohoMeetingService(connectionId as string, 'in');
+    const { connection, zsoid } = await getConnectionWithZsoid(connectionId as string);
+    if (!connection) {
+      return res.status(404).json({ message: 'Connection not found' });
+    }
+    if (!zsoid) {
+      return res.status(400).json({ message: 'ZSOID not configured for this connection' });
+    }
+    
+    const service = new ZohoMeetingService(connectionId as string, 'in', zsoid);
     const meetings = await service.getMeetings({
       status: status as any,
       fromDate: fromDate ? new Date(fromDate as string) : undefined,
@@ -1231,7 +1255,15 @@ router.post('/meeting/meetings', async (req, res) => {
       return res.status(400).json({ message: 'connectionId, topic, startTime, and duration required' });
     }
     
-    const service = new ZohoMeetingService(connectionId, 'in');
+    const { connection, zsoid } = await getConnectionWithZsoid(connectionId);
+    if (!connection) {
+      return res.status(404).json({ message: 'Connection not found' });
+    }
+    if (!zsoid) {
+      return res.status(400).json({ message: 'ZSOID not configured for this connection' });
+    }
+    
+    const service = new ZohoMeetingService(connectionId, 'in', zsoid);
     const meeting = await service.createMeeting({
       topic,
       agenda,
@@ -1258,7 +1290,15 @@ router.post('/meeting/client-meeting', async (req, res) => {
       return res.status(400).json({ message: 'Missing required fields' });
     }
     
-    const service = new ZohoMeetingService(connectionId, 'in');
+    const { connection, zsoid } = await getConnectionWithZsoid(connectionId);
+    if (!connection) {
+      return res.status(404).json({ message: 'Connection not found' });
+    }
+    if (!zsoid) {
+      return res.status(400).json({ message: 'ZSOID not configured for this connection' });
+    }
+    
+    const service = new ZohoMeetingService(connectionId, 'in', zsoid);
     const result = await service.createClientMeeting({
       clientName,
       clientEmail,
@@ -1285,7 +1325,15 @@ router.get('/meeting/webinars', async (req, res) => {
       return res.status(400).json({ message: 'connectionId required' });
     }
     
-    const service = new ZohoMeetingService(connectionId as string, 'in');
+    const { connection, zsoid } = await getConnectionWithZsoid(connectionId as string);
+    if (!connection) {
+      return res.status(404).json({ message: 'Connection not found' });
+    }
+    if (!zsoid) {
+      return res.status(400).json({ message: 'ZSOID not configured for this connection' });
+    }
+    
+    const service = new ZohoMeetingService(connectionId as string, 'in', zsoid);
     const webinars = await service.getWebinars({ status: status as any });
     res.json({ webinars });
   } catch (error: any) {
@@ -1305,7 +1353,15 @@ router.post('/meeting/webinars', async (req, res) => {
       return res.status(400).json({ message: 'connectionId, topic, startTime, and duration required' });
     }
     
-    const service = new ZohoMeetingService(connectionId, 'in');
+    const { connection, zsoid } = await getConnectionWithZsoid(connectionId);
+    if (!connection) {
+      return res.status(404).json({ message: 'Connection not found' });
+    }
+    if (!zsoid) {
+      return res.status(400).json({ message: 'ZSOID not configured for this connection' });
+    }
+    
+    const service = new ZohoMeetingService(connectionId, 'in', zsoid);
     const result = await service.createInvestorWebinar({
       topic,
       description: description || '',
@@ -1332,7 +1388,15 @@ router.post('/meeting/webinars/:webinarKey/register', async (req, res) => {
       return res.status(400).json({ message: 'connectionId and clients array required' });
     }
     
-    const service = new ZohoMeetingService(connectionId, 'in');
+    const { connection, zsoid } = await getConnectionWithZsoid(connectionId);
+    if (!connection) {
+      return res.status(404).json({ message: 'Connection not found' });
+    }
+    if (!zsoid) {
+      return res.status(400).json({ message: 'ZSOID not configured for this connection' });
+    }
+    
+    const service = new ZohoMeetingService(connectionId, 'in', zsoid);
     const result = await service.bulkRegisterClients(webinarKey, clients);
     res.json({ ...result, message: 'Clients registered for webinar' });
   } catch (error: any) {
