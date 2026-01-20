@@ -183,8 +183,25 @@ export class ZohoOAuthService {
       throw new Error(`Connection is ${connection.status}`);
     }
 
-    // Decrypt tokens
-    const decryptedRefreshToken = encryptionService.decrypt(connection.refreshToken);
+    // Decrypt tokens - handle both encrypted and legacy unencrypted tokens
+    let decryptedRefreshToken: string | null = null;
+    try {
+      // Check if token looks like unencrypted Zoho token (starts with "1000.")
+      if (connection.refreshToken?.startsWith('1000.')) {
+        console.log('[Zoho OAuth] Using unencrypted refresh token (legacy format)');
+        decryptedRefreshToken = connection.refreshToken;
+      } else {
+        decryptedRefreshToken = encryptionService.decrypt(connection.refreshToken);
+      }
+    } catch (decryptError) {
+      console.error('[Zoho OAuth] Decrypt error, trying raw token:', decryptError);
+      // If decryption fails and it looks like a Zoho token, try using it directly
+      if (connection.refreshToken?.includes('.')) {
+        console.log('[Zoho OAuth] Falling back to raw refresh token');
+        decryptedRefreshToken = connection.refreshToken;
+      }
+    }
+    
     if (!decryptedRefreshToken) {
       throw new Error('Failed to decrypt refresh token');
     }
@@ -217,8 +234,22 @@ export class ZohoOAuthService {
       return tokenResponse.access_token;
     }
 
-    // Decrypt and return access token
-    const decryptedAccessToken = encryptionService.decrypt(connection.accessToken);
+    // Decrypt and return access token - handle both encrypted and legacy unencrypted tokens
+    let decryptedAccessToken: string | null = null;
+    try {
+      if (connection.accessToken?.startsWith('1000.')) {
+        console.log('[Zoho OAuth] Using unencrypted access token (legacy format)');
+        decryptedAccessToken = connection.accessToken;
+      } else {
+        decryptedAccessToken = encryptionService.decrypt(connection.accessToken);
+      }
+    } catch (decryptError) {
+      console.error('[Zoho OAuth] Access token decrypt error, trying raw:', decryptError);
+      if (connection.accessToken?.includes('.')) {
+        decryptedAccessToken = connection.accessToken;
+      }
+    }
+    
     if (!decryptedAccessToken) {
       throw new Error('Failed to decrypt access token');
     }
