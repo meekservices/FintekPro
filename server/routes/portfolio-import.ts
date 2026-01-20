@@ -635,4 +635,103 @@ router.post(
   }
 );
 
+router.get(
+  '/prospects/:prospectId/portfolio/unified',
+  async (req: Request<{ prospectId: string }>, res: Response) => {
+    try {
+      const prospectId = req.params.prospectId;
+
+      const prospect = await db
+        .select()
+        .from(prospectClients)
+        .where(eq(prospectClients.id, prospectId))
+        .limit(1);
+
+      if (!prospect[0]) {
+        return res.status(404).json({ error: 'Prospect not found' });
+      }
+
+      const portfolio = await db
+        .select()
+        .from(portfolios)
+        .where(eq(portfolios.prospectId, prospectId))
+        .limit(1);
+
+      if (!portfolio[0]) {
+        return res.json({
+          success: true,
+          hasPortfolio: false,
+          portfolio: null,
+          holdings: []
+        });
+      }
+
+      const holdings = await db
+        .select()
+        .from(portfolioHoldings)
+        .where(eq(portfolioHoldings.portfolioId, portfolio[0].id));
+
+      const totalValue = holdings.reduce((sum, h) => sum + (Number(h.currentValue) || 0), 0);
+      const totalInvested = holdings.reduce((sum, h) => sum + (Number(h.investedValue) || 0), 0);
+
+      const allocationMap: Record<string, number> = {};
+      holdings.forEach(h => {
+        const type = h.productType || h.assetType || 'other';
+        allocationMap[type] = (allocationMap[type] || 0) + (Number(h.currentValue) || 0);
+      });
+
+      const allocation: Record<string, number> = {};
+      Object.entries(allocationMap).forEach(([type, value]) => {
+        allocation[type] = totalValue > 0 ? Math.round((value / totalValue) * 100) : 0;
+      });
+
+      res.json({
+        success: true,
+        hasPortfolio: true,
+        portfolio: {
+          id: portfolio[0].id,
+          name: portfolio[0].name,
+          totalValue,
+          totalInvested,
+          source: portfolio[0].source,
+          sourceFileName: portfolio[0].sourceFileName,
+          isVerified: portfolio[0].isVerified,
+          lastFetchedAt: portfolio[0].lastFetchedAt,
+          createdAt: portfolio[0].createdAt,
+          updatedAt: portfolio[0].updatedAt
+        },
+        holdings: holdings.map(h => ({
+          id: h.id,
+          symbol: h.symbol,
+          name: h.name,
+          isin: h.isin,
+          quantity: Number(h.quantity),
+          avgPrice: Number(h.avgPrice) || 0,
+          currentValue: Number(h.currentValue) || 0,
+          investedValue: Number(h.investedValue) || 0,
+          assetType: h.assetType,
+          productType: h.productType,
+          folioNumber: h.folioNumber,
+          broker: h.broker,
+          confidenceScore: h.confidenceScore
+        })),
+        allocation,
+        summary: {
+          holdingsCount: holdings.length,
+          totalValue,
+          totalInvested,
+          gain: totalValue - totalInvested,
+          gainPercent: totalInvested > 0 ? ((totalValue - totalInvested) / totalInvested) * 100 : 0
+        }
+      });
+    } catch (error: any) {
+      console.error('Error fetching unified portfolio:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: error.message || 'Failed to fetch portfolio' 
+      });
+    }
+  }
+);
+
 export default router;
