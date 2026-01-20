@@ -75,6 +75,15 @@ export default function AdminAiRecommendationTracking() {
 
   const { data: recommendations, isLoading: recommendationsLoading } = useQuery<AiRecommendationTracking[]>({
     queryKey: ["/api/ai-recommendations-tracking", statusFilter, assetTypeFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (statusFilter && statusFilter !== "all") params.append("status", statusFilter);
+      if (assetTypeFilter && assetTypeFilter !== "all") params.append("assetType", assetTypeFilter);
+      const url = `/api/ai-recommendations-tracking${params.toString() ? `?${params.toString()}` : ""}`;
+      const response = await fetch(url, { credentials: "include" });
+      if (!response.ok) throw new Error("Failed to fetch recommendations");
+      return response.json();
+    },
   });
 
   const { data: sectorMetrics } = useQuery<SectorMetrics[]>({
