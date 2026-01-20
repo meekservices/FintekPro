@@ -26079,6 +26079,46 @@ export const insertMcaWalletPaymentSchema = createInsertSchema(mcaWalletPayments
 export type McaWalletPayment = typeof mcaWalletPayments.$inferSelect;
 export type InsertMcaWalletPayment = z.infer<typeof insertMcaWalletPaymentSchema>;
 
+// MCA Direct Payments - Track direct payments made to MCA portal (bypass intermediary gateways)
+export const mcaDirectPayments = pgTable("mca_direct_payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  cin: varchar("cin", { length: 21 }).notNull(),
+  companyName: varchar("company_name", { length: 500 }),
+  feeType: varchar("fee_type", { length: 100 }).notNull(),
+  filingYear: varchar("filing_year", { length: 10 }),
+  amount: numeric("amount").notNull(),
+  currency: varchar("currency", { length: 3 }).default("INR").notNull(),
+  status: varchar("status", { length: 30 }).default("initiated").notNull(),
+  mcaChallanNumber: varchar("mca_challan_number", { length: 100 }),
+  mcaTransactionId: varchar("mca_transaction_id", { length: 100 }),
+  mcaPaymentDate: date("mca_payment_date"),
+  mcaReceiptUrl: text("mca_receipt_url"),
+  paymentMode: varchar("payment_mode", { length: 50 }),
+  bankName: varchar("bank_name", { length: 100 }),
+  initiatedBy: varchar("initiated_by", { length: 255 }).notNull(),
+  initiatedByUserId: varchar("initiated_by_user_id", { length: 255 }),
+  confirmedBy: varchar("confirmed_by", { length: 255 }),
+  confirmedAt: timestamp("confirmed_at"),
+  zohoExpenseId: varchar("zoho_expense_id", { length: 100 }),
+  zohoSyncStatus: varchar("zoho_sync_status", { length: 30 }).default("pending"),
+  zohoSyncError: text("zoho_sync_error"),
+  zohoSyncedAt: timestamp("zoho_synced_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_mca_dp_cin").on(table.cin),
+  index("idx_mca_dp_status").on(table.status),
+  index("idx_mca_dp_fee_type").on(table.feeType),
+  index("idx_mca_dp_challan").on(table.mcaChallanNumber),
+  index("idx_mca_dp_zoho_status").on(table.zohoSyncStatus),
+  index("idx_mca_dp_initiated_by").on(table.initiatedBy),
+]);
+
+export const insertMcaDirectPaymentSchema = createInsertSchema(mcaDirectPayments).omit({ id: true, createdAt: true, updatedAt: true });
+export type McaDirectPayment = typeof mcaDirectPayments.$inferSelect;
+export type InsertMcaDirectPayment = z.infer<typeof insertMcaDirectPaymentSchema>;
+
 // ============ MCA ENHANCED TABLES - PHASE 1-4 IMPLEMENTATION ============
 
 // MCA Data Sources - Configurable data sources for ingestion (Epic 1)
