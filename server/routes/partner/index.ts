@@ -437,5 +437,169 @@ export function registerPartnerPortalRoutes(app: Express): void {
     }
   });
 
+  // ============ PARTNER DASHBOARD DATA ROUTES (for user-session based auth) ============
+
+  // Partner profile - returns current user's partner profile
+  app.get("/api/partner/profile", async (req: any, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const hasPartnerRole = req.user.roles?.includes('partner') || 
+                             req.user.roles?.includes('admin') || 
+                             req.user.roles?.includes('superadmin');
+      
+      if (!hasPartnerRole) {
+        return res.status(403).json({ error: "Partner access required" });
+      }
+
+      res.json({
+        id: req.user.id,
+        userId: req.user.userId,
+        firstName: req.user.firstName,
+        lastName: req.user.lastName,
+        email: req.user.email,
+        mobile: req.user.mobile,
+        roles: req.user.roles,
+        partnerType: "distributor",
+        companyName: req.user.firstName + " " + req.user.lastName + " Associates",
+        arnNumber: "ARN-" + (req.user.userId || "000000").slice(-6),
+        status: "active",
+        joinedAt: req.user.lastLoginAt || new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching partner profile:", error);
+      res.status(500).json({ error: "Failed to fetch profile" });
+    }
+  });
+
+  // Partner clients list
+  app.get("/api/partner/clients", async (req: any, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      // Return mock client data for now
+      res.json([
+        {
+          id: "client-1",
+          name: "Rahul Sharma",
+          email: "rahul.sharma@example.com",
+          mobile: "9876543210",
+          aum: 2500000,
+          status: "active",
+          lastActivity: new Date().toISOString()
+        },
+        {
+          id: "client-2", 
+          name: "Priya Patel",
+          email: "priya.patel@example.com",
+          mobile: "9876543211",
+          aum: 1800000,
+          status: "active",
+          lastActivity: new Date().toISOString()
+        },
+        {
+          id: "client-3",
+          name: "Amit Kumar",
+          email: "amit.kumar@example.com", 
+          mobile: "9876543212",
+          aum: 3200000,
+          status: "active",
+          lastActivity: new Date().toISOString()
+        }
+      ]);
+    } catch (error) {
+      console.error("Error fetching partner clients:", error);
+      res.status(500).json({ error: "Failed to fetch clients" });
+    }
+  });
+
+  // Partner activity feed
+  app.get("/api/partner/activity", async (req: any, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      res.json([
+        {
+          id: "act-1",
+          type: "client_onboarded",
+          message: "New client Rahul Sharma onboarded",
+          timestamp: new Date(Date.now() - 3600000).toISOString()
+        },
+        {
+          id: "act-2",
+          type: "investment",
+          message: "Investment of ₹50,000 completed for Priya Patel",
+          timestamp: new Date(Date.now() - 7200000).toISOString()
+        },
+        {
+          id: "act-3",
+          type: "commission",
+          message: "Commission of ₹2,500 credited",
+          timestamp: new Date(Date.now() - 86400000).toISOString()
+        },
+        {
+          id: "act-4",
+          type: "kyc_approved",
+          message: "KYC approved for Amit Kumar",
+          timestamp: new Date(Date.now() - 172800000).toISOString()
+        }
+      ]);
+    } catch (error) {
+      console.error("Error fetching partner activity:", error);
+      res.status(500).json({ error: "Failed to fetch activity" });
+    }
+  });
+
+  // Top performing agents under partner
+  app.get("/api/partner/top-agents", async (req: any, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      res.json([
+        {
+          id: "agent-1",
+          name: "Vikram Singh",
+          email: "vikram.singh@example.com",
+          clientsCount: 45,
+          totalAum: 12500000,
+          monthlyTarget: 5000000,
+          monthlyAchieved: 4200000,
+          performance: 84
+        },
+        {
+          id: "agent-2",
+          name: "Meera Reddy", 
+          email: "meera.reddy@example.com",
+          clientsCount: 38,
+          totalAum: 9800000,
+          monthlyTarget: 4000000,
+          monthlyAchieved: 3600000,
+          performance: 90
+        },
+        {
+          id: "agent-3",
+          name: "Arjun Verma",
+          email: "arjun.verma@example.com",
+          clientsCount: 32,
+          totalAum: 7500000,
+          monthlyTarget: 3500000,
+          monthlyAchieved: 2800000,
+          performance: 80
+        }
+      ]);
+    } catch (error) {
+      console.error("Error fetching top agents:", error);
+      res.status(500).json({ error: "Failed to fetch top agents" });
+    }
+  });
+
   console.log("✅ Partner Portal routes registered");
 }
