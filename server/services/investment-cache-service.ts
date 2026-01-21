@@ -1,7 +1,8 @@
 /**
  * Investment Cache Service
  * Centralized caching layer for market data, fundamentals, AI rationales, 
- * and portfolio metrics to reduce external API calls during rebalancing and proposal generation.
+ * portfolio metrics, and advanced financial metrics to reduce external API calls 
+ * during rebalancing and proposal generation.
  */
 
 import { db } from "../db";
@@ -14,6 +15,7 @@ import {
   rebalanceSummaries,
   proposalMaterializations,
   cacheRefreshJobs,
+  stockFinancialMetrics,
   type MarketDataSnapshot,
   type ProductFundamentalsCache,
   type AiRationaleCache,
@@ -28,6 +30,9 @@ import {
   type InsertProposalMaterialization
 } from "@shared/schema";
 import crypto from "crypto";
+import { FinancialMetricsCalculator } from "./financial-metrics-calculator";
+
+const financialMetricsCalculator = new FinancialMetricsCalculator();
 
 // Cache TTL configurations (in hours)
 const CACHE_TTL = {
@@ -673,6 +678,128 @@ export async function getCacheStats(): Promise<{
       totalHits: Number((proposalStats as any)?.total_hits || 0)
     }
   };
+}
+
+// =====================================================
+// FINANCIAL METRICS CACHE (Advanced Quality Scores)
+// =====================================================
+
+export interface CachedFinancialMetrics {
+  symbol: string;
+  piotroskiFScore?: number;
+  altmanZScore?: number;
+  pegRatio?: number;
+  evToEbitda?: number;
+  roic?: number;
+  earningsQuality?: number;
+  debtToEquity?: number;
+  currentRatio?: number;
+  roe?: number;
+  roce?: number;
+  lastUpdated: Date;
+}
+
+export async function getCachedFinancialMetrics(
+  symbol: string
+): Promise<CachedFinancialMetrics | null> {
+  const [cached] = await db
+    .select()
+    .from(stockFinancialMetrics)
+    .where(eq(stockFinancialMetrics.symbol, symbol))
+    .orderBy(desc(stockFinancialMetrics.lastUpdated))
+    .limit(1);
+  
+  if (!cached) return null;
+  
+  return {
+    symbol: cached.symbol,
+    piotroskiFScore: cached.piotroskiFScore ?? undefined,
+    altmanZScore: cached.altmanZScore ? parseFloat(cached.altmanZScore) : undefined,
+    pegRatio: cached.pegRatio ? parseFloat(cached.pegRatio) : undefined,
+    evToEbitda: cached.evToEbitda ? parseFloat(cached.evToEbitda) : undefined,
+    roic: cached.roic ? parseFloat(cached.roic) : undefined,
+    earningsQuality: cached.earningsQuality ? parseFloat(cached.earningsQuality) : undefined,
+    debtToEquity: cached.debtToEquity ? parseFloat(cached.debtToEquity) : undefined,
+    currentRatio: cached.currentRatio ? parseFloat(cached.currentRatio) : undefined,
+    roe: cached.roe ? parseFloat(cached.roe) : undefined,
+    roce: cached.roce ? parseFloat(cached.roce) : undefined,
+    lastUpdated: cached.lastUpdated || new Date()
+  };
+}
+
+export async function getCachedFinancialMetricsBatch(
+  symbols: string[]
+): Promise<Map<string, CachedFinancialMetrics>> {
+  if (symbols.length === 0) return new Map();
+  
+  const results = await db
+    .select()
+    .from(stockFinancialMetrics)
+    .where(sql`${stockFinancialMetrics.symbol} IN (${sql.raw(symbols.map(s => `'${s}'`).join(','))})`)
+    .orderBy(desc(stockFinancialMetrics.lastUpdated));
+  
+  const map = new Map<string, CachedFinancialMetrics>();
+  results.forEach(r => {
+    if (!map.has(r.symbol)) {
+      map.set(r.symbol, {
+        symbol: r.symbol,
+        piotroskiFScore: r.piotroskiFScore ?? undefined,
+        altmanZScore: r.altmanZScore ? parseFloat(r.altmanZScore) : undefined,
+        pegRatio: r.pegRatio ? parseFloat(r.pegRatio) : undefined,
+        evToEbitda: r.evToEbitda ? parseFloat(r.evToEbitda) : undefined,
+        roic: r.roic ? parseFloat(r.roic) : undefined,
+        earningsQuality: r.earningsQuality ? parseFloat(r.earningsQuality) : undefined,
+        debtToEquity: r.debtToEquity ? parseFloat(r.debtToEquity) : undefined,
+        currentRatio: r.currentRatio ? parseFloat(r.currentRatio) : undefined,
+        roe: r.roe ? parseFloat(r.roe) : undefined,
+        roce: r.roce ? parseFloat(r.roce) : undefined,
+        lastUpdated: r.lastUpdated || new Date()
+      });
+    }
+  });
+  
+  return map;
+}
+
+export function calculateEnhancedQualityScore(metrics: CachedFinancialMetrics): number {
+  let score = 50; // Base score
+  
+  // Piotroski F-Score (0-9): Higher is better
+  if (metrics.piotroskiFScore !== undefined) {
+    if (metrics.piotroskiFScore >= 8) score += 20;
+    else if (metrics.piotroskiFScore >= 6) score += 12;
+    else if (metrics.piotroskiFScore >= 4) score += 5;
+    else score -= 10;
+  }
+  
+  // Altman Z-Score: Financial distress indicator
+  if (metrics.altmanZScore !== undefined) {
+    if (metrics.altmanZScore > 2.99) score += 15; // Safe zone
+    else if (metrics.altmanZScore >= 1.81) score += 5; // Grey zone
+    else score -= 15; // Distress zone
+  }
+  
+  // PEG Ratio: Growth at reasonable price
+  if (metrics.pegRatio !== undefined && metrics.pegRatio > 0) {
+    if (metrics.pegRatio < 1) score += 10;
+    else if (metrics.pegRatio < 1.5) score += 5;
+    else if (metrics.pegRatio > 2.5) score -= 5;
+  }
+  
+  // ROIC: Return on Invested Capital
+  if (metrics.roic !== undefined) {
+    if (metrics.roic > 20) score += 10;
+    else if (metrics.roic > 15) score += 5;
+    else if (metrics.roic < 5) score -= 5;
+  }
+  
+  // Earnings Quality: OCF/Net Income ratio
+  if (metrics.earningsQuality !== undefined) {
+    if (metrics.earningsQuality >= 1) score += 5; // High quality
+    else if (metrics.earningsQuality < 0.5) score -= 5; // Low quality
+  }
+  
+  return Math.min(100, Math.max(0, score));
 }
 
 export async function cleanupExpiredCache(): Promise<{

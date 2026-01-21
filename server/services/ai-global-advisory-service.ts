@@ -1,6 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
 import { currencyExchangeService } from "./currency-exchange-service";
 import yahooFinance from "yahoo-finance2";
+import { FinancialMetricsCalculator } from "./financial-metrics-calculator";
+
+const financialMetricsCalculator = new FinancialMetricsCalculator();
 
 export interface GlobalInstrumentData {
   symbol: string;
@@ -681,13 +684,115 @@ class AIGlobalAdvisoryService {
       risk += 10;
     }
 
+    // === Advanced Financial Metrics Integration ===
+    const advancedMetrics = this.calculateAdvancedGlobalMetrics(data);
+    
+    // PEG Ratio: Growth-adjusted valuation
+    if (advancedMetrics.pegRatio !== undefined) {
+      if (advancedMetrics.pegRatio > 0 && advancedMetrics.pegRatio < 1) {
+        total += 10;
+        keyFactors.push('Attractive PEG ratio (growth at reasonable price)');
+      } else if (advancedMetrics.pegRatio >= 1 && advancedMetrics.pegRatio < 1.5) {
+        total += 5;
+        keyFactors.push('Fair PEG ratio');
+      } else if (advancedMetrics.pegRatio > 2.5) {
+        total -= 5;
+        riskFactors.push('High PEG ratio - expensive for growth');
+      }
+    }
+    
+    // Price-to-Book ratio assessment
+    if (advancedMetrics.priceToBook !== undefined) {
+      if (advancedMetrics.priceToBook > 0 && advancedMetrics.priceToBook < 1.5) {
+        total += 5;
+        keyFactors.push('Attractive price-to-book value');
+      } else if (advancedMetrics.priceToBook > 5) {
+        riskFactors.push('High price-to-book ratio');
+      }
+    }
+    
+    // EV/EBITDA multiple
+    if (advancedMetrics.evToEbitda !== undefined) {
+      if (advancedMetrics.evToEbitda > 0 && advancedMetrics.evToEbitda < 10) {
+        total += 5;
+        keyFactors.push('Reasonable EV/EBITDA multiple');
+        confidence += 5;
+      } else if (advancedMetrics.evToEbitda > 20) {
+        total -= 5;
+        riskFactors.push('High EV/EBITDA multiple');
+      }
+    }
+    
+    // Market cap consideration for liquidity
+    if (advancedMetrics.liquidityScore !== undefined) {
+      if (advancedMetrics.liquidityScore >= 80) {
+        confidence += 10;
+        keyFactors.push('High liquidity');
+      } else if (advancedMetrics.liquidityScore < 40) {
+        confidence -= 10;
+        riskFactors.push('Lower liquidity - may impact execution');
+      }
+    }
+
     return { 
       total: Math.min(100, Math.max(0, total)), 
-      confidence, 
+      confidence: Math.min(100, Math.max(0, confidence)), 
       risk: Math.min(100, Math.max(0, risk)),
       keyFactors,
       riskFactors
     };
+  }
+
+  private calculateAdvancedGlobalMetrics(data: GlobalInstrumentData): {
+    pegRatio?: number;
+    priceToBook?: number;
+    evToEbitda?: number;
+    liquidityScore?: number;
+  } {
+    const metrics: any = {};
+    
+    try {
+      // PEG Ratio calculation
+      if (data.peRatio && data.peRatio > 0) {
+        // Estimate EPS growth from price momentum (approximation for global stocks)
+        const epsGrowthEstimate = data.priceChangePercent > 0 ? 
+          Math.min(30, data.priceChangePercent * 2) : 10;
+        if (epsGrowthEstimate > 0) {
+          metrics.pegRatio = financialMetricsCalculator.calculatePEGRatio(
+            data.peRatio, epsGrowthEstimate / 100
+          );
+        }
+      }
+      
+      // Price-to-Book from data
+      if (data.pbRatio && data.pbRatio > 0) {
+        metrics.priceToBook = data.pbRatio;
+      }
+      
+      // EV/EBITDA estimation (when available)
+      if (data.marketCap && data.peRatio) {
+        // Approximate EBITDA from market cap and P/E
+        const estimatedEarnings = data.marketCap / data.peRatio;
+        const estimatedEbitda = estimatedEarnings * 1.5; // Rough approximation
+        if (estimatedEbitda > 0) {
+          const ev = data.marketCap; // Simplified - full EV needs debt data
+          metrics.evToEbitda = financialMetricsCalculator.calculateEVtoEBITDA(ev, estimatedEbitda);
+        }
+      }
+      
+      // Liquidity score based on volume and market cap
+      if (data.avgVolume && data.currentPrice) {
+        const dailyTurnover = data.avgVolume * data.currentPrice;
+        if (dailyTurnover > 100000000) metrics.liquidityScore = 90;
+        else if (dailyTurnover > 10000000) metrics.liquidityScore = 70;
+        else if (dailyTurnover > 1000000) metrics.liquidityScore = 50;
+        else metrics.liquidityScore = 30;
+      }
+    } catch (error) {
+      console.error('[GlobalAdvisory] Error calculating advanced metrics:', error);
+    }
+    
+    return metrics;
   }
 
   private getRecommendationFromScore(score: number): 'strong_buy' | 'buy' | 'hold' | 'sell' | 'strong_sell' {
