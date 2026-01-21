@@ -93,7 +93,7 @@ const partnerNavSections: NavSection[] = [
       },
       {
         title: "Agent Performance",
-        href: "/partner/agents",
+        href: "/partner/agent-performance",
         icon: BarChart3,
         description: "P&L and metrics"
       },
