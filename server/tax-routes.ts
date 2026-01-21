@@ -99,7 +99,9 @@ function requirePermission(permission: keyof TaxPermissions) {
 }
 
 function requireTaxAuth(req: Request, res: Response, next: NextFunction) {
-  const userId = (req as any).session?.userId;
+  const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
   
   if (!userId) {
     return res.status(401).json({ error: "Authentication required" });
@@ -462,7 +464,9 @@ function getEligibleITRForms(panType: PANType): Array<{ form: string; name: stri
 
 router.post("/itr/draft", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).session?.userId;
+    const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
     
     if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
@@ -561,7 +565,9 @@ router.post("/itr/draft", async (req: Request, res: Response) => {
 
 router.get("/itr/drafts", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).session?.userId;
+    const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
     
     if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
@@ -578,7 +584,9 @@ router.get("/itr/drafts", async (req: Request, res: Response) => {
 
 router.get("/itr/draft/:id", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).session?.userId;
+    const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
     
     if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
@@ -604,7 +612,9 @@ router.get("/itr/draft/:id", async (req: Request, res: Response) => {
 
 router.get("/notices", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).session?.userId;
+    const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
     
     if (!userId) {
       return res.json({ notices: [] });
@@ -621,7 +631,9 @@ router.get("/notices", async (req: Request, res: Response) => {
 
 router.post("/notices", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).session?.userId;
+    const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
     
     if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
@@ -646,7 +658,9 @@ router.post("/notices", async (req: Request, res: Response) => {
 
 router.get("/loss-harvesting/opportunities", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).session?.userId;
+    const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
     
     if (!userId) {
       return res.json({ opportunities: [] });
@@ -686,7 +700,9 @@ const expertCaseUpdateSchema = expertCaseSchema.partial();
 
 router.post("/expert-cases", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).session?.userId;
+    const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
     
     if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
@@ -723,7 +739,9 @@ router.post("/expert-cases", async (req: Request, res: Response) => {
 
 router.get("/expert-cases", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).session?.userId;
+    const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
     
     if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
@@ -742,7 +760,9 @@ router.get("/expert-cases", async (req: Request, res: Response) => {
 
 router.get("/expert-cases/:id", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).session?.userId;
+    const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
     
     if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
@@ -767,7 +787,9 @@ router.get("/expert-cases/:id", async (req: Request, res: Response) => {
 
 router.patch("/expert-cases/:id", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).session?.userId;
+    const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
     
     if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
@@ -813,7 +835,9 @@ router.patch("/expert-cases/:id", async (req: Request, res: Response) => {
 
 router.delete("/expert-cases/:id", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).session?.userId;
+    const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
     
     if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
@@ -861,7 +885,9 @@ let paymentIdCounter = 1;
 
 router.post("/itr/draft/:id/lock", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).session?.userId;
+    const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
     
     if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
@@ -909,7 +935,9 @@ router.post("/itr/draft/:id/lock", async (req: Request, res: Response) => {
 
 router.post("/itr/payment", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).session?.userId;
+    const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
     
     if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
@@ -968,7 +996,9 @@ router.post("/itr/payment", async (req: Request, res: Response) => {
 
 router.get("/itr/payments", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).session?.userId;
+    const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
     
     if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
@@ -989,7 +1019,9 @@ const verificationStorage = new Map<number, any>();
 
 router.post("/itr/verify/send-otp", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).session?.userId;
+    const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
     
     if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
@@ -1023,7 +1055,9 @@ router.post("/itr/verify/send-otp", async (req: Request, res: Response) => {
 
 router.post("/itr/verify/submit", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).session?.userId;
+    const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
     
     if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
@@ -1100,7 +1134,9 @@ router.post("/itr/verify/submit", async (req: Request, res: Response) => {
 
 router.get("/itr/verification-status/:draftId", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).session?.userId;
+    const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
     
     if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
@@ -1235,7 +1271,9 @@ router.post("/agent/cases/:caseId/action", requirePermission("canSubmitForReview
 
 router.get("/filing-status", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).session?.userId;
+    const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
     
     if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
