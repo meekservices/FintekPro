@@ -531,7 +531,7 @@ export function registerRoleRoutes(app: Express) {
           const ids = clientIds.map(c => c.clientId).filter(Boolean);
           if (ids.length > 0) {
             const { inArray } = await import('drizzle-orm');
-            const aumResult = await db.select({ total: sql<number>`COALESCE(SUM(CAST(current_value AS NUMERIC)), 0)` })
+            const aumResult = await db.select({ total: sql<number>`COALESCE(SUM(CAST(total_value AS NUMERIC)), 0)` })
               .from(portfolios)
               .where(inArray(portfolios.userId, ids));
             totalAUM = Number(aumResult[0]?.total) || 0;
