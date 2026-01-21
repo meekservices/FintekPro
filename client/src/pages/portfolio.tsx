@@ -553,7 +553,7 @@ export default function Portfolio() {
                   <CardContent>
                     {isLoading ? (
                       <LoadingState variant="list" count={5} />
-                    ) : enhancedHoldings && enhancedHoldings.length > 0 ? (
+                    ) : Array.isArray(enhancedHoldings) && enhancedHoldings.length > 0 ? (
                       <div className="space-y-6" data-testid="holdings-list">
                         {Object.entries(
                           enhancedHoldings.reduce((groups, holding) => {
@@ -565,8 +565,8 @@ export default function Portfolio() {
                             return groups;
                           }, {} as Record<string, typeof enhancedHoldings>)
                         ).map(([assetType, holdings]) => {
-                          const totalInvested = holdings?.reduce((sum, h) => sum + parseFloat(h.investedValue), 0) || 0;
-                          const totalCurrent = holdings?.reduce((sum, h) => sum + parseFloat(h.currentValue), 0) || 0;
+                          const totalInvested = Array.isArray(holdings) ? holdings.reduce((sum, h) => sum + parseFloat(h.investedValue || '0'), 0) : 0;
+                          const totalCurrent = Array.isArray(holdings) ? holdings.reduce((sum, h) => sum + parseFloat(h.currentValue || '0'), 0) : 0;
                           const totalGainLoss = totalCurrent - totalInvested;
                           const totalGainLossPercent = totalInvested > 0 ? (totalGainLoss / totalInvested) * 100 : 0;
                           const assetTypeLabel = assetType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
@@ -919,7 +919,7 @@ export default function Portfolio() {
               <CardContent>
                 {isLoading ? (
                   <LoadingState variant="table" count={5} />
-                ) : enhancedHoldings && enhancedHoldings.length > 0 ? (
+                ) : Array.isArray(enhancedHoldings) && enhancedHoldings.length > 0 ? (
                   <div className="space-y-6">
                     {/* Tracker Summary Stats */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1116,7 +1116,7 @@ export default function Portfolio() {
               <CardContent>
                 {isLoading ? (
                   <LoadingState variant="table" count={5} />
-                ) : externalHoldings && externalHoldings.length > 0 ? (
+                ) : Array.isArray(externalHoldings) && externalHoldings.length > 0 ? (
                   <div className="space-y-6">
                     {/* External Portfolio Summary Stats */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

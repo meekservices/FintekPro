@@ -165,7 +165,12 @@ class AIService {
       stream: false
     });
 
-    const content = response.choices[0]?.message?.content || '';
+    // Ensure content is always a string
+    let content = response.choices[0]?.message?.content || '';
+    if (typeof content !== 'string') {
+      console.warn('[AI Service] OpenAI returned non-string content, converting to JSON:', typeof content);
+      content = JSON.stringify(content);
+    }
     const usage: AIUsageMetrics = {
       provider: 'openai',
       model,
@@ -206,7 +211,12 @@ class AIService {
       } : {})
     } as any);
 
-    const content = response.choices[0]?.message?.content || '';
+    // Ensure content is always a string
+    let content = response.choices[0]?.message?.content || '';
+    if (typeof content !== 'string') {
+      console.warn('[AI Service] OpenAI-Direct returned non-string content, converting to JSON:', typeof content);
+      content = JSON.stringify(content);
+    }
     const usage: AIUsageMetrics = {
       provider: 'openai-direct',
       model,
@@ -297,7 +307,12 @@ class AIService {
       contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
     });
 
-    const content = response.text || '';
+    // Ensure content is always a string - handle edge cases where response.text might be an object
+    let content = response.text || '';
+    if (typeof content !== 'string') {
+      console.warn('[AI Service] Gemini returned non-string content, converting to JSON:', typeof content);
+      content = JSON.stringify(content);
+    }
     const usage: AIUsageMetrics = {
       provider: 'gemini',
       model: model.includes('gemini') ? model : 'gemini-2.0-flash-exp',
