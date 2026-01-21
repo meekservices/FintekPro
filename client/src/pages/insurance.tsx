@@ -12,7 +12,14 @@ export default function Insurance() {
   const [selectedType, setSelectedType] = useState<string>("all");
 
   const { data: insuranceProducts, isLoading } = useQuery({
-    queryKey: ['/api/products', { category: 'insurance', subcategory: selectedType !== 'all' ? selectedType : undefined }],
+    queryKey: ['/api/products', 'insurance', selectedType],
+    queryFn: async () => {
+      const params = new URLSearchParams({ category: 'insurance' });
+      if (selectedType !== 'all') params.append('subcategory', selectedType);
+      const res = await fetch(`/api/products?${params.toString()}`);
+      if (!res.ok) throw new Error('Failed to fetch products');
+      return res.json();
+    },
     refetchInterval: 120000,
   });
 

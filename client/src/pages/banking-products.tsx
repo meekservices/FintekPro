@@ -11,7 +11,14 @@ export default function BankingProducts() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
   const { data: bankingProducts, isLoading } = useQuery({
-    queryKey: ['/api/products', { category: 'banking', subcategory: selectedCategory !== 'all' ? selectedCategory : undefined }],
+    queryKey: ['/api/products', 'banking', selectedCategory],
+    queryFn: async () => {
+      const params = new URLSearchParams({ category: 'banking' });
+      if (selectedCategory !== 'all') params.append('subcategory', selectedCategory);
+      const res = await fetch(`/api/products?${params.toString()}`);
+      if (!res.ok) throw new Error('Failed to fetch products');
+      return res.json();
+    },
     refetchInterval: 120000,
   });
 
