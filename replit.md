@@ -19,13 +19,14 @@ Do not make changes to the file `Y`.
   - Assignment rules routing
   - Welcome email to prospect
 
-- **Unified Portfolio Sync (NSDL/CDSL)** - Complete demat holdings + transactions sync:
+- **Unified Portfolio Sync (NSDL/CDSL)** - ✅ COMPLETED (January 21, 2026):
   - Fetch ALL demat securities: equities, bonds/NCDs, AIFs, PMS, REITs/InvITs, ETFs, SGBs, MLDs, G-Secs
-  - Single authorization fetches holdings + transaction history in parallel
+  - Single authorization fetches holdings + transaction history in parallel via `fetchDematWithTransactions()`
   - Transaction types: buy, sell, bonus, split, rights, dividend, interest, maturity, redemption, corporate_action
-  - Asset type classification for proper categorization
-  - Unified client dashboard showing complete portfolio across MF + Demat
-  - Source tracking: bse_star_cas, nsdl, cdsl
+  - Asset type classification using ISIN prefix detection (INF=MF, INE=Equity/Debt, INV=AIF, INS=GSec)
+  - Unified API endpoints: `/api/portfolio/unified-complete` and `/api/agent/prospects/:id/portfolio/unified-complete`
+  - Source tracking via transactionReports join (bse_star_cas, nsdl, cdsl)
+  - Sandbox mock data for dev/test when AA credentials not configured
 
 ## System Architecture
 
