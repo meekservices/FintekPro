@@ -25594,6 +25594,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // KYC product eligibility stub endpoint
+  app.get("/api/kyc/product-eligibility", async (req, res) => {
+    try {
+      res.json({
+        eligible: true,
+        products: [],
+        restrictions: [],
+        message: "Product eligibility feature coming soon"
+      });
+    } catch (error) {
+      console.error('Error fetching product eligibility:', error);
+      res.status(500).json({ message: "Failed to fetch product eligibility" });
+    }
+  });
+
+  // Loan offers stub endpoint
+  app.get("/api/loan-offers", async (req, res) => {
+    try {
+      res.json({
+        offers: [],
+        total: 0,
+        message: "Loan offers feature coming soon"
+      });
+    } catch (error) {
+      console.error('Error fetching loan offers:', error);
+      res.status(500).json({ message: "Failed to fetch loan offers" });
+    }
+  });
+
   app.post('/api/kyc/manual-submit', async (req: any, res) => {
     try {
       if (!req.user) {
