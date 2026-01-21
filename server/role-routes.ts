@@ -283,14 +283,61 @@ export function registerRoleRoutes(app: Express) {
   // Agent Dashboard Recent Activity
   app.get('/api/agent/dashboard/recent-activity', async (req: any, res: Response) => {
     try {
-      res.json([
-        { id: 1, type: 'kyc', client: 'Rajesh Kumar', message: 'KYC verification completed', time: '2 hours ago' },
-        { id: 2, type: 'investment', client: 'Priya Sharma', message: 'New SIP registered - ₹10,000/month', time: '4 hours ago' },
-        { id: 3, type: 'meeting', client: 'Amit Patel', message: 'Meeting scheduled for portfolio review', time: '6 hours ago' },
-        { id: 4, type: 'proposal', client: 'Sunita Verma', message: 'Investment proposal approved', time: '1 day ago' },
-        { id: 5, type: 'document', client: 'Vikram Singh', message: 'Documents uploaded for ITR filing', time: '2 days ago' }
-      ]);
+      const { db } = await import('./db');
+      const { agentLeads, prospectClients } = await import('@shared/schema');
+      const { eq, desc } = await import('drizzle-orm');
+      
+      const agentId = req.user?.id;
+      if (!agentId) {
+        return res.json([]);
+      }
+      
+      // Get recent leads
+      const recentLeads = await db.select()
+        .from(agentLeads)
+        .where(eq(agentLeads.agentId, agentId))
+        .orderBy(desc(agentLeads.createdAt))
+        .limit(3);
+      
+      // Get recent prospects
+      const recentProspects = await db.select()
+        .from(prospectClients)
+        .where(eq(prospectClients.agentId, agentId))
+        .orderBy(desc(prospectClients.createdAt))
+        .limit(3);
+      
+      const activities: any[] = [];
+      
+      recentLeads.forEach((lead, idx) => {
+        const createdAt = lead.createdAt ? new Date(lead.createdAt) : new Date();
+        const hoursAgo = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60));
+        const timeStr = hoursAgo < 24 ? `${hoursAgo} hours ago` : `${Math.floor(hoursAgo/24)} days ago`;
+        activities.push({
+          id: idx + 1,
+          type: 'lead',
+          client: lead.name || 'Unknown',
+          message: `Lead ${lead.stage === 'new' ? 'added' : 'updated to ' + lead.stage}`,
+          time: timeStr
+        });
+      });
+      
+      recentProspects.forEach((prospect, idx) => {
+        const createdAt = prospect.createdAt ? new Date(prospect.createdAt) : new Date();
+        const hoursAgo = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60));
+        const timeStr = hoursAgo < 24 ? `${hoursAgo} hours ago` : `${Math.floor(hoursAgo/24)} days ago`;
+        activities.push({
+          id: 100 + idx,
+          type: 'prospect',
+          client: prospect.name || 'Unknown',
+          message: prospect.uploadedPortfolio ? 'Portfolio uploaded' : 'New prospect added',
+          time: timeStr
+        });
+      });
+      
+      // Sort by time and limit
+      res.json(activities.slice(0, 5));
     } catch (error: any) {
+      console.error('Error fetching recent activity:', error);
       res.status(500).json({ success: false, message: 'Failed to fetch recent activity', error: error.message });
     }
   });
@@ -436,20 +483,81 @@ export function registerRoleRoutes(app: Express) {
 
   app.get('/api/agent/stats', async (req: any, res: Response) => {
     try {
+      const { db } = await import('./db');
+      const { clientAgentRelationships, agentLeads, portfolios, prospectClients } = await import('@shared/schema');
+      const { eq, sql, and, gte } = await import('drizzle-orm');
+      
+      const agentId = req.user?.id;
+      if (!agentId) {
+        return res.json({
+          totalClients: 0, activeClients: 0, totalLeads: 0, convertedLeads: 0,
+          totalAUM: 0, thisMonthBusiness: 0, lastMonthBusiness: 0,
+          totalCommissions: 0, pendingCommissions: 0, targetProgress: 0, monthlyTarget: 500000
+        });
+      }
+      
+      // Get client count
+      const clientsResult = await db.select({ count: sql<number>`count(*)` })
+        .from(clientAgentRelationships)
+        .where(eq(clientAgentRelationships.agentId, agentId));
+      const totalClients = Number(clientsResult[0]?.count) || 0;
+      
+      // Get leads count from agentLeads table
+      const leadsResult = await db.select({ count: sql<number>`count(*)` })
+        .from(agentLeads)
+        .where(eq(agentLeads.agentId, agentId));
+      const totalLeads = Number(leadsResult[0]?.count) || 0;
+      
+      // Get converted leads
+      const convertedResult = await db.select({ count: sql<number>`count(*)` })
+        .from(agentLeads)
+        .where(and(eq(agentLeads.agentId, agentId), eq(agentLeads.stage, 'converted')));
+      const convertedLeads = Number(convertedResult[0]?.count) || 0;
+      
+      // Get prospects count
+      const prospectsResult = await db.select({ count: sql<number>`count(*)` })
+        .from(prospectClients)
+        .where(eq(prospectClients.agentId, agentId));
+      const prospectsCount = Number(prospectsResult[0]?.count) || 0;
+      
+      // Calculate AUM from client portfolios
+      let totalAUM = 0;
+      if (totalClients > 0) {
+        const clientIds = await db.select({ clientId: clientAgentRelationships.clientId })
+          .from(clientAgentRelationships)
+          .where(eq(clientAgentRelationships.agentId, agentId));
+        
+        if (clientIds.length > 0) {
+          const ids = clientIds.map(c => c.clientId).filter(Boolean);
+          if (ids.length > 0) {
+            const { inArray } = await import('drizzle-orm');
+            const aumResult = await db.select({ total: sql<number>`COALESCE(SUM(CAST(current_value AS NUMERIC)), 0)` })
+              .from(portfolios)
+              .where(inArray(portfolios.userId, ids));
+            totalAUM = Number(aumResult[0]?.total) || 0;
+          }
+        }
+      }
+      
+      const monthlyTarget = 500000;
+      const thisMonthBusiness = 0; // Would need transactions table
+      const targetProgress = monthlyTarget > 0 ? Math.round((thisMonthBusiness / monthlyTarget) * 100) : 0;
+      
       res.json({
-        totalClients: 0,
-        activeClients: 0,
-        totalLeads: 0,
-        convertedLeads: 0,
-        totalAUM: 0,
-        thisMonthBusiness: 0,
+        totalClients,
+        activeClients: totalClients,
+        totalLeads: totalLeads + prospectsCount,
+        convertedLeads,
+        totalAUM,
+        thisMonthBusiness,
         lastMonthBusiness: 0,
         totalCommissions: 0,
         pendingCommissions: 0,
-        targetProgress: 0,
-        monthlyTarget: 500000
+        targetProgress,
+        monthlyTarget
       });
     } catch (error: any) {
+      console.error('Error fetching agent stats:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to fetch agent stats',
@@ -588,13 +696,57 @@ export function registerRoleRoutes(app: Express) {
   // Agent Clients List (for dropdowns)
   app.get('/api/agent/clients/list', async (req: any, res: Response) => {
     try {
-      res.json([
-        { id: '1', name: 'Rajesh Kumar', pan: 'ABCPK1234L', email: 'rajesh@example.com' },
-        { id: '2', name: 'Priya Sharma', pan: 'DEFPS5678M', email: 'priya@example.com' },
-        { id: '3', name: 'Amit Patel', pan: 'GHIAP9012N', email: 'amit@example.com' },
-        { id: '4', name: 'Sunita Verma', pan: 'JKLSV3456O', email: 'sunita@example.com' }
-      ]);
+      const { db } = await import('./db');
+      const { clientAgentRelationships, users, prospectClients } = await import('@shared/schema');
+      const { eq, inArray } = await import('drizzle-orm');
+      
+      const agentId = req.user?.id;
+      if (!agentId) {
+        return res.json([]);
+      }
+      
+      // Get registered clients
+      const relationships = await db.select({ clientId: clientAgentRelationships.clientId })
+        .from(clientAgentRelationships)
+        .where(eq(clientAgentRelationships.agentId, agentId));
+      
+      let clients: any[] = [];
+      if (relationships.length > 0) {
+        const clientIds = relationships.map(r => r.clientId).filter(Boolean);
+        if (clientIds.length > 0) {
+          const usersData = await db.select({
+            id: users.id,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            panNumber: users.panNumber,
+            email: users.email
+          }).from(users).where(inArray(users.id, clientIds));
+          
+          clients = usersData.map(u => ({
+            id: u.id,
+            name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Unknown',
+            pan: u.panNumber || '',
+            email: u.email || ''
+          }));
+        }
+      }
+      
+      // Also get prospects
+      const prospects = await db.select()
+        .from(prospectClients)
+        .where(eq(prospectClients.agentId, agentId));
+      
+      const prospectsList = prospects.map(p => ({
+        id: p.id,
+        name: p.name || 'Unknown',
+        pan: p.pan || '',
+        email: p.email || '',
+        isProspect: true
+      }));
+      
+      res.json([...clients, ...prospectsList]);
     } catch (error: any) {
+      console.error('Error fetching clients list:', error);
       res.status(500).json({ success: false, message: 'Failed to fetch clients list', error: error.message });
     }
   });
