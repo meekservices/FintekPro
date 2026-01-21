@@ -2,7 +2,7 @@ import type { KycVerificationSession } from "@shared/schema";
 import { db } from "../db";
 import * as schema from "@shared/schema";
 import { portfolios, prospectClients } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 /**
  * Transfer verified KYC data from verification session to user profile
@@ -288,39 +288,54 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
         return;
       }
       
-      // Import BSE STAR CAS service dynamically to avoid circular dependencies
+      // Import services dynamically to avoid circular dependencies
       const { BSEStarCASService } = await import('./bse-star-cas-service');
+      const { DematHoldingsService } = await import('./demat-holdings-service');
       const casService = new BSEStarCASService();
+      const dematService = new DematHoldingsService();
       
-      // Attempt to fetch portfolio AND transactions from BSE STAR CAS with single authorization
-      const unifiedResult = await casService.fetchCASWithTransactions({
+      const fetchRequest = {
         panNumber: panNumber,
         name: userName,
         dob: user.dateOfBirth,
         mobile: user.mobileNumber || undefined,
         email: user.email || undefined
-      });
+      };
       
-      const casResult = unifiedResult.holdings;
-      const transactionResult = unifiedResult.transactions;
+      // Fetch MF (BSE STAR CAS) and Demat (NSDL/CDSL) data in parallel
+      console.log('[Portfolio Refresh] Fetching MF + Demat data in parallel...');
+      const [mfUnifiedResult, dematUnifiedResult] = await Promise.all([
+        casService.fetchCASWithTransactions(fetchRequest),
+        dematService.fetchDematWithTransactions(fetchRequest)
+      ]);
       
-      if (!casResult.success) {
-        console.log('[Portfolio Refresh] CAS fetch failed:', casResult.message);
-        // Update portfolio status to indicate failure
+      const casResult = mfUnifiedResult.holdings;
+      const mfTransactionResult = mfUnifiedResult.transactions;
+      const dematResult = dematUnifiedResult.holdings;
+      const dematTransactionResult = dematUnifiedResult.transactions;
+      
+      // Check if at least one source succeeded
+      const mfSuccess = casResult?.success || false;
+      const dematSuccess = dematResult?.success || false;
+      
+      if (!mfSuccess && !dematSuccess) {
+        console.log('[Portfolio Refresh] Both MF and Demat fetch failed');
         await db
           .update(schema.portfolios)
           .set({
             lastFetchStatus: 'failed',
-            lastFetchError: casResult.message || 'CAS fetch failed',
+            lastFetchError: casResult?.message || dematResult?.message || 'All data sources failed',
             updatedAt: new Date()
           })
           .where(eq(schema.portfolios.userId, userId));
         return;
       }
       
-      if (casResult.holdings.length === 0) {
-        console.log('[Portfolio Refresh] CAS returned no holdings - user may have no MF investments');
-        // Update portfolio status to indicate success but no holdings
+      const mfHoldingsCount = casResult?.holdings?.length || 0;
+      const dematHoldingsCount = dematResult?.holdings?.length || 0;
+      
+      if (mfHoldingsCount === 0 && dematHoldingsCount === 0) {
+        console.log('[Portfolio Refresh] No holdings found in MF or Demat');
         await db
           .update(schema.portfolios)
           .set({
@@ -333,8 +348,9 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
         return;
       }
       
-      const transactionCount = transactionResult?.transactions?.length || 0;
-      console.log('[Portfolio Refresh] Successfully fetched', casResult.holdings.length, 'holdings and', transactionCount, 'transactions from CAS');
+      const mfTxCount = mfTransactionResult?.transactions?.length || 0;
+      const dematTxCount = dematTransactionResult?.transactions?.length || 0;
+      console.log(`[Portfolio Refresh] Fetched: MF=${mfHoldingsCount} holdings/${mfTxCount} transactions, Demat=${dematHoldingsCount} holdings/${dematTxCount} transactions`);
       
       const { portfolioHoldings } = await import('@shared/schema');
       
@@ -425,23 +441,69 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
             });
         }
         
-        console.log('[Portfolio Refresh] Holdings sync complete - refreshed', insertedKeys.size, 'holdings for user:', userId);
+        console.log('[Portfolio Refresh] MF holdings sync complete - refreshed', insertedKeys.size, 'MF holdings');
         
-        // Sync transactions if available (with null guards)
-        const hasTransactions = transactionResult?.success && 
-          transactionResult?.transactions && 
-          transactionResult.transactions.length > 0;
+        // Sync Demat holdings if available
+        const hasDematHoldings = dematSuccess && dematResult?.holdings?.length > 0;
+        let dematInsertedCount = 0;
         
-        if (hasTransactions) {
-          console.log('[Portfolio Refresh] Syncing', transactionResult.transactions.length, 'transactions for user:', userId);
+        if (hasDematHoldings) {
+          // Delete existing demat holdings (equity, bond, etf, etc.) - demat data is authoritative
+          await tx
+            .delete(portfolioHoldings)
+            .where(
+              and(
+                eq(portfolioHoldings.portfolioId, userPortfolio.id),
+                sql`${portfolioHoldings.assetType} IN ('equity', 'bond', 'ncd', 'etf', 'aif', 'pms', 'reit', 'invit', 'sgb', 'mld', 'gsec')`
+              )
+            );
+          
+          // Insert demat holdings
+          const dematKeys = new Set<string>();
+          for (const holding of dematResult.holdings) {
+            const dedupKey = `${holding.isin}|${holding.dematAccountNumber}`;
+            if (dematKeys.has(dedupKey)) continue;
+            dematKeys.add(dedupKey);
+            
+            await tx
+              .insert(portfolioHoldings)
+              .values({
+                portfolioId: userPortfolio.id,
+                assetType: holding.assetType,
+                symbol: holding.symbol,
+                name: holding.companyName,
+                isin: holding.isin,
+                quantity: holding.quantity.toString(),
+                avgPrice: holding.averagePrice.toString(),
+                currentValue: holding.currentValue.toString(),
+                investedValue: holding.investedAmount.toString(),
+                productType: holding.assetType,
+                broker: holding.depository,
+                confidenceScore: 100,
+                source: holding.depository === 'NSDL' ? 'nsdl' : 'cdsl',
+                updatedAt: new Date()
+              });
+            
+            dematInsertedCount++;
+          }
+          console.log('[Portfolio Refresh] Demat holdings sync complete - refreshed', dematInsertedCount, 'demat holdings');
+        }
+        
+        // Sync MF transactions if available (with null guards)
+        const hasMfTransactions = mfTransactionResult?.success && 
+          mfTransactionResult?.transactions && 
+          mfTransactionResult.transactions.length > 0;
+        
+        if (hasMfTransactions) {
+          console.log('[Portfolio Refresh] Syncing', mfTransactionResult.transactions.length, 'MF transactions');
           
           // Get current financial year (April to March)
           const now = new Date();
           const fyStart = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
           const financialYear = `${fyStart}-${(fyStart + 1).toString().slice(-2)}`;
           
-          // Create or update transaction report for this sync
-          const existingReport = await tx.query.transactionReports.findFirst({
+          // Create or update transaction report for MF sync
+          const existingMfReport = await tx.query.transactionReports.findFirst({
             where: and(
               eq(schema.transactionReports.userId, userId),
               eq(schema.transactionReports.financialYear, financialYear),
@@ -450,20 +512,20 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
             ),
           });
           
-          let reportId: string;
+          let mfReportId: string;
           
-          if (existingReport) {
-            reportId = existingReport.id;
+          if (existingMfReport) {
+            mfReportId = existingMfReport.id;
             // Update existing report
             await tx
               .update(schema.transactionReports)
               .set({
-                transactionCount: transactionResult.transactions.length,
+                transactionCount: mfTransactionResult.transactions.length,
                 fetchedAt: new Date(),
                 status: 'success',
                 updatedAt: new Date()
               })
-              .where(eq(schema.transactionReports.id, reportId));
+              .where(eq(schema.transactionReports.id, mfReportId));
           } else {
             // Create new transaction report
             const [newReport] = await tx
@@ -473,7 +535,7 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
                 financialYear,
                 source: 'bse_star_cas',
                 assetType: 'mutual_fund',
-                transactionCount: transactionResult.transactions.length,
+                transactionCount: mfTransactionResult.transactions.length,
                 status: 'success',
                 fetchedAt: new Date(),
                 createdAt: new Date(),
@@ -481,13 +543,13 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
               })
               .returning();
             
-            reportId = newReport.id;
+            mfReportId = newReport.id;
           }
           
           // Delete existing transactions for this report to avoid duplicates
           await tx
             .delete(schema.transactionRecords)
-            .where(eq(schema.transactionRecords.reportId, reportId));
+            .where(eq(schema.transactionRecords.reportId, mfReportId));
           
           // Insert fresh transactions
           let purchaseTotal = 0;
@@ -495,7 +557,7 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
           let switchTotal = 0;
           let dividendTotal = 0;
           
-          for (const tx_record of transactionResult.transactions) {
+          for (const tx_record of mfTransactionResult.transactions) {
             // Track totals for report summary
             const amount = Math.abs(tx_record.amount);
             if (tx_record.transactionType === 'purchase' || tx_record.transactionType === 'sip') {
@@ -511,7 +573,7 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
             await tx
               .insert(schema.transactionRecords)
               .values({
-                reportId,
+                reportId: mfReportId,
                 userId,
                 transactionDate: tx_record.transactionDate,
                 transactionType: tx_record.transactionType,
@@ -540,13 +602,100 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
               totalDividendReceived: dividendTotal.toString(),
               updatedAt: new Date()
             })
-            .where(eq(schema.transactionReports.id, reportId));
+            .where(eq(schema.transactionReports.id, mfReportId));
           
-          console.log('[Portfolio Refresh] Transaction sync complete - synced', transactionResult.transactions.length, 'transactions for user:', userId);
+          console.log('[Portfolio Refresh] MF transaction sync complete - synced', mfTransactionResult.transactions.length, 'transactions');
         }
         
-        const syncedTransactionCount = hasTransactions ? transactionResult.transactions.length : 0;
-        console.log('[Portfolio Refresh] Unified sync complete - refreshed', insertedKeys.size, 'holdings and', syncedTransactionCount, 'transactions for user:', userId);
+        // Sync Demat transactions if available
+        const hasDematTransactions = dematTransactionResult?.success && 
+          dematTransactionResult?.transactions && 
+          dematTransactionResult.transactions.length > 0;
+        
+        if (hasDematTransactions) {
+          console.log('[Portfolio Refresh] Syncing', dematTransactionResult.transactions.length, 'demat transactions');
+          
+          const now = new Date();
+          const fyStart = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+          const financialYear = `${fyStart}-${(fyStart + 1).toString().slice(-2)}`;
+          
+          // Create or update transaction report for demat sync
+          const existingDematReport = await tx.query.transactionReports.findFirst({
+            where: and(
+              eq(schema.transactionReports.userId, userId),
+              eq(schema.transactionReports.financialYear, financialYear),
+              eq(schema.transactionReports.source, dematTransactionResult.source || 'nsdl'),
+              eq(schema.transactionReports.assetType, 'equity')
+            ),
+          });
+          
+          let dematReportId: string;
+          
+          if (existingDematReport) {
+            dematReportId = existingDematReport.id;
+            await tx
+              .update(schema.transactionReports)
+              .set({
+                transactionCount: dematTransactionResult.transactions.length,
+                fetchedAt: new Date(),
+                status: 'success',
+                updatedAt: new Date()
+              })
+              .where(eq(schema.transactionReports.id, dematReportId));
+          } else {
+            const [newReport] = await tx
+              .insert(schema.transactionReports)
+              .values({
+                userId,
+                financialYear,
+                source: dematTransactionResult.source || 'nsdl',
+                assetType: 'equity',
+                transactionCount: dematTransactionResult.transactions.length,
+                status: 'success',
+                fetchedAt: new Date(),
+                createdAt: new Date(),
+                updatedAt: new Date()
+              })
+              .returning();
+            
+            dematReportId = newReport.id;
+          }
+          
+          // Delete existing transactions for this report to avoid duplicates
+          await tx
+            .delete(schema.transactionRecords)
+            .where(eq(schema.transactionRecords.reportId, dematReportId));
+          
+          // Insert demat transactions
+          for (const tx_record of dematTransactionResult.transactions) {
+            await tx
+              .insert(schema.transactionRecords)
+              .values({
+                reportId: dematReportId,
+                userId,
+                transactionDate: tx_record.transactionDate,
+                transactionType: tx_record.transactionType,
+                fundName: tx_record.securityName,
+                fundCode: tx_record.isin, // Using fundCode for ISIN
+                folio: tx_record.dematAccountNumber, // Using folio for demat account
+                units: tx_record.quantity.toString(),
+                nav: tx_record.price.toString(),
+                amount: tx_record.amount.toString(),
+                stampDuty: tx_record.stampDuty?.toString() || '0',
+                stt: tx_record.stt?.toString() || '0',
+                tds: tx_record.tds?.toString() || '0',
+                netAmount: tx_record.netAmount?.toString() || tx_record.amount.toString(),
+                createdAt: new Date()
+              });
+          }
+          
+          console.log('[Portfolio Refresh] Demat transaction sync complete - synced', dematTransactionResult.transactions.length, 'transactions');
+        }
+        
+        const totalHoldings = insertedKeys.size + dematInsertedCount;
+        const totalTransactions = (hasMfTransactions ? mfTransactionResult.transactions.length : 0) + 
+          (hasDematTransactions ? dematTransactionResult.transactions.length : 0);
+        console.log('[Portfolio Refresh] Unified sync complete - refreshed', totalHoldings, 'holdings and', totalTransactions, 'transactions for user:', userId);
       });
       
     } catch (error) {

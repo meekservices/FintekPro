@@ -10,7 +10,7 @@ Ask before making major changes.
 Do not make changes to the folder `Z`.
 Do not make changes to the file `Y`.
 
-## Pending Features (January 19, 2026)
+## Pending Features (January 21, 2026)
 - **New Prospect Automation Workflow** - When agent adds a new prospect:
   - Notifications (email/SMS confirmation)
   - Zoho CRM auto-sync
@@ -18,6 +18,14 @@ Do not make changes to the file `Y`.
   - Initial lead scoring based on potential value
   - Assignment rules routing
   - Welcome email to prospect
+
+- **Unified Portfolio Sync (NSDL/CDSL)** - Complete demat holdings + transactions sync:
+  - Fetch ALL demat securities: equities, bonds/NCDs, AIFs, PMS, REITs/InvITs, ETFs, SGBs, MLDs, G-Secs
+  - Single authorization fetches holdings + transaction history in parallel
+  - Transaction types: buy, sell, bonus, split, rights, dividend, interest, maturity, redemption, corporate_action
+  - Asset type classification for proper categorization
+  - Unified client dashboard showing complete portfolio across MF + Demat
+  - Source tracking: bse_star_cas, nsdl, cdsl
 
 ## System Architecture
 

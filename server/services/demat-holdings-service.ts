@@ -17,6 +17,23 @@ export interface DematAccount {
   status: 'active' | 'inactive' | 'suspended';
 }
 
+// Expanded asset types for all demat securities
+export type DematAssetType = 
+  | 'equity' 
+  | 'bond' 
+  | 'ncd' 
+  | 'etf' 
+  | 'mutual_fund' 
+  | 'aif' 
+  | 'pms' 
+  | 'reit' 
+  | 'invit' 
+  | 'sgb' 
+  | 'mld' 
+  | 'gsec' 
+  | 'preference_share'
+  | 'convertible';
+
 export interface DematHolding {
   isin: string; // International Securities Identification Number
   symbol: string; // Stock symbol
@@ -28,17 +45,89 @@ export interface DematHolding {
   investedAmount: number;
   returns: number;
   returnsPercentage: number;
-  assetType: 'equity' | 'bond' | 'etf' | 'mutual_fund';
-  exchange: 'NSE' | 'BSE' | 'BOTH';
+  assetType: DematAssetType;
+  exchange: 'NSE' | 'BSE' | 'BOTH' | 'OTC';
   sector?: string;
   industry?: string;
   marketCap?: number;
   pledgedQuantity?: number;
   freeQuantity?: number;
   lockedQuantity?: number;
+  // Bond/NCD specific
+  faceValue?: number;
+  couponRate?: number;
+  maturityDate?: string;
+  creditRating?: string;
+  // AIF/PMS specific
+  schemeType?: string;
+  fundManager?: string;
+  // REIT/InvIT specific
+  distributionYield?: number;
+  // SGB specific
+  issueDate?: string;
+  redemptionDate?: string;
   // Depository information
   depository: 'NSDL' | 'CDSL';
   dematAccountNumber: string;
+}
+
+// Demat transaction types
+export type DematTransactionType = 
+  | 'buy' 
+  | 'sell' 
+  | 'bonus' 
+  | 'split' 
+  | 'rights' 
+  | 'dividend' 
+  | 'interest' 
+  | 'maturity' 
+  | 'redemption' 
+  | 'corporate_action'
+  | 'ipo_allotment'
+  | 'transfer_in'
+  | 'transfer_out'
+  | 'pledge'
+  | 'unpledge';
+
+export interface DematTransaction {
+  transactionId: string;
+  isin: string;
+  symbol: string;
+  securityName: string;
+  transactionDate: string;
+  transactionType: DematTransactionType;
+  quantity: number;
+  price: number;
+  amount: number;
+  brokerage: number;
+  stt: number;
+  stampDuty: number;
+  gst: number;
+  otherCharges: number;
+  netAmount: number;
+  exchange: 'NSE' | 'BSE' | 'OTC';
+  orderNumber?: string;
+  tradeNumber?: string;
+  settlementDate?: string;
+  remarks?: string;
+  depository: 'NSDL' | 'CDSL';
+  dematAccountNumber: string;
+}
+
+export interface DematTransactionResponse {
+  success: boolean;
+  totalTransactions: number;
+  transactions: DematTransaction[];
+  fromDate: string;
+  toDate: string;
+  message?: string;
+}
+
+export interface UnifiedDematResponse {
+  success: boolean;
+  holdings: DematFetchResponse;
+  transactions: DematTransactionResponse;
+  message?: string;
 }
 
 export interface DematFetchRequest {
@@ -83,19 +172,191 @@ export class DematHoldingsService {
     return !!this.aaApiKey;
   }
 
-  private getComingSoonResponse(): DematFetchResponse {
+  private getSandboxMockResponse(): DematFetchResponse {
+    // Sandbox/Development mode: Return mock holdings for testing the unified portfolio flow
+    const mockHoldings: DematHolding[] = [
+      {
+        isin: 'INE002A01018',
+        symbol: 'RELIANCE',
+        companyName: 'Reliance Industries Ltd',
+        quantity: 50,
+        averagePrice: 2450.00,
+        currentPrice: 2650.00,
+        currentValue: 132500.00,
+        investedAmount: 122500.00,
+        returns: 10000.00,
+        returnsPercentage: 8.16,
+        assetType: 'equity',
+        exchange: 'NSE',
+        sector: 'Energy',
+        depository: 'NSDL',
+        dematAccountNumber: '1204470000123456'
+      },
+      {
+        isin: 'INE009A01021',
+        symbol: 'INFY',
+        companyName: 'Infosys Ltd',
+        quantity: 100,
+        averagePrice: 1450.00,
+        currentPrice: 1580.00,
+        currentValue: 158000.00,
+        investedAmount: 145000.00,
+        returns: 13000.00,
+        returnsPercentage: 8.97,
+        assetType: 'equity',
+        exchange: 'NSE',
+        sector: 'Technology',
+        depository: 'NSDL',
+        dematAccountNumber: '1204470000123456'
+      },
+      {
+        isin: 'INE040A01034',
+        symbol: 'HDFCBANK',
+        companyName: 'HDFC Bank Ltd',
+        quantity: 75,
+        averagePrice: 1620.00,
+        currentPrice: 1720.00,
+        currentValue: 129000.00,
+        investedAmount: 121500.00,
+        returns: 7500.00,
+        returnsPercentage: 6.17,
+        assetType: 'equity',
+        exchange: 'NSE',
+        sector: 'Banking',
+        depository: 'CDSL',
+        dematAccountNumber: 'IN30023910654321'
+      },
+      {
+        isin: 'INE774D07140',
+        symbol: 'SGBMAR29',
+        companyName: 'Sovereign Gold Bond 2029 Series I',
+        quantity: 10,
+        averagePrice: 5100.00,
+        currentPrice: 6200.00,
+        currentValue: 62000.00,
+        investedAmount: 51000.00,
+        returns: 11000.00,
+        returnsPercentage: 21.57,
+        assetType: 'sgb',
+        exchange: 'OTC',
+        issueDate: '2024-03-15',
+        redemptionDate: '2029-03-15',
+        couponRate: 2.5,
+        depository: 'NSDL',
+        dematAccountNumber: '1204470000123456'
+      },
+      {
+        isin: 'INE752E08014',
+        symbol: 'RECNCD2028',
+        companyName: 'REC Ltd NCD 8.75% 2028',
+        quantity: 20,
+        averagePrice: 1000.00,
+        currentPrice: 1050.00,
+        currentValue: 21000.00,
+        investedAmount: 20000.00,
+        returns: 1000.00,
+        returnsPercentage: 5.00,
+        assetType: 'ncd',
+        exchange: 'BSE',
+        faceValue: 1000,
+        couponRate: 8.75,
+        maturityDate: '2028-09-30',
+        creditRating: 'AAA',
+        depository: 'CDSL',
+        dematAccountNumber: 'IN30023910654321'
+      },
+      {
+        isin: 'INE134E08OE0',
+        symbol: 'PFCBOND2030',
+        companyName: 'Power Finance Corporation Bond 7.65% 2030',
+        quantity: 10,
+        averagePrice: 1000.00,
+        currentPrice: 1025.00,
+        currentValue: 10250.00,
+        investedAmount: 10000.00,
+        returns: 250.00,
+        returnsPercentage: 2.50,
+        assetType: 'bond',
+        exchange: 'BSE',
+        faceValue: 1000,
+        couponRate: 7.65,
+        maturityDate: '2030-03-31',
+        creditRating: 'AAA',
+        depository: 'NSDL',
+        dematAccountNumber: '1204470000123456'
+      },
+      {
+        isin: 'INE124G01025',
+        symbol: 'BROOKSINVIT',
+        companyName: 'Brookfield India Real Estate Trust InvIT',
+        quantity: 200,
+        averagePrice: 285.00,
+        currentPrice: 315.00,
+        currentValue: 63000.00,
+        investedAmount: 57000.00,
+        returns: 6000.00,
+        returnsPercentage: 10.53,
+        assetType: 'invit',
+        exchange: 'NSE',
+        distributionYield: 7.2,
+        depository: 'NSDL',
+        dematAccountNumber: '1204470000123456'
+      },
+      {
+        isin: 'INE0CCE01018',
+        symbol: 'MANYAVEREIT',
+        companyName: 'Mindspace Business Parks REIT',
+        quantity: 150,
+        averagePrice: 310.00,
+        currentPrice: 340.00,
+        currentValue: 51000.00,
+        investedAmount: 46500.00,
+        returns: 4500.00,
+        returnsPercentage: 9.68,
+        assetType: 'reit',
+        exchange: 'NSE',
+        distributionYield: 6.8,
+        depository: 'CDSL',
+        dematAccountNumber: 'IN30023910654321'
+      }
+    ];
+
+    const mockAccounts: DematAccount[] = [
+      {
+        dematAccountNumber: '1204470000123456',
+        dpId: '12044700',
+        dpName: 'ZERODHA BROKING LIMITED',
+        depository: 'NSDL',
+        status: 'active'
+      },
+      {
+        dematAccountNumber: 'IN30023910654321',
+        dpId: 'IN300239',
+        dpName: 'HDFC BANK LIMITED',
+        depository: 'CDSL',
+        status: 'active'
+      }
+    ];
+
+    const totalValue = mockHoldings.reduce((sum, h) => sum + h.currentValue, 0);
+    const totalInvestedAmount = mockHoldings.reduce((sum, h) => sum + h.investedAmount, 0);
+    const nsdlHoldings = mockHoldings.filter(h => h.depository === 'NSDL').length;
+    const cdslHoldings = mockHoldings.filter(h => h.depository === 'CDSL').length;
+
+    console.log('🧪 [Sandbox Mode] Returning mock demat holdings for development/testing');
+
     return {
-      success: false,
-      accounts: [],
-      totalHoldings: 0,
-      totalValue: 0,
-      totalInvestedAmount: 0,
-      totalReturns: 0,
-      totalReturnsPercentage: 0,
-      holdings: [],
-      nsdlHoldings: 0,
-      cdslHoldings: 0,
-      message: 'Coming Soon - Demat holdings integration will be available once Account Aggregator API credentials are configured. Please contact support to enable this feature.'
+      success: true,
+      accounts: mockAccounts,
+      totalHoldings: mockHoldings.length,
+      totalValue,
+      totalInvestedAmount,
+      totalReturns: totalValue - totalInvestedAmount,
+      totalReturnsPercentage: totalInvestedAmount > 0 ? ((totalValue - totalInvestedAmount) / totalInvestedAmount) * 100 : 0,
+      holdings: mockHoldings,
+      nsdlHoldings,
+      cdslHoldings,
+      message: '[Sandbox Mode] Using mock demat holdings for development. Configure AA_API_KEY for production data.'
     };
   }
 
@@ -107,8 +368,8 @@ export class DematHoldingsService {
       console.log(`📊 Fetching demat holdings via Account Aggregator`);
 
       if (!this.hasValidCredentials()) {
-        console.log('⏳ Account Aggregator API credentials not configured - Coming Soon');
-        return this.getComingSoonResponse();
+        console.log('🧪 Account Aggregator API credentials not configured - Using sandbox mock data');
+        return this.getSandboxMockResponse();
       }
 
       // Production: Call Account Aggregator API
@@ -289,24 +550,61 @@ export class DematHoldingsService {
   }
 
   /**
-   * Determine asset type from ISIN and name
+   * Determine asset type from ISIN and name - expanded for all demat securities
    */
-  private determineAssetType(isin: string, name: string): 'equity' | 'bond' | 'etf' | 'mutual_fund' {
-    if (isin.startsWith('INE') && isin.length === 12) {
-      // Indian Equity
-      if (name.toLowerCase().includes('etf')) return 'etf';
-      return 'equity';
+  private determineAssetType(isin: string, name: string): DematAssetType {
+    const upperIsin = isin.toUpperCase();
+    const lowerName = name.toLowerCase();
+    
+    // INF prefix - Mutual Funds
+    if (upperIsin.startsWith('INF')) {
+      if (lowerName.includes('etf')) return 'etf';
+      return 'mutual_fund';
     }
     
-    if (isin.startsWith('IN') && isin.length === 12) {
-      // Could be bond or mutual fund
-      if (name.toLowerCase().includes('bond') || name.toLowerCase().includes('debenture')) {
-        return 'bond';
-      }
-      if (name.toLowerCase().includes('mutual') || name.toLowerCase().includes('fund')) {
-        return 'mutual_fund';
+    // INV prefix - Alternative Investment Funds
+    if (upperIsin.startsWith('INV')) {
+      return 'aif';
+    }
+    
+    // INS prefix - Government Securities
+    if (upperIsin.startsWith('INS')) {
+      return 'gsec';
+    }
+    
+    // INE prefix - Equity or Debt instruments
+    if (upperIsin.startsWith('INE')) {
+      // Check for specific instrument types by name
+      if (lowerName.includes('reit') || lowerName.includes('real estate investment trust')) return 'reit';
+      if (lowerName.includes('invit') || lowerName.includes('infrastructure investment trust')) return 'invit';
+      if (lowerName.includes('etf') || lowerName.includes('exchange traded')) return 'etf';
+      if (lowerName.includes('sovereign gold bond') || lowerName.includes('sgb')) return 'sgb';
+      if (lowerName.includes('market linked debenture') || lowerName.includes('mld')) return 'mld';
+      if (lowerName.includes('ncd') || lowerName.includes('non convertible debenture')) return 'ncd';
+      if (lowerName.includes('bond') || lowerName.includes('debenture')) return 'bond';
+      if (lowerName.includes('preference share') || lowerName.includes('pref')) return 'preference_share';
+      if (lowerName.includes('convertible')) return 'convertible';
+      if (lowerName.includes('pms') || lowerName.includes('portfolio management')) return 'pms';
+      
+      // Check ISIN 6th character for debt vs equity (Indian convention)
+      // If 6th char is typically numeric, could indicate debt instrument
+      const sixthChar = upperIsin.charAt(5);
+      if (/[A-Z]/.test(sixthChar)) {
+        return 'equity'; // Standard equity
       }
     }
+    
+    // G-Sec patterns
+    if (lowerName.includes('treasury bill') || lowerName.includes('t-bill') || lowerName.includes('gov')) {
+      return 'gsec';
+    }
+    
+    // Fallback checks by name
+    if (lowerName.includes('aif') || lowerName.includes('alternative investment')) return 'aif';
+    if (lowerName.includes('pms')) return 'pms';
+    if (lowerName.includes('reit')) return 'reit';
+    if (lowerName.includes('invit')) return 'invit';
+    if (lowerName.includes('sgb')) return 'sgb';
 
     return 'equity'; // Default
   }
@@ -492,6 +790,379 @@ export class DematHoldingsService {
       holdings: mockHoldings,
       nsdlHoldings: 3,
       cdslHoldings: 3
+    };
+  }
+
+  /**
+   * Fetch demat transaction history via Account Aggregator
+   */
+  async fetchTransactions(
+    request: DematFetchRequest,
+    fromDate?: string,
+    toDate?: string
+  ): Promise<DematTransactionResponse> {
+    try {
+      console.log(`📊 Fetching demat transactions via Account Aggregator`);
+
+      // Default to last 3 years if no date range specified
+      const endDate = toDate || new Date().toISOString().split('T')[0];
+      const startDate = fromDate || new Date(Date.now() - 3 * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+      if (!this.hasValidCredentials()) {
+        console.log('⏳ Account Aggregator API credentials not configured - returning mock transactions');
+        return this.getMockTransactionData(request.panNumber, startDate, endDate);
+      }
+
+      // Production: Call Account Aggregator Transaction API
+      const txResponse = await this.callAATransactionAPI(request, startDate, endDate);
+      
+      // Parse and normalize the response
+      const transactions = this.parseTransactionResponse(txResponse);
+
+      console.log(`✅ Fetched ${transactions.length} demat transactions`);
+
+      return {
+        success: true,
+        totalTransactions: transactions.length,
+        transactions,
+        fromDate: startDate,
+        toDate: endDate
+      };
+
+    } catch (error: any) {
+      console.error('❌ Demat transaction fetch error:', error.message);
+      
+      return {
+        success: false,
+        totalTransactions: 0,
+        transactions: [],
+        fromDate: fromDate || '',
+        toDate: toDate || '',
+        message: `Transaction fetch failed: ${error.message}`
+      };
+    }
+  }
+
+  /**
+   * Call Account Aggregator Transaction API
+   */
+  private async callAATransactionAPI(
+    request: DematFetchRequest,
+    fromDate: string,
+    toDate: string
+  ): Promise<any> {
+    const endpoint = `${this.aaBaseUrl}/demat/transactions`;
+
+    const payload = {
+      pan: request.panNumber,
+      name: request.name,
+      dob: request.dob,
+      mobile: request.mobile || '',
+      email: request.email || '',
+      consent_id: request.requestId || '',
+      data_range: {
+        from: fromDate,
+        to: toDate
+      }
+    };
+
+    try {
+      const response = await axios.post(endpoint, payload, {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': this.aaApiKey,
+          'X-Request-ID': request.requestId || `demat_tx_${Date.now()}`
+        },
+        timeout: 60000 // Longer timeout for transaction history
+      });
+
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ AA Transaction API error:', error.message);
+      throw new Error(`AA Transaction API failed: ${error.response?.data?.message || error.message}`);
+    }
+  }
+
+  /**
+   * Parse AA transaction response
+   */
+  private parseTransactionResponse(aaResponse: any): DematTransaction[] {
+    const transactions: DematTransaction[] = [];
+
+    const txData = aaResponse.data?.transactions || [];
+    
+    for (const tx of txData) {
+      const quantity = parseFloat(tx.quantity || 0);
+      const price = parseFloat(tx.price || 0);
+      const amount = parseFloat(tx.amount || quantity * price);
+      
+      transactions.push({
+        transactionId: tx.transaction_id || tx.order_id || `TX${Date.now()}`,
+        isin: tx.isin,
+        symbol: tx.symbol || '',
+        securityName: tx.security_name || 'Unknown Security',
+        transactionDate: tx.transaction_date || tx.trade_date,
+        transactionType: this.normalizeTransactionType(tx.transaction_type),
+        quantity,
+        price,
+        amount,
+        brokerage: parseFloat(tx.brokerage || 0),
+        stt: parseFloat(tx.stt || 0),
+        stampDuty: parseFloat(tx.stamp_duty || 0),
+        gst: parseFloat(tx.gst || 0),
+        otherCharges: parseFloat(tx.other_charges || 0),
+        netAmount: parseFloat(tx.net_amount || amount),
+        exchange: tx.exchange || 'NSE',
+        orderNumber: tx.order_number,
+        tradeNumber: tx.trade_number,
+        settlementDate: tx.settlement_date,
+        remarks: tx.remarks,
+        depository: tx.depository || 'NSDL',
+        dematAccountNumber: tx.demat_account || ''
+      });
+    }
+
+    // Sort by date descending
+    transactions.sort((a, b) => 
+      new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime()
+    );
+
+    return transactions;
+  }
+
+  /**
+   * Normalize transaction type
+   */
+  private normalizeTransactionType(type: string): DematTransactionType {
+    if (!type) return 'buy';
+    
+    const t = type.toUpperCase();
+    
+    if (t.includes('BUY') || t === 'B' || t === 'PURCHASE') return 'buy';
+    if (t.includes('SELL') || t === 'S' || t === 'SALE') return 'sell';
+    if (t.includes('BONUS')) return 'bonus';
+    if (t.includes('SPLIT')) return 'split';
+    if (t.includes('RIGHT')) return 'rights';
+    if (t.includes('DIV') || t.includes('DIVIDEND')) return 'dividend';
+    if (t.includes('INT') || t.includes('INTEREST')) return 'interest';
+    if (t.includes('MATUR')) return 'maturity';
+    if (t.includes('REDEEM') || t.includes('REDEMPTION')) return 'redemption';
+    if (t.includes('CORP') || t.includes('CORPORATE')) return 'corporate_action';
+    if (t.includes('IPO') || t.includes('ALLOT')) return 'ipo_allotment';
+    if (t.includes('TRANSFER') && t.includes('IN')) return 'transfer_in';
+    if (t.includes('TRANSFER') && t.includes('OUT')) return 'transfer_out';
+    if (t.includes('PLEDGE') && !t.includes('UN')) return 'pledge';
+    if (t.includes('UNPLEDGE') || t.includes('RELEASE')) return 'unpledge';
+    
+    return 'buy'; // Default
+  }
+
+  /**
+   * Fetch both holdings and transactions with single authorization
+   * Unified method that syncs everything together
+   */
+  async fetchDematWithTransactions(
+    request: DematFetchRequest,
+    fromDate?: string,
+    toDate?: string
+  ): Promise<UnifiedDematResponse> {
+    console.log(`📊 Fetching unified Demat (Holdings + Transactions) for PAN: ${request.panNumber.slice(0, 4)}****`);
+
+    // Fetch holdings and transactions in parallel for efficiency
+    const [holdingsResult, transactionsResult] = await Promise.all([
+      this.fetchHoldings(request),
+      this.fetchTransactions(request, fromDate, toDate)
+    ]);
+
+    const success = holdingsResult.success || transactionsResult.success;
+    
+    console.log(`✅ Unified Demat fetch complete: ${holdingsResult.holdings.length} holdings, ${transactionsResult.transactions.length} transactions`);
+
+    return {
+      success,
+      holdings: holdingsResult,
+      transactions: transactionsResult,
+      message: success 
+        ? `Fetched ${holdingsResult.holdings.length} holdings and ${transactionsResult.transactions.length} transactions`
+        : holdingsResult.message || transactionsResult.message
+    };
+  }
+
+  /**
+   * Get mock transaction data for development
+   */
+  private getMockTransactionData(panNumber: string, fromDate: string, toDate: string): DematTransactionResponse {
+    const mockTransactions: DematTransaction[] = [
+      {
+        transactionId: 'DTX001',
+        isin: 'INE002A01018',
+        symbol: 'RELIANCE',
+        securityName: 'Reliance Industries Ltd',
+        transactionDate: '2024-12-15',
+        transactionType: 'buy',
+        quantity: 10,
+        price: 2600.50,
+        amount: 26005.00,
+        brokerage: 13.00,
+        stt: 2.60,
+        stampDuty: 3.90,
+        gst: 2.34,
+        otherCharges: 1.50,
+        netAmount: 26028.34,
+        exchange: 'NSE',
+        orderNumber: 'ORD2024121501',
+        settlementDate: '2024-12-17',
+        depository: 'NSDL',
+        dematAccountNumber: '1204470000123456'
+      },
+      {
+        transactionId: 'DTX002',
+        isin: 'INE009A01021',
+        symbol: 'INFY',
+        securityName: 'Infosys Ltd',
+        transactionDate: '2024-11-20',
+        transactionType: 'buy',
+        quantity: 25,
+        price: 1550.00,
+        amount: 38750.00,
+        brokerage: 19.38,
+        stt: 3.88,
+        stampDuty: 5.81,
+        gst: 3.49,
+        otherCharges: 2.00,
+        netAmount: 38784.56,
+        exchange: 'NSE',
+        orderNumber: 'ORD2024112001',
+        settlementDate: '2024-11-22',
+        depository: 'NSDL',
+        dematAccountNumber: '1204470000123456'
+      },
+      {
+        transactionId: 'DTX003',
+        isin: 'INE040A01034',
+        symbol: 'HDFCBANK',
+        securityName: 'HDFC Bank Ltd',
+        transactionDate: '2024-10-05',
+        transactionType: 'sell',
+        quantity: -20,
+        price: 1680.00,
+        amount: 33600.00,
+        brokerage: 16.80,
+        stt: 33.60,
+        stampDuty: 0,
+        gst: 3.02,
+        otherCharges: 1.50,
+        netAmount: 33545.08,
+        exchange: 'NSE',
+        orderNumber: 'ORD2024100501',
+        settlementDate: '2024-10-08',
+        depository: 'CDSL',
+        dematAccountNumber: 'IN30023910654321'
+      },
+      {
+        transactionId: 'DTX004',
+        isin: 'INE002A01018',
+        symbol: 'RELIANCE',
+        securityName: 'Reliance Industries Ltd',
+        transactionDate: '2024-09-15',
+        transactionType: 'dividend',
+        quantity: 0,
+        price: 0,
+        amount: 450.00,
+        brokerage: 0,
+        stt: 0,
+        stampDuty: 0,
+        gst: 0,
+        otherCharges: 0,
+        netAmount: 450.00,
+        exchange: 'NSE',
+        remarks: 'Interim Dividend FY24-25',
+        depository: 'NSDL',
+        dematAccountNumber: '1204470000123456'
+      },
+      {
+        transactionId: 'DTX005',
+        isin: 'INE467B01029',
+        symbol: 'TATASTEEL',
+        securityName: 'Tata Steel Ltd',
+        transactionDate: '2024-08-01',
+        transactionType: 'bonus',
+        quantity: 50,
+        price: 0,
+        amount: 0,
+        brokerage: 0,
+        stt: 0,
+        stampDuty: 0,
+        gst: 0,
+        otherCharges: 0,
+        netAmount: 0,
+        exchange: 'NSE',
+        remarks: 'Bonus 1:4 ratio',
+        depository: 'CDSL',
+        dematAccountNumber: 'IN30023910654321'
+      },
+      {
+        transactionId: 'DTX006',
+        isin: 'INE774D07140',
+        symbol: 'SGBMAR29',
+        securityName: 'Sovereign Gold Bond 2029 Series I',
+        transactionDate: '2024-03-15',
+        transactionType: 'interest',
+        quantity: 0,
+        price: 0,
+        amount: 1250.00,
+        brokerage: 0,
+        stt: 0,
+        stampDuty: 0,
+        gst: 0,
+        otherCharges: 0,
+        netAmount: 1250.00,
+        exchange: 'OTC',
+        remarks: 'Half-yearly interest @ 2.5%',
+        depository: 'NSDL',
+        dematAccountNumber: '1204470000123456'
+      },
+      {
+        transactionId: 'DTX007',
+        isin: 'INE756I07AP4',
+        symbol: 'SHRIRAMFIN-NCD',
+        securityName: 'Shriram Finance NCD 9.75% 2027',
+        transactionDate: '2024-06-01',
+        transactionType: 'interest',
+        quantity: 0,
+        price: 0,
+        amount: 4875.00,
+        brokerage: 0,
+        stt: 0,
+        stampDuty: 0,
+        gst: 0,
+        otherCharges: 0,
+        netAmount: 4875.00,
+        exchange: 'NSE',
+        remarks: 'Half-yearly coupon payment',
+        depository: 'CDSL',
+        dematAccountNumber: 'IN30023910654321'
+      }
+    ];
+
+    // Filter transactions within date range
+    const filteredTransactions = mockTransactions.filter(tx => {
+      const txDate = new Date(tx.transactionDate);
+      return txDate >= new Date(fromDate) && txDate <= new Date(toDate);
+    });
+
+    // Sort by date descending
+    filteredTransactions.sort((a, b) => 
+      new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime()
+    );
+
+    return {
+      success: true,
+      totalTransactions: filteredTransactions.length,
+      transactions: filteredTransactions,
+      fromDate,
+      toDate,
+      message: 'Mock data for development'
     };
   }
 }
