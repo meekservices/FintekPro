@@ -11840,8 +11840,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get MF holdings for user
       const holdings = await db.select()
-        .from(mfHoldings)
-        .where(eq(mfHoldings.userId, userId));
+        .from(schema.mfHoldings)
+        .where(eq(schema.mfHoldings.userId, userId));
 
       let syncedCount = 0;
       for (const holding of holdings) {
