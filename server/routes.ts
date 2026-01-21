@@ -187,6 +187,7 @@ import historicalNavRoutes from "./routes/historical-nav";
 import { historicalNavRefreshJob } from "./services/historical-nav-refresh-job";
 import { cacheCleanupScheduler } from "./services/cache-cleanup-scheduler";
 import exchangeFilingsRoutes from "./routes/exchange-filings-routes";
+import financialMetricsRoutes from './routes/financial-metrics-routes';
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -765,6 +766,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/recommendation-products", recommendationProductsPublicRoutes);
   console.log("✅ Recommendation Products routes registered");
 
+  app.use("/api/financial-metrics", financialMetricsRoutes);
+  console.log("✅ Financial Metrics routes registered");
   app.post("/api/admin/seed-products", requireAdmin, async (req, res) => {
     try {
       const count = await seedProducts(storage as any);

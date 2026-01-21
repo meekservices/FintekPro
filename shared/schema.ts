@@ -27691,3 +27691,361 @@ export const insertPickPriceAlertSchema = createInsertSchema(pickPriceAlerts).om
 });
 export type PickPriceAlert = typeof pickPriceAlerts.$inferSelect;
 export type InsertPickPriceAlert = z.infer<typeof insertPickPriceAlertSchema>;
+
+// ============================================================================
+// FINANCIAL METRICS ENGINE - Multi-Year Derived Ratios
+// ============================================================================
+
+// Stock Financial Metrics - Yearly Historical Data
+export const stockFinancialMetrics = pgTable("stock_financial_metrics", {
+  id: serial("id").primaryKey(),
+  stockId: varchar("stock_id").references(() => listedStocks.id),
+  isin: varchar("isin"),
+  symbol: varchar("symbol").notNull(),
+  fiscalYear: varchar("fiscal_year", { length: 10 }).notNull(), // "2024-25", "2023-24"
+  fiscalYearEnd: date("fiscal_year_end"),
+  
+  // === VALUATION RATIOS ===
+  trailingPe: decimal("trailing_pe", { precision: 12, scale: 4 }),
+  forwardPe: decimal("forward_pe", { precision: 12, scale: 4 }),
+  pegRatio: decimal("peg_ratio", { precision: 10, scale: 4 }),
+  priceToBook: decimal("price_to_book", { precision: 10, scale: 4 }),
+  priceToSales: decimal("price_to_sales", { precision: 10, scale: 4 }),
+  priceToFreeCashFlow: decimal("price_to_fcf", { precision: 12, scale: 4 }),
+  evToEbitda: decimal("ev_to_ebitda", { precision: 12, scale: 4 }),
+  evToSales: decimal("ev_to_sales", { precision: 12, scale: 4 }),
+  evToEbit: decimal("ev_to_ebit", { precision: 12, scale: 4 }),
+  enterpriseValue: decimal("enterprise_value", { precision: 20, scale: 2 }),
+  earningsYield: decimal("earnings_yield", { precision: 10, scale: 4 }), // E/P ratio
+  
+  // === PROFITABILITY RATIOS ===
+  grossMargin: decimal("gross_margin", { precision: 10, scale: 4 }),
+  operatingMargin: decimal("operating_margin", { precision: 10, scale: 4 }),
+  netMargin: decimal("net_margin", { precision: 10, scale: 4 }),
+  ebitdaMargin: decimal("ebitda_margin", { precision: 10, scale: 4 }),
+  fcfMargin: decimal("fcf_margin", { precision: 10, scale: 4 }),
+  roe: decimal("roe", { precision: 10, scale: 4 }),
+  roa: decimal("roa", { precision: 10, scale: 4 }),
+  roce: decimal("roce", { precision: 10, scale: 4 }),
+  roic: decimal("roic", { precision: 10, scale: 4 }), // Return on Invested Capital
+  
+  // === GROWTH METRICS (YoY) ===
+  revenueGrowthYoy: decimal("revenue_growth_yoy", { precision: 10, scale: 4 }),
+  epsGrowthYoy: decimal("eps_growth_yoy", { precision: 10, scale: 4 }),
+  netIncomeGrowthYoy: decimal("net_income_growth_yoy", { precision: 10, scale: 4 }),
+  ebitdaGrowthYoy: decimal("ebitda_growth_yoy", { precision: 10, scale: 4 }),
+  bookValueGrowthYoy: decimal("book_value_growth_yoy", { precision: 10, scale: 4 }),
+  ocfGrowthYoy: decimal("ocf_growth_yoy", { precision: 10, scale: 4 }), // Operating Cash Flow
+  fcfGrowthYoy: decimal("fcf_growth_yoy", { precision: 10, scale: 4 }),
+  
+  // === CAGR METRICS (Multi-Year) ===
+  revenueCagr3y: decimal("revenue_cagr_3y", { precision: 10, scale: 4 }),
+  revenueCagr5y: decimal("revenue_cagr_5y", { precision: 10, scale: 4 }),
+  epsCagr3y: decimal("eps_cagr_3y", { precision: 10, scale: 4 }),
+  epsCagr5y: decimal("eps_cagr_5y", { precision: 10, scale: 4 }),
+  patCagr3y: decimal("pat_cagr_3y", { precision: 10, scale: 4 }), // Profit After Tax
+  patCagr5y: decimal("pat_cagr_5y", { precision: 10, scale: 4 }),
+  
+  // === LEVERAGE & SOLVENCY ===
+  debtToEquity: decimal("debt_to_equity", { precision: 10, scale: 4 }),
+  debtToAssets: decimal("debt_to_assets", { precision: 10, scale: 4 }),
+  interestCoverage: decimal("interest_coverage", { precision: 12, scale: 4 }),
+  currentRatio: decimal("current_ratio", { precision: 10, scale: 4 }),
+  quickRatio: decimal("quick_ratio", { precision: 10, scale: 4 }),
+  cashRatio: decimal("cash_ratio", { precision: 10, scale: 4 }),
+  netDebt: decimal("net_debt", { precision: 20, scale: 2 }),
+  netDebtToEbitda: decimal("net_debt_to_ebitda", { precision: 10, scale: 4 }),
+  
+  // === EFFICIENCY RATIOS ===
+  assetTurnover: decimal("asset_turnover", { precision: 10, scale: 4 }),
+  inventoryTurnover: decimal("inventory_turnover", { precision: 10, scale: 4 }),
+  receivablesTurnover: decimal("receivables_turnover", { precision: 10, scale: 4 }),
+  payablesTurnover: decimal("payables_turnover", { precision: 10, scale: 4 }),
+  inventoryDays: decimal("inventory_days", { precision: 10, scale: 2 }),
+  receivableDays: decimal("receivable_days", { precision: 10, scale: 2 }),
+  payableDays: decimal("payable_days", { precision: 10, scale: 2 }),
+  cashConversionCycle: decimal("cash_conversion_cycle", { precision: 10, scale: 2 }),
+  workingCapitalTurnover: decimal("working_capital_turnover", { precision: 10, scale: 4 }),
+  
+  // === QUALITY SCORES ===
+  piotroskiFScore: integer("piotroski_f_score"), // 0-9 score
+  altmanZScore: decimal("altman_z_score", { precision: 10, scale: 4 }),
+  beneishMScore: decimal("beneish_m_score", { precision: 10, scale: 4 }), // Earnings manipulation detection
+  accrualRatio: decimal("accrual_ratio", { precision: 10, scale: 4 }),
+  earningsQuality: decimal("earnings_quality", { precision: 10, scale: 4 }), // OCF/Net Income
+  
+  // === DIVIDEND METRICS ===
+  dividendYield: decimal("dividend_yield", { precision: 10, scale: 4 }),
+  dividendPayoutRatio: decimal("dividend_payout_ratio", { precision: 10, scale: 4 }),
+  dividendCoverRatio: decimal("dividend_cover_ratio", { precision: 10, scale: 4 }),
+  dividendGrowthRate: decimal("dividend_growth_rate", { precision: 10, scale: 4 }),
+  dividendStreak: integer("dividend_streak"), // Years of consecutive dividends
+  
+  // === RAW FINANCIAL DATA (for calculations) ===
+  revenue: decimal("revenue", { precision: 20, scale: 2 }),
+  ebitda: decimal("ebitda", { precision: 20, scale: 2 }),
+  ebit: decimal("ebit", { precision: 20, scale: 2 }),
+  netIncome: decimal("net_income", { precision: 20, scale: 2 }),
+  eps: decimal("eps", { precision: 15, scale: 4 }),
+  bookValuePerShare: decimal("book_value_per_share", { precision: 15, scale: 4 }),
+  freeCashFlow: decimal("free_cash_flow", { precision: 20, scale: 2 }),
+  operatingCashFlow: decimal("operating_cash_flow", { precision: 20, scale: 2 }),
+  totalAssets: decimal("total_assets", { precision: 20, scale: 2 }),
+  totalLiabilities: decimal("total_liabilities", { precision: 20, scale: 2 }),
+  totalEquity: decimal("total_equity", { precision: 20, scale: 2 }),
+  totalDebt: decimal("total_debt", { precision: 20, scale: 2 }),
+  cash: decimal("cash", { precision: 20, scale: 2 }),
+  marketCap: decimal("market_cap", { precision: 20, scale: 2 }),
+  sharesOutstanding: decimal("shares_outstanding", { precision: 15, scale: 0 }),
+  
+  // === ANALYST ESTIMATES (for Forward P/E) ===
+  epsEstimateNextYear: decimal("eps_estimate_next_year", { precision: 15, scale: 4 }),
+  revenueEstimateNextYear: decimal("revenue_estimate_next_year", { precision: 20, scale: 2 }),
+  targetPriceConsensus: decimal("target_price_consensus", { precision: 15, scale: 2 }),
+  numberOfAnalysts: integer("number_of_analysts"),
+  
+  // === METADATA ===
+  dataSource: varchar("data_source", { length: 50 }), // 'probe42', 'finnhub', 'nse', 'bse', 'manual'
+  dataQuality: varchar("data_quality", { length: 20 }), // 'complete', 'partial', 'estimated'
+  calculatedAt: timestamp("calculated_at").defaultNow(),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_stock_metrics_stock").on(table.stockId),
+  index("idx_stock_metrics_symbol").on(table.symbol),
+  index("idx_stock_metrics_isin").on(table.isin),
+  index("idx_stock_metrics_fy").on(table.fiscalYear),
+  index("idx_stock_metrics_stock_fy").on(table.stockId, table.fiscalYear),
+]);
+
+export const insertStockFinancialMetricsSchema = createInsertSchema(stockFinancialMetrics).omit({
+  id: true, calculatedAt: true, lastUpdated: true, createdAt: true,
+});
+export type StockFinancialMetrics = typeof stockFinancialMetrics.$inferSelect;
+export type InsertStockFinancialMetrics = z.infer<typeof insertStockFinancialMetricsSchema>;
+
+// Mutual Fund Advanced Metrics - Yearly Historical Data
+export const mutualFundMetrics = pgTable("mutual_fund_metrics", {
+  id: serial("id").primaryKey(),
+  fundId: varchar("fund_id"),
+  schemeCode: varchar("scheme_code").notNull(),
+  schemeName: varchar("scheme_name"),
+  fiscalYear: varchar("fiscal_year", { length: 10 }).notNull(),
+  
+  // === RISK-ADJUSTED RETURNS ===
+  alpha: decimal("alpha", { precision: 10, scale: 4 }),
+  beta: decimal("beta", { precision: 8, scale: 4 }),
+  sharpeRatio: decimal("sharpe_ratio", { precision: 10, scale: 4 }),
+  sortinoRatio: decimal("sortino_ratio", { precision: 10, scale: 4 }),
+  treynorRatio: decimal("treynor_ratio", { precision: 10, scale: 4 }),
+  informationRatio: decimal("information_ratio", { precision: 10, scale: 4 }),
+  jensenAlpha: decimal("jensen_alpha", { precision: 10, scale: 4 }),
+  
+  // === VOLATILITY METRICS ===
+  standardDeviation: decimal("standard_deviation", { precision: 10, scale: 4 }),
+  semiDeviation: decimal("semi_deviation", { precision: 10, scale: 4 }), // Downside deviation
+  maxDrawdown: decimal("max_drawdown", { precision: 10, scale: 4 }),
+  var95: decimal("var_95", { precision: 10, scale: 4 }), // Value at Risk 95%
+  cvar95: decimal("cvar_95", { precision: 10, scale: 4 }), // Conditional VaR
+  
+  // === CAPTURE RATIOS ===
+  upsideCaptureRatio: decimal("upside_capture_ratio", { precision: 10, scale: 4 }),
+  downsideCaptureRatio: decimal("downside_capture_ratio", { precision: 10, scale: 4 }),
+  captureRatio: decimal("capture_ratio", { precision: 10, scale: 4 }), // Upside/Downside
+  
+  // === ROLLING RETURNS ===
+  return1m: decimal("return_1m", { precision: 10, scale: 4 }),
+  return3m: decimal("return_3m", { precision: 10, scale: 4 }),
+  return6m: decimal("return_6m", { precision: 10, scale: 4 }),
+  return1y: decimal("return_1y", { precision: 10, scale: 4 }),
+  return3y: decimal("return_3y", { precision: 10, scale: 4 }),
+  return5y: decimal("return_5y", { precision: 10, scale: 4 }),
+  return10y: decimal("return_10y", { precision: 10, scale: 4 }),
+  returnSinceInception: decimal("return_since_inception", { precision: 10, scale: 4 }),
+  
+  // === CAGR ===
+  cagr3y: decimal("cagr_3y", { precision: 10, scale: 4 }),
+  cagr5y: decimal("cagr_5y", { precision: 10, scale: 4 }),
+  cagr10y: decimal("cagr_10y", { precision: 10, scale: 4 }),
+  
+  // === SIP RETURNS ===
+  sipReturn1y: decimal("sip_return_1y", { precision: 10, scale: 4 }),
+  sipReturn3y: decimal("sip_return_3y", { precision: 10, scale: 4 }),
+  sipReturn5y: decimal("sip_return_5y", { precision: 10, scale: 4 }),
+  xirr3y: decimal("xirr_3y", { precision: 10, scale: 4 }),
+  xirr5y: decimal("xirr_5y", { precision: 10, scale: 4 }),
+  
+  // === PORTFOLIO CHARACTERISTICS ===
+  aum: decimal("aum", { precision: 20, scale: 2 }),
+  expenseRatio: decimal("expense_ratio", { precision: 8, scale: 4 }),
+  portfolioTurnover: decimal("portfolio_turnover", { precision: 10, scale: 4 }),
+  avgMarketCap: decimal("avg_market_cap", { precision: 20, scale: 2 }),
+  portfolioPeRatio: decimal("portfolio_pe_ratio", { precision: 10, scale: 4 }),
+  portfolioPbRatio: decimal("portfolio_pb_ratio", { precision: 10, scale: 4 }),
+  numberOfHoldings: integer("number_of_holdings"),
+  
+  // === CONSISTENCY METRICS ===
+  consistencyScore: integer("consistency_score"), // 1-5 rating
+  percentileRank: decimal("percentile_rank", { precision: 8, scale: 4 }), // vs category
+  categoryRank: integer("category_rank"),
+  categorySize: integer("category_size"),
+  
+  // === METADATA ===
+  benchmarkIndex: varchar("benchmark_index"),
+  fundCategory: varchar("fund_category"),
+  dataSource: varchar("data_source", { length: 50 }),
+  calculatedAt: timestamp("calculated_at").defaultNow(),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_mf_metrics_fund").on(table.fundId),
+  index("idx_mf_metrics_scheme").on(table.schemeCode),
+  index("idx_mf_metrics_fy").on(table.fiscalYear),
+]);
+
+export const insertMutualFundMetricsSchema = createInsertSchema(mutualFundMetrics).omit({
+  id: true, calculatedAt: true, lastUpdated: true, createdAt: true,
+});
+export type MutualFundMetrics = typeof mutualFundMetrics.$inferSelect;
+export type InsertMutualFundMetrics = z.infer<typeof insertMutualFundMetricsSchema>;
+
+// Bond/NCD Advanced Metrics - Per Issue
+export const bondMetrics = pgTable("bond_metrics", {
+  id: serial("id").primaryKey(),
+  bondId: varchar("bond_id"),
+  isin: varchar("isin").notNull(),
+  issuerName: varchar("issuer_name"),
+  fiscalYear: varchar("fiscal_year", { length: 10 }).notNull(),
+  
+  // === YIELD METRICS ===
+  couponRate: decimal("coupon_rate", { precision: 8, scale: 4 }),
+  currentYield: decimal("current_yield", { precision: 8, scale: 4 }),
+  yieldToMaturity: decimal("yield_to_maturity", { precision: 10, scale: 4 }),
+  yieldToCall: decimal("yield_to_call", { precision: 10, scale: 4 }),
+  yieldToWorst: decimal("yield_to_worst", { precision: 10, scale: 4 }),
+  yieldSpread: decimal("yield_spread", { precision: 10, scale: 4 }), // vs benchmark
+  gSpread: decimal("g_spread", { precision: 10, scale: 4 }), // vs GSec
+  zSpread: decimal("z_spread", { precision: 10, scale: 4 }),
+  
+  // === DURATION & SENSITIVITY ===
+  macaulayDuration: decimal("macaulay_duration", { precision: 10, scale: 4 }),
+  modifiedDuration: decimal("modified_duration", { precision: 10, scale: 4 }),
+  effectiveDuration: decimal("effective_duration", { precision: 10, scale: 4 }),
+  convexity: decimal("convexity", { precision: 12, scale: 4 }),
+  dv01: decimal("dv01", { precision: 15, scale: 6 }), // Dollar value of 1bp
+  
+  // === CREDIT METRICS ===
+  creditRating: varchar("credit_rating", { length: 10 }),
+  creditRatingAgency: varchar("credit_rating_agency", { length: 50 }),
+  creditSpread: decimal("credit_spread", { precision: 10, scale: 4 }),
+  defaultProbability: decimal("default_probability", { precision: 10, scale: 6 }),
+  recoveryRate: decimal("recovery_rate", { precision: 8, scale: 4 }),
+  
+  // === ISSUER FINANCIALS ===
+  issuerDebtToEquity: decimal("issuer_debt_to_equity", { precision: 10, scale: 4 }),
+  issuerInterestCoverage: decimal("issuer_interest_coverage", { precision: 12, scale: 4 }),
+  issuerCurrentRatio: decimal("issuer_current_ratio", { precision: 10, scale: 4 }),
+  
+  // === BOND DETAILS ===
+  faceValue: decimal("face_value", { precision: 15, scale: 2 }),
+  currentPrice: decimal("current_price", { precision: 15, scale: 4 }),
+  accruedInterest: decimal("accrued_interest", { precision: 15, scale: 4 }),
+  cleanPrice: decimal("clean_price", { precision: 15, scale: 4 }),
+  dirtyPrice: decimal("dirty_price", { precision: 15, scale: 4 }),
+  issueDate: date("issue_date"),
+  maturityDate: date("maturity_date"),
+  nextCouponDate: date("next_coupon_date"),
+  daysToMaturity: integer("days_to_maturity"),
+  yearsToMaturity: decimal("years_to_maturity", { precision: 8, scale: 4 }),
+  isCallable: boolean("is_callable").default(false),
+  callDate: date("call_date"),
+  
+  // === LIQUIDITY ===
+  tradingVolume30d: decimal("trading_volume_30d", { precision: 20, scale: 2 }),
+  bidAskSpread: decimal("bid_ask_spread", { precision: 10, scale: 4 }),
+  
+  // === METADATA ===
+  dataSource: varchar("data_source", { length: 50 }),
+  calculatedAt: timestamp("calculated_at").defaultNow(),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_bond_metrics_bond").on(table.bondId),
+  index("idx_bond_metrics_isin").on(table.isin),
+  index("idx_bond_metrics_fy").on(table.fiscalYear),
+]);
+
+export const insertBondMetricsSchema = createInsertSchema(bondMetrics).omit({
+  id: true, calculatedAt: true, lastUpdated: true, createdAt: true,
+});
+export type BondMetrics = typeof bondMetrics.$inferSelect;
+export type InsertBondMetrics = z.infer<typeof insertBondMetricsSchema>;
+
+// REIT/InvIT Advanced Metrics
+export const reitInvitMetrics = pgTable("reit_invit_metrics", {
+  id: serial("id").primaryKey(),
+  entityId: varchar("entity_id"),
+  isin: varchar("isin"),
+  name: varchar("name").notNull(),
+  entityType: varchar("entity_type", { length: 10 }).notNull(), // 'reit', 'invit'
+  fiscalYear: varchar("fiscal_year", { length: 10 }).notNull(),
+  
+  // === FFO & AFFO ===
+  ffo: decimal("ffo", { precision: 20, scale: 2 }), // Funds From Operations
+  affo: decimal("affo", { precision: 20, scale: 2 }), // Adjusted FFO
+  ffoPerUnit: decimal("ffo_per_unit", { precision: 15, scale: 4 }),
+  affoPerUnit: decimal("affo_per_unit", { precision: 15, scale: 4 }),
+  ffoYield: decimal("ffo_yield", { precision: 10, scale: 4 }),
+  priceToFfo: decimal("price_to_ffo", { precision: 10, scale: 4 }),
+  priceToAffo: decimal("price_to_affo", { precision: 10, scale: 4 }),
+  
+  // === NAV METRICS ===
+  nav: decimal("nav", { precision: 20, scale: 2 }),
+  navPerUnit: decimal("nav_per_unit", { precision: 15, scale: 4 }),
+  priceToNav: decimal("price_to_nav", { precision: 10, scale: 4 }),
+  navPremiumDiscount: decimal("nav_premium_discount", { precision: 10, scale: 4 }),
+  
+  // === DISTRIBUTION ===
+  distributionYield: decimal("distribution_yield", { precision: 10, scale: 4 }),
+  distributionPerUnit: decimal("distribution_per_unit", { precision: 15, scale: 4 }),
+  annualDistribution: decimal("annual_distribution", { precision: 20, scale: 2 }),
+  distributionGrowth: decimal("distribution_growth", { precision: 10, scale: 4 }),
+  payoutRatio: decimal("payout_ratio", { precision: 10, scale: 4 }),
+  
+  // === PROPERTY METRICS (for REITs) ===
+  occupancyRate: decimal("occupancy_rate", { precision: 8, scale: 4 }),
+  netOperatingIncome: decimal("net_operating_income", { precision: 20, scale: 2 }),
+  capRate: decimal("cap_rate", { precision: 10, scale: 4 }),
+  leasableArea: decimal("leasable_area", { precision: 15, scale: 2 }),
+  wale: decimal("wale", { precision: 8, scale: 2 }), // Weighted Avg Lease Expiry
+  
+  // === INFRASTRUCTURE METRICS (for InvITs) ===
+  capacityUtilization: decimal("capacity_utilization", { precision: 8, scale: 4 }),
+  availabilityFactor: decimal("availability_factor", { precision: 8, scale: 4 }),
+  
+  // === LEVERAGE ===
+  debtToAssets: decimal("debt_to_assets", { precision: 10, scale: 4 }),
+  debtToEbitda: decimal("debt_to_ebitda", { precision: 10, scale: 4 }),
+  interestCoverage: decimal("interest_coverage", { precision: 12, scale: 4 }),
+  
+  // === RETURNS ===
+  totalReturn1y: decimal("total_return_1y", { precision: 10, scale: 4 }),
+  totalReturn3y: decimal("total_return_3y", { precision: 10, scale: 4 }),
+  totalReturnSinceIpo: decimal("total_return_since_ipo", { precision: 10, scale: 4 }),
+  
+  // === METADATA ===
+  dataSource: varchar("data_source", { length: 50 }),
+  calculatedAt: timestamp("calculated_at").defaultNow(),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_reit_invit_metrics_entity").on(table.entityId),
+  index("idx_reit_invit_metrics_isin").on(table.isin),
+  index("idx_reit_invit_metrics_fy").on(table.fiscalYear),
+]);
+
+export const insertReitInvitMetricsSchema = createInsertSchema(reitInvitMetrics).omit({
+  id: true, calculatedAt: true, lastUpdated: true, createdAt: true,
+});
+export type ReitInvitMetrics = typeof reitInvitMetrics.$inferSelect;
+export type InsertReitInvitMetrics = z.infer<typeof insertReitInvitMetricsSchema>;
