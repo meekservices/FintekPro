@@ -339,7 +339,8 @@ function isNRI(userProfile: any): boolean {
 router.get("/pan-context", async (req: Request, res: Response) => {
   try {
     const session = (req as any).session;
-    const userId = session?.userId;
+    const reqUser = (req as any).user;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
     
     if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
@@ -387,7 +388,9 @@ router.get("/pan-context", async (req: Request, res: Response) => {
 
 router.get("/eligible-forms", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).session?.userId;
+    const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
     
     if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
