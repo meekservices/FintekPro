@@ -434,7 +434,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
     );
   }
 
-  const isAgent = user.roles?.includes('agent') || user.roles?.includes('admin') || user.roles?.includes('superadmin');
+  const isAgent = user.roles?.includes('agent') || user.roles?.includes('admin') || user.roles?.includes('superadmin') || user.roles?.includes('partner');
 
   if (!isAgent) {
     return (
