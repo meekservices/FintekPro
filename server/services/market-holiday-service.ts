@@ -1,16 +1,37 @@
 import { format, addDays, isWeekend, isSameDay, parseISO, getDay } from 'date-fns';
 
+// Supported exchanges across regions
+type IndianExchange = 'NSE' | 'BSE' | 'MCX' | 'NCDEX';
+type USExchange = 'NYSE' | 'NASDAQ' | 'CME';
+type EUExchange = 'LSE' | 'EURONEXT' | 'XETRA' | 'SIX';
+type APACExchange = 'SGX' | 'HKEX' | 'TSE' | 'ASX';
+type Exchange = IndianExchange | USExchange | EUExchange | APACExchange;
+
+// Regions for bank and trading holidays
+type Region = 'IN' | 'IN-MH' | 'IN-KA' | 'IN-DL' | 'IN-TN' | 'IN-GJ' | 'IN-WB' | 'IN-KL' | 
+              'US' | 'UK' | 'EU' | 'SG' | 'HK' | 'JP' | 'AU';
+
 interface MarketHoliday {
   date: string;
   name: string;
   description?: string;
-  exchanges: ('NSE' | 'BSE' | 'MCX' | 'NCDEX')[];
+  exchanges: Exchange[];
   type: 'full' | 'partial';
+  region?: Region;
   specialSession?: {
     name: string;
     startTime: string;
     endTime: string;
   };
+}
+
+interface BankHoliday {
+  date: string;
+  name: string;
+  description?: string;
+  regions: Region[];
+  type: 'national' | 'state' | 'restricted';
+  applicableTo?: string[];
 }
 
 interface MarketStatus {
@@ -44,9 +65,13 @@ interface TradingCalendarDay {
 
 class MarketHolidayService {
   private holidays: Map<string, MarketHoliday[]> = new Map();
+  private bankHolidays: Map<string, BankHoliday[]> = new Map();
+  private internationalHolidays: Map<string, MarketHoliday[]> = new Map();
 
   constructor() {
     this.initializeHolidays();
+    this.initializeBankHolidays();
+    this.initializeInternationalHolidays();
   }
 
   private initializeHolidays() {
@@ -126,7 +151,177 @@ class MarketHolidayService {
     console.log('📅 Market Holiday Service initialized with', allHolidays.length, 'holidays');
   }
 
-  isHoliday(date: Date | string, exchange: 'NSE' | 'BSE' | 'MCX' | 'NCDEX' = 'NSE'): boolean {
+  private initializeBankHolidays() {
+    const allBankHolidays: BankHoliday[] = [
+      // 2025 RBI National Holidays (applicable across all India)
+      { date: '2025-01-26', name: 'Republic Day', regions: ['IN'], type: 'national' },
+      { date: '2025-03-14', name: 'Holi', regions: ['IN'], type: 'national' },
+      { date: '2025-04-14', name: 'Dr. Ambedkar Jayanti', regions: ['IN'], type: 'national' },
+      { date: '2025-04-18', name: 'Good Friday', regions: ['IN'], type: 'national' },
+      { date: '2025-08-15', name: 'Independence Day', regions: ['IN'], type: 'national' },
+      { date: '2025-10-02', name: 'Gandhi Jayanti', regions: ['IN'], type: 'national' },
+      { date: '2025-11-05', name: 'Guru Nanak Jayanti', regions: ['IN'], type: 'national' },
+      { date: '2025-12-25', name: 'Christmas', regions: ['IN'], type: 'national' },
+      
+      // 2025 Maharashtra State Bank Holidays
+      { date: '2025-01-14', name: 'Makar Sankranti', regions: ['IN-MH', 'IN-GJ'], type: 'state' },
+      { date: '2025-02-19', name: 'Shivaji Jayanti', regions: ['IN-MH'], type: 'state' },
+      { date: '2025-05-01', name: 'Maharashtra Day', regions: ['IN-MH'], type: 'state' },
+      { date: '2025-08-27', name: 'Ganesh Chaturthi', regions: ['IN-MH'], type: 'state' },
+      
+      // 2025 Karnataka State Bank Holidays
+      { date: '2025-11-01', name: 'Karnataka Rajyotsava', regions: ['IN-KA'], type: 'state' },
+      { date: '2025-04-10', name: 'Ugadi', regions: ['IN-KA', 'IN-TN'], type: 'state' },
+      
+      // 2025 Gujarat State Bank Holidays
+      { date: '2025-01-14', name: 'Uttarayan', regions: ['IN-GJ'], type: 'state' },
+      { date: '2025-10-24', name: 'Bhai Dooj', regions: ['IN-GJ'], type: 'state' },
+      
+      // 2025 West Bengal State Bank Holidays
+      { date: '2025-01-23', name: 'Netaji Subhas Chandra Bose Jayanti', regions: ['IN-WB'], type: 'state' },
+      { date: '2025-05-09', name: 'Rabindra Jayanti', regions: ['IN-WB'], type: 'state' },
+      
+      // 2025 Tamil Nadu State Bank Holidays
+      { date: '2025-01-15', name: 'Pongal', regions: ['IN-TN'], type: 'state' },
+      { date: '2025-01-16', name: 'Thiruvalluvar Day', regions: ['IN-TN'], type: 'state' },
+      
+      // 2025 Kerala State Bank Holidays
+      { date: '2025-08-28', name: 'Onam', regions: ['IN-KL'], type: 'state' },
+      { date: '2025-09-02', name: 'Thiruvonam', regions: ['IN-KL'], type: 'state' },
+      
+      // 2025 Delhi Bank Holidays
+      { date: '2025-10-20', name: 'Dussehra', regions: ['IN-DL'], type: 'state' },
+      
+      // 2026 RBI National Holidays
+      { date: '2026-01-26', name: 'Republic Day', regions: ['IN'], type: 'national' },
+      { date: '2026-03-03', name: 'Holi', regions: ['IN'], type: 'national' },
+      { date: '2026-04-03', name: 'Good Friday', regions: ['IN'], type: 'national' },
+      { date: '2026-04-14', name: 'Dr. Ambedkar Jayanti', regions: ['IN'], type: 'national' },
+      { date: '2026-08-15', name: 'Independence Day', regions: ['IN'], type: 'national' },
+      { date: '2026-10-02', name: 'Gandhi Jayanti', regions: ['IN'], type: 'national' },
+      { date: '2026-11-25', name: 'Guru Nanak Jayanti', regions: ['IN'], type: 'national' },
+      { date: '2026-12-25', name: 'Christmas', regions: ['IN'], type: 'national' },
+    ];
+
+    for (const holiday of allBankHolidays) {
+      const year = holiday.date.substring(0, 4);
+      if (!this.bankHolidays.has(year)) {
+        this.bankHolidays.set(year, []);
+      }
+      this.bankHolidays.get(year)!.push(holiday);
+    }
+
+    console.log('🏦 Bank Holiday Service initialized with', allBankHolidays.length, 'holidays');
+  }
+
+  private initializeInternationalHolidays() {
+    const allInternationalHolidays: MarketHoliday[] = [
+      // 2025 US Holidays (NYSE, NASDAQ, CME)
+      { date: '2025-01-01', name: 'New Year\'s Day', exchanges: ['NYSE', 'NASDAQ', 'CME'], type: 'full', region: 'US' },
+      { date: '2025-01-20', name: 'Martin Luther King Jr. Day', exchanges: ['NYSE', 'NASDAQ', 'CME'], type: 'full', region: 'US' },
+      { date: '2025-02-17', name: 'Presidents\' Day', exchanges: ['NYSE', 'NASDAQ', 'CME'], type: 'full', region: 'US' },
+      { date: '2025-04-18', name: 'Good Friday', exchanges: ['NYSE', 'NASDAQ'], type: 'full', region: 'US' },
+      { date: '2025-05-26', name: 'Memorial Day', exchanges: ['NYSE', 'NASDAQ', 'CME'], type: 'full', region: 'US' },
+      { date: '2025-06-19', name: 'Juneteenth', exchanges: ['NYSE', 'NASDAQ', 'CME'], type: 'full', region: 'US' },
+      { date: '2025-07-04', name: 'Independence Day', exchanges: ['NYSE', 'NASDAQ', 'CME'], type: 'full', region: 'US' },
+      { date: '2025-09-01', name: 'Labor Day', exchanges: ['NYSE', 'NASDAQ', 'CME'], type: 'full', region: 'US' },
+      { date: '2025-11-27', name: 'Thanksgiving Day', exchanges: ['NYSE', 'NASDAQ', 'CME'], type: 'full', region: 'US' },
+      { date: '2025-12-25', name: 'Christmas Day', exchanges: ['NYSE', 'NASDAQ', 'CME'], type: 'full', region: 'US' },
+      
+      // 2025 UK Holidays (LSE)
+      { date: '2025-01-01', name: 'New Year\'s Day', exchanges: ['LSE'], type: 'full', region: 'UK' },
+      { date: '2025-04-18', name: 'Good Friday', exchanges: ['LSE', 'EURONEXT'], type: 'full', region: 'UK' },
+      { date: '2025-04-21', name: 'Easter Monday', exchanges: ['LSE', 'EURONEXT', 'XETRA'], type: 'full', region: 'UK' },
+      { date: '2025-05-05', name: 'Early May Bank Holiday', exchanges: ['LSE'], type: 'full', region: 'UK' },
+      { date: '2025-05-26', name: 'Spring Bank Holiday', exchanges: ['LSE'], type: 'full', region: 'UK' },
+      { date: '2025-08-25', name: 'Summer Bank Holiday', exchanges: ['LSE'], type: 'full', region: 'UK' },
+      { date: '2025-12-25', name: 'Christmas Day', exchanges: ['LSE', 'EURONEXT', 'XETRA', 'SIX'], type: 'full', region: 'UK' },
+      { date: '2025-12-26', name: 'Boxing Day', exchanges: ['LSE'], type: 'full', region: 'UK' },
+      
+      // 2025 EU Holidays (EURONEXT, XETRA, SIX)
+      { date: '2025-01-01', name: 'New Year\'s Day', exchanges: ['EURONEXT', 'XETRA', 'SIX'], type: 'full', region: 'EU' },
+      { date: '2025-05-01', name: 'Labour Day', exchanges: ['EURONEXT', 'XETRA'], type: 'full', region: 'EU' },
+      { date: '2025-12-26', name: 'St. Stephen\'s Day', exchanges: ['EURONEXT', 'XETRA', 'SIX'], type: 'full', region: 'EU' },
+      
+      // 2025 Singapore Holidays (SGX)
+      { date: '2025-01-01', name: 'New Year\'s Day', exchanges: ['SGX'], type: 'full', region: 'SG' },
+      { date: '2025-01-29', name: 'Chinese New Year', exchanges: ['SGX', 'HKEX'], type: 'full', region: 'SG' },
+      { date: '2025-01-30', name: 'Chinese New Year Day 2', exchanges: ['SGX', 'HKEX'], type: 'full', region: 'SG' },
+      { date: '2025-04-18', name: 'Good Friday', exchanges: ['SGX'], type: 'full', region: 'SG' },
+      { date: '2025-05-01', name: 'Labour Day', exchanges: ['SGX'], type: 'full', region: 'SG' },
+      { date: '2025-05-12', name: 'Vesak Day', exchanges: ['SGX'], type: 'full', region: 'SG' },
+      { date: '2025-08-09', name: 'National Day', exchanges: ['SGX'], type: 'full', region: 'SG' },
+      { date: '2025-10-20', name: 'Deepavali', exchanges: ['SGX'], type: 'full', region: 'SG' },
+      { date: '2025-12-25', name: 'Christmas Day', exchanges: ['SGX'], type: 'full', region: 'SG' },
+      
+      // 2025 Hong Kong Holidays (HKEX)
+      { date: '2025-01-01', name: 'New Year\'s Day', exchanges: ['HKEX'], type: 'full', region: 'HK' },
+      { date: '2025-04-04', name: 'Ching Ming Festival', exchanges: ['HKEX'], type: 'full', region: 'HK' },
+      { date: '2025-05-05', name: 'Buddha\'s Birthday', exchanges: ['HKEX'], type: 'full', region: 'HK' },
+      { date: '2025-06-02', name: 'Tuen Ng Festival', exchanges: ['HKEX'], type: 'full', region: 'HK' },
+      { date: '2025-07-01', name: 'Hong Kong SAR Establishment Day', exchanges: ['HKEX'], type: 'full', region: 'HK' },
+      { date: '2025-10-01', name: 'National Day', exchanges: ['HKEX'], type: 'full', region: 'HK' },
+      { date: '2025-10-07', name: 'Day after Mid-Autumn Festival', exchanges: ['HKEX'], type: 'full', region: 'HK' },
+      { date: '2025-10-29', name: 'Chung Yeung Festival', exchanges: ['HKEX'], type: 'full', region: 'HK' },
+      { date: '2025-12-25', name: 'Christmas Day', exchanges: ['HKEX'], type: 'full', region: 'HK' },
+      { date: '2025-12-26', name: 'Boxing Day', exchanges: ['HKEX'], type: 'full', region: 'HK' },
+      
+      // 2025 Japan Holidays (TSE)
+      { date: '2025-01-01', name: 'New Year\'s Day', exchanges: ['TSE'], type: 'full', region: 'JP' },
+      { date: '2025-01-02', name: 'Bank Holiday', exchanges: ['TSE'], type: 'full', region: 'JP' },
+      { date: '2025-01-03', name: 'Bank Holiday', exchanges: ['TSE'], type: 'full', region: 'JP' },
+      { date: '2025-01-13', name: 'Coming of Age Day', exchanges: ['TSE'], type: 'full', region: 'JP' },
+      { date: '2025-02-11', name: 'National Foundation Day', exchanges: ['TSE'], type: 'full', region: 'JP' },
+      { date: '2025-02-24', name: 'Emperor\'s Birthday', exchanges: ['TSE'], type: 'full', region: 'JP' },
+      { date: '2025-03-20', name: 'Vernal Equinox Day', exchanges: ['TSE'], type: 'full', region: 'JP' },
+      { date: '2025-04-29', name: 'Showa Day', exchanges: ['TSE'], type: 'full', region: 'JP' },
+      { date: '2025-05-03', name: 'Constitution Memorial Day', exchanges: ['TSE'], type: 'full', region: 'JP' },
+      { date: '2025-05-04', name: 'Greenery Day', exchanges: ['TSE'], type: 'full', region: 'JP' },
+      { date: '2025-05-05', name: 'Children\'s Day', exchanges: ['TSE'], type: 'full', region: 'JP' },
+      { date: '2025-07-21', name: 'Marine Day', exchanges: ['TSE'], type: 'full', region: 'JP' },
+      { date: '2025-08-11', name: 'Mountain Day', exchanges: ['TSE'], type: 'full', region: 'JP' },
+      { date: '2025-09-15', name: 'Respect for the Aged Day', exchanges: ['TSE'], type: 'full', region: 'JP' },
+      { date: '2025-09-23', name: 'Autumnal Equinox Day', exchanges: ['TSE'], type: 'full', region: 'JP' },
+      { date: '2025-10-13', name: 'Sports Day', exchanges: ['TSE'], type: 'full', region: 'JP' },
+      { date: '2025-11-03', name: 'Culture Day', exchanges: ['TSE'], type: 'full', region: 'JP' },
+      { date: '2025-11-24', name: 'Labour Thanksgiving Day', exchanges: ['TSE'], type: 'full', region: 'JP' },
+      { date: '2025-12-31', name: 'Bank Holiday', exchanges: ['TSE'], type: 'full', region: 'JP' },
+      
+      // 2025 Australia Holidays (ASX)
+      { date: '2025-01-01', name: 'New Year\'s Day', exchanges: ['ASX'], type: 'full', region: 'AU' },
+      { date: '2025-01-27', name: 'Australia Day', exchanges: ['ASX'], type: 'full', region: 'AU' },
+      { date: '2025-04-18', name: 'Good Friday', exchanges: ['ASX'], type: 'full', region: 'AU' },
+      { date: '2025-04-21', name: 'Easter Monday', exchanges: ['ASX'], type: 'full', region: 'AU' },
+      { date: '2025-04-25', name: 'Anzac Day', exchanges: ['ASX'], type: 'full', region: 'AU' },
+      { date: '2025-06-09', name: 'Queen\'s Birthday', exchanges: ['ASX'], type: 'full', region: 'AU' },
+      { date: '2025-12-25', name: 'Christmas Day', exchanges: ['ASX'], type: 'full', region: 'AU' },
+      { date: '2025-12-26', name: 'Boxing Day', exchanges: ['ASX'], type: 'full', region: 'AU' },
+      
+      // 2026 US Holidays
+      { date: '2026-01-01', name: 'New Year\'s Day', exchanges: ['NYSE', 'NASDAQ', 'CME'], type: 'full', region: 'US' },
+      { date: '2026-01-19', name: 'Martin Luther King Jr. Day', exchanges: ['NYSE', 'NASDAQ', 'CME'], type: 'full', region: 'US' },
+      { date: '2026-02-16', name: 'Presidents\' Day', exchanges: ['NYSE', 'NASDAQ', 'CME'], type: 'full', region: 'US' },
+      { date: '2026-04-03', name: 'Good Friday', exchanges: ['NYSE', 'NASDAQ'], type: 'full', region: 'US' },
+      { date: '2026-05-25', name: 'Memorial Day', exchanges: ['NYSE', 'NASDAQ', 'CME'], type: 'full', region: 'US' },
+      { date: '2026-06-19', name: 'Juneteenth', exchanges: ['NYSE', 'NASDAQ', 'CME'], type: 'full', region: 'US' },
+      { date: '2026-07-03', name: 'Independence Day (Observed)', exchanges: ['NYSE', 'NASDAQ', 'CME'], type: 'full', region: 'US' },
+      { date: '2026-09-07', name: 'Labor Day', exchanges: ['NYSE', 'NASDAQ', 'CME'], type: 'full', region: 'US' },
+      { date: '2026-11-26', name: 'Thanksgiving Day', exchanges: ['NYSE', 'NASDAQ', 'CME'], type: 'full', region: 'US' },
+      { date: '2026-12-25', name: 'Christmas Day', exchanges: ['NYSE', 'NASDAQ', 'CME'], type: 'full', region: 'US' },
+    ];
+
+    for (const holiday of allInternationalHolidays) {
+      const year = holiday.date.substring(0, 4);
+      if (!this.internationalHolidays.has(year)) {
+        this.internationalHolidays.set(year, []);
+      }
+      this.internationalHolidays.get(year)!.push(holiday);
+    }
+
+    console.log('🌍 International Holiday Service initialized with', allInternationalHolidays.length, 'holidays');
+  }
+
+  isHoliday(date: Date | string, exchange: Exchange = 'NSE'): boolean {
     const dateStr = typeof date === 'string' ? date : format(date, 'yyyy-MM-dd');
     const year = dateStr.substring(0, 4);
     const yearHolidays = this.holidays.get(year) || [];
@@ -364,6 +559,215 @@ class MarketHolidayService {
     const nextTrading = this.getNextTradingDay(date, exchange);
     return format(nextTrading, 'yyyy-MM-dd');
   }
+
+  // =====================================================
+  // BANK HOLIDAY METHODS
+  // =====================================================
+
+  getBankHoliday(date: Date | string, region: Region = 'IN'): BankHoliday | null {
+    const dateStr = typeof date === 'string' ? date : format(date, 'yyyy-MM-dd');
+    const year = dateStr.substring(0, 4);
+    const yearHolidays = this.bankHolidays.get(year) || [];
+    
+    return yearHolidays.find(h => 
+      h.date === dateStr && 
+      (h.regions.includes(region) || (region.startsWith('IN-') && h.regions.includes('IN')))
+    ) || null;
+  }
+
+  isBankHoliday(date: Date | string, region: Region = 'IN'): boolean {
+    return this.getBankHoliday(date, region) !== null;
+  }
+
+  getBankHolidaysForYear(year: number, region?: Region): BankHoliday[] {
+    const yearHolidays = this.bankHolidays.get(year.toString()) || [];
+    
+    if (!region) {
+      return yearHolidays;
+    }
+    
+    return yearHolidays.filter(h => 
+      h.regions.includes(region) || 
+      (region.startsWith('IN-') && h.regions.includes('IN'))
+    );
+  }
+
+  getUpcomingBankHolidays(count: number = 10, region: Region = 'IN'): BankHoliday[] {
+    const now = new Date();
+    const todayStr = format(now, 'yyyy-MM-dd');
+    const currentYear = now.getFullYear();
+    
+    const allHolidays: BankHoliday[] = [];
+    
+    for (let year = currentYear; year <= currentYear + 2; year++) {
+      const yearHolidays = this.getBankHolidaysForYear(year, region);
+      allHolidays.push(...yearHolidays);
+    }
+    
+    return allHolidays
+      .filter(h => h.date >= todayStr)
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(0, count);
+  }
+
+  // =====================================================
+  // INTERNATIONAL TRADING HOLIDAY METHODS
+  // =====================================================
+
+  getInternationalHoliday(date: Date | string, exchange: Exchange): MarketHoliday | null {
+    const dateStr = typeof date === 'string' ? date : format(date, 'yyyy-MM-dd');
+    const year = dateStr.substring(0, 4);
+    const yearHolidays = this.internationalHolidays.get(year) || [];
+    
+    return yearHolidays.find(h => 
+      h.date === dateStr && 
+      h.exchanges.includes(exchange)
+    ) || null;
+  }
+
+  isInternationalHoliday(date: Date | string, exchange: Exchange): boolean {
+    return this.getInternationalHoliday(date, exchange) !== null;
+  }
+
+  getInternationalHolidaysForYear(year: number, region?: Region): MarketHoliday[] {
+    const yearHolidays = this.internationalHolidays.get(year.toString()) || [];
+    
+    if (!region) {
+      return yearHolidays;
+    }
+    
+    return yearHolidays.filter(h => h.region === region);
+  }
+
+  getUpcomingInternationalHolidays(count: number = 10, region?: Region): MarketHoliday[] {
+    const now = new Date();
+    const todayStr = format(now, 'yyyy-MM-dd');
+    const currentYear = now.getFullYear();
+    
+    const allHolidays: MarketHoliday[] = [];
+    
+    for (let year = currentYear; year <= currentYear + 2; year++) {
+      const yearHolidays = this.getInternationalHolidaysForYear(year, region);
+      allHolidays.push(...yearHolidays);
+    }
+    
+    return allHolidays
+      .filter(h => h.date >= todayStr)
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(0, count);
+  }
+
+  // =====================================================
+  // COMBINED CALENDAR METHODS
+  // =====================================================
+
+  getAllHolidaysForMonth(year: number, month: number, options?: { 
+    includeTrading?: boolean; 
+    includeBank?: boolean; 
+    includeInternational?: boolean;
+    region?: Region;
+  }): Array<{ date: string; name: string; type: string; category: string; region?: Region }> {
+    const { 
+      includeTrading = true, 
+      includeBank = true, 
+      includeInternational = true,
+      region 
+    } = options || {};
+
+    const holidays: Array<{ date: string; name: string; type: string; category: string; region?: Region }> = [];
+    const monthStr = month.toString().padStart(2, '0');
+    const startDate = `${year}-${monthStr}-01`;
+    const endDate = `${year}-${monthStr}-31`;
+
+    if (includeTrading) {
+      const yearHolidays = this.holidays.get(year.toString()) || [];
+      yearHolidays
+        .filter(h => h.date >= startDate && h.date <= endDate)
+        .forEach(h => {
+          holidays.push({
+            date: h.date,
+            name: h.name,
+            type: h.type,
+            category: 'trading',
+            region: 'IN'
+          });
+        });
+    }
+
+    if (includeBank) {
+      const bankYearHolidays = this.getBankHolidaysForYear(year, region);
+      bankYearHolidays
+        .filter(h => h.date >= startDate && h.date <= endDate)
+        .forEach(h => {
+          holidays.push({
+            date: h.date,
+            name: h.name,
+            type: h.type,
+            category: 'bank',
+            region: h.regions[0]
+          });
+        });
+    }
+
+    if (includeInternational) {
+      const intlHolidays = this.getInternationalHolidaysForYear(year, region);
+      intlHolidays
+        .filter(h => h.date >= startDate && h.date <= endDate)
+        .forEach(h => {
+          holidays.push({
+            date: h.date,
+            name: h.name,
+            type: h.type,
+            category: 'international',
+            region: h.region
+          });
+        });
+    }
+
+    return holidays.sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  getRegions(): { code: Region; name: string; type: 'country' | 'state' }[] {
+    return [
+      { code: 'IN', name: 'India (National)', type: 'country' },
+      { code: 'IN-MH', name: 'Maharashtra', type: 'state' },
+      { code: 'IN-KA', name: 'Karnataka', type: 'state' },
+      { code: 'IN-DL', name: 'Delhi', type: 'state' },
+      { code: 'IN-TN', name: 'Tamil Nadu', type: 'state' },
+      { code: 'IN-GJ', name: 'Gujarat', type: 'state' },
+      { code: 'IN-WB', name: 'West Bengal', type: 'state' },
+      { code: 'IN-KL', name: 'Kerala', type: 'state' },
+      { code: 'US', name: 'United States', type: 'country' },
+      { code: 'UK', name: 'United Kingdom', type: 'country' },
+      { code: 'EU', name: 'European Union', type: 'country' },
+      { code: 'SG', name: 'Singapore', type: 'country' },
+      { code: 'HK', name: 'Hong Kong', type: 'country' },
+      { code: 'JP', name: 'Japan', type: 'country' },
+      { code: 'AU', name: 'Australia', type: 'country' },
+    ];
+  }
+
+  getExchangesByRegion(region: Region): Exchange[] {
+    const exchangeMap: Record<Region, Exchange[]> = {
+      'IN': ['NSE', 'BSE', 'MCX', 'NCDEX'],
+      'IN-MH': ['NSE', 'BSE', 'MCX', 'NCDEX'],
+      'IN-KA': ['NSE', 'BSE'],
+      'IN-DL': ['NSE', 'BSE'],
+      'IN-TN': ['NSE', 'BSE'],
+      'IN-GJ': ['NSE', 'BSE'],
+      'IN-WB': ['NSE', 'BSE'],
+      'IN-KL': ['NSE', 'BSE'],
+      'US': ['NYSE', 'NASDAQ', 'CME'],
+      'UK': ['LSE'],
+      'EU': ['EURONEXT', 'XETRA', 'SIX'],
+      'SG': ['SGX'],
+      'HK': ['HKEX'],
+      'JP': ['TSE'],
+      'AU': ['ASX'],
+    };
+    return exchangeMap[region] || [];
+  }
 }
 
 export const marketHolidayService = new MarketHolidayService();
+export type { MarketHoliday, BankHoliday, MarketStatus, TradingCalendarDay, Region, Exchange };

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { financialCalendarService } from "../services/financial-calendar-service";
+import { marketHolidayService, type Region } from "../services/market-holiday-service";
 import { insertBondCalendarEventSchema } from "@shared/schema";
 import { z } from "zod";
 
@@ -444,6 +445,206 @@ router.get("/external", async (req, res) => {
       success: false,
       error: "Failed to fetch external calendar events",
     });
+  }
+});
+
+// =====================================================
+// HOLIDAY CALENDAR ROUTES (Bank + Trading Holidays)
+// =====================================================
+
+router.get("/holidays/regions", async (_req, res) => {
+  try {
+    const regions = marketHolidayService.getRegions();
+    res.json({
+      success: true,
+      regions,
+    });
+  } catch (error) {
+    console.error("Error fetching regions:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch regions" });
+  }
+});
+
+router.get("/holidays/bank", async (req, res) => {
+  try {
+    const { region = 'IN', count = '20' } = req.query;
+    const holidays = marketHolidayService.getUpcomingBankHolidays(
+      parseInt(count as string, 10),
+      region as Region
+    );
+    
+    res.json({
+      success: true,
+      holidays,
+      total: holidays.length,
+      region,
+    });
+  } catch (error) {
+    console.error("Error fetching bank holidays:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch bank holidays" });
+  }
+});
+
+router.get("/holidays/bank/:year", async (req, res) => {
+  try {
+    const { year } = req.params;
+    const { region } = req.query;
+    
+    const holidays = marketHolidayService.getBankHolidaysForYear(
+      parseInt(year, 10),
+      region as Region | undefined
+    );
+    
+    res.json({
+      success: true,
+      holidays,
+      total: holidays.length,
+      year: parseInt(year, 10),
+      region: region || 'all',
+    });
+  } catch (error) {
+    console.error("Error fetching bank holidays for year:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch bank holidays" });
+  }
+});
+
+router.get("/holidays/trading", async (req, res) => {
+  try {
+    const { region, count = '20' } = req.query;
+    const holidays = marketHolidayService.getUpcomingInternationalHolidays(
+      parseInt(count as string, 10),
+      region as Region | undefined
+    );
+    
+    res.json({
+      success: true,
+      holidays,
+      total: holidays.length,
+      region: region || 'all',
+    });
+  } catch (error) {
+    console.error("Error fetching trading holidays:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch trading holidays" });
+  }
+});
+
+router.get("/holidays/trading/:year", async (req, res) => {
+  try {
+    const { year } = req.params;
+    const { region } = req.query;
+    
+    const holidays = marketHolidayService.getInternationalHolidaysForYear(
+      parseInt(year, 10),
+      region as Region | undefined
+    );
+    
+    res.json({
+      success: true,
+      holidays,
+      total: holidays.length,
+      year: parseInt(year, 10),
+      region: region || 'all',
+    });
+  } catch (error) {
+    console.error("Error fetching trading holidays for year:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch trading holidays" });
+  }
+});
+
+router.get("/holidays/indian-markets", async (req, res) => {
+  try {
+    const { exchange = 'NSE', count = '20' } = req.query;
+    const holidays = marketHolidayService.getUpcomingHolidays(
+      parseInt(count as string, 10),
+      exchange as 'NSE' | 'BSE' | 'MCX' | 'NCDEX'
+    );
+    
+    res.json({
+      success: true,
+      holidays,
+      total: holidays.length,
+      exchange,
+    });
+  } catch (error) {
+    console.error("Error fetching Indian market holidays:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch Indian market holidays" });
+  }
+});
+
+router.get("/holidays/month/:year/:month", async (req, res) => {
+  try {
+    const { year, month } = req.params;
+    const { 
+      includeTrading = 'true', 
+      includeBank = 'true', 
+      includeInternational = 'true',
+      region 
+    } = req.query;
+    
+    const holidays = marketHolidayService.getAllHolidaysForMonth(
+      parseInt(year, 10),
+      parseInt(month, 10),
+      {
+        includeTrading: includeTrading === 'true',
+        includeBank: includeBank === 'true',
+        includeInternational: includeInternational === 'true',
+        region: region as Region | undefined,
+      }
+    );
+    
+    res.json({
+      success: true,
+      holidays,
+      total: holidays.length,
+      year: parseInt(year, 10),
+      month: parseInt(month, 10),
+    });
+  } catch (error) {
+    console.error("Error fetching holidays for month:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch holidays for month" });
+  }
+});
+
+router.get("/holidays/check/:date", async (req, res) => {
+  try {
+    const { date } = req.params;
+    const { region = 'IN', exchange = 'NSE' } = req.query;
+    
+    const bankHoliday = marketHolidayService.getBankHoliday(date, region as Region);
+    const tradingHoliday = marketHolidayService.getHoliday(date, exchange as any);
+    const intlHoliday = marketHolidayService.getInternationalHoliday(date, exchange as any);
+    const isWeekend = marketHolidayService.isWeekendDay(date);
+    
+    res.json({
+      success: true,
+      date,
+      isWeekend,
+      isBankHoliday: !!bankHoliday,
+      isTradingHoliday: !!tradingHoliday || !!intlHoliday,
+      bankHoliday: bankHoliday || null,
+      tradingHoliday: tradingHoliday || intlHoliday || null,
+      region,
+      exchange,
+    });
+  } catch (error) {
+    console.error("Error checking holiday:", error);
+    res.status(500).json({ success: false, error: "Failed to check holiday" });
+  }
+});
+
+router.get("/holidays/exchanges/:region", async (req, res) => {
+  try {
+    const { region } = req.params;
+    const exchanges = marketHolidayService.getExchangesByRegion(region as Region);
+    
+    res.json({
+      success: true,
+      region,
+      exchanges,
+    });
+  } catch (error) {
+    console.error("Error fetching exchanges:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch exchanges" });
   }
 });
 
