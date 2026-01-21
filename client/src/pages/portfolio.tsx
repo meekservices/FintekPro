@@ -728,7 +728,7 @@ export default function Portfolio() {
               <CardContent>
                 {ordersLoading ? (
                   <LoadingState variant="table" count={5} />
-                ) : fintekproOrders && fintekproOrders.length > 0 ? (
+                ) : Array.isArray(fintekproOrders) && fintekproOrders.length > 0 ? (
                   <div className="space-y-6">
                     {/* Summary Stats */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1280,7 +1280,7 @@ export default function Portfolio() {
                         <div className="p-4 bg-green-50 rounded-lg">
                           <div className="text-sm text-muted-foreground">Total Coverage</div>
                           <div className="text-2xl font-bold text-green-600">
-                            ₹{insuranceHoldings?.reduce((sum, policy) => sum + parseFloat(policy.sumAssured), 0).toLocaleString() || "0"}
+                            ₹{Array.isArray(insuranceHoldings) ? insuranceHoldings.reduce((sum, policy) => sum + parseFloat(policy.sumAssured || '0'), 0).toLocaleString() : "0"}
                           </div>
                         </div>
                       </div>

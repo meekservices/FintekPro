@@ -141,7 +141,8 @@ Return JSON array sorted by suitabilityScore (highest first).`;
       });
 
       const responseText = response.text || "[]";
-      const recommendations = JSON.parse(responseText);
+      // Handle both string and object responses to prevent "[object Object]" JSON parsing errors
+      const recommendations = typeof responseText === 'object' ? responseText : JSON.parse(responseText);
       
       if (!Array.isArray(recommendations) || recommendations.length === 0) {
         console.warn('AI returned empty unlisted recommendations, using fallback');

@@ -2,6 +2,21 @@ import { aiService, AIProvider, AIModel } from './ai-service';
 import type { IStorage } from '../storage';
 import type { InsertChatMessage, InsertChatSession, ChatSession, ChatMessage } from '../../shared/schema';
 
+/**
+ * Safely parse JSON content - handles both string and already-parsed object cases
+ * Prevents "[object Object]" is not valid JSON errors in production
+ */
+function safeJsonParse(content: any): any {
+  if (typeof content === 'object' && content !== null) {
+    // Already an object, return as-is
+    return content;
+  }
+  if (typeof content === 'string') {
+    return JSON.parse(content);
+  }
+  throw new Error('Content is not a string or object');
+}
+
 interface ChatContext {
   userId: string;
   sessionId?: string;
@@ -243,17 +258,18 @@ Respond in JSON format with the following structure:
     });
 
     try {
-      // Try to parse JSON response
-      const parsed = JSON.parse(result.content);
+      // Try to parse JSON response - use safeJsonParse to handle both string and object responses
+      const parsed = safeJsonParse(result.content);
       return {
-        analysis: parsed.analysis || result.content,
+        analysis: parsed.analysis || (typeof result.content === 'string' ? result.content : JSON.stringify(result.content)),
         recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : [],
         riskScore: analysisType === 'risk' ? (parsed.riskScore || 5) : undefined,
       };
     } catch {
       // Fallback if not JSON
+      const contentStr = typeof result.content === 'string' ? result.content : JSON.stringify(result.content);
       return {
-        analysis: result.content,
+        analysis: contentStr,
         recommendations: [],
         riskScore: analysisType === 'risk' ? 5 : undefined,
       };
@@ -305,15 +321,16 @@ Recommend the top 5 ${productType} for this user. Respond in JSON format:
     });
 
     try {
-      const parsed = JSON.parse(result.content);
+      const parsed = safeJsonParse(result.content);
       return {
         recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : [],
         reasoning: parsed.reasoning || 'No specific reasoning provided',
       };
     } catch {
+      const contentStr = typeof result.content === 'string' ? result.content : JSON.stringify(result.content);
       return {
         recommendations: [],
-        reasoning: result.content,
+        reasoning: contentStr,
       };
     }
   }
@@ -389,10 +406,11 @@ Respond in JSON format:
     });
 
     try {
-      return JSON.parse(result.content);
+      return safeJsonParse(result.content);
     } catch {
+      const contentStr = typeof result.content === 'string' ? result.content : JSON.stringify(result.content);
       return {
-        nextQuestion: result.content,
+        nextQuestion: contentStr,
         isComplete: false,
       };
     }

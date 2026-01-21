@@ -146,23 +146,31 @@ app.use(cors({
       return callback(null, true);
     }
     
-    // Allow Replit domains only in development or for the deployed app domain
+    // Allow Replit domains (for development and deployed app)
     const replitDomains = process.env.REPLIT_DOMAINS?.split(',').map(d => d.trim()) || [];
     const isReplitOrigin = replitDomains.some(domain => origin.includes(domain)) ||
-      (!isProduction && (
         origin.endsWith('.replit.dev') ||
         origin.endsWith('.repl.co') ||
-        origin.endsWith('.replit.app')
-      ));
+        origin.endsWith('.replit.app');
     
     if (isReplitOrigin) {
       return callback(null, true);
     }
     
-    if (isProduction) {
-      logger.warn(`[CORS] Blocked request from origin: ${origin}`);
+    // Allow fintekpro subdomains dynamically
+    const isFintekProOrigin = origin.endsWith('.fintekpro.com') || origin === 'https://fintekpro.com';
+    if (isFintekProOrigin) {
+      return callback(null, true);
     }
-    callback(null, false);
+    
+    // Block unknown origins in production with detailed logging
+    if (isProduction) {
+      logger.warn(`[CORS] Blocked request from unknown origin: ${origin}`);
+      return callback(new Error('Not allowed by CORS'), false);
+    }
+    
+    // In development, allow all origins for testing
+    callback(null, true);
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],

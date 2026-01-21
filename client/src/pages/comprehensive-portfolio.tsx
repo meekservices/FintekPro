@@ -173,12 +173,14 @@ export default function ComprehensivePortfolioPage() {
     }
   };
 
-  const groupedHoldings = portfolioData?.holdings.reduce((acc, holding) => {
-    const source = holding.dataSource;
-    if (!acc[source]) acc[source] = [];
-    acc[source].push(holding);
-    return acc;
-  }, {} as Record<string, ComprehensiveHolding[]>) || {};
+  const groupedHoldings = Array.isArray(portfolioData?.holdings) 
+    ? portfolioData.holdings.reduce((acc, holding) => {
+        const source = holding.dataSource;
+        if (!acc[source]) acc[source] = [];
+        acc[source].push(holding);
+        return acc;
+      }, {} as Record<string, ComprehensiveHolding[]>) 
+    : {};
 
   if (isLoading) {
     return (
