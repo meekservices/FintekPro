@@ -34,6 +34,7 @@ export function LoanOffersCard() {
 
   const { data: offers = [], isLoading } = useQuery<LoanOffer[]>({
     queryKey: ['/api/loan-offers'],
+    select: (data: any) => Array.isArray(data) ? data : (data?.offers || []),
   });
 
   const proceedMutation = useMutation({
