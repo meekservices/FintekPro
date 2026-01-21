@@ -9990,6 +9990,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/government-schemes/nps", requireAuth, async (req: any, res) => {
+    try {
+      res.json({
+        holdings: [],
+        totalValue: 0,
+        lastUpdated: null,
+        message: "NPS integration coming soon"
+      });
+    } catch (error) {
+      console.error("Error fetching NPS holdings:", error);
+      res.status(500).json({ error: "Failed to fetch NPS holdings" });
+    }
+  });
+
+  app.get("/api/government-schemes/apy", requireAuth, async (req: any, res) => {
+    try {
+      res.json({
+        holdings: [],
+        totalValue: 0,
+        lastUpdated: null,
+        message: "APY integration coming soon"
+      });
+    } catch (error) {
+      console.error("Error fetching APY holdings:", error);
+      res.status(500).json({ error: "Failed to fetch APY holdings" });
+    }
+  });
+
   // Government Scheme Consent Management endpoints
   app.get("/api/government-schemes/consent/:panNumber/:schemeType", requireAuth, async (req: any, res) => {
     try {
