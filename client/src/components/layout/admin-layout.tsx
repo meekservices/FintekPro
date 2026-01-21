@@ -72,7 +72,8 @@ import {
   UserCheck,
   Bug,
   Wallet,
-  Inbox
+  Inbox,
+  FileSignature
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
@@ -128,6 +129,7 @@ const navCategories: NavCategory[] = [
     items: [
       { title: "KYC Management", href: "/admin/kyc-compliance", icon: FileCheck, description: "Review KYC submissions" },
       { title: "Transaction Queue", href: "/admin/financial-operations", icon: ClipboardList, description: "Pending transactions" },
+      { title: "E-Sign Documents", href: "/agent/esign", icon: FileSignature, description: "Electronic signatures" },
       { title: "Store Management", href: "/admin/store-management", icon: Store, description: "Categories & products" },
       {
         title: "Unlisted Marketplace",
