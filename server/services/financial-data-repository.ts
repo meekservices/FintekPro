@@ -120,8 +120,14 @@ class FinancialDataRepository {
 
       return { success: true, data };
     } catch (error) {
+      const errorStr = String(error);
+      // Detect rate limit errors from Yahoo Finance
+      if (errorStr.includes('Too Many') || errorStr.includes('429')) {
+        console.warn(`⚠️ [FinancialDataRepository] Rate limit for ${symbol}`);
+        return { success: false, error: 'Rate limited - Too Many Requests' };
+      }
       console.warn(`⚠️ [FinancialDataRepository] Yahoo fetch failed for ${symbol}:`, error);
-      return { success: false, error: String(error) };
+      return { success: false, error: errorStr };
     }
   }
 
@@ -164,8 +170,14 @@ class FinancialDataRepository {
 
       return { success: true, data };
     } catch (error) {
+      const errorStr = String(error);
+      // Detect rate limit errors from Yahoo Finance
+      if (errorStr.includes('Too Many') || errorStr.includes('429')) {
+        console.warn(`⚠️ [FinancialDataRepository] Rate limit for ETF ${symbol}`);
+        return { success: false, error: 'Rate limited - Too Many Requests' };
+      }
       console.warn(`⚠️ [FinancialDataRepository] ETF fetch failed for ${symbol}:`, error);
-      return { success: false, error: String(error) };
+      return { success: false, error: errorStr };
     }
   }
 
@@ -374,20 +386,35 @@ class FinancialDataRepository {
   async refreshGlobalStocks(symbols: string[]): Promise<{ success: number; failed: number }> {
     let success = 0;
     let failed = 0;
+    let consecutiveRateLimits = 0;
+    let delay = 3000; // Start with 3 second delay
 
     for (const symbol of symbols) {
+      // If we hit too many consecutive rate limits, stop and wait for next scheduled refresh
+      if (consecutiveRateLimits >= 3) {
+        console.warn(`⚠️ [FinancialDataRepository] Rate limit detected, skipping remaining ${symbols.length - (success + failed)} symbols`);
+        failed += symbols.length - (success + failed);
+        break;
+      }
+      
       try {
         const result = await this.fetchGlobalStock(symbol);
         if (result.success && result.data) {
           await this.saveToDatabase(result.data);
           success++;
+          consecutiveRateLimits = 0; // Reset on success
+          delay = 3000; // Reset delay on success
         } else {
           failed++;
+          if (result.error?.includes('Rate limited') || result.error?.includes('Too Many')) {
+            consecutiveRateLimits++;
+            delay = Math.min(delay * 1.5, 15000); // Exponential backoff, max 15 seconds
+          }
         }
-        // Increased delay to 1.5 seconds to avoid Yahoo Finance rate limiting
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise(resolve => setTimeout(resolve, delay));
       } catch (error) {
         failed++;
+        consecutiveRateLimits++;
       }
     }
 
@@ -398,20 +425,35 @@ class FinancialDataRepository {
   async refreshETFs(symbols: string[]): Promise<{ success: number; failed: number }> {
     let success = 0;
     let failed = 0;
+    let consecutiveRateLimits = 0;
+    let delay = 3000; // Start with 3 second delay
 
     for (const symbol of symbols) {
+      // If we hit too many consecutive rate limits, stop and wait for next scheduled refresh
+      if (consecutiveRateLimits >= 3) {
+        console.warn(`⚠️ [FinancialDataRepository] Rate limit detected, skipping remaining ${symbols.length - (success + failed)} ETFs`);
+        failed += symbols.length - (success + failed);
+        break;
+      }
+      
       try {
         const result = await this.fetchETF(symbol);
         if (result.success && result.data) {
           await this.saveToDatabase(result.data);
           success++;
+          consecutiveRateLimits = 0;
+          delay = 3000;
         } else {
           failed++;
+          if (result.error?.includes('Rate limited') || result.error?.includes('Too Many')) {
+            consecutiveRateLimits++;
+            delay = Math.min(delay * 1.5, 15000);
+          }
         }
-        // Increased delay to 1.5 seconds to avoid Yahoo Finance rate limiting
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise(resolve => setTimeout(resolve, delay));
       } catch (error) {
         failed++;
+        consecutiveRateLimits++;
       }
     }
 
