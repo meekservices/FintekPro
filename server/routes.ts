@@ -25564,6 +25564,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Alert history endpoint
+  app.get("/api/alerts/history", requireAuth, async (req, res) => {
+    try {
+      res.json({
+        alerts: [],
+        total: 0,
+        message: "Alert history feature coming soon"
+      });
+    } catch (error) {
+      console.error('Error fetching alert history:', error);
+      res.status(500).json({ message: "Failed to fetch alert history" });
+    }
+  });
+
+  // Alert templates endpoint
+  app.get("/api/alerts/templates", requireAuth, async (req, res) => {
+    try {
+      res.json({
+        templates: [
+          { id: "price_above", name: "Price Above", description: "Alert when price rises above threshold" },
+          { id: "price_below", name: "Price Below", description: "Alert when price falls below threshold" },
+          { id: "percent_change", name: "Percent Change", description: "Alert on significant price movement" }
+        ]
+      });
+    } catch (error) {
+      console.error('Error fetching alert templates:', error);
+      res.status(500).json({ message: "Failed to fetch alert templates" });
+    }
+  });
+
   app.post('/api/kyc/manual-submit', async (req: any, res) => {
     try {
       if (!req.user) {
