@@ -308,16 +308,17 @@ router.post('/api/ai/generate-goal-proposal', requireAuth, async (req: Request, 
     const totalCurrentAmount = goals.reduce((sum, g) => sum + (g.currentAmount || 0), 0);
     const gap = totalGoalAmount - totalCurrentAmount;
 
+    const proposalNumber = `GP-${Date.now().toString(36).toUpperCase()}`;
     const [proposal] = await db.insert(aiProposals).values({
       id: proposalId,
-      userId,
-      proposalType: 'goal_based',
+      clientId: userId,
+      proposalNumber,
+      title: `Goal Planning Proposal - ${goals.length} goal(s)`,
+      description: `AI-generated investment proposal based on ${goals.length} financial goal(s). Total investment gap: ₹${gap.toLocaleString('en-IN')}`,
       status: 'pending_review',
       totalInvestmentAmount: gap.toString(),
       diagnosticsId: null,
-      riskCategory: riskProfile?.riskCategory || 'moderate',
-      notes: `AI Goal Planning Proposal - ${goals.length} goal(s)`,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     }).returning();
 
     const proposalItems = [];
