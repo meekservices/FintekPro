@@ -71,7 +71,7 @@ const partnerNavSections: NavSection[] = [
         description: "Invite & onboard clients",
         children: [
           { title: "Invite Client", href: "/partner-portal?tab=invitations", description: "Send onboarding invite" },
-          { title: "Track Invitations", href: "/partner-portal?tab=invitations", description: "Monitor onboarding progress" }
+          { title: "Track Invitations", href: "/partner-portal?tab=tracking", description: "Monitor onboarding progress" }
         ]
       },
       {
