@@ -2,6 +2,7 @@ import { db } from "../db";
 import { mutualFunds, listedStocks, corporateBonds, governmentSecurities } from "@shared/schema";
 import { eq, and, desc, gte, lte, sql, inArray, ilike, or, isNotNull } from "drizzle-orm";
 import { GoogleGenAI } from "@google/genai";
+import { financialMetricsCalculator } from "./financial-metrics-calculator";
 
 export type AssetClass = 'mutual_fund' | 'stock' | 'bond' | 'government_security' | 'reit' | 'commodity';
 
@@ -21,6 +22,14 @@ export interface FintekProRating {
   overallScore: number;
   confidenceLevel: 'high' | 'medium' | 'low';
   dataSource: 'database' | 'calculated' | 'ai_enhanced';
+  advancedMetrics?: {
+    piotroskiFScore?: number;
+    altmanZScore?: number;
+    earningsQualityRatio?: number;
+    pegRatio?: number;
+    evToEbitda?: number;
+    roic?: number;
+  };
 }
 
 export interface FintekProAnalysis {
@@ -285,10 +294,34 @@ export class FintekProRatingService {
     const beta = parseFloat(stock.beta?.toString() || '1');
 
     const riskAdjustedScore = this.calculateStockRiskAdjustedScore(returns1y, returns3y, beta);
-    const qualityScore = this.calculateStockQualityScore(roe, stock.debtToEquity?.toString(), stock.sector || '');
+    let qualityScore = this.calculateStockQualityScore(roe, stock.debtToEquity?.toString(), stock.sector || '');
     const liquidityScore = this.calculateStockLiquidityScore(marketCap, stock.avgVolume?.toString());
     const momentumScore = this.calculateMomentumScore(returns1y, returns3y);
-    const valuationScore = this.calculateStockValuationScore(peRatio, pbRatio, stock.sector || '');
+    let valuationScore = this.calculateStockValuationScore(peRatio, pbRatio, stock.sector || '');
+    
+    const advancedMetrics = this.calculateAdvancedMetricsForStock(stock);
+    
+    if (advancedMetrics.piotroskiFScore !== undefined) {
+      if (advancedMetrics.piotroskiFScore >= 8) qualityScore += 15;
+      else if (advancedMetrics.piotroskiFScore >= 6) qualityScore += 8;
+      else if (advancedMetrics.piotroskiFScore < 4) qualityScore -= 10;
+    }
+    
+    if (advancedMetrics.altmanZScore !== undefined) {
+      if (advancedMetrics.altmanZScore > 2.99) qualityScore += 10;
+      else if (advancedMetrics.altmanZScore < 1.81) qualityScore -= 15;
+    }
+    
+    if (advancedMetrics.pegRatio !== undefined && advancedMetrics.pegRatio < 1.5) {
+      valuationScore += 10;
+    }
+    
+    if (advancedMetrics.roic !== undefined && advancedMetrics.roic > 15) {
+      qualityScore += 10;
+    }
+    
+    qualityScore = Math.min(100, Math.max(0, qualityScore));
+    valuationScore = Math.min(100, Math.max(0, valuationScore));
 
     const overallScore = (
       riskAdjustedScore * 0.30 +
@@ -316,7 +349,8 @@ export class FintekProRatingService {
       valuationScore,
       overallScore,
       confidenceLevel: marketCap > 50000 ? 'high' : marketCap > 10000 ? 'medium' : 'low',
-      dataSource: includeAI && this.genAI ? 'ai_enhanced' : 'database'
+      dataSource: includeAI && this.genAI ? 'ai_enhanced' : 'database',
+      advancedMetrics
     };
 
     const keyMetrics = {
@@ -635,6 +669,81 @@ Focus on: investment suitability, key risks, and potential. Be factual and balan
     const avgReturn = returns1y * 0.5 + returns3y * 0.5;
     const riskAdjusted = avgReturn / Math.max(0.5, beta);
     return Math.min(100, Math.max(20, 50 + riskAdjusted * 2));
+  }
+
+  private calculateAdvancedMetricsForStock(stock: any): {
+    piotroskiFScore?: number;
+    altmanZScore?: number;
+    earningsQualityRatio?: number;
+    pegRatio?: number;
+    evToEbitda?: number;
+    roic?: number;
+  } {
+    const metrics: any = {};
+    
+    try {
+      const netIncome = parseFloat(stock.netIncome || 0);
+      const totalAssets = parseFloat(stock.totalAssets || 1);
+      const operatingCashFlow = parseFloat(stock.operatingCashFlow || 0);
+      const longTermDebt = parseFloat(stock.longTermDebt || 0);
+      const currentRatio = parseFloat(stock.currentRatio || 1.5);
+      const sharesOutstanding = parseFloat(stock.sharesOutstanding || 1);
+      const grossMargin = parseFloat(stock.grossMargin || 0);
+      const revenue = parseFloat(stock.revenue || 0);
+      const assetTurnover = revenue > 0 && totalAssets > 0 ? revenue / totalAssets : 0;
+      
+      if (netIncome && totalAssets && operatingCashFlow) {
+        metrics.piotroskiFScore = financialMetricsCalculator.calculatePiotroskiFScore(
+          netIncome, totalAssets, operatingCashFlow, longTermDebt, currentRatio,
+          sharesOutstanding, grossMargin, assetTurnover,
+          netIncome * 0.9, totalAssets, longTermDebt, currentRatio,
+          grossMargin, assetTurnover, sharesOutstanding
+        );
+      }
+      
+      const workingCapital = parseFloat(stock.workingCapital || totalAssets * 0.2);
+      const retainedEarnings = parseFloat(stock.retainedEarnings || netIncome * 3);
+      const ebit = parseFloat(stock.ebit || netIncome * 1.3);
+      const marketCap = parseFloat(stock.marketCap || 0);
+      const totalLiabilities = parseFloat(stock.totalLiabilities || totalAssets * 0.4);
+      
+      if (totalAssets && totalLiabilities && revenue) {
+        metrics.altmanZScore = financialMetricsCalculator.calculateAltmanZScore(
+          workingCapital, retainedEarnings, ebit, marketCap,
+          totalLiabilities, revenue, totalAssets
+        );
+      }
+      
+      if (operatingCashFlow && netIncome) {
+        metrics.earningsQualityRatio = financialMetricsCalculator.calculateEarningsQualityRatio(
+          operatingCashFlow, netIncome
+        );
+      }
+      
+      const peRatio = parseFloat(stock.peRatio || 0);
+      const epsGrowth = parseFloat(stock.epsGrowth || 15);
+      if (peRatio && epsGrowth && epsGrowth > 0) {
+        const epsGrowthDecimal = epsGrowth > 1 ? epsGrowth / 100 : epsGrowth;
+        metrics.pegRatio = financialMetricsCalculator.calculatePEGRatio(peRatio, epsGrowthDecimal);
+      }
+      
+      const ebitda = parseFloat(stock.ebitda || ebit * 1.15);
+      const enterpriseValue = parseFloat(stock.enterpriseValue || marketCap * 1.1);
+      if (enterpriseValue && ebitda && ebitda > 0) {
+        metrics.evToEbitda = financialMetricsCalculator.calculateEVtoEBITDA(enterpriseValue, ebitda);
+      }
+      
+      const investedCapital = parseFloat(stock.investedCapital || totalAssets * 0.7);
+      const taxRate = 0.25;
+      if (ebit && investedCapital && investedCapital > 0) {
+        const nopat = ebit * (1 - taxRate);
+        metrics.roic = financialMetricsCalculator.calculateROIC(nopat, investedCapital);
+      }
+    } catch (error) {
+      console.warn('[FintekProRating] Error calculating advanced metrics:', error);
+    }
+    
+    return metrics;
   }
 
   private calculateStockQualityScore(roe: number, debtToEquity?: string, sector?: string): number {
