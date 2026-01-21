@@ -30,7 +30,8 @@ function getUserRole(req: Request): string {
 
 function getSessionUser(req: Request): { id: string; email: string; role?: string; roles?: string[] } | undefined {
   const roleInfo = getRoleInfo(req);
-  const sessionUser = (req as any).session?.user;
+  // Check both req.user (passport) and req.session?.user (legacy) for compatibility
+  const sessionUser = (req as any).user || (req as any).session?.user;
   if (sessionUser && roleInfo) {
     return { ...sessionUser, roles: roleInfo.roles };
   }
