@@ -1045,7 +1045,7 @@ function OrdersOverview() {
 }
 
 function AuditLogsView() {
-  const { data: logs, isLoading } = useQuery<Array<{
+  const { data: logsData, isLoading } = useQuery<Array<{
     id: string;
     userId: string;
     eventType: string;
@@ -1056,6 +1056,8 @@ function AuditLogsView() {
   }>>({
     queryKey: ['/api/fixed-income/admin/audit-logs'],
   });
+
+  const logs = Array.isArray(logsData) ? logsData : [];
 
   if (isLoading) {
     return <LoadingState variant="list" count={10} />;
