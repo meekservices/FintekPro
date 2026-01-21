@@ -1,7 +1,10 @@
 import { db } from "../db";
-import { dailyPicks, listedStocks, mutualFunds, bondCatalog, unlistedCompanies, globalInstruments, instrumentMaster, sgbPrimaryIssues } from "@shared/schema";
+import { dailyPicks, listedStocks, mutualFunds, bondCatalog, unlistedCompanies, globalInstruments, instrumentMaster, sgbPrimaryIssues, stockFinancialMetrics } from "@shared/schema";
 import { eq, and, desc, gte, sql, ilike } from "drizzle-orm";
 import { GoogleGenAI } from "@google/genai";
+import { FinancialMetricsCalculator } from "./financial-metrics-calculator";
+
+const financialMetricsCalculator = new FinancialMetricsCalculator();
 
 export type PickCategory = 
   | 'listed_stocks' 
@@ -1096,7 +1099,132 @@ class PickOfTheDayService {
     else if (stock.marketCap === 'Mid Cap') score += 8;
     else if (stock.marketCap === 'Small Cap') score += 5;
     
-    return score;
+    // Advanced Financial Metrics Integration
+    const advancedMetrics = this.calculateAdvancedMetricsForStock(stock);
+    
+    // Piotroski F-Score (0-9): Higher is better financial health
+    if (advancedMetrics.piotroskiFScore !== undefined) {
+      if (advancedMetrics.piotroskiFScore >= 8) score += 15;
+      else if (advancedMetrics.piotroskiFScore >= 6) score += 10;
+      else if (advancedMetrics.piotroskiFScore < 4) score -= 5;
+    }
+    
+    // Altman Z-Score: Financial distress indicator
+    if (advancedMetrics.altmanZScore !== undefined) {
+      if (advancedMetrics.altmanZScore > 2.99) score += 10; // Safe zone
+      else if (advancedMetrics.altmanZScore < 1.81) score -= 10; // Distress zone
+    }
+    
+    // PEG Ratio: Growth-adjusted valuation
+    if (advancedMetrics.pegRatio !== undefined) {
+      if (advancedMetrics.pegRatio > 0 && advancedMetrics.pegRatio < 1) score += 10;
+      else if (advancedMetrics.pegRatio >= 1 && advancedMetrics.pegRatio < 1.5) score += 5;
+    }
+    
+    // ROIC: Return on Invested Capital
+    if (advancedMetrics.roic !== undefined) {
+      if (advancedMetrics.roic > 20) score += 10;
+      else if (advancedMetrics.roic > 15) score += 5;
+    }
+    
+    // EV/EBITDA: Enterprise value multiple
+    if (advancedMetrics.evToEbitda !== undefined) {
+      if (advancedMetrics.evToEbitda > 0 && advancedMetrics.evToEbitda < 10) score += 5;
+      else if (advancedMetrics.evToEbitda > 20) score -= 5;
+    }
+    
+    return Math.max(0, score);
+  }
+
+  private calculateAdvancedMetricsForStock(stock: any): {
+    piotroskiFScore?: number;
+    altmanZScore?: number;
+    pegRatio?: number;
+    roic?: number;
+    evToEbitda?: number;
+    earningsQuality?: number;
+  } {
+    const metrics: any = {};
+    
+    try {
+      const netIncome = parseFloat(stock.netIncome || 0);
+      const totalAssets = parseFloat(stock.totalAssets || 1);
+      const operatingCashFlow = parseFloat(stock.operatingCashFlow || 0);
+      const longTermDebt = parseFloat(stock.longTermDebt || 0);
+      const currentRatio = parseFloat(stock.currentRatio || 1.5);
+      const sharesOutstanding = parseFloat(stock.sharesOutstanding || 1);
+      const grossMargin = parseFloat(stock.grossMargin || 0);
+      const revenue = parseFloat(stock.revenue || 0);
+      const assetTurnover = revenue > 0 && totalAssets > 0 ? revenue / totalAssets : 0;
+      
+      // Calculate Piotroski F-Score
+      if (netIncome && totalAssets && operatingCashFlow) {
+        const currentData = {
+          netIncome, totalAssets, operatingCashFlow, 
+          totalDebt: longTermDebt, currentAssets: totalAssets * 0.4,
+          currentLiabilities: totalAssets * 0.3, sharesOutstanding,
+          grossProfit: revenue * grossMargin, revenue
+        };
+        const prevData = {
+          netIncome: netIncome * 0.9, totalAssets, 
+          totalDebt: longTermDebt, currentAssets: totalAssets * 0.4,
+          currentLiabilities: totalAssets * 0.3, sharesOutstanding,
+          grossProfit: revenue * 0.95 * grossMargin, revenue: revenue * 0.95
+        };
+        metrics.piotroskiFScore = financialMetricsCalculator.calculatePiotroskiFScore(currentData, prevData);
+      }
+      
+      // Calculate Altman Z-Score
+      const workingCapital = parseFloat(stock.workingCapital || totalAssets * 0.2);
+      const retainedEarnings = parseFloat(stock.retainedEarnings || netIncome * 3);
+      const ebit = parseFloat(stock.ebit || netIncome * 1.3);
+      const marketCap = parseFloat(stock.marketCapValue || 0);
+      const totalLiabilities = parseFloat(stock.totalLiabilities || totalAssets * 0.4);
+      
+      if (totalAssets && totalLiabilities && revenue) {
+        const zScoreData = {
+          workingCapital, retainedEarnings, ebit, marketCap,
+          totalLiabilities, revenue, totalAssets
+        };
+        metrics.altmanZScore = financialMetricsCalculator.calculateAltmanZScore(zScoreData);
+      }
+      
+      // Calculate PEG Ratio
+      const pe = parseFloat(stock.peRatio || 0);
+      const stockReturns1Y = parseFloat(stock.returns1Y || 10);
+      const epsGrowth = parseFloat(stock.epsGrowth || stockReturns1Y) / 100;
+      if (pe > 0 && epsGrowth > 0) {
+        metrics.pegRatio = financialMetricsCalculator.calculatePEGRatio(pe, epsGrowth);
+      }
+      
+      // Calculate ROIC
+      const ebitValue = parseFloat(stock.ebit || netIncome * 1.3);
+      const taxRate = 0.25;
+      const totalEquity = parseFloat(stock.totalEquity || totalAssets * 0.6);
+      const nopat = ebitValue * (1 - taxRate);
+      const investedCapital = totalEquity + longTermDebt;
+      if (investedCapital > 0) {
+        metrics.roic = (nopat / investedCapital) * 100;
+      }
+      
+      // Calculate EV/EBITDA
+      const ebitda = parseFloat(stock.ebitda || ebitValue * 1.1);
+      const cash = parseFloat(stock.cash || 0);
+      const totalDebt = parseFloat(stock.totalDebt || longTermDebt);
+      if (marketCap > 0 && ebitda > 0) {
+        const ev = financialMetricsCalculator.calculateEnterpriseValue(marketCap, totalDebt, cash);
+        metrics.evToEbitda = financialMetricsCalculator.calculateEVtoEBITDA(ev, ebitda);
+      }
+      
+      // Calculate Earnings Quality
+      if (operatingCashFlow && netIncome) {
+        metrics.earningsQuality = financialMetricsCalculator.calculateEarningsQuality(operatingCashFlow, netIncome);
+      }
+    } catch (error) {
+      console.error('[PickOfTheDay] Error calculating advanced metrics:', error);
+    }
+    
+    return metrics;
   }
 
   private scoreMutualFund(fund: any): number {

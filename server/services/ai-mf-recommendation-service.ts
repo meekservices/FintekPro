@@ -6,6 +6,9 @@ import {
 } from "@shared/schema";
 import { eq, and, desc, asc, gte, lte, sql, inArray, ilike, or, not, isNotNull } from "drizzle-orm";
 import { liveMFDataService } from "./live-mf-data-service";
+import { FinancialMetricsCalculator } from "./financial-metrics-calculator";
+
+const financialMetricsCalculator = new FinancialMetricsCalculator();
 
 interface MFRecommendation {
   schemeCode: string;
@@ -253,7 +256,12 @@ class AIMFRecommendationService {
 
     // Category-based bonus for well-performing funds
     const categoryBonus = this.getCategoryBonus(category, returns1y, returns3y);
-    const totalScore = Math.min(100, baseScore + categoryBonus);
+    
+    // Advanced Financial Metrics bonus for equity-oriented funds
+    const advancedMetrics = this.calculateAdvancedMFMetrics(fund, returns1y, returns3y);
+    const advancedMetricsBonus = this.getAdvancedMetricsBonus(advancedMetrics, category);
+    
+    const totalScore = Math.min(100, baseScore + categoryBonus + advancedMetricsBonus);
 
     return {
       ...fund,
@@ -273,9 +281,114 @@ class AIMFRecommendationService {
         purchaseAllowed,
         sipAllowed,
         fintekproRating,
-        category
+        category,
+        ...advancedMetrics
       }
     };
+  }
+
+  private calculateAdvancedMFMetrics(fund: any, returns1y: number, returns3y: number): {
+    portfolioQualityScore?: number;
+    riskAdjustedAlpha?: number;
+    downsideProtection?: number;
+    sortinoRatio?: number;
+    maxDrawdown?: number;
+  } {
+    const metrics: any = {};
+    const extendedData = fund.extendedData as any || {};
+    
+    try {
+      // Portfolio Quality Score based on underlying holdings quality
+      const portfolioPE = parseFloat(extendedData.portfolioPE || 0);
+      const portfolioROE = parseFloat(extendedData.portfolioROE || 0);
+      
+      if (portfolioPE > 0 && portfolioROE > 0) {
+        let qualityScore = 50;
+        if (portfolioPE < 20 && portfolioROE > 15) qualityScore = 85;
+        else if (portfolioPE < 25 && portfolioROE > 12) qualityScore = 70;
+        else if (portfolioPE < 30) qualityScore = 55;
+        metrics.portfolioQualityScore = qualityScore;
+      }
+      
+      // Calculate Sharpe-like risk-adjusted metrics
+      const riskFreeRate = 6.5;
+      const volatility = parseFloat(extendedData.volatility || fund.volatility || 15);
+      if (returns1y && volatility > 0) {
+        metrics.sortinoRatio = financialMetricsCalculator.calculateSortinoRatio(
+          returns1y, riskFreeRate, volatility * 0.7
+        );
+      }
+      
+      // Downside protection score
+      const downsideCaptureRatio = parseFloat(extendedData.downsideCaptureRatio || 100);
+      if (downsideCaptureRatio > 0) {
+        metrics.downsideProtection = Math.max(0, 100 - downsideCaptureRatio);
+      }
+      
+      // Max drawdown from NAV history if available
+      if (extendedData.navHistory && Array.isArray(extendedData.navHistory)) {
+        const navValues = extendedData.navHistory.map((n: any) => parseFloat(n.nav || n));
+        if (navValues.length > 10) {
+          metrics.maxDrawdown = financialMetricsCalculator.calculateMaxDrawdown(navValues) * 100;
+        }
+      }
+      
+      // Risk-adjusted alpha estimation
+      const benchmarkReturns = this.getCategoryBenchmarks(fund.category || '').expected1Y;
+      if (returns1y && benchmarkReturns) {
+        const beta = parseFloat(extendedData.beta || 1);
+        metrics.riskAdjustedAlpha = financialMetricsCalculator.calculateAlpha(
+          returns1y, benchmarkReturns, beta, riskFreeRate
+        );
+      }
+    } catch (error) {
+      console.error('[AI-MF] Error calculating advanced metrics:', error);
+    }
+    
+    return metrics;
+  }
+
+  private getAdvancedMetricsBonus(metrics: any, category: string): number {
+    let bonus = 0;
+    const cat = category.toLowerCase();
+    
+    // Only apply advanced metrics bonus to equity-oriented categories
+    const isEquityOriented = cat.includes('equity') || cat.includes('flexi') || 
+                              cat.includes('multi') || cat.includes('hybrid') ||
+                              cat.includes('focused') || cat.includes('elss');
+    
+    if (!isEquityOriented) return 0;
+    
+    // Portfolio Quality Score bonus (max 5 points)
+    if (metrics.portfolioQualityScore !== undefined) {
+      if (metrics.portfolioQualityScore >= 80) bonus += 5;
+      else if (metrics.portfolioQualityScore >= 65) bonus += 3;
+    }
+    
+    // Sortino Ratio bonus (max 4 points)
+    if (metrics.sortinoRatio !== undefined) {
+      if (metrics.sortinoRatio > 1.5) bonus += 4;
+      else if (metrics.sortinoRatio > 1) bonus += 2;
+    }
+    
+    // Downside Protection bonus (max 3 points)
+    if (metrics.downsideProtection !== undefined) {
+      if (metrics.downsideProtection > 30) bonus += 3;
+      else if (metrics.downsideProtection > 15) bonus += 1;
+    }
+    
+    // Risk-adjusted Alpha bonus (max 3 points)
+    if (metrics.riskAdjustedAlpha !== undefined) {
+      if (metrics.riskAdjustedAlpha > 5) bonus += 3;
+      else if (metrics.riskAdjustedAlpha > 2) bonus += 1;
+    }
+    
+    // Penalize high max drawdown
+    if (metrics.maxDrawdown !== undefined && metrics.maxDrawdown > 30) {
+      bonus -= 2;
+    }
+    
+    return bonus;
   }
 
   // Enhanced returns scoring with category benchmarks
