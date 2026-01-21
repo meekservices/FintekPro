@@ -396,13 +396,33 @@ export function registerRoleRoutes(app: Express) {
         return res.status(401).json({ success: false, message: 'Authentication required' });
       }
       
+      // Fetch agent details from customer_care_agents table
+      const { db } = await import('./db');
+      const { customerCareAgents } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      
+      let euinNumber = 'E317634';
+      let arnCode = 'ARN-317634';
+      
+      if (req.user?.id) {
+        const agents = await db.select()
+          .from(customerCareAgents)
+          .where(eq(customerCareAgents.employeeId, req.user.id))
+          .limit(1);
+        
+        if (agents.length > 0) {
+          euinNumber = agents[0].euinNumber || euinNumber;
+          arnCode = agents[0].arnCode || arnCode;
+        }
+      }
+      
       res.json({
         id: req.user?.id || 'demo-agent',
         fullName: req.user?.firstName ? `${req.user.firstName} ${req.user.lastName || ''}` : 'Demo Agent',
         email: req.user?.email || 'demo-agent@example.com',
         phone: req.user?.phone || '+91-9876543210',
-        euinNumber: 'E123456',
-        arnCode: 'ARN-12345',
+        euinNumber,
+        arnCode,
         agentLevel: 'agent'
       });
     } catch (error: any) {
