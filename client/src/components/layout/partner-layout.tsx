@@ -66,13 +66,10 @@ const partnerNavSections: NavSection[] = [
     section: "Clients & Leads",
     items: [
       {
-        title: "Client Onboarding",
+        title: "Track Invitations",
+        href: "/partner-portal?tab=referrals",
         icon: UserPlus,
-        description: "Invite & onboard clients",
-        children: [
-          { title: "Invite Client", href: "/partner-portal?tab=invitations", description: "Send onboarding invite" },
-          { title: "Track Invitations", href: "/partner-portal?tab=tracking", description: "Monitor onboarding progress" }
-        ]
+        description: "Monitor agent invitations"
       },
       {
         title: "Proposals",

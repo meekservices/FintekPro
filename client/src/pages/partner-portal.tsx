@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'wouter';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -112,11 +113,31 @@ const ENTITY_TYPE_OPTIONS = [
 ];
 
 export default function PartnerPortal() {
+  const [location] = useLocation();
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [selectedTicket, setSelectedTicket] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState('dashboard');
+  
+  // Read tab from URL query params
+  const getInitialTab = () => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('tab') || 'dashboard';
+    }
+    return 'dashboard';
+  };
+  
+  const [activeTab, setActiveTab] = useState(getInitialTab);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  
+  // Sync tab with URL changes
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlTab = params.get('tab');
+    if (urlTab && urlTab !== activeTab) {
+      setActiveTab(urlTab);
+    }
+  }, [location]);
   
   // Invitation state
   const [showInviteDialog, setShowInviteDialog] = useState(false);
@@ -935,20 +956,13 @@ export default function PartnerPortal() {
             </div>
           </TabsContent>
 
-          {/* Referrals Tab */}
+          {/* Referrals Tab - Partner Monitoring View */}
           <TabsContent value="referrals" className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Client Referrals</h2>
-                <p className="text-sm text-muted-foreground">Invite clients to onboard and track their progress</p>
+                <h2 className="text-xl font-bold text-gray-900">Agent Invitation Tracking</h2>
+                <p className="text-sm text-muted-foreground">Monitor client invitations sent by your agents</p>
               </div>
-              <Button 
-                onClick={() => { resetInviteForm(); setShowInviteDialog(true); }}
-                data-testid="button-invite-client"
-              >
-                <UserPlus className="h-4 w-4 mr-2" />
-                Invite New Client
-              </Button>
             </div>
 
             {/* Stats Cards */}
@@ -988,11 +1002,8 @@ export default function PartnerPortal() {
               <Card>
                 <CardContent className="py-12 text-center">
                   <UserPlus className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-1">No Invitations Yet</h3>
-                  <p className="text-muted-foreground mb-4">Start inviting clients to track their onboarding progress</p>
-                  <Button onClick={() => { resetInviteForm(); setShowInviteDialog(true); }}>
-                    Create First Invitation
-                  </Button>
+                  <h3 className="text-lg font-medium text-gray-900 mb-1">No Agent Invitations Yet</h3>
+                  <p className="text-muted-foreground">Your agents haven't sent any client invitations yet</p>
                 </CardContent>
               </Card>
             ) : (
