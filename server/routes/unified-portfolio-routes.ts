@@ -272,13 +272,6 @@ router.get('/api/agent/external-holdings', requireAuth, requireRole('admin', 'ag
   try {
     const { clientId, pan } = req.query;
 
-    if (!clientId && !pan) {
-      return res.status(400).json({ 
-        error: 'Either clientId or pan is required',
-        message: 'Please provide a client ID or PAN to search for external holdings'
-      });
-    }
-
     let holdings: any[] = [];
     
     try {
@@ -332,6 +325,24 @@ router.get('/api/agent/external-holdings', requireAuth, requireRole('admin', 'ag
         .innerJoin(users, eq(externalHoldings.userId, users.id))
         .leftJoin(userProfiles, eq(users.id, userProfiles.userId))
         .where(eq(externalHoldings.userId, clientId as string));
+      } else {
+        // Return all external holdings for agents/admins when no filter provided
+        holdings = await db.select({
+          holding: externalHoldings,
+          user: {
+            id: users.id,
+            fullName: users.fullName,
+            email: users.email,
+          },
+          profile: {
+            panNumber: userProfiles.panNumber,
+          }
+        })
+        .from(externalHoldings)
+        .innerJoin(users, eq(externalHoldings.userId, users.id))
+        .leftJoin(userProfiles, eq(users.id, userProfiles.userId))
+        .orderBy(desc(externalHoldings.lastUpdated))
+        .limit(500);
       }
     } catch (e) {
       console.error('[AgentExternalHoldings] Query error:', e);
