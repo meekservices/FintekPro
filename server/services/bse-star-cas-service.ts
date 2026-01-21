@@ -40,6 +40,42 @@ export interface MutualFundHolding {
   lockinDate?: string;
 }
 
+export interface MutualFundTransaction {
+  transactionId: string;
+  folioNumber: string;
+  schemeCode: string;
+  schemeName: string;
+  amcName: string;
+  registrarName: string;
+  transactionDate: string;
+  transactionType: 'purchase' | 'redemption' | 'switch_in' | 'switch_out' | 'dividend' | 'sip' | 'stp_in' | 'stp_out';
+  units: number;
+  nav: number;
+  amount: number;
+  stampDuty: number;
+  stt: number;
+  tds: number;
+  netAmount: number;
+  orderNumber?: string;
+  description?: string;
+}
+
+export interface TransactionStatementResponse {
+  success: boolean;
+  totalTransactions: number;
+  transactions: MutualFundTransaction[];
+  fromDate: string;
+  toDate: string;
+  message?: string;
+}
+
+export interface UnifiedCASResponse {
+  success: boolean;
+  holdings: CASFetchResponse;
+  transactions: TransactionStatementResponse;
+  message?: string;
+}
+
 export interface CASFetchRequest {
   panNumber: string;
   name: string;
@@ -545,6 +581,482 @@ export class BSEStarCASService {
    */
   isConfigured(): boolean {
     return this.hasValidCredentials();
+  }
+
+  /**
+   * Fetch Transaction Statement for a PAN
+   * Returns all MF transactions within the specified date range
+   */
+  async fetchTransactionStatement(
+    request: CASFetchRequest,
+    fromDate?: string,
+    toDate?: string
+  ): Promise<TransactionStatementResponse> {
+    try {
+      console.log(`📊 Fetching BSE STAR Transaction Statement`);
+
+      // Default to last 3 years if no date range specified
+      const endDate = toDate || new Date().toISOString().split('T')[0];
+      const startDate = fromDate || new Date(Date.now() - 3 * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+      if (!this.hasValidCredentials()) {
+        console.log('⏳ BSE STAR MF API credentials not configured - returning mock transactions');
+        return this.getMockTransactionData(request.panNumber, startDate, endDate);
+      }
+
+      // Production: Call BSE STAR Transaction Statement API
+      const transactionResponse = await this.callBSETransactionAPI(request, startDate, endDate);
+      
+      // Parse and normalize the response
+      const transactions = await this.parseTransactionResponse(transactionResponse);
+
+      console.log(`✅ Fetched ${transactions.length} transactions`);
+
+      return {
+        success: true,
+        totalTransactions: transactions.length,
+        transactions,
+        fromDate: startDate,
+        toDate: endDate
+      };
+
+    } catch (error: any) {
+      console.error('❌ BSE STAR Transaction fetch error:', error.message);
+      
+      return {
+        success: false,
+        totalTransactions: 0,
+        transactions: [],
+        fromDate: fromDate || '',
+        toDate: toDate || '',
+        message: `Transaction fetch failed: ${error.message}`
+      };
+    }
+  }
+
+  /**
+   * Call BSE STAR Transaction Statement API
+   */
+  private async callBSETransactionAPI(
+    request: CASFetchRequest,
+    fromDate: string,
+    toDate: string
+  ): Promise<any> {
+    const endpoint = `${this.baseUrl}/GetTransactionStatement`;
+
+    try {
+      const jsonPayload = {
+        UserId: this.credentials.userId,
+        MemberId: this.credentials.memberId,
+        Password: this.credentials.password,
+        PassKey: this.credentials.passKey,
+        PAN: request.panNumber,
+        Name: request.name,
+        DOB: request.dob,
+        FromDate: fromDate,
+        ToDate: toDate,
+        Mobile: request.mobile || '',
+        Email: request.email || ''
+      };
+
+      const response = await axios.post(endpoint, jsonPayload, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        timeout: 60000 // Longer timeout for transaction history
+      });
+
+      if (typeof response.data === 'object' && response.data.Status === 'Success') {
+        return response.data;
+      }
+      
+      if (typeof response.data === 'string' && response.data.includes('<?xml')) {
+        const parsed = await this.parseTransactionXMLResponse(response.data);
+        return parsed;
+      }
+
+      throw new Error(response.data?.Message || 'Transaction fetch failed');
+    } catch (error: any) {
+      if (error.response?.status === 415 || error.message?.includes('Unsupported Media Type')) {
+        return await this.callBSETransactionXMLAPI(request, fromDate, toDate);
+      }
+      throw new Error(`BSE Transaction API error: ${error.message}`);
+    }
+  }
+
+  /**
+   * Call BSE STAR Transaction API using XML/SOAP
+   */
+  private async callBSETransactionXMLAPI(
+    request: CASFetchRequest,
+    fromDate: string,
+    toDate: string
+  ): Promise<any> {
+    const endpoint = `${this.baseUrl}/GetTransactionStatement`;
+
+    const xmlPayload = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <GetTransactionStatement xmlns="http://bsestarmf.in/">
+      <UserId>${this.credentials.userId}</UserId>
+      <MemberId>${this.credentials.memberId}</MemberId>
+      <Password>${this.credentials.password}</Password>
+      <PassKey>${this.credentials.passKey}</PassKey>
+      <PAN>${request.panNumber}</PAN>
+      <Name>${request.name}</Name>
+      <DOB>${request.dob}</DOB>
+      <FromDate>${fromDate}</FromDate>
+      <ToDate>${toDate}</ToDate>
+      <Mobile>${request.mobile || ''}</Mobile>
+      <Email>${request.email || ''}</Email>
+    </GetTransactionStatement>
+  </soap:Body>
+</soap:Envelope>`;
+
+    try {
+      const response = await axios.post(endpoint, xmlPayload, {
+        headers: {
+          'Content-Type': 'text/xml; charset=utf-8',
+          'SOAPAction': 'http://bsestarmf.in/GetTransactionStatement'
+        },
+        timeout: 60000
+      });
+
+      return await this.parseTransactionXMLResponse(response.data);
+    } catch (error: any) {
+      throw new Error(`BSE Transaction XML API error: ${error.message}`);
+    }
+  }
+
+  /**
+   * Parse XML response for transactions
+   */
+  private async parseTransactionXMLResponse(xmlData: string): Promise<any> {
+    try {
+      const parsed: any = await parseXML(xmlData, {
+        explicitArray: false,
+        ignoreAttrs: true,
+        tagNameProcessors: [(name: string) => name.replace(/^.*:/, '')]
+      });
+
+      const body = parsed?.Envelope?.Body || parsed?.Body || parsed;
+      const txResult = body?.GetTransactionStatementResponse?.GetTransactionStatementResult || body;
+
+      if (!txResult) {
+        throw new Error('Invalid XML response structure');
+      }
+
+      const status = txResult.Status || txResult.status || 'Unknown';
+      if (status !== 'Success' && status !== '100') {
+        throw new Error(txResult.Message || txResult.message || 'Transaction fetch failed');
+      }
+
+      const txData = txResult.Transactions?.Transaction || txResult.Data?.Transaction || [];
+      const transactions = Array.isArray(txData) ? txData : [txData].filter(Boolean);
+
+      return {
+        Status: 'Success',
+        Transactions: transactions.map((t: any) => ({
+          TransactionId: t.TransactionId || t.transactionId || t.OrderNo,
+          FolioNumber: t.FolioNumber || t.folioNumber || t.Folio,
+          SchemeCode: t.SchemeCode || t.schemeCode || t.ISIN,
+          SchemeName: t.SchemeName || t.schemeName,
+          AMCName: t.AMCName || t.amcName || t.FundHouse,
+          RegistrarName: t.RegistrarName || t.registrarName,
+          TransactionDate: t.TransactionDate || t.transactionDate || t.TrxnDate,
+          TransactionType: t.TransactionType || t.transactionType || t.TrxnType,
+          Units: t.Units || t.units || '0',
+          NAV: t.NAV || t.nav || '0',
+          Amount: t.Amount || t.amount || t.GrossAmount || '0',
+          StampDuty: t.StampDuty || t.stampDuty || '0',
+          STT: t.STT || t.stt || '0',
+          TDS: t.TDS || t.tds || '0',
+          NetAmount: t.NetAmount || t.netAmount || t.Amount || '0',
+          OrderNumber: t.OrderNumber || t.orderNumber || t.OrderNo,
+          Description: t.Description || t.description || t.Remarks
+        }))
+      };
+    } catch (error: any) {
+      console.error('Transaction XML parsing error:', error.message);
+      throw new Error(`Failed to parse transaction XML: ${error.message}`);
+    }
+  }
+
+  /**
+   * Parse transaction response and normalize
+   */
+  private async parseTransactionResponse(apiResponse: any): Promise<MutualFundTransaction[]> {
+    const transactions: MutualFundTransaction[] = [];
+
+    try {
+      const txData = apiResponse.Transactions || apiResponse.Data || [];
+
+      for (const tx of txData) {
+        const transaction: MutualFundTransaction = {
+          transactionId: tx.TransactionId || tx.OrderNo || `TX${Date.now()}`,
+          folioNumber: tx.FolioNumber,
+          schemeCode: tx.SchemeCode || tx.ISIN,
+          schemeName: tx.SchemeName,
+          amcName: tx.AMCName || tx.FundHouse,
+          registrarName: tx.RegistrarName,
+          transactionDate: tx.TransactionDate,
+          transactionType: this.normalizeTransactionType(tx.TransactionType),
+          units: parseFloat(tx.Units || 0),
+          nav: parseFloat(tx.NAV || 0),
+          amount: parseFloat(tx.Amount || tx.GrossAmount || 0),
+          stampDuty: parseFloat(tx.StampDuty || 0),
+          stt: parseFloat(tx.STT || 0),
+          tds: parseFloat(tx.TDS || 0),
+          netAmount: parseFloat(tx.NetAmount || tx.Amount || 0),
+          orderNumber: tx.OrderNumber || tx.OrderNo,
+          description: tx.Description || tx.Remarks
+        };
+
+        transactions.push(transaction);
+      }
+
+      // Sort by date descending (most recent first)
+      transactions.sort((a, b) => 
+        new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime()
+      );
+
+      return transactions;
+    } catch (error: any) {
+      console.error('Transaction parsing error:', error.message);
+      throw new Error(`Failed to parse transaction response: ${error.message}`);
+    }
+  }
+
+  /**
+   * Normalize transaction type to standard enum values
+   */
+  private normalizeTransactionType(type: string): MutualFundTransaction['transactionType'] {
+    if (!type) return 'purchase';
+    
+    const t = type.toUpperCase();
+    
+    if (t.includes('PURCHASE') || t === 'P' || t === 'BUY') return 'purchase';
+    if (t.includes('REDEEM') || t.includes('REDEMP') || t === 'R' || t === 'SELL') return 'redemption';
+    if (t.includes('SWITCH') && (t.includes('IN') || t.includes('TO'))) return 'switch_in';
+    if (t.includes('SWITCH') && (t.includes('OUT') || t.includes('FROM'))) return 'switch_out';
+    if (t.includes('DIV') || t.includes('IDCW')) return 'dividend';
+    if (t.includes('SIP')) return 'sip';
+    if (t.includes('STP') && t.includes('IN')) return 'stp_in';
+    if (t.includes('STP') && t.includes('OUT')) return 'stp_out';
+    
+    return 'purchase'; // Default
+  }
+
+  /**
+   * Fetch both holdings and transactions with single authorization
+   * This is the unified method that syncs everything together
+   */
+  async fetchCASWithTransactions(
+    request: CASFetchRequest,
+    fromDate?: string,
+    toDate?: string
+  ): Promise<UnifiedCASResponse> {
+    console.log(`📊 Fetching unified CAS (Holdings + Transactions) for PAN: ${request.panNumber.slice(0, 4)}****`);
+
+    // Fetch holdings and transactions in parallel for efficiency
+    const [holdingsResult, transactionsResult] = await Promise.all([
+      this.fetchCAS(request),
+      this.fetchTransactionStatement(request, fromDate, toDate)
+    ]);
+
+    const success = holdingsResult.success || transactionsResult.success;
+    
+    console.log(`✅ Unified CAS fetch complete: ${holdingsResult.holdings.length} holdings, ${transactionsResult.transactions.length} transactions`);
+
+    return {
+      success,
+      holdings: holdingsResult,
+      transactions: transactionsResult,
+      message: success 
+        ? `Fetched ${holdingsResult.holdings.length} holdings and ${transactionsResult.transactions.length} transactions`
+        : holdingsResult.message || transactionsResult.message
+    };
+  }
+
+  /**
+   * Get mock transaction data for development/testing
+   */
+  private getMockTransactionData(panNumber: string, fromDate: string, toDate: string): TransactionStatementResponse {
+    const mockTransactions: MutualFundTransaction[] = [
+      {
+        transactionId: 'TXN001',
+        folioNumber: `CAM123456/${panNumber.slice(-4)}`,
+        schemeCode: 'HDFC123',
+        schemeName: 'HDFC Flexi Cap Fund - Direct Plan - Growth',
+        amcName: 'HDFC Asset Management Company Ltd',
+        registrarName: 'CAMS',
+        transactionDate: '2024-12-10',
+        transactionType: 'sip',
+        units: 12.5034,
+        nav: 845.30,
+        amount: 10000,
+        stampDuty: 5.00,
+        stt: 0,
+        tds: 0,
+        netAmount: 9995.00,
+        orderNumber: 'ORD2024121001',
+        description: 'SIP - December 2024'
+      },
+      {
+        transactionId: 'TXN002',
+        folioNumber: `CAM123456/${panNumber.slice(-4)}`,
+        schemeCode: 'HDFC123',
+        schemeName: 'HDFC Flexi Cap Fund - Direct Plan - Growth',
+        amcName: 'HDFC Asset Management Company Ltd',
+        registrarName: 'CAMS',
+        transactionDate: '2024-11-10',
+        transactionType: 'sip',
+        units: 11.8523,
+        nav: 843.85,
+        amount: 10000,
+        stampDuty: 5.00,
+        stt: 0,
+        tds: 0,
+        netAmount: 9995.00,
+        orderNumber: 'ORD2024111001',
+        description: 'SIP - November 2024'
+      },
+      {
+        transactionId: 'TXN003',
+        folioNumber: `KAR789012/${panNumber.slice(-4)}`,
+        schemeCode: 'AXIS456',
+        schemeName: 'Axis Bluechip Fund - Direct Growth',
+        amcName: 'Axis Asset Management Company Ltd',
+        registrarName: 'KFINTECH',
+        transactionDate: '2024-11-28',
+        transactionType: 'purchase',
+        units: 100.0000,
+        nav: 425.80,
+        amount: 42580,
+        stampDuty: 21.29,
+        stt: 0,
+        tds: 0,
+        netAmount: 42558.71,
+        orderNumber: 'ORD2024112801',
+        description: 'Lumpsum Purchase'
+      },
+      {
+        transactionId: 'TXN004',
+        folioNumber: `CAM345678/${panNumber.slice(-4)}`,
+        schemeCode: 'ICICI789',
+        schemeName: 'ICICI Prudential Equity & Debt Fund - Growth',
+        amcName: 'ICICI Prudential Asset Management Company Ltd',
+        registrarName: 'CAMS',
+        transactionDate: '2024-10-15',
+        transactionType: 'redemption',
+        units: -50.0000,
+        nav: 295.45,
+        amount: 14772.50,
+        stampDuty: 0,
+        stt: 1.48,
+        tds: 0,
+        netAmount: 14771.02,
+        orderNumber: 'ORD2024101501',
+        description: 'Partial Redemption'
+      },
+      {
+        transactionId: 'TXN005',
+        folioNumber: `KAR456789/${panNumber.slice(-4)}`,
+        schemeCode: 'SBI234',
+        schemeName: 'SBI Small Cap Fund - Direct Plan - Growth',
+        amcName: 'SBI Funds Management Limited',
+        registrarName: 'KFINTECH',
+        transactionDate: '2024-12-01',
+        transactionType: 'sip',
+        units: 26.9800,
+        nav: 185.90,
+        amount: 5000,
+        stampDuty: 2.50,
+        stt: 0,
+        tds: 0,
+        netAmount: 4997.50,
+        orderNumber: 'ORD2024120101',
+        description: 'SIP - December 2024'
+      },
+      {
+        transactionId: 'TXN006',
+        folioNumber: `CAM123456/${panNumber.slice(-4)}`,
+        schemeCode: 'HDFC123',
+        schemeName: 'HDFC Flexi Cap Fund - Direct Plan - Growth',
+        amcName: 'HDFC Asset Management Company Ltd',
+        registrarName: 'CAMS',
+        transactionDate: '2020-04-15',
+        transactionType: 'purchase',
+        units: 1200.0000,
+        nav: 760.00,
+        amount: 912000,
+        stampDuty: 456.00,
+        stt: 0,
+        tds: 0,
+        netAmount: 911544.00,
+        orderNumber: 'ORD2020041501',
+        description: 'Initial Investment'
+      },
+      {
+        transactionId: 'TXN007',
+        folioNumber: `KAR789012/${panNumber.slice(-4)}`,
+        schemeCode: 'AXIS456',
+        schemeName: 'Axis Bluechip Fund - Direct Growth',
+        amcName: 'Axis Asset Management Company Ltd',
+        registrarName: 'KFINTECH',
+        transactionDate: '2021-01-20',
+        transactionType: 'purchase',
+        units: 2000.0000,
+        nav: 380.00,
+        amount: 760000,
+        stampDuty: 380.00,
+        stt: 0,
+        tds: 0,
+        netAmount: 759620.00,
+        orderNumber: 'ORD2021012001',
+        description: 'Initial Investment'
+      },
+      {
+        transactionId: 'TXN008',
+        folioNumber: `CAM345678/${panNumber.slice(-4)}`,
+        schemeCode: 'ICICI789',
+        schemeName: 'ICICI Prudential Equity & Debt Fund - Growth',
+        amcName: 'ICICI Prudential Asset Management Company Ltd',
+        registrarName: 'CAMS',
+        transactionDate: '2024-09-20',
+        transactionType: 'dividend',
+        units: 0,
+        nav: 0,
+        amount: 2500,
+        stampDuty: 0,
+        stt: 0,
+        tds: 250,
+        netAmount: 2250,
+        orderNumber: 'DIV2024092001',
+        description: 'Dividend Payout'
+      }
+    ];
+
+    // Filter transactions within date range
+    const filteredTransactions = mockTransactions.filter(tx => {
+      const txDate = new Date(tx.transactionDate);
+      return txDate >= new Date(fromDate) && txDate <= new Date(toDate);
+    });
+
+    // Sort by date descending
+    filteredTransactions.sort((a, b) => 
+      new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime()
+    );
+
+    return {
+      success: true,
+      totalTransactions: filteredTransactions.length,
+      transactions: filteredTransactions,
+      fromDate,
+      toDate,
+      message: 'Mock data for development'
+    };
   }
 }
 

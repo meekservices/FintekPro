@@ -49,6 +49,7 @@ A **Unified Portfolio Storage System** consolidates portfolio data for both pros
 - **Dual-Write Compatibility**: Portfolio imports write to both JSONB fields and unified tables during migration
 - **KYC Completion Flow**: Transfers prospect portfolios to verified user accounts, marks as verified, triggers background BSE STAR CAS refresh
 - **CAS Refresh**: Asynchronous background refresh using transaction-safe atomic updates; replaces MF holdings with authoritative CAS data while preserving non-MF holdings; sets source='cas_fetch' and updates status fields
+- **Unified Holdings + Transactions Sync**: Single authorization fetches both holdings and transaction history in parallel via `fetchCASWithTransactions()`; transactions are stored in `transactionRecords` table with parent reports in `transactionReports`; supports purchase, redemption, SIP, switch_in, switch_out, STP, and dividend transaction types; calculates financial year totals for purchases, redemptions, switches, and dividends
 - **Status Transitions**: All refresh paths update status (skipped for missing PAN/user/DOB, failed for CAS errors, success for completed)
 - **API Endpoints**: `/api/agent/prospects/:id/portfolio/unified` for unified prospect portfolio data
 

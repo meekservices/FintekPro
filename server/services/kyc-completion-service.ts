@@ -292,14 +292,17 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
       const { BSEStarCASService } = await import('./bse-star-cas-service');
       const casService = new BSEStarCASService();
       
-      // Attempt to fetch portfolio from BSE STAR CAS
-      const casResult = await casService.fetchCAS({
+      // Attempt to fetch portfolio AND transactions from BSE STAR CAS with single authorization
+      const unifiedResult = await casService.fetchCASWithTransactions({
         panNumber: panNumber,
         name: userName,
         dob: user.dateOfBirth,
         mobile: user.mobileNumber || undefined,
         email: user.email || undefined
       });
+      
+      const casResult = unifiedResult.holdings;
+      const transactionResult = unifiedResult.transactions;
       
       if (!casResult.success) {
         console.log('[Portfolio Refresh] CAS fetch failed:', casResult.message);
@@ -330,7 +333,8 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
         return;
       }
       
-      console.log('[Portfolio Refresh] Successfully fetched', casResult.holdings.length, 'holdings from CAS');
+      const transactionCount = transactionResult?.transactions?.length || 0;
+      console.log('[Portfolio Refresh] Successfully fetched', casResult.holdings.length, 'holdings and', transactionCount, 'transactions from CAS');
       
       const { portfolioHoldings } = await import('@shared/schema');
       
@@ -421,7 +425,128 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
             });
         }
         
-        console.log('[Portfolio Refresh] Transaction complete - refreshed', insertedKeys.size, 'holdings for user:', userId);
+        console.log('[Portfolio Refresh] Holdings sync complete - refreshed', insertedKeys.size, 'holdings for user:', userId);
+        
+        // Sync transactions if available (with null guards)
+        const hasTransactions = transactionResult?.success && 
+          transactionResult?.transactions && 
+          transactionResult.transactions.length > 0;
+        
+        if (hasTransactions) {
+          console.log('[Portfolio Refresh] Syncing', transactionResult.transactions.length, 'transactions for user:', userId);
+          
+          // Get current financial year (April to March)
+          const now = new Date();
+          const fyStart = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+          const financialYear = `${fyStart}-${(fyStart + 1).toString().slice(-2)}`;
+          
+          // Create or update transaction report for this sync
+          const existingReport = await tx.query.transactionReports.findFirst({
+            where: and(
+              eq(schema.transactionReports.userId, userId),
+              eq(schema.transactionReports.financialYear, financialYear),
+              eq(schema.transactionReports.source, 'bse_star_cas'),
+              eq(schema.transactionReports.assetType, 'mutual_fund')
+            ),
+          });
+          
+          let reportId: string;
+          
+          if (existingReport) {
+            reportId = existingReport.id;
+            // Update existing report
+            await tx
+              .update(schema.transactionReports)
+              .set({
+                transactionCount: transactionResult.transactions.length,
+                fetchedAt: new Date(),
+                status: 'success',
+                updatedAt: new Date()
+              })
+              .where(eq(schema.transactionReports.id, reportId));
+          } else {
+            // Create new transaction report
+            const [newReport] = await tx
+              .insert(schema.transactionReports)
+              .values({
+                userId,
+                financialYear,
+                source: 'bse_star_cas',
+                assetType: 'mutual_fund',
+                transactionCount: transactionResult.transactions.length,
+                status: 'success',
+                fetchedAt: new Date(),
+                createdAt: new Date(),
+                updatedAt: new Date()
+              })
+              .returning();
+            
+            reportId = newReport.id;
+          }
+          
+          // Delete existing transactions for this report to avoid duplicates
+          await tx
+            .delete(schema.transactionRecords)
+            .where(eq(schema.transactionRecords.reportId, reportId));
+          
+          // Insert fresh transactions
+          let purchaseTotal = 0;
+          let redemptionTotal = 0;
+          let switchTotal = 0;
+          let dividendTotal = 0;
+          
+          for (const tx_record of transactionResult.transactions) {
+            // Track totals for report summary
+            const amount = Math.abs(tx_record.amount);
+            if (tx_record.transactionType === 'purchase' || tx_record.transactionType === 'sip') {
+              purchaseTotal += amount;
+            } else if (tx_record.transactionType === 'redemption') {
+              redemptionTotal += amount;
+            } else if (tx_record.transactionType === 'switch_in' || tx_record.transactionType === 'switch_out') {
+              switchTotal += amount;
+            } else if (tx_record.transactionType === 'dividend') {
+              dividendTotal += amount;
+            }
+            
+            await tx
+              .insert(schema.transactionRecords)
+              .values({
+                reportId,
+                userId,
+                transactionDate: tx_record.transactionDate,
+                transactionType: tx_record.transactionType,
+                fundName: tx_record.schemeName,
+                fundCode: tx_record.schemeCode,
+                folio: tx_record.folioNumber,
+                units: tx_record.units.toString(),
+                nav: tx_record.nav.toString(),
+                amount: tx_record.amount.toString(),
+                stampDuty: tx_record.stampDuty.toString(),
+                stt: tx_record.stt.toString(),
+                tds: tx_record.tds.toString(),
+                netAmount: tx_record.netAmount.toString(),
+                registrar: tx_record.registrarName,
+                createdAt: new Date()
+              });
+          }
+          
+          // Update report with calculated totals
+          await tx
+            .update(schema.transactionReports)
+            .set({
+              totalPurchases: purchaseTotal.toString(),
+              totalRedemptions: redemptionTotal.toString(),
+              totalSwitches: switchTotal.toString(),
+              totalDividendReceived: dividendTotal.toString(),
+              updatedAt: new Date()
+            })
+            .where(eq(schema.transactionReports.id, reportId));
+          
+          console.log('[Portfolio Refresh] Transaction sync complete - synced', transactionResult.transactions.length, 'transactions for user:', userId);
+        }
+        
+        const syncedTransactionCount = hasTransactions ? transactionResult.transactions.length : 0;
+        console.log('[Portfolio Refresh] Unified sync complete - refreshed', insertedKeys.size, 'holdings and', syncedTransactionCount, 'transactions for user:', userId);
       });
       
     } catch (error) {
