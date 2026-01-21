@@ -551,6 +551,11 @@ app.use((req, res, next) => {
   app.use('/api/proposal-esign', proposalEsignRoutes.default);
   console.log('✅ Proposal eSign workflow routes registered');
 
+  // Register eSign AI Analysis routes
+  const esignAiRoutes = await import('./routes/esign-ai-routes');
+  app.use('/api/esign/ai', esignAiRoutes.default);
+  console.log('✅ eSign AI analysis routes registered');
+
   // Register Document Upload routes
   const documentUploadRoutes = await import('./routes/document-upload-routes');
   app.use('/api/documents', documentUploadRoutes.default);

@@ -28049,3 +28049,159 @@ export const insertReitInvitMetricsSchema = createInsertSchema(reitInvitMetrics)
 });
 export type ReitInvitMetrics = typeof reitInvitMetrics.$inferSelect;
 export type InsertReitInvitMetrics = z.infer<typeof insertReitInvitMetricsSchema>;
+
+// =====================================================
+// ESIGN AI DOCUMENT ANALYSIS - Annotation System
+// =====================================================
+
+// AI Document Annotations - Stores AI suggestions and user notes as threads
+export const esignDocumentAnnotations = pgTable("esign_document_annotations", {
+  id: serial("id").primaryKey(),
+  documentId: varchar("document_id", { length: 100 }).notNull(),
+  workflowId: integer("workflow_id"),
+  
+  category: varchar("category", { length: 50 }).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  content: text("content").notNull(),
+  severity: varchar("severity", { length: 20 }).default("info"),
+  
+  pageNumber: integer("page_number"),
+  xPosition: decimal("x_position", { precision: 10, scale: 4 }),
+  yPosition: decimal("y_position", { precision: 10, scale: 4 }),
+  textExcerpt: text("text_excerpt"),
+  startOffset: integer("start_offset"),
+  endOffset: integer("end_offset"),
+  
+  status: varchar("status", { length: 30 }).notNull().default("open"),
+  acceptedBy: varchar("accepted_by", { length: 100 }),
+  acceptedAt: timestamp("accepted_at"),
+  rejectedBy: varchar("rejected_by", { length: 100 }),
+  rejectedAt: timestamp("rejected_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  createdByType: varchar("created_by_type", { length: 20 }).notNull().default("ai"),
+  createdById: varchar("created_by_id", { length: 100 }),
+  createdByName: varchar("created_by_name", { length: 255 }),
+  
+  suggestedAction: text("suggested_action"),
+  suggestedReplacement: text("suggested_replacement"),
+  
+  aiModel: varchar("ai_model", { length: 50 }),
+  confidence: decimal("confidence", { precision: 5, scale: 4 }),
+  metadata: jsonb("metadata").default({}),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_esign_annotations_doc").on(table.documentId),
+  index("idx_esign_annotations_workflow").on(table.workflowId),
+  index("idx_esign_annotations_category").on(table.category),
+  index("idx_esign_annotations_status").on(table.status),
+]);
+
+export const insertEsignDocumentAnnotationSchema = createInsertSchema(esignDocumentAnnotations).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+export type EsignDocumentAnnotation = typeof esignDocumentAnnotations.$inferSelect;
+export type InsertEsignDocumentAnnotation = z.infer<typeof insertEsignDocumentAnnotationSchema>;
+
+// Annotation Replies - Threaded discussions on annotations
+export const esignAnnotationReplies = pgTable("esign_annotation_replies", {
+  id: serial("id").primaryKey(),
+  annotationId: integer("annotation_id").notNull().references(() => esignDocumentAnnotations.id, { onDelete: 'cascade' }),
+  parentReplyId: integer("parent_reply_id"),
+  
+  content: text("content").notNull(),
+  
+  authorId: varchar("author_id", { length: 100 }),
+  authorName: varchar("author_name", { length: 255 }),
+  authorType: varchar("author_type", { length: 20 }).notNull(),
+  authorEmail: varchar("author_email", { length: 255 }),
+  
+  isEdited: boolean("is_edited").default(false),
+  editedAt: timestamp("edited_at"),
+  metadata: jsonb("metadata").default({}),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_esign_replies_annotation").on(table.annotationId),
+  index("idx_esign_replies_author").on(table.authorId),
+]);
+
+export const insertEsignAnnotationReplySchema = createInsertSchema(esignAnnotationReplies).omit({
+  id: true, createdAt: true,
+});
+export type EsignAnnotationReply = typeof esignAnnotationReplies.$inferSelect;
+export type InsertEsignAnnotationReply = z.infer<typeof insertEsignAnnotationReplySchema>;
+
+// Annotation Audit Log - Track all changes
+export const esignAnnotationAuditLog = pgTable("esign_annotation_audit_log", {
+  id: serial("id").primaryKey(),
+  annotationId: integer("annotation_id").notNull().references(() => esignDocumentAnnotations.id, { onDelete: 'cascade' }),
+  
+  action: varchar("action", { length: 50 }).notNull(),
+  previousStatus: varchar("previous_status", { length: 30 }),
+  newStatus: varchar("new_status", { length: 30 }),
+  
+  actorId: varchar("actor_id", { length: 100 }),
+  actorName: varchar("actor_name", { length: 255 }),
+  actorType: varchar("actor_type", { length: 20 }),
+  
+  details: jsonb("details").default({}),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_esign_annot_audit_annotation").on(table.annotationId),
+  index("idx_esign_annot_audit_action").on(table.action),
+]);
+
+export const insertEsignAnnotationAuditLogSchema = createInsertSchema(esignAnnotationAuditLog).omit({
+  id: true, createdAt: true,
+});
+export type EsignAnnotationAuditLog = typeof esignAnnotationAuditLog.$inferSelect;
+export type InsertEsignAnnotationAuditLog = z.infer<typeof insertEsignAnnotationAuditLogSchema>;
+
+// AI Analysis Sessions - Track AI analysis runs
+export const esignAiAnalysisSessions = pgTable("esign_ai_analysis_sessions", {
+  id: serial("id").primaryKey(),
+  documentId: varchar("document_id", { length: 100 }).notNull(),
+  workflowId: integer("workflow_id"),
+  
+  status: varchar("status", { length: 30 }).notNull().default("pending"),
+  
+  documentName: varchar("document_name", { length: 255 }),
+  documentType: varchar("document_type", { length: 50 }),
+  documentHash: varchar("document_hash", { length: 128 }),
+  
+  analysisTypes: jsonb("analysis_types").default(['summary', 'corrections', 'missing_clauses', 'compliance']),
+  aiModel: varchar("ai_model", { length: 50 }).default("gemini-1.5-flash"),
+  
+  totalAnnotations: integer("total_annotations").default(0),
+  summaryCount: integer("summary_count").default(0),
+  correctionCount: integer("correction_count").default(0),
+  missingClauseCount: integer("missing_clause_count").default(0),
+  complianceCount: integer("compliance_count").default(0),
+  
+  rawAiResponse: text("raw_ai_response"),
+  processingTimeMs: integer("processing_time_ms"),
+  tokenCount: integer("token_count"),
+  
+  requestedById: varchar("requested_by_id", { length: 100 }),
+  requestedByName: varchar("requested_by_name", { length: 255 }),
+  
+  errorMessage: text("error_message"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+}, (table) => [
+  index("idx_esign_ai_session_doc").on(table.documentId),
+  index("idx_esign_ai_session_status").on(table.status),
+]);
+
+export const insertEsignAiAnalysisSessionSchema = createInsertSchema(esignAiAnalysisSessions).omit({
+  id: true, createdAt: true,
+});
+export type EsignAiAnalysisSession = typeof esignAiAnalysisSessions.$inferSelect;
+export type InsertEsignAiAnalysisSession = z.infer<typeof insertEsignAiAnalysisSessionSchema>;
