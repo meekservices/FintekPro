@@ -21,6 +21,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useDropzone } from "react-dropzone";
 import { format, addDays, formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { DocumentAnnotationsPanel } from "@/components/esign/DocumentAnnotationsPanel";
+import { SigningMethodSelector, type SigningMethod } from "@/components/esign/SigningMethodSelector";
 import {
   FileSignature,
   Upload,
@@ -49,7 +51,10 @@ import {
   MousePointer2,
   CalendarDays,
   Loader2,
-  FileType
+  FileType,
+  Sparkles,
+  PanelRightClose,
+  PanelRightOpen,
 } from "lucide-react";
 
 interface Client {
@@ -176,6 +181,10 @@ export default function AgentESignPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedDocumentData, setUploadedDocumentData] = useState<UploadedDocumentData | null>(null);
   const [showDocumentPreview, setShowDocumentPreview] = useState(false);
+  const [showAIPanel, setShowAIPanel] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [currentDocumentId, setCurrentDocumentId] = useState<string>("");
+  const [selectedSigningMethod, setSelectedSigningMethod] = useState<SigningMethod>('aadhaar_esign');
 
   const { data: clients, isLoading: clientsLoading } = useQuery<Client[]>({
     queryKey: ['/api/agent/clients'],
@@ -241,6 +250,53 @@ export default function AgentESignPage() {
       });
     }
   });
+
+  const analyzeDocument = useMutation({
+    mutationFn: async (data: { documentId: string; documentContent: string; documentName: string; documentType: string }) => {
+      return apiRequest('/api/esign/ai/analyze', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: (data: any) => {
+      toast({ 
+        title: "Analysis Complete", 
+        description: `Found ${data.annotations?.length || 0} suggestions` 
+      });
+      setShowAIPanel(true);
+      setIsAnalyzing(false);
+      queryClient.invalidateQueries({ queryKey: ['/api/esign/ai/annotations', currentDocumentId] });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Analysis Failed", 
+        description: error.message || "Failed to analyze document", 
+        variant: "destructive" 
+      });
+      setIsAnalyzing(false);
+    }
+  });
+
+  const handleAnalyzeDocument = () => {
+    if (!uploadedDocumentData || !documentName || !documentType) {
+      toast({ title: "Missing Data", description: "Please upload a document first", variant: "destructive" });
+      return;
+    }
+    
+    const docId = uploadedDocumentData.documentHash || `doc-${Date.now()}`;
+    setCurrentDocumentId(docId);
+    setIsAnalyzing(true);
+    
+    const content = uploadedDocumentData.htmlContent || 
+      `Document: ${documentName}\nType: ${documentType}\nHash: ${uploadedDocumentData.documentHash}`;
+    
+    analyzeDocument.mutate({
+      documentId: docId,
+      documentContent: content,
+      documentName,
+      documentType,
+    });
+  };
 
   const downloadDocument = useMutation({
     mutationFn: async (transactionId: string) => {
@@ -842,14 +898,46 @@ export default function AgentESignPage() {
                         </div>
                         <div className="flex gap-1">
                           {uploadedDocumentData && (
-                            <Button 
-                              variant="ghost" 
-                              size="icon"
-                              onClick={(e) => { e.stopPropagation(); setShowDocumentPreview(true); }}
-                              data-testid="button-preview-document"
-                            >
-                              <Eye className="h-4 w-4 text-emerald-600" />
-                            </Button>
+                            <>
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={(e) => { e.stopPropagation(); setShowDocumentPreview(true); }}
+                                data-testid="button-preview-document"
+                                title="Preview Document"
+                              >
+                                <Eye className="h-4 w-4 text-emerald-600" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={(e) => { e.stopPropagation(); handleAnalyzeDocument(); }}
+                                disabled={isAnalyzing}
+                                data-testid="button-analyze-document"
+                                title="AI Analysis"
+                              >
+                                {isAnalyzing ? (
+                                  <Loader2 className="h-4 w-4 text-purple-600 animate-spin" />
+                                ) : (
+                                  <Sparkles className="h-4 w-4 text-purple-600" />
+                                )}
+                              </Button>
+                              {showAIPanel && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon"
+                                  onClick={(e) => { e.stopPropagation(); setShowAIPanel(!showAIPanel); }}
+                                  data-testid="button-toggle-ai-panel"
+                                  title="Toggle AI Panel"
+                                >
+                                  {showAIPanel ? (
+                                    <PanelRightClose className="h-4 w-4 text-purple-600" />
+                                  ) : (
+                                    <PanelRightOpen className="h-4 w-4 text-purple-600" />
+                                  )}
+                                </Button>
+                              )}
+                            </>
                           )}
                           <Button 
                             variant="ghost" 
@@ -1404,11 +1492,34 @@ export default function AgentESignPage() {
         </Dialog>
 
         <Dialog open={showDocumentPreview} onOpenChange={setShowDocumentPreview}>
-          <DialogContent className="max-w-4xl max-h-[90vh]" data-testid="dialog-document-preview">
+          <DialogContent className={cn("max-h-[90vh]", showAIPanel ? "max-w-[95vw]" : "max-w-4xl")} data-testid="dialog-document-preview">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Eye className="h-5 w-5 text-emerald-600" />
-                Document Preview
+              <DialogTitle className="flex items-center gap-2 justify-between">
+                <div className="flex items-center gap-2">
+                  <Eye className="h-5 w-5 text-emerald-600" />
+                  Document Preview
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={showAIPanel ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      if (!showAIPanel && !currentDocumentId) {
+                        handleAnalyzeDocument();
+                      } else {
+                        setShowAIPanel(!showAIPanel);
+                      }
+                    }}
+                    disabled={isAnalyzing}
+                  >
+                    {isAnalyzing ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4 mr-2" />
+                    )}
+                    {isAnalyzing ? "Analyzing..." : showAIPanel ? "Hide AI Panel" : "AI Analysis"}
+                  </Button>
+                </div>
               </DialogTitle>
               <DialogDescription>
                 {uploadedDocumentData?.fileName} 
@@ -1419,40 +1530,66 @@ export default function AgentESignPage() {
                 )}
               </DialogDescription>
             </DialogHeader>
-            <div className="h-[60vh] overflow-auto border rounded-lg bg-white dark:bg-slate-900">
-              {uploadedDocumentData?.convertedFormat === 'html' && uploadedDocumentData?.htmlContent ? (
-                <div 
-                  className="p-6 prose dark:prose-invert max-w-none"
-                  dangerouslySetInnerHTML={{ __html: uploadedDocumentData.htmlContent }}
-                />
-              ) : uploadedDocumentData?.displayUrl ? (
-                <iframe
-                  src={uploadedDocumentData.displayUrl}
-                  className="w-full h-full"
-                  title="Document Preview"
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
-                  <div className="text-center">
-                    <FileText className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                    <p>Preview not available</p>
-                  </div>
+            <div className={cn("flex gap-4", showAIPanel && "flex-row")}>
+              <div className={cn("flex-1", showAIPanel && "w-1/2")}>
+                <div className="h-[55vh] overflow-auto border rounded-lg bg-white dark:bg-slate-900">
+                  {uploadedDocumentData?.convertedFormat === 'html' && uploadedDocumentData?.htmlContent ? (
+                    <div 
+                      className="p-6 prose dark:prose-invert max-w-none"
+                      dangerouslySetInnerHTML={{ __html: uploadedDocumentData.htmlContent }}
+                    />
+                  ) : uploadedDocumentData?.displayUrl ? (
+                    <iframe
+                      src={uploadedDocumentData.displayUrl}
+                      className="w-full h-full"
+                      title="Document Preview"
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-muted-foreground">
+                      <div className="text-center">
+                        <FileText className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                        <p>Preview not available</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              {showAIPanel && currentDocumentId && (
+                <div className="w-1/2">
+                  <DocumentAnnotationsPanel
+                    documentId={currentDocumentId}
+                    currentUserId="agent-1"
+                    currentUserName="Current Agent"
+                    onAnnotationClick={(annotation) => {
+                      console.log('Annotation clicked:', annotation);
+                    }}
+                  />
                 </div>
               )}
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowDocumentPreview(false)}>
-                Close
-              </Button>
-              {uploadedDocumentData?.originalUrl && (
-                <Button 
-                  variant="outline"
-                  onClick={() => window.open(uploadedDocumentData.originalUrl, '_blank')}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download Original
+            <DialogFooter className="flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <SigningMethodSelector
+                  selectedMethod={selectedSigningMethod}
+                  onMethodChange={setSelectedSigningMethod}
+                  documentType={documentType || 'investment_agreement'}
+                  className="w-full"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setShowDocumentPreview(false)}>
+                  Close
                 </Button>
-              )}
+                {uploadedDocumentData?.originalUrl && (
+                  <Button 
+                    variant="outline"
+                    onClick={() => window.open(uploadedDocumentData.originalUrl, '_blank')}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download Original
+                  </Button>
+                )}
+              </div>
             </DialogFooter>
           </DialogContent>
         </Dialog>

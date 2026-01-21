@@ -6,7 +6,7 @@ import {
 } from '@shared/schema';
 import { eq, and, desc, asc, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
 export type AnnotationCategory = 'summary' | 'correction' | 'missing_clause' | 'compliance' | 'general';
 export type AnnotationStatus = 'open' | 'accepted' | 'rejected' | 'resolved' | 'deferred';
@@ -55,14 +55,12 @@ const DOCUMENT_TYPE_PROMPTS: Record<string, string> = {
 };
 
 class ESignAIAnalysisService {
-  private genAI: GoogleGenerativeAI | null = null;
-  private model: any = null;
+  private genAI: GoogleGenAI | null = null;
 
   constructor() {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    const apiKey = process.env.AI_INTEGRATIONS_GOOGLE_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
     if (apiKey) {
-      this.genAI = new GoogleGenerativeAI(apiKey);
-      this.model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      this.genAI = new GoogleGenAI({ apiKey });
       console.log('✅ [eSign AI Analysis] Gemini AI initialized');
     } else {
       console.warn('⚠️ [eSign AI Analysis] No API key found - using mock mode');
@@ -177,9 +175,12 @@ Generate:
 Return ONLY a valid JSON array, no other text.`;
 
     try {
-      const result = await this.model.generateContent(prompt);
-      const response = result.response;
-      const text = response.text();
+      const response = await this.genAI!.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: prompt,
+      });
+      
+      const text = response.text || '';
       
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (!jsonMatch) {
