@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useAuth } from "@/hooks/useAuth";
 import { 
   ArrowLeft, 
   ArrowRight, 
@@ -130,6 +131,7 @@ const STEPS = [
 export default function TaxITRSelfPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const { user, isAuthenticated } = useAuth();
   const [currentStepId, setCurrentStepId] = useState<string>("basic");
   const [assessmentYear, setAssessmentYear] = useState("2024-25");
   const [recommendedForm, setRecommendedForm] = useState("ITR-1");
@@ -183,7 +185,8 @@ export default function TaxITRSelfPage() {
   });
 
   const { data: panContext, isLoading: panLoading } = useQuery<PANContext>({
-    queryKey: ["/api/tax/pan-context"]
+    queryKey: ["/api/tax/pan-context"],
+    enabled: isAuthenticated
   });
 
   const saveDraftMutation = useMutation({

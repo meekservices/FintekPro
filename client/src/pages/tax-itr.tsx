@@ -30,6 +30,7 @@ import {
   Home as HomeIcon
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 
 type PANType = "individual" | "huf" | "firm" | "company" | "trust" | "nri";
 
@@ -79,13 +80,16 @@ const FORM_COMPLEXITY: Record<string, "simple" | "moderate" | "complex"> = {
 export default function TaxITRPage() {
   const [, navigate] = useLocation();
   const [selectedTab, setSelectedTab] = useState("landing");
+  const { isAuthenticated } = useAuth();
   
   const { data: panContext, isLoading: panLoading } = useQuery<PANContext>({
-    queryKey: ["/api/tax/pan-context"]
+    queryKey: ["/api/tax/pan-context"],
+    enabled: isAuthenticated
   });
 
   const { data: eligibleFormsData, isLoading: formsLoading } = useQuery<EligibleFormsResponse>({
-    queryKey: ["/api/tax/eligible-forms"]
+    queryKey: ["/api/tax/eligible-forms"],
+    enabled: isAuthenticated
   });
 
   const { data: pricing } = useQuery<ITRPricing>({

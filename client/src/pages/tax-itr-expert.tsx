@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 type PANType = "individual" | "huf" | "firm" | "company" | "trust" | "nri";
 
@@ -107,6 +108,7 @@ const STEPS = [
 export default function TaxITRExpertPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const { isAuthenticated } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
   const [assessmentYear, setAssessmentYear] = useState("2025-26");
   const [uploadedDocs, setUploadedDocs] = useState<string[]>([]);
@@ -133,7 +135,8 @@ export default function TaxITRExpertPage() {
   });
 
   const { data: panContext, isLoading: panLoading } = useQuery<PANContext>({
-    queryKey: ["/api/tax/pan-context"]
+    queryKey: ["/api/tax/pan-context"],
+    enabled: isAuthenticated
   });
 
   const submitCaseMutation = useMutation({
