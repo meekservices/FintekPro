@@ -25617,6 +25617,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         total: 0,
         message: "Loan offers feature coming soon"
       });
+    } catch (error) {
+      console.error('Error fetching loan offers:', error);
+      res.status(500).json({ message: "Failed to fetch loan offers" });
+    }
+  });
 
   // Expenses stub endpoints
   app.get("/api/expenses", async (req, res) => {
@@ -25654,11 +25659,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching insights:', error);
       res.status(500).json({ message: "Failed to fetch insights" });
-    }
-  });
-    } catch (error) {
-      console.error('Error fetching loan offers:', error);
-      res.status(500).json({ message: "Failed to fetch loan offers" });
     }
   });
 
