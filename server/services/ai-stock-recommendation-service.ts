@@ -1,7 +1,8 @@
 import { db } from "../db";
-import { listedStocks } from "@shared/schema";
+import { listedStocks, stockFinancialMetrics } from "@shared/schema";
 import { eq, and, desc, asc, gte, lte, sql, inArray, ilike, or, isNotNull } from "drizzle-orm";
 import { GoogleGenAI } from "@google/genai";
+import { financialMetricsCalculator } from "./financial-metrics-calculator";
 
 export interface StockRecommendation {
   id: string;
@@ -91,6 +92,14 @@ interface ScoredStock {
   qualityScore: number;
   totalScore: number;
   liveData?: any;
+  advancedMetrics?: {
+    piotroskiFScore?: number;
+    altmanZScore?: number;
+    earningsQualityRatio?: number;
+    pegRatio?: number;
+    evToEbitda?: number;
+    roic?: number;
+  };
 }
 
 class AIStockRecommendationService {
@@ -312,6 +321,8 @@ class AIStockRecommendationService {
     const returns3M = parseFloat(stock.returns3M || 0);
     const dividendYield = parseFloat(live.dividendYield || stock.dividendYield || cachedFundamentals.dividendYield || 0);
     
+    const advancedMetrics = this.calculateAdvancedMetrics(stock, live, cachedFundamentals);
+    
     let valuationScore = 0;
     if (peRatio < 15) valuationScore = 100;
     else if (peRatio < 20) valuationScore = 80;
@@ -322,6 +333,17 @@ class AIStockRecommendationService {
     if (pbRatio < 1.5) valuationScore += 20;
     else if (pbRatio < 3) valuationScore += 15;
     else if (pbRatio < 5) valuationScore += 5;
+    
+    if (advancedMetrics.pegRatio !== undefined) {
+      if (advancedMetrics.pegRatio < 1) valuationScore += 15;
+      else if (advancedMetrics.pegRatio < 1.5) valuationScore += 10;
+      else if (advancedMetrics.pegRatio < 2) valuationScore += 5;
+    }
+    
+    if (advancedMetrics.evToEbitda !== undefined) {
+      if (advancedMetrics.evToEbitda < 8) valuationScore += 10;
+      else if (advancedMetrics.evToEbitda < 12) valuationScore += 5;
+    }
     
     let qualityScore = 0;
     if (roe > 25) qualityScore = 100;
@@ -334,6 +356,29 @@ class AIStockRecommendationService {
     else if (roce > 18) qualityScore += 20;
     else if (roce > 12) qualityScore += 15;
     else if (roce > 8) qualityScore += 5;
+    
+    if (advancedMetrics.piotroskiFScore !== undefined) {
+      if (advancedMetrics.piotroskiFScore >= 8) qualityScore += 25;
+      else if (advancedMetrics.piotroskiFScore >= 6) qualityScore += 15;
+      else if (advancedMetrics.piotroskiFScore >= 4) qualityScore += 5;
+      else qualityScore -= 10;
+    }
+    
+    if (advancedMetrics.altmanZScore !== undefined) {
+      if (advancedMetrics.altmanZScore > 2.99) qualityScore += 20;
+      else if (advancedMetrics.altmanZScore > 1.81) qualityScore += 10;
+      else qualityScore -= 15;
+    }
+    
+    if (advancedMetrics.earningsQualityRatio !== undefined && advancedMetrics.earningsQualityRatio >= 1.0) {
+      qualityScore += 10;
+    }
+    
+    if (advancedMetrics.roic !== undefined) {
+      if (advancedMetrics.roic > 20) qualityScore += 15;
+      else if (advancedMetrics.roic > 15) qualityScore += 10;
+      else if (advancedMetrics.roic > 10) qualityScore += 5;
+    }
     
     let momentumScore = 50;
     if (returns1Y > 40) momentumScore = 100;
@@ -370,6 +415,9 @@ class AIStockRecommendationService {
     let fundamentalScore = (valuationScore + qualityScore + dividendYield * 8) / 2;
     fundamentalScore = Math.min(100, fundamentalScore);
     
+    qualityScore = Math.min(150, qualityScore);
+    valuationScore = Math.min(150, valuationScore);
+    
     const weights = this.getRiskWeights(riskLevel);
     const totalScore = 
       fundamentalScore * weights.fundamental +
@@ -386,8 +434,110 @@ class AIStockRecommendationService {
       valuationScore,
       qualityScore,
       totalScore,
-      liveData: live
+      liveData: live,
+      advancedMetrics
     };
+  }
+  
+  private calculateAdvancedMetrics(stock: any, live: any, cachedFundamentals: any): {
+    piotroskiFScore?: number;
+    altmanZScore?: number;
+    earningsQualityRatio?: number;
+    pegRatio?: number;
+    evToEbitda?: number;
+    roic?: number;
+  } {
+    const metrics: any = {};
+    
+    try {
+      const netIncome = parseFloat(stock.netIncome || cachedFundamentals.netIncome || 0);
+      const totalAssets = parseFloat(stock.totalAssets || cachedFundamentals.totalAssets || 1);
+      const operatingCashFlow = parseFloat(stock.operatingCashFlow || cachedFundamentals.operatingCashFlow || 0);
+      const revenue = parseFloat(stock.revenue || cachedFundamentals.revenue || 0);
+      const grossMargin = parseFloat(stock.grossMargin || cachedFundamentals.grossMargin || 0);
+      const currentRatio = parseFloat(stock.currentRatio || live.currentRatio || 1.5);
+      const debtToEquity = parseFloat(stock.debtToEquity || live.debtToEquity || cachedFundamentals.debtToEquity || 0.5);
+      const longTermDebt = parseFloat(stock.longTermDebt || cachedFundamentals.longTermDebt || 0);
+      const sharesOutstanding = parseFloat(stock.sharesOutstanding || cachedFundamentals.sharesOutstanding || 1);
+      const assetTurnover = revenue / totalAssets;
+      
+      const prevNetIncome = parseFloat(cachedFundamentals.prevNetIncome || netIncome * 0.9);
+      const prevTotalAssets = parseFloat(cachedFundamentals.prevTotalAssets || totalAssets);
+      const prevLongTermDebt = parseFloat(cachedFundamentals.prevLongTermDebt || longTermDebt);
+      const prevCurrentRatio = parseFloat(cachedFundamentals.prevCurrentRatio || currentRatio);
+      const prevGrossMargin = parseFloat(cachedFundamentals.prevGrossMargin || grossMargin);
+      const prevAssetTurnover = parseFloat(cachedFundamentals.prevAssetTurnover || assetTurnover);
+      const prevSharesOutstanding = parseFloat(cachedFundamentals.prevSharesOutstanding || sharesOutstanding);
+      
+      if (netIncome && totalAssets && operatingCashFlow) {
+        metrics.piotroskiFScore = financialMetricsCalculator.calculatePiotroskiFScore(
+          netIncome,
+          totalAssets,
+          operatingCashFlow,
+          longTermDebt,
+          currentRatio,
+          sharesOutstanding,
+          grossMargin,
+          assetTurnover,
+          prevNetIncome,
+          prevTotalAssets,
+          prevLongTermDebt,
+          prevCurrentRatio,
+          prevGrossMargin,
+          prevAssetTurnover,
+          prevSharesOutstanding
+        );
+      }
+      
+      const workingCapital = parseFloat(stock.workingCapital || cachedFundamentals.workingCapital || totalAssets * 0.2);
+      const retainedEarnings = parseFloat(stock.retainedEarnings || cachedFundamentals.retainedEarnings || netIncome * 3);
+      const ebit = parseFloat(stock.ebit || cachedFundamentals.ebit || netIncome * 1.3);
+      const marketCap = parseFloat(live.marketCap || stock.marketCap || cachedFundamentals.marketCap || 0);
+      const totalLiabilities = parseFloat(stock.totalLiabilities || cachedFundamentals.totalLiabilities || totalAssets * 0.4);
+      
+      if (totalAssets && totalLiabilities && revenue) {
+        metrics.altmanZScore = financialMetricsCalculator.calculateAltmanZScore(
+          workingCapital,
+          retainedEarnings,
+          ebit,
+          marketCap,
+          totalLiabilities,
+          revenue,
+          totalAssets
+        );
+      }
+      
+      if (operatingCashFlow && netIncome) {
+        metrics.earningsQualityRatio = financialMetricsCalculator.calculateEarningsQualityRatio(
+          operatingCashFlow,
+          netIncome
+        );
+      }
+      
+      const peRatio = parseFloat(live.peRatio || stock.peRatio || cachedFundamentals.peRatio || 0);
+      const epsGrowth = parseFloat(stock.epsGrowth || cachedFundamentals.epsGrowth || 15);
+      if (peRatio && epsGrowth && epsGrowth > 0) {
+        const epsGrowthDecimal = epsGrowth > 1 ? epsGrowth / 100 : epsGrowth;
+        metrics.pegRatio = financialMetricsCalculator.calculatePEGRatio(peRatio, epsGrowthDecimal);
+      }
+      
+      const ebitda = parseFloat(stock.ebitda || cachedFundamentals.ebitda || ebit * 1.15);
+      const enterpriseValue = parseFloat(stock.enterpriseValue || cachedFundamentals.enterpriseValue || marketCap * 1.1);
+      if (enterpriseValue && ebitda && ebitda > 0) {
+        metrics.evToEbitda = financialMetricsCalculator.calculateEVtoEBITDA(enterpriseValue, ebitda);
+      }
+      
+      const investedCapital = parseFloat(stock.investedCapital || cachedFundamentals.investedCapital || totalAssets * 0.7);
+      const taxRate = parseFloat(stock.taxRate || 0.25);
+      if (ebit && investedCapital && investedCapital > 0) {
+        const nopat = ebit * (1 - taxRate);
+        metrics.roic = financialMetricsCalculator.calculateROIC(nopat, investedCapital);
+      }
+    } catch (error) {
+      console.warn('[AIStockRecommendation] Error calculating advanced metrics:', error);
+    }
+    
+    return metrics;
   }
 
   private getRiskWeights(riskLevel: string) {
