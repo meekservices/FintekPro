@@ -81,21 +81,25 @@ export default function ExpensesBudgetsPage() {
   // Fetch expenses
   const { data: expenses = [], isLoading: expensesLoading } = useQuery({
     queryKey: ['/api/expenses'],
+    select: (data: any) => Array.isArray(data) ? data : (data?.expenses || []),
   });
 
   // Fetch budgets
   const { data: budgets = [], isLoading: budgetsLoading } = useQuery({
-    queryKey: ['/api/budgets', { isActive: true }],
+    queryKey: ['/api/budgets'],
+    select: (data: any) => Array.isArray(data) ? data : (data?.budgets || []),
   });
 
   // Fetch category summary
   const { data: categoryData = [], isLoading: categoryLoading } = useQuery({
     queryKey: ['/api/expenses/by-category'],
+    select: (data: any) => Array.isArray(data) ? data : (data?.categories || []),
   });
 
   // Fetch insights
   const { data: insights = [], isLoading: insightsLoading } = useQuery({
     queryKey: ['/api/insights'],
+    select: (data: any) => Array.isArray(data) ? data : (data?.insights || []),
   });
 
   // Create expense mutation

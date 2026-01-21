@@ -25617,6 +25617,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         total: 0,
         message: "Loan offers feature coming soon"
       });
+
+  // Expenses stub endpoints
+  app.get("/api/expenses", async (req, res) => {
+    try {
+      res.json({ expenses: [], total: 0, message: "Expense tracking feature coming soon" });
+    } catch (error) {
+      console.error('Error fetching expenses:', error);
+      res.status(500).json({ message: "Failed to fetch expenses" });
+    }
+  });
+
+  app.get("/api/expenses/by-category", async (req, res) => {
+    try {
+      res.json({ categories: [], total: 0, message: "Expense categories feature coming soon" });
+    } catch (error) {
+      console.error('Error fetching expense categories:', error);
+      res.status(500).json({ message: "Failed to fetch expense categories" });
+    }
+  });
+
+  // Budgets stub endpoint
+  app.get("/api/budgets", async (req, res) => {
+    try {
+      res.json({ budgets: [], message: "Budget tracking feature coming soon" });
+    } catch (error) {
+      console.error('Error fetching budgets:', error);
+      res.status(500).json({ message: "Failed to fetch budgets" });
+    }
+  });
+
+  // Insights stub endpoint
+  app.get("/api/insights", async (req, res) => {
+    try {
+      res.json({ insights: [], recommendations: [], message: "Financial insights feature coming soon" });
+    } catch (error) {
+      console.error('Error fetching insights:', error);
+      res.status(500).json({ message: "Failed to fetch insights" });
+    }
+  });
     } catch (error) {
       console.error('Error fetching loan offers:', error);
       res.status(500).json({ message: "Failed to fetch loan offers" });
