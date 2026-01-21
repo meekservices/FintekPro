@@ -1,0 +1,189 @@
+
+Time
+Deployment
+Source
+Log
+2026-01-22 04:47:46.40
+7bfc0630
+User
+at PgSelectBase._prepare (file:///home/runner/workspace/node_modules/drizzle-orm/pg-core/query-builders/select.js:683:19)
+2026-01-22 04:48:46.64
+7bfc0630
+User
+at Array.reduce ()
+2026-01-22 04:49:03.90
+7bfc0630
+User
+at parseJSONFromBytes (node:internal/deps/undici/undici:5852:19)
+2026-01-22 04:49:03.90
+7bfc0630
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-01-22 04:49:03.90
+7bfc0630
+User
+at successSteps (node:internal/deps/undici/undici:5833:27)
+2026-01-22 04:49:03.90
+7bfc0630
+User
+at async FinancialDataScheduler.refreshETFs (file:///home/runner/workspace/dist/index.js:42977:26)
+2026-01-22 04:49:05.70
+7bfc0630
+User
+at async Object.quote (file:///home/runner/workspace/node_modules/yahoo-finance2/dist/esm/src/modules/quote.js:238:21)
+2026-01-22 04:49:05.70
+7bfc0630
+User
+at parse ()
+2026-01-22 04:49:05.70
+7bfc0630
+User
+at fullyReadBody (node:internal/deps/undici/undici:4725:9)
+2026-01-22 04:49:05.70
+7bfc0630
+User
+⚠️ [FinancialDataRepository] Yahoo fetch failed for MSFT: SyntaxError: Unexpected token 'T', "Too Many Requests
+2026-01-22 04:49:05.70
+7bfc0630
+User
+" is not valid JSON
+2026-01-22 04:49:05.70
+7bfc0630
+User
+at async FinancialDataRepository.refreshETFs (file:///home/runner/workspace/dist/index.js:42599:28)
+2026-01-22 04:49:05.70
+7bfc0630
+User
+at async FinancialDataRepository.fetchETF (file:///home/runner/workspace/dist/index.js:42356:25)
+2026-01-22 04:49:05.70
+7bfc0630
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-01-22 04:49:05.70
+7bfc0630
+User
+at async Object.moduleExec [as _moduleExec] (file:///home/runner/workspace/node_modules/yahoo-finance2/dist/esm/src/lib/moduleExec.js:52:18)
+2026-01-22 04:49:05.70
+7bfc0630
+User
+at async FinancialDataScheduler.refreshGlobalStocks (file:///home/runner/workspace/dist/index.js:42967:26)
+2026-01-22 04:49:05.70
+7bfc0630
+User
+at parseJSONFromBytes (node:internal/deps/undici/undici:5852:19)
+2026-01-22 04:49:05.70
+7bfc0630
+User
+at async FinancialDataScheduler.refreshETFs (file:///home/runner/workspace/dist/index.js:42977:26)
+2026-01-22 04:49:05.70
+7bfc0630
+User
+at fullyReadBody (node:internal/deps/undici/undici:4725:9)
+2026-01-22 04:49:05.70
+7bfc0630
+User
+at async Object.yahooFinanceFetch [as _fetch] (file:///home/runner/workspace/node_modules/yahoo-finance2/dist/esm/src/lib/yahooFinanceFetch.js:86:20)
+2026-01-22 04:49:05.70
+7bfc0630
+User
+at successSteps (node:internal/deps/undici/undici:5833:27)
+2026-01-22 04:49:05.70
+7bfc0630
+User
+at JSON.parse (file:///home/runner/workspace/node_modules/pdfjs-dist/legacy/build/pdf.mjs:4852:56)
+2026-01-22 04:49:05.70
+7bfc0630
+User
+at async FinancialDataRepository.fetchGlobalStock (file:///home/runner/workspace/dist/index.js:42321:25)
+2026-01-22 04:49:05.70
+7bfc0630
+User
+at async Object.yahooFinanceFetch [as _fetch] (file:///home/runner/workspace/node_modules/yahoo-finance2/dist/esm/src/lib/yahooFinanceFetch.js:86:20)
+2026-01-22 04:49:05.70
+7bfc0630
+User
+at parseJSONFromBytes (node:internal/deps/undici/undici:5852:19)
+2026-01-22 04:49:05.70
+7bfc0630
+User
+at async consumeBody (node:internal/deps/undici/undici:5842:7)
+2026-01-22 04:49:05.70
+7bfc0630
+User
+at parse ()
+2026-01-22 04:49:05.70
+7bfc0630
+User
+at async Object.quote (file:///home/runner/workspace/node_modules/yahoo-finance2/dist/esm/src/modules/quote.js:238:21)
+2026-01-22 04:49:05.70
+7bfc0630
+User
+at successSteps (node:internal/deps/undici/undici:5833:27)
+2026-01-22 04:49:05.70
+7bfc0630
+User
+" is not valid JSON
+2026-01-22 04:49:05.70
+7bfc0630
+User
+at JSON.parse (file:///home/runner/workspace/node_modules/pdfjs-dist/legacy/build/pdf.mjs:4852:56)
+2026-01-22 04:49:05.70
+7bfc0630
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-01-22 04:49:05.70
+7bfc0630
+User
+at async FinancialDataRepository.refreshGlobalStocks (file:///home/runner/workspace/dist/index.js:42579:28)
+2026-01-22 04:49:05.70
+7bfc0630
+User
+⚠️ [FinancialDataRepository] ETF fetch failed for QQQ: SyntaxError: Unexpected token 'T', "Too Many Requests
+2026-01-22 04:49:05.70
+7bfc0630
+User
+at async consumeBody (node:internal/deps/undici/undici:5842:7)
+2026-01-22 04:49:05.70
+7bfc0630
+User
+at async Object.moduleExec [as _moduleExec] (file:///home/runner/workspace/node_modules/yahoo-finance2/dist/esm/src/lib/moduleExec.js:52:18)
+2026-01-22 04:49:06.90
+7bfc0630
+User
+at async FinancialDataScheduler.refreshGlobalStocks (file:///home/runner/workspace/dist/index.js:42967:26)
+2026-01-22 04:49:06.90
+7bfc0630
+User
+at async FinancialDataRepository.fetchGlobalStock (file:///home/runner/workspace/dist/index.js:42321:25)
+2026-01-22 04:49:06.90
+7bfc0630
+User
+at successSteps (node:internal/deps/undici/undici:5833:27)
+2026-01-22 04:49:06.90
+7bfc0630
+User
+at async FinancialDataRepository.refreshETFs (file:///home/runner/workspace/dist/index.js:42599:28)
+2026-01-22 04:49:06.90
+7bfc0630
+User
+" is not valid JSON
+2026-01-22 04:49:06.90
+7bfc0630
+User
+at async FinancialDataRepository.fetchETF (file:///home/runner/workspace/dist/index.js:42356:25)
+2026-01-22 04:49:06.90
+7bfc0630
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-01-22 04:49:06.90
+7bfc0630
+User
+at async Object.quote (file:///home/runner/workspace/node_modules/yahoo-finance2/dist/esm/src/modules/quote.js:238:21)
+2026-01-22 04:49:06.90
+7bfc0630
+User
+at JSON.parse (file:///home/runner/workspace/node_modules/pdfjs-dist/legacy/build/pdf.mjs:4852:56)
+2026-01-22 04:49:06.90
+7bfc0630
+User
+at async Object.yahooFinanceFetch [as _fetch] (file:///home/runner/workspace/node_modules/yahoo-finance2/dist/esm/src/lib/yahooFinanceFetch.js:86:20)

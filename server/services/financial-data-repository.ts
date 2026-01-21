@@ -88,6 +88,12 @@ class FinancialDataRepository {
       if (!quote) {
         return { success: false, error: 'No data returned' };
       }
+      
+      // Check for rate limit response (Yahoo returns empty or minimal data when rate limited)
+      if (!quote.regularMarketPrice && !quote.shortName) {
+        console.warn(`⚠️ [FinancialDataRepository] Possible rate limit for ${symbol}, skipping`);
+        return { success: false, error: 'Rate limited or no market data' };
+      }
 
       const data: InstrumentData = {
         instrumentType: 'global_stock',
@@ -126,6 +132,12 @@ class FinancialDataRepository {
       
       if (!quote) {
         return { success: false, error: 'No data returned' };
+      }
+      
+      // Check for rate limit response
+      if (!quote.regularMarketPrice && !quote.shortName) {
+        console.warn(`⚠️ [FinancialDataRepository] Possible rate limit for ${symbol}, skipping`);
+        return { success: false, error: 'Rate limited or no market data' };
       }
 
       const data: InstrumentData = {
@@ -372,7 +384,8 @@ class FinancialDataRepository {
         } else {
           failed++;
         }
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Increased delay to 1.5 seconds to avoid Yahoo Finance rate limiting
+        await new Promise(resolve => setTimeout(resolve, 1500));
       } catch (error) {
         failed++;
       }
@@ -395,7 +408,8 @@ class FinancialDataRepository {
         } else {
           failed++;
         }
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Increased delay to 1.5 seconds to avoid Yahoo Finance rate limiting
+        await new Promise(resolve => setTimeout(resolve, 1500));
       } catch (error) {
         failed++;
       }

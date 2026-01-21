@@ -76,9 +76,19 @@ class FinancialDataScheduler {
     console.log('📊 [FinancialDataScheduler] Running initial data refresh...');
 
     try {
+      // Run Yahoo Finance calls sequentially to avoid rate limiting
+      // (refreshGlobalStocks and refreshETFs both use Yahoo Finance API)
+      console.log('📊 [FinancialDataScheduler] Refreshing global stocks...');
+      await this.refreshGlobalStocks();
+      
+      // Wait before next Yahoo API batch to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      console.log('📊 [FinancialDataScheduler] Refreshing ETFs...');
+      await this.refreshETFs();
+      
+      // Mutual funds and debt don't use Yahoo Finance, can run in parallel
       await Promise.all([
-        this.refreshGlobalStocks(),
-        this.refreshETFs(),
         this.refreshMutualFunds(),
         this.refreshDebtInstruments(),
       ]);
