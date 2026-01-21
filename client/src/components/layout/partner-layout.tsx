@@ -337,7 +337,10 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
                             {isExpanded && (
                               <div className="ml-7 mt-1 space-y-1">
                                 {item.children!.map((child) => {
-                                  const childActive = location === child.href || location.startsWith(child.href.split('?')[0]);
+                                  const hasQueryParam = child.href.includes('?');
+                                  const childActive = hasQueryParam 
+                                    ? location === child.href 
+                                    : location === child.href || location.startsWith(child.href);
                                   return (
                                     <Link
                                       key={child.href}
