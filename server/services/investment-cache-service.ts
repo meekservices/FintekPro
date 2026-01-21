@@ -30,9 +30,6 @@ import {
   type InsertProposalMaterialization
 } from "@shared/schema";
 import crypto from "crypto";
-import { FinancialMetricsCalculator } from "./financial-metrics-calculator";
-
-const financialMetricsCalculator = new FinancialMetricsCalculator();
 
 // Cache TTL configurations (in hours)
 const CACHE_TTL = {
@@ -732,10 +729,21 @@ export async function getCachedFinancialMetricsBatch(
 ): Promise<Map<string, CachedFinancialMetrics>> {
   if (symbols.length === 0) return new Map();
   
+  // Sanitize symbols to prevent SQL injection - only allow alphanumeric and periods
+  const sanitizedSymbols = symbols
+    .filter(s => s && typeof s === 'string')
+    .map(s => s.replace(/[^a-zA-Z0-9.]/g, '').toUpperCase())
+    .filter(s => s.length > 0);
+  
+  if (sanitizedSymbols.length === 0) return new Map();
+  
+  // Build OR conditions for each symbol using parameterized queries
+  const conditions = sanitizedSymbols.map(s => eq(stockFinancialMetrics.symbol, s));
+  
   const results = await db
     .select()
     .from(stockFinancialMetrics)
-    .where(sql`${stockFinancialMetrics.symbol} IN (${sql.raw(symbols.map(s => `'${s}'`).join(','))})`)
+    .where(or(...conditions))
     .orderBy(desc(stockFinancialMetrics.lastUpdated));
   
   const map = new Map<string, CachedFinancialMetrics>();

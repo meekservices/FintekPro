@@ -23,9 +23,6 @@ import {
 } from "@shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { aiMFRecommendationService } from "./ai-mf-recommendation-service";
-import { FinancialMetricsCalculator } from "./financial-metrics-calculator";
-
-const financialMetricsCalculator = new FinancialMetricsCalculator();
 // GoogleGenerativeAI imported from gemini service if needed
 
 const SEBI_DISCLAIMER = `This investment proposal is generated using an AI-assisted analytical system based on information provided by the client and available market data. The recommendations are not investment advice, do not assure returns, and are subject to market risks. Final investment decisions shall be taken by the client after independent evaluation.`;
