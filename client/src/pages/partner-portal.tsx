@@ -960,9 +960,16 @@ export default function PartnerPortal() {
           <TabsContent value="referrals" className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Agent Invitation Tracking</h2>
-                <p className="text-sm text-muted-foreground">Monitor client invitations sent by your agents</p>
+                <h2 className="text-xl font-bold text-gray-900">Client Invitations</h2>
+                <p className="text-sm text-muted-foreground">Invite clients and track onboarding progress</p>
               </div>
+              <Button 
+                onClick={() => { resetInviteForm(); setShowInviteDialog(true); }}
+                data-testid="button-invite-client"
+              >
+                <UserPlus className="h-4 w-4 mr-2" />
+                Invite New Client
+              </Button>
             </div>
 
             {/* Stats Cards */}
@@ -1002,8 +1009,11 @@ export default function PartnerPortal() {
               <Card>
                 <CardContent className="py-12 text-center">
                   <UserPlus className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-1">No Agent Invitations Yet</h3>
-                  <p className="text-muted-foreground">Your agents haven't sent any client invitations yet</p>
+                  <h3 className="text-lg font-medium text-gray-900 mb-1">No Invitations Yet</h3>
+                  <p className="text-muted-foreground mb-4">Start inviting clients to track their onboarding progress</p>
+                  <Button onClick={() => { resetInviteForm(); setShowInviteDialog(true); }}>
+                    Create First Invitation
+                  </Button>
                 </CardContent>
               </Card>
             ) : (
