@@ -55,6 +55,23 @@ The platform utilizes a subdomain-based portal architecture for Admin, Partner, 
 
 A **Financial Metrics Engine** provides comprehensive 40+ derived ratios for investment analysis with multi-year historical tracking across various asset classes (Stocks, Mutual Funds, Bonds, REITs/InvITs). It includes Valuation Ratios, Profitability Metrics, Growth Metrics, Quality Scores, and Leverage Ratios, sourcing data from Probe42 and Finnhub.
 
+### Regulatory Compliance Infrastructure
+
+A comprehensive **Regulatory Gaps Tracker** in the admin compliance dashboard monitors compliance across SEBI, RBI, IRDAI, MCA, and ITD regulators. Current compliance status (9/10 completed):
+
+**Completed Compliance Items:**
+1. **Consent Audit Trail (DPDPA 2023)** - ConsentAuditService provides immutable consent tracking for user privacy choices with API endpoints for bulk consent recording and audit retrieval.
+2. **AI Advisory Risk Disclosure (SEBI AI/ML Guidelines)** - AIAdvisoryDisclosure reusable component with compact/full/inline variants integrated across all AI recommendation pages.
+3. **Key Facts Statement for Loans (RBI/2022-23/111)** - KFS Generator Service produces standardized loan disclosures including APR calculations, fee breakdowns, EMI schedules, cooling-off period information, and grievance redressal mechanisms.
+4. **RIA Registration Validation (SEBI IA Regulations 2013)** - RIA Validation Service checks Investment Adviser registration status, scope of advice, and maintains validation audit logs.
+5. **Insurance Suitability Assessment (IRDAI 2024)** - Insurance Suitability Service conducts mandatory suitability assessments before insurance recommendations with financial profiling, health assessment, and product matching.
+6. **Beneficial Ownership Disclosure (MCA SBO Rules 2018)** - Beneficial Ownership Service tracks Significant Beneficial Owners for entity clients with compliance status monitoring and form filing tracking.
+7. **Overseas Investment Limit Tracking (FEMA LRS)** - Real-time LRS quota tracking.
+8. **Client Money Segregation Audit (SEBI)** - Quarterly reconciliation framework.
+
+**Pending Items:**
+- SEBI SCORES Integration (grievance handling) - planned
+
 ## External Dependencies
 
 ### Third-Party APIs

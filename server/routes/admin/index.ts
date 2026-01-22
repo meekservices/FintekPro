@@ -436,7 +436,11 @@ export function registerAdminPanelRoutes(app: Express): void {
   });
 
   // Insurance Suitability Assessment API (IRDAI Regulations 2024)
+  // Requires authentication - agents can conduct assessments for their clients
   app.post("/api/insurance/suitability-assessment", async (req, res) => {
+    if (!(req as any).user) {
+      return res.status(401).json({ success: false, error: 'Authentication required for insurance suitability assessment' });
+    }
     try {
       const { clientId, agentId, personalInfo, financialProfile, insuranceNeeds, healthProfile } = req.body;
       
@@ -471,6 +475,9 @@ export function registerAdminPanelRoutes(app: Express): void {
   });
 
   app.get("/api/insurance/suitability-assessment/:assessmentId", async (req, res) => {
+    if (!(req as any).user) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
     try {
       const assessment = insuranceSuitabilityService.getAssessment(req.params.assessmentId);
       if (!assessment) {
@@ -487,6 +494,9 @@ export function registerAdminPanelRoutes(app: Express): void {
   });
 
   app.get("/api/insurance/suitability-assessment/client/:clientId", async (req, res) => {
+    if (!(req as any).user) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
     try {
       const assessments = insuranceSuitabilityService.getClientAssessments(req.params.clientId);
       res.json({
@@ -500,6 +510,9 @@ export function registerAdminPanelRoutes(app: Express): void {
   });
 
   app.post("/api/insurance/suitability-assessment/:assessmentId/acknowledge", async (req, res) => {
+    if (!(req as any).user) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
     try {
       const { clientId } = req.body;
       if (!clientId) {
@@ -514,10 +527,14 @@ export function registerAdminPanelRoutes(app: Express): void {
   });
 
   // Beneficial Ownership Disclosure API (MCA Compliance)
+  // Requires authentication for all beneficial ownership operations
   app.post("/api/compliance/beneficial-ownership", async (req, res) => {
+    if (!(req as any).user) {
+      return res.status(401).json({ success: false, error: 'Authentication required for beneficial ownership disclosure' });
+    }
     try {
       const { entityClientId, companyName, cin, registeredAddress, declarationType, significantBeneficialOwners, noSBODeclaration, declaringOfficer } = req.body;
-      const agentId = (req as any).user?.id || 'system';
+      const agentId = (req as any).user.id;
       
       if (!entityClientId || !companyName || !registeredAddress || !declarationType || !declaringOfficer) {
         return res.status(400).json({
@@ -553,6 +570,9 @@ export function registerAdminPanelRoutes(app: Express): void {
   });
 
   app.get("/api/compliance/beneficial-ownership/:declarationId", async (req, res) => {
+    if (!(req as any).user) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
     try {
       const declaration = beneficialOwnershipService.getDeclaration(req.params.declarationId);
       if (!declaration) {
@@ -565,6 +585,9 @@ export function registerAdminPanelRoutes(app: Express): void {
   });
 
   app.get("/api/compliance/beneficial-ownership/entity/:entityClientId", async (req, res) => {
+    if (!(req as any).user) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
     try {
       const declarations = beneficialOwnershipService.getEntityDeclarations(req.params.entityClientId);
       res.json({
@@ -578,6 +601,9 @@ export function registerAdminPanelRoutes(app: Express): void {
   });
 
   app.get("/api/compliance/beneficial-ownership/entity/:entityClientId/status", async (req, res) => {
+    if (!(req as any).user) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
     try {
       const status = await beneficialOwnershipService.checkComplianceStatus(req.params.entityClientId);
       res.json({ success: true, data: status });
