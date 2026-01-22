@@ -6,6 +6,7 @@ import { adminService } from '../../admin-service';
 import ckycDeferredRoutes from './ckyc-deferred-routes';
 import { auditIntegrityChecker } from '../../services/audit-integrity-checker';
 import { platformStatsCache } from '../../services/platform-stats-cache';
+import { riaValidationService } from '../../services/ria-validation-service';
 
 const requireAdmin = async (req: any, res: Response, next: any) => {
   if (!req.user) {
@@ -342,7 +343,7 @@ export function registerAdminPanelRoutes(app: Express): void {
       alerts: [],
       regulatoryGaps: [
         { id: '1', title: 'SEBI SCORES Integration', description: 'Integrate with SEBI Complaints Redress System (SCORES) for investor grievance handling within 21 days as mandated.', regulator: 'SEBI', riskLevel: 'high', status: 'not_started', category: 'grievance', estimatedEffort: 'high', regulatoryReference: 'SEBI Circular SEBI/HO/OIAE/IGRD/CIR/P/2023/155', targetCompletionDate: new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000).toISOString() },
-        { id: '2', title: 'RIA Registration Validation', description: 'Validate Registered Investment Adviser (RIA) registration status before providing personalized investment advice.', regulator: 'SEBI', riskLevel: 'high', status: 'not_started', category: 'investor_protection', estimatedEffort: 'medium', regulatoryReference: 'SEBI (Investment Advisers) Regulations 2013', targetCompletionDate: new Date(now.getTime() + 45 * 24 * 60 * 60 * 1000).toISOString() },
+        { id: '2', title: 'RIA Registration Validation', description: 'Validate Registered Investment Adviser (RIA) registration status before providing personalized investment advice.', regulator: 'SEBI', riskLevel: 'high', status: 'completed', category: 'investor_protection', estimatedEffort: 'medium', regulatoryReference: 'SEBI (Investment Advisers) Regulations 2013', targetCompletionDate: null, actualCompletionDate: new Date().toISOString() },
         { id: '3', title: 'Key Facts Statement (KFS) for Loans', description: 'Generate and display standardized Key Facts Statement for all loan products as per RBI Digital Lending Guidelines 2022.', regulator: 'RBI', riskLevel: 'high', status: 'completed', category: 'disclosure', estimatedEffort: 'medium', regulatoryReference: 'RBI/2022-23/111 DOR.FIN.REC.65/03.10.038/2022-23', targetCompletionDate: null, actualCompletionDate: new Date().toISOString() },
         { id: '4', title: 'AI Advisory Risk Disclosure', description: 'Display mandatory risk disclosure for AI-generated investment recommendations per SEBI AI/ML guidelines.', regulator: 'SEBI', riskLevel: 'medium', status: 'completed', category: 'disclosure', estimatedEffort: 'low', regulatoryReference: 'SEBI Consultation Paper on AI/ML 2024', targetCompletionDate: null, actualCompletionDate: new Date().toISOString() },
         { id: '5', title: 'Overseas Investment Limit Tracking', description: 'Real-time tracking of LRS limits (USD 250,000/FY) and display remaining quota to users.', regulator: 'RBI', riskLevel: 'medium', status: 'completed', category: 'investor_protection', estimatedEffort: 'medium', regulatoryReference: 'FEMA (LRS) Regulations', targetCompletionDate: null, actualCompletionDate: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString() },
@@ -353,6 +354,83 @@ export function registerAdminPanelRoutes(app: Express): void {
         { id: '10', title: 'Client Money Segregation Audit', description: 'Quarterly reconciliation and audit of client money segregation in separate bank accounts.', regulator: 'SEBI', riskLevel: 'low', status: 'completed', category: 'investor_protection', estimatedEffort: 'low', regulatoryReference: 'SEBI (Stock Brokers) Regulations', targetCompletionDate: null, actualCompletionDate: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString() }
       ]
     });
+  });
+
+  // RIA (Registered Investment Adviser) Validation API
+  app.get("/api/admin/ria/platform-status", requireAdmin, async (req, res) => {
+    try {
+      const status = await riaValidationService.getPlatformRIAStatus();
+      res.json({
+        success: true,
+        data: status,
+        regulatoryCompliance: {
+          reference: 'SEBI (Investment Advisers) Regulations 2013',
+          mandatoryCheck: true,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/admin/ria/validate/:registrationNumber", requireAdmin, async (req, res) => {
+    try {
+      const result = await riaValidationService.validateRIA(
+        req.params.registrationNumber,
+        (req as any).user?.id
+      );
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/admin/ria/details/:registrationNumber", requireAdmin, async (req, res) => {
+    try {
+      const details = await riaValidationService.getRIADetails(req.params.registrationNumber);
+      if (!details) {
+        return res.status(404).json({ success: false, error: 'RIA registration not found' });
+      }
+      res.json({
+        success: true,
+        data: details,
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.post("/api/admin/ria/check-eligibility", requireAdmin, async (req, res) => {
+    try {
+      const { registrationNumber, adviceType } = req.body;
+      if (!registrationNumber || !adviceType) {
+        return res.status(400).json({ success: false, error: 'registrationNumber and adviceType are required' });
+      }
+      const result = await riaValidationService.checkAdviceEligibility(registrationNumber, adviceType);
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/admin/ria/audit-log", requireAdmin, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const auditLog = riaValidationService.getValidationAuditLog(limit);
+      res.json({
+        success: true,
+        data: auditLog,
+        meta: { count: auditLog.length },
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
   });
 
   // Notification Management API
