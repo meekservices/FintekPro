@@ -989,6 +989,9 @@ export default function StoreManagement() {
                                 if (slug === 'professional-services' || cat.name.includes('Professional Services')) {
                                   return '/admin/store/seed/services';
                                 }
+                                if (slug === 'tax' || cat.name.includes('Tax Services')) {
+                                  return '/admin/store/seed/services';
+                                }
                                 return `/admin/store/seed/${slug}`;
                               };
                               
