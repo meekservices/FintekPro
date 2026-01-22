@@ -886,11 +886,15 @@ router.post("/share", requireAuth, async (req, res) => {
     if (channel === 'email' && recipientEmail) {
       await sendEmailShare(recipientEmail, pick, shareMessage);
       res.json({ success: true, message: "Pick shared via email" });
-    } else if (channel === 'whatsapp' && recipientPhone) {
-      const whatsappUrl = generateWhatsAppLink(recipientPhone, shareMessage);
+    } else if (channel === 'whatsapp') {
+      const whatsappUrl = recipientPhone 
+        ? generateWhatsAppLink(recipientPhone, shareMessage)
+        : `https://wa.me/?text=${encodeURIComponent(shareMessage)}`;
       res.json({ success: true, message: "WhatsApp share link generated", whatsappUrl });
+    } else if (channel === 'email' && !recipientEmail) {
+      res.status(400).json({ success: false, error: "Email address is required" });
     } else {
-      res.status(400).json({ success: false, error: "Invalid channel or missing recipient" });
+      res.status(400).json({ success: false, error: "Invalid channel" });
     }
   } catch (error) {
     console.error("[API] Error sharing pick:", error);
