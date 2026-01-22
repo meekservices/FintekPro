@@ -7,6 +7,12 @@ import {
 import { eq, and, desc, asc, gte, lte, sql, inArray, ilike, or, not, isNotNull } from "drizzle-orm";
 import { liveMFDataService } from "./live-mf-data-service";
 import { FinancialMetricsCalculator } from "./financial-metrics-calculator";
+import { 
+  regulatoryInvestabilityService,
+  isOverseasFund as sharedIsOverseasFund,
+  isFundInvestable as sharedIsFundInvestable,
+  logFilteredInstrument
+} from "./regulatory-investability-service";
 
 const financialMetricsCalculator = new FinancialMetricsCalculator();
 
@@ -575,100 +581,30 @@ class AIMFRecommendationService {
     return category || 'equity large cap';
   }
 
-  // Detect if fund is an overseas/international fund subject to regulatory restrictions
+  // Delegate to shared regulatory investability service
   private isOverseasFund(fund: any): boolean {
-    const category = (fund.category || '').toLowerCase();
-    const schemeName = (fund.schemeName || '').toLowerCase();
-    const combined = `${category} ${schemeName}`;
-    
-    // Keywords indicating overseas/international investment
-    const overseasKeywords = [
-      'international', 'global', 'overseas', 'foreign',
-      'us equity', 'us stock', 'us fund', 'united states',
-      'nasdaq', 's&p 500', 's&p500', 'dow jones',
-      'europe', 'european', 'asia pacific', 'emerging markets',
-      'world', 'greater china', 'japan', 'china',
-      'feeder', 'fof - overseas', 'fund of funds - overseas'
-    ];
-    
-    // Check for overseas keywords
-    for (const keyword of overseasKeywords) {
-      if (combined.includes(keyword)) {
-        return true;
-      }
-    }
-    
-    // Check for specific fund house overseas schemes
-    if (schemeName.includes('franklin') && schemeName.includes('us opportunities')) return true;
-    if (schemeName.includes('motilal') && schemeName.includes('nasdaq')) return true;
-    if (schemeName.includes('kotak') && schemeName.includes('nasdaq')) return true;
-    if (schemeName.includes('nippon') && schemeName.includes('japan')) return true;
-    if (schemeName.includes('edelweiss') && schemeName.includes('china')) return true;
-    if (schemeName.includes('pgim') && schemeName.includes('global')) return true;
-    
-    return false;
+    return sharedIsOverseasFund(fund);
   }
 
-  // Global regulatory status for overseas investments
-  // This is updated based on SEBI/RBI circulars
-  // As of Jan 2025: USD 7B limit frozen since Feb 2022, USD 1B ETF limit frozen since Apr 2024
-  private static OVERSEAS_INVESTMENT_FROZEN = true;
-  private static OVERSEAS_ETF_FROZEN = true;
-
-  // Check if fund is investable based on regulatory and operational status
+  // Delegate to shared regulatory investability service
   private isFundInvestable(fund: any): { investable: boolean; reason: string | null } {
-    const extendedData = fund.extendedData as any || {};
-    const schemeName = (fund.schemeName || '').toLowerCase();
-    
-    // Check if purchase is explicitly disallowed (from AMFI/BSE STAR MFD data)
-    if (extendedData.purchaseAllowed === false) {
-      const isOverseas = this.isOverseasFund(fund);
-      return {
-        investable: false,
-        reason: isOverseas 
-          ? 'Investment restricted: SEBI overseas investment limit reached (USD 7B cap)'
-          : 'Fresh investment not allowed by fund house'
-      };
-    }
-    
-    // Check overseas fund regulatory restrictions
-    if (this.isOverseasFund(fund)) {
-      // Check if it's an overseas ETF (stricter limits)
-      const isETF = schemeName.includes('etf');
-      
-      if (isETF && AIMFRecommendationService.OVERSEAS_ETF_FROZEN) {
-        return {
-          investable: false,
-          reason: 'SEBI overseas ETF limit (USD 1B) reached - new investments frozen since April 2024'
-        };
-      }
-      
-      if (AIMFRecommendationService.OVERSEAS_INVESTMENT_FROZEN) {
-        return {
-          investable: false,
-          reason: 'SEBI overseas investment limit (USD 7B) reached - new investments frozen since Feb 2022'
-        };
-      }
-    }
-    
-    return { investable: true, reason: null };
+    return sharedIsFundInvestable(fund);
   }
 
-  // Method to update regulatory status (can be called from admin or automated scheduler)
+  // Delegate to shared regulatory investability service
   static updateOverseasInvestmentStatus(frozen: boolean): void {
-    AIMFRecommendationService.OVERSEAS_INVESTMENT_FROZEN = frozen;
-    console.log(`[AI-MF] Overseas investment status updated: ${frozen ? 'FROZEN' : 'OPEN'}`);
+    regulatoryInvestabilityService.updateOverseasInvestmentStatus(frozen);
   }
 
   static updateOverseasETFStatus(frozen: boolean): void {
-    AIMFRecommendationService.OVERSEAS_ETF_FROZEN = frozen;
-    console.log(`[AI-MF] Overseas ETF status updated: ${frozen ? 'FROZEN' : 'OPEN'}`);
+    regulatoryInvestabilityService.updateOverseasETFStatus(frozen);
   }
 
   static getOverseasInvestmentStatus(): { investmentFrozen: boolean; etfFrozen: boolean } {
+    const status = regulatoryInvestabilityService.getStatus();
     return {
-      investmentFrozen: AIMFRecommendationService.OVERSEAS_INVESTMENT_FROZEN,
-      etfFrozen: AIMFRecommendationService.OVERSEAS_ETF_FROZEN
+      investmentFrozen: status.overseasInvestmentFrozen,
+      etfFrozen: status.overseasETFFrozen
     };
   }
 
