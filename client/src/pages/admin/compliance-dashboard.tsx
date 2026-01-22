@@ -16,7 +16,10 @@ import {
   RefreshCw,
   Bell,
   ExternalLink,
-  Download
+  Download,
+  Target,
+  TrendingUp,
+  CircleDot
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { format, formatDistanceToNow, addDays, isPast, isWithinInterval } from "date-fns";
@@ -40,12 +43,27 @@ interface ComplianceStatus {
   percentage: number;
 }
 
+interface RegulatoryGap {
+  id: string;
+  title: string;
+  description: string;
+  regulator: 'SEBI' | 'RBI' | 'IRDAI' | 'MCA' | 'ITD';
+  riskLevel: 'high' | 'medium' | 'low';
+  status: 'not_started' | 'in_progress' | 'completed' | 'deferred';
+  category: string;
+  estimatedEffort: 'low' | 'medium' | 'high';
+  regulatoryReference?: string;
+  targetCompletionDate?: string;
+  actualCompletionDate?: string;
+}
+
 interface ComplianceDashboardData {
   overallScore: number;
   deadlines: ComplianceDeadline[];
   statusByCategory: ComplianceStatus[];
   recentUpdates: { title: string; date: string; regulator: string }[];
   alerts: { id: string; severity: string; message: string; date: string }[];
+  regulatoryGaps: RegulatoryGap[];
 }
 
 const regulatorColors: Record<string, string> = {
@@ -170,6 +188,7 @@ export default function ComplianceDashboard() {
           <TabsTrigger value="deadlines" data-testid="tab-deadlines">Deadlines</TabsTrigger>
           <TabsTrigger value="status" data-testid="tab-status">Status by Category</TabsTrigger>
           <TabsTrigger value="updates" data-testid="tab-updates">Regulatory Updates</TabsTrigger>
+          <TabsTrigger value="gaps" data-testid="tab-gaps">Regulatory Gaps</TabsTrigger>
         </TabsList>
 
         <TabsContent value="deadlines" className="mt-4">
@@ -284,6 +303,111 @@ export default function ComplianceDashboard() {
                       <Button size="sm" variant="ghost">
                         <Download className="w-4 h-4" />
                       </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="gaps" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Target className="w-5 h-5" />
+                Regulatory Gaps Tracker
+              </CardTitle>
+              <CardDescription>
+                Track and manage compliance gaps across SEBI, RBI, IRDAI, MCA, and ITD regulations
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div className="p-3 bg-red-50 dark:bg-red-950 rounded-lg border border-red-200 dark:border-red-800">
+                  <div className="text-sm text-red-600 dark:text-red-400 font-medium">High Risk</div>
+                  <div className="text-2xl font-bold text-red-700 dark:text-red-300">
+                    {(data?.regulatoryGaps || []).filter(g => g.riskLevel === 'high' && g.status !== 'completed').length}
+                  </div>
+                </div>
+                <div className="p-3 bg-amber-50 dark:bg-amber-950 rounded-lg border border-amber-200 dark:border-amber-800">
+                  <div className="text-sm text-amber-600 dark:text-amber-400 font-medium">Medium Risk</div>
+                  <div className="text-2xl font-bold text-amber-700 dark:text-amber-300">
+                    {(data?.regulatoryGaps || []).filter(g => g.riskLevel === 'medium' && g.status !== 'completed').length}
+                  </div>
+                </div>
+                <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="text-sm text-blue-600 dark:text-blue-400 font-medium">In Progress</div>
+                  <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                    {(data?.regulatoryGaps || []).filter(g => g.status === 'in_progress').length}
+                  </div>
+                </div>
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                  <div className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">Completed</div>
+                  <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">
+                    {(data?.regulatoryGaps || []).filter(g => g.status === 'completed').length}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {(data?.regulatoryGaps || []).map((gap) => (
+                  <div 
+                    key={gap.id} 
+                    className={`p-4 border rounded-lg ${
+                      gap.riskLevel === 'high' ? 'border-l-4 border-l-red-500' :
+                      gap.riskLevel === 'medium' ? 'border-l-4 border-l-amber-500' :
+                      'border-l-4 border-l-blue-500'
+                    }`}
+                    data-testid={`gap-${gap.id}`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge className={regulatorColors[gap.regulator]}>
+                            {gap.regulator}
+                          </Badge>
+                          <Badge className={
+                            gap.status === 'completed' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300' :
+                            gap.status === 'in_progress' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' :
+                            gap.status === 'deferred' ? 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300' :
+                            'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300'
+                          }>
+                            {gap.status === 'completed' && <CheckCircle className="w-3 h-3 mr-1" />}
+                            {gap.status === 'in_progress' && <TrendingUp className="w-3 h-3 mr-1" />}
+                            {gap.status === 'not_started' && <CircleDot className="w-3 h-3 mr-1" />}
+                            {gap.status.replace('_', ' ')}
+                          </Badge>
+                          <Badge variant="outline" className={
+                            gap.riskLevel === 'high' ? 'border-red-500 text-red-700 dark:text-red-300' :
+                            gap.riskLevel === 'medium' ? 'border-amber-500 text-amber-700 dark:text-amber-300' :
+                            'border-blue-500 text-blue-700 dark:text-blue-300'
+                          }>
+                            {gap.riskLevel} risk
+                          </Badge>
+                          <Badge variant="outline">
+                            {gap.estimatedEffort} effort
+                          </Badge>
+                        </div>
+                        <h4 className="font-medium mt-2">{gap.title}</h4>
+                        <p className="text-sm text-muted-foreground mt-1">{gap.description}</p>
+                        {gap.regulatoryReference && (
+                          <p className="text-xs text-muted-foreground mt-2 font-mono">
+                            Ref: {gap.regulatoryReference}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right text-sm ml-4">
+                        {gap.status === 'completed' && gap.actualCompletionDate ? (
+                          <div className="text-emerald-600 dark:text-emerald-400">
+                            Completed {format(new Date(gap.actualCompletionDate), 'MMM dd, yyyy')}
+                          </div>
+                        ) : gap.targetCompletionDate ? (
+                          <div className={isPast(new Date(gap.targetCompletionDate)) ? 'text-red-600' : 'text-muted-foreground'}>
+                            Target: {format(new Date(gap.targetCompletionDate), 'MMM dd, yyyy')}
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 ))}
