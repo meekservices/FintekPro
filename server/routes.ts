@@ -11965,10 +11965,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "userId and portfolioId are required" });
       }
 
-      // Get MF holdings for user
-      const holdings = await db.select()
+      // Get MF holdings for user by joining through mf_folios (which has user_id)
+      const holdings = await db.select({
+        id: schema.mfHoldings.id,
+        folioId: schema.mfHoldings.folioId,
+        schemeCode: schema.mfHoldings.schemeCode,
+        schemeName: schema.mfHoldings.schemeName,
+        units: schema.mfHoldings.units,
+        avgNav: schema.mfHoldings.avgNav,
+        currentNav: schema.mfHoldings.currentNav,
+        investedValue: schema.mfHoldings.investedValue,
+        currentValue: schema.mfHoldings.currentValue,
+      })
         .from(schema.mfHoldings)
-        .where(eq(schema.mfHoldings.userId, userId));
+        .innerJoin(schema.mfFolios, eq(schema.mfHoldings.folioId, schema.mfFolios.id))
+        .where(eq(schema.mfFolios.userId, userId));
 
       let syncedCount = 0;
       for (const holding of holdings) {
