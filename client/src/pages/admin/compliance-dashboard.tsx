@@ -19,7 +19,10 @@ import {
   Download,
   Target,
   TrendingUp,
-  CircleDot
+  CircleDot,
+  MessageSquare,
+  Users,
+  Timer
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { format, formatDistanceToNow, addDays, isPast, isWithinInterval } from "date-fns";
@@ -57,6 +60,18 @@ interface RegulatoryGap {
   actualCompletionDate?: string;
 }
 
+interface GrievanceMetrics {
+  total: number;
+  byStatus: Record<string, number>;
+  byCategory: Record<string, number>;
+  byPriority: Record<string, number>;
+  avgResolutionDays: number;
+  slaBreaches: number;
+  escalated: number;
+  resolvedThisMonth: number;
+  pendingOverdue: number;
+}
+
 interface ComplianceDashboardData {
   overallScore: number;
   deadlines: ComplianceDeadline[];
@@ -78,6 +93,12 @@ export default function ComplianceDashboard() {
   const { data, isLoading, refetch, isFetching } = useQuery<ComplianceDashboardData>({
     queryKey: ["/api/admin/compliance-dashboard"],
   });
+
+  const { data: grievanceData } = useQuery<{ success: boolean; data: GrievanceMetrics }>({
+    queryKey: ["/api/admin/grievances/metrics"],
+  });
+
+  const grievanceMetrics = grievanceData?.data;
 
   if (isLoading) {
     return (
@@ -189,6 +210,7 @@ export default function ComplianceDashboard() {
           <TabsTrigger value="status" data-testid="tab-status">Status by Category</TabsTrigger>
           <TabsTrigger value="updates" data-testid="tab-updates">Regulatory Updates</TabsTrigger>
           <TabsTrigger value="gaps" data-testid="tab-gaps">Regulatory Gaps</TabsTrigger>
+          <TabsTrigger value="grievances" data-testid="tab-grievances">SEBI SCORES</TabsTrigger>
         </TabsList>
 
         <TabsContent value="deadlines" className="mt-4">
@@ -411,6 +433,134 @@ export default function ComplianceDashboard() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="grievances" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="w-5 h-5" />
+                SEBI SCORES - Investor Grievance Management
+              </CardTitle>
+              <CardDescription>
+                Track and manage investor complaints per SEBI Circular SEBI/HO/OIAE/IGRD/CIR/P/2023/155 (30-day SLA)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-6 grid grid-cols-1 md:grid-cols-5 gap-3">
+                <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="text-sm text-blue-600 dark:text-blue-400 font-medium flex items-center gap-1">
+                    <Users className="w-4 h-4" />
+                    Total Complaints
+                  </div>
+                  <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                    {grievanceMetrics?.total || 0}
+                  </div>
+                </div>
+                <div className="p-3 bg-amber-50 dark:bg-amber-950 rounded-lg border border-amber-200 dark:border-amber-800">
+                  <div className="text-sm text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
+                    <Clock className="w-4 h-4" />
+                    Pending
+                  </div>
+                  <div className="text-2xl font-bold text-amber-700 dark:text-amber-300">
+                    {(grievanceMetrics?.byStatus?.submitted || 0) + 
+                     (grievanceMetrics?.byStatus?.acknowledged || 0) + 
+                     (grievanceMetrics?.byStatus?.under_review || 0)}
+                  </div>
+                </div>
+                <div className="p-3 bg-red-50 dark:bg-red-950 rounded-lg border border-red-200 dark:border-red-800">
+                  <div className="text-sm text-red-600 dark:text-red-400 font-medium flex items-center gap-1">
+                    <AlertTriangle className="w-4 h-4" />
+                    Overdue (SLA Breach)
+                  </div>
+                  <div className="text-2xl font-bold text-red-700 dark:text-red-300">
+                    {grievanceMetrics?.pendingOverdue || 0}
+                  </div>
+                </div>
+                <div className="p-3 bg-purple-50 dark:bg-purple-950 rounded-lg border border-purple-200 dark:border-purple-800">
+                  <div className="text-sm text-purple-600 dark:text-purple-400 font-medium flex items-center gap-1">
+                    <TrendingUp className="w-4 h-4" />
+                    Escalated
+                  </div>
+                  <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">
+                    {grievanceMetrics?.escalated || 0}
+                  </div>
+                </div>
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                  <div className="text-sm text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                    <CheckCircle className="w-4 h-4" />
+                    Resolved (This Month)
+                  </div>
+                  <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">
+                    {grievanceMetrics?.resolvedThisMonth || 0}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div className="p-4 border rounded-lg">
+                  <h4 className="font-medium mb-3 flex items-center gap-2">
+                    <Timer className="w-4 h-4" />
+                    SLA Performance
+                  </h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Average Resolution Time</span>
+                      <span className="font-bold">{grievanceMetrics?.avgResolutionDays || 0} days</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">SLA Target</span>
+                      <span className="font-medium">30 days</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">SLA Breaches (Total)</span>
+                      <span className={`font-bold ${(grievanceMetrics?.slaBreaches || 0) > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                        {grievanceMetrics?.slaBreaches || 0}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-4 border rounded-lg">
+                  <h4 className="font-medium mb-3">Complaints by Priority</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">Critical</Badge>
+                      <span className="font-bold">{grievanceMetrics?.byPriority?.critical || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300">High</Badge>
+                      <span className="font-bold">{grievanceMetrics?.byPriority?.high || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300">Medium</Badge>
+                      <span className="font-bold">{grievanceMetrics?.byPriority?.medium || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">Low</Badge>
+                      <span className="font-bold">{grievanceMetrics?.byPriority?.low || 0}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 border rounded-lg bg-muted/30">
+                <h4 className="font-medium mb-2">Regulatory Compliance</h4>
+                <p className="text-sm text-muted-foreground">
+                  SEBI SCORES (SEBI Complaints Redress System) integration enables investors to lodge and track 
+                  complaints against market intermediaries. All complaints must be resolved within 30 days as per 
+                  SEBI guidelines.
+                </p>
+                <div className="mt-3 flex gap-2 flex-wrap">
+                  <Badge variant="outline" className="text-xs">SEBI Circular SEBI/HO/OIAE/IGRD/CIR/P/2023/155</Badge>
+                  <Badge variant="outline" className="text-xs">30-day SLA</Badge>
+                  <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300 text-xs">
+                    <CheckCircle className="w-3 h-3 mr-1" />
+                    Implemented
+                  </Badge>
+                </div>
               </div>
             </CardContent>
           </Card>
