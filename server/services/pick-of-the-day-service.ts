@@ -3,6 +3,11 @@ import { dailyPicks, listedStocks, mutualFunds, bondCatalog, unlistedCompanies, 
 import { eq, and, desc, gte, sql, ilike } from "drizzle-orm";
 import { GoogleGenAI } from "@google/genai";
 import { FinancialMetricsCalculator } from "./financial-metrics-calculator";
+import { 
+  isFundInvestable, 
+  isETFInvestable, 
+  logFilteredInstrument 
+} from "./regulatory-investability-service";
 
 const financialMetricsCalculator = new FinancialMetricsCalculator();
 
@@ -372,7 +377,22 @@ class PickOfTheDayService {
         return null;
       }
 
-      const scoredFunds = funds.map(fund => ({
+      // Filter out non-investable funds (overseas funds with frozen limits, etc.)
+      const investableFunds = funds.filter(fund => {
+        const investability = isFundInvestable(fund);
+        if (!investability.investable) {
+          logFilteredInstrument('mutual_fund', fund.schemeName, investability.reason || 'Unknown');
+          return false;
+        }
+        return true;
+      });
+
+      if (investableFunds.length === 0) {
+        console.log("[PickOfTheDay] No investable mutual funds found after regulatory filtering");
+        return null;
+      }
+
+      const scoredFunds = investableFunds.map(fund => ({
         fund,
         score: this.scoreMutualFund(fund),
       })).sort((a, b) => b.score - a.score);
@@ -740,7 +760,22 @@ class PickOfTheDayService {
         return null;
       }
 
-      const scoredETFs = etfs.map(etf => ({
+      // Filter out non-investable ETFs (overseas ETFs with frozen limits)
+      const investableETFs = etfs.filter(etf => {
+        const investability = isETFInvestable(etf);
+        if (!investability.investable) {
+          logFilteredInstrument('etf', etf.name, investability.reason || 'Unknown');
+          return false;
+        }
+        return true;
+      });
+
+      if (investableETFs.length === 0) {
+        console.log("[PickOfTheDay] No investable ETFs found after regulatory filtering");
+        return null;
+      }
+
+      const scoredETFs = investableETFs.map(etf => ({
         etf,
         score: this.scoreETF(etf),
       })).sort((a, b) => b.score - a.score);
