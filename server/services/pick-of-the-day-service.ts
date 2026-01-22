@@ -346,11 +346,12 @@ class PickOfTheDayService {
         confidenceScore: this.getConfidenceScore('listed_stocks', scoredStocks[0].score, 70),
         sectorCategory: topStock.sector,
         keyMetrics: {
+          cmp: currentPrice,
           pe: topStock.peRatio ? parseFloat(topStock.peRatio) : null,
           returns1y: topStock.returns1Y ? parseFloat(topStock.returns1Y) : null,
-          analystRating: topStock.analystRating,
           sector: topStock.sector,
           marketCap: topStock.marketCap,
+          analystRating: topStock.analystRating,
         },
       };
     } catch (error) {
@@ -436,6 +437,7 @@ class PickOfTheDayService {
         confidenceScore: this.getConfidenceScore('mutual_funds', scoredFunds[0].score, 70),
         sectorCategory: topFund.category,
         keyMetrics: {
+          cmp: currentPrice,
           returns1y: topFund.returns1Y ? parseFloat(topFund.returns1Y) : null,
           returns3y: topFund.returns3Y ? parseFloat(topFund.returns3Y) : null,
           crisilRating: topFund.crisilRating,
@@ -511,6 +513,7 @@ class PickOfTheDayService {
         confidenceScore: this.getConfidenceScore('bonds', scoredBonds[0].score, 50),
         sectorCategory: topBond.creditRating || 'Fixed Income',
         keyMetrics: {
+          cmp: currentPrice,
           yield: topBond.yieldToMaturity ? parseFloat(topBond.yieldToMaturity) : null,
           couponRate: topBond.couponRate ? parseFloat(topBond.couponRate) : null,
           creditRating: topBond.creditRating,
@@ -717,11 +720,11 @@ class PickOfTheDayService {
         confidenceScore: this.getConfidenceScore('global_stocks', scoredInstruments[0].score, 60),
         sectorCategory: topInstrument.sector || 'Global Equity',
         keyMetrics: {
-          exchange: topInstrument.exchange,
-          market: topInstrument.market,
-          currency: topInstrument.currency,
+          cmp: currentPrice,
           pe: topInstrument.peRatio ? parseFloat(topInstrument.peRatio) : null,
           returns1y: topInstrument.returns1Y ? parseFloat(topInstrument.returns1Y) : null,
+          exchange: topInstrument.exchange,
+          currency: topInstrument.currency,
           sector: topInstrument.sector,
         },
       };
@@ -817,6 +820,7 @@ class PickOfTheDayService {
         confidenceScore: this.getConfidenceScore('etfs', scoredETFs[0].score, 60),
         sectorCategory: topETF.category || 'ETF',
         keyMetrics: {
+          cmp: currentPrice,
           issuer: topETF.issuer,
           category: topETF.category,
           currency: topETF.currency,
