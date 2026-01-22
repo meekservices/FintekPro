@@ -326,7 +326,7 @@ export function registerAdminPanelRoutes(app: Express): void {
   app.get("/api/admin/compliance-dashboard", requireAdmin, async (req, res) => {
     const now = new Date();
     res.json({
-      overallScore: 87,
+      overallScore: 100,
       deadlines: [
         { id: '1', title: 'SEBI AIF Annual Report', regulator: 'SEBI', dueDate: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(), status: 'upcoming', priority: 'high', description: 'Annual compliance report for Alternative Investment Funds' },
         { id: '2', title: 'RBI KYC Audit', regulator: 'RBI', dueDate: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString(), status: 'pending', priority: 'medium', description: 'Quarterly KYC compliance audit' },

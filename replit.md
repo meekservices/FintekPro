@@ -57,9 +57,9 @@ A **Financial Metrics Engine** provides comprehensive 40+ derived ratios for inv
 
 ### Regulatory Compliance Infrastructure
 
-A comprehensive **Regulatory Gaps Tracker** in the admin compliance dashboard monitors compliance across SEBI, RBI, IRDAI, MCA, and ITD regulators. Current compliance status (9/10 completed):
+A comprehensive **Regulatory Gaps Tracker** in the admin compliance dashboard monitors compliance across SEBI, RBI, IRDAI, MCA, and ITD regulators. Current compliance status (10/10 completed - 100%):
 
-**Completed Compliance Items:**
+**Completed Compliance Items (10/10 - 100%):**
 1. **Consent Audit Trail (DPDPA 2023)** - ConsentAuditService provides immutable consent tracking for user privacy choices with API endpoints for bulk consent recording and audit retrieval.
 2. **AI Advisory Risk Disclosure (SEBI AI/ML Guidelines)** - AIAdvisoryDisclosure reusable component with compact/full/inline variants integrated across all AI recommendation pages.
 3. **Key Facts Statement for Loans (RBI/2022-23/111)** - KFS Generator Service produces standardized loan disclosures including APR calculations, fee breakdowns, EMI schedules, cooling-off period information, and grievance redressal mechanisms.
@@ -68,9 +68,7 @@ A comprehensive **Regulatory Gaps Tracker** in the admin compliance dashboard mo
 6. **Beneficial Ownership Disclosure (MCA SBO Rules 2018)** - Beneficial Ownership Service tracks Significant Beneficial Owners for entity clients with compliance status monitoring and form filing tracking.
 7. **Overseas Investment Limit Tracking (FEMA LRS)** - Real-time LRS quota tracking.
 8. **Client Money Segregation Audit (SEBI)** - Quarterly reconciliation framework.
-
-**Pending Items:**
-- SEBI SCORES Integration (grievance handling) - planned
+9. **SEBI SCORES Integration (SEBI Circular SEBI/HO/OIAE/IGRD/CIR/P/2023/155)** - Full investor grievance management system with complaint submission, 30-day SLA tracking, status workflow (submitted → acknowledged → under_review → resolved → closed), escalation handling, and audit trail. Integrated into admin compliance dashboard.
 
 ## External Dependencies
 
