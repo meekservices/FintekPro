@@ -7,6 +7,8 @@ import ckycDeferredRoutes from './ckyc-deferred-routes';
 import { auditIntegrityChecker } from '../../services/audit-integrity-checker';
 import { platformStatsCache } from '../../services/platform-stats-cache';
 import { riaValidationService } from '../../services/ria-validation-service';
+import { insuranceSuitabilityService } from '../../services/insurance-suitability-service';
+import { beneficialOwnershipService } from '../../services/beneficial-ownership-service';
 
 const requireAdmin = async (req: any, res: Response, next: any) => {
   if (!req.user) {
@@ -347,9 +349,9 @@ export function registerAdminPanelRoutes(app: Express): void {
         { id: '3', title: 'Key Facts Statement (KFS) for Loans', description: 'Generate and display standardized Key Facts Statement for all loan products as per RBI Digital Lending Guidelines 2022.', regulator: 'RBI', riskLevel: 'high', status: 'completed', category: 'disclosure', estimatedEffort: 'medium', regulatoryReference: 'RBI/2022-23/111 DOR.FIN.REC.65/03.10.038/2022-23', targetCompletionDate: null, actualCompletionDate: new Date().toISOString() },
         { id: '4', title: 'AI Advisory Risk Disclosure', description: 'Display mandatory risk disclosure for AI-generated investment recommendations per SEBI AI/ML guidelines.', regulator: 'SEBI', riskLevel: 'medium', status: 'completed', category: 'disclosure', estimatedEffort: 'low', regulatoryReference: 'SEBI Consultation Paper on AI/ML 2024', targetCompletionDate: null, actualCompletionDate: new Date().toISOString() },
         { id: '5', title: 'Overseas Investment Limit Tracking', description: 'Real-time tracking of LRS limits (USD 250,000/FY) and display remaining quota to users.', regulator: 'RBI', riskLevel: 'medium', status: 'completed', category: 'investor_protection', estimatedEffort: 'medium', regulatoryReference: 'FEMA (LRS) Regulations', targetCompletionDate: null, actualCompletionDate: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString() },
-        { id: '6', title: 'Insurance Product Suitability Assessment', description: 'Implement mandatory suitability assessment before recommending insurance products.', regulator: 'IRDAI', riskLevel: 'medium', status: 'not_started', category: 'investor_protection', estimatedEffort: 'medium', regulatoryReference: 'IRDAI (Protection of Policyholders) Regulations 2024', targetCompletionDate: new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString() },
+        { id: '6', title: 'Insurance Product Suitability Assessment', description: 'Implement mandatory suitability assessment before recommending insurance products.', regulator: 'IRDAI', riskLevel: 'medium', status: 'completed', category: 'investor_protection', estimatedEffort: 'medium', regulatoryReference: 'IRDAI (Protection of Policyholders) Regulations 2024', targetCompletionDate: null, actualCompletionDate: new Date().toISOString() },
         { id: '7', title: 'Annual Information Return (AIR) Filing', description: 'Automated generation and filing of Annual Information Returns for high-value transactions.', regulator: 'ITD', riskLevel: 'medium', status: 'not_started', category: 'reporting', estimatedEffort: 'high', regulatoryReference: 'Income Tax Act Section 285BA', targetCompletionDate: new Date(now.getTime() + 120 * 24 * 60 * 60 * 1000).toISOString() },
-        { id: '8', title: 'Beneficial Ownership Disclosure', description: 'Collect and maintain beneficial ownership information for entity clients as per MCA requirements.', regulator: 'MCA', riskLevel: 'medium', status: 'not_started', category: 'disclosure', estimatedEffort: 'medium', regulatoryReference: 'Companies (Significant Beneficial Owners) Rules 2018', targetCompletionDate: new Date(now.getTime() + 75 * 24 * 60 * 60 * 1000).toISOString() },
+        { id: '8', title: 'Beneficial Ownership Disclosure', description: 'Collect and maintain beneficial ownership information for entity clients as per MCA requirements.', regulator: 'MCA', riskLevel: 'medium', status: 'completed', category: 'disclosure', estimatedEffort: 'medium', regulatoryReference: 'Companies (Significant Beneficial Owners) Rules 2018', targetCompletionDate: null, actualCompletionDate: new Date().toISOString() },
         { id: '9', title: 'Consent Audit Trail', description: 'Maintain immutable audit trail of all user consents for data processing activities.', regulator: 'MCA', riskLevel: 'low', status: 'completed', category: 'data_protection', estimatedEffort: 'low', regulatoryReference: 'Digital Personal Data Protection Act 2023', targetCompletionDate: null, actualCompletionDate: new Date().toISOString() },
         { id: '10', title: 'Client Money Segregation Audit', description: 'Quarterly reconciliation and audit of client money segregation in separate bank accounts.', regulator: 'SEBI', riskLevel: 'low', status: 'completed', category: 'investor_protection', estimatedEffort: 'low', regulatoryReference: 'SEBI (Stock Brokers) Regulations', targetCompletionDate: null, actualCompletionDate: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString() }
       ]
@@ -427,6 +429,196 @@ export function registerAdminPanelRoutes(app: Express): void {
         success: true,
         data: auditLog,
         meta: { count: auditLog.length },
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Insurance Suitability Assessment API (IRDAI Regulations 2024)
+  app.post("/api/insurance/suitability-assessment", async (req, res) => {
+    try {
+      const { clientId, agentId, personalInfo, financialProfile, insuranceNeeds, healthProfile } = req.body;
+      
+      if (!clientId || !agentId || !personalInfo || !financialProfile || !insuranceNeeds || !healthProfile) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'All assessment fields are required: clientId, agentId, personalInfo, financialProfile, insuranceNeeds, healthProfile' 
+        });
+      }
+      
+      const assessment = await insuranceSuitabilityService.conductSuitabilityAssessment({
+        clientId,
+        agentId,
+        personalInfo,
+        financialProfile,
+        insuranceNeeds,
+        healthProfile,
+      });
+      
+      res.json({
+        success: true,
+        data: assessment,
+        regulatoryCompliance: {
+          reference: 'IRDAI (Protection of Policyholders) Regulations 2024',
+          mandatoryAssessment: true,
+          validityDays: 180,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/insurance/suitability-assessment/:assessmentId", async (req, res) => {
+    try {
+      const assessment = insuranceSuitabilityService.getAssessment(req.params.assessmentId);
+      if (!assessment) {
+        return res.status(404).json({ success: false, error: 'Assessment not found' });
+      }
+      res.json({
+        success: true,
+        data: assessment,
+        isValid: insuranceSuitabilityService.isAssessmentValid(req.params.assessmentId),
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/insurance/suitability-assessment/client/:clientId", async (req, res) => {
+    try {
+      const assessments = insuranceSuitabilityService.getClientAssessments(req.params.clientId);
+      res.json({
+        success: true,
+        data: assessments,
+        meta: { count: assessments.length },
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.post("/api/insurance/suitability-assessment/:assessmentId/acknowledge", async (req, res) => {
+    try {
+      const { clientId } = req.body;
+      if (!clientId) {
+        return res.status(400).json({ success: false, error: 'clientId is required' });
+      }
+      
+      const result = await insuranceSuitabilityService.acknowledgeAssessment(req.params.assessmentId, clientId);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Beneficial Ownership Disclosure API (MCA Compliance)
+  app.post("/api/compliance/beneficial-ownership", async (req, res) => {
+    try {
+      const { entityClientId, companyName, cin, registeredAddress, declarationType, significantBeneficialOwners, noSBODeclaration, declaringOfficer } = req.body;
+      const agentId = (req as any).user?.id || 'system';
+      
+      if (!entityClientId || !companyName || !registeredAddress || !declarationType || !declaringOfficer) {
+        return res.status(400).json({
+          success: false,
+          error: 'Required fields: entityClientId, companyName, registeredAddress, declarationType, declaringOfficer',
+        });
+      }
+      
+      const declaration = await beneficialOwnershipService.createDeclaration({
+        entityClientId,
+        companyName,
+        cin,
+        registeredAddress,
+        declarationType,
+        significantBeneficialOwners: significantBeneficialOwners || [],
+        noSBODeclaration,
+        declaringOfficer,
+        agentId,
+      });
+      
+      res.json({
+        success: true,
+        data: declaration,
+        regulatoryCompliance: {
+          reference: 'Companies (Significant Beneficial Owners) Rules 2018',
+          mandatoryDisclosure: true,
+          validityDays: 365,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/compliance/beneficial-ownership/:declarationId", async (req, res) => {
+    try {
+      const declaration = beneficialOwnershipService.getDeclaration(req.params.declarationId);
+      if (!declaration) {
+        return res.status(404).json({ success: false, error: 'Declaration not found' });
+      }
+      res.json({ success: true, data: declaration });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/compliance/beneficial-ownership/entity/:entityClientId", async (req, res) => {
+    try {
+      const declarations = beneficialOwnershipService.getEntityDeclarations(req.params.entityClientId);
+      res.json({
+        success: true,
+        data: declarations,
+        meta: { count: declarations.length },
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/compliance/beneficial-ownership/entity/:entityClientId/status", async (req, res) => {
+    try {
+      const status = await beneficialOwnershipService.checkComplianceStatus(req.params.entityClientId);
+      res.json({ success: true, data: status });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.post("/api/compliance/beneficial-ownership/:declarationId/verify", requireAdmin, async (req, res) => {
+    try {
+      const verifierId = (req as any).user?.id || 'admin';
+      const result = await beneficialOwnershipService.verifyDeclaration(req.params.declarationId, verifierId);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.post("/api/compliance/beneficial-ownership/:declarationId/mark-filed", requireAdmin, async (req, res) => {
+    try {
+      const { formType } = req.body;
+      if (!formType || !['BEN-1', 'BEN-2'].includes(formType)) {
+        return res.status(400).json({ success: false, error: 'formType must be BEN-1 or BEN-2' });
+      }
+      const filedBy = (req as any).user?.id || 'admin';
+      const result = await beneficialOwnershipService.markFormsFiled(req.params.declarationId, formType, filedBy);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/compliance/beneficial-ownership-requirements", async (req, res) => {
+    try {
+      res.json({
+        success: true,
+        data: {
+          requiredDisclosures: beneficialOwnershipService.getRequiredDisclosures(),
+          thresholds: beneficialOwnershipService.getSBOThresholds(),
+          regulatoryReference: 'Companies (Significant Beneficial Owners) Rules 2018',
+        },
       });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });
