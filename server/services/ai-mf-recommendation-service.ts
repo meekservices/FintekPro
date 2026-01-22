@@ -262,7 +262,10 @@ class AIMFRecommendationService {
           if (investability.investable) {
             enhancedFunds.push(enhancedFund);
           } else {
-            // Log restriction reason
+            // Audit log for filtered instrument
+            logFilteredInstrument('mutual_fund', fund.schemeName, investability.reason || 'Unknown restriction');
+            
+            // Count by restriction type
             if (investability.reason?.includes('SEBI') || investability.reason?.includes('regulatory')) {
               regulatoryRestrictedCount++;
             } else {
@@ -271,6 +274,7 @@ class AIMFRecommendationService {
           }
         } else {
           // Fund has no recent AMFI data - likely discontinued
+          logFilteredInstrument('mutual_fund', fund.schemeName, 'Discontinued: No recent AMFI NAV data');
           discontinuedCount++;
         }
       }
