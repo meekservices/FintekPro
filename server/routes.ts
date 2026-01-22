@@ -1275,6 +1275,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // Verify PAN for agent client onboarding
+  app.post("/api/kyc/verify-pan", async (req, res) => {
+    try {
+      const { panNumber, name } = req.body;
+      
+      if (!panNumber) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "PAN number is required",
+          verified: false
+        });
+      }
+
+      // Validate PAN format
+      const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+      const normalizedPan = panNumber.toUpperCase().trim();
+      
+      if (!panRegex.test(normalizedPan)) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Invalid PAN format. Must be 10 characters (e.g., ABCDE1234F)",
+          verified: false
+        });
+      }
+
+      // Use Cashfree PAN verification service
+      const { CashfreePANService } = await import('./services/cashfree-pan-service');
+      const result = await CashfreePANService.verifyPAN(normalizedPan, name || "Name Not Provided");
+      
+      // Map response to expected format
+      res.json({
+        success: result.success,
+        verified: result.verified,
+        name: result.data?.registeredName || null,
+        panType: result.data?.type || null,
+        panStatus: result.data?.panStatus || null,
+        aadhaarLinked: result.data?.aadhaarSeedingStatus === 'Y',
+        message: result.message
+      });
+    } catch (error) {
+      console.error("KYC PAN verification error:", error);
+      res.status(500).json({ 
+        success: false,
+        verified: false,
+        error: "PAN verification failed",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // Schedule KYC reminders for a user (called after incomplete registration)
   app.post("/api/kyc/schedule-reminders", requireClientOrHigher, async (req, res) => {
     try {
