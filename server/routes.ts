@@ -1326,6 +1326,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // Get verified KYC profile data for current user
+  app.get("/api/profile/kyc-verified-data", async (req, res) => {
+    try {
+      // Allow unauthenticated access - return empty state
+      if (!req.isAuthenticated || !req.isAuthenticated() || !req.user) {
+        return res.json({
+          success: false,
+          data: null,
+          message: "Authentication required"
+        });
+      }
+
+      const userId = req.user.id;
+      const { getVerifiedKYCProfile } = await import('./services/verified-kyc-profile-service');
+      const verifiedData = await getVerifiedKYCProfile(userId);
+      
+      res.json({
+        success: true,
+        data: verifiedData
+      });
+    } catch (error) {
+      console.error("Error fetching verified KYC data:", error);
+      res.status(500).json({
+        success: false,
+        data: null,
+        error: "Failed to fetch verified KYC data"
+      });
+    }
+  });
+
   // Schedule KYC reminders for a user (called after incomplete registration)
   app.post("/api/kyc/schedule-reminders", requireClientOrHigher, async (req, res) => {
     try {
