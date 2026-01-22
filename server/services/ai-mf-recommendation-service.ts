@@ -170,47 +170,111 @@ class AIMFRecommendationService {
     }
   }
 
-  // Fetch live NAV and returns data from AMFI API
+  // Parse AMFI date format deterministically (DD-Mon-YYYY e.g., "21-Jan-2026")
+  private parseAmfiDate(navDateStr: string): Date | null {
+    try {
+      const parts = navDateStr.split('-');
+      if (parts.length !== 3) return null;
+      
+      const day = parseInt(parts[0]);
+      const monthStr = parts[1];
+      const year = parseInt(parts[2]);
+      
+      if (isNaN(day) || isNaN(year)) return null;
+      
+      const monthMap: { [key: string]: number } = {
+        'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
+        'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
+      };
+      
+      const month = monthMap[monthStr];
+      if (month === undefined) return null;
+      
+      return new Date(year, month, day);
+    } catch {
+      return null;
+    }
+  }
+
+  // Check if NAV date is recent (within 7 days)
+  private isNavDateRecent(navDateStr: string): boolean {
+    const navDate = this.parseAmfiDate(navDateStr);
+    if (!navDate) return false;
+    
+    const daysDiff = (Date.now() - navDate.getTime()) / (1000 * 60 * 60 * 24);
+    return daysDiff <= 7;
+  }
+
+  // Sanity check returns - cap unrealistic values based on fund category
+  private sanitizeReturns(returns: number, category: string): number {
+    const lowerCategory = category.toLowerCase();
+    let maxReturn = 200; // Default for equity
+    
+    if (lowerCategory.includes('overnight') || lowerCategory.includes('liquid') || 
+        lowerCategory.includes('money market') || lowerCategory.includes('ultra short')) {
+      maxReturn = 15;
+    } else if (lowerCategory.includes('debt') || lowerCategory.includes('bond') || 
+               lowerCategory.includes('gilt') || lowerCategory.includes('fixed')) {
+      maxReturn = 30;
+    } else if (lowerCategory.includes('hybrid') || lowerCategory.includes('balanced')) {
+      maxReturn = 100;
+    }
+    
+    if (Math.abs(returns) > maxReturn) {
+      console.warn(`[AI-MF] Capping unrealistic return ${returns}% to 0 for ${category} fund`);
+      return 0;
+    }
+    return returns;
+  }
+
+  // Fetch live NAV from AMFI API - only use funds with recent data
   private async enhanceWithLiveData(funds: any[]): Promise<any[]> {
     try {
       const schemeCodes = funds.map(f => f.schemeCode);
       const liveNavData = await liveMFDataService.getLiveNavBatch(schemeCodes);
       
-      console.log(`[AI-MF] Enhanced ${liveNavData.size}/${funds.length} funds with live data`);
+      const enhancedFunds: any[] = [];
+      let discontinuedCount = 0;
 
-      return await Promise.all(funds.map(async (fund) => {
+      for (const fund of funds) {
         const liveData = liveNavData.get(fund.schemeCode);
         
-        if (liveData) {
-          // Get calculated returns from live data
-          const returns = await liveMFDataService.calculateReturns(fund.schemeCode);
-          
-          return {
+        if (liveData && this.isNavDateRecent(liveData.date)) {
+          // Fund has recent AMFI data - use live NAV, keep database returns
+          enhancedFunds.push({
             ...fund,
             nav: liveData.nav.toString(),
             navDate: liveData.date,
-            isLiveData: true,
-            // Only override returns if we have live calculations AND they're non-zero
-            ...(returns && (returns.returns1y !== 0 || returns.returns3y !== 0) && {
-              returns1y: returns.returns1y.toString(),
-              returns3y: returns.returns3y.toString(),
-              returns5y: returns.returns5y.toString()
-            })
-          };
+            isLiveData: true
+            // Use database returns only - no MFapi.in historical lookup
+          });
+        } else {
+          // Fund has no recent AMFI data - likely discontinued, exclude from recommendations
+          discontinuedCount++;
         }
-        
-        return { ...fund, isLiveData: false };
-      }));
+      }
+
+      console.log(`[AI-MF] Enhanced ${enhancedFunds.length}/${funds.length} funds with live AMFI data. Excluded ${discontinuedCount} discontinued/stale funds.`);
+
+      return enhancedFunds;
     } catch (error) {
-      console.error('[AI-MF] Error enhancing with live data, using database values:', error);
-      return funds.map(f => ({ ...f, isLiveData: false }));
+      console.error('[AI-MF] Error enhancing with live data:', error);
+      // On error, return empty to avoid recommending potentially stale funds
+      return [];
     }
   }
 
   private scoreFund(fund: any): any & { totalScore: number; metrics: any } {
-    const returns1y = parseFloat(fund.returns1y || '0');
-    const returns3y = parseFloat(fund.returns3y || '0');
-    const returns5y = parseFloat(fund.returns5y || '0');
+    // Use enhanced category detection for accurate return limits
+    const detectedCategory = this.detectFundCategoryEnhanced(fund);
+    const rawReturns1y = parseFloat(fund.returns1y || '0');
+    const rawReturns3y = parseFloat(fund.returns3y || '0');
+    const rawReturns5y = parseFloat(fund.returns5y || '0');
+    
+    // Sanitize returns to prevent unrealistic values from corrupted data
+    const returns1y = this.sanitizeReturns(rawReturns1y, detectedCategory);
+    const returns3y = this.sanitizeReturns(rawReturns3y, detectedCategory);
+    const returns5y = this.sanitizeReturns(rawReturns5y, detectedCategory);
     const expenseRatio = parseFloat(fund.expenseRatio || '1.5');
     const aum = parseFloat(fund.aum || '0');
     const crisilRating = fund.crisilRating || 3;
@@ -222,8 +286,7 @@ class AIMFRecommendationService {
     const purchaseAllowed = extendedData.purchaseAllowed !== false;
     const sipAllowed = extendedData.sipAllowed !== false;
     
-    // Enhanced category detection - combine category and scheme name
-    const detectedCategory = this.detectFundCategoryEnhanced(fund);
+    // Use detectedCategory from earlier for category-based scoring
     const category = detectedCategory;
 
     // Enhanced multi-factor scoring
