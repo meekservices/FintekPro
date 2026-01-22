@@ -9,6 +9,7 @@ import { platformStatsCache } from '../../services/platform-stats-cache';
 import { riaValidationService } from '../../services/ria-validation-service';
 import { insuranceSuitabilityService } from '../../services/insurance-suitability-service';
 import { beneficialOwnershipService } from '../../services/beneficial-ownership-service';
+import { sebiScoresService } from '../../services/sebi-scores-service';
 
 const requireAdmin = async (req: any, res: Response, next: any) => {
   if (!req.user) {
@@ -645,6 +646,355 @@ export function registerAdminPanelRoutes(app: Express): void {
           thresholds: beneficialOwnershipService.getSBOThresholds(),
           regulatoryReference: 'Companies (Significant Beneficial Owners) Rules 2018',
         },
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // SEBI SCORES Grievance Management API (SEBI Complaint Redress System)
+  // Submit a new grievance complaint
+  app.post("/api/grievance/submit", async (req, res) => {
+    if (!(req as any).user) {
+      return res.status(401).json({ success: false, error: 'Authentication required to submit grievance' });
+    }
+    try {
+      const { complainant, category, subcategory, details } = req.body;
+      
+      if (!complainant || !category || !details) {
+        return res.status(400).json({
+          success: false,
+          error: 'complainant, category, and details are required'
+        });
+      }
+      
+      if (!complainant.name || !complainant.email || !complainant.phone) {
+        return res.status(400).json({
+          success: false,
+          error: 'complainant must include name, email, and phone'
+        });
+      }
+      
+      if (!details.description) {
+        return res.status(400).json({
+          success: false,
+          error: 'details must include description'
+        });
+      }
+      
+      const clientId = (req as any).user.id;
+      const complaint = await sebiScoresService.submitComplaint({
+        clientId,
+        complainant,
+        category,
+        subcategory,
+        details
+      });
+      
+      res.json({
+        success: true,
+        data: complaint,
+        message: `Grievance submitted successfully. Reference: ${complaint.scoresReferenceNumber}`
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Get complaint by ID
+  app.get("/api/grievance/:complaintId", async (req, res) => {
+    if (!(req as any).user) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
+    try {
+      const complaint = sebiScoresService.getComplaint(req.params.complaintId);
+      if (!complaint) {
+        return res.status(404).json({ success: false, error: 'Complaint not found' });
+      }
+      res.json({ success: true, data: complaint });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Get complaint by SCORES reference number
+  app.get("/api/grievance/reference/:scoresRef", async (req, res) => {
+    if (!(req as any).user) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
+    try {
+      const complaint = sebiScoresService.getComplaintByReference(req.params.scoresRef);
+      if (!complaint) {
+        return res.status(404).json({ success: false, error: 'Complaint not found' });
+      }
+      res.json({ success: true, data: complaint });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Get client's complaints
+  app.get("/api/grievance/client/:clientId", async (req, res) => {
+    if (!(req as any).user) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
+    try {
+      const complaints = sebiScoresService.getClientComplaints(req.params.clientId);
+      res.json({
+        success: true,
+        data: complaints,
+        meta: { count: complaints.length }
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Get my complaints (current user)
+  app.get("/api/grievance/my-complaints", async (req, res) => {
+    if (!(req as any).user) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
+    try {
+      const clientId = (req as any).user.id;
+      const complaints = sebiScoresService.getClientComplaints(clientId);
+      res.json({
+        success: true,
+        data: complaints,
+        meta: { count: complaints.length }
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Get complaint category options
+  app.get("/api/grievance/categories", async (req, res) => {
+    try {
+      res.json({
+        success: true,
+        data: sebiScoresService.getCategoryOptions()
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Admin: Get all complaints with filters
+  app.get("/api/admin/grievances", requireAdmin, async (req, res) => {
+    try {
+      const { status, category, priority, isEscalated, assignedTo, fromDate, toDate } = req.query;
+      
+      const filters: any = {};
+      if (status) filters.status = status as string;
+      if (category) filters.category = category as string;
+      if (priority) filters.priority = priority as string;
+      if (isEscalated !== undefined) filters.isEscalated = isEscalated === 'true';
+      if (assignedTo) filters.assignedTo = assignedTo as string;
+      if (fromDate) filters.fromDate = new Date(fromDate as string);
+      if (toDate) filters.toDate = new Date(toDate as string);
+      
+      const complaints = sebiScoresService.getAllComplaints(Object.keys(filters).length > 0 ? filters : undefined);
+      
+      res.json({
+        success: true,
+        data: complaints,
+        meta: { count: complaints.length }
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Admin: Get grievance metrics
+  app.get("/api/admin/grievances/metrics", requireAdmin, async (req, res) => {
+    try {
+      const metrics = sebiScoresService.getMetrics();
+      res.json({ success: true, data: metrics });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Admin: Get overdue complaints (SLA breached)
+  app.get("/api/admin/grievances/overdue", requireAdmin, async (req, res) => {
+    try {
+      const overdue = sebiScoresService.getOverdueComplaints();
+      res.json({
+        success: true,
+        data: overdue,
+        meta: { count: overdue.length }
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Admin: Get complaints nearing SLA deadline
+  app.get("/api/admin/grievances/pending-escalation", requireAdmin, async (req, res) => {
+    try {
+      const pending = sebiScoresService.getPendingEscalations();
+      res.json({
+        success: true,
+        data: pending,
+        meta: { count: pending.length }
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Admin: Acknowledge complaint
+  app.post("/api/admin/grievances/:complaintId/acknowledge", requireAdmin, async (req, res) => {
+    try {
+      const acknowledgedBy = (req as any).user.id;
+      const complaint = await sebiScoresService.acknowledgeComplaint(req.params.complaintId, acknowledgedBy);
+      if (!complaint) {
+        return res.status(404).json({ success: false, error: 'Complaint not found' });
+      }
+      res.json({ success: true, data: complaint });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Admin: Update complaint
+  app.patch("/api/admin/grievances/:complaintId", requireAdmin, async (req, res) => {
+    try {
+      const { status, priority, assignedTo, assignedToName, internalNote } = req.body;
+      const updatedBy = (req as any).user.id;
+      const updatedByName = (req as any).user.email || (req as any).user.firstName || 'Admin';
+      
+      const complaint = await sebiScoresService.updateComplaint(req.params.complaintId, {
+        status,
+        priority,
+        assignedTo,
+        assignedToName,
+        internalNote,
+        noteAddedBy: updatedBy,
+        noteAddedByName: updatedByName,
+        updatedBy
+      });
+      
+      if (!complaint) {
+        return res.status(404).json({ success: false, error: 'Complaint not found' });
+      }
+      res.json({ success: true, data: complaint });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Admin: Resolve complaint
+  app.post("/api/admin/grievances/:complaintId/resolve", requireAdmin, async (req, res) => {
+    try {
+      const { resolutionType, summary, actionTaken, compensationProvided } = req.body;
+      
+      if (!resolutionType || !summary || !actionTaken) {
+        return res.status(400).json({
+          success: false,
+          error: 'resolutionType, summary, and actionTaken are required'
+        });
+      }
+      
+      const resolvedBy = (req as any).user.id;
+      const resolvedByName = (req as any).user.email || (req as any).user.firstName || 'Admin';
+      
+      const complaint = await sebiScoresService.resolveComplaint(req.params.complaintId, {
+        resolutionType,
+        summary,
+        actionTaken,
+        compensationProvided,
+        resolvedBy,
+        resolvedByName
+      });
+      
+      if (!complaint) {
+        return res.status(404).json({ success: false, error: 'Complaint not found' });
+      }
+      res.json({ success: true, data: complaint });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Admin: Close complaint
+  app.post("/api/admin/grievances/:complaintId/close", requireAdmin, async (req, res) => {
+    try {
+      const { reason } = req.body;
+      const closedBy = (req as any).user.id;
+      
+      const complaint = await sebiScoresService.closeComplaint(req.params.complaintId, closedBy, reason);
+      if (!complaint) {
+        return res.status(404).json({ success: false, error: 'Complaint not found' });
+      }
+      res.json({ success: true, data: complaint });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Admin: Escalate complaint
+  app.post("/api/admin/grievances/:complaintId/escalate", requireAdmin, async (req, res) => {
+    try {
+      const { reason } = req.body;
+      if (!reason) {
+        return res.status(400).json({ success: false, error: 'Escalation reason is required' });
+      }
+      
+      const escalatedBy = (req as any).user.id;
+      const complaint = await sebiScoresService.escalateComplaint(req.params.complaintId, escalatedBy, reason);
+      if (!complaint) {
+        return res.status(404).json({ success: false, error: 'Complaint not found' });
+      }
+      res.json({ success: true, data: complaint });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Admin: Add communication to complaint
+  app.post("/api/admin/grievances/:complaintId/communication", requireAdmin, async (req, res) => {
+    try {
+      const { type, direction, content, subject } = req.body;
+      
+      if (!type || !direction || !content) {
+        return res.status(400).json({
+          success: false,
+          error: 'type, direction, and content are required'
+        });
+      }
+      
+      const sentBy = (req as any).user.id;
+      const complaint = await sebiScoresService.addCommunication(
+        req.params.complaintId,
+        type,
+        direction,
+        content,
+        subject,
+        sentBy
+      );
+      
+      if (!complaint) {
+        return res.status(404).json({ success: false, error: 'Complaint not found' });
+      }
+      res.json({ success: true, data: complaint });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Admin: Check SLA breaches
+  app.get("/api/admin/grievances/sla-check", requireAdmin, async (req, res) => {
+    try {
+      const result = await sebiScoresService.checkSlaBreaches();
+      res.json({
+        success: true,
+        data: result,
+        meta: {
+          breachedCount: result.breached.length,
+          nearingDeadlineCount: result.nearingDeadline.length
+        }
       });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });
