@@ -135,6 +135,40 @@ class MFApiHistoricalService {
     }
   }
 
+  private detectNavDataError(currentNav: number, oldNav: number | null): boolean {
+    if (!oldNav || oldNav <= 0) return false;
+    const ratio = currentNav / oldNav;
+    if (ratio > 5 || ratio < 0.2) {
+      return true;
+    }
+    return false;
+  }
+
+  private sanitizeReturns(returns: number, category: string = ''): number {
+    const maxReasonableReturn = this.getMaxReasonableReturn(category);
+    if (Math.abs(returns) > maxReasonableReturn) {
+      console.warn(`[MFApi] Unrealistic return ${returns}% detected, likely data error - returning 0`);
+      return 0;
+    }
+    return returns;
+  }
+
+  private getMaxReasonableReturn(category: string): number {
+    const lowerCategory = category.toLowerCase();
+    if (lowerCategory.includes('overnight') || lowerCategory.includes('liquid') || 
+        lowerCategory.includes('money market') || lowerCategory.includes('ultra short')) {
+      return 15;
+    }
+    if (lowerCategory.includes('debt') || lowerCategory.includes('bond') || 
+        lowerCategory.includes('gilt') || lowerCategory.includes('fixed')) {
+      return 30;
+    }
+    if (lowerCategory.includes('hybrid') || lowerCategory.includes('balanced')) {
+      return 100;
+    }
+    return 200;
+  }
+
   private async doCalculateReturns(schemeCode: string): Promise<CalculatedReturns | null> {
     const historicalData = await this.fetchHistoricalNav(schemeCode);
     
@@ -147,6 +181,7 @@ class MFApiHistoricalService {
     const latestNav = navData[0];
     const currentNav = parseFloat(latestNav.nav);
     const currentDate = this.parseDate(latestNav.date);
+    const category = historicalData.meta?.scheme_category || '';
 
     const date1yAgo = new Date(currentDate);
     date1yAgo.setFullYear(date1yAgo.getFullYear() - 1);
@@ -165,9 +200,21 @@ class MFApiHistoricalService {
     const nav3yAgo = nav3yAgoPoint ? parseFloat(nav3yAgoPoint.nav) : null;
     const nav5yAgo = nav5yAgoPoint ? parseFloat(nav5yAgoPoint.nav) : null;
 
-    const returns1y = nav1yAgo ? this.calculateCAGR(currentNav, nav1yAgo, 1) : 0;
-    const returns3y = nav3yAgo ? this.calculateCAGR(currentNav, nav3yAgo, 3) : 0;
-    const returns5y = nav5yAgo ? this.calculateCAGR(currentNav, nav5yAgo, 5) : 0;
+    const hasNav1yError = this.detectNavDataError(currentNav, nav1yAgo);
+    const hasNav3yError = this.detectNavDataError(currentNav, nav3yAgo);
+    const hasNav5yError = this.detectNavDataError(currentNav, nav5yAgo);
+
+    if (hasNav1yError || hasNav3yError || hasNav5yError) {
+      console.warn(`[MFApi] NAV data anomaly detected for ${schemeCode} - possible decimal point error in source data`);
+    }
+
+    let returns1y = nav1yAgo && !hasNav1yError ? this.calculateCAGR(currentNav, nav1yAgo, 1) : 0;
+    let returns3y = nav3yAgo && !hasNav3yError ? this.calculateCAGR(currentNav, nav3yAgo, 3) : 0;
+    let returns5y = nav5yAgo && !hasNav5yError ? this.calculateCAGR(currentNav, nav5yAgo, 5) : 0;
+
+    returns1y = this.sanitizeReturns(returns1y, category);
+    returns3y = this.sanitizeReturns(returns3y, category);
+    returns5y = this.sanitizeReturns(returns5y, category);
 
     const result: CalculatedReturns = {
       returns1y: Math.round(returns1y * 100) / 100,
@@ -175,9 +222,9 @@ class MFApiHistoricalService {
       returns5y: Math.round(returns5y * 100) / 100,
       currentNav,
       navDate: latestNav.date,
-      ...(nav1yAgoPoint && { nav1yAgo: { nav: nav1yAgo!, date: nav1yAgoPoint.date } }),
-      ...(nav3yAgoPoint && { nav3yAgo: { nav: nav3yAgo!, date: nav3yAgoPoint.date } }),
-      ...(nav5yAgoPoint && { nav5yAgo: { nav: nav5yAgo!, date: nav5yAgoPoint.date } })
+      ...(nav1yAgoPoint && !hasNav1yError && { nav1yAgo: { nav: nav1yAgo!, date: nav1yAgoPoint.date } }),
+      ...(nav3yAgoPoint && !hasNav3yError && { nav3yAgo: { nav: nav3yAgo!, date: nav3yAgoPoint.date } }),
+      ...(nav5yAgoPoint && !hasNav5yError && { nav5yAgo: { nav: nav5yAgo!, date: nav5yAgoPoint.date } })
     };
 
     console.log(`[MFApi] Calculated returns for ${schemeCode}: 1Y=${result.returns1y}%, 3Y=${result.returns3y}%, 5Y=${result.returns5y}%`);
