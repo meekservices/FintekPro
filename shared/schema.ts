@@ -28205,3 +28205,43 @@ export const insertEsignAiAnalysisSessionSchema = createInsertSchema(esignAiAnal
 });
 export type EsignAiAnalysisSession = typeof esignAiAnalysisSessions.$inferSelect;
 export type InsertEsignAiAnalysisSession = z.infer<typeof insertEsignAiAnalysisSessionSchema>;
+
+// Regulatory Gaps Tracker - Track compliance gaps across regulators
+export const regulatoryGaps = pgTable("regulatory_gaps", {
+  id: serial("id").primaryKey(),
+  
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description").notNull(),
+  
+  regulator: varchar("regulator", { length: 20 }).notNull(), // SEBI, RBI, IRDAI, MCA, ITD
+  regulatoryReference: varchar("regulatory_reference", { length: 255 }), // e.g., "SEBI Circular 2023"
+  referenceUrl: varchar("reference_url", { length: 500 }),
+  
+  riskLevel: varchar("risk_level", { length: 20 }).notNull().default("medium"), // high, medium, low
+  category: varchar("category", { length: 100 }), // grievance, disclosure, investor_protection, etc.
+  
+  status: varchar("status", { length: 30 }).notNull().default("not_started"), // not_started, in_progress, completed, deferred
+  statusUpdatedAt: timestamp("status_updated_at"),
+  statusUpdatedBy: varchar("status_updated_by", { length: 100 }),
+  
+  estimatedEffort: varchar("estimated_effort", { length: 20 }), // low, medium, high
+  targetCompletionDate: timestamp("target_completion_date"),
+  actualCompletionDate: timestamp("actual_completion_date"),
+  
+  assignedTo: varchar("assigned_to", { length: 100 }),
+  notes: text("notes"),
+  
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_regulatory_gaps_regulator").on(table.regulator),
+  index("idx_regulatory_gaps_status").on(table.status),
+  index("idx_regulatory_gaps_risk").on(table.riskLevel),
+]);
+
+export const insertRegulatoryGapSchema = createInsertSchema(regulatoryGaps).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+export type RegulatoryGap = typeof regulatoryGaps.$inferSelect;
+export type InsertRegulatoryGap = z.infer<typeof insertRegulatoryGapSchema>;
