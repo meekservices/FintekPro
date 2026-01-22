@@ -257,6 +257,67 @@ export function registerAdminPanelRoutes(app: Express): void {
     });
   });
 
+  // Consent Audit Trail API (DPDPA 2023 Compliance)
+  app.get("/api/admin/consent-audit/stats", requireAdmin, async (req, res) => {
+    try {
+      const { consentAuditService } = await import("../../services/consent-audit-service");
+      const stats = await consentAuditService.getConsentStats();
+      res.json(stats);
+    } catch (error: any) {
+      console.error("[ConsentAudit] Failed to get stats:", error);
+      res.status(500).json({ error: "Failed to retrieve consent statistics" });
+    }
+  });
+
+  app.get("/api/admin/consent-audit/logs", requireAdmin, async (req, res) => {
+    try {
+      const { consentAuditService } = await import("../../services/consent-audit-service");
+      const { startDate, endDate, userId, consentType } = req.query;
+      
+      const start = startDate ? new Date(startDate as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const end = endDate ? new Date(endDate as string) : new Date();
+      
+      const logs = await consentAuditService.getConsentsByDateRange(
+        start,
+        end,
+        consentType as any
+      );
+      
+      res.json({ logs, count: logs.length });
+    } catch (error: any) {
+      console.error("[ConsentAudit] Failed to get logs:", error);
+      res.status(500).json({ error: "Failed to retrieve consent logs" });
+    }
+  });
+
+  app.get("/api/admin/consent-audit/export", requireAdmin, async (req, res) => {
+    try {
+      const { consentAuditService } = await import("../../services/consent-audit-service");
+      const { startDate, endDate, userId } = req.query;
+      
+      const start = startDate ? new Date(startDate as string) : new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+      const end = endDate ? new Date(endDate as string) : new Date();
+      
+      const logs = await consentAuditService.exportForCompliance(
+        start,
+        end,
+        userId ? parseInt(userId as string) : undefined
+      );
+      
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="consent-audit-${start.toISOString().split('T')[0]}-to-${end.toISOString().split('T')[0]}.json"`);
+      res.json({ 
+        exportDate: new Date().toISOString(),
+        period: { start: start.toISOString(), end: end.toISOString() },
+        recordCount: logs.length,
+        records: logs 
+      });
+    } catch (error: any) {
+      console.error("[ConsentAudit] Failed to export:", error);
+      res.status(500).json({ error: "Failed to export consent audit data" });
+    }
+  });
+
   // Compliance Dashboard API
   app.get("/api/admin/compliance-dashboard", requireAdmin, async (req, res) => {
     const now = new Date();

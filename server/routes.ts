@@ -622,19 +622,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GDPR Consent endpoint
   app.post("/api/consent", async (req, res) => {
     try {
-      const { preferences, timestamp, version } = req.body;
+      const { preferences, timestamp, version, sessionId } = req.body;
+      const userId = (req as any).user?.id;
+      const ipAddress = req.ip || req.connection.remoteAddress || '';
+      const userAgent = req.get('User-Agent') || '';
       
-      // Log consent for audit trail
+      // Log consent for audit trail (legacy compliance monitor)
       complianceMonitor.logEvent({
-        userId: (req as any).user?.id,
+        userId,
         eventType: 'consent_change',
         action: 'GDPR consent recorded',
-        ipAddress: req.ip || req.connection.remoteAddress,
-        userAgent: req.get('User-Agent'),
+        ipAddress,
+        userAgent,
         outcome: 'success',
         riskLevel: 'low',
         details: { preferences, timestamp, version }
       });
+      
+      // Record to immutable consent audit log (DPDPA 2023 compliance)
+      try {
+        const { consentAuditService } = await import("./services/consent-audit-service");
+        const consents: Array<{ consentType: any; action: 'granted' | 'withdrawn' }> = [];
+        
+        if (preferences) {
+          if (preferences.essential !== undefined) {
+            consents.push({ consentType: 'essential_cookies', action: preferences.essential ? 'granted' : 'withdrawn' });
+          }
+          if (preferences.analytics !== undefined) {
+            consents.push({ consentType: 'analytics_cookies', action: preferences.analytics ? 'granted' : 'withdrawn' });
+          }
+          if (preferences.marketing !== undefined) {
+            consents.push({ consentType: 'marketing_cookies', action: preferences.marketing ? 'granted' : 'withdrawn' });
+          }
+          if (preferences.thirdParty !== undefined) {
+            consents.push({ consentType: 'third_party_sharing', action: preferences.thirdParty ? 'granted' : 'withdrawn' });
+          }
+          if (preferences.all !== undefined) {
+            consents.push({ consentType: 'all_cookies', action: preferences.all ? 'granted' : 'withdrawn' });
+          }
+        }
+        
+        if (consents.length > 0) {
+          await consentAuditService.recordBulkConsent(consents, {
+            userId,
+            sessionId: sessionId || `session-${Date.now()}`,
+            version: version || '1.0',
+            sourceScreen: 'privacy_dialog',
+            sourceComponent: 'CookieConsentBanner',
+            ipAddress,
+            userAgent,
+            additionalData: { rawPreferences: preferences, timestamp }
+          });
+        }
+      } catch (auditError) {
+        console.error("[ConsentAudit] Failed to persist consent:", auditError);
+      }
       
       res.json({ 
         success: true, 

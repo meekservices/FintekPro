@@ -28245,3 +28245,36 @@ export const insertRegulatoryGapSchema = createInsertSchema(regulatoryGaps).omit
 });
 export type RegulatoryGap = typeof regulatoryGaps.$inferSelect;
 export type InsertRegulatoryGap = z.infer<typeof insertRegulatoryGapSchema>;
+
+// Consent Audit Log - Immutable record of user consent actions (DPDPA 2023 compliance)
+export const consentAuditLog = pgTable("consent_audit_log", {
+  id: serial("id").primaryKey(),
+  
+  userId: integer("user_id"),
+  sessionId: varchar("session_id", { length: 100 }),
+  
+  consentType: varchar("consent_type", { length: 50 }).notNull(),
+  action: varchar("action", { length: 20 }).notNull(),
+  version: varchar("version", { length: 20 }).default("1.0"),
+  
+  sourceScreen: varchar("source_screen", { length: 100 }),
+  sourceComponent: varchar("source_component", { length: 100 }),
+  
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  
+  consentText: text("consent_text"),
+  additionalData: jsonb("additional_data").default({}),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_consent_audit_user").on(table.userId),
+  index("idx_consent_audit_type").on(table.consentType),
+  index("idx_consent_audit_created").on(table.createdAt),
+]);
+
+export const insertConsentAuditLogSchema = createInsertSchema(consentAuditLog).omit({
+  id: true, createdAt: true,
+});
+export type ConsentAuditLog = typeof consentAuditLog.$inferSelect;
+export type InsertConsentAuditLog = z.infer<typeof insertConsentAuditLogSchema>;
