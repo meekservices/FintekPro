@@ -1,0 +1,89 @@
+index-DK0dj55f.js:1672 [PWA] Service Worker registered: https://agent.fintekpro.com/
+index-DK0dj55f.js:49  POST https://agent.fintekpro.com/api/picks/share 400 (Bad Request)
+Ee @ index-DK0dj55f.js:49
+mutationFn @ index-DK0dj55f.js:1619
+fn @ index-DK0dj55f.js:49
+g @ index-DK0dj55f.js:49
+start @ index-DK0dj55f.js:49
+execute @ index-DK0dj55f.js:49
+await in execute
+mutate @ index-DK0dj55f.js:49
+(anonymous) @ index-DK0dj55f.js:49
+ae @ index-DK0dj55f.js:1619
+onShareWhatsApp @ index-DK0dj55f.js:1619
+onClick @ index-DK0dj55f.js:1619
+L2e.test.a.<computed> @ index-DK0dj55f.js:49
+hNe @ index-DK0dj55f.js:38
+fNe @ index-DK0dj55f.js:38
+gNe @ index-DK0dj55f.js:38
+S9 @ index-DK0dj55f.js:38
+Kte @ index-DK0dj55f.js:38
+(anonymous) @ index-DK0dj55f.js:38
+Z8 @ index-DK0dj55f.js:41
+pte @ index-DK0dj55f.js:38
+P3 @ index-DK0dj55f.js:38
+C8 @ index-DK0dj55f.js:38
+ENe @ index-DK0dj55f.js:38
+index-DK0dj55f.js:49  GET https://agent.fintekpro.com/api/agent/zoho/leads 503 (Service Unavailable)
+(anonymous) @ index-DK0dj55f.js:49
+i @ index-DK0dj55f.js:49
+g @ index-DK0dj55f.js:49
+start @ index-DK0dj55f.js:49
+fetch @ index-DK0dj55f.js:49
+aw @ index-DK0dj55f.js:49
+onSubscribe @ index-DK0dj55f.js:49
+subscribe @ index-DK0dj55f.js:49
+(anonymous) @ index-DK0dj55f.js:49
+lse @ index-DK0dj55f.js:39
+I5 @ index-DK0dj55f.js:41
+Sv @ index-DK0dj55f.js:41
+(anonymous) @ index-DK0dj55f.js:41
+F @ index-DK0dj55f.js:26
+M @ index-DK0dj55f.js:26
+index-DK0dj55f.js:49  GET https://agent.fintekpro.com/api/agent/zoho/leads 503 (Service Unavailable)
+(anonymous) @ index-DK0dj55f.js:49
+i @ index-DK0dj55f.js:49
+g @ index-DK0dj55f.js:49
+(anonymous) @ index-DK0dj55f.js:49
+Promise.then
+(anonymous) @ index-DK0dj55f.js:49
+Promise.catch
+g @ index-DK0dj55f.js:49
+start @ index-DK0dj55f.js:49
+fetch @ index-DK0dj55f.js:49
+aw @ index-DK0dj55f.js:49
+onSubscribe @ index-DK0dj55f.js:49
+subscribe @ index-DK0dj55f.js:49
+(anonymous) @ index-DK0dj55f.js:49
+lse @ index-DK0dj55f.js:39
+I5 @ index-DK0dj55f.js:41
+Sv @ index-DK0dj55f.js:41
+(anonymous) @ index-DK0dj55f.js:41
+F @ index-DK0dj55f.js:26
+M @ index-DK0dj55f.js:26
+index-DK0dj55f.js:49  GET https://agent.fintekpro.com/api/agent/zoho/leads 503 (Service Unavailable)
+(anonymous) @ index-DK0dj55f.js:49
+i @ index-DK0dj55f.js:49
+g @ index-DK0dj55f.js:49
+(anonymous) @ index-DK0dj55f.js:49
+Promise.then
+(anonymous) @ index-DK0dj55f.js:49
+Promise.catch
+g @ index-DK0dj55f.js:49
+(anonymous) @ index-DK0dj55f.js:49
+Promise.then
+(anonymous) @ index-DK0dj55f.js:49
+Promise.catch
+g @ index-DK0dj55f.js:49
+start @ index-DK0dj55f.js:49
+fetch @ index-DK0dj55f.js:49
+aw @ index-DK0dj55f.js:49
+onSubscribe @ index-DK0dj55f.js:49
+subscribe @ index-DK0dj55f.js:49
+(anonymous) @ index-DK0dj55f.js:49
+lse @ index-DK0dj55f.js:39
+I5 @ index-DK0dj55f.js:41
+Sv @ index-DK0dj55f.js:41
+(anonymous) @ index-DK0dj55f.js:41
+F @ index-DK0dj55f.js:26
+M @ index-DK0dj55f.js:26
