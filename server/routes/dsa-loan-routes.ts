@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { dsaLoanService } from "../services/dsa-loan-service";
+import { kfsGeneratorService, KFSLoanDetails } from "../services/kfs-generator-service";
 import { z } from "zod";
 
 const router = Router();
@@ -525,6 +526,134 @@ router.post("/background-routing", async (req: Request, res: Response) => {
         error: error.message,
       });
     }
+  }
+});
+
+/**
+ * Key Facts Statement (KFS) Generation
+ * Per RBI Digital Lending Guidelines 2022 (RBI/2022-23/111)
+ */
+const kfsGenerateSchema = z.object({
+  loanAmount: z.number().positive(),
+  interestRatePerAnnum: z.number().min(0).max(100),
+  tenureMonths: z.number().int().min(1).max(360),
+  processingFeePercent: z.number().min(0).max(10),
+  processingFeeFixed: z.number().optional(),
+  stampDuty: z.number().optional(),
+  insurancePremium: z.number().optional(),
+  gstOnFees: z.number().optional(),
+  documentationCharges: z.number().optional(),
+  otherCharges: z.array(z.object({ name: z.string(), amount: z.number() })).optional(),
+  loanType: z.enum(['personal', 'home', 'car', 'business', 'education', 'gold', 'lap']),
+  lenderName: z.string(),
+  lenderRbiRegNumber: z.string().optional(),
+  disbursementDate: z.string().optional(),
+  firstEmiDate: z.string().optional(),
+  borrowerName: z.string(),
+  borrowerPan: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/),
+});
+
+router.post("/kfs/generate", async (req: Request, res: Response) => {
+  try {
+    const parsed = kfsGenerateSchema.parse(req.body);
+    
+    const loanDetails: KFSLoanDetails = {
+      loanAmount: parsed.loanAmount,
+      interestRatePerAnnum: parsed.interestRatePerAnnum,
+      tenureMonths: parsed.tenureMonths,
+      processingFeePercent: parsed.processingFeePercent,
+      processingFeeFixed: parsed.processingFeeFixed,
+      stampDuty: parsed.stampDuty,
+      insurancePremium: parsed.insurancePremium,
+      gstOnFees: parsed.gstOnFees,
+      documentationCharges: parsed.documentationCharges,
+      otherCharges: parsed.otherCharges,
+      loanType: parsed.loanType,
+      lenderName: parsed.lenderName,
+      lenderRbiRegNumber: parsed.lenderRbiRegNumber,
+      disbursementDate: parsed.disbursementDate ? new Date(parsed.disbursementDate) : undefined,
+      firstEmiDate: parsed.firstEmiDate ? new Date(parsed.firstEmiDate) : undefined,
+    };
+    
+    const kfs = kfsGeneratorService.generateKFS(loanDetails, parsed.borrowerName, parsed.borrowerPan);
+    
+    res.json({
+      success: true,
+      data: kfs,
+      regulatoryCompliance: {
+        rbiGuideline: 'RBI/2022-23/111 DOR.FIN.REC.65/03.10.038/2022-23',
+        mandatoryDisclosure: true,
+        coolingOffPeriodDays: 3,
+      },
+    });
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({
+        success: false,
+        error: 'Validation failed',
+        details: error.errors,
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+});
+
+router.get("/applications/:id/kfs", async (req: Request, res: Response) => {
+  try {
+    const application = await dsaLoanService.getApplication(req.params.id);
+    
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        error: 'Application not found',
+      });
+    }
+    
+    const bankOffers = await dsaLoanService.getBankOffers(req.params.id);
+    const approvedOffer = bankOffers.find((o: any) => o.status === 'approved' || o.status === 'accepted');
+    
+    if (!approvedOffer) {
+      return res.status(400).json({
+        success: false,
+        error: 'No approved loan offer found for this application. KFS can only be generated for approved loans.',
+      });
+    }
+    
+    const loanDetails: KFSLoanDetails = {
+      loanAmount: parseFloat(approvedOffer.sanctionedAmount || application.requestedAmount),
+      interestRatePerAnnum: parseFloat(approvedOffer.offeredInterestRate || '12'),
+      tenureMonths: approvedOffer.offeredTenure || application.requestedTenure,
+      processingFeePercent: parseFloat(approvedOffer.processingFeePercent || '1'),
+      loanType: application.loanType as any,
+      lenderName: approvedOffer.bankName || 'FintekPro Partner Bank',
+      lenderRbiRegNumber: approvedOffer.bankRbiRegNumber,
+    };
+    
+    const kfs = kfsGeneratorService.generateKFS(
+      loanDetails,
+      application.applicantName,
+      application.applicantPan || 'XXXXX0000X'
+    );
+    
+    res.json({
+      success: true,
+      data: kfs,
+      applicationNumber: application.applicationNumber,
+      regulatoryCompliance: {
+        rbiGuideline: 'RBI/2022-23/111 DOR.FIN.REC.65/03.10.038/2022-23',
+        mandatoryDisclosure: true,
+        coolingOffPeriodDays: 3,
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
   }
 });
 
