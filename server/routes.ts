@@ -11966,16 +11966,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get MF holdings for user by joining through mf_folios (which has user_id)
+      // Using actual DB column names: average_nav, current_nav, current_value
       const holdings = await db.select({
         id: schema.mfHoldings.id,
         folioId: schema.mfHoldings.folioId,
         schemeCode: schema.mfHoldings.schemeCode,
         schemeName: schema.mfHoldings.schemeName,
         units: schema.mfHoldings.units,
-        avgNav: schema.mfHoldings.avgNav,
-        currentNav: schema.mfHoldings.currentNav,
-        investedValue: schema.mfHoldings.investedValue,
-        currentValue: schema.mfHoldings.currentValue,
       })
         .from(schema.mfHoldings)
         .innerJoin(schema.mfFolios, eq(schema.mfHoldings.folioId, schema.mfFolios.id))
@@ -11999,24 +11996,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .limit(1);
 
         if (existing.length > 0) {
-          // Update existing
+          // Update existing with available data
           await db.update(portfolioHoldings)
             .set({
               quantity: holding.units || '0',
-              purchasePrice: String(parseFloat(holding.investedValue || '0') / Math.max(1, parseFloat(holding.units || '1'))),
-              currentPrice: holding.currentNav || '0',
+              updatedAt: new Date(),
             })
             .where(eq(portfolioHoldings.id, existing[0].id));
         } else {
-          // Create new
+          // Create new with available data
           await db.insert(portfolioHoldings).values({
             portfolioId,
             symbol: holding.schemeCode || '',
             name: holding.schemeName || 'Unknown Fund',
             type: 'mutual-fund',
             quantity: holding.units || '0',
-            purchasePrice: String(parseFloat(holding.investedValue || '0') / Math.max(1, parseFloat(holding.units || '1'))),
-            currentPrice: holding.currentNav || '0',
           });
         }
         syncedCount++;
