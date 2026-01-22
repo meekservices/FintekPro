@@ -4,6 +4,7 @@ import { liveMFDataService } from "../services/live-mf-data-service";
 import { db } from "../db";
 import { storeCategories } from "@shared/schema";
 import { eq, or } from "drizzle-orm";
+import { requireAdmin } from "../middleware/auth";
 
 const router = Router();
 
@@ -666,6 +667,75 @@ router.post("/api/ai-mf/withdrawal-summary", async (req, res) => {
     res.json({
       success: true,
       summary
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get current overseas investment regulatory status
+router.get("/api/ai-mf/regulatory-status", async (req, res) => {
+  try {
+    const { AIMFRecommendationService } = await import("../services/ai-mf-recommendation-service");
+    const status = AIMFRecommendationService.getOverseasInvestmentStatus();
+    
+    res.json({
+      success: true,
+      regulatoryStatus: {
+        overseasInvestment: {
+          status: status.investmentFrozen ? 'FROZEN' : 'OPEN',
+          limit: 'USD 7 billion',
+          frozenSince: status.investmentFrozen ? '2022-02-01' : null,
+          reason: status.investmentFrozen ? 'Industry-wide limit reached as per SEBI circular' : null
+        },
+        overseasETF: {
+          status: status.etfFrozen ? 'FROZEN' : 'OPEN',
+          limit: 'USD 1 billion',
+          frozenSince: status.etfFrozen ? '2024-04-01' : null,
+          reason: status.etfFrozen ? 'Overseas ETF limit reached as per SEBI circular' : null
+        },
+        lastUpdated: new Date().toISOString(),
+        source: 'SEBI/RBI regulatory framework'
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Admin endpoint to update regulatory status (for automated scheduler or manual override)
+// Protected with admin authentication
+router.post("/api/admin/ai-mf/regulatory-status", requireAdmin, async (req: any, res) => {
+  try {
+    const { overseasInvestmentFrozen, overseasETFFrozen } = req.body;
+    
+    // Validate request body
+    if (typeof overseasInvestmentFrozen !== 'boolean' && typeof overseasETFFrozen !== 'boolean') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'At least one of overseasInvestmentFrozen or overseasETFFrozen must be provided as boolean' 
+      });
+    }
+    
+    const { AIMFRecommendationService } = await import("../services/ai-mf-recommendation-service");
+    
+    if (typeof overseasInvestmentFrozen === 'boolean') {
+      AIMFRecommendationService.updateOverseasInvestmentStatus(overseasInvestmentFrozen);
+    }
+    
+    if (typeof overseasETFFrozen === 'boolean') {
+      AIMFRecommendationService.updateOverseasETFStatus(overseasETFFrozen);
+    }
+    
+    const status = AIMFRecommendationService.getOverseasInvestmentStatus();
+    
+    console.log(`[Regulatory] Admin ${req.user?.email} updated overseas investment status:`, status);
+    
+    res.json({
+      success: true,
+      message: 'Regulatory status updated',
+      currentStatus: status,
+      updatedBy: req.user?.email
     });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });

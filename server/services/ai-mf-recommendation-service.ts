@@ -227,7 +227,7 @@ class AIMFRecommendationService {
     return returns;
   }
 
-  // Fetch live NAV from AMFI API - only use funds with recent data
+  // Fetch live NAV from AMFI API - only use funds with recent data and investable status
   private async enhanceWithLiveData(funds: any[]): Promise<any[]> {
     try {
       const schemeCodes = funds.map(f => f.schemeCode);
@@ -235,26 +235,42 @@ class AIMFRecommendationService {
       
       const enhancedFunds: any[] = [];
       let discontinuedCount = 0;
+      let regulatoryRestrictedCount = 0;
+      let purchaseBlockedCount = 0;
 
       for (const fund of funds) {
         const liveData = liveNavData.get(fund.schemeCode);
         
         if (liveData && this.isNavDateRecent(liveData.date)) {
-          // Fund has recent AMFI data - use live NAV, keep database returns
-          enhancedFunds.push({
+          // Fund has recent AMFI data - check investability
+          const enhancedFund = {
             ...fund,
             nav: liveData.nav.toString(),
             navDate: liveData.date,
             isLiveData: true
-            // Use database returns only - no MFapi.in historical lookup
-          });
+          };
+          
+          // Check regulatory and operational investability
+          const investability = this.isFundInvestable(enhancedFund);
+          
+          if (investability.investable) {
+            enhancedFunds.push(enhancedFund);
+          } else {
+            // Log restriction reason
+            if (investability.reason?.includes('SEBI') || investability.reason?.includes('regulatory')) {
+              regulatoryRestrictedCount++;
+            } else {
+              purchaseBlockedCount++;
+            }
+          }
         } else {
-          // Fund has no recent AMFI data - likely discontinued, exclude from recommendations
+          // Fund has no recent AMFI data - likely discontinued
           discontinuedCount++;
         }
       }
 
-      console.log(`[AI-MF] Enhanced ${enhancedFunds.length}/${funds.length} funds with live AMFI data. Excluded ${discontinuedCount} discontinued/stale funds.`);
+      console.log(`[AI-MF] Enhanced ${enhancedFunds.length}/${funds.length} funds with live AMFI data.`);
+      console.log(`[AI-MF] Excluded: ${discontinuedCount} discontinued, ${regulatoryRestrictedCount} regulatory-restricted, ${purchaseBlockedCount} purchase-blocked funds.`);
 
       return enhancedFunds;
     } catch (error) {
@@ -557,6 +573,103 @@ class AIMFRecommendationService {
     
     // Default: treat as large cap equity
     return category || 'equity large cap';
+  }
+
+  // Detect if fund is an overseas/international fund subject to regulatory restrictions
+  private isOverseasFund(fund: any): boolean {
+    const category = (fund.category || '').toLowerCase();
+    const schemeName = (fund.schemeName || '').toLowerCase();
+    const combined = `${category} ${schemeName}`;
+    
+    // Keywords indicating overseas/international investment
+    const overseasKeywords = [
+      'international', 'global', 'overseas', 'foreign',
+      'us equity', 'us stock', 'us fund', 'united states',
+      'nasdaq', 's&p 500', 's&p500', 'dow jones',
+      'europe', 'european', 'asia pacific', 'emerging markets',
+      'world', 'greater china', 'japan', 'china',
+      'feeder', 'fof - overseas', 'fund of funds - overseas'
+    ];
+    
+    // Check for overseas keywords
+    for (const keyword of overseasKeywords) {
+      if (combined.includes(keyword)) {
+        return true;
+      }
+    }
+    
+    // Check for specific fund house overseas schemes
+    if (schemeName.includes('franklin') && schemeName.includes('us opportunities')) return true;
+    if (schemeName.includes('motilal') && schemeName.includes('nasdaq')) return true;
+    if (schemeName.includes('kotak') && schemeName.includes('nasdaq')) return true;
+    if (schemeName.includes('nippon') && schemeName.includes('japan')) return true;
+    if (schemeName.includes('edelweiss') && schemeName.includes('china')) return true;
+    if (schemeName.includes('pgim') && schemeName.includes('global')) return true;
+    
+    return false;
+  }
+
+  // Global regulatory status for overseas investments
+  // This is updated based on SEBI/RBI circulars
+  // As of Jan 2025: USD 7B limit frozen since Feb 2022, USD 1B ETF limit frozen since Apr 2024
+  private static OVERSEAS_INVESTMENT_FROZEN = true;
+  private static OVERSEAS_ETF_FROZEN = true;
+
+  // Check if fund is investable based on regulatory and operational status
+  private isFundInvestable(fund: any): { investable: boolean; reason: string | null } {
+    const extendedData = fund.extendedData as any || {};
+    const schemeName = (fund.schemeName || '').toLowerCase();
+    
+    // Check if purchase is explicitly disallowed (from AMFI/BSE STAR MFD data)
+    if (extendedData.purchaseAllowed === false) {
+      const isOverseas = this.isOverseasFund(fund);
+      return {
+        investable: false,
+        reason: isOverseas 
+          ? 'Investment restricted: SEBI overseas investment limit reached (USD 7B cap)'
+          : 'Fresh investment not allowed by fund house'
+      };
+    }
+    
+    // Check overseas fund regulatory restrictions
+    if (this.isOverseasFund(fund)) {
+      // Check if it's an overseas ETF (stricter limits)
+      const isETF = schemeName.includes('etf');
+      
+      if (isETF && AIMFRecommendationService.OVERSEAS_ETF_FROZEN) {
+        return {
+          investable: false,
+          reason: 'SEBI overseas ETF limit (USD 1B) reached - new investments frozen since April 2024'
+        };
+      }
+      
+      if (AIMFRecommendationService.OVERSEAS_INVESTMENT_FROZEN) {
+        return {
+          investable: false,
+          reason: 'SEBI overseas investment limit (USD 7B) reached - new investments frozen since Feb 2022'
+        };
+      }
+    }
+    
+    return { investable: true, reason: null };
+  }
+
+  // Method to update regulatory status (can be called from admin or automated scheduler)
+  static updateOverseasInvestmentStatus(frozen: boolean): void {
+    AIMFRecommendationService.OVERSEAS_INVESTMENT_FROZEN = frozen;
+    console.log(`[AI-MF] Overseas investment status updated: ${frozen ? 'FROZEN' : 'OPEN'}`);
+  }
+
+  static updateOverseasETFStatus(frozen: boolean): void {
+    AIMFRecommendationService.OVERSEAS_ETF_FROZEN = frozen;
+    console.log(`[AI-MF] Overseas ETF status updated: ${frozen ? 'FROZEN' : 'OPEN'}`);
+  }
+
+  static getOverseasInvestmentStatus(): { investmentFrozen: boolean; etfFrozen: boolean } {
+    return {
+      investmentFrozen: AIMFRecommendationService.OVERSEAS_INVESTMENT_FROZEN,
+      etfFrozen: AIMFRecommendationService.OVERSEAS_ETF_FROZEN
+    };
   }
 
   // Improved Sharpe ratio estimation
