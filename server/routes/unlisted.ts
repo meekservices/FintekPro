@@ -5648,9 +5648,9 @@ router.post('/companies/:companyId/publish-to-store-with-prices', async (req: Re
     let subcategory = null;
     if (company.sector) {
       const sectorSlug = company.sector.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-      subcategory = await storage.getStoreCategoryBySlug(sectorSlug);
+      subcategory = await storage.getStoreSubcategoryBySlug(sectorSlug);
       if (!subcategory) {
-        subcategory = await storage.createStoreCategory({
+        subcategory = await storage.createStoreSubcategory({
           name: company.sector,
           description: `Unlisted shares in the ${company.sector} sector`,
           slug: sectorSlug,
