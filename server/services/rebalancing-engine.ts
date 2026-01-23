@@ -7,6 +7,12 @@ import {
   LIQUID_TYPES,
   OptimizationInput
 } from './asset-allocation-optimizer';
+import { 
+  unifiedAIRecommendationEngine, 
+  type ProductData, 
+  type ClientProfile, 
+  type ProductCategory 
+} from './unified-ai-recommendation-engine';
 
 export type RebalanceReason = 
   | 'DRIFT_THRESHOLD_EXCEEDED'
@@ -633,4 +639,179 @@ interface PortfolioMetrics {
   sharpeRatio: number;
 }
 
+// ============================================================================
+// AI-ENHANCED REBALANCING INTERFACE
+// ============================================================================
+
+export interface AIEnhancedRebalanceResult extends RebalanceAnalysis {
+  aiEnhanced: boolean;
+  aiRecommendations: {
+    assetType: string;
+    action: 'buy' | 'sell' | 'hold';
+    rationale: string;
+    confidence: number;
+    suggestedProducts?: {
+      productId: string;
+      productName: string;
+      score: number;
+      suitabilityScore: number;
+    }[];
+  }[];
+  marketInsights: string[];
+}
+
+/**
+ * AI-Enhanced Rebalancing Service
+ * Wraps the rule-based rebalancing engine with AI-powered insights
+ */
+class AIEnhancedRebalancingService {
+  /**
+   * Get AI-enhanced rebalancing recommendations
+   * Combines rule-based analysis with AI product recommendations
+   */
+  async analyzeWithAI(
+    input: RebalanceInput,
+    clientProfile?: ClientProfile,
+    availableProducts?: ProductData[]
+  ): Promise<AIEnhancedRebalanceResult> {
+    // Start with rule-based analysis
+    const baseAnalysis = rebalancingEngine.analyzeAndRebalance(input);
+    
+    const aiRecommendations: AIEnhancedRebalanceResult['aiRecommendations'] = [];
+    const marketInsights: string[] = [];
+    
+    // Get AI insights for each trade
+    for (const trade of baseAnalysis.trades) {
+      const aiRec: AIEnhancedRebalanceResult['aiRecommendations'][0] = {
+        assetType: trade.assetType,
+        action: trade.action,
+        rationale: trade.rationale,
+        confidence: 75,
+        suggestedProducts: [],
+      };
+      
+      // If products are available, find best matches for buy trades
+      if (trade.action === 'buy' && availableProducts && clientProfile) {
+        const categoryMap: Record<string, ProductCategory> = {
+          'EQUITY_LARGECAP': 'stocks',
+          'EQUITY_MIDCAP': 'stocks',
+          'EQUITY_SMALLCAP': 'stocks',
+          'EQUITY_FLEXI': 'mutual_funds',
+          'DEBT_GOVT': 'bonds',
+          'DEBT_CORP': 'bonds',
+          'DEBT_SHORT': 'bonds',
+          'DEBT_LIQUID': 'mutual_funds',
+          'ALTERNATIVES_GOLD': 'commodities',
+          'ALTERNATIVES_REITS': 'reits',
+          'ALTERNATIVES_AIF': 'aif',
+          'ALTERNATIVES_PMS': 'pms',
+        };
+        
+        const targetCategory = categoryMap[trade.assetType];
+        if (targetCategory) {
+          const categoryProducts = availableProducts.filter(p => p.category === targetCategory);
+          
+          if (categoryProducts.length > 0) {
+            try {
+              const ranked = await unifiedAIRecommendationEngine.rankProducts(
+                categoryProducts.slice(0, 10),
+                clientProfile,
+                { prioritizeReturns: true, limit: 3 }
+              );
+              
+              aiRec.suggestedProducts = ranked.map(r => ({
+                productId: r.product.id,
+                productName: r.product.name,
+                score: r.analysis.overallScore,
+                suitabilityScore: r.analysis.suitabilityScore,
+              }));
+              
+              // Update confidence based on AI analysis
+              if (ranked.length > 0) {
+                aiRec.confidence = Math.round(
+                  ranked.reduce((sum, r) => sum + r.analysis.confidenceScore, 0) / ranked.length
+                );
+                aiRec.rationale = ranked[0]?.analysis.selectionRationale || trade.rationale;
+              }
+            } catch (error) {
+              console.error(`[AI Rebalancing] Failed to get AI recommendations for ${trade.assetType}:`, error);
+            }
+          }
+        }
+      }
+      
+      aiRecommendations.push(aiRec);
+    }
+    
+    // Generate market insights
+    if (baseAnalysis.driftAnalysis.maxDrift > 10) {
+      marketInsights.push('Significant portfolio drift detected. Market conditions may have shifted substantially.');
+    }
+    if (baseAnalysis.driftAnalysis.equityDrift > 5) {
+      marketInsights.push('Equity allocation has drifted. Consider market timing and valuations before rebalancing.');
+    }
+    if (baseAnalysis.trades.some(t => t.taxImpact.taxEfficiency === 'low')) {
+      marketInsights.push('Some rebalancing trades have high tax implications. Consider tax-loss harvesting opportunities.');
+    }
+    
+    // Get AI engine status
+    const aiStatus = unifiedAIRecommendationEngine.getStatus();
+    
+    return {
+      ...baseAnalysis,
+      aiEnhanced: aiStatus.gemini || aiStatus.openai,
+      aiRecommendations,
+      marketInsights,
+    };
+  }
+
+  /**
+   * Get product recommendations for a specific asset class
+   */
+  async getProductsForAssetClass(
+    assetType: string,
+    tradeValue: number,
+    clientProfile: ClientProfile,
+    availableProducts: ProductData[]
+  ) {
+    const categoryMap: Record<string, ProductCategory> = {
+      'EQUITY_LARGECAP': 'stocks',
+      'EQUITY_MIDCAP': 'stocks',
+      'EQUITY_SMALLCAP': 'stocks',
+      'EQUITY_FLEXI': 'mutual_funds',
+      'DEBT_GOVT': 'bonds',
+      'DEBT_CORP': 'bonds',
+      'DEBT_SHORT': 'bonds',
+      'ALTERNATIVES_AIF': 'aif',
+      'ALTERNATIVES_PMS': 'pms',
+      'ALTERNATIVES_REITS': 'reits',
+      'ALTERNATIVES_GOLD': 'commodities',
+    };
+    
+    const targetCategory = categoryMap[assetType];
+    if (!targetCategory) {
+      return { products: [], message: `No product mapping for asset type: ${assetType}` };
+    }
+    
+    const categoryProducts = availableProducts.filter(p => p.category === targetCategory);
+    
+    if (categoryProducts.length === 0) {
+      return { products: [], message: `No products available for category: ${targetCategory}` };
+    }
+    
+    const recommendations = await unifiedAIRecommendationEngine.generateRecommendation(
+      clientProfile,
+      categoryProducts,
+      { maxRecommendations: 5, categories: [targetCategory] }
+    );
+    
+    return {
+      products: recommendations.recommendations,
+      summary: recommendations.summary,
+      trackingId: recommendations.trackingId,
+    };
+  }
+}
+
+export const aiEnhancedRebalancingService = new AIEnhancedRebalancingService();
 export const rebalancingEngine = new RebalancingEngine();

@@ -2,6 +2,11 @@ import { GoogleGenAI } from "@google/genai";
 import { db } from "../db";
 import { aifMaster, pmsMaster, recommendationProducts } from "@shared/schema";
 import { eq, and, desc, isNotNull, or, ilike } from "drizzle-orm";
+import { 
+  unifiedAIRecommendationEngine, 
+  type ProductData, 
+  type ProductCategory 
+} from "./unified-ai-recommendation-engine";
 
 interface AifPmsData {
   id: string;
