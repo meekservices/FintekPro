@@ -12,22 +12,71 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-export const pool = new Pool({ 
+// Pool configuration with improved resilience
+const POOL_CONFIG = {
   connectionString: process.env.DATABASE_URL,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 15000,
-});
+  allowExitOnIdle: false, // Keep pool alive even when idle
+};
+
+export const pool = new Pool(POOL_CONFIG);
+
+// Track pool health metrics
+let poolHealthWarnings = 0;
+const MAX_WARNINGS_BEFORE_LOG = 5;
 
 pool.on('error', (err) => {
   console.error('[DB Pool] Unexpected error on idle client:', err?.message || err);
+  // Don't crash the server on pool errors - the pool will auto-recover
 });
 
 pool.on('connect', () => {
   console.log('[DB Pool] New client connected');
 });
 
+// Monitor pool usage and warn before exhaustion
+function checkPoolHealth() {
+  const waiting = pool.waitingCount;
+  const total = pool.totalCount;
+  const idle = pool.idleCount;
+  const maxConnections = POOL_CONFIG.max;
+  
+  // Warn if pool is approaching exhaustion (>80% used)
+  if (total > 0 && (total - idle) / maxConnections > 0.8) {
+    poolHealthWarnings++;
+    if (poolHealthWarnings >= MAX_WARNINGS_BEFORE_LOG) {
+      console.warn(`[DB Pool] ⚠️ Pool health warning: ${total - idle}/${maxConnections} connections in use, ${waiting} waiting, ${idle} idle`);
+      poolHealthWarnings = 0;
+    }
+  } else {
+    poolHealthWarnings = 0;
+  }
+  
+  // Critical warning if clients are waiting for connections
+  if (waiting > 0) {
+    console.warn(`[DB Pool] ⚠️ ${waiting} clients waiting for connections - consider increasing pool size`);
+  }
+}
+
+// Check pool health every 30 seconds
+setInterval(checkPoolHealth, 30000);
+
 export const db = drizzle({ client: pool, schema });
+
+// Get current pool statistics
+export function getPoolStats() {
+  return {
+    totalCount: pool.totalCount,
+    idleCount: pool.idleCount,
+    waitingCount: pool.waitingCount,
+    maxConnections: POOL_CONFIG.max,
+    utilizationPercent: pool.totalCount > 0 
+      ? Math.round(((pool.totalCount - pool.idleCount) / POOL_CONFIG.max) * 100) 
+      : 0
+  };
+}
 
 export async function testConnection(): Promise<boolean> {
   try {
@@ -39,5 +88,15 @@ export async function testConnection(): Promise<boolean> {
   } catch (err: any) {
     console.error('[DB] Connection test failed:', err?.message || 'Unknown error');
     return false;
+  }
+}
+
+// Graceful shutdown helper
+export async function closePool(): Promise<void> {
+  try {
+    await pool.end();
+    console.log('[DB Pool] Pool closed gracefully');
+  } catch (err: any) {
+    console.error('[DB Pool] Error closing pool:', err?.message || err);
   }
 }

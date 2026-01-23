@@ -402,6 +402,21 @@ app.use((req, res, next) => {
   app.get('/ready', readinessCheck);
   app.get('/live', livenessCheck);
   
+  // API health endpoint - BEFORE session middleware to ensure it always responds
+  // This is critical for production load balancers and health checks
+  app.get('/api/health', (req, res) => {
+    res.status(200).json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime()
+    });
+  });
+  
+  // HEAD request for /api/health (used by some monitoring tools)
+  app.head('/api/health', (req, res) => {
+    res.status(200).end();
+  });
+  
   // Initialize authentication (Passport & sessions must be set up first)
   await setupReplitAuth(app);
   

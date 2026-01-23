@@ -43,6 +43,16 @@ export function getSession() {
     createTableIfMissing: false,
     ttl: sessionTtl,
     tableName: "sessions",
+    errorLog: (error: Error) => {
+      // Log session store errors but don't crash
+      console.error('[Session Store] Database error:', error.message);
+    },
+    pruneSessionInterval: 60 * 60, // Prune expired sessions every hour (in seconds)
+  });
+  
+  // Handle session store errors gracefully
+  sessionStore.on('error', (error: Error) => {
+    console.error('[Session Store] Connection error (will auto-retry):', error.message);
   });
   
   // Determine if we're on a custom domain or Replit domain
