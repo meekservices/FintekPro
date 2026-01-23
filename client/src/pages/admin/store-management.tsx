@@ -987,6 +987,9 @@ export default function StoreManagement() {
                                 if (slug === 'global-markets' || slug === 'global' || slug === 'global-stocks' || slug === 'international' || cat.name.includes('Global Markets') || cat.name.includes('International')) {
                                   return '/admin/global-seed';
                                 }
+                                if (slug === 'reits' || slug === 'invits' || slug === 'reits-invits' || slug === 'real-estate' || cat.name.includes('REIT') || cat.name.includes('InvIT') || cat.name.includes('Real Estate')) {
+                                  return '/admin/reits-invits-seed';
+                                }
                                 if (slug === 'tax' || cat.name.includes('Tax Services')) {
                                   return '/admin/store/seed/services';
                                 }
