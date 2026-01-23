@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, Search, RefreshCw, ArrowLeft, Plus, Loader2, TrendingUp, BarChart3, History, Activity, Download, CheckCircle, XCircle, AlertCircle, Trash2, CheckSquare, IndianRupee, Power } from 'lucide-react';
+import { Building2, Search, RefreshCw, ArrowLeft, Plus, Loader2, TrendingUp, BarChart3, History, Activity, Download, CheckCircle, XCircle, AlertCircle, Trash2, CheckSquare, IndianRupee, Power, Upload, ArrowRightCircle, FileSpreadsheet } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -42,6 +42,8 @@ export default function UnlistedCompaniesAdmin() {
   const [isMoneyControlDialogOpen, setIsMoneyControlDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isNSDLDialogOpen, setIsNSDLDialogOpen] = useState(false);
+  const [isBulkImportDialogOpen, setIsBulkImportDialogOpen] = useState(false);
+  const [isListingTransitionDialogOpen, setIsListingTransitionDialogOpen] = useState(false);
 
   // Check admin access
   if (authLoading) {
@@ -75,6 +77,28 @@ export default function UnlistedCompaniesAdmin() {
           <p className="text-muted-foreground mt-1">Manage companies, listings, and buy requests</p>
         </div>
         <div className="flex gap-2">
+          <Dialog open={isBulkImportDialogOpen} onOpenChange={setIsBulkImportDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="border-cyan-600 text-cyan-400 hover:bg-cyan-600/20" data-testid="button-bulk-import">
+                <Upload className="w-4 h-4 mr-2" />
+                Bulk Import
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-card border-border">
+              <BulkImportDialog onClose={() => setIsBulkImportDialogOpen(false)} />
+            </DialogContent>
+          </Dialog>
+          <Dialog open={isListingTransitionDialogOpen} onOpenChange={setIsListingTransitionDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="border-amber-600 text-amber-400 hover:bg-amber-600/20" data-testid="button-listing-transition">
+                <ArrowRightCircle className="w-4 h-4 mr-2" />
+                Listing Transition
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto bg-card border-border">
+              <ListingTransitionDialog onClose={() => setIsListingTransitionDialogOpen(false)} />
+            </DialogContent>
+          </Dialog>
           <Dialog open={isNSDLDialogOpen} onOpenChange={setIsNSDLDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" className="border-purple-600 text-purple-400 hover:bg-purple-600/20" data-testid="button-nsdl-isin-search">
@@ -2564,6 +2588,540 @@ function DeleteCompanyDialog({ onClose }: { onClose: () => void }) {
             <>
               <Trash2 className="w-4 h-4 mr-2" />
               Delete Company
+            </>
+          )}
+        </Button>
+      </div>
+    </>
+  );
+}
+
+function BulkImportDialog({ onClose }: { onClose: () => void }) {
+  const { toast } = useToast();
+  const [csvData, setCsvData] = useState('');
+  const [parsedCompanies, setParsedCompanies] = useState<any[]>([]);
+  const [parseError, setParseError] = useState<string | null>(null);
+
+  const parseCSVLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"' && !inQuotes) {
+        inQuotes = true;
+      } else if (char === '"' && inQuotes) {
+        if (line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    result.push(current.trim());
+    return result;
+  };
+
+  const parseCSV = (text: string) => {
+    setParseError(null);
+    try {
+      const lines = text.trim().split('\n').map(l => l.replace(/\r$/, ''));
+      if (lines.length < 2) {
+        setParseError('CSV must have at least a header row and one data row');
+        return;
+      }
+
+      const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().replace(/['"]/g, ''));
+      const companies: any[] = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        const values = parseCSVLine(lines[i]);
+        if (values.length !== headers.length) {
+          console.warn(`Row ${i + 1} has ${values.length} values, expected ${headers.length}`);
+          continue;
+        }
+
+        const company: Record<string, string> = {};
+        headers.forEach((header, idx) => {
+          company[header] = values[idx].replace(/^["']|["']$/g, '');
+        });
+        companies.push(company);
+      }
+
+      setParsedCompanies(companies);
+    } catch (error: any) {
+      setParseError(error.message);
+    }
+  };
+
+  const importMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('/api/unlisted/admin/bulk-import-csv', {
+        method: 'POST',
+        body: JSON.stringify({ companies: parsedCompanies }),
+      });
+    },
+    onSuccess: (result: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
+      toast({
+        title: 'Import Complete',
+        description: `Imported ${result.data?.imported || 0} of ${result.data?.total || 0} companies`,
+      });
+      if (result.data?.errors?.length > 0) {
+        console.log('Import errors:', result.data.errors);
+      }
+      onClose();
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Import failed',
+        description: error.message || 'Failed to import companies',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      setCsvData(text);
+      parseCSV(text);
+    };
+    reader.readAsText(file);
+  };
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle className="text-white flex items-center gap-2">
+          <Upload className="w-5 h-5 text-cyan-400" />
+          Bulk Import Unlisted Companies
+        </DialogTitle>
+        <DialogDescription className="text-muted-foreground">
+          Upload a CSV file to import multiple unlisted companies at once. Download the template for the correct format.
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="space-y-4 py-4">
+        <div className="flex gap-4">
+          <div className="flex-1">
+            <Label className="text-muted-foreground">Upload CSV File</Label>
+            <Input
+              type="file"
+              accept=".csv"
+              onChange={handleFileUpload}
+              className="mt-1 bg-muted border-border text-white"
+              data-testid="input-csv-file"
+            />
+          </div>
+          <div className="flex items-end">
+            <Button
+              variant="outline"
+              onClick={() => {
+                const template = `name,cin,isin,sector,industry,rocState,paidUpCapital,faceValue,totalShares,status,listingStage
+"Example Company Ltd","U72200MH2020PTC123456","INE123A01234","Technology","Software","Maharashtra","10000000","10","1000000","active","unlisted"`;
+                const blob = new Blob([template], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'unlisted_import_template.csv';
+                a.click();
+              }}
+              className="border-border text-muted-foreground"
+              data-testid="button-download-template"
+            >
+              <FileSpreadsheet className="w-4 h-4 mr-2" />
+              Download Template
+            </Button>
+          </div>
+        </div>
+
+        {parseError && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+            <div className="flex items-center gap-2 text-red-400">
+              <AlertCircle className="w-4 h-4" />
+              {parseError}
+            </div>
+          </div>
+        )}
+
+        {parsedCompanies.length > 0 && (
+          <Card className="bg-muted/50 border-border">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-white text-sm flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-green-400" />
+                {parsedCompanies.length} Companies Ready to Import
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="max-h-60 overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-muted-foreground">Name</TableHead>
+                      <TableHead className="text-muted-foreground">CIN</TableHead>
+                      <TableHead className="text-muted-foreground">Sector</TableHead>
+                      <TableHead className="text-muted-foreground">Stage</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {parsedCompanies.slice(0, 10).map((company, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell className="text-white">{company.name}</TableCell>
+                        <TableCell className="text-muted-foreground font-mono text-xs">{company.cin || '-'}</TableCell>
+                        <TableCell className="text-muted-foreground">{company.sector || '-'}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">
+                            {company.listingstage || company.listing_stage || 'unlisted'}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {parsedCompanies.length > 10 && (
+                  <p className="text-muted-foreground text-sm mt-2">
+                    ... and {parsedCompanies.length - 10} more companies
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      <div className="flex justify-end gap-2 pt-4 border-t border-border">
+        <Button variant="outline" onClick={onClose} className="border-border text-muted-foreground">
+          Cancel
+        </Button>
+        <Button
+          onClick={() => importMutation.mutate()}
+          disabled={parsedCompanies.length === 0 || importMutation.isPending}
+          className="bg-cyan-600 hover:bg-cyan-700"
+          data-testid="button-execute-bulk-import"
+        >
+          {importMutation.isPending ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Importing...
+            </>
+          ) : (
+            <>
+              <Upload className="w-4 h-4 mr-2" />
+              Import {parsedCompanies.length} Companies
+            </>
+          )}
+        </Button>
+      </div>
+    </>
+  );
+}
+
+function ListingTransitionDialog({ onClose }: { onClose: () => void }) {
+  const { toast } = useToast();
+  const [selectedCompanyId, setSelectedCompanyId] = useState('');
+  const [targetStage, setTargetStage] = useState('');
+  const [exchange, setExchange] = useState('');
+  const [stockSymbol, setStockSymbol] = useState('');
+  const [ipoPrice, setIpoPrice] = useState('');
+  const [listPrice, setListPrice] = useState('');
+  const [lotSize, setLotSize] = useState('');
+  const [listingDate, setListingDate] = useState('');
+
+  const { data: companies, isLoading } = useQuery<UnlistedCompany[]>({
+    queryKey: ['/api/unlisted/admin/companies'],
+    queryFn: async () => {
+      const response = await fetch('/api/unlisted/admin/companies');
+      if (!response.ok) throw new Error('Failed to fetch companies');
+      const result = await response.json();
+      return result.data || [];
+    },
+  });
+
+  const { data: validation } = useQuery({
+    queryKey: ['/api/unlisted/admin/transition/validate', selectedCompanyId, targetStage],
+    queryFn: async () => {
+      if (!selectedCompanyId || !targetStage) return null;
+      const response = await fetch(`/api/unlisted/admin/transition/validate?companyId=${selectedCompanyId}&targetStage=${targetStage}`);
+      if (!response.ok) return null;
+      const result = await response.json();
+      return result.data;
+    },
+    enabled: !!selectedCompanyId && !!targetStage,
+  });
+
+  const selectedCompany = companies?.find(c => c.id === selectedCompanyId);
+
+  const transitionMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('/api/unlisted/admin/transition', {
+        method: 'POST',
+        body: JSON.stringify({
+          companyId: selectedCompanyId,
+          targetStage,
+          exchange: exchange || undefined,
+          stockSymbol: stockSymbol || undefined,
+          ipoPrice: ipoPrice || undefined,
+          listPrice: listPrice || undefined,
+          lotSize: lotSize || undefined,
+          listingDate: listingDate || undefined,
+        }),
+      });
+    },
+    onSuccess: (result: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
+      toast({
+        title: 'Transition Complete',
+        description: result.data?.message || `Company transitioned to ${targetStage}`,
+      });
+      onClose();
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Transition failed',
+        description: error.message || 'Failed to execute transition',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const stageOptions = [
+    { value: 'unlisted', label: 'Unlisted' },
+    { value: 'pre_ipo', label: 'Pre-IPO' },
+    { value: 'ipo_announced', label: 'IPO Announced' },
+    { value: 'ipo_open', label: 'IPO Open' },
+    { value: 'listed', label: 'Listed' },
+    { value: 'delisted', label: 'Delisted' },
+  ];
+
+  const showExchangeFields = targetStage === 'listed';
+  const showIpoFields = ['ipo_announced', 'ipo_open', 'listed'].includes(targetStage);
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle className="text-white flex items-center gap-2">
+          <ArrowRightCircle className="w-5 h-5 text-amber-400" />
+          Listing Stage Transition
+        </DialogTitle>
+        <DialogDescription className="text-muted-foreground">
+          Change a company's listing stage. When transitioning to "Listed", the company will be added to the stocks table and portfolio holdings will be migrated.
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="space-y-4 py-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label className="text-muted-foreground">Select Company</Label>
+            {isLoading ? (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading...
+              </div>
+            ) : (
+              <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
+                <SelectTrigger className="bg-muted border-border text-white" data-testid="select-transition-company">
+                  <SelectValue placeholder="Choose a company..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {companies?.map((company) => (
+                    <SelectItem key={company.id} value={company.id}>
+                      {company.name} ({company.listingStage || 'unlisted'})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-muted-foreground">Target Stage</Label>
+            <Select value={targetStage} onValueChange={setTargetStage}>
+              <SelectTrigger className="bg-muted border-border text-white" data-testid="select-target-stage">
+                <SelectValue placeholder="Select target stage..." />
+              </SelectTrigger>
+              <SelectContent>
+                {stageOptions.map((stage) => (
+                  <SelectItem key={stage.value} value={stage.value}>
+                    {stage.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {selectedCompany && targetStage && (
+          <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Current Stage:</span>
+              <Badge variant="outline">{selectedCompany.listingStage || 'unlisted'}</Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Target Stage:</span>
+              <Badge className="bg-amber-600">{targetStage}</Badge>
+            </div>
+            {validation && (
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Valid Transition:</span>
+                {validation.isValid ? (
+                  <Badge className="bg-green-600">Yes</Badge>
+                ) : (
+                  <Badge className="bg-red-600">No</Badge>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {showIpoFields && (
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-muted-foreground">IPO Price (₹)</Label>
+              <Input
+                type="number"
+                value={ipoPrice}
+                onChange={(e) => setIpoPrice(e.target.value)}
+                placeholder="Enter IPO price"
+                className="bg-muted border-border text-white"
+                data-testid="input-ipo-price"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-muted-foreground">Lot Size</Label>
+              <Input
+                type="number"
+                value={lotSize}
+                onChange={(e) => setLotSize(e.target.value)}
+                placeholder="Enter lot size"
+                className="bg-muted border-border text-white"
+                data-testid="input-lot-size"
+              />
+            </div>
+          </div>
+        )}
+
+        {showExchangeFields && (
+          <>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Exchange</Label>
+                <Select value={exchange} onValueChange={setExchange}>
+                  <SelectTrigger className="bg-muted border-border text-white" data-testid="select-exchange">
+                    <SelectValue placeholder="Select exchange..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NSE">NSE</SelectItem>
+                    <SelectItem value="BSE">BSE</SelectItem>
+                    <SelectItem value="NSE_BSE">NSE & BSE</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Stock Symbol</Label>
+                <Input
+                  value={stockSymbol}
+                  onChange={(e) => setStockSymbol(e.target.value.toUpperCase())}
+                  placeholder="e.g., RELIANCE"
+                  className="bg-muted border-border text-white"
+                  data-testid="input-stock-symbol"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">List Price (₹)</Label>
+                <Input
+                  type="number"
+                  value={listPrice}
+                  onChange={(e) => setListPrice(e.target.value)}
+                  placeholder="Enter listing price"
+                  className="bg-muted border-border text-white"
+                  data-testid="input-list-price"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Listing Date</Label>
+                <Input
+                  type="date"
+                  value={listingDate}
+                  onChange={(e) => setListingDate(e.target.value)}
+                  className="bg-muted border-border text-white"
+                  data-testid="input-listing-date"
+                />
+              </div>
+            </div>
+          </>
+        )}
+
+        {validation && !validation.isValid && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+            <div className="flex items-center gap-2 text-red-400">
+              <AlertCircle className="w-4 h-4" />
+              Invalid transition. Valid transitions from "{selectedCompany?.listingStage || 'unlisted'}": {validation.validTransitions?.join(', ')}
+            </div>
+          </div>
+        )}
+
+        {targetStage === 'listed' && validation?.transactionRules && (
+          <Card className="bg-green-500/10 border-green-500/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-green-400 text-sm">Transaction Rules After Listing</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Trading Type:</span>
+                <Badge className="bg-green-600">{validation.transactionRules.tradingType}</Badge>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Settlement:</span>
+                <span className="text-white">T+{validation.transactionRules.settlementDays}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Min KYC Level:</span>
+                <span className="text-white">{validation.transactionRules.minKycLevel}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Escrow Required:</span>
+                <span className="text-white">{validation.transactionRules.escrowRequired ? 'Yes' : 'No'}</span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      <div className="flex justify-end gap-2 pt-4 border-t border-border">
+        <Button variant="outline" onClick={onClose} className="border-border text-muted-foreground">
+          Cancel
+        </Button>
+        <Button
+          onClick={() => transitionMutation.mutate()}
+          disabled={!selectedCompanyId || !targetStage || !validation?.isValid || transitionMutation.isPending}
+          className="bg-amber-600 hover:bg-amber-700"
+          data-testid="button-execute-transition"
+        >
+          {transitionMutation.isPending ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Transitioning...
+            </>
+          ) : (
+            <>
+              <ArrowRightCircle className="w-4 h-4 mr-2" />
+              Execute Transition
             </>
           )}
         </Button>

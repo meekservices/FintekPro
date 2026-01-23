@@ -1140,6 +1140,7 @@ export interface IStorage {
   // Unlisted Companies
   createUnlistedCompany(data: InsertUnlistedCompany): Promise<UnlistedCompany>;
   getUnlistedCompanyById(id: string): Promise<UnlistedCompany | null>;
+  getUnlistedCompanyByName(name: string): Promise<UnlistedCompany | null>;
   getUnlistedCompanyByCIN(cin: string): Promise<UnlistedCompany | null>;
   getUnlistedCompanyByISIN(isin: string): Promise<UnlistedCompany | null>;
   getAllUnlistedCompanies(filters?: { status?: string; sector?: string }): Promise<UnlistedCompany[]>;
@@ -8357,6 +8358,13 @@ export class DatabaseStorage implements IStorage {
     const [company] = await db.select()
       .from(schema.unlistedCompanies)
       .where(eq(schema.unlistedCompanies.id, id));
+    return company || null;
+  }
+
+  async getUnlistedCompanyByName(name: string): Promise<UnlistedCompany | null> {
+    const [company] = await db.select()
+      .from(schema.unlistedCompanies)
+      .where(eq(schema.unlistedCompanies.name, name));
     return company || null;
   }
 

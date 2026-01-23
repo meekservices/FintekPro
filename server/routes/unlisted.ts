@@ -3758,6 +3758,264 @@ router.post('/admin/seed', async (req: Request, res: Response) => {
 });
 
 // ===================================================================
+// BULK IMPORT ROUTES - CSV/Excel Import for Unlisted Companies
+// ===================================================================
+
+import { listingTransitionService, type ListingTransitionRequest } from '../services/listing-transition-service';
+
+/**
+ * POST /api/unlisted/admin/bulk-import-csv
+ * Bulk import unlisted companies from CSV data (Admin only)
+ */
+router.post('/admin/bulk-import-csv', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { companies } = req.body;
+    
+    if (!Array.isArray(companies) || companies.length === 0) {
+      return apiResponse.badRequest(res, 'Companies array is required');
+    }
+
+    if (companies.length > 500) {
+      return apiResponse.badRequest(res, 'Maximum 500 companies per import');
+    }
+
+    const results = {
+      total: companies.length,
+      imported: 0,
+      skipped: 0,
+      errors: [] as { row: number; name: string; error: string }[],
+    };
+
+    for (let i = 0; i < companies.length; i++) {
+      const row = companies[i];
+      try {
+        // Validate required fields
+        if (!row.name || typeof row.name !== 'string' || row.name.trim().length === 0) {
+          results.errors.push({ row: i + 1, name: row.name || 'Unknown', error: 'Name is required' });
+          results.skipped++;
+          continue;
+        }
+
+        // Check for duplicates by name or CIN
+        const existingByName = await storage.getUnlistedCompanyByName(row.name.trim());
+        if (existingByName) {
+          results.errors.push({ row: i + 1, name: row.name, error: 'Company already exists (by name)' });
+          results.skipped++;
+          continue;
+        }
+
+        if (row.cin) {
+          const existingByCin = await storage.getUnlistedCompanyByCIN(row.cin);
+          if (existingByCin) {
+            results.errors.push({ row: i + 1, name: row.name, error: 'Company already exists (by CIN)' });
+            results.skipped++;
+            continue;
+          }
+        }
+
+        // Create the company
+        await storage.createUnlistedCompany({
+          name: row.name.trim(),
+          cin: row.cin?.trim() || null,
+          isin: row.isin?.trim() || null,
+          sector: row.sector?.trim() || null,
+          industry: row.industry?.trim() || null,
+          rocState: row.rocState?.trim() || row.roc_state?.trim() || null,
+          incorporationDate: row.incorporationDate || row.incorporation_date || null,
+          paidUpCapital: row.paidUpCapital?.toString() || row.paid_up_capital?.toString() || null,
+          authorizedCapital: row.authorizedCapital?.toString() || row.authorized_capital?.toString() || null,
+          faceValue: row.faceValue?.toString() || row.face_value?.toString() || null,
+          totalShares: parseInt(row.totalShares || row.total_shares) || null,
+          status: row.status || 'active',
+          listingStage: row.listingStage || row.listing_stage || 'unlisted',
+          website: row.website || null,
+          description: row.description || null,
+          tags: Array.isArray(row.tags) ? row.tags : (row.tags ? row.tags.split(',').map((t: string) => t.trim()) : []),
+        });
+        results.imported++;
+      } catch (error: any) {
+        results.errors.push({ row: i + 1, name: row.name || 'Unknown', error: error.message });
+        results.skipped++;
+      }
+    }
+
+    return apiResponse.success(res, {
+      message: `Imported ${results.imported} of ${results.total} companies`,
+      ...results,
+    });
+  } catch (error: any) {
+    console.error('Error bulk importing companies:', error);
+    return apiResponse.serverError(res, 'Failed to import companies');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/import-template
+ * Get CSV template for bulk import
+ */
+router.get('/admin/import-template', requireAdmin, async (req: Request, res: Response) => {
+  const template = {
+    headers: ['name', 'cin', 'isin', 'sector', 'industry', 'rocState', 'incorporationDate', 'paidUpCapital', 'authorizedCapital', 'faceValue', 'totalShares', 'status', 'listingStage', 'website', 'description', 'tags'],
+    sampleRow: {
+      name: 'Example Company Private Limited',
+      cin: 'U72200MH2020PTC123456',
+      isin: 'INE123A01234',
+      sector: 'Technology',
+      industry: 'Software Services',
+      rocState: 'Maharashtra',
+      incorporationDate: '2020-01-15',
+      paidUpCapital: '10000000',
+      authorizedCapital: '50000000',
+      faceValue: '10',
+      totalShares: '1000000',
+      status: 'active',
+      listingStage: 'unlisted',
+      website: 'https://example.com',
+      description: 'A sample technology company',
+      tags: 'tech,startup,software',
+    },
+    validValues: {
+      status: ['active', 'inactive', 'delisted'],
+      listingStage: ['unlisted', 'pre_ipo', 'ipo_announced', 'ipo_open', 'listed'],
+      sector: ['Technology', 'Financial Services', 'Healthcare', 'Consumer Services', 'Manufacturing', 'Energy', 'Real Estate', 'Infrastructure'],
+    },
+  };
+  return apiResponse.success(res, template);
+});
+
+// ===================================================================
+// LISTING TRANSITION ROUTES - Handle Unlisted to Listed Transitions
+// ===================================================================
+
+/**
+ * POST /api/unlisted/admin/transition
+ * Execute a listing stage transition for a company (Admin only)
+ */
+router.post('/admin/transition', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { companyId, targetStage, listingDate, exchange, stockSymbol, ipoPrice, listPrice, lotSize, notes } = req.body;
+    
+    if (!companyId || !targetStage) {
+      return apiResponse.badRequest(res, 'Company ID and target stage are required');
+    }
+
+    const request: ListingTransitionRequest = {
+      companyId,
+      targetStage,
+      listingDate: listingDate ? new Date(listingDate) : undefined,
+      exchange,
+      stockSymbol,
+      ipoPrice: ipoPrice ? parseFloat(ipoPrice) : undefined,
+      listPrice: listPrice ? parseFloat(listPrice) : undefined,
+      lotSize: lotSize ? parseInt(lotSize) : undefined,
+      notes,
+      initiatedBy: (req.user as any)?.id || 'admin',
+    };
+
+    const result = await listingTransitionService.executeTransition(request);
+    
+    if (result.success) {
+      return apiResponse.success(res, {
+        message: `Successfully transitioned to ${targetStage}`,
+        ...result,
+      });
+    } else {
+      return apiResponse.badRequest(res, result.errors.join(', '), result);
+    }
+  } catch (error: any) {
+    console.error('Error executing transition:', error);
+    return apiResponse.serverError(res, 'Failed to execute transition');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/transition/validate
+ * Validate a potential transition without executing it
+ */
+router.get('/admin/transition/validate', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { companyId, targetStage } = req.query;
+    
+    if (!companyId || !targetStage) {
+      return apiResponse.badRequest(res, 'Company ID and target stage are required');
+    }
+
+    const company = await storage.getUnlistedCompanyById(companyId as string);
+    if (!company) {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+
+    const currentStage = company.listingStage || 'unlisted';
+    const isValid = listingTransitionService.isValidTransition(currentStage, targetStage as any);
+    const requiredFields = listingTransitionService.getRequiredFieldsForTransition(targetStage as any);
+    const transactionRules = listingTransitionService.getTransactionRules(targetStage as string);
+
+    return apiResponse.success(res, {
+      companyId,
+      companyName: company.name,
+      currentStage,
+      targetStage,
+      isValid,
+      requiredFields,
+      transactionRules,
+      validTransitions: ['unlisted', 'pre_ipo', 'ipo_announced', 'ipo_open', 'listed', 'delisted'].filter(
+        stage => listingTransitionService.isValidTransition(currentStage, stage as any)
+      ),
+    });
+  } catch (error: any) {
+    console.error('Error validating transition:', error);
+    return apiResponse.serverError(res, 'Failed to validate transition');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/transition/pending
+ * Get companies pending listing (in pre_ipo, ipo_announced, or ipo_open stage)
+ */
+router.get('/admin/transition/pending', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const pendingCompanies = await listingTransitionService.getPendingListings();
+    return apiResponse.success(res, pendingCompanies);
+  } catch (error: any) {
+    console.error('Error fetching pending listings:', error);
+    return apiResponse.serverError(res, 'Failed to fetch pending listings');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/transition/audit
+ * Get transition audit log
+ */
+router.get('/admin/transition/audit', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { companyId, status } = req.query;
+    const auditLog = listingTransitionService.getAuditLog({
+      companyId: companyId as string,
+      status: status as string,
+    });
+    return apiResponse.success(res, auditLog);
+  } catch (error: any) {
+    console.error('Error fetching audit log:', error);
+    return apiResponse.serverError(res, 'Failed to fetch audit log');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/transition/rules/:stage
+ * Get transaction rules for a specific listing stage
+ */
+router.get('/admin/transition/rules/:stage', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { stage } = req.params;
+    const rules = listingTransitionService.getTransactionRules(stage);
+    return apiResponse.success(res, { stage, rules });
+  } catch (error: any) {
+    console.error('Error fetching transaction rules:', error);
+    return apiResponse.serverError(res, 'Failed to fetch transaction rules');
+  }
+});
+
+// ===================================================================
 // STORE SEEDING ROUTES - Publish Unlisted Stocks to Store
 // ===================================================================
 
