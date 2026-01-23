@@ -907,7 +907,7 @@ export default function StoreManagement() {
                               <FolderTree className="w-5 h-5 text-blue-400" />
                               <div>
                                 <div className="flex items-center gap-2">
-                                  <p className="font-medium text-foreground">
+                                  <p className="font-semibold text-white">
                                     {category.name}
                                   </p>
                                   {/* SEBI Licensing Badge */}
