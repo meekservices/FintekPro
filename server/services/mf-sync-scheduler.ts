@@ -13,7 +13,7 @@ interface AMFIFund {
 
 class MFSyncScheduler {
   private syncIntervalMs = 24 * 60 * 60 * 1000; // 24 hours
-  private navRefreshIntervalMs = 6 * 60 * 60 * 1000; // 6 hours
+  private navRefreshIntervalMs = 24 * 60 * 60 * 1000; // 24 hours (once daily, same as stocks)
   private isRunning = false;
   private syncTimer: NodeJS.Timeout | null = null;
   private navTimer: NodeJS.Timeout | null = null;
@@ -34,7 +34,7 @@ class MFSyncScheduler {
     // Schedule daily AMFI master sync (runs at 6 AM IST)
     this.scheduleNextAMFISync();
     
-    // Schedule NAV refresh every 6 hours
+    // Schedule NAV refresh once daily (same as stocks)
     this.scheduleNAVRefresh();
     
     // Run startup catch-up in background (don't block server startup)

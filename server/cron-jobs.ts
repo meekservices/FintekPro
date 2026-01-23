@@ -31,7 +31,7 @@ export function initializeCronJobs(): void {
   
   // Start Mutual Fund NAV sync scheduler
   mfSyncScheduler.start();
-  console.log('📊 [MF Sync] NAV sync scheduler started (6-hourly refresh + startup catch-up)');
+  console.log('📊 [MF Sync] NAV sync scheduler started (daily refresh + startup catch-up)');
   // Probe42 Sync Job - Run every 6 hours
   cron.schedule('0 */6 * * *', async () => {
     console.log('[CRON] Starting Probe42 sync job...');
