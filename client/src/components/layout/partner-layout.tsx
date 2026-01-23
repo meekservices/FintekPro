@@ -26,7 +26,8 @@ import {
   ChevronDown,
   ChevronRight,
   IndianRupee,
-  Briefcase
+  Briefcase,
+  Palette
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -266,6 +267,11 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
           </div>
 
           <div className="flex items-center gap-4">
+            <Link href="/theme-settings">
+              <Button variant="ghost" size="icon" className="text-indigo-300 hover:text-white" data-testid="btn-theme-settings" title="Theme & Accessibility">
+                <Palette className="h-5 w-5" />
+              </Button>
+            </Link>
             <Button variant="ghost" size="icon" className="text-indigo-300 hover:text-white relative">
               <Bell className="h-5 w-5" />
               <span className="absolute top-1 right-1 w-2 h-2 bg-violet-500 rounded-full" />

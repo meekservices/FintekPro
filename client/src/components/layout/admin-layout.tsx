@@ -73,7 +73,8 @@ import {
   Bug,
   Wallet,
   Inbox,
-  FileSignature
+  FileSignature,
+  Palette
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
@@ -486,6 +487,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           </div>
           
           <div className="flex items-center gap-4">
+            <Link href="/theme-settings">
+              <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white" data-testid="btn-theme-settings" title="Theme & Accessibility">
+                <Palette className="h-5 w-5" />
+              </Button>
+            </Link>
             <DropdownMenu open={notificationsOpen} onOpenChange={setNotificationsOpen}>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white relative" data-testid="btn-notifications">

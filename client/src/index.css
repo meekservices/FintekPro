@@ -4,6 +4,7 @@
 @tailwind utilities;
 
 :root {
+  --base-font-size: 16px;
   --background: hsl(0, 0%, 100%);
   --foreground: hsl(217, 33%, 17%);
   --card: hsl(0, 0%, 100%);
@@ -80,6 +81,10 @@
 @layer base {
   * {
     @apply border-border;
+  }
+
+  html {
+    font-size: var(--base-font-size, 16px);
   }
 
   body {
@@ -292,4 +297,28 @@
   input:focus, select:focus, textarea:focus {
     border-color: hsl(214, 84%, 56%);
   }
+}
+
+/* Reduced motion preference */
+.reduce-motion,
+.reduce-motion * {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* High contrast mode */
+.high-contrast {
+  --border: hsl(217, 33%, 50%);
+}
+
+.high-contrast.dark {
+  --muted-foreground: hsl(215, 15%, 85%);
+  --foreground: hsl(0, 0%, 100%);
+}
+
+.high-contrast:not(.dark) {
+  --muted-foreground: hsl(215, 16%, 30%);
+  --foreground: hsl(0, 0%, 0%);
 }

@@ -41,7 +41,8 @@ import {
   Lightbulb,
   Shield,
   FileCheck,
-  Star
+  Star,
+  Palette
 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { cn } from "@/lib/utils";
@@ -503,6 +504,12 @@ export function AgentLayout({ children }: AgentLayoutProps) {
                 <span className="text-xs">⌘</span>K
               </kbd>
             </Button>
+
+            <Link href="/theme-settings">
+              <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white" data-testid="btn-theme-settings" title="Theme & Accessibility">
+                <Palette className="h-5 w-5" />
+              </Button>
+            </Link>
 
             <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
               <PopoverTrigger asChild>

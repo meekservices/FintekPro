@@ -26,7 +26,8 @@ import {
   ChevronDown,
   Sun,
   Moon,
-  HelpCircle
+  HelpCircle,
+  Palette
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/contexts/theme-context";
@@ -131,6 +132,12 @@ export function TopNavLayout({ children }: TopNavLayoutProps) {
                 <Link href="/notification-preferences">
                   <Button variant="ghost" size="icon" data-testid="button-notifications">
                     <Bell className="h-5 w-5" />
+                  </Button>
+                </Link>
+
+                <Link href="/theme-settings">
+                  <Button variant="ghost" size="icon" data-testid="btn-theme-settings" title="Theme & Accessibility">
+                    <Palette className="h-5 w-5" />
                   </Button>
                 </Link>
               </>
