@@ -213,6 +213,7 @@ const navCategories: NavCategory[] = [
     title: "Settings",
     icon: Cog,
     items: [
+      { title: "Theme & Accessibility", href: "/theme-settings", icon: Palette, description: "Visual customization" },
       { title: "Users & Access", href: "/admin/users", icon: Users, description: "User management" },
       { title: "Role Permissions", href: "/admin/appointments", icon: UserCheck, description: "Role approvals" },
       { title: "Integration Config", href: "/admin/api-config", icon: Key, description: "Zoho, Cashfree & APIs" },
