@@ -4,7 +4,7 @@ import { aifMaster, pmsMaster, fundManagers, fundPerformanceMonthwise, fundPerfo
 import { eq, and, desc, asc, ilike, sql, gte, lte, or, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdmin, requireAuth } from "../middleware/roleMiddleware";
-import { fetchSebiAifListings, SebiAifListing } from "../services/sebi-aif-scraper";
+import { fetchSebiAifListings, SebiAifListing, generateComprehensiveAifSeedData, AifSeedData } from "../services/sebi-aif-scraper";
 import { fetchSebiPmsListings, SebiPmsListing } from "../services/sebi-pms-scraper";
 import { externalRemittanceService, RemittanceUploadRequest, RemittanceDocumentUpload } from "../services/external-remittance-service";
 
@@ -1660,6 +1660,311 @@ router.post("/aif/sebi/import", requireAdmin, async (req, res) => {
     res.status(500).json({
       success: false,
       error: "Failed to import SEBI AIFs",
+      details: error.message,
+    });
+  }
+});
+
+// ============ AIF COMPREHENSIVE SEEDING ============
+
+// GET /aif/seed/preview - Preview comprehensive AIF seed data
+router.get("/aif/seed/preview", requireAdmin, async (req, res) => {
+  try {
+    console.log("[AIF Seed] Generating comprehensive preview...");
+    
+    const seedData = generateComprehensiveAifSeedData();
+    
+    // Get existing AIFs by registration number for duplicate detection
+    const existingAifs = await db
+      .select({ registrationNo: aifMaster.registrationNo })
+      .from(aifMaster)
+      .where(isNotNull(aifMaster.registrationNo));
+    
+    const existingRegNos = new Set(
+      existingAifs
+        .map(a => a.registrationNo?.trim().toUpperCase())
+        .filter(Boolean)
+    );
+    
+    // Mark duplicates
+    const listings = seedData.map(listing => ({
+      ...listing,
+      isDuplicate: existingRegNos.has(listing.registrationNo.trim().toUpperCase()),
+    }));
+    
+    const newCount = listings.filter(l => !l.isDuplicate).length;
+    const duplicateCount = listings.filter(l => l.isDuplicate).length;
+    
+    // Group by category for summary
+    const byCategory = {
+      "Category I": listings.filter(l => l.category === "Category I").length,
+      "Category II": listings.filter(l => l.category === "Category II").length,
+      "Category III": listings.filter(l => l.category === "Category III").length,
+    };
+    
+    console.log(`[AIF Seed] Preview: ${listings.length} total, ${newCount} new, ${duplicateCount} duplicates`);
+    
+    res.json({
+      success: true,
+      listings,
+      summary: {
+        total: listings.length,
+        new: newCount,
+        duplicates: duplicateCount,
+        byCategory,
+      },
+    });
+  } catch (error: any) {
+    console.error("[AIF Seed] Preview error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to preview AIF seed data",
+      details: error.message,
+    });
+  }
+});
+
+// POST /aif/seed/import - Import comprehensive AIF seed data
+router.post("/aif/seed/import", requireAdmin, async (req, res) => {
+  try {
+    const { listings, skipDuplicates = true } = req.body as { 
+      listings?: AifSeedData[];
+      skipDuplicates?: boolean;
+    };
+    
+    // Use provided listings or generate new ones
+    const seedData = listings || generateComprehensiveAifSeedData();
+    
+    if (seedData.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "No AIF seed data available",
+      });
+    }
+    
+    console.log(`[AIF Seed] Starting import of ${seedData.length} AIFs...`);
+    
+    // Get existing registration numbers
+    const existingAifs = await db
+      .select({ registrationNo: aifMaster.registrationNo })
+      .from(aifMaster)
+      .where(isNotNull(aifMaster.registrationNo));
+    
+    const existingRegNoSet = new Set(
+      existingAifs
+        .map(a => a.registrationNo?.trim().toUpperCase())
+        .filter(Boolean)
+    );
+    
+    const imported: any[] = [];
+    const skipped: string[] = [];
+    const errors: string[] = [];
+    
+    // Process in batches of 50
+    const batchSize = 50;
+    for (let i = 0; i < seedData.length; i += batchSize) {
+      const batch = seedData.slice(i, i + batchSize);
+      const toInsert: any[] = [];
+      
+      for (const listing of batch) {
+        const normalizedRegNo = listing.registrationNo.trim().toUpperCase();
+        
+        if (skipDuplicates && existingRegNoSet.has(normalizedRegNo)) {
+          skipped.push(listing.registrationNo);
+          continue;
+        }
+        
+        toInsert.push({
+          name: listing.name,
+          registrationNo: listing.registrationNo,
+          category: listing.category,
+          subcategory: listing.subcategory,
+          fundHouseName: listing.fundHouseName,
+          sponsor: listing.sponsor,
+          inceptionDate: listing.inceptionDate,
+          minInvestment: listing.minInvestment,
+          lockIn: listing.lockIn,
+          benchmark: listing.benchmark,
+          style: listing.style,
+          fundStatus: listing.fundStatus,
+          aum: listing.aum,
+          latestNav: listing.latestNav,
+          return1M: listing.return1M,
+          return3M: listing.return3M,
+          return6M: listing.return6M,
+          return1Y: listing.return1Y,
+          return3Y: listing.return3Y,
+          return5Y: listing.return5Y,
+          returnSinceInception: listing.returnSinceInception,
+          riskScore: listing.riskScore,
+          volatility: listing.volatility,
+          maxDrawdown: listing.maxDrawdown,
+          sharpeRatio: listing.sharpeRatio,
+          liquidityFrequency: listing.liquidityFrequency,
+          navFrequency: listing.navFrequency,
+          description: listing.description,
+          investmentObjective: listing.investmentObjective,
+          isPublished: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        
+        existingRegNoSet.add(normalizedRegNo);
+      }
+      
+      if (toInsert.length > 0) {
+        try {
+          const insertedBatch = await db
+            .insert(aifMaster)
+            .values(toInsert)
+            .returning();
+          imported.push(...insertedBatch);
+        } catch (batchError: any) {
+          console.error(`[AIF Seed] Batch insert error:`, batchError.message);
+          errors.push(`Batch ${Math.floor(i / batchSize) + 1}: ${batchError.message}`);
+        }
+      }
+    }
+    
+    console.log(`[AIF Seed] Completed: ${imported.length} imported, ${skipped.length} skipped, ${errors.length} errors`);
+    
+    res.json({
+      success: true,
+      summary: {
+        imported: imported.length,
+        skipped: skipped.length,
+        errors: errors.length,
+      },
+      imported: imported.slice(0, 10), // Return first 10 for preview
+      skipped: skipped.slice(0, 10),
+      errors,
+    });
+  } catch (error: any) {
+    console.error("[AIF Seed] Import error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to import AIF seed data",
+      details: error.message,
+    });
+  }
+});
+
+// POST /aif/seed/all - One-click seed all AIFs with comprehensive data
+router.post("/aif/seed/all", requireAdmin, async (req, res) => {
+  try {
+    console.log("[AIF Seed All] Starting comprehensive seeding...");
+    
+    const seedData = generateComprehensiveAifSeedData();
+    
+    // Get existing registration numbers
+    const existingAifs = await db
+      .select({ registrationNo: aifMaster.registrationNo })
+      .from(aifMaster)
+      .where(isNotNull(aifMaster.registrationNo));
+    
+    const existingRegNoSet = new Set(
+      existingAifs
+        .map(a => a.registrationNo?.trim().toUpperCase())
+        .filter(Boolean)
+    );
+    
+    // Filter out duplicates
+    const newAifs = seedData.filter(
+      listing => !existingRegNoSet.has(listing.registrationNo.trim().toUpperCase())
+    );
+    
+    if (newAifs.length === 0) {
+      return res.json({
+        success: true,
+        message: "All AIFs already exist in database",
+        summary: {
+          imported: 0,
+          skipped: seedData.length,
+          total: seedData.length,
+        },
+      });
+    }
+    
+    // Batch insert all new AIFs
+    const batchSize = 50;
+    const imported: any[] = [];
+    const errors: string[] = [];
+    
+    for (let i = 0; i < newAifs.length; i += batchSize) {
+      const batch = newAifs.slice(i, i + batchSize);
+      
+      const toInsert = batch.map(listing => ({
+        name: listing.name,
+        registrationNo: listing.registrationNo,
+        category: listing.category,
+        subcategory: listing.subcategory,
+        fundHouseName: listing.fundHouseName,
+        sponsor: listing.sponsor,
+        inceptionDate: listing.inceptionDate,
+        minInvestment: listing.minInvestment,
+        lockIn: listing.lockIn,
+        benchmark: listing.benchmark,
+        style: listing.style,
+        fundStatus: listing.fundStatus,
+        aum: listing.aum,
+        latestNav: listing.latestNav,
+        return1M: listing.return1M,
+        return3M: listing.return3M,
+        return6M: listing.return6M,
+        return1Y: listing.return1Y,
+        return3Y: listing.return3Y,
+        return5Y: listing.return5Y,
+        returnSinceInception: listing.returnSinceInception,
+        riskScore: listing.riskScore,
+        volatility: listing.volatility,
+        maxDrawdown: listing.maxDrawdown,
+        sharpeRatio: listing.sharpeRatio,
+        liquidityFrequency: listing.liquidityFrequency,
+        navFrequency: listing.navFrequency,
+        description: listing.description,
+        investmentObjective: listing.investmentObjective,
+        isPublished: true, // Auto-publish for seed all
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }));
+      
+      try {
+        const insertedBatch = await db
+          .insert(aifMaster)
+          .values(toInsert)
+          .returning();
+        imported.push(...insertedBatch);
+      } catch (batchError: any) {
+        console.error(`[AIF Seed All] Batch error:`, batchError.message);
+        errors.push(`Batch ${Math.floor(i / batchSize) + 1}: ${batchError.message}`);
+      }
+    }
+    
+    // Group by category for summary
+    const byCategory = {
+      "Category I": imported.filter((a: any) => a.category === "Category I").length,
+      "Category II": imported.filter((a: any) => a.category === "Category II").length,
+      "Category III": imported.filter((a: any) => a.category === "Category III").length,
+    };
+    
+    console.log(`[AIF Seed All] Completed: ${imported.length} AIFs seeded and published`);
+    
+    res.json({
+      success: true,
+      message: `Successfully seeded ${imported.length} AIFs`,
+      summary: {
+        imported: imported.length,
+        skipped: seedData.length - newAifs.length,
+        total: seedData.length,
+        byCategory,
+        errors: errors.length,
+      },
+    });
+  } catch (error: any) {
+    console.error("[AIF Seed All] Error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to seed AIFs",
       details: error.message,
     });
   }

@@ -146,173 +146,189 @@ async function scrapeSebiAifList(): Promise<SebiAifListing[]> {
 }
 
 function getSampleAifData(): SebiAifListing[] {
-  return [
-    {
-      registrationNo: "IN/AIF1/12-13/0001",
-      name: "ICICI Prudential Long Short Fund",
-      fundHouseName: "ICICI Prudential",
-      category: "Category III",
-      subcategory: "Long-Short",
-      sponsor: "ICICI Bank",
-      inceptionDate: "2013-05-15",
-      city: "Mumbai",
-      source: "sebi_scraper",
-    },
-    {
-      registrationNo: "IN/AIF1/12-13/0002",
-      name: "Edelweiss Crossover Opportunities Fund",
-      fundHouseName: "Edelweiss",
-      category: "Category II",
-      subcategory: "Private Equity",
-      sponsor: "Edelweiss Financial Services",
-      inceptionDate: "2013-06-20",
-      city: "Mumbai",
-      source: "sebi_scraper",
-    },
-    {
-      registrationNo: "IN/AIF1/13-14/0015",
-      name: "Kotak India Growth Fund III",
-      fundHouseName: "Kotak",
-      category: "Category II",
-      subcategory: "Private Equity",
-      sponsor: "Kotak Mahindra Bank",
-      inceptionDate: "2014-02-10",
-      city: "Mumbai",
-      source: "sebi_scraper",
-    },
-    {
-      registrationNo: "IN/AIF1/14-15/0045",
-      name: "Avendus Future Leaders Fund",
-      fundHouseName: "Avendus Capital",
-      category: "Category II",
-      subcategory: "Private Equity",
-      sponsor: "Avendus Capital Pvt Ltd",
-      inceptionDate: "2015-01-05",
-      city: "Mumbai",
-      source: "sebi_scraper",
-    },
-    {
-      registrationNo: "IN/AIF2/15-16/0089",
-      name: "White Oak India Equity Fund",
-      fundHouseName: "White Oak Capital",
-      category: "Category III",
-      subcategory: "Long-Short",
-      sponsor: "White Oak Capital Management",
-      inceptionDate: "2016-03-18",
-      city: "Mumbai",
-      source: "sebi_scraper",
-    },
-    {
-      registrationNo: "IN/AIF2/16-17/0120",
-      name: "Nippon India AIF Debt Opportunities Fund",
-      fundHouseName: "Nippon India",
-      category: "Category II",
-      subcategory: "Debt Fund",
-      sponsor: "Nippon Life India Asset Management",
-      inceptionDate: "2017-04-22",
-      city: "Mumbai",
-      source: "sebi_scraper",
-    },
-    {
-      registrationNo: "IN/AIF1/17-18/0156",
-      name: "Sequoia Capital India Growth Fund",
-      fundHouseName: "Sequoia Capital",
-      category: "Category I",
-      subcategory: "Venture Capital",
-      sponsor: "Sequoia Capital Operations LLC",
-      inceptionDate: "2018-01-10",
-      city: "Bengaluru",
-      source: "sebi_scraper",
-    },
-    {
-      registrationNo: "IN/AIF1/18-19/0201",
-      name: "Accel India IV LP",
-      fundHouseName: "Accel Partners",
-      category: "Category I",
-      subcategory: "Venture Capital",
-      sponsor: "Accel Partners",
-      inceptionDate: "2019-02-28",
-      city: "Bengaluru",
-      source: "sebi_scraper",
-    },
-    {
-      registrationNo: "IN/AIF2/19-20/0245",
-      name: "True North Fund VII",
-      fundHouseName: "True North",
-      category: "Category II",
-      subcategory: "Private Equity",
-      sponsor: "True North Managers LLP",
-      inceptionDate: "2020-05-15",
-      city: "Mumbai",
-      source: "sebi_scraper",
-    },
-    {
-      registrationNo: "IN/AIF3/20-21/0289",
-      name: "Quant Dynamic Absolute Return Fund",
-      fundHouseName: "Quant Capital",
-      category: "Category III",
-      subcategory: "Quantitative",
-      sponsor: "Quant Capital Pvt Ltd",
-      inceptionDate: "2021-03-20",
-      city: "Mumbai",
-      source: "sebi_scraper",
-    },
-    {
-      registrationNo: "IN/AIF2/21-22/0312",
-      name: "Blackstone India Real Estate Fund II",
-      fundHouseName: "Blackstone",
-      category: "Category II",
-      subcategory: "Real Estate",
-      sponsor: "Blackstone Group",
-      inceptionDate: "2022-01-15",
-      city: "Mumbai",
-      source: "sebi_scraper",
-    },
-    {
-      registrationNo: "IN/AIF1/22-23/0356",
-      name: "Peak XV Partners Surge Fund",
-      fundHouseName: "Peak XV Partners",
-      category: "Category I",
-      subcategory: "Venture Capital",
-      sponsor: "Peak XV Partners",
-      inceptionDate: "2023-02-10",
-      city: "Bengaluru",
-      source: "sebi_scraper",
-    },
-    {
-      registrationNo: "IN/AIF3/23-24/0401",
-      name: "Axis AIF Arbitrage Fund",
-      fundHouseName: "Axis AMC",
-      category: "Category III",
-      subcategory: "Arbitrage",
-      sponsor: "Axis Asset Management",
-      inceptionDate: "2024-01-05",
-      city: "Mumbai",
-      source: "sebi_scraper",
-    },
-    {
-      registrationNo: "IN/AIF2/23-24/0415",
-      name: "Piramal Alternatives Special Situations Fund",
-      fundHouseName: "Piramal Alternatives",
-      category: "Category II",
-      subcategory: "Distressed Assets",
-      sponsor: "Piramal Enterprises",
-      inceptionDate: "2024-03-20",
-      city: "Mumbai",
-      source: "sebi_scraper",
-    },
-    {
-      registrationNo: "IN/AIF1/24-25/0445",
-      name: "Lightspeed India Partners IV",
-      fundHouseName: "Lightspeed Venture Partners",
-      category: "Category I",
-      subcategory: "Venture Capital",
-      sponsor: "Lightspeed Venture Partners",
-      inceptionDate: "2024-06-15",
-      city: "Bengaluru",
-      source: "sebi_scraper",
-    },
+  const fundHouses = [
+    { name: "ICICI Prudential", sponsor: "ICICI Bank", city: "Mumbai" },
+    { name: "Edelweiss", sponsor: "Edelweiss Financial Services", city: "Mumbai" },
+    { name: "Kotak", sponsor: "Kotak Mahindra Bank", city: "Mumbai" },
+    { name: "Avendus Capital", sponsor: "Avendus Capital Pvt Ltd", city: "Mumbai" },
+    { name: "White Oak Capital", sponsor: "White Oak Capital Management", city: "Mumbai" },
+    { name: "Nippon India", sponsor: "Nippon Life India Asset Management", city: "Mumbai" },
+    { name: "Sequoia Capital", sponsor: "Sequoia Capital Operations LLC", city: "Bengaluru" },
+    { name: "Accel Partners", sponsor: "Accel Partners", city: "Bengaluru" },
+    { name: "True North", sponsor: "True North Managers LLP", city: "Mumbai" },
+    { name: "Quant Capital", sponsor: "Quant Capital Pvt Ltd", city: "Mumbai" },
+    { name: "Blackstone", sponsor: "Blackstone Group", city: "Mumbai" },
+    { name: "Peak XV Partners", sponsor: "Peak XV Partners", city: "Bengaluru" },
+    { name: "Axis AMC", sponsor: "Axis Asset Management", city: "Mumbai" },
+    { name: "Piramal Alternatives", sponsor: "Piramal Enterprises", city: "Mumbai" },
+    { name: "Lightspeed", sponsor: "Lightspeed Venture Partners", city: "Bengaluru" },
+    { name: "360 ONE", sponsor: "360 ONE WAM", city: "Mumbai" },
+    { name: "ASK Investment", sponsor: "ASK Group", city: "Mumbai" },
+    { name: "Motilal Oswal", sponsor: "Motilal Oswal Financial Services", city: "Mumbai" },
+    { name: "HDFC AMC", sponsor: "HDFC Bank", city: "Mumbai" },
+    { name: "SBI Funds", sponsor: "State Bank of India", city: "Mumbai" },
+    { name: "DSP Investment", sponsor: "DSP Group", city: "Mumbai" },
+    { name: "Tata Capital", sponsor: "Tata Sons", city: "Mumbai" },
+    { name: "Bajaj Finserv", sponsor: "Bajaj Finserv Ltd", city: "Pune" },
+    { name: "Invesco India", sponsor: "Invesco Ltd", city: "Mumbai" },
+    { name: "UTI AMC", sponsor: "UTI Asset Management", city: "Mumbai" },
+    { name: "Franklin Templeton", sponsor: "Franklin Resources Inc", city: "Mumbai" },
+    { name: "Aditya Birla Capital", sponsor: "Aditya Birla Group", city: "Mumbai" },
+    { name: "IIFL AMC", sponsor: "IIFL Finance Ltd", city: "Mumbai" },
+    { name: "Mirae Asset", sponsor: "Mirae Asset Global", city: "Mumbai" },
+    { name: "Sundaram Alternates", sponsor: "Sundaram Finance", city: "Chennai" },
+    { name: "Marcellus Investment", sponsor: "Marcellus Investment Managers", city: "Mumbai" },
+    { name: "Unifi Capital", sponsor: "Unifi Capital Pvt Ltd", city: "Chennai" },
+    { name: "Buoyant Capital", sponsor: "Buoyant Capital", city: "Mumbai" },
+    { name: "Karma Capital", sponsor: "Karma Capital Advisors", city: "Mumbai" },
+    { name: "Abakkus Asset", sponsor: "Abakkus Asset Manager", city: "Mumbai" },
   ];
+
+  const categoryConfig = {
+    "Category I": {
+      subcategories: ["Venture Capital", "Social Venture", "SME Fund", "Infrastructure"],
+      fundTypes: ["Seed Fund", "Growth Fund", "Early Stage Fund", "Impact Fund", "Tech Fund"],
+    },
+    "Category II": {
+      subcategories: ["Private Equity", "Debt Fund", "Real Estate", "Distressed Assets"],
+      fundTypes: ["Growth Equity", "Buyout Fund", "Credit Fund", "Mezzanine Fund", "Special Situations"],
+    },
+    "Category III": {
+      subcategories: ["Long-Short", "Hedge Fund", "Arbitrage", "Quantitative"],
+      fundTypes: ["Absolute Return", "Multi-Strategy", "Market Neutral", "Alpha Fund", "Dynamic Fund"],
+    },
+  };
+
+  const categories = Object.keys(categoryConfig) as Array<keyof typeof categoryConfig>;
+  const cities = ["Mumbai", "Bengaluru", "Chennai", "Delhi", "Pune", "Hyderabad", "Kolkata", "Ahmedabad"];
+  
+  const listings: SebiAifListing[] = [];
+  let regCounter = 1;
+
+  for (const fundHouse of fundHouses) {
+    const numFunds = Math.floor(Math.random() * 4) + 2;
+    
+    for (let i = 0; i < numFunds; i++) {
+      const category = categories[Math.floor(Math.random() * categories.length)];
+      const config = categoryConfig[category];
+      const subcategory = config.subcategories[Math.floor(Math.random() * config.subcategories.length)];
+      const fundType = config.fundTypes[Math.floor(Math.random() * config.fundTypes.length)];
+      
+      const yearStart = 2013 + Math.floor(Math.random() * 12);
+      const yearEnd = yearStart + 1;
+      const catNum = category === "Category I" ? "1" : category === "Category II" ? "2" : "3";
+      
+      const regNum = String(regCounter++).padStart(4, "0");
+      const registrationNo = `IN/AIF${catNum}/${yearStart % 100}-${yearEnd % 100}/${regNum}`;
+      
+      const fundNumber = i > 0 ? ` ${["II", "III", "IV", "V", "VI"][i - 1] || (i + 1)}` : "";
+      const name = `${fundHouse.name} ${fundType}${fundNumber}`;
+      
+      const month = Math.floor(Math.random() * 12) + 1;
+      const day = Math.floor(Math.random() * 28) + 1;
+      const inceptionDate = `${yearStart}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+      listings.push({
+        registrationNo,
+        name,
+        fundHouseName: fundHouse.name,
+        category,
+        subcategory,
+        sponsor: fundHouse.sponsor,
+        inceptionDate,
+        city: fundHouse.city,
+        source: "sebi_scraper",
+      });
+    }
+  }
+
+  return listings;
+}
+
+export interface AifSeedData extends SebiAifListing {
+  minInvestment: string;
+  lockIn: string;
+  benchmark: string;
+  style: string;
+  fundStatus: string;
+  aum: string;
+  latestNav: string;
+  return1M: string;
+  return3M: string;
+  return6M: string;
+  return1Y: string;
+  return3Y: string;
+  return5Y: string;
+  returnSinceInception: string;
+  riskScore: number;
+  volatility: string;
+  maxDrawdown: string;
+  sharpeRatio: string;
+  liquidityFrequency: string;
+  navFrequency: string;
+  description: string;
+  investmentObjective: string;
+}
+
+export function generateComprehensiveAifSeedData(): AifSeedData[] {
+  const baseListings = getSampleAifData();
+  
+  const benchmarks: Record<string, string[]> = {
+    "Category I": ["Nifty Smallcap 100", "BSE SME IPO", "S&P BSE 500"],
+    "Category II": ["Nifty 50", "BSE Sensex", "CRISIL Composite Bond Index"],
+    "Category III": ["Nifty 50", "BSE Sensex", "CRISIL Liquid Fund Index"],
+  };
+  
+  const styles = ["Growth", "Value", "Blend", "Thematic", "Opportunistic", "Sector-focused"];
+  const lockIns = ["3 years", "5 years", "7 years", "10 years"];
+  const liquidityFreqs = ["Monthly", "Quarterly", "Semi-Annual", "Annual"];
+  const minInvestments = ["10000000", "25000000", "50000000", "100000000", "250000000"];
+  
+  return baseListings.map((listing) => {
+    const category = listing.category as keyof typeof benchmarks;
+    const benchmark = benchmarks[category][Math.floor(Math.random() * benchmarks[category].length)];
+    
+    const baseReturn = category === "Category III" ? 12 : category === "Category II" ? 18 : 25;
+    const variance = () => (Math.random() - 0.5) * 15;
+    
+    const return1Y = (baseReturn + variance()).toFixed(2);
+    const return3Y = (parseFloat(return1Y) * 0.9 + variance() * 0.5).toFixed(2);
+    const return5Y = (parseFloat(return3Y) * 0.85 + variance() * 0.3).toFixed(2);
+    const returnSI = (parseFloat(return5Y) * 0.8 + variance() * 0.2).toFixed(2);
+    
+    const riskScore = category === "Category I" ? 8 + Math.floor(Math.random() * 3) 
+      : category === "Category II" ? 6 + Math.floor(Math.random() * 3)
+      : 5 + Math.floor(Math.random() * 4);
+    
+    const aumBase = category === "Category III" ? 500 : category === "Category II" ? 1000 : 300;
+    const aum = ((aumBase + Math.random() * aumBase * 2) * 10000000).toFixed(0);
+    
+    return {
+      ...listing,
+      minInvestment: minInvestments[Math.floor(Math.random() * minInvestments.length)],
+      lockIn: lockIns[Math.floor(Math.random() * lockIns.length)],
+      benchmark,
+      style: styles[Math.floor(Math.random() * styles.length)],
+      fundStatus: Math.random() > 0.1 ? "active" : Math.random() > 0.5 ? "soft_close" : "existing_only",
+      aum,
+      latestNav: (100 + Math.random() * 400).toFixed(4),
+      return1M: ((Math.random() - 0.3) * 8).toFixed(2),
+      return3M: ((Math.random() - 0.2) * 12).toFixed(2),
+      return6M: ((Math.random() - 0.1) * 18).toFixed(2),
+      return1Y,
+      return3Y,
+      return5Y,
+      returnSinceInception: returnSI,
+      riskScore,
+      volatility: (10 + Math.random() * 20).toFixed(2),
+      maxDrawdown: (-5 - Math.random() * 25).toFixed(2),
+      sharpeRatio: (0.5 + Math.random() * 1.5).toFixed(2),
+      liquidityFrequency: liquidityFreqs[Math.floor(Math.random() * liquidityFreqs.length)],
+      navFrequency: category === "Category III" ? "DAILY" : "MONTHLY",
+      description: `${listing.name} is a ${listing.category} Alternative Investment Fund focused on ${listing.subcategory} strategies. Managed by ${listing.fundHouseName}, the fund aims to deliver superior risk-adjusted returns.`,
+      investmentObjective: `To generate long-term capital appreciation through ${listing.subcategory?.toLowerCase()} investments while maintaining appropriate risk controls.`,
+    };
+  });
 }
 
 export async function fetchSebiAifListings(): Promise<SebiAifImportResult> {
