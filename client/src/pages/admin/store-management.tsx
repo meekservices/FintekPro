@@ -888,9 +888,7 @@ export default function StoreManagement() {
                       <div key={category.id} className="border border-border rounded-lg overflow-hidden">
                         {/* Category Row */}
                         <div 
-                          className={`flex items-center justify-between p-4 ${
-                            category.isActive ? 'bg-muted/50' : 'bg-card/80'
-                          }`}
+                          className="flex items-center justify-between p-4 bg-muted/50"
                           data-testid={`row-category-${category.id}`}
                         >
                           <div className="flex items-center gap-3">
@@ -906,10 +904,10 @@ export default function StoreManagement() {
                               )}
                             </button>
                             <div className="flex items-center gap-2">
-                              <FolderTree className={`w-5 h-5 ${category.isActive ? 'text-blue-400' : 'text-muted-foreground'}`} />
+                              <FolderTree className="w-5 h-5 text-blue-400" />
                               <div>
                                 <div className="flex items-center gap-2">
-                                  <p className={`font-medium ${category.isActive ? 'text-white' : 'text-muted-foreground'}`}>
+                                  <p className="font-medium text-foreground">
                                     {category.name}
                                   </p>
                                   {/* SEBI Licensing Badge */}
@@ -1045,9 +1043,7 @@ export default function StoreManagement() {
                             {(category.subcategories || []).map((subcategory) => (
                               <div key={subcategory.id}>
                                 <div 
-                                  className={`flex items-center justify-between p-3 pl-12 border-b border-border/50 ${
-                                    subcategory.isActive && category.isActive ? 'bg-muted/30' : 'bg-card/50'
-                                  }`}
+                                  className="flex items-center justify-between p-3 pl-12 border-b border-border/50 bg-muted/30"
                                   data-testid={`row-subcategory-${subcategory.id}`}
                                 >
                                   <div className="flex items-center gap-3">
@@ -1063,8 +1059,8 @@ export default function StoreManagement() {
                                       )}
                                     </button>
                                     <div className="flex items-center gap-2">
-                                      <FolderTree className={`w-4 h-4 ${subcategory.isActive && category.isActive ? 'text-purple-400' : 'text-muted-foreground'}`} />
-                                      <span className={subcategory.isActive && category.isActive ? 'text-foreground' : 'text-muted-foreground'}>
+                                      <FolderTree className="w-4 h-4 text-purple-400" />
+                                      <span className="text-foreground">
                                         {subcategory.name}
                                       </span>
                                     </div>
@@ -1212,12 +1208,8 @@ export default function StoreManagement() {
                                     data-testid={`row-product-${product.id}`}
                                   >
                                     <div className="flex items-center gap-2">
-                                      <Package className={`w-3 h-3 ${
-                                        product.isActive && category.isActive ? 'text-green-400' : 'text-muted-foreground'
-                                      }`} />
-                                      <span className={`text-sm ${
-                                        product.isActive && category.isActive ? 'text-muted-foreground' : 'text-muted-foreground'
-                                      }`}>
+                                      <Package className="w-3 h-3 text-green-400" />
+                                      <span className="text-sm text-foreground">
                                         {product.name}
                                       </span>
                                     </div>
