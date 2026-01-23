@@ -7,6 +7,7 @@ import { requireAdmin, requireAuth } from "../middleware/roleMiddleware";
 import { fetchSebiAifListings, SebiAifListing, generateComprehensiveAifSeedData, AifSeedData } from "../services/sebi-aif-scraper";
 import { fetchSebiPmsListings, SebiPmsListing, generateComprehensivePmsSeedData, PmsSeedData } from "../services/sebi-pms-scraper";
 import { externalRemittanceService, RemittanceUploadRequest, RemittanceDocumentUpload } from "../services/external-remittance-service";
+import { aiRecommendationSyncService } from "../services/ai-recommendation-sync-service";
 
 const router = Router();
 
@@ -1949,6 +1950,18 @@ router.post("/aif/seed/all", requireAdmin, async (req, res) => {
     
     console.log(`[AIF Seed All] Completed: ${imported.length} AIFs seeded and published`);
     
+    // Auto-sync top performers to recommendation products
+    let syncResult = null;
+    if (imported.length > 0) {
+      try {
+        console.log("[AIF Seed All] Triggering AI recommendation sync...");
+        syncResult = await aiRecommendationSyncService.executeSync(15, 0);
+        console.log(`[AIF Seed All] Synced ${syncResult.imported} AIFs to recommendations`);
+      } catch (syncError: any) {
+        console.error("[AIF Seed All] Recommendation sync failed:", syncError.message);
+      }
+    }
+    
     res.json({
       success: true,
       message: `Successfully seeded ${imported.length} AIFs`,
@@ -1958,6 +1971,10 @@ router.post("/aif/seed/all", requireAdmin, async (req, res) => {
         total: seedData.length,
         byCategory,
         errors: errors.length,
+        recommendationSync: syncResult ? {
+          synced: syncResult.imported,
+          skipped: syncResult.skipped,
+        } : null,
       },
     });
   } catch (error: any) {
@@ -2240,6 +2257,18 @@ router.post("/pms/seed/all", requireAdmin, async (req, res) => {
     
     console.log(`[PMS Seed All] Completed: ${imported.length} PMS seeded and published`);
     
+    // Auto-sync top performers to recommendation products
+    let syncResult = null;
+    if (imported.length > 0) {
+      try {
+        console.log("[PMS Seed All] Triggering AI recommendation sync...");
+        syncResult = await aiRecommendationSyncService.executeSync(0, 15);
+        console.log(`[PMS Seed All] Synced ${syncResult.imported} PMS to recommendations`);
+      } catch (syncError: any) {
+        console.error("[PMS Seed All] Recommendation sync failed:", syncError.message);
+      }
+    }
+    
     res.json({
       success: true,
       message: `Successfully seeded ${imported.length} PMS`,
@@ -2249,6 +2278,10 @@ router.post("/pms/seed/all", requireAdmin, async (req, res) => {
         total: seedData.length,
         byStrategy,
         errors: errors.length,
+        recommendationSync: syncResult ? {
+          synced: syncResult.imported,
+          skipped: syncResult.skipped,
+        } : null,
       },
     });
   } catch (error: any) {
@@ -3266,6 +3299,56 @@ router.get("/admin/remittance/report", requireAdmin, async (req, res) => {
   } catch (error: any) {
     console.error("Error generating remittance report:", error);
     res.status(500).json({ error: "Failed to generate remittance report" });
+  }
+});
+
+// ============ AI RECOMMENDATION SYNC ============
+
+// GET /recommendation-sync/preview - Preview AI-enhanced sync of top AIF/PMS to recommendations
+router.get("/recommendation-sync/preview", requireAdmin, async (req, res) => {
+  try {
+    const aifLimit = parseInt(req.query.aifLimit as string) || 15;
+    const pmsLimit = parseInt(req.query.pmsLimit as string) || 15;
+    
+    console.log(`[Recommendation Sync] Preview requested: ${aifLimit} AIFs, ${pmsLimit} PMS`);
+    
+    const preview = await aiRecommendationSyncService.previewSync(aifLimit, pmsLimit);
+    
+    res.json({
+      success: true,
+      ...preview,
+    });
+  } catch (error: any) {
+    console.error("[Recommendation Sync] Preview error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to preview recommendation sync",
+      details: error.message,
+    });
+  }
+});
+
+// POST /recommendation-sync/execute - Execute AI-enhanced sync of top AIF/PMS to recommendations
+router.post("/recommendation-sync/execute", requireAdmin, async (req, res) => {
+  try {
+    const { aifLimit = 15, pmsLimit = 15 } = req.body;
+    
+    console.log(`[Recommendation Sync] Execute requested: ${aifLimit} AIFs, ${pmsLimit} PMS`);
+    
+    const result = await aiRecommendationSyncService.executeSync(aifLimit, pmsLimit);
+    
+    res.json({
+      success: true,
+      message: `Synced ${result.imported} products to recommendations`,
+      ...result,
+    });
+  } catch (error: any) {
+    console.error("[Recommendation Sync] Execute error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to execute recommendation sync",
+      details: error.message,
+    });
   }
 });
 
