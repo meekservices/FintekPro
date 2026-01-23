@@ -512,9 +512,9 @@ export default function AgentPicksPage() {
                 </div>
               ) : (
                 <div className="grid gap-4 md:grid-cols-2">
-                  {filteredTodayPicks.map((pick) => (
+                  {filteredTodayPicks.map((pick, index) => (
                     <PickCard 
-                      key={pick.id} 
+                      key={`today-${pick.id}-${index}`} 
                       pick={pick}
                       isWatchlisted={watchlistPickIds.has(pick.id)}
                       onAddToWatchlist={(id) => addToWatchlistMutation.mutate(id)}
@@ -602,9 +602,9 @@ export default function AgentPicksPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {filteredLivePicks.map((pick) => (
+                  {filteredLivePicks.map((pick, index) => (
                     <PickCard 
-                      key={pick.id} 
+                      key={`live-${pick.id}-${index}`} 
                       pick={pick} 
                       showDetails
                       isWatchlisted={watchlistPickIds.has(pick.id)}
@@ -709,8 +709,8 @@ export default function AgentPicksPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {filteredHistory.map((pick) => (
-                    <PickCard key={pick.id} pick={pick} showDetails compact />
+                  {filteredHistory.map((pick, index) => (
+                    <PickCard key={`history-${pick.id}-${index}`} pick={pick} showDetails compact />
                   ))}
                 </div>
               )}
