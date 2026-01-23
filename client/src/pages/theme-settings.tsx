@@ -98,9 +98,9 @@ export default function ThemeSettings() {
     setAccessibility({
       textBrightness: 50,
       textSize: "medium",
-      reduceTransparency: false,
-      highContrast: false,
-      reducedMotion: false,
+      transparency: 0,
+      contrast: 0,
+      motion: 0,
     });
     toast({ title: "Reset", description: "Accessibility settings restored to defaults." });
   };
@@ -300,46 +300,66 @@ export default function ThemeSettings() {
               </RadioGroup>
             </div>
             
-            <div className="flex items-center justify-between pt-4 border-t">
-              <div>
-                <Label className="text-base flex items-center gap-2">
-                  <Contrast className="h-4 w-4" />
-                  High Contrast
-                </Label>
-                <p className="text-sm text-muted-foreground">Increase color contrast for better visibility</p>
+            <div className="pt-4 border-t space-y-3">
+              <Label className="text-base flex items-center gap-2">
+                <Contrast className="h-4 w-4" />
+                Contrast Level
+              </Label>
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-muted-foreground w-16">Normal</span>
+                <Slider
+                  value={[accessibility.contrast]}
+                  onValueChange={(v) => setAccessibility({ contrast: v[0] })}
+                  min={0}
+                  max={100}
+                  step={5}
+                  className="flex-1"
+                  data-testid="contrast-slider"
+                />
+                <span className="text-sm text-muted-foreground w-16 text-right">High</span>
               </div>
-              <Switch 
-                checked={accessibility.highContrast}
-                onCheckedChange={(v) => setAccessibility({ highContrast: v })}
-                data-testid="high-contrast-toggle"
-              />
+              <p className="text-xs text-muted-foreground">Increase color contrast for better visibility</p>
             </div>
 
-            <div className="flex items-center justify-between pt-4 border-t">
-              <div>
-                <Label className="text-base flex items-center gap-2">
-                  <Eye className="h-4 w-4" />
-                  Reduce Transparency
-                </Label>
-                <p className="text-sm text-muted-foreground">Use solid backgrounds instead of transparent ones</p>
+            <div className="pt-4 border-t space-y-3">
+              <Label className="text-base flex items-center gap-2">
+                <Eye className="h-4 w-4" />
+                Transparency Level
+              </Label>
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-muted-foreground w-16">Glass</span>
+                <Slider
+                  value={[accessibility.transparency]}
+                  onValueChange={(v) => setAccessibility({ transparency: v[0] })}
+                  min={0}
+                  max={100}
+                  step={5}
+                  className="flex-1"
+                  data-testid="transparency-slider"
+                />
+                <span className="text-sm text-muted-foreground w-16 text-right">Solid</span>
               </div>
-              <Switch 
-                checked={accessibility.reduceTransparency}
-                onCheckedChange={(v) => setAccessibility({ reduceTransparency: v })}
-                data-testid="reduce-transparency-toggle"
-              />
+              <p className="text-xs text-muted-foreground">Adjust background transparency (solid helps reduce visual noise)</p>
             </div>
             
-            <div className="flex items-center justify-between pt-4 border-t">
-              <div>
-                <Label className="text-base">Reduced Motion</Label>
-                <p className="text-sm text-muted-foreground">Minimize animations and transitions</p>
+            <div className="pt-4 border-t space-y-3">
+              <Label className="text-base flex items-center gap-2">
+                Motion Level
+              </Label>
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-muted-foreground w-16">Full</span>
+                <Slider
+                  value={[accessibility.motion]}
+                  onValueChange={(v) => setAccessibility({ motion: v[0] })}
+                  min={0}
+                  max={100}
+                  step={5}
+                  className="flex-1"
+                  data-testid="motion-slider"
+                />
+                <span className="text-sm text-muted-foreground w-16 text-right">None</span>
               </div>
-              <Switch 
-                checked={accessibility.reducedMotion}
-                onCheckedChange={(v) => setAccessibility({ reducedMotion: v })}
-                data-testid="reduced-motion-toggle"
-              />
+              <p className="text-xs text-muted-foreground">Control animation and transition speed</p>
             </div>
           </CardContent>
         </Card>

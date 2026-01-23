@@ -6,9 +6,9 @@ type TextSize = "small" | "medium" | "large";
 interface AccessibilitySettings {
   textBrightness: number; // 0-100, where 50 is default
   textSize: TextSize;
-  reduceTransparency: boolean;
-  highContrast: boolean;
-  reducedMotion: boolean;
+  transparency: number; // 0-100, where 0 = full transparency, 100 = solid backgrounds
+  contrast: number; // 0-100, where 0 = normal, 100 = maximum contrast
+  motion: number; // 0-100, where 0 = full animations, 100 = no animations
 }
 
 interface ThemeContextType {
@@ -27,9 +27,9 @@ const ACCESSIBILITY_STORAGE_KEY = "fintekpro-accessibility";
 const defaultAccessibility: AccessibilitySettings = {
   textBrightness: 50,
   textSize: "medium",
-  reduceTransparency: false,
-  highContrast: false,
-  reducedMotion: false,
+  transparency: 0,
+  contrast: 0,
+  motion: 0,
 };
 
 function getStoredAccessibility(): AccessibilitySettings {
@@ -51,7 +51,6 @@ function applyAccessibilityStyles(settings: AccessibilitySettings, isDark: boole
   
   // Text brightness: 0 = darker, 50 = default, 100 = lighter
   const brightnessOffset = (settings.textBrightness - 50) * 0.6; // -30 to +30
-  const baseLightness = isDark ? 80 : 20;
   const mutedLightness = isDark ? (65 + brightnessOffset) : (45 - brightnessOffset);
   const foregroundLightness = isDark ? Math.min(98, 90 + brightnessOffset / 2) : Math.max(5, 17 - brightnessOffset / 2);
   
@@ -63,28 +62,42 @@ function applyAccessibilityStyles(settings: AccessibilitySettings, isDark: boole
   root.style.setProperty('--base-font-size', sizeMap[settings.textSize]);
   root.style.fontSize = sizeMap[settings.textSize];
   
-  // Reduce transparency
-  if (settings.reduceTransparency) {
-    root.style.setProperty('--card', isDark ? 'hsl(222, 47%, 16%)' : 'hsl(0, 0%, 100%)');
-    root.style.setProperty('--muted', isDark ? 'hsl(217, 33%, 22%)' : 'hsl(210, 20%, 96%)');
-    root.style.setProperty('--secondary', isDark ? 'hsl(217, 33%, 24%)' : 'hsl(210, 20%, 96%)');
+  // Transparency: 0 = default transparency, 100 = fully solid backgrounds
+  const transparencyLevel = settings.transparency / 100;
+  if (isDark) {
+    const cardAlpha = 0.85 + (0.15 * transparencyLevel); // 0.85 to 1.0
+    const mutedAlpha = 0.7 + (0.3 * transparencyLevel); // 0.7 to 1.0
+    const secondaryAlpha = 0.8 + (0.2 * transparencyLevel); // 0.8 to 1.0
+    root.style.setProperty('--card', `hsla(222, 47%, 16%, ${cardAlpha})`);
+    root.style.setProperty('--muted', `hsla(217, 33%, 22%, ${mutedAlpha})`);
+    root.style.setProperty('--secondary', `hsla(217, 33%, 24%, ${secondaryAlpha})`);
   } else {
-    root.style.setProperty('--card', isDark ? 'hsla(222, 47%, 16%, 0.85)' : 'hsl(0, 0%, 100%)');
-    root.style.setProperty('--muted', isDark ? 'hsla(217, 33%, 22%, 0.7)' : 'hsl(210, 20%, 96%)');
-    root.style.setProperty('--secondary', isDark ? 'hsla(217, 33%, 24%, 0.8)' : 'hsl(210, 20%, 96%)');
+    root.style.setProperty('--card', 'hsl(0, 0%, 100%)');
+    root.style.setProperty('--muted', 'hsl(210, 20%, 96%)');
+    root.style.setProperty('--secondary', 'hsl(210, 20%, 96%)');
   }
   
-  // High contrast
-  if (settings.highContrast) {
-    root.style.setProperty('--border', isDark ? 'hsl(217, 33%, 50%)' : 'hsl(214, 32%, 70%)');
+  // Contrast: 0 = normal, 100 = maximum contrast
+  const contrastLevel = settings.contrast / 100;
+  const borderLightness = isDark 
+    ? 35 + (15 * contrastLevel) // 35% to 50%
+    : 85 - (15 * contrastLevel); // 85% to 70%
+  root.style.setProperty('--border', `hsl(217, 33%, ${borderLightness}%)`);
+  
+  // Apply high-contrast class for values > 50
+  if (contrastLevel > 0.5) {
     root.classList.add('high-contrast');
   } else {
-    root.style.setProperty('--border', isDark ? 'hsl(217, 33%, 35%)' : 'hsl(214, 32%, 85%)');
     root.classList.remove('high-contrast');
   }
   
-  // Reduced motion
-  if (settings.reducedMotion) {
+  // Motion: 0 = full animations, 100 = no animations
+  const motionLevel = settings.motion / 100;
+  root.style.setProperty('--animation-speed', `${1 - motionLevel}`); // 1 to 0
+  root.style.setProperty('--transition-duration', `${Math.max(0.01, 0.3 * (1 - motionLevel))}s`); // 0.3s to 0.01s
+  
+  // Apply reduce-motion class for values > 50
+  if (motionLevel > 0.5) {
     root.classList.add('reduce-motion');
   } else {
     root.classList.remove('reduce-motion');
