@@ -188,41 +188,61 @@ class AIRecommendationSyncService {
   async analyzeWithAI(products: AifPmsData[]): Promise<Map<string, AIAnalysisResult>> {
     const results = new Map<string, AIAnalysisResult>();
 
-    if (!this.genAI || products.length === 0) {
-      for (const product of products) {
-        results.set(product.id, this.getRuleBasedAnalysis(product));
-      }
+    if (products.length === 0) {
       return results;
     }
 
-    const batchSize = 5;
-    for (let i = 0; i < products.length; i += batchSize) {
-      const batch = products.slice(i, i + batchSize);
-      
-      try {
-        const prompt = this.buildAnalysisPrompt(batch);
-        const result = await this.genAI.models.generateContent({
-          model: "gemini-2.0-flash",
-          contents: prompt,
-        });
+    // Convert AifPmsData to ProductData format for unified engine
+    const productDataList: ProductData[] = products.map(p => ({
+      id: p.id,
+      name: p.name,
+      category: (p.type === 'aif' ? 'aif' : 'pms') as ProductCategory,
+      fundHouse: p.fundHouseName,
+      sector: this.inferSector(p),
+      returns1Y: parseFloat(p.return1Y || '0'),
+      returns3Y: parseFloat(p.return3Y || '0'),
+      returns5Y: parseFloat(p.return5Y || '0'),
+      volatility: parseFloat(p.volatility || '15'),
+      sharpeRatio: parseFloat(p.sharpeRatio || '0'),
+      maxDrawdown: parseFloat(p.maxDrawdown || '0'),
+      aum: parseFloat(p.aum || '0'),
+      minInvestment: parseFloat(p.minInvestment || '0'),
+      kycRequirement: p.type === 'aif' ? 'accredited' : 'enhanced',
+      rawData: p,
+    }));
 
-        const responseText = result.text || "";
-        const analyses = this.parseAIResponse(responseText, batch);
-        
-        for (const [id, analysis] of analyses) {
-          results.set(id, analysis);
-        }
-      } catch (error) {
-        console.error(`[AI Sync] Gemini analysis failed for batch ${i / batchSize + 1}:`, error);
-        for (const product of batch) {
-          if (!results.has(product.id)) {
-            results.set(product.id, this.getRuleBasedAnalysis(product));
+    // Use unified AI recommendation engine for analysis (includes caching, tracking, compliance)
+    const batchSize = 5;
+    for (let i = 0; i < productDataList.length; i += batchSize) {
+      const batch = productDataList.slice(i, i + batchSize);
+      
+      for (const productData of batch) {
+        try {
+          const analysis = await unifiedAIRecommendationEngine.analyzeProduct(productData);
+          
+          // Convert unified engine result to AIAnalysisResult format
+          results.set(productData.id, {
+            riskProfile: analysis.riskProfile,
+            suitabilityScore: Math.round(analysis.suitabilityScore / 10), // Convert 0-100 to 1-10
+            selectionRationale: analysis.selectionRationale,
+            investmentThesis: analysis.investmentThesis,
+            sector: productData.sector || 'Diversified',
+          });
+          
+          console.log(`[AI Sync] Analyzed ${productData.name} via unified engine (cache: ${analysis.cacheHit}, model: ${analysis.modelUsed})`);
+        } catch (error) {
+          console.error(`[AI Sync] Unified engine analysis failed for ${productData.name}:`, error);
+          // Fallback to rule-based analysis
+          const originalProduct = products.find(p => p.id === productData.id);
+          if (originalProduct) {
+            results.set(productData.id, this.getRuleBasedAnalysis(originalProduct));
           }
         }
       }
 
-      if (i + batchSize < products.length) {
-        await new Promise(resolve => setTimeout(resolve, 500));
+      // Rate limiting between batches
+      if (i + batchSize < productDataList.length) {
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
     }
 

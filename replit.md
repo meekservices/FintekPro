@@ -36,6 +36,16 @@ A Comprehensive Zoho Ecosystem Integration covers Zoho CRM, Books, Campaigns, Me
 
 The Profit-Optimized AI Recommendation Engine provides multi-mode recommendations (Conservative, Balanced, Growth-Optimized) with deterministic numeric scoring and suitability scores, including agent governance and A/B testing. A Database-Driven Recommendation Products System manages investment product catalogs for AI proposals, with an Admin UI for CRUD operations and a caching service.
 
+A **Unified AI Recommendation Engine** (`unified-ai-recommendation-engine.ts`) provides a centralized facade for all AI-powered investment analysis across 9 product categories: Stocks, Mutual Funds, AIF, PMS, Bonds, Commodities, REITs, Derivatives, and Unlisted Securities. Key features include:
+- **Product-Agnostic Analysis**: `analyzeProduct()` with AI scoring, confidence levels, and risk-profile mapping
+- **Ranking & Recommendations**: `rankProducts()` and `generateRecommendation()` with client profile matching
+- **Multi-Model Fallback**: Gemini AI (primary) with OpenAI fallback for resilience
+- **Response Caching**: Integrated with `ai-response-cache-service.ts` to minimize API costs
+- **Performance Tracking**: Connected to `ai-recommendation-tracking-service.ts` for accuracy metrics
+- **KYC Compliance**: Automatic regulatory guardrails based on client KYC tier
+- **AI-Enhanced Rebalancing**: `aiEnhancedRebalancingService` wraps rule-based rebalancing with AI product suggestions
+- **Recommendation Catalog Sync**: Auto-sync top performers from AIF/PMS master data to recommendation products
+
 A Stock Enrichment System consolidates 2,800+ NSE/BSE listed stocks into 12 broad sectors, using Probe42, NSE/BSE, and Finnhub. An ISIN Intelligence Layer provides automatic instrument classification from Indian and international ISINs, with prefix detection, deep INE resolution, edge case handling, multi-region support, and ISO 6166 Checksum Validation.
 
 A **Pick of the Day** feature provides daily investment recommendations across nine asset categories for agents, with AI-generated rationale, tracking fields (price at recommendation, target, stoploss), status tracking, scoring algorithms, and performance statistics.
