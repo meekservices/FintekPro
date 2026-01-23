@@ -28,20 +28,6 @@ interface RefreshResult {
   newPrice?: number;
 }
 
-const INDIAN_REITS = [
-  { symbol: 'EMBASSY', name: 'Embassy Office Parks REIT', isin: 'INE0LYH01012' },
-  { symbol: 'MINDSPACE', name: 'Mindspace Business Parks REIT', isin: 'INE0CCU01017' },
-  { symbol: 'BROOKFIELD', name: 'Brookfield India Real Estate Trust', isin: 'INE0JGT01014' },
-  { symbol: 'NEXUSSELECT', name: 'Nexus Select Trust', isin: 'INE0OL401014' },
-];
-
-const INDIAN_INVITS = [
-  { symbol: 'POWERGRID', name: 'Powergrid Infrastructure Investment Trust', isin: 'INE0DH401018' },
-  { symbol: 'INDIGRID', name: 'India Grid Trust', isin: 'INE219X01015' },
-  { symbol: 'IRBINVIT', name: 'IRB InvIT Fund', isin: 'INE183W01010' },
-  { symbol: 'ORIENTHOT', name: 'Oriental Infratrust', isin: 'INE0HVL01017' },
-  { symbol: 'SBICARD', name: 'Data Infrastructure Trust', isin: 'INE0QN001014' },
-];
 
 class NseReitInvitProvider {
   private readonly baseUrl = 'https://www.nseindia.com/api';
@@ -445,12 +431,22 @@ class ReitInvitDataService {
     };
   }
 
-  getKnownReits(): typeof INDIAN_REITS {
-    return INDIAN_REITS;
+  async getKnownReits(): Promise<Array<{ symbol: string; name: string; isin: string | null }>> {
+    const allReits = await db.select({
+      symbol: reits.symbol,
+      name: reits.name,
+      isin: reits.isinCode,
+    }).from(reits);
+    return allReits;
   }
 
-  getKnownInvits(): typeof INDIAN_INVITS {
-    return INDIAN_INVITS;
+  async getKnownInvits(): Promise<Array<{ symbol: string; name: string; isin: string | null }>> {
+    const allInvits = await db.select({
+      symbol: invits.symbol,
+      name: invits.name,
+      isin: invits.isinCode,
+    }).from(invits);
+    return allInvits;
   }
 }
 
