@@ -943,22 +943,22 @@ export default function StoreManagement() {
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Badge variant="outline" className="text-xs">
-                                {(category.subcategories || []).length} subcategories
+                          <div className="flex items-center gap-4 flex-shrink-0">
+                            <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
+                              <Badge variant="outline" className="text-xs whitespace-nowrap">
+                                {(category.subcategories || []).length} subs
                               </Badge>
-                              <Badge variant="outline" className="text-xs">
+                              <Badge variant="outline" className="text-xs whitespace-nowrap">
                                 {getProductsForCategoryDirectly(category.id).length + 
                                   (category.subcategories || []).reduce((acc, sub) => 
                                     acc + getProductsForSubcategory(sub.id).length, 0
-                                  )} products
+                                  )} items
                               </Badge>
                             </div>
                             <Badge
-                              className={category.isActive 
+                              className={`whitespace-nowrap flex-shrink-0 ${category.isActive 
                                 ? 'bg-green-500/20 text-green-400 border-green-500/30' 
-                                : 'bg-red-500/20 text-red-400 border-red-500/30'}
+                                : 'bg-red-500/20 text-red-400 border-red-500/30'}`}
                             >
                               {category.isActive ? <Eye className="w-3 h-3 mr-1" /> : <EyeOff className="w-3 h-3 mr-1" />}
                               {category.isActive ? 'Active' : 'Disabled'}
@@ -1118,24 +1118,12 @@ export default function StoreManagement() {
                                     {getProductsForSubcategory(subcategory.id).map((product) => (
                                       <div 
                                         key={product.id}
-                                        className={`flex items-center justify-between p-2 rounded ${
-                                          product.isActive && subcategory.isActive && category.isActive 
-                                            ? 'bg-muted/20' 
-                                            : 'bg-card/30'
-                                        }`}
+                                        className="flex items-center justify-between p-2 rounded bg-muted/20"
                                         data-testid={`row-product-${product.id}`}
                                       >
                                         <div className="flex items-center gap-2">
-                                          <Package className={`w-3 h-3 ${
-                                            product.isActive && subcategory.isActive && category.isActive 
-                                              ? 'text-green-400' 
-                                              : 'text-muted-foreground'
-                                          }`} />
-                                          <span className={`text-sm ${
-                                            product.isActive && subcategory.isActive && category.isActive 
-                                              ? 'text-muted-foreground' 
-                                              : 'text-muted-foreground'
-                                          }`}>
+                                          <Package className="w-3 h-3 text-green-400" />
+                                          <span className="text-sm text-foreground">
                                             {product.name}
                                           </span>
                                           {product.productType && (
