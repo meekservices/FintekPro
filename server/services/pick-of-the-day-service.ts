@@ -1,6 +1,6 @@
 import { db } from "../db";
-import { dailyPicks, listedStocks, mutualFunds, bondCatalog, unlistedCompanies, globalInstruments, instrumentMaster, sgbPrimaryIssues, stockFinancialMetrics } from "@shared/schema";
-import { eq, and, desc, gte, sql, ilike } from "drizzle-orm";
+import { dailyPicks, listedStocks, mutualFunds, bondCatalog, unlistedCompanies, globalInstruments, instrumentMaster, sgbPrimaryIssues, stockFinancialMetrics, reits, invits } from "@shared/schema";
+import { eq, and, desc, gte, sql, ilike, or } from "drizzle-orm";
 import { GoogleGenAI } from "@google/genai";
 import { FinancialMetricsCalculator } from "./financial-metrics-calculator";
 import { 
@@ -915,43 +915,46 @@ class PickOfTheDayService {
 
   private async generateREITInvITPick(): Promise<DailyPickData | null> {
     try {
-      const reits = await db
-        .select({
-          id: instrumentMaster.id,
-          name: instrumentMaster.name,
-          symbol: instrumentMaster.symbol,
-          isin: instrumentMaster.isin,
-          category: instrumentMaster.category,
-          assetClass: instrumentMaster.assetClass,
-          issuer: instrumentMaster.issuer,
-          lastPrice: instrumentMaster.lastPrice,
-        })
-        .from(instrumentMaster)
-        .where(
-          and(
-            or(
-              eq(instrumentMaster.category, 'REIT'),
-              eq(instrumentMaster.category, 'InvIT'),
-              sql`LOWER(${instrumentMaster.assetClass}) LIKE '%reit%'`,
-              sql`LOWER(${instrumentMaster.assetClass}) LIKE '%invit%'`
-            ),
-            sql`${instrumentMaster.lastPrice} IS NOT NULL`
-          )
-        )
-        .limit(50);
+      // Query from dedicated reits table using raw SQL for columns
+      const reitsList = await db.execute(sql`
+        SELECT 
+          id, name, symbol, isin_code as isin, sector, 
+          current_price::numeric as "currentPrice",
+          dividend_yield::numeric as "dividendYield",
+          nav::numeric,
+          'REIT' as type
+        FROM reits 
+        WHERE is_active = true AND current_price IS NOT NULL
+        LIMIT 25
+      `);
 
-      if (reits.length === 0) {
+      // Query from dedicated invits table
+      const invitsList = await db.execute(sql`
+        SELECT 
+          id, name, symbol, isin_code as isin, sector,
+          current_price::numeric as "currentPrice",
+          dividend_yield::numeric as "dividendYield",
+          nav::numeric,
+          'InvIT' as type
+        FROM invits 
+        WHERE is_active = true AND current_price IS NOT NULL
+        LIMIT 25
+      `);
+
+      const allReitsInvits = [...(reitsList.rows || []), ...(invitsList.rows || [])] as any[];
+
+      if (allReitsInvits.length === 0) {
         console.log("[PickOfTheDay] No REITs/InvITs found in database - skipping category");
         return null;
       }
 
-      const scoredReits = reits.map(reit => ({
+      const scoredReits = allReitsInvits.map(reit => ({
         reit,
         score: this.scoreREIT(reit),
       })).sort((a, b) => b.score - a.score);
 
       const topReit = scoredReits[0].reit;
-      const currentPrice = parseFloat(topReit.lastPrice || "0");
+      const currentPrice = parseFloat(String(topReit.currentPrice || topReit.current_price || "0"));
       const targetPrice = Math.round(currentPrice * 1.12 * 100) / 100;
       const stoplossPrice = Math.round(currentPrice * 0.94 * 100) / 100;
 
@@ -962,16 +965,17 @@ class PickOfTheDayService {
         currentPrice,
         targetPrice,
         stoplossPrice,
+        dividendYield: topReit.dividendYield,
       });
 
       console.log(`[PickOfTheDay] Generated REIT/InvIT pick: ${topReit.name}`);
 
       return {
         category: 'reits_invits',
-        instrumentId: topReit.id,
-        instrumentName: topReit.name,
+        instrumentId: String(topReit.id),
+        instrumentName: topReit.name || 'Unknown REIT/InvIT',
         isin: topReit.isin || undefined,
-        symbol: topReit.symbol,
+        symbol: topReit.symbol || undefined,
         recoDate: new Date().toISOString().split('T')[0],
         recoPrice: currentPrice,
         targetPrice,
@@ -984,10 +988,12 @@ class PickOfTheDayService {
         suitableFor: ['Balanced', 'Aggressive'],
         timeHorizon: this.getTimeHorizon('reits_invits'),
         confidenceScore: this.getConfidenceScore('reits_invits', scoredReits[0].score, 50),
-        sectorCategory: topReit.category || 'REIT/InvIT',
+        sectorCategory: topReit.type || 'REIT/InvIT',
         keyMetrics: {
-          category: topReit.category,
-          issuer: topReit.issuer,
+          type: topReit.type,
+          sector: topReit.sector,
+          dividendYield: topReit.dividendYield,
+          nav: topReit.nav,
         },
       };
     } catch (error) {
