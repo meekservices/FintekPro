@@ -15,7 +15,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   RefreshCw, Search, Loader2, ArrowLeft, Building2, Layers, 
   TrendingUp, AlertTriangle, Plus, Edit,
-  CloudDownload, CheckCircle2, XCircle
+  CloudDownload, CheckCircle2, XCircle, Database, Sparkles
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -70,6 +70,45 @@ interface ImportPreview {
   errors: string[];
 }
 
+interface SeedPreview {
+  success: boolean;
+  listings: Array<SebiPmsListing & {
+    minInvestment: string;
+    aum: string;
+    return1Y: string;
+    return3Y: string;
+    riskScore: number;
+    isDuplicate?: boolean;
+  }>;
+  summary: {
+    total: number;
+    new: number;
+    duplicates: number;
+    byStrategy: Record<string, number>;
+  };
+}
+
+function formatReturn(value: string | null | undefined): string {
+  if (!value) return "—";
+  const num = parseFloat(value);
+  if (isNaN(num)) return "—";
+  return `${num >= 0 ? "+" : ""}${num.toFixed(2)}%`;
+}
+
+function getStrategyBadgeColor(strategy: string | null): string {
+  switch (strategy) {
+    case "Large-cap": return "bg-blue-500 text-white";
+    case "Multi-cap": return "bg-purple-500 text-white";
+    case "Mid-cap": return "bg-indigo-500 text-white";
+    case "Small-cap": return "bg-pink-500 text-white";
+    case "Flexi-cap": return "bg-cyan-500 text-white";
+    case "Focused": return "bg-orange-500 text-white";
+    case "Value": return "bg-green-600 text-white";
+    case "Thematic": return "bg-amber-600 text-white";
+    default: return "bg-gray-500 text-white";
+  }
+}
+
 function formatCurrency(value: string | null | undefined): string {
   if (!value) return "—";
   const num = parseFloat(value);
@@ -86,6 +125,8 @@ export default function PmsSeedPage() {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   const [selectedForImport, setSelectedForImport] = useState<Set<string>>(new Set());
+  const [showSeedDialog, setShowSeedDialog] = useState(false);
+  const [seedPreview, setSeedPreview] = useState<SeedPreview | null>(null);
 
   // Fetch all PMS for admin
   const { data: pmsData, isLoading, refetch } = useQuery<{ schemes: PmsMaster[] }>({
@@ -177,6 +218,52 @@ export default function PmsSeedPage() {
     },
   });
 
+  // Preview comprehensive seed data
+  const previewSeedMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("/api/store/pms/seed/preview", {
+        method: "GET",
+      });
+      return response;
+    },
+    onSuccess: (data) => {
+      setSeedPreview(data);
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: `Failed to load seed data: ${error.message}`, 
+        variant: "destructive" 
+      });
+    },
+  });
+
+  // Execute seed all
+  const executeSeedAllMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("/api/store/pms/seed/all", {
+        method: "POST",
+      });
+      return response;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/store/pms/admin"] });
+      toast({ 
+        title: "Seeding Complete", 
+        description: `Successfully seeded ${data.summary.imported} PMS across all strategies.` 
+      });
+      setShowSeedDialog(false);
+      setSeedPreview(null);
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Seeding Failed", 
+        description: error.message, 
+        variant: "destructive" 
+      });
+    },
+  });
+
   const toggleImportSelection = (regNo: string) => {
     const newSet = new Set(selectedForImport);
     if (newSet.has(regNo)) {
@@ -255,6 +342,18 @@ export default function PmsSeedPage() {
           >
             <CloudDownload className="w-4 h-4 mr-2" />
             Import from SEBI
+          </Button>
+          <Button 
+            variant="default"
+            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+            onClick={() => {
+              setShowSeedDialog(true);
+              setSeedPreview(null);
+            }}
+            data-testid="btn-seed-all"
+          >
+            <Sparkles className="w-4 h-4 mr-2" />
+            Seed All PMS
           </Button>
           <Button data-testid="btn-add-pms">
             <Plus className="w-4 h-4 mr-2" />
@@ -588,6 +687,177 @@ export default function PmsSeedPage() {
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 )}
                 Import {selectedForImport.size} Selected
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Seed All PMS Dialog */}
+      <Dialog open={showSeedDialog} onOpenChange={setShowSeedDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-purple-500" />
+              Seed All PMS
+            </DialogTitle>
+            <DialogDescription>
+              Generate and import 80+ comprehensive PMS with performance data across all strategies.
+            </DialogDescription>
+          </DialogHeader>
+
+          {!seedPreview ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-6">
+              <div className="relative">
+                <Database className="w-20 h-20 text-muted-foreground" />
+                <Sparkles className="w-8 h-8 text-purple-500 absolute -top-2 -right-2" />
+              </div>
+              <div className="text-center space-y-2 max-w-md">
+                <p className="text-lg font-medium">Comprehensive PMS Seed Data</p>
+                <p className="text-muted-foreground text-sm">
+                  This will generate 80+ Portfolio Management Services from 30+ fund houses 
+                  with complete performance metrics, AUM, NAV, and risk data.
+                </p>
+              </div>
+              <div className="flex gap-2 flex-wrap justify-center text-sm text-muted-foreground">
+                <Badge variant="outline" className="text-blue-600 border-blue-300">Large-cap</Badge>
+                <Badge variant="outline" className="text-purple-600 border-purple-300">Multi-cap</Badge>
+                <Badge variant="outline" className="text-indigo-600 border-indigo-300">Mid-cap</Badge>
+                <Badge variant="outline" className="text-orange-600 border-orange-300">Focused</Badge>
+                <Badge variant="outline" className="text-green-600 border-green-300">Value</Badge>
+              </div>
+              <Button 
+                onClick={() => previewSeedMutation.mutate()}
+                disabled={previewSeedMutation.isPending}
+                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                data-testid="btn-preview-seed"
+              >
+                {previewSeedMutation.isPending && (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                )}
+                Preview Seed Data
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex gap-2 flex-wrap">
+                  <Badge variant="outline" className="text-sm">
+                    Total: {seedPreview.summary.total}
+                  </Badge>
+                  <Badge variant="default" className="text-sm bg-green-600">
+                    New: {seedPreview.summary.new}
+                  </Badge>
+                  <Badge variant="secondary" className="text-sm">
+                    Existing: {seedPreview.summary.duplicates}
+                  </Badge>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {Object.entries(seedPreview.summary.byStrategy || {})
+                    .filter(([_, count]) => count > 0)
+                    .slice(0, 5)
+                    .map(([strategy, count]) => (
+                      <Badge key={strategy} variant="outline" className={getStrategyBadgeColor(strategy).replace("text-white", "").replace("bg-", "text-").replace("-500", "-600") + " border-current"}>
+                        {strategy}: {count}
+                      </Badge>
+                    ))
+                  }
+                </div>
+              </div>
+
+              {seedPreview.summary.new === 0 ? (
+                <Alert>
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  <AlertDescription>
+                    All PMS already exist in the database. No new PMS to import.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <ScrollArea className="h-[350px] border rounded-md">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Registration No</TableHead>
+                        <TableHead>Strategy</TableHead>
+                        <TableHead>Fund House</TableHead>
+                        <TableHead>Min Inv</TableHead>
+                        <TableHead>AUM</TableHead>
+                        <TableHead>1Y Return</TableHead>
+                        <TableHead>Risk</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {seedPreview.listings.slice(0, 50).map((listing) => (
+                        <TableRow 
+                          key={listing.registrationNo}
+                          className={listing.isDuplicate ? "opacity-50 bg-muted/50" : ""}
+                        >
+                          <TableCell className="max-w-[180px] truncate font-medium">
+                            {listing.name}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {listing.registrationNo}
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={getStrategyBadgeColor(listing.strategy)}>
+                              {listing.strategy}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="max-w-[120px] truncate">
+                            {listing.fundHouseName}
+                          </TableCell>
+                          <TableCell>{formatCurrency(listing.minInvestment)}</TableCell>
+                          <TableCell>{formatCurrency(listing.aum)}</TableCell>
+                          <TableCell className={parseFloat(listing.return1Y) >= 0 ? "text-green-600" : "text-red-600"}>
+                            {formatReturn(listing.return1Y)}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{listing.riskScore}/10</Badge>
+                          </TableCell>
+                          <TableCell>
+                            {listing.isDuplicate ? (
+                              <Badge variant="secondary" className="text-xs">Exists</Badge>
+                            ) : (
+                              <Badge variant="default" className="text-xs bg-green-600">New</Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  {seedPreview.listings.length > 50 && (
+                    <div className="p-4 text-center text-muted-foreground text-sm">
+                      Showing 50 of {seedPreview.listings.length} PMS...
+                    </div>
+                  )}
+                </ScrollArea>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowSeedDialog(false);
+                setSeedPreview(null);
+              }}
+            >
+              Cancel
+            </Button>
+            {seedPreview && seedPreview.summary.new > 0 && (
+              <Button
+                onClick={() => executeSeedAllMutation.mutate()}
+                disabled={executeSeedAllMutation.isPending}
+                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                data-testid="btn-confirm-seed"
+              >
+                {executeSeedAllMutation.isPending && (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                )}
+                Seed {seedPreview.summary.new} PMS
               </Button>
             )}
           </DialogFooter>
