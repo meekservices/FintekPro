@@ -241,71 +241,80 @@ async function scrapeNseDebtHtml(): Promise<NseMldImportResult> {
 }
 
 export function generateSampleNseMldListings(): NseMldListing[] {
-  return [
-    {
-      isin: "INE101A08100",
-      name: "HDFC Ltd Market Linked Debentures Series N1",
-      issuer: "HDFC Ltd",
-      issueDate: "2024-02-01",
-      maturityDate: "2027-02-01",
-      faceValue: "100000",
-      couponRate: null,
-      creditRating: "AAA",
-      listingType: "listed",
-      exchange: "NSE",
-      source: "nse_scraper",
-    },
-    {
-      isin: "INE102A08101",
-      name: "Bajaj Finance Principal Protected MLD",
-      issuer: "Bajaj Finance Ltd",
-      issueDate: "2024-03-15",
-      maturityDate: "2026-09-15",
-      faceValue: "100000",
-      couponRate: null,
-      creditRating: "AAA",
-      listingType: "listed",
-      exchange: "NSE",
-      source: "nse_scraper",
-    },
-    {
-      isin: "INE103A08102",
-      name: "L&T Finance Index Linked NCD",
-      issuer: "L&T Finance Ltd",
-      issueDate: "2024-04-01",
-      maturityDate: "2027-04-01",
-      faceValue: "100000",
-      couponRate: null,
-      creditRating: "AA+",
-      listingType: "listed",
-      exchange: "NSE",
-      source: "nse_scraper",
-    },
-    {
-      isin: "INE104A08103",
-      name: "Tata Capital Structured MLD",
-      issuer: "Tata Capital Ltd",
-      issueDate: "2024-05-01",
-      maturityDate: "2028-05-01",
-      faceValue: "100000",
-      couponRate: null,
-      creditRating: "AAA",
-      listingType: "listed",
-      exchange: "NSE",
-      source: "nse_scraper",
-    },
-    {
-      isin: "INE105A08104",
-      name: "Mahindra Finance Market Linked NCD",
-      issuer: "Mahindra & Mahindra Financial",
-      issueDate: "2024-06-15",
-      maturityDate: "2027-06-15",
-      faceValue: "100000",
-      couponRate: null,
-      creditRating: "AA+",
-      listingType: "listed",
-      exchange: "NSE",
-      source: "nse_scraper",
-    },
+  const issuers = [
+    { name: "HDFC Ltd", rating: "AAA" },
+    { name: "Bajaj Finance Ltd", rating: "AAA" },
+    { name: "L&T Finance Ltd", rating: "AA+" },
+    { name: "Tata Capital Ltd", rating: "AAA" },
+    { name: "Mahindra & Mahindra Financial", rating: "AA+" },
+    { name: "Aditya Birla Capital Ltd", rating: "AAA" },
+    { name: "Hero FinCorp Ltd", rating: "AA+" },
+    { name: "TVS Credit Services Ltd", rating: "AA" },
+    { name: "Godrej Capital Ltd", rating: "AA+" },
+    { name: "Nippon Life India Asset", rating: "AAA" },
+    { name: "ICICI Prudential Life", rating: "AAA" },
+    { name: "HDFC Life Insurance", rating: "AAA" },
+    { name: "SBI Life Insurance", rating: "AAA" },
+    { name: "Max Life Insurance", rating: "AA+" },
+    { name: "Birla Sun Life", rating: "AAA" },
+    { name: "PNB Housing Finance", rating: "AA" },
+    { name: "Can Fin Homes Ltd", rating: "AA+" },
+    { name: "LIC Housing Finance", rating: "AAA" },
+    { name: "IRFC Ltd", rating: "AAA" },
+    { name: "REC Ltd", rating: "AAA" },
+    { name: "PFC Ltd", rating: "AAA" },
+    { name: "NABARD", rating: "AAA" },
+    { name: "SIDBI", rating: "AAA" },
+    { name: "NHB", rating: "AAA" },
+    { name: "EXIM Bank", rating: "AAA" },
   ];
+  
+  const mldTypes = [
+    "Market Linked Debentures",
+    "Principal Protected MLD",
+    "Index Linked NCD",
+    "Structured MLD",
+    "Capital Protected MLD",
+    "Nifty 50 Linked MLD",
+    "Sensex Linked MLD",
+    "Gold Linked MLD",
+  ];
+  
+  const tenors = [2, 3, 4, 5, 7, 10];
+  const faceValues = ["100000", "500000", "1000000", "250000"];
+  
+  const listings: NseMldListing[] = [];
+  let isinCounter = 200;
+  
+  for (const issuer of issuers) {
+    const numMlds = Math.floor(Math.random() * 3) + 2;
+    
+    for (let i = 0; i < numMlds; i++) {
+      const mldType = mldTypes[Math.floor(Math.random() * mldTypes.length)];
+      const tenor = tenors[Math.floor(Math.random() * tenors.length)];
+      const series = `N${i + 1}`;
+      
+      const issueYear = 2023 + Math.floor(Math.random() * 2);
+      const issueMonth = Math.floor(Math.random() * 12) + 1;
+      const maturityYear = issueYear + tenor;
+      
+      const isinNum = String(isinCounter++).padStart(3, "0");
+      
+      listings.push({
+        isin: `INE${isinNum}A08${String(200 + isinCounter).slice(-3)}`,
+        name: `${issuer.name.split(" ")[0]} ${mldType} Series ${series} ${maturityYear}`,
+        issuer: issuer.name,
+        issueDate: `${issueYear}-${String(issueMonth).padStart(2, "0")}-01`,
+        maturityDate: `${maturityYear}-${String(issueMonth).padStart(2, "0")}-01`,
+        faceValue: faceValues[Math.floor(Math.random() * faceValues.length)],
+        couponRate: null,
+        creditRating: issuer.rating,
+        listingType: "listed",
+        exchange: "NSE",
+        source: "nse_scraper",
+      });
+    }
+  }
+  
+  return listings;
 }

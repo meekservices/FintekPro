@@ -241,71 +241,80 @@ async function scrapeBseDebtHtml(): Promise<BseMldImportResult> {
 }
 
 export function generateSampleMldListings(): BseMldListing[] {
-  return [
-    {
-      isin: "INE001A08090",
-      name: "HDFC Bank Market Linked Debentures Series A",
-      issuer: "HDFC Bank Ltd",
-      issueDate: "2024-01-15",
-      maturityDate: "2027-01-15",
-      faceValue: "100000",
-      couponRate: null,
-      creditRating: "AAA",
-      listingType: "listed",
-      exchange: "BSE",
-      source: "bse_scraper",
-    },
-    {
-      isin: "INE002A08091",
-      name: "ICICI Bank Principal Protected MLD",
-      issuer: "ICICI Bank Ltd",
-      issueDate: "2024-03-01",
-      maturityDate: "2027-03-01",
-      faceValue: "100000",
-      couponRate: null,
-      creditRating: "AAA",
-      listingType: "listed",
-      exchange: "BSE",
-      source: "bse_scraper",
-    },
-    {
-      isin: "INE003A08092",
-      name: "SBI Market Linked Debentures Series I",
-      issuer: "State Bank of India",
-      issueDate: "2024-02-15",
-      maturityDate: "2028-02-15",
-      faceValue: "100000",
-      couponRate: null,
-      creditRating: "AAA",
-      listingType: "listed",
-      exchange: "BSE",
-      source: "bse_scraper",
-    },
-    {
-      isin: "INE004A08093",
-      name: "Axis Bank Index Linked NCD",
-      issuer: "Axis Bank Ltd",
-      issueDate: "2024-04-01",
-      maturityDate: "2026-04-01",
-      faceValue: "100000",
-      couponRate: null,
-      creditRating: "AA+",
-      listingType: "listed",
-      exchange: "BSE",
-      source: "bse_scraper",
-    },
-    {
-      isin: "INE005A08094",
-      name: "Kotak Mahindra Structured MLD",
-      issuer: "Kotak Mahindra Bank Ltd",
-      issueDate: "2024-05-15",
-      maturityDate: "2027-05-15",
-      faceValue: "100000",
-      couponRate: null,
-      creditRating: "AAA",
-      listingType: "listed",
-      exchange: "BSE",
-      source: "bse_scraper",
-    },
+  const issuers = [
+    { name: "HDFC Bank Ltd", rating: "AAA" },
+    { name: "ICICI Bank Ltd", rating: "AAA" },
+    { name: "State Bank of India", rating: "AAA" },
+    { name: "Axis Bank Ltd", rating: "AA+" },
+    { name: "Kotak Mahindra Bank Ltd", rating: "AAA" },
+    { name: "IndusInd Bank Ltd", rating: "AA+" },
+    { name: "Yes Bank Ltd", rating: "A+" },
+    { name: "IDFC First Bank Ltd", rating: "AA" },
+    { name: "Bajaj Finance Ltd", rating: "AAA" },
+    { name: "Tata Capital Ltd", rating: "AAA" },
+    { name: "L&T Finance Ltd", rating: "AAA" },
+    { name: "Mahindra Finance Ltd", rating: "AA+" },
+    { name: "Shriram Transport Finance", rating: "AA+" },
+    { name: "Piramal Capital Ltd", rating: "AA" },
+    { name: "JM Financial Ltd", rating: "AA" },
+    { name: "IIFL Finance Ltd", rating: "AA" },
+    { name: "Cholamandalam Investment", rating: "AA+" },
+    { name: "Sundaram Finance Ltd", rating: "AAA" },
+    { name: "Muthoot Finance Ltd", rating: "AA+" },
+    { name: "Manappuram Finance Ltd", rating: "AA" },
+    { name: "Aditya Birla Finance Ltd", rating: "AAA" },
+    { name: "Edelweiss Financial", rating: "AA" },
+    { name: "CRISIL Ltd", rating: "AAA" },
+    { name: "CARE Ratings Ltd", rating: "AAA" },
+    { name: "Reliance Capital Ltd", rating: "A" },
   ];
+  
+  const mldTypes = [
+    "Market Linked Debentures",
+    "Principal Protected MLD",
+    "Index Linked NCD",
+    "Structured MLD",
+    "Equity Linked Debentures",
+    "Nifty Linked MLD",
+    "Bank Nifty Linked MLD",
+    "Multi-Asset MLD",
+  ];
+  
+  const tenors = [2, 3, 4, 5, 7];
+  const faceValues = ["100000", "500000", "1000000", "200000"];
+  
+  const listings: BseMldListing[] = [];
+  let isinCounter = 1;
+  
+  for (const issuer of issuers) {
+    const numMlds = Math.floor(Math.random() * 3) + 2;
+    
+    for (let i = 0; i < numMlds; i++) {
+      const mldType = mldTypes[Math.floor(Math.random() * mldTypes.length)];
+      const tenor = tenors[Math.floor(Math.random() * tenors.length)];
+      const series = String.fromCharCode(65 + i);
+      
+      const issueYear = 2023 + Math.floor(Math.random() * 2);
+      const issueMonth = Math.floor(Math.random() * 12) + 1;
+      const maturityYear = issueYear + tenor;
+      
+      const isinNum = String(isinCounter++).padStart(5, "0");
+      
+      listings.push({
+        isin: `INE${isinNum}A08${String(100 + isinCounter).slice(-3)}`,
+        name: `${issuer.name.split(" ")[0]} ${mldType} Series ${series} ${maturityYear}`,
+        issuer: issuer.name,
+        issueDate: `${issueYear}-${String(issueMonth).padStart(2, "0")}-15`,
+        maturityDate: `${maturityYear}-${String(issueMonth).padStart(2, "0")}-15`,
+        faceValue: faceValues[Math.floor(Math.random() * faceValues.length)],
+        couponRate: null,
+        creditRating: issuer.rating,
+        listingType: "listed",
+        exchange: "BSE",
+        source: "bse_scraper",
+      });
+    }
+  }
+  
+  return listings;
 }
