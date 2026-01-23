@@ -1605,4 +1605,45 @@ function determineKycTier(creditRating: string | null): 'basic' | 'enhanced' | '
   return 'accredited';
 }
 
+// ============================================
+// AUDIT LOGS API
+// ============================================
+
+router.get("/audit-logs", async (req: Request, res: Response) => {
+  try {
+    const { limit = '50', offset = '0', action, entityType } = req.query;
+    
+    const conditions = [];
+    if (action) conditions.push(eq(bondMarketplaceAuditLogs.action, action as string));
+    if (entityType) conditions.push(eq(bondMarketplaceAuditLogs.entityType, entityType as string));
+    
+    const logs = conditions.length > 0
+      ? await db.select()
+          .from(bondMarketplaceAuditLogs)
+          .where(and(...conditions))
+          .orderBy(desc(bondMarketplaceAuditLogs.createdAt))
+          .limit(parseInt(limit as string))
+          .offset(parseInt(offset as string))
+      : await db.select()
+          .from(bondMarketplaceAuditLogs)
+          .orderBy(desc(bondMarketplaceAuditLogs.createdAt))
+          .limit(parseInt(limit as string))
+          .offset(parseInt(offset as string));
+    
+    const totalResult = conditions.length > 0
+      ? await db.select({ count: count() }).from(bondMarketplaceAuditLogs).where(and(...conditions))
+      : await db.select({ count: count() }).from(bondMarketplaceAuditLogs);
+    
+    res.json({ 
+      logs,
+      total: totalResult[0]?.count || 0,
+      limit: parseInt(limit as string),
+      offset: parseInt(offset as string)
+    });
+  } catch (error: any) {
+    console.error("Error fetching audit logs:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;
