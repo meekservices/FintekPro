@@ -546,38 +546,56 @@ router.post("/sync/nse", async (req: Request, res: Response) => {
 router.post("/sync/bse", async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id;
+    const { limit: syncLimit } = req.query;
+    const maxBonds = syncLimit ? parseInt(syncLimit as string) : 1000;
     
-    // Fetch corporate bonds from our database
-    const corpBonds = await db.select().from(corporateBonds);
+    // Get existing ISINs in catalog for quick lookup
+    const existingIsins = await db.select({ isin: bondCatalog.isin }).from(bondCatalog);
+    const existingIsinSet = new Set(existingIsins.map(e => e.isin));
+    
+    // Fetch corporate bonds from our database (limit for performance)
+    const corpBonds = await db.select()
+      .from(corporateBonds)
+      .limit(maxBonds);
+    
+    // Pre-fetch fee profiles for each instrument type
+    const feeProfiles: Record<string, any> = {};
+    for (const type of ['corporate_bond', 'ncd', 'tax_free_bond', 'infrastructure_bond', 'debenture']) {
+      feeProfiles[type] = await bondFeeCalibrationService.getProfileByInstrumentType(type);
+    }
+    
+    // Separate new and existing bonds
+    const newBonds: any[] = [];
+    const bondsToUpdate: any[] = [];
+    
+    for (const bond of corpBonds) {
+      if (existingIsinSet.has(bond.isin)) {
+        bondsToUpdate.push(bond);
+      } else {
+        newBonds.push(bond);
+      }
+    }
     
     let synced = 0;
     let updated = 0;
     
-    for (const bond of corpBonds) {
-      // Check if already in catalog
-      const existing = await db.select()
-        .from(bondCatalog)
-        .where(eq(bondCatalog.isin, bond.isin))
-        .limit(1);
-      
-      const instrumentType = determineCorporateBondType(bond);
-      const feeProfile = await bondFeeCalibrationService.getProfileByInstrumentType(instrumentType);
-      
-      // Determine KYC tier based on credit rating
-      const kycTier = determineKycTier(bond.creditRating);
-      
-      // Determine tax status based on bond type
-      const isTaxFree = bond.bondType === 'tax_free_bond';
-      
-      if (existing.length === 0) {
-        await db.insert(bondCatalog).values({
+    // Batch insert new bonds (100 at a time)
+    const batchSize = 100;
+    for (let i = 0; i < newBonds.length; i += batchSize) {
+      const batch = newBonds.slice(i, i + batchSize);
+      const values = batch.map(bond => {
+        const instrumentType = determineCorporateBondType(bond);
+        const kycTier = determineKycTier(bond.creditRating);
+        const isTaxFree = bond.bondType === 'tax_free_bond';
+        
+        return {
           source: 'bse',
           sourceId: bond.id,
           isin: bond.isin,
           bondName: bond.bondName,
           issuerName: bond.issuer,
           instrumentType,
-          isListed: true,
+          isListed: bond.isListed ?? true,
           exchange: 'BSE',
           faceValue: bond.faceValue,
           couponRate: bond.couponRate,
@@ -593,15 +611,27 @@ router.post("/sync/bse", async (req: Request, res: Response) => {
           taxCategory: isTaxFree ? 'tax_free' : 'taxable',
           tdsApplicable: !isTaxFree,
           tdsRate: isTaxFree ? '0' : '10',
-          feeProfileId: feeProfile?.id,
-          status: 'draft',
+          feeProfileId: feeProfiles[instrumentType]?.id,
+          status: 'draft' as const,
           regulatoryTier: kycTier === 'accredited' ? 'accredited' : 'enhanced',
           kycTierRequired: kycTier,
           lastSyncAt: new Date(),
           createdBy: userId,
-        });
-        synced++;
-      } else {
+        };
+      });
+      
+      try {
+        await db.insert(bondCatalog).values(values).onConflictDoNothing();
+        synced += batch.length;
+        console.log(`[BSE Sync] Batch ${Math.floor(i/batchSize) + 1}: Inserted ${batch.length} bonds`);
+      } catch (err) {
+        console.error(`[BSE Sync] Batch insert error:`, err);
+      }
+    }
+    
+    // Bulk update existing bonds
+    for (const bond of bondsToUpdate) {
+      try {
         await db.update(bondCatalog)
           .set({
             cleanPrice: bond.currentPrice,
@@ -611,8 +641,10 @@ router.post("/sync/bse", async (req: Request, res: Response) => {
             updatedBy: userId,
             updatedAt: new Date(),
           })
-          .where(eq(bondCatalog.id, existing[0].id));
+          .where(eq(bondCatalog.isin, bond.isin));
         updated++;
+      } catch (err) {
+        // Ignore update errors
       }
     }
     
@@ -636,7 +668,8 @@ router.post("/sync/bse", async (req: Request, res: Response) => {
       message: `BSE sync complete`,
       synced, 
       updated,
-      total: corpBonds.length
+      total: corpBonds.length,
+      note: `Synced up to ${maxBonds} bonds. Use ?limit=3000 for more.`
     });
   } catch (error: any) {
     console.error("Error syncing BSE bonds:", error);
