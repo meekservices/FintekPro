@@ -80,8 +80,9 @@ class PickOfTheDayService {
   private readonly SGB_STOPLOSS_PCT = 0.03; // 3% stoploss for SGBs
 
   constructor() {
-    if (process.env.OPENAI_API_KEY) {
-      this.genAI = new GoogleGenAI({ apiKey: process.env.OPENAI_API_KEY });
+    // Use GEMINI_API_KEY for Google GenAI (not OPENAI_API_KEY)
+    if (process.env.GEMINI_API_KEY) {
+      this.genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     }
     console.log("✅ Pick of the Day Service initialized");
   }
@@ -437,7 +438,7 @@ class PickOfTheDayService {
         confidenceScore: this.getConfidenceScore('mutual_funds', scoredFunds[0].score, 70),
         sectorCategory: topFund.category,
         keyMetrics: {
-          cmp: currentPrice,
+          cmp: currentNav,
           returns1y: topFund.returns1Y ? parseFloat(topFund.returns1Y) : null,
           returns3y: topFund.returns3Y ? parseFloat(topFund.returns3Y) : null,
           crisilRating: topFund.crisilRating,
@@ -528,19 +529,20 @@ class PickOfTheDayService {
 
   private async generateUnlistedPick(): Promise<DailyPickData | null> {
     try {
+      // Check for companies with published or draft prices
       const companies = await db
         .select()
         .from(unlistedCompanies)
         .where(
           and(
             eq(unlistedCompanies.status, 'active'),
-            sql`${unlistedCompanies.publishedBuyPrice} IS NOT NULL`
+            sql`(${unlistedCompanies.publishedBuyPrice} IS NOT NULL OR ${unlistedCompanies.draftBuyPrice} IS NOT NULL)`
           )
         )
         .limit(20);
 
       if (companies.length === 0) {
-        console.log("[PickOfTheDay] No suitable unlisted companies found");
+        console.log("[PickOfTheDay] No suitable unlisted companies found (no prices available)");
         return null;
       }
 
@@ -550,7 +552,8 @@ class PickOfTheDayService {
       })).sort((a, b) => b.score - a.score);
 
       const topCompany = scoredCompanies[0].company;
-      const currentPrice = parseFloat(topCompany.publishedBuyPrice || "0");
+      // Use published price if available, otherwise fall back to draft price
+      const currentPrice = parseFloat(topCompany.publishedBuyPrice || topCompany.draftBuyPrice || "0");
       const targetPrice = Math.round(currentPrice * 1.25 * 100) / 100;
       const stoplossPrice = Math.round(currentPrice * 0.85 * 100) / 100;
 
