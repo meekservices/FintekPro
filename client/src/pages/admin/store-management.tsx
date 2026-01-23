@@ -929,7 +929,7 @@ export default function StoreManagement() {
                                   })()}
                                 </div>
                                 {category.description && (
-                                  <p className="text-xs text-foreground/60 truncate max-w-md">
+                                  <p className="text-xs text-foreground/75 truncate max-w-md">
                                     {category.description}
                                   </p>
                                 )}
@@ -944,11 +944,11 @@ export default function StoreManagement() {
                             </div>
                           </div>
                           <div className="flex items-center gap-4 flex-shrink-0">
-                            <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
-                              <Badge variant="outline" className="text-xs whitespace-nowrap">
+                            <div className="hidden md:flex items-center gap-2 text-sm">
+                              <Badge variant="outline" className="text-xs whitespace-nowrap text-foreground/70 border-foreground/30">
                                 {(category.subcategories || []).length} subs
                               </Badge>
-                              <Badge variant="outline" className="text-xs whitespace-nowrap">
+                              <Badge variant="outline" className="text-xs whitespace-nowrap text-foreground/70 border-foreground/30">
                                 {getProductsForCategoryDirectly(category.id).length + 
                                   (category.subcategories || []).reduce((acc, sub) => 
                                     acc + getProductsForSubcategory(sub.id).length, 0
