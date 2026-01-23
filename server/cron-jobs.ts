@@ -16,6 +16,7 @@ import { eq } from 'drizzle-orm';
 import { reitInvitDataService } from './services/reit-invit-data-service';
 import { giftCityMaintenanceService } from './services/gift-city-maintenance-service';
 import { runDailyFixedIncomeRefresh } from "./cron/fixed-income-daily-refresh";
+import { mfSyncScheduler } from './services/mf-sync-scheduler';
 
 /**
  * Initialize scheduled cron jobs
@@ -27,6 +28,10 @@ export function initializeCronJobs(): void {
   // Start REIT/InvIT data refresh scheduler (every 6 hours)
   reitInvitDataService.startScheduledRefresh(6);
   console.log('🏢 [REIT/InvIT] Data refresh scheduler started (every 6 hours)');
+  
+  // Start Mutual Fund NAV sync scheduler
+  mfSyncScheduler.start();
+  console.log('📊 [MF Sync] NAV sync scheduler started (6-hourly refresh + startup catch-up)');
   // Probe42 Sync Job - Run every 6 hours
   cron.schedule('0 */6 * * *', async () => {
     console.log('[CRON] Starting Probe42 sync job...');

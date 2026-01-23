@@ -37,6 +37,15 @@ class MFSyncScheduler {
     // Schedule NAV refresh every 6 hours
     this.scheduleNAVRefresh();
     
+    // Run startup catch-up in background (don't block server startup)
+    setTimeout(async () => {
+      try {
+        await this.runStartupCatchUp();
+      } catch (error) {
+        console.error('[MF Sync] Startup catch-up failed:', error);
+      }
+    }, 10000); // Wait 10 seconds after server starts
+    
     console.log('[MF Sync] Scheduler started');
   }
 
@@ -174,30 +183,42 @@ class MFSyncScheduler {
     return { updated, added, errors };
   }
 
-  async runNAVRefresh(): Promise<{ updated: number; errors: number }> {
-    console.log('[MF Sync] Starting NAV refresh...');
+  async runNAVRefresh(batchSize: number = 500): Promise<{ updated: number; errors: number }> {
+    console.log(`[MF Sync] Starting NAV refresh (batch size: ${batchSize})...`);
     let updated = 0;
     let errors = 0;
 
     try {
-      // Get funds that haven't been updated in 6+ hours
       const staleThreshold = new Date(Date.now() - 6 * 60 * 60 * 1000);
       
-      const staleFunds = await db.select({ schemeCode: mutualFunds.schemeCode })
+      // Prioritize funds with NULL last_verified_at first (never verified)
+      const nullVerifiedFunds = await db.select({ schemeCode: mutualFunds.schemeCode })
         .from(mutualFunds)
-        .where(sql`${mutualFunds.lastVerifiedAt} < ${staleThreshold} OR ${mutualFunds.lastVerifiedAt} IS NULL`)
-        .limit(100);
+        .where(sql`${mutualFunds.lastVerifiedAt} IS NULL`)
+        .limit(Math.floor(batchSize / 2));
+      
+      // Then get stale funds (verified but outdated)
+      const remainingSlots = batchSize - nullVerifiedFunds.length;
+      const staleFunds = remainingSlots > 0 ? await db.select({ schemeCode: mutualFunds.schemeCode })
+        .from(mutualFunds)
+        .where(sql`${mutualFunds.lastVerifiedAt} < ${staleThreshold} AND ${mutualFunds.lastVerifiedAt} IS NOT NULL`)
+        .limit(remainingSlots) : [];
+      
+      const allFundsToRefresh = [...nullVerifiedFunds, ...staleFunds];
+      console.log(`[MF Sync] Processing ${nullVerifiedFunds.length} unverified + ${staleFunds.length} stale funds`);
 
-      for (const fund of staleFunds) {
+      for (const fund of allFundsToRefresh) {
         try {
           const navData = await this.fetchNAVFromMFAPI(fund.schemeCode);
           if (navData) {
+            const now = new Date();
             await db.update(mutualFunds)
               .set({
                 nav: navData.nav,
-                lastVerifiedAt: new Date(),
+                lastVerifiedAt: now,
                 dataSource: 'MFAPI',
-                lastUpdated: new Date()
+                lastUpdated: now,
+                extendedData: sql`jsonb_set(COALESCE(${mutualFunds.extendedData}, '{}'::jsonb), '{navDate}', ${JSON.stringify(navData.navDate || now.toISOString().split('T')[0])}::jsonb)`
               })
               .where(eq(mutualFunds.schemeCode, fund.schemeCode));
             updated++;
@@ -212,6 +233,116 @@ class MFSyncScheduler {
       console.error('[MF Sync] NAV refresh failed:', error);
     }
 
+    return { updated, errors };
+  }
+  
+  async runStartupCatchUp(): Promise<{ updated: number; errors: number }> {
+    console.log('[MF Sync] Running startup catch-up for stale funds...');
+    
+    // Use consistent 24-hour threshold for "stale" definition
+    const staleThreshold24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    
+    const [countResult] = await db.select({ count: sql<number>`count(*)` })
+      .from(mutualFunds)
+      .where(sql`${mutualFunds.lastVerifiedAt} IS NULL OR ${mutualFunds.lastVerifiedAt} < ${staleThreshold24h}`);
+    
+    const staleFundCount = Number(countResult?.count || 0);
+    console.log(`[MF Sync] Found ${staleFundCount} funds needing refresh (>24h stale or unverified)`);
+    
+    if (staleFundCount === 0) {
+      return { updated: 0, errors: 0 };
+    }
+    
+    // Process all stale funds in background batches
+    let totalUpdated = 0;
+    let totalErrors = 0;
+    const batchSize = 500;
+    let processedSoFar = 0;
+    const maxIterations = Math.ceil(staleFundCount / batchSize) + 5; // Safety limit
+    
+    for (let i = 0; i < maxIterations; i++) {
+      // Check remaining stale count
+      const [remaining] = await db.select({ count: sql<number>`count(*)` })
+        .from(mutualFunds)
+        .where(sql`${mutualFunds.lastVerifiedAt} IS NULL OR ${mutualFunds.lastVerifiedAt} < ${staleThreshold24h}`);
+      
+      const remainingCount = Number(remaining?.count || 0);
+      if (remainingCount === 0) {
+        console.log(`[MF Sync] All stale funds processed!`);
+        break;
+      }
+      
+      const result = await this.runNAVRefreshBatch(batchSize, staleThreshold24h);
+      totalUpdated += result.updated;
+      totalErrors += result.errors;
+      processedSoFar += result.updated + result.errors;
+      
+      console.log(`[MF Sync] Batch ${i + 1}: ${result.updated} updated, ${remainingCount - result.updated} remaining`);
+      
+      // Delay between batches to respect rate limits
+      if (remainingCount > batchSize) {
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
+      
+      // Break if no progress made (all errors)
+      if (result.updated === 0 && result.errors > 0) {
+        console.log(`[MF Sync] Stopping catch-up: no progress made in last batch`);
+        break;
+      }
+    }
+    
+    console.log(`[MF Sync] Startup catch-up complete: ${totalUpdated} updated, ${totalErrors} errors`);
+    return { updated: totalUpdated, errors: totalErrors };
+  }
+  
+  private async runNAVRefreshBatch(batchSize: number, staleThreshold: Date): Promise<{ updated: number; errors: number }> {
+    let updated = 0;
+    let errors = 0;
+    
+    try {
+      // Get oldest unverified funds first (NULL last_verified_at)
+      const nullVerifiedFunds = await db.select({ schemeCode: mutualFunds.schemeCode })
+        .from(mutualFunds)
+        .where(sql`${mutualFunds.lastVerifiedAt} IS NULL`)
+        .orderBy(sql`${mutualFunds.schemeCode} ASC`)
+        .limit(Math.floor(batchSize / 2));
+      
+      // Then get oldest stale funds (ordered by lastVerifiedAt to avoid re-processing same funds)
+      const remainingSlots = batchSize - nullVerifiedFunds.length;
+      const staleFunds = remainingSlots > 0 ? await db.select({ schemeCode: mutualFunds.schemeCode })
+        .from(mutualFunds)
+        .where(sql`${mutualFunds.lastVerifiedAt} < ${staleThreshold} AND ${mutualFunds.lastVerifiedAt} IS NOT NULL`)
+        .orderBy(sql`${mutualFunds.lastVerifiedAt} ASC`)
+        .limit(remainingSlots) : [];
+      
+      const allFundsToRefresh = [...nullVerifiedFunds, ...staleFunds];
+      
+      for (const fund of allFundsToRefresh) {
+        try {
+          const navData = await this.fetchNAVFromMFAPI(fund.schemeCode);
+          if (navData) {
+            const now = new Date();
+            await db.update(mutualFunds)
+              .set({
+                nav: navData.nav,
+                lastVerifiedAt: now,
+                dataSource: 'MFAPI',
+                lastUpdated: now,
+                extendedData: sql`jsonb_set(COALESCE(${mutualFunds.extendedData}, '{}'::jsonb), '{navDate}', ${JSON.stringify(navData.navDate)}::jsonb)`
+              })
+              .where(eq(mutualFunds.schemeCode, fund.schemeCode));
+            updated++;
+          } else {
+            errors++;
+          }
+        } catch (err) {
+          errors++;
+        }
+      }
+    } catch (error) {
+      console.error('[MF Sync] Batch refresh failed:', error);
+    }
+    
     return { updated, errors };
   }
 
@@ -268,14 +399,18 @@ class MFSyncScheduler {
     return funds;
   }
 
-  private async fetchNAVFromMFAPI(schemeCode: string): Promise<{ nav: string } | null> {
+  private async fetchNAVFromMFAPI(schemeCode: string): Promise<{ nav: string; navDate: string } | null> {
     try {
       const response = await axios.get(`https://api.mfapi.in/mf/${schemeCode}`, {
         timeout: 5000
       });
       
       if (response.data?.data?.length > 0) {
-        return { nav: response.data.data[0].nav };
+        const latestData = response.data.data[0];
+        return { 
+          nav: latestData.nav,
+          navDate: latestData.date || new Date().toISOString().split('T')[0]
+        };
       }
     } catch (error) {
       // Silent fail
@@ -333,6 +468,54 @@ class MFSyncScheduler {
 
   async triggerManualSync(): Promise<{ updated: number; added: number; errors: number }> {
     return this.runAMFIMasterSync();
+  }
+  
+  async refreshFundBySchemeCode(schemeCode: string): Promise<{ success: boolean; nav?: string; navDate?: string; error?: string }> {
+    try {
+      console.log(`[MF Sync] Refreshing fund ${schemeCode}...`);
+      const navData = await this.fetchNAVFromMFAPI(schemeCode);
+      
+      if (!navData) {
+        return { success: false, error: 'Failed to fetch NAV from MFAPI' };
+      }
+      
+      const now = new Date();
+      await db.update(mutualFunds)
+        .set({
+          nav: navData.nav,
+          lastVerifiedAt: now,
+          dataSource: 'MFAPI',
+          lastUpdated: now,
+          extendedData: sql`jsonb_set(COALESCE(${mutualFunds.extendedData}, '{}'::jsonb), '{navDate}', ${JSON.stringify(navData.navDate)}::jsonb)`
+        })
+        .where(eq(mutualFunds.schemeCode, schemeCode));
+      
+      console.log(`[MF Sync] Fund ${schemeCode} refreshed: NAV=${navData.nav}, Date=${navData.navDate}`);
+      return { success: true, nav: navData.nav, navDate: navData.navDate };
+    } catch (error: any) {
+      console.error(`[MF Sync] Failed to refresh fund ${schemeCode}:`, error);
+      return { success: false, error: error.message };
+    }
+  }
+  
+  async refreshFundByISIN(isin: string): Promise<{ success: boolean; nav?: string; navDate?: string; schemeCode?: string; error?: string }> {
+    try {
+      // Find the fund by ISIN in extended_data
+      const [fund] = await db.select({ schemeCode: mutualFunds.schemeCode })
+        .from(mutualFunds)
+        .where(sql`${mutualFunds.extendedData}->>'isin' = ${isin}`)
+        .limit(1);
+      
+      if (!fund) {
+        return { success: false, error: `Fund with ISIN ${isin} not found` };
+      }
+      
+      const result = await this.refreshFundBySchemeCode(fund.schemeCode);
+      return { ...result, schemeCode: fund.schemeCode };
+    } catch (error: any) {
+      console.error(`[MF Sync] Failed to refresh fund by ISIN ${isin}:`, error);
+      return { success: false, error: error.message };
+    }
   }
 }
 
