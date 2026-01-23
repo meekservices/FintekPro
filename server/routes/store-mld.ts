@@ -223,7 +223,58 @@ router.put("/admin/mld/:id", requireAdmin, async (req, res) => {
   }
 });
 
-// POST /admin/mld/publish - Toggle publish status (Seed to Store)
+// POST /admin/mld/:id/publish - Toggle publish status by URL param
+router.post("/admin/mld/:id/publish", requireAdmin, async (req, res) => {
+  try {
+    const mldId = req.params.id;
+    const { isPublished = true } = req.body;
+    
+    // Validate before publishing
+    if (isPublished) {
+      const [mld] = await db.select().from(mldMaster).where(eq(mldMaster.id, mldId));
+      
+      if (!mld) {
+        return res.status(404).json({ error: "MLD not found" });
+      }
+      
+      const missingFields = [];
+      if (!mld.isin) missingFields.push("ISIN");
+      if (!mld.payoffType) missingFields.push("Payoff Type");
+      if (!mld.maturityDate) missingFields.push("Maturity Date");
+      if (!mld.underlying) missingFields.push("Underlying Index");
+      
+      if (missingFields.length > 0) {
+        return res.status(400).json({ 
+          error: `Cannot publish MLD. Missing required fields: ${missingFields.join(", ")}` 
+        });
+      }
+    }
+    
+    const [updated] = await db
+      .update(mldMaster)
+      .set({ 
+        isPublished, 
+        updatedAt: new Date() 
+      })
+      .where(eq(mldMaster.id, mldId))
+      .returning();
+    
+    if (!updated) {
+      return res.status(404).json({ error: "MLD not found" });
+    }
+    
+    res.json({
+      success: true,
+      mld: updated,
+      message: isPublished ? "MLD published to store" : "MLD unpublished from store",
+    });
+  } catch (error: any) {
+    console.error("Error toggling MLD publish status:", error);
+    res.status(500).json({ error: "Failed to update publish status" });
+  }
+});
+
+// POST /admin/mld/publish - Toggle publish status (Seed to Store) - Legacy body-based
 router.post("/admin/mld/publish", requireAdmin, async (req, res) => {
   try {
     const { mldId, isPublished } = req.body;

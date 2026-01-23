@@ -1,0 +1,23 @@
+/api/unified-cart:1  Failed to load resource: the server responded with a status of 401 ()
+/api/user:1  Failed to load resource: the server responded with a status of 401 ()
+index-CbKrODI9.js:49 Use of history.pushState in a trivial session history context, which maintains only one session history entry, is treated as history.replaceState.
+history.<computed> @ index-CbKrODI9.js:49
+sw.js:45 [ServiceWorker] Installing v9 (build: 1737016500000)...
+index-CbKrODI9.js:1672 [PWA] Service Worker registered: https://admin.fintekpro.com/
+sw.js:50 [ServiceWorker] Caching static assets
+sw.js:64 [ServiceWorker] Skip waiting to activate immediately
+sw.js:71 [ServiceWorker] Activating v9...
+sw.js:94 [ServiceWorker] Claiming all clients
+store-management-Bnd_ghV-.js:1 [StoreManagement] Categories data: undefined isLoading: true isError: false error: null
+store-management-Bnd_ghV-.js:1 [StoreManagement] Categories data: undefined isLoading: true isError: false error: null
+store-management-Bnd_ghV-.js:1 [StoreManagement] Categories data: undefined isLoading: true isError: false error: null
+store-management-Bnd_ghV-.js:1 [StoreManagement] Categories data: Object isLoading: false isError: false error: null
+/api/admin/bond-seed/audit-logs:1  Failed to load resource: the server responded with a status of 404 ()
+/api/admin/bond-seed/audit-logs:1  Failed to load resource: the server responded with a status of 404 ()
+/api/admin/bond-seed/audit-logs:1  Failed to load resource: the server responded with a status of 404 ()
+/api/admin/bond-seed/audit-logs:1  Failed to load resource: the server responded with a status of 404 ()
+store-management-Bnd_ghV-.js:1 [StoreManagement] Categories data: Object isLoading: false isError: false error: null
+store-management-Bnd_ghV-.js:1 [StoreManagement] Categories data: Object isLoading: false isError: false error: null
+/api/store/admin/mld/4b584fd9-20c3-4d7f-90fc-7d361012b357/publish:1  Failed to load resource: the server responded with a status of 404 ()
+/api/store/admin/mld/cdcbfad7-cbe8-4a72-b158-76e6d247e828/publish:1  Failed to load resource: the server responded with a status of 404 ()
+/api/store/admin/mld/cdcbfad7-cbe8-4a72-b158-76e6d247e828/publish:1  Failed to load resource: the server responded with a status of 404 ()
