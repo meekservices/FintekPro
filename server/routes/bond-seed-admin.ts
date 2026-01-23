@@ -546,17 +546,13 @@ router.post("/sync/nse", async (req: Request, res: Response) => {
 router.post("/sync/bse", async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id;
-    const { limit: syncLimit } = req.query;
-    const maxBonds = syncLimit ? parseInt(syncLimit as string) : 1000;
     
     // Get existing ISINs in catalog for quick lookup
     const existingIsins = await db.select({ isin: bondCatalog.isin }).from(bondCatalog);
     const existingIsinSet = new Set(existingIsins.map(e => e.isin));
     
-    // Fetch corporate bonds from our database (limit for performance)
-    const corpBonds = await db.select()
-      .from(corporateBonds)
-      .limit(maxBonds);
+    // Fetch ALL corporate bonds from our database (no limit - syncs everything)
+    const corpBonds = await db.select().from(corporateBonds);
     
     // Pre-fetch fee profiles for each instrument type
     const feeProfiles: Record<string, any> = {};
@@ -668,8 +664,7 @@ router.post("/sync/bse", async (req: Request, res: Response) => {
       message: `BSE sync complete`,
       synced, 
       updated,
-      total: corpBonds.length,
-      note: `Synced up to ${maxBonds} bonds. Use ?limit=3000 for more.`
+      total: corpBonds.length
     });
   } catch (error: any) {
     console.error("Error syncing BSE bonds:", error);
