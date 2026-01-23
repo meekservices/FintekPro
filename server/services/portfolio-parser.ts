@@ -503,7 +503,200 @@ function parseCASFormat(text: string): ImportedHolding[] {
 }
 
 /**
- * Parse CAMS/KFintech tabular CAS format
+ * Parse CAMS/KFintech Holding Statement format (tabular with columns)
+ * Format: Folio No. | ISIN | Scheme Name | Cost Value | Unit Balance | NAV Date | NAV | Market Value | Registrar
+ * This is a HOLDING statement (not transaction statement) - no transaction dates, just current holdings
+ * 
+ * Example row from PDF:
+ * 404534/62     INF579M01AF8   IFIQRG - 360 ONE Quant Fund Regular Plan       500,000.000       31,610.576 22-Jan-2026     19.1761         606,167.57      CAMS
+ * 
+ * Key fields:
+ * - ISIN: Fund identifier (INF...)
+ * - Cost Value: Total invested amount
+ * - Unit Balance: Number of units held
+ * - NAV: Net Asset Value per unit
+ * - Market Value: Current value (units × NAV)
+ * - Registrar: CAMS or KFINTECH
+ */
+function parseCAMSHoldingStatementFormat(text: string): ImportedHolding[] {
+  const holdings: ImportedHolding[] = [];
+  
+  console.log('[CAMS Holding Parser] Starting parse...');
+  
+  // Find all ISINs in the text (mutual fund ISINs start with INF)
+  const isinPattern = /INF[A-Z0-9]{9}/gi;
+  const isinMatches = [...new Set(text.match(isinPattern) || [])];
+  
+  console.log('[CAMS Holding Parser] Found', isinMatches.length, 'unique ISINs');
+  
+  if (isinMatches.length === 0) {
+    // Check for UNCLAIMDISIN or other special markers
+    const hasUnclaimedFunds = text.includes('UNCLAIMDISIN') || text.includes('Unclaimed');
+    if (hasUnclaimedFunds) {
+      console.log('[CAMS Holding Parser] Found unclaimed funds - skipping those');
+    }
+    return holdings;
+  }
+  
+  // For each ISIN, extract the holding data
+  for (const isin of isinMatches) {
+    try {
+      // Find position of ISIN in text
+      const isinIndex = text.indexOf(isin);
+      if (isinIndex < 0) continue;
+      
+      // Get text around ISIN (before and after)
+      const beforeIsin = text.substring(Math.max(0, isinIndex - 100), isinIndex);
+      const afterIsin = text.substring(isinIndex + isin.length, Math.min(text.length, isinIndex + isin.length + 500));
+      
+      console.log('[CAMS Holding Parser] Processing ISIN:', isin);
+      console.log('[CAMS Holding Parser] Before:', beforeIsin.slice(-50));
+      console.log('[CAMS Holding Parser] After (first 100):', afterIsin.substring(0, 100));
+      
+      // Extract Folio number (before ISIN)
+      // Pattern: digits with optional /digit suffix, e.g., "404534/62" or "7775083296/0"
+      const folioMatch = beforeIsin.match(/(\d{5,}(?:\/\d+)?)\s*$/);
+      const folioNumber = folioMatch ? folioMatch[1] : '';
+      
+      // Extract scheme name and numeric data from after ISIN
+      // The format after ISIN is typically:
+      // "   IFIQRG - 360 ONE Quant Fund Regular Plan       500,000.000       31,610.576 22-Jan-2026     19.1761         606,167.57      CAMS"
+      
+      // First, get scheme code and name
+      const schemeMatch = afterIsin.match(/^\s*([A-Z0-9]+)\s*-\s*([^0-9]+?)(?=\d{1,3}(?:,\d{3})*\.)/i);
+      let schemeName = '';
+      if (schemeMatch) {
+        schemeName = `${schemeMatch[1]} - ${schemeMatch[2]}`.trim();
+        // Clean up scheme name - remove excess whitespace and trailing dashes
+        schemeName = schemeName.replace(/\s+/g, ' ').replace(/\s*-\s*$/, '').trim();
+      }
+      
+      // Extract all decimal numbers from afterIsin
+      // Pattern: numbers with commas and decimals like "500,000.000" or "31,610.576" or "19.1761"
+      const numberPattern = /(\d{1,3}(?:,\d{3})*\.\d{2,6})/g;
+      const numbers: number[] = [];
+      let match;
+      while ((match = numberPattern.exec(afterIsin)) !== null) {
+        const num = parseFloat(match[1].replace(/,/g, ''));
+        if (!isNaN(num) && num > 0) {
+          numbers.push(num);
+        }
+      }
+      
+      console.log('[CAMS Holding Parser] Extracted numbers:', numbers.slice(0, 6));
+      
+      // Determine which number is which based on typical patterns:
+      // For holding statements: [Cost Value, Unit Balance, NAV, Market Value]
+      // Cost Value: Usually larger (100,000+)
+      // Unit Balance: Can be any size
+      // NAV: Usually smaller (10-500 typically)
+      // Market Value: Usually larger
+      
+      let costValue = 0;
+      let unitBalance = 0;
+      let nav = 0;
+      let marketValue = 0;
+      
+      if (numbers.length >= 4) {
+        // Standard format: Cost, Units, NAV, MarketValue
+        costValue = numbers[0];
+        unitBalance = numbers[1];
+        nav = numbers[2];
+        marketValue = numbers[3];
+        
+        // Validate: Market Value should approximately equal Units × NAV
+        const calculatedMarketValue = unitBalance * nav;
+        const tolerance = Math.abs(calculatedMarketValue - marketValue) / marketValue;
+        
+        if (tolerance > 0.1 && numbers.length > 4) {
+          // Values might be shifted, try alternative arrangements
+          console.log('[CAMS Holding Parser] Values mismatch, trying alternatives...');
+          
+          // Try: Cost, Units, (skip date-related), NAV, MarketValue
+          if (numbers.length >= 5) {
+            const altNav = numbers[3];
+            const altMarketValue = numbers[4];
+            const altCalculated = unitBalance * altNav;
+            const altTolerance = Math.abs(altCalculated - altMarketValue) / altMarketValue;
+            
+            if (altTolerance < tolerance) {
+              nav = altNav;
+              marketValue = altMarketValue;
+              console.log('[CAMS Holding Parser] Using alternative arrangement');
+            }
+          }
+        }
+      } else if (numbers.length === 3) {
+        // Might be missing one value - try to infer
+        costValue = numbers[0];
+        unitBalance = numbers[1];
+        marketValue = numbers[2];
+        nav = unitBalance > 0 ? marketValue / unitBalance : 0;
+      } else if (numbers.length === 2) {
+        // Minimal data - assume units and value
+        unitBalance = numbers[0];
+        marketValue = numbers[1];
+        nav = unitBalance > 0 ? marketValue / unitBalance : 0;
+      }
+      
+      // Detect registrar (CAMS or KFINTECH)
+      const registrarMatch = afterIsin.match(/(CAMS|KFINTECH)/i);
+      const registrar = registrarMatch ? registrarMatch[1].toUpperCase() : 'CAMS';
+      
+      // Skip if we don't have meaningful data
+      if (unitBalance === 0 && marketValue === 0) {
+        console.log('[CAMS Holding Parser] Skipping ISIN - no valid data:', isin);
+        continue;
+      }
+      
+      // Final validation: If NAV seems unreasonably high (>10000), it might be wrong
+      if (nav > 10000) {
+        // NAV is probably wrong, recalculate
+        nav = unitBalance > 0 ? marketValue / unitBalance : 0;
+      }
+      
+      const holding: ImportedHolding = {
+        id: `cas-holding-${Date.now()}-${holdings.length}`,
+        name: schemeName || `Mutual Fund (ISIN: ${isin})`,
+        isin: isin,
+        assetType: 'mutual_fund',
+        quantity: unitBalance,
+        averageCost: unitBalance > 0 ? costValue / unitBalance : 0,
+        investedValue: costValue,
+        currentNav: nav,
+        currentValue: marketValue,
+        unrealizedGain: marketValue - costValue,
+        unrealizedGainPercent: costValue > 0 ? ((marketValue - costValue) / costValue) * 100 : 0,
+        folioNumber: folioNumber,
+        broker: registrar === 'KFINTECH' ? 'KFintech' : 'CAMS',
+        confidenceScore: 90
+      };
+      
+      console.log('[CAMS Holding Parser] Added holding:', {
+        isin,
+        name: schemeName,
+        folio: folioNumber,
+        units: unitBalance,
+        cost: costValue,
+        nav,
+        marketValue,
+        registrar
+      });
+      
+      holdings.push(holding);
+    } catch (error: any) {
+      console.error('[CAMS Holding Parser] Error processing ISIN', isin, ':', error.message);
+    }
+  }
+  
+  console.log('[CAMS Holding Parser] Total holdings extracted:', holdings.length);
+  console.log('[CAMS Holding Parser] Total market value:', holdings.reduce((sum, h) => sum + h.currentValue, 0).toFixed(2));
+  
+  return holdings;
+}
+
+/**
+ * Parse CAMS/KFintech tabular CAS format (legacy parser)
  * Format: Folio No. | ISIN | Scheme Name | Cost Value | Unit Balance | NAV Date | NAV | Market Value | Registrar
  * Example: 91085045342/0 INF846K01J79   128OGGPG - Axis Large & Mid Cap Fund -       80,000.000        2,908.240 03-Dec-2025       33.33          96,931.64 KFINTECH
  */
@@ -1144,11 +1337,20 @@ export async function parsePDFPortfolio(buffer: Buffer, fileName: string): Promi
     const expectedCount = expectedCountMatch ? parseInt(expectedCountMatch[1], 10) : undefined;
     
     if (broker === 'CAMS/KFintech CAS') {
-      // Try table format first (newer format with columns)
-      holdings = parseCAMSKfintechTableFormat(text);
-      // Fall back to MFCentral format if table parsing fails
+      // Try the new ISIN-based holding statement parser first (most accurate)
+      holdings = parseCAMSHoldingStatementFormat(text);
+      console.log('[PDF Parser] CAMS Holding Statement parser found:', holdings.length, 'holdings');
+      
+      // Fall back to table format if holding statement parser fails
+      if (holdings.length === 0) {
+        holdings = parseCAMSKfintechTableFormat(text);
+        console.log('[PDF Parser] CAMS Table parser found:', holdings.length, 'holdings');
+      }
+      
+      // Fall back to MFCentral format if table parsing also fails
       if (holdings.length === 0) {
         holdings = parseCASFormat(text);
+        console.log('[PDF Parser] CAS format parser found:', holdings.length, 'holdings');
       }
     } else if (broker === 'Wealthy.in') {
       holdings = parseWealthyPDFFormat(text);
@@ -1160,7 +1362,15 @@ export async function parsePDFPortfolio(buffer: Buffer, fileName: string): Promi
       holdings = parseMFCentralFormat(text);
     }
     
-    // If no holdings found with specific parser, try CAMS table format first (common for CAS statements)
+    // If no holdings found with specific parser, try CAMS holding statement parser first (most accurate for CAS PDFs)
+    if (holdings.length === 0) {
+      holdings = parseCAMSHoldingStatementFormat(text);
+      if (holdings.length > 0) {
+        console.log('[PDF Parser] Fallback: CAMS Holding Statement parser found:', holdings.length, 'holdings');
+      }
+    }
+    
+    // If still no holdings, try CAMS table format (older format)
     if (holdings.length === 0) {
       holdings = parseCAMSKfintechTableFormat(text);
     }
