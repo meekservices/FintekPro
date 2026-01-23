@@ -104,16 +104,30 @@ export class KycUpgradeNotificationService {
       }
 
       // Check vault for additional verification status
-      const [vaultData] = await db
-        .select({
-          kycStatus: kycVault.kycStatus,
-          ckycStatus: kycVault.ckycStatus,
-          panVerifiedAt: kycVault.panVerifiedAt,
-          aadhaarVerifiedAt: kycVault.aadhaarVerifiedAt,
-          addressVerifiedAt: kycVault.addressVerifiedAt,
-        })
-        .from(kycVault)
-        .where(eq(kycVault.userId, userId));
+      let vaultData: {
+        kycStatus: string | null;
+        ckycStatus: string | null;
+        panVerifiedAt: Date | null;
+        aadhaarVerifiedAt: Date | null;
+        addressVerifiedAt: Date | null;
+      } | null = null;
+      
+      try {
+        const vaultResults = await db
+          .select({
+            kycStatus: kycVault.kycStatus,
+            ckycStatus: kycVault.ckycStatus,
+            panVerifiedAt: kycVault.panVerifiedAt,
+            aadhaarVerifiedAt: kycVault.aadhaarVerifiedAt,
+            addressVerifiedAt: kycVault.addressVerifiedAt,
+          })
+          .from(kycVault)
+          .where(eq(kycVault.userId, userId));
+        vaultData = vaultResults[0] || null;
+      } catch (vaultError) {
+        console.log('[KYC Notification] Vault query failed, using user data only:', vaultError);
+        // Continue with just user data if vault query fails
+      }
 
       const missingSteps: string[] = [];
       let completedSteps = 0;
