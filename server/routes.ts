@@ -172,6 +172,7 @@ import ckycProviderRoutes from "./routes/ckyc-provider-routes";
 import aiRecommendationTrackingRoutes from "./routes/ai-recommendation-tracking-routes";
 import errorTrackingRoutes from "./routes/error-tracking-routes";
 import activityCentreRoutes from "./routes/activity-centre-routes";
+import taskOversightRoutes from "./routes/task-oversight-routes";
 import usTradingRoutes from "./routes/us-trading";
 import { registerAIInvestmentOrchestratorRoutes } from "./routes/ai-investment-orchestrator-routes";
 import { registerProfitOptimizedRoutes } from "./routes/profit-optimized-routes";
@@ -744,6 +745,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/ai-recommendations-tracking", aiRecommendationTrackingRoutes);
   app.use("/api/errors", errorTrackingRoutes);
   app.use("/api/activity-centre", activityCentreRoutes);
+  app.use("/api/admin/task-oversight", taskOversightRoutes);
+  console.log("✅ Task Oversight routes registered");
   console.log("✅ Activity Centre routes registered");
   app.use("/api/us-trading", usTradingRoutes);
   app.use(unifiedPortfolioRoutes);

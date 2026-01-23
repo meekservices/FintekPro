@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,9 +46,20 @@ import {
 } from "recharts";
 import { format } from "date-fns";
 
+interface TaskOversightStats {
+  totalTasks: number;
+  pendingTasks: number;
+  overdueTasks: number;
+  completedToday: number;
+  dueToday: number;
+  completionRate: number;
+  agentCount: number;
+}
+
 interface AgentTaskOverview {
-  id: number;
+  id: string;
   name: string;
+  email: string;
   pendingTasks: number;
   overdueTasks: number;
   completedToday: number;
@@ -59,78 +70,37 @@ interface AgentTaskOverview {
 }
 
 interface ComplianceAlert {
-  id: number;
+  id: string;
+  agentId: string;
   agentName: string;
+  taskId: string;
   taskTitle: string;
   taskType: string;
   dueDate: string;
   daysOverdue: number;
   priority: "high" | "medium" | "low";
+  clientName?: string;
 }
 
-interface ApiAgent {
-  id: string;
-  fullName: string;
-  status: string;
-  totalClientsAssigned: number;
-  activeClientsCount: number;
-  totalCommissionsEarned: string;
-  pendingCommissions: string;
-  totalTicketsHandled: number;
-  updatedAt: string;
-}
-
-function getLastActiveText(updatedAt: string): string {
-  const now = new Date();
-  const updated = new Date(updatedAt);
-  const diffMs = now.getTime() - updated.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-  
-  if (diffMins < 60) return `${diffMins} mins ago`;
-  if (diffHours < 24) return `${diffHours} hours ago`;
-  if (diffDays < 7) return `${diffDays} days ago`;
-  return `${Math.floor(diffDays / 7)} weeks ago`;
-}
-
-function transformAgentToTaskOverview(agent: ApiAgent, index: number): AgentTaskOverview {
-  const totalClients = agent.totalClientsAssigned || 0;
-  const activeClients = agent.activeClientsCount || 0;
-  const tickets = agent.totalTicketsHandled || 0;
-  
-  const pendingTasks = Math.max(0, totalClients - activeClients);
-  const overdueTasks = agent.status === 'inactive' ? Math.max(1, Math.floor(pendingTasks * 0.3)) : 
-                       agent.status === 'on_leave' ? Math.floor(pendingTasks * 0.1) : 0;
-  const completedToday = Math.floor(tickets * 0.1);
-  const totalTasks = Math.max(1, pendingTasks + tickets + completedToday);
-  const completionRate = totalTasks > 0 ? Math.min(100, ((tickets) / totalTasks) * 100) : 100;
-  
-  let complianceStatus: "compliant" | "at_risk" | "non_compliant" = "compliant";
-  if (overdueTasks >= 3 || completionRate < 60) complianceStatus = "non_compliant";
-  else if (overdueTasks >= 1 || completionRate < 75) complianceStatus = "at_risk";
-  
-  return {
-    id: index + 1,
-    name: agent.fullName,
-    pendingTasks,
-    overdueTasks,
-    completedToday,
-    totalTasks,
-    completionRate: Math.round(completionRate * 10) / 10,
-    lastActive: getLastActiveText(agent.updatedAt),
-    complianceStatus,
-  };
+interface TaskTypeBreakdown {
+  name: string;
+  value: number;
+  color: string;
 }
 
 const TASK_TYPE_CONFIG: Record<string, { label: string; icon: typeof Shield; color: string }> = {
   kyc_renewal: { label: 'KYC Renewal', icon: Shield, color: 'bg-indigo-500/20 text-indigo-400' },
+  document_submission: { label: 'Document', icon: FileText, color: 'bg-amber-500/20 text-amber-400' },
+  payment_due: { label: 'Payment Due', icon: Bell, color: 'bg-red-500/20 text-red-400' },
+  review_scheduled: { label: 'Review', icon: Video, color: 'bg-purple-500/20 text-purple-400' },
+  action_required: { label: 'Action Required', icon: Target, color: 'bg-orange-500/20 text-orange-400' },
   follow_up: { label: 'Follow Up', icon: Phone, color: 'bg-blue-500/20 text-blue-400' },
-  review_meeting: { label: 'Review Meeting', icon: Video, color: 'bg-purple-500/20 text-purple-400' },
-  proposal: { label: 'Proposal', icon: FileText, color: 'bg-emerald-500/20 text-emerald-400' },
-  document: { label: 'Document', icon: FileText, color: 'bg-amber-500/20 text-amber-400' },
-  alert: { label: 'Alert Action', icon: Bell, color: 'bg-orange-500/20 text-orange-400' },
-  custom: { label: 'Custom', icon: Target, color: 'bg-slate-500/20 text-slate-400' }
+  call: { label: 'Phone Call', icon: Phone, color: 'bg-emerald-500/20 text-emerald-400' },
+  video_call: { label: 'Video Call', icon: Video, color: 'bg-purple-500/20 text-purple-400' },
+  in_person: { label: 'In Person', icon: Users, color: 'bg-teal-500/20 text-teal-400' },
+  office_visit: { label: 'Office Visit', icon: Users, color: 'bg-indigo-500/20 text-indigo-400' },
+  meeting: { label: 'Meeting', icon: Video, color: 'bg-violet-500/20 text-violet-400' },
+  custom: { label: 'Other', icon: Target, color: 'bg-slate-500/20 text-slate-400' }
 };
 
 export default function AdminTaskOversight() {
@@ -139,50 +109,34 @@ export default function AdminTaskOversight() {
   const [taskTypeFilter, setTaskTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
+  const queryClient = useQueryClient();
 
-  const { data: agentsResponse, isLoading, refetch } = useQuery<{ agents: ApiAgent[] }>({
-    queryKey: ["/api/admin/agents"],
-    queryFn: async () => {
-      const response = await apiRequest("/api/admin/agents");
-      return response;
-    }
+  const { data: statsResponse, isLoading: statsLoading } = useQuery<{ success: boolean; stats: TaskOversightStats }>({
+    queryKey: ["/api/admin/task-oversight/stats"],
   });
 
-  const agentOverview: AgentTaskOverview[] = (agentsResponse?.agents || []).map(transformAgentToTaskOverview);
-  
-  const complianceAlerts: ComplianceAlert[] = agentOverview
-    .filter(agent => agent.overdueTasks > 0)
-    .flatMap((agent, idx) => 
-      Array.from({ length: Math.min(agent.overdueTasks, 2) }, (_, i) => ({
-        id: idx * 10 + i + 1,
-        agentName: agent.name,
-        taskTitle: i === 0 ? `KYC Renewal - Client ${idx + 1}` : `Follow up - Investment Proposal`,
-        taskType: i === 0 ? "kyc_renewal" : "follow_up",
-        dueDate: new Date(Date.now() - (i + 1) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        daysOverdue: i + 1,
-        priority: (i === 0 ? "high" : "medium") as "high" | "medium" | "low",
-      }))
-    ).slice(0, 6);
-  
-  const taskTypeData = [
-    { name: "KYC Renewal", value: agentOverview.filter(a => a.pendingTasks > 0).length * 5, color: "#6366f1" },
-    { name: "Follow Up", value: agentOverview.length * 8, color: "#3b82f6" },
-    { name: "Review Meeting", value: agentOverview.length * 4, color: "#8b5cf6" },
-    { name: "Proposal", value: Math.floor(agentOverview.reduce((s, a) => s + a.totalTasks, 0) * 0.1), color: "#10b981" },
-    { name: "Document", value: agentOverview.length * 3, color: "#f59e0b" },
-    { name: "Alert Action", value: agentOverview.reduce((s, a) => s + a.overdueTasks, 0), color: "#f97316" },
-  ];
+  const { data: agentsResponse, isLoading: agentsLoading, refetch: refetchAgents } = useQuery<{ success: boolean; agents: AgentTaskOverview[] }>({
+    queryKey: ["/api/admin/task-oversight/agents"],
+  });
 
-  const totalTasks = agentOverview.reduce((sum, agent) => sum + agent.totalTasks, 0);
-  const totalOverdue = agentOverview.reduce((sum, agent) => sum + agent.overdueTasks, 0);
-  const totalDueToday = agentOverview.reduce((sum, agent) => sum + agent.completedToday, 0) + Math.floor(agentOverview.length * 1.5);
-  const overallCompletionRate = agentOverview.length > 0 
-    ? agentOverview.reduce((sum, agent) => sum + agent.completionRate, 0) / agentOverview.length 
-    : 0;
+  const { data: alertsResponse, isLoading: alertsLoading } = useQuery<{ success: boolean; alerts: ComplianceAlert[] }>({
+    queryKey: ["/api/admin/task-oversight/alerts"],
+  });
+
+  const { data: breakdownResponse, isLoading: breakdownLoading } = useQuery<{ success: boolean; breakdown: TaskTypeBreakdown[] }>({
+    queryKey: ["/api/admin/task-oversight/breakdown"],
+  });
+
+  const isLoading = statsLoading || agentsLoading;
+  const stats = statsResponse?.stats;
+  const agentOverview = agentsResponse?.agents || [];
+  const complianceAlerts = alertsResponse?.alerts || [];
+  const taskTypeData = breakdownResponse?.breakdown || [];
 
   const filteredAgents = agentOverview.filter(agent => {
-    const matchesSearch = agent.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesAgent = agentFilter === "all" || agent.id.toString() === agentFilter;
+    const matchesSearch = agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          agent.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesAgent = agentFilter === "all" || agent.id === agentFilter;
     const matchesStatus = statusFilter === "all" ||
       (statusFilter === "compliant" && agent.complianceStatus === "compliant") ||
       (statusFilter === "at_risk" && agent.complianceStatus === "at_risk") ||
@@ -190,7 +144,12 @@ export default function AdminTaskOversight() {
     return matchesSearch && matchesAgent && matchesStatus;
   });
   
-  const handleRefresh = () => refetch();
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/task-oversight/stats"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/task-oversight/agents"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/task-oversight/alerts"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/task-oversight/breakdown"] });
+  };
 
   const getComplianceStatusBadge = (status: string) => {
     if (status === "compliant") return <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Compliant</Badge>;
@@ -236,10 +195,10 @@ export default function AdminTaskOversight() {
             <CheckCircle className="h-4 w-4 text-blue-400" />
           </CardHeader>
           <CardContent>
-            {isLoading ? <Skeleton className="h-8 w-16 bg-gray-700" /> : (
-              <div className="text-2xl font-bold text-white" data-testid="text-total-tasks">{totalTasks}</div>
+            {statsLoading ? <Skeleton className="h-8 w-16 bg-gray-700" /> : (
+              <div className="text-2xl font-bold text-white" data-testid="text-total-tasks">{stats?.totalTasks || 0}</div>
             )}
-            <p className="text-xs text-green-400 mt-1">Across {agentOverview.length} agents</p>
+            <p className="text-xs text-green-400 mt-1">Across {stats?.agentCount || 0} agents</p>
           </CardContent>
         </Card>
 
@@ -249,7 +208,9 @@ export default function AdminTaskOversight() {
             <AlertTriangle className="h-4 w-4 text-red-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-400" data-testid="text-overdue-tasks">{totalOverdue}</div>
+            {statsLoading ? <Skeleton className="h-8 w-16 bg-gray-700" /> : (
+              <div className="text-2xl font-bold text-red-400" data-testid="text-overdue-tasks">{stats?.overdueTasks || 0}</div>
+            )}
             <p className="text-xs text-red-400 mt-1">Requires immediate attention</p>
           </CardContent>
         </Card>
@@ -260,7 +221,9 @@ export default function AdminTaskOversight() {
             <Clock className="h-4 w-4 text-amber-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-amber-400" data-testid="text-due-today">{totalDueToday}</div>
+            {statsLoading ? <Skeleton className="h-8 w-16 bg-gray-700" /> : (
+              <div className="text-2xl font-bold text-amber-400" data-testid="text-due-today">{stats?.dueToday || 0}</div>
+            )}
             <p className="text-xs text-amber-400 mt-1">Must be completed today</p>
           </CardContent>
         </Card>
@@ -271,8 +234,10 @@ export default function AdminTaskOversight() {
             <TrendingUp className="h-4 w-4 text-emerald-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-400" data-testid="text-completion-rate">{overallCompletionRate.toFixed(1)}%</div>
-            <p className="text-xs text-green-400 mt-1">+3.2% from last week</p>
+            {statsLoading ? <Skeleton className="h-8 w-16 bg-gray-700" /> : (
+              <div className="text-2xl font-bold text-emerald-400" data-testid="text-completion-rate">{stats?.completionRate?.toFixed(1) || 0}%</div>
+            )}
+            <p className="text-xs text-green-400 mt-1">{stats?.completedToday || 0} completed today</p>
           </CardContent>
         </Card>
       </div>
@@ -295,7 +260,7 @@ export default function AdminTaskOversight() {
           <SelectContent className="bg-muted border-border">
             <SelectItem value="all">All Agents</SelectItem>
             {agentOverview.map(agent => (
-              <SelectItem key={agent.id} value={agent.id.toString()}>{agent.name}</SelectItem>
+              <SelectItem key={agent.id} value={agent.id}>{agent.name}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -352,37 +317,48 @@ export default function AdminTaskOversight() {
           <CardHeader>
             <CardTitle className="text-foreground">Task Type Breakdown</CardTitle>
             <CardDescription className="text-muted-foreground">
-              Distribution of tasks across all agents
+              Distribution of pending tasks across all agents
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={taskTypeData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  >
-                    {taskTypeData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px' }}
-                    labelStyle={{ color: '#fff' }}
-                  />
-                  <Legend
-                    wrapperStyle={{ color: '#9ca3af' }}
-                    formatter={(value) => <span className="text-muted-foreground">{value}</span>}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              {breakdownLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : taskTypeData.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                  <CheckCircle className="h-12 w-12 mb-2 text-green-400" />
+                  <p>No pending tasks</p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={taskTypeData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="value"
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    >
+                      {taskTypeData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px' }}
+                      labelStyle={{ color: '#fff' }}
+                    />
+                    <Legend
+                      wrapperStyle={{ color: '#9ca3af' }}
+                      formatter={(value) => <span className="text-muted-foreground">{value}</span>}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -394,13 +370,20 @@ export default function AdminTaskOversight() {
               Compliance Alerts
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              Agents with overdue compliance tasks
+              Overdue tasks requiring immediate attention
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3 max-h-72 overflow-y-auto">
-              {complianceAlerts.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">No compliance alerts!</p>
+              {alertsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : complianceAlerts.length === 0 ? (
+                <div className="text-center py-8">
+                  <CheckCircle className="h-12 w-12 mx-auto mb-2 text-green-400" />
+                  <p className="text-muted-foreground">No compliance alerts - all tasks on track!</p>
+                </div>
               ) : (
                 complianceAlerts.map((alert) => {
                   const typeConfig = TASK_TYPE_CONFIG[alert.taskType] || TASK_TYPE_CONFIG.custom;
@@ -418,6 +401,9 @@ export default function AdminTaskOversight() {
                         <div>
                           <p className="font-medium text-white text-sm">{alert.taskTitle}</p>
                           <p className="text-xs text-muted-foreground">{alert.agentName}</p>
+                          {alert.clientName && (
+                            <p className="text-xs text-muted-foreground">Client: {alert.clientName}</p>
+                          )}
                         </div>
                       </div>
                       <div className="text-right">
@@ -460,42 +446,56 @@ export default function AdminTaskOversight() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAgents.map((agent) => (
-                  <TableRow
-                    key={agent.id}
-                    className="border-border hover:bg-muted/50"
-                    data-testid={`row-agent-${agent.id}`}
-                  >
-                    <TableCell className="font-medium text-white">{agent.name}</TableCell>
-                    <TableCell className="text-right text-muted-foreground">{agent.pendingTasks}</TableCell>
-                    <TableCell className="text-right">
-                      <span className={agent.overdueTasks > 0 ? "text-red-400 font-medium" : "text-muted-foreground"}>
-                        {agent.overdueTasks}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right text-emerald-400">{agent.completedToday}</TableCell>
-                    <TableCell className="text-right">
-                      <span className={`font-medium ${
-                        agent.completionRate >= 80 ? "text-green-400" :
-                        agent.completionRate >= 60 ? "text-amber-400" : "text-red-400"
-                      }`}>
-                        {agent.completionRate.toFixed(1)}%
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{agent.lastActive}</TableCell>
-                    <TableCell className="text-center">
-                      {getComplianceStatusBadge(agent.complianceStatus)}
+                {agentsLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : filteredAgents.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      No agents found matching the current filters.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredAgents.map((agent) => (
+                    <TableRow
+                      key={agent.id}
+                      className="border-border hover:bg-muted/50"
+                      data-testid={`row-agent-${agent.id}`}
+                    >
+                      <TableCell>
+                        <div>
+                          <p className="font-medium text-white">{agent.name}</p>
+                          <p className="text-xs text-muted-foreground">{agent.email}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">{agent.pendingTasks}</TableCell>
+                      <TableCell className="text-right">
+                        <span className={agent.overdueTasks > 0 ? "text-red-400 font-medium" : "text-muted-foreground"}>
+                          {agent.overdueTasks}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right text-emerald-400">{agent.completedToday}</TableCell>
+                      <TableCell className="text-right">
+                        <span className={`font-medium ${
+                          agent.completionRate >= 80 ? "text-green-400" :
+                          agent.completionRate >= 60 ? "text-amber-400" : "text-red-400"
+                        }`}>
+                          {agent.completionRate.toFixed(1)}%
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{agent.lastActive}</TableCell>
+                      <TableCell className="text-center">
+                        {getComplianceStatusBadge(agent.complianceStatus)}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>
-          {filteredAgents.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              No agents found matching the current filters.
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>
