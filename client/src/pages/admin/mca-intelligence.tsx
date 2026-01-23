@@ -24,14 +24,13 @@ import { useToast } from '@/hooks/use-toast';
 import { LoadingState } from '@/components/LoadingState';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 
-interface WalletInfo {
-  currentBalance: number;
-  monthlySpend: number;
-  totalSpentAllTime: number;
-  monthlyBudget: number;
-  alertThreshold: number;
-  isLowBalance: boolean;
-  lastRechargeDate?: string;
+interface ApiUsageInfo {
+  paymentMode: string;
+  billingProvider: string;
+  totalRequests: number;
+  requestsThisMonth: number;
+  lastRequestDate?: string;
+  message: string;
 }
 
 interface DashboardStats {
@@ -39,7 +38,7 @@ interface DashboardStats {
   totalFilings: number;
   totalQueries: number;
   profitableCompanies: number;
-  walletBalance: number;
+  apiRequestsThisMonth: number;
   recentQueries: any[];
 }
 
@@ -84,7 +83,7 @@ export default function McaIntelligence() {
       if (payment === 'success') {
         toast({ 
           title: 'Payment Successful', 
-          description: amount ? `Wallet credited with ₹${amount}` : 'Wallet has been recharged',
+          description: amount ? `API credits added: ₹${amount}` : 'API credits have been added',
         });
         queryClient.invalidateQueries({ queryKey: ['/api/mca/wallet'] });
         queryClient.invalidateQueries({ queryKey: ['/api/mca/dashboard'] });
@@ -162,9 +161,7 @@ export default function McaIntelligence() {
   const [bulkPreview, setBulkPreview] = useState<any>(null);
   const [bulkError, setBulkError] = useState('');
   
-  // Wallet State
-  const [rechargeAmount, setRechargeAmount] = useState('');
-  const [showRechargeDialog, setShowRechargeDialog] = useState(false);
+  // API Usage State (direct pay-per-request via Sandbox.co.in)
 
   // Fetch Dashboard Stats
   const { data: dashboardResponse, isLoading: loadingStats } = useQuery<{
@@ -175,8 +172,8 @@ export default function McaIntelligence() {
   });
   const dashboardStats = dashboardResponse?.data;
 
-  // Fetch Wallet Status
-  const { data: walletData } = useQuery<{ success: boolean; data: WalletInfo }>({
+  // Fetch API Usage Stats (direct pay-per-request mode)
+  const { data: apiUsageData } = useQuery<{ success: boolean; data: ApiUsageInfo }>({
     queryKey: ['/api/mca/wallet'],
   });
 
@@ -374,38 +371,7 @@ export default function McaIntelligence() {
     }
   };
 
-  // Wallet Recharge Mutation - initiates Cashfree payment
-  const rechargeMutation = useMutation({
-    mutationFn: async (amount: number) => {
-      return await apiRequest('/api/mca/wallet/recharge/initiate', {
-        method: 'POST',
-        body: JSON.stringify({ amount }),
-      });
-    },
-    onSuccess: (data) => {
-      if (data.success && data.data?.paymentUrl) {
-        toast({ 
-          title: 'Redirecting to payment...', 
-          description: `Amount: ₹${data.data.amount}`,
-        });
-        setShowRechargeDialog(false);
-        setRechargeAmount('');
-        // Redirect to Cashfree payment page
-        window.location.href = data.data.paymentUrl;
-      } else {
-        toast({ 
-          title: 'Payment initiation failed', 
-          description: data.error || 'Could not create payment order',
-          variant: 'destructive',
-        });
-      }
-    },
-    onError: (error: any) => {
-      toast({ title: 'Recharge failed', description: error.message, variant: 'destructive' });
-    },
-  });
-
-  const wallet = walletData?.data;
+  const apiUsage = apiUsageData?.data;
   const stats = dashboardStats;
 
   const formatCurrency = (amount: number) => {
@@ -434,14 +400,13 @@ export default function McaIntelligence() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant={wallet?.isLowBalance ? 'destructive' : 'default'} className="text-sm py-1 px-3">
-            <Wallet className="h-4 w-4 mr-1" />
-            Balance: {formatCurrency(wallet?.currentBalance || 0)}
+          <Badge variant="secondary" className="text-sm py-1 px-3">
+            <BarChart3 className="h-4 w-4 mr-1" />
+            API Requests: {apiUsage?.requestsThisMonth || stats?.totalQueries || 0} this month
           </Badge>
-          <Button variant="outline" size="sm" onClick={() => setShowRechargeDialog(true)}>
-            <IndianRupee className="h-4 w-4 mr-1" />
-            Recharge
-          </Button>
+          <Badge variant="outline" className="text-xs py-1 px-2">
+            Direct Billing via Sandbox.co.in
+          </Badge>
         </div>
       </div>
 
@@ -519,47 +484,40 @@ export default function McaIntelligence() {
                 </Card>
               </div>
 
-              {/* Wallet Status */}
+              {/* API Usage Status - Direct Pay-Per-Request via Sandbox.co.in */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Wallet className="h-5 w-5" />
-                    MCA Wallet Status
+                    <Activity className="h-5 w-5" />
+                    MCA API Usage
                   </CardTitle>
+                  <CardDescription>
+                    Direct pay-per-request billing via Sandbox.co.in
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     <div>
-                      <p className="text-sm text-muted-foreground">Current Balance</p>
-                      <p className={`text-xl font-bold ${wallet?.isLowBalance ? 'text-red-500' : 'text-green-600'}`}>
-                        {formatCurrency(wallet?.currentBalance || 0)}
+                      <p className="text-sm text-muted-foreground">Requests This Month</p>
+                      <p className="text-xl font-bold text-blue-600">
+                        {apiUsage?.requestsThisMonth || stats?.apiRequestsThisMonth || 0}
                       </p>
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Monthly Spend</p>
-                      <p className="text-xl font-bold">{formatCurrency(wallet?.monthlySpend || 0)}</p>
+                      <p className="text-sm text-muted-foreground">Total Requests</p>
+                      <p className="text-xl font-bold">{apiUsage?.totalRequests || stats?.totalQueries || 0}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Monthly Budget</p>
-                      <p className="text-xl font-bold">{formatCurrency(wallet?.monthlyBudget || 0)}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">All-Time Spend</p>
-                      <p className="text-xl font-bold">{formatCurrency(wallet?.totalSpentAllTime || 0)}</p>
+                      <p className="text-sm text-muted-foreground">Billing Provider</p>
+                      <p className="text-xl font-bold text-green-600">Sandbox.co.in</p>
                     </div>
                   </div>
-                  {wallet && (
-                    <div className="mt-4">
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>Budget Usage</span>
-                        <span>{((wallet.monthlySpend / wallet.monthlyBudget) * 100).toFixed(0)}%</span>
-                      </div>
-                      <Progress 
-                        value={(wallet.monthlySpend / wallet.monthlyBudget) * 100} 
-                        className="h-2"
-                      />
-                    </div>
-                  )}
+                  <div className="mt-4 p-3 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground">
+                      <strong>Direct Billing:</strong> Each MCA API request is billed directly to your Sandbox.co.in account.
+                      Add credits at <a href="https://dashboard.sandbox.co.in/billing" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">dashboard.sandbox.co.in</a>
+                    </p>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -617,7 +575,7 @@ export default function McaIntelligence() {
                       <SelectItem value="last_filed_aoc4">Last Filed AOC-4</SelectItem>
                       <SelectItem value="profit_check">Profit Check (&gt;₹1 Cr)</SelectItem>
                       <SelectItem value="filing_status">Filing Status</SelectItem>
-                      <SelectItem value="wallet_check">Wallet Status</SelectItem>
+                      <SelectItem value="wallet_check">API Usage Stats</SelectItem>
                       <SelectItem value="charges_analysis">Charges Analysis</SelectItem>
                     </SelectContent>
                   </Select>
@@ -1337,43 +1295,6 @@ export default function McaIntelligence() {
                 <Upload className="h-4 w-4 mr-2" />
               )}
               Ingest
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Wallet Recharge Dialog */}
-      <Dialog open={showRechargeDialog} onOpenChange={setShowRechargeDialog}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Recharge MCA Wallet</DialogTitle>
-            <DialogDescription>
-              Add funds to your MCA API wallet.
-            </DialogDescription>
-          </DialogHeader>
-          <div>
-            <Label>Amount (₹)</Label>
-            <Input 
-              type="number"
-              value={rechargeAmount} 
-              onChange={(e) => setRechargeAmount(e.target.value)}
-              placeholder="10000"
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRechargeDialog(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={() => rechargeMutation.mutate(parseFloat(rechargeAmount))}
-              disabled={rechargeMutation.isPending || !rechargeAmount}
-            >
-              {rechargeMutation.isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <IndianRupee className="h-4 w-4 mr-2" />
-              )}
-              Recharge
             </Button>
           </DialogFooter>
         </DialogContent>

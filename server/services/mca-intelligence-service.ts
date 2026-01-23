@@ -268,7 +268,8 @@ class McaIntelligenceService {
           break;
 
         case 'wallet_check':
-          result = await this.getWalletStatus();
+          // Now returns API usage stats (direct billing via Sandbox.co.in)
+          result = await this.getApiUsageStats();
           break;
 
         case 'profitable_filter':
@@ -1035,6 +1036,52 @@ class McaIntelligenceService {
   }
 
   /**
+   * Get API usage statistics for direct pay-per-request mode
+   * Billing is handled directly by Sandbox.co.in - this just tracks usage
+   */
+  async getApiUsageStats(): Promise<{
+    totalRequests: number;
+    requestsThisMonth: number;
+    lastRequestDate?: string;
+  }> {
+    try {
+      // Get total requests from query log
+      const [totalResult] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(mcaQueryLog);
+
+      // Get requests this month
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+
+      const [monthlyResult] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(mcaQueryLog)
+        .where(gte(mcaQueryLog.createdAt, startOfMonth));
+
+      // Get last request date
+      const [lastRequest] = await db
+        .select({ createdAt: mcaQueryLog.createdAt })
+        .from(mcaQueryLog)
+        .orderBy(desc(mcaQueryLog.createdAt))
+        .limit(1);
+
+      return {
+        totalRequests: Number(totalResult?.count) || 0,
+        requestsThisMonth: Number(monthlyResult?.count) || 0,
+        lastRequestDate: lastRequest?.createdAt?.toISOString(),
+      };
+    } catch (error) {
+      console.error('[MCA Intelligence] Failed to get API usage stats:', error);
+      return {
+        totalRequests: 0,
+        requestsThisMonth: 0,
+      };
+    }
+  }
+
+  /**
    * Get profitable companies (Profitable Company Radar)
    * Enhanced to include computed financial ratios
    */
@@ -1408,7 +1455,7 @@ class McaIntelligenceService {
       .from(mcaFinancialSnapshot)
       .where(gte(mcaFinancialSnapshot.profitAfterTax, '10000000'));
 
-    const wallet = await this.getWalletStatus();
+    const apiUsage = await this.getApiUsageStats();
 
     const recentQueries = await db
       .select()
@@ -1421,7 +1468,9 @@ class McaIntelligenceService {
       totalFilings: filingCount?.count || 0,
       totalQueries: queryCount?.count || 0,
       profitableCompanies: profitableCount?.count || 0,
-      walletBalance: wallet.currentBalance,
+      // Direct pay-per-request mode - no wallet balance needed
+      // Billing is handled directly by Sandbox.co.in
+      apiRequestsThisMonth: apiUsage.requestsThisMonth,
       recentQueries,
     };
   }

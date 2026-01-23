@@ -870,17 +870,26 @@ router.get('/company/:cin/risk-score', requireMcaAccess('read'), async (req: Req
 
 /**
  * GET /api/mca/wallet
- * Get MCA wallet status
+ * Get MCA API usage stats - Direct pay-per-request mode via Sandbox.co.in
+ * Wallet balance is no longer used; billing is handled directly by Sandbox API
  */
 router.get('/wallet', requireMcaAccess('read'), async (req: Request, res: Response) => {
   try {
-    const wallet = await mcaIntelligenceService.getWalletStatus();
+    // Return usage stats instead of wallet balance (Sandbox.co.in handles billing directly)
+    const stats = await mcaIntelligenceService.getApiUsageStats();
     res.json({
       success: true,
-      data: wallet,
+      data: {
+        paymentMode: 'direct', // Pay-per-request via Sandbox.co.in
+        billingProvider: 'Sandbox.co.in',
+        totalRequests: stats?.totalRequests || 0,
+        requestsThisMonth: stats?.requestsThisMonth || 0,
+        lastRequestDate: stats?.lastRequestDate,
+        message: 'MCA API requests are billed directly by Sandbox.co.in per API call',
+      },
     });
   } catch (error: any) {
-    console.error('[MCA Routes] Wallet status error:', error);
+    console.error('[MCA Routes] API usage stats error:', error);
     res.status(500).json({
       success: false,
       error: error.message,
@@ -890,102 +899,20 @@ router.get('/wallet', requireMcaAccess('read'), async (req: Request, res: Respon
 
 /**
  * POST /api/mca/wallet/recharge/initiate
- * Initiate MCA wallet recharge via Cashfree payment (Admin only)
+ * DEPRECATED - Direct pay-per-request mode via Sandbox.co.in
+ * MCA API billing is now handled directly by Sandbox.co.in per API call
  */
 router.post('/wallet/recharge/initiate', requireMcaAccess('full'), async (req: Request, res: Response) => {
-  const user = (req as any).user;
-  console.log('[MCA Routes] Recharge initiate request:', { 
-    body: req.body, 
-    user: user?.email,
-    role: getMcaRole(req)
-  });
-  
   res.setHeader('Content-Type', 'application/json');
   
-  try {
-    const { amount } = req.body;
-    if (!amount || amount <= 0 || amount > 500000) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid recharge amount (must be between ₹1 and ₹5,00,000)',
-      });
-    }
-
-    // Check if Cashfree is configured
-    if (!cashfreeService.hasValidCredentials()) {
-      return res.status(503).json({
-        success: false,
-        error: 'Payment gateway not configured. Please contact support.',
-      });
-    }
-
-    // Get base URL for callback
-    const protocol = req.headers['x-forwarded-proto'] || 'https';
-    const host = req.headers['host'] || process.env.REPLIT_DEV_DOMAIN;
-    const baseUrl = `${protocol}://${host}`;
-    const returnUrl = `${baseUrl}/api/mca/wallet/recharge/callback`;
-
-    // Create Cashfree order
-    const orderResponse = await cashfreeService.createOrder({
-      amount: amount,
-      userId: user?.id || 'mca-admin',
-      email: user?.email || 'admin@fintekpro.com',
-      name: user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'MCA Admin',
-      phone: user?.mobile || '9999999999',
-      returnUrl: returnUrl,
-    });
-
-    if (!orderResponse.success || !orderResponse.orderId) {
-      // Enhanced error message for payment gateway issues
-      let errorMessage = orderResponse.message || 'Failed to create payment order';
-      let troubleshooting = null;
-      
-      if (errorMessage.toLowerCase().includes('authentication')) {
-        troubleshooting = 'Please verify your Cashfree API credentials in the Secrets panel. For sandbox testing, use sandbox credentials from your Cashfree dashboard.';
-        console.error('[MCA Routes] Cashfree authentication failed. Verify CASHFREE_APP_ID and CASHFREE_SECRET_KEY are correct and match the environment (sandbox/production).');
-      }
-      
-      return res.status(500).json({
-        success: false,
-        error: errorMessage,
-        troubleshooting: troubleshooting,
-      });
-    }
-
-    // Save payment record
-    const payment = await mcaIntelligenceService.createWalletPayment({
-      orderId: orderResponse.orderId,
-      paymentSessionId: orderResponse.paymentSessionId,
-      amount: amount,
-      initiatedBy: user?.email || 'unknown',
-      initiatedByUserId: user?.id,
-      paymentUrl: orderResponse.paymentUrl,
-      returnUrl: returnUrl,
-    });
-
-    console.log('[MCA Routes] Payment order created:', { 
-      orderId: orderResponse.orderId, 
-      amount,
-      paymentUrl: orderResponse.paymentUrl 
-    });
-
-    res.json({
-      success: true,
-      message: 'Payment order created',
-      data: {
-        orderId: orderResponse.orderId,
-        paymentSessionId: orderResponse.paymentSessionId,
-        paymentUrl: orderResponse.paymentUrl,
-        amount: amount,
-      },
-    });
-  } catch (error: any) {
-    console.error('[MCA Routes] Wallet recharge initiate error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
+  // Return deprecation notice - wallet recharge is no longer needed
+  res.status(200).json({
+    success: true,
+    deprecated: true,
+    message: 'MCA API billing is now direct pay-per-request via Sandbox.co.in',
+    instructions: 'Please add credits directly in your Sandbox.co.in dashboard. Each MCA API request will be billed automatically.',
+    sandboxDashboard: 'https://dashboard.sandbox.co.in/billing',
+  });
 });
 
 /**
