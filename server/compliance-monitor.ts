@@ -361,7 +361,9 @@ export const complianceMiddleware = (req: Request, res: Response, next: NextFunc
       riskLevel = req.method === 'GET' ? 'low' : 'medium';
     } else if (req.path.includes('/admin')) {
       eventType = 'admin_action';
-      riskLevel = 'high';
+      // Only flag mutating admin operations as high-risk
+      // GET requests (dashboard views, counts, etc.) are low-risk read-only operations
+      riskLevel = req.method === 'GET' ? 'low' : 'high';
     } else if (req.path.includes('/transaction') || req.path.includes('/payment')) {
       eventType = 'transaction';
       riskLevel = 'high';
