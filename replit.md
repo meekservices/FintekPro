@@ -60,6 +60,14 @@ A DSA Multi-Financier Loan Routing System enables multi-bank loan applications w
 
 An **MCA Integration System** provides comprehensive company financial data management, including direct payment processing for 14 MCA fee types with Zoho Books auto-sync, financial data backfill from MCA filings, an auto-refresh scheduler, and per-field coverage tracking for 12 financial metrics.
 
+A **Database-First Data Enrichment System** for unlisted shares implements a tiered data access pattern:
+- **Database-First Pattern**: Always checks local `mca_financial_snapshot` table before making API calls
+- **API Fallback**: When data is missing, fetches from Sandbox.co.in API and populates the database
+- **Staleness Detection**: Tracks data freshness using `derivedAt` timestamp with 90-day threshold
+- **Auto-Refresh Scheduler**: Daily scheduler processes up to 20 stale companies per cycle
+- **Admin Enrichment API**: Endpoints at `/api/mca/enrichment/*` for stats, stale list, manual/bulk enrichment
+- **Cost Optimization**: Batch processing with delays to respect API rate limits and minimize costs
+
 ### System Design Choices
 The platform utilizes a subdomain-based portal architecture for Admin, Partner, and Client portals, ensuring isolated experiences, security, and role-based access control.
 
