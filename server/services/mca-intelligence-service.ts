@@ -626,8 +626,13 @@ class McaIntelligenceService {
   /**
    * Get financial history with FY-wise data and YoY calculations
    * Used by the Company Profile page for trend visualization
+   * 
+   * Data Fetch Priority:
+   * 1. Database first - Check local cache (mcaFinancialSnapshot)
+   * 2. API fallback - If not in database, call Sandbox.co.in API to populate database
+   * 3. Return data from database after population
    */
-  async getFinancialHistory(cin: string, limit: number = 10): Promise<{
+  async getFinancialHistory(cin: string, limit: number = 10, options: { autoEnrich?: boolean } = {}): Promise<{
     cin: string;
     companyName?: string;
     hasData: boolean;
@@ -654,19 +659,56 @@ class McaIntelligenceService {
     }>;
     source: string;
     attribution: string;
+    enrichedFromApi?: boolean;
+    enrichmentError?: string;
   }> {
+    const { autoEnrich = true } = options;
+    
     const [company] = await db
       .select()
       .from(mcaCompanyMaster)
       .where(eq(mcaCompanyMaster.cin, cin))
       .limit(1);
 
-    const snapshots = await db
+    let snapshots = await db
       .select()
       .from(mcaFinancialSnapshot)
       .where(eq(mcaFinancialSnapshot.cin, cin))
       .orderBy(desc(mcaFinancialSnapshot.financialYear))
       .limit(limit);
+
+    // Database-first, API-fallback pattern
+    // If no cached data and auto-enrich is enabled, fetch from Sandbox.co.in API
+    let enrichedFromApi = false;
+    let enrichmentError: string | undefined;
+    
+    if (snapshots.length === 0 && autoEnrich) {
+      console.log(`[MCA Intelligence] No cached data for ${cin}, triggering API enrichment...`);
+      
+      try {
+        const { mcaDataCacheService } = await import('./mca-data-cache-service');
+        const cacheResult = await mcaDataCacheService.getCompanyWithCache(cin, { forceRefresh: false });
+        
+        if (cacheResult.success && cacheResult.apiCallMade) {
+          enrichedFromApi = true;
+          console.log(`[MCA Intelligence] API enrichment successful for ${cin}`);
+          
+          // Re-fetch snapshots after enrichment
+          snapshots = await db
+            .select()
+            .from(mcaFinancialSnapshot)
+            .where(eq(mcaFinancialSnapshot.cin, cin))
+            .orderBy(desc(mcaFinancialSnapshot.financialYear))
+            .limit(limit);
+        } else if (!cacheResult.success) {
+          enrichmentError = cacheResult.error || 'API enrichment failed';
+          console.log(`[MCA Intelligence] API enrichment failed for ${cin}: ${enrichmentError}`);
+        }
+      } catch (error: any) {
+        enrichmentError = error.message || 'Enrichment error';
+        console.error(`[MCA Intelligence] Enrichment error for ${cin}:`, error.message);
+      }
+    }
 
     if (snapshots.length === 0) {
       return {
@@ -676,6 +718,8 @@ class McaIntelligenceService {
         financialYears: [],
         source: 'MCA_AOC4_XBRL',
         attribution: this.SOURCE_ATTRIBUTION,
+        enrichedFromApi,
+        enrichmentError,
       };
     }
 
@@ -748,6 +792,7 @@ class McaIntelligenceService {
       financialYears,
       source: 'MCA_AOC4_XBRL',
       attribution: this.SOURCE_ATTRIBUTION,
+      enrichedFromApi,
     };
   }
 
@@ -1779,6 +1824,336 @@ class McaIntelligenceService {
       console.log(`[MCA Intelligence] Created financial snapshot: ${data.cin} FY ${data.financialYear}`);
       return created;
     }
+  }
+
+  // ===================================================================
+  // DATA FRESHNESS & ENRICHMENT METHODS
+  // ===================================================================
+
+  /**
+   * Check if company data is stale and needs refresh
+   * Data is considered stale if:
+   * - No financial data exists
+   * - Latest snapshot is older than threshold (default 90 days)
+   * - Company's financial year end has passed since last refresh
+   */
+  async isDataStale(cin: string, maxAgeDays: number = 90): Promise<{
+    isStale: boolean;
+    reason?: string;
+    lastUpdated?: Date;
+    daysSinceUpdate?: number;
+  }> {
+    const [latestSnapshot] = await db
+      .select()
+      .from(mcaFinancialSnapshot)
+      .where(eq(mcaFinancialSnapshot.cin, cin))
+      .orderBy(desc(mcaFinancialSnapshot.derivedAt))
+      .limit(1);
+
+    if (!latestSnapshot) {
+      return { isStale: true, reason: 'No financial data exists' };
+    }
+
+    const lastUpdated = latestSnapshot.derivedAt || latestSnapshot.createdAt;
+    if (!lastUpdated) {
+      return { isStale: true, reason: 'No update timestamp found' };
+    }
+
+    const daysSinceUpdate = Math.floor((Date.now() - lastUpdated.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (daysSinceUpdate > maxAgeDays) {
+      return {
+        isStale: true,
+        reason: `Data is ${daysSinceUpdate} days old (threshold: ${maxAgeDays} days)`,
+        lastUpdated,
+        daysSinceUpdate,
+      };
+    }
+
+    return {
+      isStale: false,
+      lastUpdated,
+      daysSinceUpdate,
+    };
+  }
+
+  /**
+   * Get companies that need data refresh
+   * Returns list of CINs with stale or missing financial data
+   */
+  async getCompaniesNeedingRefresh(options: {
+    maxAgeDays?: number;
+    limit?: number;
+    onlyUnlisted?: boolean;
+  } = {}): Promise<Array<{
+    cin: string;
+    companyName: string;
+    lastUpdated?: Date;
+    daysSinceUpdate?: number;
+    reason: string;
+  }>> {
+    const { maxAgeDays = 90, limit = 100, onlyUnlisted = true } = options;
+    const staleThreshold = new Date(Date.now() - maxAgeDays * 24 * 60 * 60 * 1000);
+
+    // Get companies from master table
+    const companies = await db
+      .select({
+        cin: mcaCompanyMaster.cin,
+        companyName: mcaCompanyMaster.companyName,
+        listedStatus: mcaCompanyMaster.listedStatus,
+      })
+      .from(mcaCompanyMaster)
+      .limit(limit * 2); // Fetch more to filter
+
+    const needsRefresh: Array<{
+      cin: string;
+      companyName: string;
+      lastUpdated?: Date;
+      daysSinceUpdate?: number;
+      reason: string;
+    }> = [];
+
+    for (const company of companies) {
+      // Filter for unlisted companies if requested
+      if (onlyUnlisted && company.listedStatus && 
+          (company.listedStatus.toLowerCase().includes('listed') && 
+           !company.listedStatus.toLowerCase().includes('unlisted'))) {
+        continue;
+      }
+
+      const staleCheck = await this.isDataStale(company.cin, maxAgeDays);
+      
+      if (staleCheck.isStale) {
+        needsRefresh.push({
+          cin: company.cin,
+          companyName: company.companyName || 'Unknown',
+          lastUpdated: staleCheck.lastUpdated,
+          daysSinceUpdate: staleCheck.daysSinceUpdate,
+          reason: staleCheck.reason || 'Unknown',
+        });
+      }
+
+      if (needsRefresh.length >= limit) break;
+    }
+
+    return needsRefresh;
+  }
+
+  /**
+   * Enrich a single company's financial data from Sandbox.co.in API
+   * Use this for manual enrichment triggers
+   */
+  async enrichCompanyData(cin: string, options: { forceRefresh?: boolean } = {}): Promise<{
+    success: boolean;
+    cin: string;
+    message: string;
+    financialsCount?: number;
+    apiCallMade: boolean;
+    error?: string;
+  }> {
+    const { forceRefresh = false } = options;
+    
+    console.log(`[MCA Intelligence] Enriching company data for ${cin} (forceRefresh: ${forceRefresh})`);
+
+    try {
+      const { mcaDataCacheService } = await import('./mca-data-cache-service');
+      const result = await mcaDataCacheService.getCompanyWithCache(cin, { forceRefresh });
+
+      if (!result.success) {
+        return {
+          success: false,
+          cin,
+          message: result.error || 'Failed to enrich company data',
+          apiCallMade: result.apiCallMade,
+          error: result.error,
+        };
+      }
+
+      // Count financial snapshots after enrichment
+      const [countResult] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(mcaFinancialSnapshot)
+        .where(eq(mcaFinancialSnapshot.cin, cin));
+
+      return {
+        success: true,
+        cin,
+        message: result.apiCallMade ? 'Data enriched from API' : 'Data served from cache',
+        financialsCount: countResult?.count || 0,
+        apiCallMade: result.apiCallMade,
+      };
+    } catch (error: any) {
+      console.error(`[MCA Intelligence] Enrichment error for ${cin}:`, error.message);
+      return {
+        success: false,
+        cin,
+        message: error.message,
+        apiCallMade: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Bulk enrich multiple companies
+   * Processes in batches to avoid API rate limits
+   */
+  async bulkEnrichCompanies(cins: string[], options: {
+    forceRefresh?: boolean;
+    batchSize?: number;
+    delayMs?: number;
+  } = {}): Promise<{
+    totalRequested: number;
+    successful: number;
+    failed: number;
+    apiCallsMade: number;
+    results: Array<{ cin: string; success: boolean; message: string }>;
+  }> {
+    const { forceRefresh = false, batchSize = 5, delayMs = 1000 } = options;
+    
+    console.log(`[MCA Intelligence] Bulk enriching ${cins.length} companies (batch: ${batchSize}, delay: ${delayMs}ms)`);
+
+    const results: Array<{ cin: string; success: boolean; message: string }> = [];
+    let successful = 0;
+    let failed = 0;
+    let apiCallsMade = 0;
+
+    // Process in batches
+    for (let i = 0; i < cins.length; i += batchSize) {
+      const batch = cins.slice(i, i + batchSize);
+      
+      const batchPromises = batch.map(async (cin) => {
+        const result = await this.enrichCompanyData(cin, { forceRefresh });
+        return result;
+      });
+
+      const batchResults = await Promise.all(batchPromises);
+
+      for (const result of batchResults) {
+        results.push({
+          cin: result.cin,
+          success: result.success,
+          message: result.message,
+        });
+        
+        if (result.success) {
+          successful++;
+        } else {
+          failed++;
+        }
+        
+        if (result.apiCallMade) {
+          apiCallsMade++;
+        }
+      }
+
+      // Delay between batches to respect rate limits
+      if (i + batchSize < cins.length) {
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
+    }
+
+    console.log(`[MCA Intelligence] Bulk enrichment complete: ${successful}/${cins.length} successful, ${apiCallsMade} API calls`);
+
+    return {
+      totalRequested: cins.length,
+      successful,
+      failed,
+      apiCallsMade,
+      results,
+    };
+  }
+
+  /**
+   * Refresh stale companies automatically
+   * Called by scheduled job to refresh companies with old data
+   */
+  async refreshStaleCompanies(options: {
+    maxAgeDays?: number;
+    limit?: number;
+    onlyUnlisted?: boolean;
+  } = {}): Promise<{
+    companiesChecked: number;
+    companiesRefreshed: number;
+    apiCallsMade: number;
+    errors: string[];
+  }> {
+    const { maxAgeDays = 90, limit = 50, onlyUnlisted = true } = options;
+    
+    console.log(`[MCA Intelligence] Starting stale company refresh (maxAge: ${maxAgeDays} days, limit: ${limit})`);
+
+    const staleCompanies = await this.getCompaniesNeedingRefresh({ maxAgeDays, limit, onlyUnlisted });
+    
+    if (staleCompanies.length === 0) {
+      console.log('[MCA Intelligence] No stale companies found');
+      return {
+        companiesChecked: 0,
+        companiesRefreshed: 0,
+        apiCallsMade: 0,
+        errors: [],
+      };
+    }
+
+    const cins = staleCompanies.map(c => c.cin);
+    const bulkResult = await this.bulkEnrichCompanies(cins, { forceRefresh: true });
+
+    const errors = bulkResult.results
+      .filter(r => !r.success)
+      .map(r => `${r.cin}: ${r.message}`);
+
+    return {
+      companiesChecked: staleCompanies.length,
+      companiesRefreshed: bulkResult.successful,
+      apiCallsMade: bulkResult.apiCallsMade,
+      errors,
+    };
+  }
+
+  /**
+   * Get enrichment statistics for dashboard
+   */
+  async getEnrichmentStats(): Promise<{
+    totalCompanies: number;
+    companiesWithFinancials: number;
+    companiesNeedingRefresh: number;
+    averageDataAgeDays: number;
+    lastEnrichmentDate?: Date;
+  }> {
+    // Total companies in master table
+    const [totalResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(mcaCompanyMaster);
+
+    // Companies with at least one financial snapshot
+    const [withFinancialsResult] = await db
+      .select({ count: sql<number>`count(distinct ${mcaFinancialSnapshot.cin})` })
+      .from(mcaFinancialSnapshot);
+
+    // Companies needing refresh (stale > 90 days)
+    const staleCompanies = await this.getCompaniesNeedingRefresh({ maxAgeDays: 90, limit: 1000 });
+
+    // Average data age
+    const [avgAgeResult] = await db
+      .select({
+        avgAge: sql<number>`avg(extract(epoch from (now() - derived_at)) / 86400)`,
+      })
+      .from(mcaFinancialSnapshot)
+      .where(sql`derived_at is not null`);
+
+    // Last enrichment date
+    const [lastEnrichment] = await db
+      .select({ derivedAt: mcaFinancialSnapshot.derivedAt })
+      .from(mcaFinancialSnapshot)
+      .orderBy(desc(mcaFinancialSnapshot.derivedAt))
+      .limit(1);
+
+    return {
+      totalCompanies: totalResult?.count || 0,
+      companiesWithFinancials: withFinancialsResult?.count || 0,
+      companiesNeedingRefresh: staleCompanies.length,
+      averageDataAgeDays: Math.round(avgAgeResult?.avgAge || 0),
+      lastEnrichmentDate: lastEnrichment?.derivedAt || undefined,
+    };
   }
 }
 

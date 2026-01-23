@@ -1508,4 +1508,209 @@ router.get('/compliance-disclaimer', (req: Request, res: Response) => {
   });
 });
 
+// ===================================================================
+// DATA ENRICHMENT ENDPOINTS
+// ===================================================================
+
+/**
+ * GET /api/mca/enrichment/stats
+ * Get enrichment statistics for dashboard
+ */
+router.get('/enrichment/stats', requireMcaAccess('read'), async (req: Request, res: Response) => {
+  try {
+    const stats = await mcaIntelligenceService.getEnrichmentStats();
+    res.json({
+      success: true,
+      data: stats,
+    });
+  } catch (error: any) {
+    console.error('[MCA Enrichment] Error getting stats:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get enrichment statistics',
+    });
+  }
+});
+
+/**
+ * GET /api/mca/enrichment/stale
+ * Get list of companies needing data refresh
+ */
+router.get('/enrichment/stale', requireMcaAccess('read'), async (req: Request, res: Response) => {
+  try {
+    const maxAgeDays = parseInt(req.query.maxAgeDays as string) || 90;
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+    const onlyUnlisted = req.query.onlyUnlisted !== 'false';
+
+    const staleCompanies = await mcaIntelligenceService.getCompaniesNeedingRefresh({
+      maxAgeDays,
+      limit,
+      onlyUnlisted,
+    });
+
+    res.json({
+      success: true,
+      data: {
+        count: staleCompanies.length,
+        maxAgeDays,
+        companies: staleCompanies,
+      },
+    });
+  } catch (error: any) {
+    console.error('[MCA Enrichment] Error getting stale companies:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get stale companies list',
+    });
+  }
+});
+
+/**
+ * POST /api/mca/enrichment/enrich/:cin
+ * Manually trigger enrichment for a single company
+ */
+router.post('/enrichment/enrich/:cin', requireMcaAccess('ingest'), async (req: Request, res: Response) => {
+  try {
+    const { cin } = req.params;
+    const forceRefresh = req.body.forceRefresh === true;
+
+    if (!cin || cin.length !== 21) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid CIN format. CIN must be 21 characters.',
+      });
+    }
+
+    console.log(`[MCA Enrichment] Manual enrichment triggered for ${cin} (force: ${forceRefresh})`);
+    
+    const result = await mcaIntelligenceService.enrichCompanyData(cin, { forceRefresh });
+
+    res.json({
+      success: result.success,
+      data: result,
+    });
+  } catch (error: any) {
+    console.error('[MCA Enrichment] Error enriching company:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to enrich company data',
+    });
+  }
+});
+
+/**
+ * POST /api/mca/enrichment/bulk-enrich
+ * Trigger bulk enrichment for multiple companies
+ */
+router.post('/enrichment/bulk-enrich', requireMcaAccess('ingest'), async (req: Request, res: Response) => {
+  try {
+    const { cins, forceRefresh = false, batchSize = 5 } = req.body;
+
+    if (!Array.isArray(cins) || cins.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'cins must be a non-empty array of CIN strings',
+      });
+    }
+
+    if (cins.length > 100) {
+      return res.status(400).json({
+        success: false,
+        error: 'Maximum 100 CINs allowed per request',
+      });
+    }
+
+    // Validate CIN formats
+    const invalidCins = cins.filter((cin: string) => typeof cin !== 'string' || cin.length !== 21);
+    if (invalidCins.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid CIN format for: ${invalidCins.slice(0, 5).join(', ')}${invalidCins.length > 5 ? '...' : ''}`,
+      });
+    }
+
+    console.log(`[MCA Enrichment] Bulk enrichment triggered for ${cins.length} companies`);
+    
+    const result = await mcaIntelligenceService.bulkEnrichCompanies(cins, {
+      forceRefresh,
+      batchSize: Math.min(batchSize, 10),
+    });
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error: any) {
+    console.error('[MCA Enrichment] Error in bulk enrichment:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to perform bulk enrichment',
+    });
+  }
+});
+
+/**
+ * POST /api/mca/enrichment/refresh-stale
+ * Automatically refresh all stale companies
+ * Admin-only endpoint
+ */
+router.post('/enrichment/refresh-stale', requireMcaAccess('full'), async (req: Request, res: Response) => {
+  try {
+    const { maxAgeDays = 90, limit = 50, onlyUnlisted = true } = req.body;
+
+    console.log(`[MCA Enrichment] Stale refresh triggered (maxAge: ${maxAgeDays}, limit: ${limit})`);
+    
+    const result = await mcaIntelligenceService.refreshStaleCompanies({
+      maxAgeDays,
+      limit: Math.min(limit, 100),
+      onlyUnlisted,
+    });
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error: any) {
+    console.error('[MCA Enrichment] Error refreshing stale companies:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to refresh stale companies',
+    });
+  }
+});
+
+/**
+ * GET /api/mca/enrichment/check-freshness/:cin
+ * Check if a specific company's data is stale
+ */
+router.get('/enrichment/check-freshness/:cin', requireMcaAccess('read'), async (req: Request, res: Response) => {
+  try {
+    const { cin } = req.params;
+    const maxAgeDays = parseInt(req.query.maxAgeDays as string) || 90;
+
+    if (!cin || cin.length !== 21) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid CIN format',
+      });
+    }
+
+    const result = await mcaIntelligenceService.isDataStale(cin, maxAgeDays);
+
+    res.json({
+      success: true,
+      data: {
+        cin,
+        ...result,
+      },
+    });
+  } catch (error: any) {
+    console.error('[MCA Enrichment] Error checking freshness:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to check data freshness',
+    });
+  }
+});
+
 export default router;

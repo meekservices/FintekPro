@@ -134,6 +134,10 @@ class McaFinancialRefreshScheduler {
       }
 
       console.log(`[MCA Refresh] Cycle complete: ${result.jobsSuccessful}/${result.jobsProcessed} successful`);
+      
+      // Also refresh stale companies that haven't been updated in 90+ days
+      await this.refreshStaleCompaniesFromApi();
+      
     } catch (error: any) {
       console.error('[MCA Refresh] Error during refresh cycle:', error.message);
     } finally {
@@ -141,6 +145,33 @@ class McaFinancialRefreshScheduler {
     }
 
     return result;
+  }
+
+  /**
+   * Refresh companies with stale data (>90 days old) from Sandbox.co.in API
+   * This enriches the database with fresh data for companies that haven't been updated recently
+   */
+  private async refreshStaleCompaniesFromApi(): Promise<void> {
+    try {
+      console.log('[MCA Refresh] Checking for stale companies needing API enrichment...');
+      
+      const { mcaIntelligenceService } = await import('./mca-intelligence-service');
+      const staleResult = await mcaIntelligenceService.refreshStaleCompanies({
+        maxAgeDays: 90,
+        limit: 20, // Process up to 20 stale companies per cycle
+        onlyUnlisted: true,
+      });
+
+      if (staleResult.companiesRefreshed > 0) {
+        console.log(`[MCA Refresh] Enriched ${staleResult.companiesRefreshed}/${staleResult.companiesChecked} stale companies from API`);
+      } else if (staleResult.companiesChecked === 0) {
+        console.log('[MCA Refresh] No stale companies found');
+      } else {
+        console.log(`[MCA Refresh] Failed to enrich stale companies: ${staleResult.errors.slice(0, 3).join(', ')}`);
+      }
+    } catch (error: any) {
+      console.error('[MCA Refresh] Error refreshing stale companies:', error.message);
+    }
   }
 
   private async identifyRefreshJobs(): Promise<RefreshJob[]> {
