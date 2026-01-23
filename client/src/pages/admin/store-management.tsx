@@ -929,7 +929,7 @@ export default function StoreManagement() {
                                   })()}
                                 </div>
                                 {category.description && (
-                                  <p className="text-xs text-muted-foreground truncate max-w-md">
+                                  <p className="text-xs text-foreground/60 truncate max-w-md">
                                     {category.description}
                                   </p>
                                 )}
