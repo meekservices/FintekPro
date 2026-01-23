@@ -220,7 +220,7 @@ class CASStatementService {
     if (isinIndex < 0) return null;
     
     const beforeIsin = text.substring(Math.max(0, isinIndex - 150), isinIndex);
-    const afterIsin = text.substring(isinIndex + isin.length, Math.min(text.length, isinIndex + isin.length + 600));
+    const afterIsin = text.substring(isinIndex + isin.length, Math.min(text.length, isinIndex + isin.length + 800));
     
     const folioMatch = beforeIsin.match(/(\d{5,}(?:\/\d+)?)\s*$/);
     const folioNumber = folioMatch ? folioMatch[1] : '';
@@ -228,62 +228,106 @@ class CASStatementService {
     let schemeName = '';
     let schemeCode = '';
     
-    const schemeMatch = afterIsin.match(/^\s*([A-Z0-9]+)\s*-\s*([^0-9]+?)(?=\d{1,3}(?:,\d{3})*\.)/i);
+    const schemeMatch = afterIsin.match(/^\s*([A-Z0-9]{2,10})\s*[-–]\s*(.+?)(?=\d{1,3}(?:,\d{3})*\.\d{2})/is);
     if (schemeMatch) {
       schemeCode = schemeMatch[1].trim();
       schemeName = schemeMatch[2].trim();
-      schemeName = schemeName.replace(/\s+/g, ' ').replace(/\s*-\s*$/, '').replace(/\(Non-?Demat\)/gi, '').replace(/\(Demat\)/gi, '').trim();
+      schemeName = schemeName.replace(/\s+/g, ' ').replace(/\s*[-–]\s*$/, '').replace(/\(Non-?Demat\)/gi, '').replace(/\(Demat\)/gi, '').trim();
     }
     
     const numberPattern = /(\d{1,3}(?:,\d{3})*\.\d{2,6})/g;
-    const numbers: number[] = [];
+    const allNumbers: { value: number; position: number }[] = [];
     let match;
     while ((match = numberPattern.exec(afterIsin)) !== null) {
       const num = parseFloat(match[1].replace(/,/g, ''));
       if (!isNaN(num) && num > 0) {
-        numbers.push(num);
+        allNumbers.push({ value: num, position: match.index });
       }
     }
     
-    if (numbers.length < 3) {
-      console.warn('[CAS Service] Insufficient numeric data for ISIN:', isin);
+    console.log(`[CAS Debug] ISIN ${isin}: Found ${allNumbers.length} numbers:`, allNumbers.map(n => n.value));
+    
+    if (allNumbers.length < 4) {
+      console.warn('[CAS Service] Insufficient numeric data for ISIN:', isin, 'found:', allNumbers.length);
       return null;
     }
+    
+    const numbers = allNumbers.map(n => n.value);
     
     let costValue = 0;
     let unitBalance = 0;
     let nav = 0;
     let marketValue = 0;
+    let bestMatch = { costIdx: 0, unitIdx: 1, navIdx: 2, marketIdx: 3, score: Infinity };
     
-    if (numbers.length >= 4) {
-      costValue = numbers[0];
-      unitBalance = numbers[1];
-      nav = numbers[2];
-      marketValue = numbers[3];
-      
-      const calculatedMarketValue = unitBalance * nav;
-      const tolerance = marketValue > 0 ? Math.abs(calculatedMarketValue - marketValue) / marketValue : 1;
-      
-      if (tolerance > 0.15 && numbers.length >= 5) {
-        const altNav = numbers[3];
-        const altMarketValue = numbers[4];
-        const altCalculated = unitBalance * altNav;
-        const altTolerance = altMarketValue > 0 ? Math.abs(altCalculated - altMarketValue) / altMarketValue : 1;
-        
-        if (altTolerance < tolerance) {
-          nav = altNav;
-          marketValue = altMarketValue;
+    for (let costIdx = 0; costIdx < Math.min(numbers.length - 3, 3); costIdx++) {
+      for (let unitIdx = costIdx + 1; unitIdx < Math.min(numbers.length - 2, costIdx + 3); unitIdx++) {
+        for (let navIdx = unitIdx + 1; navIdx < Math.min(numbers.length - 1, unitIdx + 3); navIdx++) {
+          for (let marketIdx = navIdx + 1; marketIdx < Math.min(numbers.length, navIdx + 3); marketIdx++) {
+            const testCost = numbers[costIdx];
+            const testUnits = numbers[unitIdx];
+            const testNav = numbers[navIdx];
+            const testMarket = numbers[marketIdx];
+            
+            if (testNav > 50000) continue;
+            if (testNav < 1) continue;
+            if (testUnits <= 0) continue;
+            
+            const calculatedMarket = testUnits * testNav;
+            const tolerance = Math.abs(calculatedMarket - testMarket) / Math.max(testMarket, 1);
+            
+            if (tolerance < 0.05) {
+              const costCheck = Math.abs(testCost - testMarket) / Math.max(testMarket, 1);
+              const score = tolerance + (costCheck > 2 ? 0.5 : 0);
+              
+              if (score < bestMatch.score) {
+                bestMatch = { costIdx, unitIdx, navIdx, marketIdx, score };
+              }
+            }
+          }
         }
       }
+    }
+    
+    if (bestMatch.score < 0.1) {
+      costValue = numbers[bestMatch.costIdx];
+      unitBalance = numbers[bestMatch.unitIdx];
+      nav = numbers[bestMatch.navIdx];
+      marketValue = numbers[bestMatch.marketIdx];
+      console.log(`[CAS Debug] ISIN ${isin}: Best match found - Cost: ${costValue}, Units: ${unitBalance}, NAV: ${nav}, Market: ${marketValue}`);
     } else {
       costValue = numbers[0];
       unitBalance = numbers[1];
-      marketValue = numbers[2];
-      nav = unitBalance > 0 ? marketValue / unitBalance : 0;
+      
+      for (let i = 2; i < numbers.length - 1; i++) {
+        const testNav = numbers[i];
+        const testMarket = numbers[i + 1];
+        
+        if (testNav >= 1 && testNav <= 50000) {
+          const calculated = unitBalance * testNav;
+          const tolerance = Math.abs(calculated - testMarket) / Math.max(testMarket, 1);
+          
+          if (tolerance < 0.1) {
+            nav = testNav;
+            marketValue = testMarket;
+            break;
+          }
+        }
+      }
+      
+      if (marketValue === 0 && numbers.length >= 4) {
+        nav = numbers[2];
+        marketValue = numbers[3];
+      }
+      
+      console.log(`[CAS Debug] ISIN ${isin}: Fallback - Cost: ${costValue}, Units: ${unitBalance}, NAV: ${nav}, Market: ${marketValue}`);
     }
     
-    if (nav > 10000) {
-      nav = unitBalance > 0 ? marketValue / unitBalance : 0;
+    if (nav > 10000 || nav < 0.1) {
+      if (unitBalance > 0 && marketValue > 0) {
+        nav = marketValue / unitBalance;
+        console.log(`[CAS Debug] ISIN ${isin}: Recalculated NAV: ${nav}`);
+      }
     }
     
     const navDateMatch = afterIsin.match(/(\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{4})/);
