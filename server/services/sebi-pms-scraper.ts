@@ -310,4 +310,174 @@ export async function fetchSebiPmsListings(): Promise<SebiPmsImportResult> {
   }
 }
 
+export interface PmsSeedData {
+  registrationNo: string;
+  name: string;
+  fundHouseName: string;
+  strategy: string;
+  style: string;
+  sponsor: string;
+  inceptionDate: string;
+  city: string;
+  minInvestment: string;
+  lockIn: string;
+  benchmark: string;
+  feeStructure: string;
+  managementFee: string;
+  performanceFee: string;
+  fundStatus: string;
+  latestNav: string;
+  lastNavDate: string;
+  aum: string;
+  return1M: string;
+  return3M: string;
+  return6M: string;
+  return1Y: string;
+  return3Y: string;
+  return5Y: string;
+  returnSinceInception: string;
+  riskScore: number;
+  volatility: string;
+  sharpeRatio: string;
+  maxDrawdown: string;
+  description: string;
+  source: "seed_generator";
+}
+
+export function generateComprehensivePmsSeedData(): PmsSeedData[] {
+  const fundHouses = [
+    { name: "ASK Investment Managers", sponsor: "ASK Group", city: "Mumbai" },
+    { name: "Motilal Oswal AMC", sponsor: "Motilal Oswal Financial Services", city: "Mumbai" },
+    { name: "Alchemy Capital Management", sponsor: "Alchemy Capital", city: "Mumbai" },
+    { name: "Kotak Portfolio Management", sponsor: "Kotak Mahindra Bank", city: "Mumbai" },
+    { name: "ICICI Prudential PMS", sponsor: "ICICI Bank", city: "Mumbai" },
+    { name: "Marcellus Investment Managers", sponsor: "Marcellus Investment Managers", city: "Mumbai" },
+    { name: "Unifi Capital", sponsor: "Unifi Capital Pvt Ltd", city: "Chennai" },
+    { name: "Ambit Investment Advisors", sponsor: "Ambit Holdings", city: "Mumbai" },
+    { name: "SageOne Investment Managers", sponsor: "SageOne Investment Managers", city: "Mumbai" },
+    { name: "Avendus Capital PMS", sponsor: "Avendus Capital Pvt Ltd", city: "Mumbai" },
+    { name: "Nippon India PMS", sponsor: "Nippon Life India Asset Management", city: "Mumbai" },
+    { name: "HDFC PMS", sponsor: "HDFC Bank", city: "Mumbai" },
+    { name: "White Oak Capital", sponsor: "White Oak Capital Management", city: "Mumbai" },
+    { name: "Centrum Wealth Management", sponsor: "Centrum Capital", city: "Mumbai" },
+    { name: "Sundaram Alternates", sponsor: "Sundaram Finance", city: "Chennai" },
+    { name: "IIFL AMC", sponsor: "IIFL Finance", city: "Mumbai" },
+    { name: "Dolat Capital", sponsor: "Dolat Investments", city: "Mumbai" },
+    { name: "Right Horizons", sponsor: "Right Horizons Pvt Ltd", city: "Bangalore" },
+    { name: "Helios Capital", sponsor: "Helios Capital Management", city: "Singapore" },
+    { name: "Buoyant Capital", sponsor: "Buoyant Capital Management", city: "Mumbai" },
+    { name: "InCred Asset Management", sponsor: "InCred Financial Services", city: "Mumbai" },
+    { name: "Nine Rivers Capital", sponsor: "Nine Rivers Capital", city: "Mumbai" },
+    { name: "Tata PMS", sponsor: "Tata Asset Management", city: "Mumbai" },
+    { name: "Axis PMS", sponsor: "Axis Bank", city: "Mumbai" },
+    { name: "SBI PMS", sponsor: "State Bank of India", city: "Mumbai" },
+    { name: "Birla Sun Life PMS", sponsor: "Aditya Birla Capital", city: "Mumbai" },
+    { name: "Invesco India PMS", sponsor: "Invesco Asset Management", city: "Mumbai" },
+    { name: "Franklin Templeton PMS", sponsor: "Franklin Templeton", city: "Mumbai" },
+    { name: "DSP Investment Managers", sponsor: "DSP Group", city: "Mumbai" },
+    { name: "Quantum Advisors", sponsor: "Quantum Advisors Pvt Ltd", city: "Mumbai" },
+  ];
+
+  const strategies = [
+    { name: "Large-cap", style: "Quality", riskBase: 4, returnBase: 12 },
+    { name: "Multi-cap", style: "Blend", riskBase: 5, returnBase: 15 },
+    { name: "Mid-cap", style: "Growth", riskBase: 6, returnBase: 18 },
+    { name: "Small-cap", style: "Growth", riskBase: 7, returnBase: 22 },
+    { name: "Flexi-cap", style: "Blend", riskBase: 5, returnBase: 16 },
+    { name: "Focused", style: "Quality", riskBase: 6, returnBase: 17 },
+    { name: "Value", style: "Value", riskBase: 5, returnBase: 14 },
+    { name: "Dividend Yield", style: "Value", riskBase: 4, returnBase: 11 },
+    { name: "Thematic", style: "Growth", riskBase: 7, returnBase: 20 },
+    { name: "Quantitative", style: "Momentum", riskBase: 6, returnBase: 18 },
+    { name: "GARP", style: "GARP", riskBase: 5, returnBase: 15 },
+    { name: "Contra", style: "Value", riskBase: 6, returnBase: 16 },
+  ];
+
+  const productNames = [
+    "Select Portfolio", "Core Equity", "Growth Strategy", "Value Strategy",
+    "Alpha Portfolio", "Emerging Leaders", "Wealth Builder", "Capital Appreciation",
+    "Opportunities Fund", "India Growth", "Rising Stars", "Blue Chip",
+    "Flexi Strategy", "Focused Portfolio", "High Conviction", "Equity Plus",
+    "Premier Portfolio", "Excellence Fund", "Dynamic Strategy", "Quality Edge",
+    "Compounders Portfolio", "India Select", "Multi Strategy", "Long Term Value",
+  ];
+
+  const benchmarks = [
+    "Nifty 50 TRI", "Nifty 500 TRI", "Nifty Midcap 100 TRI", "Nifty Smallcap 100 TRI",
+    "BSE 500 TRI", "BSE Sensex TRI", "Nifty Next 50 TRI", "Nifty 200 TRI",
+  ];
+
+  const seedData: PmsSeedData[] = [];
+  let regCounter = 1;
+
+  for (const house of fundHouses) {
+    const numProducts = Math.floor(Math.random() * 3) + 2;
+    
+    for (let i = 0; i < numProducts; i++) {
+      const strategy = strategies[Math.floor(Math.random() * strategies.length)];
+      const productName = productNames[Math.floor(Math.random() * productNames.length)];
+      const benchmark = benchmarks[Math.floor(Math.random() * benchmarks.length)];
+      
+      const baseReturn = strategy.returnBase + (Math.random() * 10 - 5);
+      const volatility = 12 + Math.random() * 15;
+      const sharpeRatio = (baseReturn - 6) / volatility;
+      
+      const minInvestment = [5000000, 10000000, 25000000, 50000000][Math.floor(Math.random() * 4)];
+      const aum = Math.floor(Math.random() * 8000 + 200) * 10000000;
+      const nav = 100 + Math.random() * 400;
+      
+      const inceptionYear = 2008 + Math.floor(Math.random() * 15);
+      const inceptionMonth = String(Math.floor(Math.random() * 12) + 1).padStart(2, "0");
+      const inceptionDay = String(Math.floor(Math.random() * 28) + 1).padStart(2, "0");
+      
+      const return1M = (baseReturn / 12) + (Math.random() * 4 - 2);
+      const return3M = (baseReturn / 4) + (Math.random() * 6 - 3);
+      const return6M = (baseReturn / 2) + (Math.random() * 8 - 4);
+      const return1Y = baseReturn + (Math.random() * 10 - 5);
+      const return3Y = baseReturn * 0.9 + (Math.random() * 8 - 4);
+      const return5Y = baseReturn * 0.85 + (Math.random() * 6 - 3);
+      const returnSI = baseReturn * 0.8 + (Math.random() * 5 - 2.5);
+      
+      const managementFee = [1.5, 1.75, 2.0, 2.25, 2.5][Math.floor(Math.random() * 5)];
+      const performanceFee = [10, 15, 20][Math.floor(Math.random() * 3)];
+      
+      seedData.push({
+        registrationNo: `INP${String(regCounter++).padStart(9, "0")}`,
+        name: `${house.name.split(" ")[0]} ${productName} - ${strategy.name}`,
+        fundHouseName: house.name,
+        strategy: strategy.name,
+        style: strategy.style,
+        sponsor: house.sponsor,
+        inceptionDate: `${inceptionYear}-${inceptionMonth}-${inceptionDay}`,
+        city: house.city,
+        minInvestment: minInvestment.toString(),
+        lockIn: ["None", "6 months", "12 months", "24 months"][Math.floor(Math.random() * 4)],
+        benchmark,
+        feeStructure: "Fixed + Performance",
+        managementFee: managementFee.toFixed(2),
+        performanceFee: performanceFee.toString(),
+        fundStatus: "active",
+        latestNav: nav.toFixed(2),
+        lastNavDate: new Date().toISOString().split("T")[0],
+        aum: aum.toString(),
+        return1M: return1M.toFixed(2),
+        return3M: return3M.toFixed(2),
+        return6M: return6M.toFixed(2),
+        return1Y: return1Y.toFixed(2),
+        return3Y: return3Y.toFixed(2),
+        return5Y: return5Y.toFixed(2),
+        returnSinceInception: returnSI.toFixed(2),
+        riskScore: Math.min(10, Math.max(1, strategy.riskBase + Math.floor(Math.random() * 3) - 1)),
+        volatility: volatility.toFixed(2),
+        sharpeRatio: sharpeRatio.toFixed(2),
+        maxDrawdown: (-(10 + Math.random() * 25)).toFixed(2),
+        description: `${house.name}'s ${strategy.name} strategy focusing on ${strategy.style.toLowerCase()} investing approach with proven track record.`,
+        source: "seed_generator",
+      });
+    }
+  }
+
+  return seedData;
+}
+
 export { getSamplePmsData };
