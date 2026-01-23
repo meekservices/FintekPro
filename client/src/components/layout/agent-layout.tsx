@@ -123,6 +123,7 @@ const agentNavCategories: NavCategory[] = [
       { title: "Knowledge Hub", href: "/agent/knowledge-hub", icon: BookOpen, description: "Market briefs & insights" },
       { title: "Training", href: "/agent/training", icon: GraduationCap, description: "Training & certification" },
       { title: "Settings", href: "/settings", icon: Settings, description: "Your preferences" },
+      { title: "Theme & Accessibility", href: "/theme-settings", icon: Palette, description: "Visual customization" },
     ]
   }
 ];

@@ -172,6 +172,12 @@ const partnerNavSections: NavSection[] = [
         href: "/partner-portal?tab=settings",
         icon: Settings,
         description: "Account preferences"
+      },
+      {
+        title: "Theme & Accessibility",
+        href: "/theme-settings",
+        icon: Palette,
+        description: "Visual customization"
       }
     ]
   }
