@@ -28,6 +28,14 @@ The Corporate Treasury Management module is SEBI-compliant, featuring a configur
 
 External data integration includes a Financial Calendar and a Market Holiday Service. A Portfolio Import System is also available.
 
+A **Centralized Portfolio Import System** (`unified-portfolio-import-service.ts`) provides a single facade for all portfolio import methods:
+- **Import Sources**: PDF/HTML file upload (CAS, broker statements), URL import (Wealthy.in), API fetch (BSE STAR MFD), manual entry
+- **Unified Type System**: `unified-portfolio-types.ts` consolidates ImportedHolding, CASHolding, WealthyHolding into common UnifiedHolding type
+- **Normalization Service**: `holding-normalization-service.ts` centralizes normalizeAssetType() and deriveAllocationFromHoldings() logic
+- **Storage Service**: `portfolio-storage-service.ts` provides unified upsertProspectPortfolio() for prospect and client portfolios
+- **Import Methods**: importFromPDF(), importFromHTML(), importFromURL(), importFromCASText(), importFromWealthyURL(), importManualHoldings()
+- **SafeParseResult Pattern**: Error handling with memory cleanup for PDF parsing
+
 A **Unified Portfolio Storage System** consolidates portfolio data for prospects and clients using unified `portfolios` and `portfolioHoldings` tables. It tracks portfolio and holding sources, refresh statuses, and supports prospect-to-client transitions upon KYC completion. The system includes asynchronous background CAS refreshes with transaction-safe atomic updates and unified holdings + transactions sync, supporting various transaction types.
 
 The platform includes real-time portfolio/market data, financial calculators, multi-asset support, family collaboration, a 3-tier KYC system, and an AI Chat Assistant (Google Gemini).
