@@ -17,6 +17,9 @@ import { reitInvitDataService } from './services/reit-invit-data-service';
 import { giftCityMaintenanceService } from './services/gift-city-maintenance-service';
 import { runDailyFixedIncomeRefresh } from "./cron/fixed-income-daily-refresh";
 import { mfSyncScheduler } from './services/mf-sync-scheduler';
+import { aifNavSyncScheduler } from './services/aif-nav-sync-scheduler';
+import { pmsNavSyncScheduler } from './services/pms-nav-sync-scheduler';
+import { commodityPriceSyncScheduler } from './services/commodity-price-sync-scheduler';
 
 /**
  * Initialize scheduled cron jobs
@@ -32,6 +35,19 @@ export function initializeCronJobs(): void {
   // Start Mutual Fund NAV sync scheduler
   mfSyncScheduler.start();
   console.log('📊 [MF Sync] NAV sync scheduler started (daily refresh + startup catch-up)');
+  
+  // Start AIF NAV sync scheduler
+  aifNavSyncScheduler.start();
+  console.log('📊 [AIF Sync] NAV sync scheduler started (daily refresh at 7 AM IST)');
+  
+  // Start PMS NAV sync scheduler
+  pmsNavSyncScheduler.start();
+  console.log('📊 [PMS Sync] NAV sync scheduler started (daily refresh at 7:30 AM IST)');
+  
+  // Start Commodity price sync scheduler
+  commodityPriceSyncScheduler.start();
+  console.log('📊 [Commodity Sync] Price sync scheduler started (daily refresh at 8 AM IST)');
+  
   // Probe42 Sync Job - Run every 6 hours
   cron.schedule('0 */6 * * *', async () => {
     console.log('[CRON] Starting Probe42 sync job...');

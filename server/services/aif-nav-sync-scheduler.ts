@@ -1,6 +1,6 @@
 import { db } from '../db';
 import { aifFunds } from '@shared/schema';
-import { eq, sql, isNull, or, lt } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 /**
  * AIF NAV Sync Scheduler
@@ -96,8 +96,8 @@ class AifNavSyncScheduler {
         amcName: aifFunds.amcName
       })
         .from(aifFunds)
-        .where(sql`${aifFunds.lastUpdated} IS NULL OR ${aifFunds.lastUpdated} < ${staleThreshold}`)
-        .orderBy(sql`${aifFunds.lastUpdated} ASC NULLS FIRST`)
+        .where(sql`${aifFunds.updatedAt} IS NULL OR ${aifFunds.updatedAt} < ${staleThreshold}`)
+        .orderBy(sql`COALESCE(${aifFunds.updatedAt}, '1970-01-01'::timestamp) ASC`)
         .limit(100);
       
       console.log(`[AIF Sync] Found ${staleFunds.length} stale AIF funds to refresh`);
@@ -109,7 +109,7 @@ class AifNavSyncScheduler {
           // For now, we mark as refreshed to track sync status
           await db.update(aifFunds)
             .set({
-              lastUpdated: new Date()
+              updatedAt: new Date()
             })
             .where(eq(aifFunds.id, fund.id));
           updated++;
@@ -134,7 +134,7 @@ class AifNavSyncScheduler {
     
     const [countResult] = await db.select({ count: sql<number>`count(*)` })
       .from(aifFunds)
-      .where(sql`${aifFunds.lastUpdated} IS NULL OR ${aifFunds.lastUpdated} < ${staleThreshold}`);
+      .where(sql`${aifFunds.updatedAt} IS NULL OR ${aifFunds.updatedAt} < ${staleThreshold}`);
     
     const staleFundCount = Number(countResult?.count || 0);
     console.log(`[AIF Sync] Found ${staleFundCount} AIF funds needing refresh`);
@@ -180,10 +180,10 @@ class AifNavSyncScheduler {
     const [total] = await db.select({ count: sql<number>`count(*)` }).from(aifFunds);
     const [stale] = await db.select({ count: sql<number>`count(*)` })
       .from(aifFunds)
-      .where(sql`${aifFunds.lastUpdated} IS NULL OR ${aifFunds.lastUpdated} < ${staleThreshold}`);
+      .where(sql`${aifFunds.updatedAt} IS NULL OR ${aifFunds.updatedAt} < ${staleThreshold}`);
     const [recent] = await db.select({ count: sql<number>`count(*)` })
       .from(aifFunds)
-      .where(sql`${aifFunds.lastUpdated} > ${recentThreshold}`);
+      .where(sql`${aifFunds.updatedAt} > ${recentThreshold}`);
     
     return {
       totalFunds: Number(total?.count || 0),
