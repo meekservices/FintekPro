@@ -459,32 +459,45 @@ class HoldingNormalizationService {
           .trim();
 
         if (cleanName.length >= 5) {
-          const searchPattern = `%${cleanName}%`;
-          const byName = await db
-            .select({
-              schemeCode: mutualFunds.schemeCode,
-              schemeName: mutualFunds.schemeName,
-              fundHouse: mutualFunds.fundHouse,
-              category: mutualFunds.category,
-              isin: mutualFunds.isin
-            })
-            .from(mutualFunds)
-            .where(ilike(mutualFunds.schemeName, searchPattern))
-            .limit(5);
+          const words = cleanName.split(/\s+/).filter(w => w.length >= 3);
+          const amcName = words[0];
+          
+          if (amcName && amcName.length >= 3) {
+            const prefixPattern = `${amcName}%`;
+            const byName = await db
+              .select({
+                schemeCode: mutualFunds.schemeCode,
+                schemeName: mutualFunds.schemeName,
+                fundHouse: mutualFunds.fundHouse,
+                category: mutualFunds.category,
+                isin: mutualFunds.isin
+              })
+              .from(mutualFunds)
+              .where(ilike(mutualFunds.schemeName, prefixPattern))
+              .limit(20);
 
-          if (byName.length > 0) {
-            const bestMatch = byName[0];
-            const similarity = this.calculateNameSimilarity(cleanName, bestMatch.schemeName);
-            
-            if (similarity >= 0.6) {
-              result = {
-                schemeCode: bestMatch.schemeCode,
-                schemeName: bestMatch.schemeName,
-                isin: bestMatch.isin || undefined,
-                amcName: bestMatch.fundHouse || undefined,
-                category: bestMatch.category || undefined,
-                confidence: Math.round(similarity * 100)
-              };
+            if (byName.length > 0) {
+              let bestMatch = byName[0];
+              let bestSimilarity = 0;
+              
+              for (const fund of byName) {
+                const similarity = this.calculateNameSimilarity(cleanName, fund.schemeName);
+                if (similarity > bestSimilarity) {
+                  bestSimilarity = similarity;
+                  bestMatch = fund;
+                }
+              }
+              
+              if (bestSimilarity >= 0.5) {
+                result = {
+                  schemeCode: bestMatch.schemeCode,
+                  schemeName: bestMatch.schemeName,
+                  isin: bestMatch.isin || undefined,
+                  amcName: bestMatch.fundHouse || undefined,
+                  category: bestMatch.category || undefined,
+                  confidence: Math.round(bestSimilarity * 100)
+                };
+              }
             }
           }
         }

@@ -65,6 +65,41 @@ interface ParseResult {
   needsManualReview?: boolean;
 }
 
+import * as crypto from 'crypto';
+
+interface CachedParseResult {
+  result: ParseResult;
+  timestamp: number;
+}
+
+const parseCache = new Map<string, CachedParseResult>();
+const PARSE_CACHE_TTL = 24 * 60 * 60 * 1000;
+
+function computeFileHash(buffer: Buffer): string {
+  return crypto.createHash('sha256').update(buffer).digest('hex').substring(0, 16);
+}
+
+function getCachedResult(hash: string): ParseResult | null {
+  const cached = parseCache.get(hash);
+  if (cached && Date.now() - cached.timestamp < PARSE_CACHE_TTL) {
+    console.log(`[PDF Parser] Cache hit for hash ${hash}`);
+    return cached.result;
+  }
+  if (cached) {
+    parseCache.delete(hash);
+  }
+  return null;
+}
+
+function setCachedResult(hash: string, result: ParseResult): void {
+  if (parseCache.size > 100) {
+    const oldest = Array.from(parseCache.entries())
+      .sort((a, b) => a[1].timestamp - b[1].timestamp)[0];
+    if (oldest) parseCache.delete(oldest[0]);
+  }
+  parseCache.set(hash, { result, timestamp: Date.now() });
+}
+
 const BROKER_PATTERNS: Record<string, { name: string; patterns: RegExp[] }> = {
   cas: {
     name: 'CAMS/KFintech CAS',
@@ -1333,6 +1368,13 @@ function calculateAllocation(holdings: ImportedHolding[]): ImportedAllocation {
 }
 
 export async function parsePDFPortfolio(buffer: Buffer, fileName: string): Promise<ParseResult> {
+  const fileHash = computeFileHash(buffer);
+  
+  const cached = getCachedResult(fileHash);
+  if (cached) {
+    return cached;
+  }
+  
   try {
     // Use centralized PDF parser service
     const parseResult = await pdfParserService.extractTextSafe(buffer);
@@ -1430,8 +1472,8 @@ export async function parsePDFPortfolio(buffer: Buffer, fileName: string): Promi
       ? holdings.reduce((sum, h) => sum + (h.confidenceScore || 50), 0) / holdings.length
       : 30;
     
-    // AI fallback: when holdings are empty or confidence is too low
-    if (holdings.length === 0 || avgConfidence < 40) {
+    // AI fallback: when holdings are empty or confidence is too low (<60% threshold)
+    if (holdings.length === 0 || avgConfidence < 60) {
       console.log('[PDF Parser] Low confidence or no holdings, trying AI-assisted parsing...');
       try {
         const aiHoldings = await parsePortfolioWithAI(text);
@@ -1450,7 +1492,7 @@ export async function parsePDFPortfolio(buffer: Buffer, fileName: string): Promi
     // Enrich holdings with proper fund names from database using ISIN lookup
     holdings = await enrichHoldingsWithDatabaseLookup(holdings);
     
-    return {
+    const result: ParseResult = {
       success: holdings.length > 0,
       holdings,
       brokerDetected: broker,
@@ -1462,6 +1504,9 @@ export async function parsePDFPortfolio(buffer: Buffer, fileName: string): Promi
       unimportedCount,
       needsManualReview
     };
+    
+    setCachedResult(fileHash, result);
+    return result;
   } catch (error: any) {
     return {
       success: false,
