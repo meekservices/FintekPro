@@ -22,7 +22,7 @@ export interface UploadOptions {
 
 class DocumentUploadService {
   private readonly MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-  private readonly ALLOWED_TYPES = [".docx", ".pdf"];
+  private readonly ALLOWED_TYPES = [".docx", ".doc", ".pdf"];
 
   async validateFile(buffer: Buffer, fileName: string): Promise<{ valid: boolean; error?: string }> {
     if (buffer.length > this.MAX_FILE_SIZE) {
@@ -34,10 +34,10 @@ class DocumentUploadService {
       return { valid: false, error: `File type not allowed. Allowed: ${this.ALLOWED_TYPES.join(", ")}` };
     }
 
-    if (ext === ".docx") {
+    if (ext === ".docx" || ext === ".doc") {
       const isValidDocx = this.isValidDocx(buffer);
       if (!isValidDocx) {
-        return { valid: false, error: "Invalid DOCX file format" };
+        return { valid: false, error: "Invalid Word document format. For .doc files, please save as .docx and try again." };
       }
     }
 
@@ -120,15 +120,22 @@ class DocumentUploadService {
     let convertedFormat = ext.replace(".", "");
     let htmlContent: string | undefined;
     
-    if (ext === ".docx") {
-      const result = await mammoth.convertToHtml({ buffer });
-      htmlContent = result.value;
-      
-      const htmlPath = `${privateDir}/documents/${options.proposalId || "general"}/${timestamp}_${sanitizedName}.html`;
-      const htmlBuffer = this.generateStyledHtml(htmlContent, options.fileName);
-      await this.uploadToStorage(htmlPath, htmlBuffer, "text/html");
-      displayUrl = htmlPath;
-      convertedFormat = "html";
+    if (ext === ".docx" || ext === ".doc") {
+      try {
+        const result = await mammoth.convertToHtml({ buffer });
+        htmlContent = result.value;
+        
+        const htmlPath = `${privateDir}/documents/${options.proposalId || "general"}/${timestamp}_${sanitizedName}.html`;
+        const htmlBuffer = this.generateStyledHtml(htmlContent, options.fileName);
+        await this.uploadToStorage(htmlPath, htmlBuffer, "text/html");
+        displayUrl = htmlPath;
+        convertedFormat = "html";
+      } catch (conversionError) {
+        if (ext === ".doc") {
+          throw new Error("Unable to convert .doc file. Please save as .docx format in Microsoft Word and try again.");
+        }
+        throw conversionError;
+      }
     }
     
     return {

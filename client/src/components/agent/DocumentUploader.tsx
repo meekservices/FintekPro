@@ -37,7 +37,7 @@ export default function DocumentUploader({
   workflowId,
   onUploadSuccess,
   onUploadError,
-  allowedTypes = ['.docx', '.pdf'],
+  allowedTypes = ['.docx', '.doc', '.pdf'],
   maxSizeMB = 10,
 }: DocumentUploaderProps) {
   const { toast } = useToast();
@@ -177,7 +177,7 @@ export default function DocumentUploader({
           Upload Document for Signing
         </CardTitle>
         <CardDescription>
-          Upload a Word document (.docx) or PDF for the signature workflow. 
+          Upload a Word document (.docx, .doc) or PDF for the signature workflow. 
           Documents will be converted to a signable format.
         </CardDescription>
       </CardHeader>
