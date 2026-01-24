@@ -152,7 +152,7 @@ router.post(
             broker: h.broker || null,
             confidenceScore: h.confidenceScore,
             source: 'cas_import',
-            purchaseDate: h.purchaseDate ? new Date(h.purchaseDate) : null
+            purchaseDate: h.purchaseDate ? new Date(h.purchaseDate) : null // purchaseDate is now in ISO format (YYYY-MM-DD)
           }))
         );
       }

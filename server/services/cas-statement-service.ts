@@ -1,6 +1,42 @@
 import { liveMFDataService } from './live-mf-data-service';
 import { isinIntelligenceService } from './isin-intelligence-service';
 
+/**
+ * Parse CAS statement date format (DD-Mon-YYYY or DD/Mon/YYYY)
+ * Examples: 18-Mar-2024, 02/Jul/2024, 29-Oct-2024
+ */
+export function parseCASDate(dateStr: string): Date | null {
+  if (!dateStr) return null;
+  
+  // Match DD-Mon-YYYY or DD/Mon/YYYY format
+  const match = dateStr.match(/(\d{1,2})[-\/]([A-Za-z]{3})[-\/](\d{4})/);
+  if (!match) return null;
+  
+  const [, dayStr, monthStr, yearStr] = match;
+  const monthMap: Record<string, number> = {
+    'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
+    'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
+  };
+  
+  const month = monthMap[monthStr.toLowerCase()];
+  if (month === undefined) return null;
+  
+  const day = parseInt(dayStr, 10);
+  const year = parseInt(yearStr, 10);
+  
+  if (isNaN(day) || isNaN(year) || day < 1 || day > 31) return null;
+  
+  return new Date(year, month, day);
+}
+
+/**
+ * Format Date to ISO date string (YYYY-MM-DD) for database storage
+ */
+export function formatDateToISO(date: Date | null): string | null {
+  if (!date || isNaN(date.getTime())) return null;
+  return date.toISOString().split('T')[0];
+}
+
 export interface CASInvestorInfo {
   email?: string;
   name?: string;
@@ -535,10 +571,17 @@ class CASStatementService {
   getFirstPurchaseDateByFolio(transactions: CASTransaction[]): Map<string, string> {
     const folioFirstPurchase = new Map<string, string>();
     
-    // Filter purchase-type transactions and sort by date
+    // Filter purchase-type transactions and sort by date using proper CAS date parser
     const purchaseTransactions = transactions
       .filter(t => t.transactionType === 'Purchase' || t.transactionType === 'SIP')
-      .sort((a, b) => new Date(a.transactionDate).getTime() - new Date(b.transactionDate).getTime());
+      .sort((a, b) => {
+        const dateA = parseCASDate(a.transactionDate);
+        const dateB = parseCASDate(b.transactionDate);
+        if (!dateA && !dateB) return 0;
+        if (!dateA) return 1;
+        if (!dateB) return -1;
+        return dateA.getTime() - dateB.getTime();
+      });
     
     // Get first purchase date for each folio
     for (const txn of purchaseTransactions) {
@@ -559,24 +602,29 @@ class CASStatementService {
   ): any[] {
     const folioFirstPurchase = this.getFirstPurchaseDateByFolio(transactions);
     
-    return holdings.map(h => ({
-      id: h.id,
-      name: h.schemeName,
-      isin: h.isin,
-      symbol: h.schemeCode,
-      assetType: h.assetType,
-      quantity: h.unitBalance,
-      averageCost: h.avgCostPerUnit,
-      investedValue: h.costValue,
-      currentNav: h.nav,
-      currentValue: h.marketValue,
-      unrealizedGain: h.unrealizedGain,
-      unrealizedGainPercent: h.unrealizedGainPercent,
-      folioNumber: h.folioNumber,
-      purchaseDate: folioFirstPurchase.get(h.folioNumber) || null,
-      broker: h.registrar === 'KFINTECH' ? 'KFintech' : 'CAMS',
-      confidenceScore: 90
-    }));
+    return holdings.map(h => {
+      const dateStr = folioFirstPurchase.get(h.folioNumber);
+      const parsedDate = dateStr ? parseCASDate(dateStr) : null;
+      
+      return {
+        id: h.id,
+        name: h.schemeName,
+        isin: h.isin,
+        symbol: h.schemeCode,
+        assetType: h.assetType,
+        quantity: h.unitBalance,
+        averageCost: h.avgCostPerUnit,
+        investedValue: h.costValue,
+        currentNav: h.nav,
+        currentValue: h.marketValue,
+        unrealizedGain: h.unrealizedGain,
+        unrealizedGainPercent: h.unrealizedGainPercent,
+        folioNumber: h.folioNumber,
+        purchaseDate: parsedDate ? formatDateToISO(parsedDate) : null,
+        broker: h.registrar === 'KFINTECH' ? 'KFintech' : 'CAMS',
+        confidenceScore: 90
+      };
+    });
   }
 
   async getHoldingsByFolio(holdings: CASHolding[], folioNumber: string): Promise<CASHolding[]> {
