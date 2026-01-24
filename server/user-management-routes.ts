@@ -1,7 +1,7 @@
 import { Router, type Express } from 'express';
 import { db } from './db';
 import { users } from '@shared/schema';
-import { eq, ilike, or, sql } from 'drizzle-orm';
+import { eq, ilike, or, sql, inArray } from 'drizzle-orm';
 import { hashPassword } from './auth';
 import { z } from 'zod';
 import { apiResponse } from './utils/responses';
@@ -99,7 +99,7 @@ router.get('/api/admin/users', requireAdmin, async (req, res) => {
     
     const [{ count: totalCount }] = await countQuery;
 
-    // Get paginated results with filters applied
+    // Get paginated results with filters applied, including agent name via subquery
     const query = db.select({
       id: users.id,
       userId: users.userId,
@@ -120,9 +120,35 @@ router.get('/api/admin/users', requireAdmin, async (req, res) => {
       isMobileVerified: users.isMobileVerified,
     }).from(users);
 
-    const results = whereClause
+    const rawResults = whereClause
       ? await query.where(whereClause).limit(limitNum).offset(offset).orderBy(sql`${users.createdAt} DESC`)
       : await query.limit(limitNum).offset(offset).orderBy(sql`${users.createdAt} DESC`);
+
+    // Fetch agent names for users that have agentId (using safe parameterized query)
+    const agentIds = [...new Set(rawResults.filter(u => u.agentId).map(u => u.agentId as string))];
+    let agentMap: Record<string, string> = {};
+    if (agentIds.length > 0) {
+      const agents = await db.select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email,
+      }).from(users).where(inArray(users.id, agentIds));
+      
+      agentMap = agents.reduce((acc, agent) => {
+        const name = [agent.firstName, agent.lastName].filter(Boolean).join(' ') || agent.email || 'Unknown';
+        acc[agent.id] = name;
+        return acc;
+      }, {} as Record<string, string>);
+    }
+
+    // Add fullName and agentName to results
+    const results = rawResults.map(user => ({
+      ...user,
+      fullName: [user.firstName, user.middleName, user.lastName].filter(Boolean).join(' ') || user.email || 'Unknown',
+      status: user.isActive ? 'active' : 'inactive',
+      agentName: user.agentId ? agentMap[user.agentId] || null : null,
+    }));
 
     res.json({
       users: results,

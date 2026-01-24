@@ -54,6 +54,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { z } from "zod";
@@ -88,7 +89,19 @@ interface User {
   status: string;
   kycStatus?: string;
   createdAt: string;
+  agentId?: string | null;
+  agentName?: string | null;
 }
+
+const AVAILABLE_ROLES = [
+  { value: "user", label: "User" },
+  { value: "client", label: "Client" },
+  { value: "agent", label: "Agent" },
+  { value: "partner", label: "Partner" },
+  { value: "admin", label: "Admin" },
+  { value: "superadmin", label: "Super Admin" },
+  { value: "business_client", label: "Business Client" },
+];
 
 interface Partner {
   id: string;
@@ -168,6 +181,10 @@ export default function StakeholdersPage() {
   const [viewingClient, setViewingClient] = useState<User | null>(null);
   const [editingClient, setEditingClient] = useState<User | null>(null);
   const [deletingItem, setDeletingItem] = useState<{ id: string; type: StakeholderType; name: string } | null>(null);
+  const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
+  const [bulkAssignAgentId, setBulkAssignAgentId] = useState<string>("");
+  const [editFormRoles, setEditFormRoles] = useState<string[]>([]);
+  const [editFormAgentId, setEditFormAgentId] = useState<string>("");
 
   const queryParams = useMemo(() => ({
     search: searchQuery || undefined,
@@ -242,6 +259,20 @@ export default function StakeholdersPage() {
     },
     enabled: activeTab === "suppliers",
   });
+
+  // Fetch all agents for assignment dropdown (always enabled)
+  const { data: allAgentsData } = useQuery<any>({
+    queryKey: ['/api/admin/agents/list'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/agents?limit=100', { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch agents');
+      const json = await res.json();
+      const agentsList = json.agents || json.data?.data || json.data || [];
+      return Array.isArray(agentsList) ? agentsList : [];
+    },
+  });
+
+  const availableAgents: Agent[] = allAgentsData || [];
 
   // Partner mutations
   const createPartnerMutation = useMutation({
@@ -459,6 +490,74 @@ export default function StakeholdersPage() {
       case "suppliers":
         setIsAddSupplierOpen(true);
         break;
+    }
+  };
+
+  // Bulk selection helpers
+  const clients: User[] = clientsData?.data || [];
+  const handleSelectAll = (checked: boolean | "indeterminate") => {
+    const isChecked = checked === true;
+    if (isChecked) {
+      setSelectedClients(new Set(clients.map(c => c.id)));
+    } else {
+      setSelectedClients(new Set());
+    }
+  };
+
+  const handleSelectClient = (clientId: string, checked: boolean | "indeterminate") => {
+    const isChecked = checked === true;
+    const newSelected = new Set(selectedClients);
+    if (isChecked) {
+      newSelected.add(clientId);
+    } else {
+      newSelected.delete(clientId);
+    }
+    setSelectedClients(newSelected);
+  };
+
+  const handleOpenEditClient = (user: User) => {
+    setEditingClient(user);
+    setEditFormRoles(user.roles || []);
+    setEditFormAgentId(user.agentId || "");
+  };
+
+  const handleToggleRole = (role: string) => {
+    setEditFormRoles(prev => 
+      prev.includes(role) 
+        ? prev.filter(r => r !== role) 
+        : [...prev, role]
+    );
+  };
+
+  const handleBulkAssignAgent = async () => {
+    if (!bulkAssignAgentId || selectedClients.size === 0) return;
+    
+    const agentIdToAssign = bulkAssignAgentId === "__unassign__" ? null : bulkAssignAgentId;
+    
+    try {
+      const promises = Array.from(selectedClients).map(clientId =>
+        apiRequest(`/api/admin/users/${clientId}`, "PATCH", { 
+          body: { agentId: agentIdToAssign } 
+        })
+      );
+      await Promise.all(promises);
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stakeholders/clients"] });
+      
+      toast({ 
+        title: "Clients Assigned", 
+        description: `${selectedClients.size} client(s) assigned to agent successfully` 
+      });
+      
+      setSelectedClients(new Set());
+      setBulkAssignAgentId("");
+    } catch (error: any) {
+      toast({
+        title: "Assignment Failed",
+        description: error.message || "Failed to assign clients to agent",
+        variant: "destructive"
+      });
     }
   };
 
@@ -780,15 +879,66 @@ export default function StakeholdersPage() {
 
         {/* Clients Tab */}
         <TabsContent value="clients" className="mt-6">
+          {/* Bulk Action Bar */}
+          {selectedClients.size > 0 && (
+            <Card className="mb-4 border-primary/50 bg-primary/5">
+              <CardContent className="py-3 px-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm font-medium">
+                      {selectedClients.size} client(s) selected
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Select value={bulkAssignAgentId} onValueChange={setBulkAssignAgentId}>
+                        <SelectTrigger className="w-[200px]">
+                          <SelectValue placeholder="Assign to Agent..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__unassign__">Unassign Agent</SelectItem>
+                          {availableAgents.map((agent) => (
+                            <SelectItem key={agent.id} value={agent.id}>
+                              {agent.fullName || agent.email}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button 
+                        size="sm" 
+                        onClick={handleBulkAssignAgent}
+                        disabled={!bulkAssignAgentId}
+                      >
+                        Assign
+                      </Button>
+                    </div>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setSelectedClients(new Set())}
+                  >
+                    Clear Selection
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
           <Card>
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox 
+                        checked={clients.length > 0 && selectedClients.size === clients.length}
+                        onCheckedChange={handleSelectAll}
+                        aria-label="Select all clients"
+                      />
+                    </TableHead>
                     <TableHead>User ID</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Contact</TableHead>
                     <TableHead>Roles</TableHead>
+                    <TableHead>Assigned Agent</TableHead>
                     <TableHead>KYC Status</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
@@ -797,19 +947,26 @@ export default function StakeholdersPage() {
                 <TableBody>
                   {loadingClients ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                         Loading...
                       </TableCell>
                     </TableRow>
-                  ) : (clientsData?.data || []).length === 0 ? (
+                  ) : clients.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                         No clients found
                       </TableCell>
                     </TableRow>
                   ) : (
-                    (clientsData?.data || []).map((user: User) => (
+                    clients.map((user: User) => (
                       <TableRow key={user.id} data-testid={`row-client-${user.id}`}>
+                        <TableCell>
+                          <Checkbox 
+                            checked={selectedClients.has(user.id)}
+                            onCheckedChange={(checked) => handleSelectClient(user.id, checked as boolean)}
+                            aria-label={`Select ${user.fullName}`}
+                          />
+                        </TableCell>
                         <TableCell className="font-mono text-sm">{user.userId}</TableCell>
                         <TableCell className="font-medium">{user.fullName}</TableCell>
                         <TableCell>
@@ -834,6 +991,15 @@ export default function StakeholdersPage() {
                               </Badge>
                             ))}
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          {user.agentName ? (
+                            <Badge variant="outline" className="bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                              {user.agentName}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">Not assigned</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Badge 
@@ -870,7 +1036,7 @@ export default function StakeholdersPage() {
                                 View Details
                               </DropdownMenuItem>
                               <DropdownMenuItem 
-                                onClick={() => setEditingClient(user)}
+                                onClick={() => handleOpenEditClient(user)}
                                 data-testid={`button-edit-client-${user.id}`}
                               >
                                 <Pencil className="h-4 w-4 mr-2" />
@@ -1785,10 +1951,10 @@ export default function StakeholdersPage() {
 
       {/* Edit Client Dialog */}
       <Dialog open={!!editingClient} onOpenChange={(open) => !open && setEditingClient(null)}>
-        <DialogContent className="max-w-md" data-testid="dialog-edit-client">
+        <DialogContent className="max-w-lg" data-testid="dialog-edit-client">
           <DialogHeader>
             <DialogTitle>Edit Client</DialogTitle>
-            <DialogDescription>Update client information</DialogDescription>
+            <DialogDescription>Update client information, roles, and agent assignment</DialogDescription>
           </DialogHeader>
           {editingClient && (
             <form
@@ -1799,6 +1965,8 @@ export default function StakeholdersPage() {
                   fullName: formData.get("fullName") as string,
                   email: formData.get("email") as string,
                   mobile: formData.get("mobile") as string,
+                  roles: editFormRoles,
+                  agentId: editFormAgentId === "__unassign__" ? null : (editFormAgentId || null),
                 };
                 try {
                   await apiRequest(`/api/admin/users/${editingClient.id}`, "PATCH", { body: data });
@@ -1816,34 +1984,75 @@ export default function StakeholdersPage() {
               }}
               className="space-y-4"
             >
-              <div>
-                <Label htmlFor="fullName">Full Name</Label>
-                <Input
-                  id="fullName"
-                  name="fullName"
-                  defaultValue={editingClient.fullName}
-                  required
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <Label htmlFor="fullName">Full Name</Label>
+                  <Input
+                    id="fullName"
+                    name="fullName"
+                    defaultValue={editingClient.fullName}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    defaultValue={editingClient.email}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="mobile">Mobile</Label>
+                  <Input
+                    id="mobile"
+                    name="mobile"
+                    defaultValue={editingClient.mobile || ""}
+                  />
+                </div>
               </div>
+
               <div>
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  defaultValue={editingClient.email}
-                  required
-                />
+                <Label className="mb-2 block">Assign to Agent</Label>
+                <Select value={editFormAgentId} onValueChange={setEditFormAgentId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an agent..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__unassign__">No Agent (Unassign)</SelectItem>
+                    {availableAgents.map((agent) => (
+                      <SelectItem key={agent.id} value={agent.id}>
+                        {agent.fullName || agent.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+
               <div>
-                <Label htmlFor="mobile">Mobile</Label>
-                <Input
-                  id="mobile"
-                  name="mobile"
-                  defaultValue={editingClient.mobile || ""}
-                />
+                <Label className="mb-2 block">Roles</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {AVAILABLE_ROLES.map((role) => (
+                    <div key={role.value} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`role-${role.value}`}
+                        checked={editFormRoles.includes(role.value)}
+                        onCheckedChange={() => handleToggleRole(role.value)}
+                      />
+                      <Label 
+                        htmlFor={`role-${role.value}`} 
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        {role.label}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="flex justify-end gap-2">
+
+              <div className="flex justify-end gap-2 pt-2">
                 <Button type="button" variant="outline" onClick={() => setEditingClient(null)}>
                   Cancel
                 </Button>
