@@ -34,10 +34,17 @@ class DocumentUploadService {
       return { valid: false, error: `File type not allowed. Allowed: ${this.ALLOWED_TYPES.join(", ")}` };
     }
 
-    if (ext === ".docx" || ext === ".doc") {
-      const isValidDocx = this.isValidDocx(buffer);
-      if (!isValidDocx) {
-        return { valid: false, error: "Invalid Word document format. For .doc files, please save as .docx and try again." };
+    if (ext === ".docx") {
+      const isValid = this.isValidDocx(buffer);
+      if (!isValid) {
+        return { valid: false, error: "Invalid DOCX file format" };
+      }
+    }
+
+    if (ext === ".doc") {
+      const isValid = this.isValidDoc(buffer);
+      if (!isValid) {
+        return { valid: false, error: "Invalid DOC file format" };
       }
     }
 
@@ -54,6 +61,11 @@ class DocumentUploadService {
   private isValidDocx(buffer: Buffer): boolean {
     const signature = buffer.slice(0, 4);
     return signature[0] === 0x50 && signature[1] === 0x4b && signature[2] === 0x03 && signature[3] === 0x04;
+  }
+
+  private isValidDoc(buffer: Buffer): boolean {
+    const signature = buffer.slice(0, 4);
+    return signature[0] === 0xd0 && signature[1] === 0xcf && signature[2] === 0x11 && signature[3] === 0xe0;
   }
 
   private isValidPdf(buffer: Buffer): boolean {
@@ -110,9 +122,14 @@ class DocumentUploadService {
     
     const originalPath = `${privateDir}/documents/${options.proposalId || "general"}/${timestamp}_${sanitizedName}${ext}`;
     
-    const contentType = ext === ".pdf" 
-      ? "application/pdf" 
-      : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    let contentType = "application/octet-stream";
+    if (ext === ".pdf") {
+      contentType = "application/pdf";
+    } else if (ext === ".docx") {
+      contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    } else if (ext === ".doc") {
+      contentType = "application/msword";
+    }
     
     await this.uploadToStorage(originalPath, buffer, contentType);
     
@@ -120,7 +137,7 @@ class DocumentUploadService {
     let convertedFormat = ext.replace(".", "");
     let htmlContent: string | undefined;
     
-    if (ext === ".docx" || ext === ".doc") {
+    if (ext === ".docx") {
       try {
         const result = await mammoth.convertToHtml({ buffer });
         htmlContent = result.value;
@@ -131,11 +148,13 @@ class DocumentUploadService {
         displayUrl = htmlPath;
         convertedFormat = "html";
       } catch (conversionError) {
-        if (ext === ".doc") {
-          throw new Error("Unable to convert .doc file. Please save as .docx format in Microsoft Word and try again.");
-        }
+        console.error("DOCX conversion error:", conversionError);
         throw conversionError;
       }
+    }
+    
+    if (ext === ".doc") {
+      console.log("[DocumentUpload] .doc file uploaded - no HTML conversion available for legacy format");
     }
     
     return {
