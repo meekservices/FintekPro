@@ -18960,10 +18960,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/agent/clients", requireAgent, async (req, res) => {
     try {
       const { searchTerm } = req.query;
+      console.log("[Agent Clients] Route called for user:", req.user?.id);
+      res.set("Cache-Control", "no-cache, no-store");
 
       // Get clients assigned to this agent with full user data in single query
       const clientRelationships = await storage.getClientsForAgent(req.user.id);
       
+      console.log("[Agent Clients] Client relationships found:", clientRelationships.length);
       // Get client IDs for batch fetching
       const clientIds = clientRelationships.map(r => r.clientId).filter(Boolean);
       
@@ -19037,6 +19040,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const prospects = await db.select()
         .from(prospectClients)
         .where(eq(prospectClients.agentId, req.user.id));
+      console.log("[Agent Clients] Prospects found:", prospects.length, "for agent:", req.user.id);
       
       // Map prospects to match the client interface format
       const prospectsMapped = prospects.map(prospect => {
@@ -19078,6 +19082,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
       }
 
+      console.log("[Agent Clients] Returning:", allClientsAndProspects.length, "total items");
       res.json(allClientsAndProspects);
     } catch (error) {
       console.error("Error fetching agent clients:", error);

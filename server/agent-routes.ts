@@ -1263,18 +1263,16 @@ router.delete("/api/agent/appointments/:id", requireAuth, async (req, res) => {
 // Get clients for appointment selector
 router.get("/api/agent/clients", requireAuth, async (req, res) => {
   try {
-    const { users } = await import("@shared/schema");
+    const { users, prospectClients } = await import("@shared/schema");
     const { db } = await import("./db");
-    const { sql } = await import("drizzle-orm");
+    const { sql, eq } = await import("drizzle-orm");
     
     const agentUser = await storage.getUser((req as any).user?.id);
     if (!agentUser) {
       return res.status(401).json({ error: "Unauthorized" });
     }
     
-    // Fetch real clients assigned to this agent from the database
-    // Clients are users with agentId matching and 'client' role in their roles array
-    // Note: Using only columns that exist in the users table
+    // Fetch real clients assigned to this agent from users table
     const clientsData = await db
       .select({
         id: users.id,
@@ -1291,7 +1289,21 @@ router.get("/api/agent/clients", requireAuth, async (req, res) => {
       )
       .limit(100);
     
-    // Map to expected format
+    // Also fetch prospects from prospect_clients table
+    const prospectsData = await db
+      .select({
+        id: prospectClients.id,
+        name: prospectClients.name,
+        email: prospectClients.email,
+        mobile: prospectClients.mobile,
+        pan: prospectClients.pan,
+        state: prospectClients.state,
+      })
+      .from(prospectClients)
+      .where(eq(prospectClients.agentId, agentUser.id))
+      .limit(100);
+    
+    // Map clients to expected format
     const clients = clientsData.map(client => ({
       id: client.id,
       firstName: client.firstName || '',
@@ -1299,12 +1311,35 @@ router.get("/api/agent/clients", requireAuth, async (req, res) => {
       email: client.email || '',
       mobile: client.mobile || '',
       panNumber: client.panNumber || '',
-      kycStatus: 'verified', // Default - no kycStatus column in users table
+      kycStatus: 'verified',
       isActive: client.isActive ?? true,
-      clientCategory: 'retail', // Default - no clientCategory column in users table
+      clientCategory: 'retail',
+      type: 'client' as const,
     }));
     
-    res.json(clients);
+    // Map prospects to expected format - split name into first/last
+    const prospects = prospectsData.map(prospect => {
+      const nameParts = (prospect.name || '').split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+      return {
+        id: prospect.id,
+        firstName,
+        lastName,
+        email: prospect.email || '',
+        mobile: prospect.mobile || '',
+        panNumber: prospect.pan || '',
+        kycStatus: prospect.state === 'active_client' ? 'verified' : 'pending',
+        isActive: prospect.state !== 'inactive',
+        clientCategory: 'prospect',
+        type: 'prospect' as const,
+      };
+    });
+    
+    // Combine clients and prospects
+    const allClientsAndProspects = [...clients, ...prospects];
+    
+    res.json(allClientsAndProspects);
   } catch (error) {
     console.error("Get clients error:", error);
     res.status(500).json({ error: "Failed to fetch clients" });
