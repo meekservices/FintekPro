@@ -6,8 +6,11 @@ import { prospectClients, portfolios, portfolioHoldings } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { isAuthenticated } from '../replitAuth';
 import { parsePDFPortfolio, parseURLPortfolio, createPortfolioSnapshot } from '../services/portfolio-parser';
+import { holdingNormalizationService } from '../services/holding-normalization-service';
+import { portfolioStorageService } from '../services/portfolio-storage-service';
+import { unifiedPortfolioImportService } from '../services/unified-portfolio-import-service';
+import type { UnifiedHolding } from '../services/unified-portfolio-types';
 
-// Helper function to detect if file is HTML
 function isHTMLFile(filename: string, mimetype: string): boolean {
   const ext = filename.toLowerCase();
   return ext.endsWith('.html') || ext.endsWith('.htm') || 
@@ -16,41 +19,18 @@ function isHTMLFile(filename: string, mimetype: string): boolean {
 
 const router = Router();
 
-// Helper function to normalize asset type strings
-function normalizeAssetType(type: string | undefined): string {
-  if (!type) return 'equity';
-  const normalized = type.toLowerCase().trim();
-  if (normalized.includes('equity') || normalized.includes('stock')) return 'equity';
-  if (normalized.includes('debt') || normalized.includes('bond') || normalized.includes('fixed')) return 'debt';
-  if (normalized.includes('gold') || normalized.includes('commodity')) return 'gold';
-  if (normalized.includes('cash') || normalized.includes('liquid') || normalized.includes('money')) return 'cash';
-  if (normalized.includes('mutual') || normalized.includes('fund')) return 'mutual_fund';
-  return 'others';
-}
+const normalizeAssetType = (type: string | undefined) => holdingNormalizationService.normalizeAssetType(type);
 
-// Helper function to derive allocation from holdings
-function deriveAllocation(holdings: any[]): Record<string, number> {
-  const allocation: Record<string, number> = { equity: 0, debt: 0, gold: 0, cash: 0, others: 0 };
-  const total = holdings.reduce((sum: number, h: any) => sum + (h.currentValue || 0), 0);
-  
-  if (total === 0) return allocation;
-  
-  holdings.forEach((h: any) => {
-    const value = h.currentValue || 0;
-    const type = h.assetType || 'others';
-    const key = ['equity', 'debt', 'gold', 'cash'].includes(type) ? type : 'others';
-    allocation[key] = (allocation[key] || 0) + (value / total) * 100;
-  });
-  
-  // Round to 2 decimal places
-  Object.keys(allocation).forEach(key => {
-    allocation[key] = Math.round(allocation[key] * 100) / 100;
-  });
-  
-  return allocation;
-}
+const deriveAllocation = (holdings: any[]) => {
+  const unifiedHoldings: UnifiedHolding[] = holdings.map(h => ({
+    name: h.name || '',
+    assetType: holdingNormalizationService.normalizeAssetType(h.assetType),
+    quantity: h.quantity || 0,
+    currentValue: h.currentValue || 0
+  }));
+  return holdingNormalizationService.deriveAllocationFromHoldings(unifiedHoldings);
+};
 
-// Helper function to upsert portfolio into unified tables
 async function upsertProspectPortfolio(
   prospectId: string,
   prospectName: string,
@@ -59,74 +39,32 @@ async function upsertProspectPortfolio(
   sourceFileName?: string,
   confidenceScore?: number
 ): Promise<string> {
-  // Check if portfolio already exists for this prospect
-  const [existingPortfolio] = await db
-    .select()
-    .from(portfolios)
-    .where(eq(portfolios.prospectId, prospectId))
-    .limit(1);
+  const unifiedHoldings: UnifiedHolding[] = holdings.map(h => ({
+    name: h.name || h.productName || 'Unknown',
+    isin: h.isin,
+    symbol: h.symbol,
+    folioNumber: h.folioNumber,
+    assetType: holdingNormalizationService.normalizeAssetType(h.assetType || h.type || h.productType),
+    quantity: h.quantity || 1,
+    avgCostPerUnit: h.avgPrice || h.averageCost,
+    investedValue: h.investedValue,
+    currentValue: h.currentValue || h.value || 0,
+    broker: h.broker,
+    purchaseDate: h.purchaseDate
+  }));
 
-  let portfolioId: string;
-  const totalValue = holdings.reduce((sum: number, h: any) => sum + (h.currentValue || h.value || 0), 0);
+  const result = await portfolioStorageService.upsertProspectPortfolio(
+    prospectId,
+    unifiedHoldings,
+    {
+      source: source === 'uploaded' ? 'broker_pdf' : 'cas_statement',
+      sourceFileName,
+      confidenceScore,
+      replaceExisting: true
+    }
+  );
 
-  if (existingPortfolio) {
-    // Update existing portfolio
-    portfolioId = existingPortfolio.id;
-    await db
-      .update(portfolios)
-      .set({
-        totalValue: totalValue.toString(),
-        source,
-        sourceFileName,
-        updatedAt: new Date()
-      })
-      .where(eq(portfolios.id, portfolioId));
-    
-    // Delete existing holdings and insert new ones
-    await db
-      .delete(portfolioHoldings)
-      .where(eq(portfolioHoldings.portfolioId, portfolioId));
-  } else {
-    // Create new portfolio
-    const [newPortfolio] = await db
-      .insert(portfolios)
-      .values({
-        prospectId,
-        name: `${prospectName}'s Portfolio`,
-        totalValue: totalValue.toString(),
-        source,
-        sourceFileName,
-        isDefault: true,
-        isVerified: false
-      })
-      .returning();
-    portfolioId = newPortfolio.id;
-  }
-
-  // Insert holdings into unified table
-  if (holdings.length > 0) {
-    await db.insert(portfolioHoldings).values(
-      holdings.map(h => ({
-        portfolioId,
-        symbol: h.symbol || null,
-        name: h.name || h.productName || 'Unknown',
-        isin: h.isin || null,
-        quantity: (h.quantity || 1).toString(),
-        avgPrice: h.avgPrice?.toString() || h.averageCost?.toString() || null,
-        currentValue: (h.currentValue || h.value || 0).toString(),
-        investedValue: h.investedValue?.toString() || null,
-        assetType: normalizeAssetType(h.assetType || h.type || h.productType),
-        productType: h.productType || null,
-        folioNumber: h.folioNumber || null,
-        broker: h.broker || null,
-        confidenceScore: confidenceScore || null,
-        source: 'uploaded',
-        purchaseDate: h.purchaseDate ? new Date(h.purchaseDate) : null
-      }))
-    );
-  }
-
-  return portfolioId;
+  return result.portfolioId;
 }
 
 
