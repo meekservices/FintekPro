@@ -279,7 +279,7 @@ export function useParsePortfolioURL() {
       
       const res = await apiRequest(endpoint, {
         method: 'POST',
-        body: JSON.stringify({ portfolioUrl: url, url, replaceExisting: options?.replaceExisting }),
+        body: JSON.stringify({ url, replaceExisting: options?.replaceExisting }),
       });
       return res.json();
     },
@@ -296,7 +296,11 @@ export function useParseCASStatement() {
         formData.append('prospectId', options.prospectId);
       }
       
-      const res = await fetch('/api/agent/portfolio/parse-cas', {
+      const endpoint = options?.prospectId
+        ? '/api/agent/portfolio/parse-cas'
+        : '/api/portfolio/import/cas';
+      
+      const res = await fetch(endpoint, {
         method: 'POST',
         body: formData,
         credentials: 'include'
