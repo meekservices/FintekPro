@@ -1,50 +1,23 @@
 import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { 
-  Upload, 
   FileSpreadsheet, 
   CheckCircle2, 
   AlertCircle,
-  Loader2,
   TrendingUp,
   TrendingDown,
   Wallet,
   RefreshCw,
-  ExternalLink
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-
-interface ImportResult {
-  success: boolean;
-  investor: {
-    name: string;
-    pan: string;
-    lastSync: string;
-  };
-  summary: {
-    totalInvested: number;
-    currentValue: number;
-    growth: number;
-    equityPercent: number;
-    debtPercent: number;
-  };
-  imported: number;
-  skipped: number;
-  holdings: Array<{
-    fundName: string;
-    invested: number;
-    currentValue: number;
-  }>;
-}
+import { queryClient } from "@/lib/queryClient";
+import { PortfolioImportPanel } from "@/components/portfolio/PortfolioImportPanel";
+import type { ImportResult } from "@/hooks/use-portfolio";
 
 interface ExternalHolding {
   id: string;
@@ -70,53 +43,29 @@ interface ExternalHoldingsResponse {
 }
 
 export default function PortfolioImport() {
-  const [wealthyUrl, setWealthyUrl] = useState("");
-  const [replaceExisting, setReplaceExisting] = useState(false);
-  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [lastImportResult, setLastImportResult] = useState<ImportResult | null>(null);
   const { toast } = useToast();
 
   const { data: existingHoldings, isLoading: holdingsLoading, refetch: refetchHoldings } = useQuery<ExternalHoldingsResponse>({
-    queryKey: ['/api/portfolio/external-holdings', 'WEALTHY_IN'],
+    queryKey: ['/api/portfolio/external-holdings'],
     queryFn: async () => {
-      const res = await fetch('/api/portfolio/external-holdings?source=WEALTHY_IN');
+      const res = await fetch('/api/portfolio/external-holdings');
       if (!res.ok) throw new Error('Failed to fetch holdings');
       return res.json();
     },
   });
 
-  const importMutation = useMutation({
-    mutationFn: async (data: { url: string; replaceExisting: boolean }) => {
-      const res = await apiRequest('POST', '/api/portfolio/import-wealthy', data);
-      return res.json() as Promise<ImportResult>;
-    },
-    onSuccess: (data) => {
-      setImportResult(data);
-      queryClient.invalidateQueries({ queryKey: ['/api/portfolio/external-holdings', 'WEALTHY_IN'] });
-      refetchHoldings();
-      toast({
-        title: "Portfolio Imported",
-        description: `Successfully imported ${data.imported} mutual fund holdings`,
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Import Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
+  const handleImportComplete = (result: ImportResult) => {
+    setLastImportResult(result);
+  };
 
-  const handleImport = () => {
-    if (!wealthyUrl.trim()) {
-      toast({
-        title: "URL Required",
-        description: "Please paste your Wealthy.in portfolio URL",
-        variant: "destructive",
-      });
-      return;
-    }
-    importMutation.mutate({ url: wealthyUrl, replaceExisting });
+  const handleHoldingsSaved = (count: number) => {
+    toast({
+      title: "Holdings Saved",
+      description: `Successfully saved ${count} portfolio holdings`,
+    });
+    queryClient.invalidateQueries({ queryKey: ['/api/portfolio/external-holdings'] });
+    refetchHoldings();
   };
 
   const formatCurrency = (amount: number) => {
@@ -138,120 +87,73 @@ export default function PortfolioImport() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Import Portfolio</h1>
-          <p className="text-muted-foreground">Import your existing portfolio from Wealthy.in</p>
+          <p className="text-muted-foreground">
+            Import your existing portfolio from broker statements, CAS, or URLs
+          </p>
         </div>
         <Badge variant="outline" className="flex items-center gap-2">
           <FileSpreadsheet className="w-4 h-4" />
-          Wealthy.in
+          Multi-Source
         </Badge>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Upload className="w-5 h-5" />
-            Import from Wealthy.in
-          </CardTitle>
-          <CardDescription>
-            Paste your Wealthy.in portfolio report URL to import your mutual fund holdings
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="wealthy-url">Portfolio Report URL</Label>
-            <Input
-              id="wealthy-url"
-              data-testid="input-wealthy-url"
-              placeholder="https://reports.wealthy.in/?token=..."
-              value={wealthyUrl}
-              onChange={(e) => setWealthyUrl(e.target.value)}
-              disabled={importMutation.isPending}
-            />
-            <p className="text-xs text-muted-foreground">
-              Get this URL from your Wealthy.in account by sharing the portfolio report
-            </p>
-          </div>
+      <PortfolioImportPanel
+        onImportComplete={handleImportComplete}
+        onHoldingsSaved={handleHoldingsSaved}
+        showWealthyImport={true}
+        showCASImport={true}
+        showPDFImport={true}
+        showURLImport={true}
+        showManualEntry={true}
+      />
 
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="replace-existing"
-              data-testid="switch-replace-existing"
-              checked={replaceExisting}
-              onCheckedChange={setReplaceExisting}
-              disabled={importMutation.isPending}
-            />
-            <Label htmlFor="replace-existing" className="text-sm">
-              Replace existing Wealthy.in holdings (removes previous import)
-            </Label>
-          </div>
-
-          <Button 
-            onClick={handleImport} 
-            disabled={importMutation.isPending || !wealthyUrl.trim()}
-            className="w-full"
-            data-testid="button-import"
-          >
-            {importMutation.isPending ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Importing...
-              </>
-            ) : (
-              <>
-                <Upload className="w-4 h-4 mr-2" />
-                Import Portfolio
-              </>
-            )}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {importResult && (
+      {lastImportResult?.success && lastImportResult.investor && (
         <Card className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-green-700 dark:text-green-300">
               <CheckCircle2 className="w-5 h-5" />
-              Import Successful
+              Last Import Successful
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">Investor</p>
-                <p className="font-medium">{importResult.investor.name}</p>
-                <p className="text-xs text-muted-foreground">PAN: {importResult.investor.pan}</p>
+                <p className="font-medium">{lastImportResult.investor.name}</p>
+                <p className="text-xs text-muted-foreground">PAN: {lastImportResult.investor.pan}</p>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Last Sync</p>
-                <p className="font-medium">{importResult.investor.lastSync}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="p-3 bg-white dark:bg-gray-900 rounded-lg">
-                <p className="text-xs text-muted-foreground">Invested</p>
-                <p className="text-lg font-bold">{formatCurrency(importResult.summary.totalInvested)}</p>
-              </div>
-              <div className="p-3 bg-white dark:bg-gray-900 rounded-lg">
-                <p className="text-xs text-muted-foreground">Current Value</p>
-                <p className="text-lg font-bold">{formatCurrency(importResult.summary.currentValue)}</p>
-              </div>
-              <div className="p-3 bg-white dark:bg-gray-900 rounded-lg">
-                <p className="text-xs text-muted-foreground">Growth</p>
-                <p className={`text-lg font-bold ${importResult.summary.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {importResult.summary.growth >= 0 ? '+' : ''}{importResult.summary.growth.toFixed(2)}%
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-4 text-sm">
-              <Badge variant="secondary">{importResult.imported} holdings imported</Badge>
-              {importResult.skipped > 0 && (
-                <Badge variant="outline">{importResult.skipped} skipped</Badge>
+              {lastImportResult.investor.lastSync && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Last Sync</p>
+                  <p className="font-medium">{lastImportResult.investor.lastSync}</p>
+                </div>
               )}
-              <Badge variant="outline">{importResult.summary.equityPercent}% Equity</Badge>
-              <Badge variant="outline">{importResult.summary.debtPercent}% Debt</Badge>
             </div>
+
+            {lastImportResult.summary && (
+              <>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="p-3 bg-white dark:bg-gray-900 rounded-lg">
+                    <p className="text-xs text-muted-foreground">Total Holdings</p>
+                    <p className="text-lg font-bold">{lastImportResult.summary.totalHoldings}</p>
+                  </div>
+                  <div className="p-3 bg-white dark:bg-gray-900 rounded-lg">
+                    <p className="text-xs text-muted-foreground">Total Value</p>
+                    <p className="text-lg font-bold">{formatCurrency(lastImportResult.summary.totalCurrentValue)}</p>
+                  </div>
+                  <div className="p-3 bg-white dark:bg-gray-900 rounded-lg">
+                    <p className="text-xs text-muted-foreground">Allocation</p>
+                    <p className="text-sm font-medium">
+                      {lastImportResult.summary.equityPercent}% Equity / {lastImportResult.summary.debtPercent}% Debt
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 text-sm">
+                  <Badge variant="secondary">{lastImportResult.holdings?.length || 0} holdings parsed</Badge>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       )}
@@ -264,7 +166,7 @@ export default function PortfolioImport() {
                 <Wallet className="w-5 h-5" />
                 Imported Holdings
               </CardTitle>
-              <CardDescription>Your mutual fund holdings from Wealthy.in</CardDescription>
+              <CardDescription>Your portfolio holdings from all import sources</CardDescription>
             </div>
             <Button variant="outline" size="sm" onClick={() => refetchHoldings()} data-testid="button-refresh">
               <RefreshCw className="w-4 h-4 mr-2" />
@@ -323,6 +225,7 @@ export default function PortfolioImport() {
                           </p>
                           <div className="flex items-center gap-2 mt-1">
                             <Badge variant="outline" className="text-xs">{holding.assetType}</Badge>
+                            <Badge variant="secondary" className="text-xs">{holding.source}</Badge>
                             <span className="text-xs text-muted-foreground">
                               {parseFloat(holding.quantity).toFixed(2)} units
                             </span>
@@ -345,7 +248,7 @@ export default function PortfolioImport() {
               <FileSpreadsheet className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
               <p className="text-muted-foreground">No imported holdings yet</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Import your Wealthy.in portfolio to see your holdings here
+                Use the import panel above to add your portfolio holdings
               </p>
             </div>
           )}
@@ -354,14 +257,15 @@ export default function PortfolioImport() {
 
       <Alert>
         <AlertCircle className="h-4 w-4" />
-        <AlertTitle>How to get your Wealthy.in URL</AlertTitle>
+        <AlertTitle>Supported Import Sources</AlertTitle>
         <AlertDescription className="mt-2 space-y-2">
-          <ol className="list-decimal list-inside text-sm space-y-1">
-            <li>Log in to your Wealthy.in account</li>
-            <li>Go to your portfolio report</li>
-            <li>Click on "Share" or copy the report URL</li>
-            <li>The URL should look like: <code className="bg-muted px-1 rounded">https://reports.wealthy.in/?token=...</code></li>
-          </ol>
+          <ul className="list-disc list-inside text-sm space-y-1">
+            <li><strong>PDF/HTML Statements:</strong> Zerodha, Groww, ICICI Direct, HDFC Securities, Kotak, and other brokers</li>
+            <li><strong>CAS Statements:</strong> CAMS, KFintech consolidated account statements</li>
+            <li><strong>Demat Statements:</strong> NSDL and CDSL demat holding statements</li>
+            <li><strong>URL Import:</strong> Wealthy.in and other shareable portfolio report URLs</li>
+            <li><strong>Manual Entry:</strong> Add holdings manually with full edit capability</li>
+          </ul>
         </AlertDescription>
       </Alert>
     </div>
