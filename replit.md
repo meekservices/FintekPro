@@ -35,6 +35,11 @@ A **Centralized Portfolio Import System** (`unified-portfolio-import-service.ts`
 - **Storage Service**: `portfolio-storage-service.ts` provides unified upsertProspectPortfolio() for prospect and client portfolios
 - **Import Methods**: importFromPDF(), importFromHTML(), importFromURL(), importFromCASText(), importFromWealthyURL(), importManualHoldings()
 - **SafeParseResult Pattern**: Error handling with memory cleanup for PDF parsing
+- **Fund Name Normalization**: Title Case conversion for ALL CAPS fund names, preserving financial acronyms (HDFC, ICICI, ETF, etc.)
+- **ISIN Extraction**: Automatic extraction of embedded ISINs from fund name fields with ISO 6166 checksum validation
+- **AMFI Lookup**: Canonical fund name lookup from mutualFunds table using ISIN exact match or prefix-based name matching (24-hour cache)
+- **AI Fallback**: Gemini-powered parsing when confidence < 60% or no holdings found, with structured JSON extraction
+- **PDF Caching**: Hash-based caching of parsed PDF results with 24-hour TTL, reducing redundant parsing
 
 A **Unified Portfolio Storage System** consolidates portfolio data for prospects and clients using unified `portfolios` and `portfolioHoldings` tables. It tracks portfolio and holding sources, refresh statuses, and supports prospect-to-client transitions upon KYC completion. The system includes asynchronous background CAS refreshes with transaction-safe atomic updates and unified holdings + transactions sync, supporting various transaction types.
 
