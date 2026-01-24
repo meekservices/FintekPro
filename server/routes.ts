@@ -145,6 +145,7 @@ import returnForecastingRoutes from "./routes/return-forecasting-routes";
 import assetAllocationRoutes from "./routes/asset-allocation-routes";
 import portfolioImportRoutes from "./routes/portfolio-import";
 import casStatementRoutes from "./routes/cas-statement-routes";
+import clientDocumentsRoutes from "./routes/client-documents-routes";
 import treasuryRoutes from "./routes/treasury-routes";
 import proposalExecutionRoutes from "./routes/proposal-execution-routes";
 import explainabilityRoutes from "./routes/explainability-routes";
@@ -708,6 +709,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/agent/demo-proposals", isAuthenticated, agentDemoRouter);
   app.use("/api/agent", portfolioImportRoutes);
   app.use("/api/cas-statement", isAuthenticated, casStatementRoutes);
+  app.use("/api/client", isAuthenticated, clientDocumentsRoutes);
   app.use("/api/admin/exchange-sync", requireAdmin, exchangeStockSyncRoutes);
   // AI Proposal Engine Routes
   app.use("/api/ai-proposals", aiProposalRoutes);

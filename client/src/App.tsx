@@ -123,6 +123,7 @@ const UnlistedPreviewPage = lazy(() => import("@/pages/admin/unlisted-preview"))
 const UnlistedPricingPreviewPage = lazy(() => import("@/pages/admin/unlisted-pricing-preview"));
 const DuplicateManagementPage = lazy(() => import("@/pages/admin/duplicate-management"));
 const ComprehensivePortfolio = lazy(() => import("@/pages/comprehensive-portfolio"));
+const DocumentsPage = lazy(() => import("@/pages/documents"));
 import BBPSPage from "@/pages/BBPSPage";
 import DigiLockerPage from "@/pages/DigiLockerPage";
 import LoanApplication from "@/pages/loan-application";
@@ -405,6 +406,7 @@ function UserProtectedRoutes() {
         <Route path="/wealth-management" component={InvestSmart} />
         <Route path="/proposals" component={ProposalsPage} />
         <Route path="/my-proposals" component={MyProposalsPage} />
+        <Route path="/documents" component={DocumentsPage} />
         <Route path="/smart-proposals" component={ClientSmartProposals} />
         <Route path="/discover" component={FreshInvestmentDiscovery} />
         <Route path="/achievements" component={Achievements} />

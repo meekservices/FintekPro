@@ -201,6 +201,14 @@ export function EnhancedNavigation() {
           ]
         },
         // Proposals visible to all authenticated users - single page with tabs
+        // Documents visible to all authenticated users
+        ...(isAuthenticated ? [{
+          name: "Documents",
+          href: "/documents",
+          icon: FileCheck,
+          description: "Sign and manage documents"
+        }] : []),
+        // Proposals visible to all authenticated users - single page with tabs
         ...(isAuthenticated ? [{
           name: "My Proposals",
           href: "/my-proposals",
