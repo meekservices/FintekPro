@@ -200,6 +200,51 @@ class UnifiedPortfolioImportService {
     }
   }
 
+  async importFromURL(url: string): Promise<UnifiedImportResult> {
+    const result = createEmptyImportResult('wealthy_url');
+    result.sourceUrl = url;
+
+    try {
+      // Check if it's a Wealthy.in URL
+      if (url.includes('wealthy.in')) {
+        return this.importFromWealthyURL(url);
+      }
+
+      // Fetch HTML from URL
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+
+      if (!response.ok) {
+        result.errors.push(`Failed to fetch URL: ${response.status}`);
+        result.parsingStatus = 'failed';
+        return result;
+      }
+
+      const html = await response.text();
+      const urlObj = new URL(url);
+      
+      const portfolioResult = await parseURLPortfolio(html, url);
+      
+      result.holdings = this.convertImportedHoldings(portfolioResult.holdings);
+      result.summary = holdingNormalizationService.computeSummary(result.holdings);
+      result.brokerDetected = portfolioResult.brokerDetected || urlObj.hostname;
+      result.confidenceScore = portfolioResult.confidenceScore;
+      result.success = portfolioResult.success;
+      result.parsingStatus = portfolioResult.success ? 'completed' : 'needs_review';
+      result.errors = portfolioResult.errors;
+      result.capturedAt = new Date().toISOString();
+
+      return result;
+    } catch (error: any) {
+      result.errors.push(error.message || 'Failed to import from URL');
+      result.parsingStatus = 'failed';
+      return result;
+    }
+  }
+
   async importAndSaveForProspect(
     prospectId: string,
     buffer: Buffer,

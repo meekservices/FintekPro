@@ -121,33 +121,42 @@ router.post(
         return res.status(404).json({ error: 'Prospect not found' });
       }
       
-      // Detect if the file is HTML or PDF and parse accordingly
+      // Use unified import service for PDF/HTML parsing
       const isHTML = isHTMLFile(req.file.originalname, req.file.mimetype);
-      let parseResult;
-      
-      if (isHTML) {
-        // Parse HTML file using the URL parser logic
-        const htmlContent = req.file.buffer.toString('utf-8');
-        // Try to detect source URL from filename (e.g., Wealthy_timestamp.html)
-        const sourceUrl = req.file.originalname.toLowerCase().includes('wealthy') 
-          ? 'wealthy.in' 
-          : 'html_upload';
-        parseResult = await parseURLPortfolio(htmlContent, sourceUrl);
-      } else {
-        // Parse PDF file
-        parseResult = await parsePDFPortfolio(req.file.buffer, req.file.originalname);
-      }
-      
       const fileType = isHTML ? 'html' : 'pdf';
       
+      const importResult = isHTML
+        ? await unifiedPortfolioImportService.importFromHTML(
+            req.file.buffer.toString('utf-8'),
+            req.file.originalname
+          )
+        : await unifiedPortfolioImportService.importFromPDF(
+            req.file.buffer,
+            req.file.originalname
+          );
+      
+      if (!importResult.success) {
+        return res.status(400).json({ 
+          error: importResult.error || 'Failed to parse portfolio', 
+          errors: importResult.errors 
+        });
+      }
+      
       const snapshot = createPortfolioSnapshot(
-        parseResult.holdings,
+        importResult.holdings.map(h => ({
+          name: h.name || 'Unknown',
+          symbol: h.symbol,
+          isin: h.isin,
+          quantity: h.quantity,
+          currentValue: h.currentValue,
+          assetType: h.assetType
+        })),
         'pdf_upload',
         {
           fileName: req.file.originalname,
-          brokerDetected: parseResult.brokerDetected || undefined,
-          confidenceScore: parseResult.confidenceScore,
-          errors: parseResult.errors.length > 0 ? parseResult.errors : undefined
+          brokerDetected: importResult.brokerDetected || undefined,
+          confidenceScore: importResult.confidenceScore,
+          errors: importResult.errors?.length > 0 ? importResult.errors : undefined
         }
       );
       
@@ -174,42 +183,37 @@ router.post(
         })
         .where(eq(prospectClients.id, prospectId));
       
-      // Also save to unified portfolio tables
+      // Save to unified portfolio tables using centralized storage service
       await upsertProspectPortfolio(
         prospectId,
         prospect.name,
-        snapshot.holdings,
-        "uploaded",
+        importResult.holdings,
+        fileType === 'pdf' ? 'broker_pdf' : 'wealthy_url',
         req.file.originalname,
-        parseResult.confidenceScore
+        importResult.confidenceScore
       );
       
       // Build the success message based on import results
-      let message = '';
-      if (parseResult.success) {
-        if (parseResult.unimportedCount && parseResult.unimportedCount > 0) {
-          message = `Imported ${parseResult.importedCount} of ${parseResult.expectedCount} holdings from ${parseResult.brokerDetected || 'portfolio'}. ${parseResult.unimportedCount} fund(s) could not be imported automatically.`;
-        } else {
-          message = `Successfully parsed ${parseResult.holdings.length} holdings from ${parseResult.brokerDetected || 'portfolio'}`;
-        }
-      } else {
-        message = 'Portfolio uploaded but parsing needs review';
+      const holdingsCount = importResult.holdings.length;
+      let message = `Successfully parsed ${holdingsCount} holdings from ${importResult.brokerDetected || 'portfolio'}`;
+      if (importResult.unimportedCount && importResult.unimportedCount > 0) {
+        message = `Imported ${importResult.importedCount} of ${importResult.expectedCount} holdings from ${importResult.brokerDetected || 'portfolio'}. ${importResult.unimportedCount} fund(s) could not be imported automatically.`;
       }
       
       res.json({
         success: true,
         message,
         portfolio: snapshot,
-        holdings: snapshot.holdings, // For frontend compatibility
-        holdingsCount: parseResult.holdings.length,
-        brokerDetected: parseResult.brokerDetected,
-        confidenceScore: parseResult.confidenceScore,
-        needsReview: snapshot.parsingStatus === 'needs_review' || parseResult.needsManualReview,
-        expectedCount: parseResult.expectedCount,
-        importedCount: parseResult.importedCount,
-        unimportedCount: parseResult.unimportedCount,
-        needsManualEntry: parseResult.needsManualReview,
-        errors: parseResult.errors
+        holdings: snapshot.holdings,
+        holdingsCount,
+        brokerDetected: importResult.brokerDetected,
+        confidenceScore: importResult.confidenceScore,
+        needsReview: snapshot.parsingStatus === 'needs_review' || importResult.needsManualReview,
+        expectedCount: importResult.expectedCount,
+        importedCount: importResult.importedCount,
+        unimportedCount: importResult.unimportedCount,
+        needsManualEntry: importResult.needsManualReview,
+        errors: importResult.errors
       });
     } catch (error: any) {
       console.error('Portfolio upload error:', error);
@@ -261,29 +265,32 @@ router.post(
         return res.status(404).json({ error: 'Prospect not found' });
       }
       
-      const response = await fetch(importUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        },
-        timeout: 30000
-      });
+      // Use unified import service for URL import
+      const importResult = await unifiedPortfolioImportService.importFromURL(importUrl);
       
-      if (!response.ok) {
-        return res.status(400).json({ error: `Failed to fetch URL: ${response.status}` });
+      if (!importResult.success) {
+        return res.status(400).json({ 
+          error: importResult.error || 'Failed to import from URL', 
+          errors: importResult.errors 
+        });
       }
       
-      const html = await response.text();
-      const parseResult = await parseURLPortfolio(html, importUrl);
-      
       const snapshot = createPortfolioSnapshot(
-        parseResult.holdings,
+        importResult.holdings.map(h => ({
+          name: h.name || 'Unknown',
+          symbol: h.symbol,
+          isin: h.isin,
+          quantity: h.quantity,
+          currentValue: h.currentValue,
+          assetType: h.assetType
+        })),
         'url_import',
         {
           sourceUrl: importUrl,
-          sourceName: parseResult.brokerDetected || urlObj.hostname,
-          brokerDetected: parseResult.brokerDetected || undefined,
-          confidenceScore: parseResult.confidenceScore,
-          errors: parseResult.errors.length > 0 ? parseResult.errors : undefined
+          sourceName: importResult.brokerDetected || urlObj.hostname,
+          brokerDetected: importResult.brokerDetected || undefined,
+          confidenceScore: importResult.confidenceScore,
+          errors: importResult.errors?.length > 0 ? importResult.errors : undefined
         }
       );
       
@@ -292,7 +299,7 @@ router.post(
         .set({
           fetchedPortfolio: {
             fetchedAt: new Date().toISOString(),
-            source: parseResult.brokerDetected || urlObj.hostname,
+            source: importResult.brokerDetected || urlObj.hostname,
             holdings: snapshot.holdings.map(h => ({
               isin: h.isin,
               symbol: h.symbol,
@@ -310,28 +317,27 @@ router.post(
         })
         .where(eq(prospectClients.id, prospectId));
       
-      // Also save to unified portfolio tables
+      // Save to unified portfolio tables using centralized storage
       await upsertProspectPortfolio(
         prospectId,
         prospect.name,
-        snapshot.holdings,
-        "cas_fetch",
+        importResult.holdings,
+        "wealthy_url",
         undefined,
-        parseResult.confidenceScore
+        importResult.confidenceScore
       );
       
+      const holdingsCount = importResult.holdings.length;
       res.json({
         success: true,
-        message: parseResult.success 
-          ? `Successfully imported ${parseResult.holdings.length} holdings from ${parseResult.brokerDetected || urlObj.hostname}`
-          : 'URL imported but parsing needs review',
+        message: `Successfully imported ${holdingsCount} holdings from ${importResult.brokerDetected || urlObj.hostname}`,
         portfolio: snapshot,
-        holdings: snapshot.holdings, // For frontend compatibility
-        holdingsCount: parseResult.holdings.length,
-        brokerDetected: parseResult.brokerDetected,
-        confidenceScore: parseResult.confidenceScore,
+        holdings: snapshot.holdings,
+        holdingsCount,
+        brokerDetected: importResult.brokerDetected,
+        confidenceScore: importResult.confidenceScore,
         needsReview: snapshot.parsingStatus === 'needs_review',
-        errors: parseResult.errors
+        errors: importResult.errors
       });
     } catch (error: any) {
       console.error('Portfolio URL import error:', error);

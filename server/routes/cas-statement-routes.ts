@@ -112,62 +112,33 @@ router.post(
       const portfolioHoldingsData = casStatementService.convertToPortfolioHoldingsWithDates(result.holdings, result.transactions);
       const totalValue = result.summary.totalCurrentValue;
       
-      const [existingPortfolio] = await db
-        .select()
-        .from(portfolios)
-        .where(eq(portfolios.prospectId, prospectId))
-        .limit(1);
+      // Convert to UnifiedHolding format and use centralized storage
+      const unifiedHoldings: UnifiedHolding[] = portfolioHoldingsData.map(h => ({
+        name: h.name,
+        isin: h.isin,
+        symbol: h.symbol,
+        folioNumber: h.folioNumber,
+        assetType: holdingNormalizationService.normalizeAssetType(h.assetType),
+        quantity: h.quantity,
+        avgCostPerUnit: h.averageCost,
+        investedValue: h.investedValue,
+        currentValue: h.currentValue,
+        broker: h.broker,
+        purchaseDate: h.purchaseDate
+      }));
       
-      let portfolioId: string;
+      const storageResult = await portfolioStorageService.upsertProspectPortfolio(
+        prospectId,
+        unifiedHoldings,
+        {
+          source: 'cas_statement',
+          sourceFileName: req.file.originalname,
+          confidenceScore: result.confidenceScore,
+          replaceExisting: true
+        }
+      );
       
-      if (existingPortfolio) {
-        portfolioId = existingPortfolio.id;
-        await db.update(portfolios)
-          .set({
-            totalValue: totalValue.toString(),
-            source: 'cas_import',
-            sourceFileName: req.file.originalname,
-            updatedAt: new Date()
-          })
-          .where(eq(portfolios.id, portfolioId));
-        
-        await db.delete(portfolioHoldings)
-          .where(eq(portfolioHoldings.portfolioId, portfolioId));
-      } else {
-        const [newPortfolio] = await db.insert(portfolios)
-          .values({
-            prospectId,
-            name: `${prospect.name}'s Portfolio`,
-            totalValue: totalValue.toString(),
-            source: 'cas_import',
-            sourceFileName: req.file.originalname,
-            isDefault: true,
-            isVerified: false
-          })
-          .returning();
-        portfolioId = newPortfolio.id;
-      }
-      
-      if (portfolioHoldingsData.length > 0) {
-        await db.insert(portfolioHoldings).values(
-          portfolioHoldingsData.map(h => ({
-            portfolioId,
-            symbol: h.symbol || null,
-            name: h.name,
-            isin: h.isin,
-            quantity: h.quantity.toString(),
-            avgPrice: h.averageCost?.toString() || null,
-            currentValue: h.currentValue.toString(),
-            investedValue: h.investedValue?.toString() || null,
-            assetType: h.assetType,
-            folioNumber: h.folioNumber || null,
-            broker: h.broker || null,
-            confidenceScore: h.confidenceScore,
-            source: 'cas_import',
-            purchaseDate: h.purchaseDate ? new Date(h.purchaseDate) : null // purchaseDate is now in ISO format (YYYY-MM-DD)
-          }))
-        );
-      }
+      const portfolioId = storageResult.portfolioId;
       
       await db.update(prospectClients)
         .set({
