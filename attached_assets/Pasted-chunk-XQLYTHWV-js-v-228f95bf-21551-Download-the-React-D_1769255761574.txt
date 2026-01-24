@@ -1,0 +1,53 @@
+chunk-XQLYTHWV.js?v=228f95bf:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+main.tsx:23 [PWA] Service Worker registered: https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/
+queryClient.ts:221  POST https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/chat/sessions 500 (Internal Server Error)
+apiRequest @ queryClient.ts:221
+mutationFn @ FloatingChatWidget.tsx:37
+fn @ @tanstack_react-query.js?v=228f95bf:1189
+run @ @tanstack_react-query.js?v=228f95bf:494
+start @ @tanstack_react-query.js?v=228f95bf:536
+execute @ @tanstack_react-query.js?v=228f95bf:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=228f95bf:2630
+(anonymous) @ @tanstack_react-query.js?v=228f95bf:3295
+(anonymous) @ FloatingChatWidget.tsx:91
+commitHookEffectListMount @ chunk-XQLYTHWV.js?v=228f95bf:16915
+commitPassiveMountOnFiber @ chunk-XQLYTHWV.js?v=228f95bf:18156
+commitPassiveMountEffects_complete @ chunk-XQLYTHWV.js?v=228f95bf:18129
+commitPassiveMountEffects_begin @ chunk-XQLYTHWV.js?v=228f95bf:18119
+commitPassiveMountEffects @ chunk-XQLYTHWV.js?v=228f95bf:18109
+flushPassiveEffectsImpl @ chunk-XQLYTHWV.js?v=228f95bf:19490
+flushPassiveEffects @ chunk-XQLYTHWV.js?v=228f95bf:19447
+commitRootImpl @ chunk-XQLYTHWV.js?v=228f95bf:19416
+commitRoot @ chunk-XQLYTHWV.js?v=228f95bf:19277
+performSyncWorkOnRoot @ chunk-XQLYTHWV.js?v=228f95bf:18895
+flushSyncCallbacks @ chunk-XQLYTHWV.js?v=228f95bf:9119
+(anonymous) @ chunk-XQLYTHWV.js?v=228f95bf:18627
+queryClient.ts:221  POST https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/chat/sessions 500 (Internal Server Error)
+apiRequest @ queryClient.ts:221
+mutationFn @ FloatingChatWidget.tsx:37
+fn @ @tanstack_react-query.js?v=228f95bf:1189
+run @ @tanstack_react-query.js?v=228f95bf:494
+(anonymous) @ @tanstack_react-query.js?v=228f95bf:519
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=228f95bf:515
+Promise.catch
+run @ @tanstack_react-query.js?v=228f95bf:498
+start @ @tanstack_react-query.js?v=228f95bf:536
+execute @ @tanstack_react-query.js?v=228f95bf:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=228f95bf:2630
+(anonymous) @ @tanstack_react-query.js?v=228f95bf:3295
+(anonymous) @ FloatingChatWidget.tsx:91
+commitHookEffectListMount @ chunk-XQLYTHWV.js?v=228f95bf:16915
+commitPassiveMountOnFiber @ chunk-XQLYTHWV.js?v=228f95bf:18156
+commitPassiveMountEffects_complete @ chunk-XQLYTHWV.js?v=228f95bf:18129
+commitPassiveMountEffects_begin @ chunk-XQLYTHWV.js?v=228f95bf:18119
+commitPassiveMountEffects @ chunk-XQLYTHWV.js?v=228f95bf:18109
+flushPassiveEffectsImpl @ chunk-XQLYTHWV.js?v=228f95bf:19490
+flushPassiveEffects @ chunk-XQLYTHWV.js?v=228f95bf:19447
+commitRootImpl @ chunk-XQLYTHWV.js?v=228f95bf:19416
+commitRoot @ chunk-XQLYTHWV.js?v=228f95bf:19277
+performSyncWorkOnRoot @ chunk-XQLYTHWV.js?v=228f95bf:18895
+flushSyncCallbacks @ chunk-XQLYTHWV.js?v=228f95bf:9119
+(anonymous) @ chunk-XQLYTHWV.js?v=228f95bf:18627

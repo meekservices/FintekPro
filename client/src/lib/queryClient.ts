@@ -208,6 +208,11 @@ export async function apiRequest(
   const shouldSendBody = method !== "GET" && body !== undefined;
   const isMutatingRequest = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
   
+  // Stringify body if it's an object (not already a string)
+  const serializedBody = shouldSendBody 
+    ? (typeof body === 'string' ? body : JSON.stringify(body))
+    : undefined;
+  
   // Build headers with CSRF token for mutating requests
   const requestHeaders: Record<string, string> = {
     ...(shouldSendBody ? { "Content-Type": "application/json" } : {}),
@@ -221,7 +226,7 @@ export async function apiRequest(
   let res = await fetch(url, {
     method,
     headers: requestHeaders,
-    body: shouldSendBody ? body : undefined,
+    body: serializedBody,
     credentials: "include",
     ...restOptions,
   });
@@ -235,7 +240,7 @@ export async function apiRequest(
         res = await fetch(url, {
           method,
           headers: requestHeaders,
-          body: shouldSendBody ? body : undefined,
+          body: serializedBody,
           credentials: "include",
           ...restOptions,
         });
