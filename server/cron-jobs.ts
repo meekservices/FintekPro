@@ -20,6 +20,7 @@ import { mfSyncScheduler } from './services/mf-sync-scheduler';
 import { aifNavSyncScheduler } from './services/aif-nav-sync-scheduler';
 import { pmsNavSyncScheduler } from './services/pms-nav-sync-scheduler';
 import { commodityPriceSyncScheduler } from './services/commodity-price-sync-scheduler';
+import { exitLoadSyncScheduler } from './services/exit-load-sync-scheduler';
 
 /**
  * Initialize scheduled cron jobs
@@ -47,6 +48,10 @@ export function initializeCronJobs(): void {
   // Start Commodity price sync scheduler
   commodityPriceSyncScheduler.start();
   console.log('📊 [Commodity Sync] Price sync scheduler started (daily refresh at 8 AM IST)');
+  
+  // Start Exit Load sync scheduler
+  exitLoadSyncScheduler.start();
+  console.log('📊 [ExitLoad Sync] Exit load sync scheduler started (weekly refresh)');
   
   // Probe42 Sync Job - Run every 6 hours
   cron.schedule('0 */6 * * *', async () => {

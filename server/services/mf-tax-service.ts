@@ -1,6 +1,7 @@
 import { db } from '../db';
 import { mfTaxRules, mfSchemeExitLoads } from '@shared/schema';
 import { eq, and, isNull, lte, gte, or } from 'drizzle-orm';
+import { exitLoadService } from './exit-load-service';
 
 interface TaxCalculation {
   fundType: string;
@@ -164,35 +165,64 @@ class MFTaxService {
     exitLoadPercent: number;
     description: string;
     daysToZeroExitLoad: number | null;
+    source: 'database' | 'generic';
   }> {
-    const exitLoads = await db
-      .select()
-      .from(mfSchemeExitLoads)
-      .where(eq(mfSchemeExitLoads.schemeCode, schemeCode))
-      .orderBy(mfSchemeExitLoads.tier);
+    // Use centralized ExitLoadService for ISIN/schemeCode lookup with caching
+    try {
+      const result = await exitLoadService.getExitLoad({
+        schemeCode,
+        holdingDays,
+        redemptionAmount: 0 // Just need the percent, not the amount
+      });
 
-    if (!exitLoads.length) {
+      return {
+        exitLoadPercent: result.exitLoadPercent,
+        description: result.description,
+        daysToZeroExitLoad: result.daysToZeroExitLoad,
+        source: result.source
+      };
+    } catch (error) {
+      console.error('[MFTaxService] Exit load lookup failed:', error);
       return {
         exitLoadPercent: 0,
         description: 'Exit load information not available',
-        daysToZeroExitLoad: null
+        daysToZeroExitLoad: null,
+        source: 'generic'
       };
     }
+  }
 
-    const applicableTier = exitLoads.find(t => 
-      holdingDays >= t.minDays && 
-      (t.maxDays === null || holdingDays <= t.maxDays)
-    );
+  /**
+   * Get exit load for a fund by ISIN (uses centralized service)
+   */
+  async getExitLoadByIsin(isin: string, holdingDays: number): Promise<{
+    exitLoadPercent: number;
+    description: string;
+    daysToZeroExitLoad: number | null;
+    source: 'database' | 'generic';
+  }> {
+    try {
+      const result = await exitLoadService.getExitLoad({
+        isin,
+        holdingDays,
+        redemptionAmount: 0
+      });
 
-    const zeroLoadTier = exitLoads.find(t => parseFloat(t.exitLoadPercent) === 0);
-    const daysToZero = zeroLoadTier && holdingDays < zeroLoadTier.minDays ? 
-      zeroLoadTier.minDays - holdingDays : null;
-
-    return {
-      exitLoadPercent: applicableTier ? parseFloat(applicableTier.exitLoadPercent) : 0,
-      description: applicableTier?.description || 'No exit load applicable',
-      daysToZeroExitLoad: daysToZero
-    };
+      return {
+        exitLoadPercent: result.exitLoadPercent,
+        description: result.description,
+        daysToZeroExitLoad: result.daysToZeroExitLoad,
+        source: result.source
+      };
+    } catch (error) {
+      console.error('[MFTaxService] Exit load lookup by ISIN failed:', error);
+      return {
+        exitLoadPercent: 0,
+        description: 'Exit load information not available',
+        daysToZeroExitLoad: null,
+        source: 'generic'
+      };
+    }
   }
 
   async calculateExitLoad(

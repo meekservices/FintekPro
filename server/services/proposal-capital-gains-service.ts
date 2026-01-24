@@ -5,6 +5,8 @@
  * grandfathering benefits, exit loads, and tax-efficient alternatives
  */
 
+import { exitLoadService } from './exit-load-service';
+
 // Tax Regime Constants
 // Note: Debt MF taxation changed significantly:
 // - Pre-April 2023: 3-year LTCG at 20% with indexation
@@ -98,6 +100,8 @@ export interface HoldingWithTax {
   name: string;
   productType: string;
   category?: string;
+  isin?: string;
+  schemeCode?: string;
   currentValue: number;
   investedAmount: number;
   purchaseDate?: Date | string;
@@ -110,6 +114,8 @@ export interface HoldingWithTax {
   estimatedTax: number;
   estimatedTaxWithCess: number;
   exitLoad: number;
+  exitLoadSource: 'database' | 'generic'; // Whether ISIN-specific or generic exit load was used
+  daysToZeroExitLoad: number | null;
   totalCost: number; // Tax + Exit Load
   grandfatheringApplied: boolean;
   grandfatheringBenefit: number;
@@ -280,7 +286,7 @@ class ProposalCapitalGainsService {
   }
 
   /**
-   * Calculate exit load
+   * Calculate exit load (sync version - uses generic rates, kept for backward compatibility)
    */
   calculateExitLoad(
     amount: number,
@@ -306,6 +312,51 @@ class ProposalCapitalGainsService {
     }
     
     return 0;
+  }
+
+  /**
+   * Calculate exit load (async version - uses ISIN-specific lookup from centralized ExitLoadService)
+   * Falls back to generic rates if ISIN-specific data not available
+   */
+  async calculateExitLoadAsync(params: {
+    amount: number;
+    holdingPeriodDays: number;
+    productType: string;
+    category?: string;
+    isin?: string;
+    schemeCode?: string;
+  }): Promise<{ exitLoad: number; source: 'database' | 'generic'; daysToZeroExitLoad: number | null }> {
+    const { amount, holdingPeriodDays, productType, category, isin, schemeCode } = params;
+    
+    // Try ISIN/schemeCode lookup first
+    if (isin || schemeCode) {
+      try {
+        const result = await exitLoadService.getExitLoad({
+          isin,
+          schemeCode,
+          holdingDays: holdingPeriodDays,
+          redemptionAmount: amount,
+          category,
+          schemeName: undefined
+        });
+        
+        return {
+          exitLoad: result.exitLoadAmount,
+          source: result.source,
+          daysToZeroExitLoad: result.daysToZeroExitLoad
+        };
+      } catch (error) {
+        console.error('[ProposalCapitalGains] Exit load lookup failed, using generic:', error);
+      }
+    }
+    
+    // Fallback to generic calculation
+    const exitLoad = this.calculateExitLoad(amount, holdingPeriodDays, productType, category);
+    return {
+      exitLoad,
+      source: 'generic',
+      daysToZeroExitLoad: null
+    };
   }
 
   /**
@@ -480,7 +531,7 @@ class ProposalCapitalGainsService {
     const cess = estimatedTax * CESS_RATE;
     const estimatedTaxWithCess = estimatedTax + cess;
     
-    // Calculate exit load
+    // Calculate exit load (sync - uses generic rates)
     const exitLoad = this.calculateExitLoad(currentValue, holdingPeriodDays, holding.productType, holding.category);
     
     // Generate alerts
@@ -502,7 +553,113 @@ class ProposalCapitalGainsService {
       estimatedTax,
       estimatedTaxWithCess,
       exitLoad,
+      exitLoadSource: 'generic' as const,
+      daysToZeroExitLoad: null,
       totalCost: estimatedTaxWithCess + exitLoad,
+      grandfatheringApplied: grandfathering.applies,
+      grandfatheringBenefit: grandfathering.benefit,
+      taxRegime,
+      alerts
+    };
+  }
+
+  /**
+   * Calculate tax for a single holding being sold/switched (async version with ISIN-specific exit load)
+   */
+  async calculateHoldingTaxAsync(
+    holding: {
+      name: string;
+      productType: string;
+      category?: string;
+      isin?: string;
+      schemeCode?: string;
+      currentValue: number;
+      investedAmount?: number;
+      purchaseDate?: Date | string;
+      quantity?: number;
+      sellAmount?: number;
+    },
+    transactionDate: Date = new Date()
+  ): Promise<HoldingWithTax> {
+    const taxRegime = this.getTaxRegime(transactionDate);
+    const regime = TAX_REGIMES[taxRegime];
+    const assetCategory = this.getAssetCategory(holding.productType, holding.category);
+    const rules = regime[assetCategory as keyof typeof regime] as any;
+    
+    const currentValue = holding.sellAmount || holding.currentValue;
+    const investedAmount = holding.investedAmount || currentValue * 0.85;
+    const holdingPeriodDays = this.calculateHoldingPeriod(holding.purchaseDate);
+    
+    let unrealizedGain = currentValue - investedAmount;
+    
+    const grandfathering = this.calculateGrandfatheringBenefit(
+      holding.purchaseDate,
+      investedAmount,
+      currentValue,
+      holding.productType
+    );
+    
+    if (grandfathering.applies) {
+      unrealizedGain = currentValue - grandfathering.adjustedCost;
+    }
+    
+    const isSlabBased = rules?.stcg?.slabBased === true;
+    
+    let taxType: 'STCG' | 'LTCG' | 'SLAB' | 'UNKNOWN';
+    let applicableTaxRate: number;
+    let taxableGain = unrealizedGain;
+    
+    if (isSlabBased) {
+      taxType = 'SLAB';
+      applicableTaxRate = rules?.stcg?.rate || 0.30;
+      taxableGain = unrealizedGain;
+    } else {
+      const isSTCG = holdingPeriodDays < (rules?.stcg?.thresholdDays || 365);
+      taxType = isSTCG ? 'STCG' : 'LTCG';
+      applicableTaxRate = isSTCG ? rules?.stcg?.rate || 0.20 : rules?.ltcg?.rate || 0.125;
+      
+      if (!isSTCG && rules?.ltcg?.exemption) {
+        taxableGain = Math.max(0, unrealizedGain - rules.ltcg.exemption);
+      }
+    }
+    
+    let estimatedTax = Math.max(0, taxableGain * applicableTaxRate);
+    const cess = estimatedTax * CESS_RATE;
+    const estimatedTaxWithCess = estimatedTax + cess;
+    
+    // Calculate exit load using centralized service (ISIN-specific lookup)
+    const exitLoadResult = await this.calculateExitLoadAsync({
+      amount: currentValue,
+      holdingPeriodDays,
+      productType: holding.productType,
+      category: holding.category,
+      isin: holding.isin,
+      schemeCode: holding.schemeCode
+    });
+    
+    const alerts = this.generateAlerts(holding, holdingPeriodDays, unrealizedGain, assetCategory, taxRegime);
+    
+    return {
+      name: holding.name,
+      productType: holding.productType,
+      category: holding.category,
+      isin: holding.isin,
+      schemeCode: holding.schemeCode,
+      currentValue,
+      investedAmount,
+      purchaseDate: holding.purchaseDate,
+      quantity: holding.quantity,
+      unrealizedGain,
+      holdingPeriodDays,
+      taxType,
+      isSlabBased,
+      applicableTaxRate,
+      estimatedTax,
+      estimatedTaxWithCess,
+      exitLoad: exitLoadResult.exitLoad,
+      exitLoadSource: exitLoadResult.source,
+      daysToZeroExitLoad: exitLoadResult.daysToZeroExitLoad,
+      totalCost: estimatedTaxWithCess + exitLoadResult.exitLoad,
       grandfatheringApplied: grandfathering.applies,
       grandfatheringBenefit: grandfathering.benefit,
       taxRegime,
