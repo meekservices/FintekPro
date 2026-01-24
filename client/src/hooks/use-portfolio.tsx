@@ -192,3 +192,198 @@ export function usePortfolioNews(portfolioId: string | null) {
     refetchInterval: 300000, // Refresh every 5 minutes
   });
 }
+
+// ============================================
+// Portfolio Import Types & Mutations
+// ============================================
+
+export type ImportSource = 'cas_statement' | 'broker_pdf' | 'wealthy_url' | 'manual_entry' | 'url_import';
+
+export type AssetType = 'equity' | 'mutual_fund' | 'etf' | 'bond' | 'gold' | 'debt' | 'hybrid' | 'pms' | 'aif' | 'reit' | 'invit' | 'unlisted' | 'other';
+
+export interface ImportedHolding {
+  id?: string;
+  symbol?: string;
+  isin?: string;
+  name: string;
+  assetType: AssetType;
+  quantity: string;
+  avgPrice: string;
+  currentValue?: string;
+  source?: ImportSource;
+  folioNumber?: string;
+  amcName?: string;
+  schemeName?: string;
+}
+
+export interface ImportResult {
+  success: boolean;
+  holdings: ImportedHolding[];
+  summary?: {
+    totalHoldings: number;
+    totalInvested: number;
+    totalCurrentValue: number;
+    equityPercent: number;
+    debtPercent: number;
+  };
+  investor?: {
+    name: string;
+    pan: string;
+    lastSync?: string;
+  };
+  errors?: string[];
+  warnings?: string[];
+}
+
+export interface ParseOptions {
+  prospectId?: string;
+  userId?: string;
+  replaceExisting?: boolean;
+  source?: ImportSource;
+}
+
+export function useParsePortfolioPDF() {
+  return useMutation<ImportResult, Error, { file: File; options?: ParseOptions }>({
+    mutationFn: async ({ file, options }) => {
+      const formData = new FormData();
+      formData.append('portfolio', file);
+      if (options?.prospectId) {
+        formData.append('prospectId', options.prospectId);
+      }
+      
+      const endpoint = options?.prospectId 
+        ? `/api/agent/prospects/${options.prospectId}/portfolio/upload`
+        : '/api/portfolio/import/pdf';
+      
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+      
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ message: 'Failed to parse PDF' }));
+        throw new Error(error.message || 'Failed to parse PDF');
+      }
+      return res.json();
+    },
+  });
+}
+
+export function useParsePortfolioURL() {
+  return useMutation<ImportResult, Error, { url: string; options?: ParseOptions }>({
+    mutationFn: async ({ url, options }) => {
+      const endpoint = options?.prospectId
+        ? `/api/agent/prospects/${options.prospectId}/portfolio/import-url`
+        : '/api/portfolio/import/url';
+      
+      const res = await apiRequest(endpoint, {
+        method: 'POST',
+        body: JSON.stringify({ portfolioUrl: url, url, replaceExisting: options?.replaceExisting }),
+      });
+      return res.json();
+    },
+  });
+}
+
+export function useParseCASStatement() {
+  return useMutation<ImportResult, Error, { file: File; type: 'cas' | 'demat'; options?: ParseOptions }>({
+    mutationFn: async ({ file, type, options }) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', type);
+      if (options?.prospectId) {
+        formData.append('prospectId', options.prospectId);
+      }
+      
+      const res = await fetch('/api/agent/portfolio/parse-cas', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+      
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ message: 'Failed to parse CAS statement' }));
+        throw new Error(error.message || 'Failed to parse CAS statement');
+      }
+      return res.json();
+    },
+  });
+}
+
+export function useImportWealthyURL() {
+  const queryClient = useQueryClient();
+  
+  return useMutation<ImportResult, Error, { url: string; replaceExisting?: boolean }>({
+    mutationFn: async ({ url, replaceExisting }) => {
+      const res = await apiRequest('POST', '/api/portfolio/import-wealthy', { url, replaceExisting });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/portfolio/external-holdings'] });
+    },
+  });
+}
+
+export function useSaveImportedHoldings() {
+  const queryClient = useQueryClient();
+  
+  return useMutation<{ success: boolean; savedCount: number }, Error, { 
+    holdings: ImportedHolding[]; 
+    prospectId?: string;
+    portfolioId?: string;
+    source: ImportSource;
+    replaceExisting?: boolean;
+  }>({
+    mutationFn: async ({ holdings, prospectId, portfolioId, source, replaceExisting }) => {
+      const endpoint = prospectId 
+        ? `/api/agent/prospects/${prospectId}/portfolio/save`
+        : '/api/portfolio/import/save';
+      
+      const res = await apiRequest(endpoint, {
+        method: 'POST',
+        body: JSON.stringify({ holdings, portfolioId, source, replaceExisting }),
+      });
+      return res.json();
+    },
+    onSuccess: (_, variables) => {
+      if (variables.portfolioId) {
+        queryClient.invalidateQueries({ queryKey: ['/api/portfolios', variables.portfolioId, 'holdings'] });
+      }
+      queryClient.invalidateQueries({ queryKey: ['/api/portfolios'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/portfolio/external-holdings'] });
+    },
+  });
+}
+
+export function useDeleteHolding() {
+  const queryClient = useQueryClient();
+  
+  return useMutation<void, Error, { holdingId: string; portfolioId: string }>({
+    mutationFn: async ({ holdingId, portfolioId }) => {
+      await apiRequest(`/api/portfolios/${portfolioId}/holdings/${holdingId}`, {
+        method: 'DELETE',
+      });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/portfolios', variables.portfolioId, 'holdings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/portfolios', variables.portfolioId, 'allocation'] });
+    },
+  });
+}
+
+export function useUpdateHolding() {
+  const queryClient = useQueryClient();
+  
+  return useMutation<void, Error, { holdingId: string; portfolioId: string; updates: Partial<ImportedHolding> }>({
+    mutationFn: async ({ holdingId, portfolioId, updates }) => {
+      await apiRequest(`/api/portfolios/${portfolioId}/holdings/${holdingId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updates),
+      });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/portfolios', variables.portfolioId, 'holdings'] });
+    },
+  });
+}
