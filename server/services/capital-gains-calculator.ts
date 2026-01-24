@@ -131,7 +131,7 @@ export class CapitalGainsCalculatorService {
         const unrealizedGain = (currentPrice - avgPrice) * quantity;
         
         // Calculate holding period (simplified - using updatedAt as purchase date)
-        const purchaseDate = holding.updatedAt ? new Date(holding.updatedAt) : new Date();
+        const purchaseDate = holding.purchaseDate ? new Date(holding.purchaseDate) : (holding.updatedAt ? new Date(holding.updatedAt) : new Date());
         const holdingPeriodDays = Math.floor((Date.now() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24));
         
         const isSTCG = holdingPeriodDays <= this.STCG_THRESHOLD_DAYS;

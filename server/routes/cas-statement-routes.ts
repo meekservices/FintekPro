@@ -97,7 +97,7 @@ router.post(
         });
       }
       
-      const portfolioHoldingsData = casStatementService.convertToPortfolioHoldings(result.holdings);
+      const portfolioHoldingsData = casStatementService.convertToPortfolioHoldingsWithDates(result.holdings, result.transactions);
       const totalValue = result.summary.totalCurrentValue;
       
       const [existingPortfolio] = await db
@@ -151,7 +151,8 @@ router.post(
             folioNumber: h.folioNumber || null,
             broker: h.broker || null,
             confidenceScore: h.confidenceScore,
-            source: 'cas_import'
+            source: 'cas_import',
+            purchaseDate: h.purchaseDate ? new Date(h.purchaseDate) : null
           }))
         );
       }

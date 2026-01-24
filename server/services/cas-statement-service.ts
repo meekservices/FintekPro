@@ -529,6 +529,56 @@ class CASStatementService {
     return holdings.filter(h => h.registrar === registrar);
   }
   
+  /**
+   * Get first purchase date per folio from transactions
+   */
+  getFirstPurchaseDateByFolio(transactions: CASTransaction[]): Map<string, string> {
+    const folioFirstPurchase = new Map<string, string>();
+    
+    // Filter purchase-type transactions and sort by date
+    const purchaseTransactions = transactions
+      .filter(t => t.transactionType === 'Purchase' || t.transactionType === 'SIP')
+      .sort((a, b) => new Date(a.transactionDate).getTime() - new Date(b.transactionDate).getTime());
+    
+    // Get first purchase date for each folio
+    for (const txn of purchaseTransactions) {
+      if (!folioFirstPurchase.has(txn.folioNumber)) {
+        folioFirstPurchase.set(txn.folioNumber, txn.transactionDate);
+      }
+    }
+    
+    return folioFirstPurchase;
+  }
+
+  /**
+   * Convert CAS holdings to portfolio format with purchase dates
+   */
+  convertToPortfolioHoldingsWithDates(
+    holdings: CASHolding[], 
+    transactions: CASTransaction[]
+  ): any[] {
+    const folioFirstPurchase = this.getFirstPurchaseDateByFolio(transactions);
+    
+    return holdings.map(h => ({
+      id: h.id,
+      name: h.schemeName,
+      isin: h.isin,
+      symbol: h.schemeCode,
+      assetType: h.assetType,
+      quantity: h.unitBalance,
+      averageCost: h.avgCostPerUnit,
+      investedValue: h.costValue,
+      currentNav: h.nav,
+      currentValue: h.marketValue,
+      unrealizedGain: h.unrealizedGain,
+      unrealizedGainPercent: h.unrealizedGainPercent,
+      folioNumber: h.folioNumber,
+      purchaseDate: folioFirstPurchase.get(h.folioNumber) || null,
+      broker: h.registrar === 'KFINTECH' ? 'KFintech' : 'CAMS',
+      confidenceScore: 90
+    }));
+  }
+
   async getHoldingsByFolio(holdings: CASHolding[], folioNumber: string): Promise<CASHolding[]> {
     return holdings.filter(h => h.folioNumber === folioNumber);
   }

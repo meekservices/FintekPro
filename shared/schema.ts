@@ -1103,6 +1103,7 @@ export const portfolioHoldings = pgTable("portfolio_holdings", {
   assetClass: text("asset_class"), // large_cap, mid_cap, small_cap, debt, hybrid, precious_metals, energy, agricultural
   sector: text("sector"), // technology, banking, healthcare, energy, consumer_goods, etc.
   folioNumber: text("folio_number"), // For MFs
+  purchaseDate: date("purchase_date"), // First purchase date for exit load/capital gains
   broker: text("broker"), // Source broker/platform
   marketCap: decimal("market_cap", { precision: 20, scale: 0 }),
   beta: decimal("beta", { precision: 5, scale: 3 }),
@@ -16279,6 +16280,9 @@ export const mfHoldings = pgTable("mf_holdings", {
   navDate: date("nav_date"),
   investedValue: decimal("invested_value", { precision: 15, scale: 2 }),
   currentValue: decimal("current_value", { precision: 15, scale: 2 }),
+  
+  // Purchase Tracking
+  firstPurchaseDate: date("first_purchase_date"), // Date of first investment in this folio for exit load calc
   
   // Lock-in & Exit Load
   lockInEndDate: date("lock_in_end_date"),
