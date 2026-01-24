@@ -5,6 +5,7 @@
  * - Asset type classification
  * - Allocation calculation
  * - Name standardization
+ * - AMFI lookup for canonical fund names
  * - Summary computation
  */
 
@@ -15,6 +16,21 @@ import type {
   UnifiedPortfolioSummary,
   RegistrarBreakdown
 } from './unified-portfolio-types';
+import { db } from '../db';
+import { mutualFunds } from '@shared/schema';
+import { eq, ilike, or, sql } from 'drizzle-orm';
+
+interface AmfiLookupResult {
+  schemeCode: string;
+  schemeName: string;
+  isin?: string;
+  amcName?: string;
+  category?: string;
+  confidence: number;
+}
+
+const amfiLookupCache = new Map<string, { result: AmfiLookupResult | null; timestamp: number }>();
+const CACHE_TTL = 24 * 60 * 60 * 1000;
 
 class HoldingNormalizationService {
   
@@ -194,15 +210,95 @@ class HoldingNormalizationService {
     };
   }
 
+  private static readonly PRESERVE_UPPERCASE = new Set([
+    'IDCW', 'SIP', 'ETF', 'FOF', 'NAV', 'AMC', 'NFO', 'AIF', 'PMS', 'REIT', 'INVIT',
+    'HDFC', 'ICICI', 'SBI', 'AXIS', 'UTI', 'DSP', 'TATA', 'HSBC', 'PGIM', 'PPFAS',
+    'LIC', 'ABSL', 'BSE', 'NSE', 'NCD', 'NCDs', 'IPO', 'FD', 'FDs', 'SGB', 'GOI',
+    'AAA', 'AA', 'A', 'BBB', 'BB', 'B', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X',
+    'USA', 'UK', 'US', 'NIFTY', 'SENSEX', 'ESG', 'PSU', 'IT', 'FMCG', 'MNC', 'ELSS'
+  ]);
+
+  toTitleCase(text: string): string {
+    if (!text) return '';
+    
+    const isAllCaps = text === text.toUpperCase() && text.length > 5;
+    if (!isAllCaps) return text;
+    
+    return text
+      .toLowerCase()
+      .split(/(\s+|-|\/|\(|\))/)
+      .map(word => {
+        const upperWord = word.toUpperCase();
+        if (HoldingNormalizationService.PRESERVE_UPPERCASE.has(upperWord)) {
+          return upperWord;
+        }
+        if (word.length <= 1) return word;
+        if (/^\d/.test(word)) return word;
+        return word.charAt(0).toUpperCase() + word.slice(1);
+      })
+      .join('');
+  }
+
+  extractIsinFromName(name: string): { cleanName: string; isin?: string } {
+    const isinPatterns = [
+      /\(?ISIN[:\s]*([A-Z]{2}[A-Z0-9]{10})\)?/i,
+      /\(([A-Z]{2}[A-Z0-9]{10})\)/,
+      /\s([A-Z]{2}[A-Z0-9]{10})$/,
+    ];
+    
+    for (const pattern of isinPatterns) {
+      const match = name.match(pattern);
+      if (match) {
+        const isin = match[1].toUpperCase();
+        if (this.isValidIsin(isin)) {
+          return {
+            cleanName: name.replace(match[0], '').replace(/\s+/g, ' ').trim(),
+            isin
+          };
+        }
+      }
+    }
+    return { cleanName: name };
+  }
+
+  private isValidIsin(isin: string): boolean {
+    if (!/^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(isin)) return false;
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let digits = '';
+    for (const char of isin) {
+      if (/[A-Z]/.test(char)) {
+        digits += (chars.indexOf(char) + 10).toString();
+      } else {
+        digits += char;
+      }
+    }
+    let sum = 0;
+    let isSecond = false;
+    for (let i = digits.length - 1; i >= 0; i--) {
+      let d = parseInt(digits[i]);
+      if (isSecond) {
+        d *= 2;
+        if (d > 9) d -= 9;
+      }
+      sum += d;
+      isSecond = !isSecond;
+    }
+    return sum % 10 === 0;
+  }
+
   normalizeHoldingName(name: string): string {
     if (!name) return '';
     
-    return name
+    let normalized = name
       .replace(/\s+/g, ' ')
       .replace(/\s*-\s*/g, ' - ')
       .replace(/\(\s+/g, '(')
       .replace(/\s+\)/g, ')')
       .trim();
+    
+    normalized = this.toTitleCase(normalized);
+    
+    return normalized;
   }
 
   extractFolioFromName(name: string): { cleanName: string; folio?: string } {
@@ -214,6 +310,29 @@ class HoldingNormalizationService {
       };
     }
     return { cleanName: name };
+  }
+
+  normalizeAndExtract(name: string): { 
+    normalizedName: string; 
+    isin?: string; 
+    folio?: string;
+    planType?: 'Regular' | 'Direct';
+    optionType?: 'Growth' | 'IDCW' | 'Dividend';
+  } {
+    let workingName = name;
+    
+    const { cleanName: afterIsin, isin } = this.extractIsinFromName(workingName);
+    workingName = afterIsin;
+    
+    const { cleanName: afterFolio, folio } = this.extractFolioFromName(workingName);
+    workingName = afterFolio;
+    
+    const planType = this.detectPlanType(workingName);
+    const optionType = this.detectOptionType(workingName);
+    
+    const normalizedName = this.normalizeHoldingName(workingName);
+    
+    return { normalizedName, isin, folio, planType, optionType };
   }
 
   detectPlanType(name: string): 'Regular' | 'Direct' | undefined {
@@ -289,6 +408,136 @@ class HoldingNormalizationService {
       unrealizedGainPercent: Math.round(unrealizedGainPercent * 100) / 100
     };
   }
+
+  async lookupAmfiScheme(query: { isin?: string; name?: string }): Promise<AmfiLookupResult | null> {
+    const cacheKey = query.isin || query.name || '';
+    const cached = amfiLookupCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      return cached.result;
+    }
+
+    try {
+      let result: AmfiLookupResult | null = null;
+
+      if (query.isin) {
+        const byIsin = await db
+          .select({
+            schemeCode: mutualFunds.schemeCode,
+            schemeName: mutualFunds.schemeName,
+            fundHouse: mutualFunds.fundHouse,
+            category: mutualFunds.category,
+            extendedData: mutualFunds.extendedData
+          })
+          .from(mutualFunds)
+          .where(
+            or(
+              eq(mutualFunds.isin, query.isin),
+              sql`${mutualFunds.extendedData}->>'isin' = ${query.isin}`,
+              sql`${mutualFunds.extendedData}->>'isinReinvestment' = ${query.isin}`
+            )
+          )
+          .limit(1);
+
+        if (byIsin.length > 0) {
+          const fund = byIsin[0];
+          result = {
+            schemeCode: fund.schemeCode,
+            schemeName: fund.schemeName,
+            isin: query.isin,
+            amcName: fund.fundHouse || undefined,
+            category: fund.category || undefined,
+            confidence: 100
+          };
+        }
+      }
+
+      if (!result && query.name) {
+        const cleanName = query.name
+          .replace(/\s*(direct|regular)\s*(plan|growth|idcw|dividend)?/gi, '')
+          .replace(/\s*-\s*(growth|idcw|dividend|payout|reinvestment)/gi, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        if (cleanName.length >= 5) {
+          const searchPattern = `%${cleanName}%`;
+          const byName = await db
+            .select({
+              schemeCode: mutualFunds.schemeCode,
+              schemeName: mutualFunds.schemeName,
+              fundHouse: mutualFunds.fundHouse,
+              category: mutualFunds.category,
+              isin: mutualFunds.isin
+            })
+            .from(mutualFunds)
+            .where(ilike(mutualFunds.schemeName, searchPattern))
+            .limit(5);
+
+          if (byName.length > 0) {
+            const bestMatch = byName[0];
+            const similarity = this.calculateNameSimilarity(cleanName, bestMatch.schemeName);
+            
+            if (similarity >= 0.6) {
+              result = {
+                schemeCode: bestMatch.schemeCode,
+                schemeName: bestMatch.schemeName,
+                isin: bestMatch.isin || undefined,
+                amcName: bestMatch.fundHouse || undefined,
+                category: bestMatch.category || undefined,
+                confidence: Math.round(similarity * 100)
+              };
+            }
+          }
+        }
+      }
+
+      amfiLookupCache.set(cacheKey, { result, timestamp: Date.now() });
+      return result;
+    } catch (error) {
+      console.warn('[HoldingNormalization] AMFI lookup failed:', error);
+      return null;
+    }
+  }
+
+  private calculateNameSimilarity(a: string, b: string): number {
+    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const s1 = normalize(a);
+    const s2 = normalize(b);
+    
+    if (s1 === s2) return 1;
+    if (s1.includes(s2) || s2.includes(s1)) return 0.9;
+    
+    const words1 = new Set(a.toLowerCase().split(/\s+/));
+    const words2 = new Set(b.toLowerCase().split(/\s+/));
+    const intersection = [...words1].filter(w => words2.has(w)).length;
+    const union = new Set([...words1, ...words2]).size;
+    
+    return union > 0 ? intersection / union : 0;
+  }
+
+  async enrichWithAmfi(holding: Partial<UnifiedHolding>): Promise<UnifiedHolding> {
+    const enriched = this.enrichHolding(holding);
+    
+    if (enriched.isin || enriched.name) {
+      const amfiResult = await this.lookupAmfiScheme({
+        isin: enriched.isin,
+        name: enriched.name
+      });
+      
+      if (amfiResult && amfiResult.confidence >= 80) {
+        return {
+          ...enriched,
+          name: amfiResult.schemeName,
+          schemeCode: amfiResult.schemeCode,
+          isin: enriched.isin || amfiResult.isin,
+          amcName: enriched.amcName || amfiResult.amcName,
+          confidenceScore: Math.max(enriched.confidenceScore || 0, amfiResult.confidence)
+        };
+      }
+    }
+    
+    return enriched;
+  }
 }
 
 export const holdingNormalizationService = new HoldingNormalizationService();
+export type { AmfiLookupResult };
