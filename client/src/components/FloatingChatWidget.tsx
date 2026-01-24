@@ -41,8 +41,8 @@ export function FloatingChatWidget() {
       return response;
     },
     onSuccess: (data: any) => {
-      setCurrentSessionId(data.session.id);
-      setMessages(data.messages || []);
+      setCurrentSessionId(data.id);
+      setMessages([]);
     },
     onError: () => {
       toast({
