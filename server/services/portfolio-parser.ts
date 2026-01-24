@@ -3,6 +3,7 @@ import { liveMFDataService } from './live-mf-data-service';
 import { isinIntelligenceService } from './isin-intelligence-service';
 import { pdfParserService } from './pdf-parser-service';
 import { holdingNormalizationService } from './holding-normalization-service';
+import { GoogleGenAI } from '@google/genai';
 
 export interface ImportedHolding {
   id?: string;
@@ -1425,9 +1426,26 @@ export async function parsePDFPortfolio(buffer: Buffer, fileName: string): Promi
       console.warn(`[Portfolio Parser] Imported funds: ${holdings.map(h => h.name).join(', ')}`);
     }
     
-    const avgConfidence = holdings.length > 0 
+    let avgConfidence = holdings.length > 0 
       ? holdings.reduce((sum, h) => sum + (h.confidenceScore || 50), 0) / holdings.length
       : 30;
+    
+    // AI fallback: when holdings are empty or confidence is too low
+    if (holdings.length === 0 || avgConfidence < 40) {
+      console.log('[PDF Parser] Low confidence or no holdings, trying AI-assisted parsing...');
+      try {
+        const aiHoldings = await parsePortfolioWithAI(text);
+        if (aiHoldings.length > 0) {
+          console.log(`[PDF Parser] AI parser found ${aiHoldings.length} holdings`);
+          holdings = aiHoldings;
+          avgConfidence = 75;
+          errors.length = 0;
+          errors.push('Parsed using AI assistance - please verify extracted data');
+        }
+      } catch (aiError) {
+        console.warn('[PDF Parser] AI fallback failed:', aiError);
+      }
+    }
     
     // Enrich holdings with proper fund names from database using ISIN lookup
     holdings = await enrichHoldingsWithDatabaseLookup(holdings);
@@ -1781,4 +1799,73 @@ export function createPortfolioSnapshot(
     confidenceScore: options.confidenceScore,
     brokerDetected: options.brokerDetected
   };
+}
+
+const geminiAi = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+
+export async function parsePortfolioWithAI(text: string): Promise<ImportedHolding[]> {
+  if (!process.env.GEMINI_API_KEY) {
+    console.warn('[AI Parser] Gemini API key not configured');
+    return [];
+  }
+
+  const truncatedText = text.substring(0, 15000);
+  
+  const prompt = `Extract mutual fund holdings from this portfolio statement text. For each holding, extract:
+- name: Full scheme name
+- isin: 12-character ISIN code (INF...)
+- folioNumber: Folio number
+- quantity: Number of units
+- investedValue: Amount invested
+- currentValue: Current market value
+
+Return ONLY a JSON array of holdings. If a value is not found, use null.
+
+Portfolio Text:
+${truncatedText}`;
+
+  try {
+    const response = await geminiAi.models.generateContent({
+      model: 'gemini-2.0-flash',
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              isin: { type: 'string', nullable: true },
+              folioNumber: { type: 'string', nullable: true },
+              quantity: { type: 'number' },
+              investedValue: { type: 'number', nullable: true },
+              currentValue: { type: 'number' }
+            },
+            required: ['name', 'quantity', 'currentValue']
+          }
+        }
+      },
+      contents: prompt
+    });
+
+    const rawJson = response.text;
+    if (!rawJson) return [];
+
+    const parsed = JSON.parse(rawJson);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed.map((item: any) => ({
+      name: holdingNormalizationService.normalizeHoldingName(item.name || ''),
+      isin: item.isin || undefined,
+      folioNumber: item.folioNumber || undefined,
+      assetType: 'mutual_fund' as const,
+      quantity: item.quantity || 0,
+      investedValue: item.investedValue || undefined,
+      currentValue: item.currentValue || 0,
+      confidenceScore: 75
+    }));
+  } catch (error) {
+    console.error('[AI Parser] Failed to parse with Gemini:', error);
+    return [];
+  }
 }
