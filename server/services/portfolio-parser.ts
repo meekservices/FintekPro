@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import { liveMFDataService } from './live-mf-data-service';
 import { isinIntelligenceService } from './isin-intelligence-service';
 import { pdfParserService } from './pdf-parser-service';
+import { holdingNormalizationService } from './holding-normalization-service';
 
 export interface ImportedHolding {
   id?: string;
@@ -1002,7 +1003,18 @@ async function enrichWithISINIntelligence(holdings: ImportedHolding[]): Promise<
 }
 
 export async function enrichHoldingsWithDatabaseLookup(holdings: ImportedHolding[]): Promise<ImportedHolding[]> {
-  // First, enrich all holdings with ISIN Intelligence classification
+  // Step 1: Extract embedded ISINs from fund names and normalize
+  holdings = holdings.map(h => {
+    const result = holdingNormalizationService.normalizeAndExtract(h.name);
+    return {
+      ...h,
+      name: result.normalizedName,
+      isin: h.isin || result.isin,
+      folioNumber: h.folioNumber || result.folio
+    };
+  });
+  
+  // Step 2: Enrich all holdings with ISIN Intelligence classification
   holdings = await enrichWithISINIntelligence(holdings);
   
   const isins = holdings
