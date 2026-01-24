@@ -92,6 +92,7 @@ interface HoldingRow {
   quantity: number;
   buyPrice: number;
   buyDate: string;
+  folioNumber: string;
   currentPrice: number;
   currentValue: number;
   unrealizedGainLoss: number;
@@ -484,6 +485,7 @@ export function PortfolioEditor({
           quantity: partial.quantity || 0,
           buyPrice: partial.buyPrice || 0,
           buyDate: new Date().toISOString().split("T")[0],
+          folioNumber: "",
           currentPrice,
           currentValue,
           unrealizedGainLoss: currentValue - investmentValue,
@@ -635,6 +637,7 @@ export function PortfolioEditor({
       quantity: 0,
       buyPrice: 0,
       buyDate: new Date().toISOString().split("T")[0],
+      folioNumber: "",
       currentPrice: 0,
       currentValue: 0,
       unrealizedGainLoss: 0,
@@ -1195,6 +1198,7 @@ export function PortfolioEditor({
                         <TableHead className="min-w-[100px] text-right">Quantity</TableHead>
                         <TableHead className="min-w-[120px] text-right">Buy Price</TableHead>
                         <TableHead className="min-w-[120px]">Buy Date</TableHead>
+                        <TableHead className="min-w-[100px]">Folio No.</TableHead>
                         <TableHead className="min-w-[120px] text-right">Current Price</TableHead>
                         <TableHead className="min-w-[140px] text-right">Current Value</TableHead>
                         <TableHead className="min-w-[120px] text-right">Gain/Loss</TableHead>
@@ -1204,7 +1208,7 @@ export function PortfolioEditor({
                     <TableBody>
                       {filteredHoldings.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
+                          <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
                             No holdings added yet. Click "Add Holding" to start.
                           </TableCell>
                         </TableRow>
@@ -1402,6 +1406,21 @@ export function PortfolioEditor({
                                 className="h-8 w-32"
                                 disabled={readOnly}
                                 data-testid={`input-buy-date-${holding.id}`}
+                              />
+                            </TableCell>
+
+                            {/* Folio Number */}
+                            <TableCell>
+                              <Input
+                                type="text"
+                                value={holding.folioNumber || ""}
+                                onChange={(e) =>
+                                  updateRow(holding.id, "folioNumber", e.target.value)
+                                }
+                                className="h-8 w-24"
+                                placeholder="Folio"
+                                disabled={readOnly}
+                                data-testid={`input-folio-${holding.id}`}
                               />
                             </TableCell>
 

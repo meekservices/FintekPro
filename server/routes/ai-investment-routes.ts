@@ -330,12 +330,21 @@ router.post("/portfolio/upload-csv", upload.single('file'), async (req, res) => 
 router.put("/portfolio/update/:holdingId", async (req, res) => {
   try {
     const { holdingId } = req.params;
-    const { quantity, avgPrice, sector } = req.body;
+    const { quantity, avgPrice, sector, purchaseDate, folioNumber, name, isin, assetType, symbol, currentValue, investedValue, notes } = req.body;
 
     const updateData: any = { updatedAt: new Date() };
     if (quantity !== undefined) updateData.quantity = String(quantity);
     if (avgPrice !== undefined) updateData.avgPrice = String(avgPrice);
     if (sector !== undefined) updateData.sector = sector;
+    if (purchaseDate !== undefined) updateData.purchaseDate = purchaseDate ? new Date(purchaseDate) : null;
+    if (folioNumber !== undefined) updateData.folioNumber = folioNumber || null;
+    if (name !== undefined) updateData.name = name;
+    if (isin !== undefined) updateData.isin = isin || null;
+    if (assetType !== undefined) updateData.assetType = assetType;
+    if (symbol !== undefined) updateData.symbol = symbol || null;
+    if (currentValue !== undefined) updateData.currentValue = String(currentValue);
+    if (investedValue !== undefined) updateData.investedValue = String(investedValue);
+    if (notes !== undefined) updateData.notes = notes || null;
 
     const [updated] = await db
       .update(portfolioHoldings)
