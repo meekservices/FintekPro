@@ -94,8 +94,10 @@ router.post("/upload/for-signing", upload.single("document"), async (req: Reques
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const ELEVATED_ROLES = ["agent", "admin", "super_admin", "compliance_officer", "partner"];
-    if (!ELEVATED_ROLES.includes(user.role)) {
+    const ELEVATED_ROLES = ["agent", "admin", "super_admin", "superadmin", "compliance_officer", "partner"];
+    const userRoles = Array.isArray(user.roles) ? user.roles : [user.role];
+    const hasElevatedRole = userRoles.some((r: string) => ELEVATED_ROLES.includes(r));
+    if (!hasElevatedRole) {
       return res.status(403).json({ error: "Only agents, partners, and admins can upload documents for signing" });
     }
 
