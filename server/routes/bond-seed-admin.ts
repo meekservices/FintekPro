@@ -1649,12 +1649,12 @@ router.get("/audit-logs", async (req: Request, res: Response) => {
       ? await db.select()
           .from(bondMarketplaceAuditLogs)
           .where(and(...conditions))
-          .orderBy(desc(bondMarketplaceAuditLogs.createdAt))
+          .orderBy(desc(bondMarketplaceAuditLogs.timestamp))
           .limit(parseInt(limit as string))
           .offset(parseInt(offset as string))
       : await db.select()
           .from(bondMarketplaceAuditLogs)
-          .orderBy(desc(bondMarketplaceAuditLogs.createdAt))
+          .orderBy(desc(bondMarketplaceAuditLogs.timestamp))
           .limit(parseInt(limit as string))
           .offset(parseInt(offset as string));
     
