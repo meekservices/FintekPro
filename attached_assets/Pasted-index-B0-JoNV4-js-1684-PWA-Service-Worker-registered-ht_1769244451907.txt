@@ -1,0 +1,109 @@
+index-B0-JoNV4.js:1684 [PWA] Service Worker registered: https://agent.fintekpro.com/
+/api/unified-cart:1  Failed to load resource: the server responded with a status of 401 ()
+/api/user:1  Failed to load resource: the server responded with a status of 401 ()
+/api/health:1  Failed to load resource: net::ERR_CONNECTION_CLOSED
+/api/health:1  Failed to load resource: net::ERR_NETWORK_CHANGED
+index-B0-JoNV4.js:1341 [ActionQueue] Connection restored, processing queue...
+index-B0-JoNV4.js:1341 [ActionQueue] Processing 0 pending actions
+/api/agent-wizard/zoho/status:1  Failed to load resource: net::ERR_NAME_NOT_RESOLVED
+/api/user:1  Failed to load resource: net::ERR_ADDRESS_UNREACHABLE
+/api/unified-cart:1  Failed to load resource: net::ERR_ADDRESS_UNREACHABLE
+/api/health:1  Failed to load resource: net::ERR_ADDRESS_UNREACHABLE
+/api/agent-wizard/zoho/status:1  Failed to load resource: net::ERR_ADDRESS_UNREACHABLE
+/api/unified-cart:1  Failed to load resource: net::ERR_ADDRESS_UNREACHABLE
+/api/health:1  Failed to load resource: net::ERR_CONNECTION_CLOSED
+/api/health:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+index-B0-JoNV4.js:1341 [ActionQueue] Connection restored, processing queue...
+index-B0-JoNV4.js:1341 [ActionQueue] Processing 0 pending actions
+/api/health:1  Failed to load resource: net::ERR_NAME_NOT_RESOLVED
+/api/unified-cart:1  Failed to load resource: net::ERR_NAME_NOT_RESOLVED
+/api/user:1  Failed to load resource: net::ERR_NAME_NOT_RESOLVED
+/api/health:1  Failed to load resource: net::ERR_NAME_NOT_RESOLVED
+/api/agent-wizard/zoho/status:1  Failed to load resource: net::ERR_NAME_NOT_RESOLVED
+/api/unified-cart:1  Failed to load resource: net::ERR_ADDRESS_UNREACHABLE
+/api/agent-wizard/zoho/status:1  Failed to load resource: net::ERR_ADDRESS_UNREACHABLE
+/api/agent-wizard/prospects:1  Failed to load resource: the server responded with a status of 409 ()
+index-B0-JoNV4.js:1642 [Holdings] Loaded saved holdings (backend): 25
+index-B0-JoNV4.js:1642 [Holdings] Transformed to frontend format: 25
+index-B0-JoNV4.js:1642 [Holdings] Updating holding at index: 22 Object -> backend format: Object
+index-B0-JoNV4.js:1642 [Holdings] Update result: Object
+index-B0-JoNV4.js:1642 [Holdings] Update success: Object
+/api/health:1  Failed to load resource: net::ERR_CONNECTION_CLOSED
+/api/health:1  Failed to load resource: net::ERR_ADDRESS_UNREACHABLE
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+/api/health:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+index-B0-JoNV4.js:1341 [ActionQueue] Connection restored, processing queue...
+index-B0-JoNV4.js:1341 [ActionQueue] Processing 0 pending actions
+/api/user:1  Failed to load resource: the server responded with a status of 500 ()
+/api/agent/proposals/fa0c9c3e-fafd-42ac-86b9-6e3131759233/items:1  Failed to load resource: the server responded with a status of 500 ()
+/api/unified-cart:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/agent/proposals:1  Failed to load resource: the server responded with a status of 500 ()
+/api/agent/notifications:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+/api/health:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+index-B0-JoNV4.js:1341 [ActionQueue] Connection restored, processing queue...
+index-B0-JoNV4.js:1341 [ActionQueue] Processing 0 pending actions
+/api/health:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+/api/health:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+index-B0-JoNV4.js:1341 [ActionQueue] Connection restored, processing queue...
+index-B0-JoNV4.js:1341 [ActionQueue] Processing 0 pending actions
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+/api/health:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+index-B0-JoNV4.js:1341 [ActionQueue] Connection restored, processing queue...
+index-B0-JoNV4.js:1341 [ActionQueue] Processing 0 pending actions
+/api/health:1  Failed to load resource: net::ERR_ADDRESS_UNREACHABLE
+/api/user:1  Failed to load resource: net::ERR_ADDRESS_UNREACHABLE
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: net::ERR_NAME_NOT_RESOLVED
+/api/health:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+index-B0-JoNV4.js:1341 [ActionQueue] Connection restored, processing queue...
+index-B0-JoNV4.js:1341 [ActionQueue] Processing 0 pending actions
+/api/user:1  Failed to load resource: net::ERR_ADDRESS_UNREACHABLE
+/api/health:1  Failed to load resource: net::ERR_ADDRESS_UNREACHABLE
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+/api/health:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+index-B0-JoNV4.js:1341 [ActionQueue] Connection restored, processing queue...
+index-B0-JoNV4.js:1341 [ActionQueue] Processing 0 pending actions
+/api/user:1  Failed to load resource: net::ERR_ADDRESS_UNREACHABLE
+/api/health:1  Failed to load resource: net::ERR_ADDRESS_UNREACHABLE
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+/api/health:1  Failed to load resource: the server responded with a status of 500 ()
+index-B0-JoNV4.js:1341 [ActionQueue] Connection restored, processing queue...
+index-B0-JoNV4.js:1341 [ActionQueue] Processing 0 pending actions
+/api/health:1  Failed to load resource: net::ERR_ADDRESS_UNREACHABLE
+/api/user:1  Failed to load resource: net::ERR_ADDRESS_UNREACHABLE
+/api/health:1  Failed to load resource: net::ERR_CONNECTION_CLOSED
+/api/health:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+index-B0-JoNV4.js:1341 [ActionQueue] Connection restored, processing queue...
+index-B0-JoNV4.js:1341 [ActionQueue] Processing 0 pending actions
+/api/health:1  Failed to load resource: net::ERR_ADDRESS_UNREACHABLE
+/api/user:1  Failed to load resource: net::ERR_ADDRESS_UNREACHABLE
+/api/documents/upload/for-signing:1  Failed to load resource: the server responded with a status of 403 ()
+/api/documents/upload/for-signing:1  Failed to load resource: the server responded with a status of 403 ()
+/api/documents/upload/for-signing:1  Failed to load resource: the server responded with a status of 403 ()
