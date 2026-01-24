@@ -1136,7 +1136,7 @@ async function buildDynamicRecommendations(options: {
 }
 import { nanoid } from "nanoid";
 import multer from "multer";
-import { PDFParse } from "pdf-parse";
+import { pdfParserService } from "../services/pdf-parser-service";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -2350,11 +2350,14 @@ router.post("/api/agent/parse-holding-report", upload.single('file'), async (req
       return res.status(400).json({ error: "PDF file is required" });
     }
 
-    // Parse PDF using PDFParse class (v2 API)
-    const parser = new PDFParse({ data: file.buffer });
-    const pdfData = await parser.getText();
-    const text = pdfData.text;
-    await parser.destroy();
+    // Parse PDF using centralized PDF parser service
+    const parseResult = await pdfParserService.extractTextSafe(file.buffer);
+    if (!parseResult.success || !parseResult.result) {
+      return res.status(400).json({ 
+        error: parseResult.error || "Failed to parse PDF file" 
+      });
+    }
+    const text = parseResult.result.text;
     
     console.log("[PDF Parse] Extracted text length:", text.length);
     

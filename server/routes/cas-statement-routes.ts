@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
-import { PDFParse } from 'pdf-parse';
 import { isAuthenticated } from '../replitAuth';
 import { casStatementService, CASStatementResult } from '../services/cas-statement-service';
+import { pdfParserService } from '../services/pdf-parser-service';
 import { db } from '../db';
 import { portfolios, portfolioHoldings, prospectClients } from '@shared/schema';
 import { eq } from 'drizzle-orm';
@@ -33,10 +33,14 @@ router.post(
       
       console.log('[CAS Routes] Parsing CAS statement:', req.file.originalname);
       
-      const parser = new PDFParse({ data: req.file.buffer });
-      const pdfResult = await parser.getText();
-      const text = pdfResult.text;
-      await parser.destroy();
+      const parseResult = await pdfParserService.extractTextSafe(req.file.buffer);
+      if (!parseResult.success || !parseResult.result) {
+        return res.status(400).json({ 
+          success: false, 
+          error: parseResult.error || 'Failed to parse PDF file'
+        });
+      }
+      const text = parseResult.result.text;
       
       const result = await casStatementService.parseStatement(text);
       
@@ -84,10 +88,14 @@ router.post(
       
       console.log('[CAS Routes] Importing CAS for prospect:', prospect.name);
       
-      const parser = new PDFParse({ data: req.file.buffer });
-      const pdfResult = await parser.getText();
-      await parser.destroy();
-      const result = await casStatementService.parseStatement(pdfResult.text);
+      const parseResult = await pdfParserService.extractTextSafe(req.file.buffer);
+      if (!parseResult.success || !parseResult.result) {
+        return res.status(400).json({
+          success: false,
+          error: parseResult.error || 'Failed to parse PDF file'
+        });
+      }
+      const result = await casStatementService.parseStatement(parseResult.result.text);
       
       if (!result.success || result.holdings.length === 0) {
         return res.status(400).json({
@@ -211,10 +219,14 @@ router.post(
         return res.status(400).json({ success: false, error: 'No file uploaded' });
       }
       
-      const parser = new PDFParse({ data: req.file.buffer });
-      const pdfResult = await parser.getText();
-      const text = pdfResult.text;
-      await parser.destroy();
+      const parseResult = await pdfParserService.extractTextSafe(req.file.buffer);
+      if (!parseResult.success || !parseResult.result) {
+        return res.status(400).json({
+          success: false,
+          error: parseResult.error || 'Failed to parse PDF file'
+        });
+      }
+      const text = parseResult.result.text;
       
       const isinPattern = /INF[A-Z0-9]{9}/gi;
       const isinMatches = [...new Set(text.match(isinPattern) || [])];

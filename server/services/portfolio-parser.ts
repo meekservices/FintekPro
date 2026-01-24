@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio';
-import { PDFParse } from 'pdf-parse';
 import { liveMFDataService } from './live-mf-data-service';
 import { isinIntelligenceService } from './isin-intelligence-service';
+import { pdfParserService } from './pdf-parser-service';
 
 export interface ImportedHolding {
   id?: string;
@@ -1321,13 +1321,18 @@ function calculateAllocation(holdings: ImportedHolding[]): ImportedAllocation {
 
 export async function parsePDFPortfolio(buffer: Buffer, fileName: string): Promise<ParseResult> {
   try {
-    // Use the new pdf-parse v2 API with PDFParse class
-    const parser = new PDFParse({ data: buffer });
-    const result = await parser.getText();
-    const text = result.text;
-    
-    // Clean up the parser
-    await parser.destroy();
+    // Use centralized PDF parser service
+    const parseResult = await pdfParserService.extractTextSafe(buffer);
+    if (!parseResult.success || !parseResult.result) {
+      return {
+        success: false,
+        holdings: [],
+        brokerDetected: null,
+        confidenceScore: 0,
+        errors: [parseResult.error || 'Failed to parse PDF file']
+      };
+    }
+    const text = parseResult.result.text;
     
     const { broker, confidence } = detectBroker(text);
     let holdings: ImportedHolding[] = [];
