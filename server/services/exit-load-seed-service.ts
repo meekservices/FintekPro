@@ -5,8 +5,8 @@
  */
 
 import { db } from "../db";
-import { mfSchemeExitLoads, mutualFunds } from "@shared/schema";
-import { eq, sql, inArray } from "drizzle-orm";
+import { mfSchemeExitLoads } from "@shared/schema";
+import { eq, sql } from "drizzle-orm";
 
 interface ExitLoadSeedData {
   schemeCode: string;
@@ -312,17 +312,11 @@ class ExitLoadSeedService {
       await db.delete(mfSchemeExitLoads)
         .where(eq(mfSchemeExitLoads.schemeCode, schemeCode));
 
-      // Get ISIN
-      const [mf] = await db.select({ isin: mutualFunds.isin })
-        .from(mutualFunds)
-        .where(eq(mutualFunds.schemeCode, schemeCode))
-        .limit(1);
-
-      // Insert new tiers
+      // Insert new tiers (ISIN not available from mutualFunds table)
       for (const tier of tiers) {
         await db.insert(mfSchemeExitLoads).values({
           schemeCode,
-          isin: mf?.isin,
+          isin: undefined,
           tier: tier.tier,
           minDays: tier.minDays,
           maxDays: tier.maxDays,
@@ -370,43 +364,22 @@ class ExitLoadSeedService {
   }
 
   /**
-   * Get list of funds without exit load data
-   */
-  async getFundsWithoutExitLoadData(limit: number = 100): Promise<string[]> {
-    const fundsWithExitLoad = db.select({ schemeCode: mfSchemeExitLoads.schemeCode })
-      .from(mfSchemeExitLoads);
-
-    const fundsWithoutExitLoad = await db.select({ schemeCode: mutualFunds.schemeCode })
-      .from(mutualFunds)
-      .where(sql`${mutualFunds.schemeCode} NOT IN (SELECT scheme_code FROM mf_scheme_exit_loads)`)
-      .limit(limit);
-
-    return fundsWithoutExitLoad.map(f => f.schemeCode);
-  }
-
-  /**
-   * Get seeding statistics
+   * Get seeding statistics (based on seeded exit loads only)
    */
   async getStats(): Promise<{
-    totalFunds: number;
-    fundsWithExitLoad: number;
-    coveragePercent: number;
+    seededFunds: number;
     totalTiers: number;
+    popularFundsCount: number;
   }> {
-    const [fundStats] = await db.select({ count: sql<number>`count(*)` }).from(mutualFunds);
     const [exitLoadStats] = await db.select({
       uniqueFunds: sql<number>`count(distinct scheme_code)`,
       totalTiers: sql<number>`count(*)`
     }).from(mfSchemeExitLoads);
 
-    const totalFunds = Number(fundStats?.count || 0);
-    const fundsWithExitLoad = Number(exitLoadStats?.uniqueFunds || 0);
-
     return {
-      totalFunds,
-      fundsWithExitLoad,
-      coveragePercent: totalFunds > 0 ? Math.round((fundsWithExitLoad / totalFunds) * 100 * 100) / 100 : 0,
-      totalTiers: Number(exitLoadStats?.totalTiers || 0)
+      seededFunds: Number(exitLoadStats?.uniqueFunds || 0),
+      totalTiers: Number(exitLoadStats?.totalTiers || 0),
+      popularFundsCount: POPULAR_FUND_EXIT_LOADS.length
     };
   }
 }

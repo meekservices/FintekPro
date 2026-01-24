@@ -102,10 +102,9 @@ class ExitLoadSyncScheduler {
     lastSyncResult: { seeded: number; skipped: number; errors: number } | null;
     nextScheduledSync: Date | null;
     stats: {
-      totalFunds: number;
-      fundsWithExitLoad: number;
-      coveragePercent: number;
+      seededFunds: number;
       totalTiers: number;
+      popularFundsCount: number;
     };
   }> {
     const stats = await exitLoadSeedService.getStats();
@@ -119,13 +118,6 @@ class ExitLoadSyncScheduler {
         : null,
       stats
     };
-  }
-
-  /**
-   * Get funds that need exit load data
-   */
-  async getFundsMissingData(limit: number = 50): Promise<string[]> {
-    return exitLoadSeedService.getFundsWithoutExitLoadData(limit);
   }
 }
 
