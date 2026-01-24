@@ -62,10 +62,12 @@ export function FloatingChatWidget() {
       });
       return response;
     },
-    onSuccess: (assistantMessage: any) => {
-      // The API returns only the assistant's response message
+    onSuccess: (response: any) => {
+      // The API returns { userMessage, aiMessage, session }
       // The user message was already optimistically added to state
-      setMessages(prev => [...prev, assistantMessage]);
+      if (response.aiMessage) {
+        setMessages(prev => [...prev, response.aiMessage]);
+      }
     },
     onError: () => {
       // Remove the optimistic user message on error
