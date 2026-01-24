@@ -261,13 +261,13 @@ export function registerAgentAdvisoryRoutes(app: Express) {
           riskProfile: sql<string>`COALESCE(${users.riskCategory}, 'moderate')`,
           createdAt: users.createdAt,
           relationshipType: clientAgentRelationships.relationshipType,
-          relationshipStatus: clientAgentRelationships.status
+          relationshipStatus: clientAgentRelationships.isActive
         })
         .from(clientAgentRelationships)
         .innerJoin(users, eq(users.id, clientAgentRelationships.clientId))
         .where(and(
           eq(clientAgentRelationships.agentId, agentId),
-          eq(clientAgentRelationships.status, 'active')
+          eq(clientAgentRelationships.isActive, true)
         ))
         .orderBy(desc(users.createdAt))
         .limit(100);
