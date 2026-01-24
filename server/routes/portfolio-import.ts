@@ -120,7 +120,8 @@ async function upsertProspectPortfolio(
         folioNumber: h.folioNumber || null,
         broker: h.broker || null,
         confidenceScore: confidenceScore || null,
-        source: 'uploaded' // Track holding origin
+        source: 'uploaded',
+        purchaseDate: h.purchaseDate ? new Date(h.purchaseDate) : null
       }))
     );
   }

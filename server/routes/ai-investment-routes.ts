@@ -201,6 +201,7 @@ router.post("/portfolio/manual-entry", async (req, res) => {
         avgPrice: String(holding.avgPrice),
         assetType: holding.assetType,
         sector: holding.sector,
+        purchaseDate: new Date()
       }).returning();
       insertedHoldings.push(inserted);
     }
@@ -302,6 +303,7 @@ router.post("/portfolio/upload-csv", upload.single('file'), async (req, res) => 
           avgPrice: String(avgPrice),
           assetType: 'equity',
           sector,
+          purchaseDate: new Date()
         }).returning();
         insertedHoldings.push(inserted);
       } catch (err) {
@@ -782,6 +784,7 @@ router.post("/portfolio/:clientId/holdings", async (req, res) => {
       quantity: String(quantity),
       avgPrice: String(averagePrice),
       assetType: assetType || 'EQUITY',
+      purchaseDate: new Date()
     }).returning();
 
     res.json({ success: true, holding: inserted });
@@ -840,6 +843,7 @@ router.post("/portfolio/:clientId/upload", upload.single('file'), async (req, re
           quantity: String(quantity),
           avgPrice: String(avgPrice),
           assetType: 'EQUITY',
+          purchaseDate: new Date()
         });
         count++;
       }
@@ -903,6 +907,7 @@ router.post("/portfolio/:clientId/bulk-import", async (req, res) => {
         quantity: String(parseFloat(quantity) || 0),
         avgPrice: String(parseFloat(averagePrice) || 0),
         assetType: assetType || 'EQUITY',
+        purchaseDate: new Date()
       });
       imported++;
     }
@@ -1003,6 +1008,7 @@ router.post("/portfolio/:clientId/import-previewed", async (req, res) => {
         productType: holding.productType || (holding.assetType === 'mutual_fund' ? 'MF' : null),
         folioNumber: holding.folioNumber || null,
         source: 'uploaded',
+        purchaseDate: holding.purchaseDate ? new Date(holding.purchaseDate) : new Date()
       });
       imported++;
     }
@@ -1080,6 +1086,7 @@ router.post("/portfolio/:clientId/upload-cas", upload.single('file'), async (req
         assetType: holding.assetType === 'mutual_fund' ? 'mutual_fund' : 'equity',
         folioNumber: holding.folioNumber || null,
         source: 'cas_fetch',
+        purchaseDate: holding.purchaseDate ? new Date(holding.purchaseDate) : new Date()
       });
       imported++;
     }
