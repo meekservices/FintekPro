@@ -619,6 +619,17 @@ export default function AgentProspectWizard() {
   const [casPreviewError, setCasPreviewError] = useState<string | null>(null);
   const [casPreviewMode, setCasPreviewMode] = useState(false);
   const [casImportSummary, setCasImportSummary] = useState<string | null>(null);
+  const [showEditHoldingsDialog, setShowEditHoldingsDialog] = useState(false);
+  const [editableHoldings, setEditableHoldings] = useState<Array<{
+    id: string;
+    name: string;
+    isin?: string;
+    folioNumber?: string;
+    purchaseDate?: string;
+    quantity: number;
+    avgPrice: number;
+    currentValue: number;
+  }>>([]);
   const [rebalancing, setRebalancing] = useState<RebalanceRecommendation[]>([]);
   const [taxSummary, setTaxSummary] = useState<any>(null);
   const [freshInvestments, setFreshInvestments] = useState<FreshInvestmentSuggestion[]>([]);
@@ -2537,9 +2548,46 @@ export default function AgentProspectWizard() {
                         
                         <div className="bg-muted/50 p-4 rounded-lg space-y-2">
                           {casImportSummary && (
-                            <div className="flex items-center gap-2 text-sm text-primary">
-                              <CheckCircle className="h-4 w-4" />
-                              <span>{casImportSummary}</span>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2 text-sm text-primary">
+                                <CheckCircle className="h-4 w-4" />
+                                <span>{casImportSummary}</span>
+                              </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  if (prospectId) {
+                                    try {
+                                      const res = await fetch(`/api/agent-wizard/prospects/${prospectId}/holdings`, {
+                                        credentials: 'include'
+                                      });
+                                      if (res.ok) {
+                                        const data = await res.json();
+                                        setEditableHoldings((data.holdings || []).map((h: any) => {
+                                          const dateValue = h.purchaseDate || h.buyDate;
+                                          return {
+                                            id: h.id,
+                                            name: h.name || h.securityName || '',
+                                            isin: h.isin || '',
+                                            folioNumber: h.folioNumber || '',
+                                            purchaseDate: dateValue ? new Date(dateValue).toISOString().split('T')[0] : '',
+                                            quantity: parseFloat(h.quantity) || 0,
+                                            avgPrice: parseFloat(h.avgPrice || h.buyPrice) || 0,
+                                            currentValue: parseFloat(h.currentValue) || 0,
+                                          };
+                                        }));
+                                        setShowEditHoldingsDialog(true);
+                                      }
+                                    } catch (err) {
+                                      console.error('Failed to fetch holdings:', err);
+                                    }
+                                  }
+                                }}
+                              >
+                                <Pencil className="h-4 w-4 mr-1" />
+                                Edit Holdings
+                              </Button>
                             </div>
                           )}
                           <div className="flex items-center justify-between text-sm">
@@ -4235,6 +4283,153 @@ export default function AgentProspectWizard() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowZohoImportDialog(false)}>
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Holdings Dialog */}
+      <Dialog open={showEditHoldingsDialog} onOpenChange={setShowEditHoldingsDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Holdings</DialogTitle>
+            <DialogDescription>
+              Review and edit purchase dates, folio numbers, and other details for accurate exit load and capital gains calculations.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-lg border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead>Fund Name</TableHead>
+                    <TableHead className="w-32">Folio Number</TableHead>
+                    <TableHead className="w-36">Purchase Date</TableHead>
+                    <TableHead className="text-right">Units</TableHead>
+                    <TableHead className="text-right">Avg Price</TableHead>
+                    <TableHead className="text-right">Current Value</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {editableHoldings.map((holding, idx) => (
+                    <TableRow key={holding.id || idx}>
+                      <TableCell>
+                        <div className="max-w-[200px]">
+                          <div className="font-medium text-sm truncate">{holding.name}</div>
+                          {holding.isin && <div className="text-xs text-muted-foreground">{holding.isin}</div>}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="text"
+                          value={holding.folioNumber || ''}
+                          onChange={(e) => {
+                            const updated = [...editableHoldings];
+                            updated[idx] = { ...updated[idx], folioNumber: e.target.value };
+                            setEditableHoldings(updated);
+                          }}
+                          placeholder="Folio #"
+                          className="h-8 w-28"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="date"
+                          value={holding.purchaseDate || ''}
+                          onChange={(e) => {
+                            const updated = [...editableHoldings];
+                            updated[idx] = { ...updated[idx], purchaseDate: e.target.value };
+                            setEditableHoldings(updated);
+                          }}
+                          className="h-8 w-36"
+                        />
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        {holding.quantity.toFixed(3)}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        {formatCurrency(holding.avgPrice)}
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {formatCurrency(holding.currentValue)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditHoldingsDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                try {
+                  let successCount = 0;
+                  let failCount = 0;
+                  const totalCount = editableHoldings.filter(h => h.id).length;
+                  
+                  for (const holding of editableHoldings) {
+                    if (holding.id) {
+                      try {
+                        const res = await fetch(`/api/ai/portfolio/update/${holding.id}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          credentials: 'include',
+                          body: JSON.stringify({
+                            folioNumber: holding.folioNumber || null,
+                            purchaseDate: holding.purchaseDate || null,
+                          }),
+                        });
+                        if (res.ok) {
+                          successCount++;
+                        } else {
+                          failCount++;
+                        }
+                      } catch {
+                        failCount++;
+                      }
+                    }
+                  }
+                  
+                  if (failCount === 0 && successCount > 0) {
+                    toast({
+                      title: 'Holdings Updated',
+                      description: `Updated ${successCount} holdings successfully.`,
+                    });
+                    setShowEditHoldingsDialog(false);
+                  } else if (successCount > 0 && failCount > 0) {
+                    toast({
+                      title: 'Partial Update',
+                      description: `Updated ${successCount} of ${totalCount} holdings. ${failCount} failed.`,
+                      variant: 'destructive',
+                    });
+                  } else if (failCount > 0 && successCount === 0) {
+                    toast({
+                      title: 'Update Failed',
+                      description: `Failed to update ${failCount} holdings. Please try again.`,
+                      variant: 'destructive',
+                    });
+                  } else {
+                    toast({
+                      title: 'No Changes',
+                      description: 'No holdings to update.',
+                    });
+                    setShowEditHoldingsDialog(false);
+                  }
+                } catch (err) {
+                  console.error('Failed to update holdings:', err);
+                  toast({
+                    title: 'Update Failed',
+                    description: 'An unexpected error occurred. Please try again.',
+                    variant: 'destructive',
+                  });
+                }
+              }}
+            >
+              <Save className="h-4 w-4 mr-1" />
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
