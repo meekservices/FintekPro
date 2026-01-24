@@ -19,10 +19,12 @@ const getAuditContext = (req: Request) => ({
 });
 
 const ADMIN_ROLES = ['admin', 'super_admin', 'compliance_officer'];
+const ELEVATED_ROLES = ['admin', 'super_admin', 'compliance_officer', 'agent', 'partner'];
 
-async function isAuthorizedForWorkflow(userId: string, userEmail: string, userRole: string, workflowId: string): Promise<{ authorized: boolean; participant?: any; isCreator?: boolean; isAdmin?: boolean }> {
+async function isAuthorizedForWorkflow(userId: string, userEmail: string, userRole: string, workflowId: string): Promise<{ authorized: boolean; participant?: any; isCreator?: boolean; isAdmin?: boolean; isElevated?: boolean }> {
+  const isElevated = ELEVATED_ROLES.includes(userRole);
   if (ADMIN_ROLES.includes(userRole)) {
-    return { authorized: true, isAdmin: true };
+    return { authorized: true, isAdmin: true, isElevated: true };
   }
   
   const [workflow] = await db.select().from(proposalEsignWorkflows)
@@ -34,7 +36,7 @@ async function isAuthorizedForWorkflow(userId: string, userEmail: string, userRo
   }
   
   if (workflow.createdBy === userId) {
-    return { authorized: true, isCreator: true };
+    return { authorized: true, isCreator: true, isElevated };
   }
   
   const [participant] = await db.select().from(proposalEsignParticipants)
@@ -50,13 +52,13 @@ async function isAuthorizedForWorkflow(userId: string, userEmail: string, userRo
     .limit(1);
   
   if (participant) {
-    return { authorized: true, participant };
+    return { authorized: true, participant, isElevated };
   }
   
   return { authorized: false };
 }
 
-async function requireWorkflowAccess(req: Request, res: Response, workflowId: string): Promise<{ authorized: boolean; participant?: any; isCreator?: boolean; isAdmin?: boolean } | null> {
+async function requireWorkflowAccess(req: Request, res: Response, workflowId: string): Promise<{ authorized: boolean; participant?: any; isCreator?: boolean; isAdmin?: boolean; isElevated?: boolean } | null> {
   const user = (req as any).user;
   if (!user) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -353,8 +355,8 @@ router.post('/edits/:editId/approve', async (req: Request, res: Response) => {
     const auth = await requireWorkflowAccess(req, res, edit.workflowId);
     if (!auth) return;
     
-    if (!auth.isCreator && !auth.isAdmin && !auth.participant?.canApprove) {
-      return res.status(403).json({ error: 'You do not have permission to approve edits' });
+    if (!auth.isElevated) {
+      return res.status(403).json({ error: 'Only admin, agent, or partner can approve edits' });
     }
     
     await proposalEsignWorkflowService.approveFieldEdit(editId, user.id);
@@ -391,8 +393,8 @@ router.post('/edits/:editId/reject', async (req: Request, res: Response) => {
     const auth = await requireWorkflowAccess(req, res, edit.workflowId);
     if (!auth) return;
     
-    if (!auth.isCreator && !auth.isAdmin && !auth.participant?.canApprove) {
-      return res.status(403).json({ error: 'You do not have permission to reject edits' });
+    if (!auth.isElevated) {
+      return res.status(403).json({ error: 'Only admin, agent, or partner can reject edits' });
     }
 
     await proposalEsignWorkflowService.rejectFieldEdit(editId, user.id, reason);
@@ -539,8 +541,8 @@ router.post('/workflows/:workflowId/sign/initiate', async (req: Request, res: Re
     }
     
     const isOwnSignature = participant.userId === user.id || participant.email === user.email;
-    if (!isOwnSignature && !auth.isCreator && !auth.isAdmin) {
-      return res.status(403).json({ error: 'You can only initiate your own signature or be admin/creator' });
+    if (!isOwnSignature && !auth.isElevated) {
+      return res.status(403).json({ error: 'Only admin, agent, or partner can initiate signatures for others' });
     }
     
     if (!participant.canSign) {
@@ -597,8 +599,8 @@ router.post('/workflows/:workflowId/sign/complete', async (req: Request, res: Re
     }
     
     const isOwnSignature = participant.userId === user.id || participant.email === user.email;
-    if (!isOwnSignature && !auth.isCreator && !auth.isAdmin) {
-      return res.status(403).json({ error: 'You can only complete your own signature or be admin/creator' });
+    if (!isOwnSignature && !auth.isElevated) {
+      return res.status(403).json({ error: 'Only admin, agent, or partner can complete signatures for others' });
     }
 
     const context = getAuditContext(req);
@@ -715,10 +717,6 @@ router.post('/workflows/:workflowId/negotiate', async (req: Request, res: Respon
     const auth = await requireWorkflowAccess(req, res, workflowId);
     if (!auth) return;
     
-    if (!auth.isCreator && !auth.isAdmin) {
-      return res.status(403).json({ error: 'Only workflow creator or admin can start negotiation rounds' });
-    }
-    
     await proposalEsignWorkflowService.startNegotiationRound(workflowId, user.id);
 
     res.json({ success: true, message: 'New negotiation round started' });
@@ -755,8 +753,8 @@ router.get('/workflows/:workflowId/audit', async (req: Request, res: Response) =
     const auth = await requireWorkflowAccess(req, res, workflowId);
     if (!auth) return;
     
-    if (!auth.isCreator && !auth.isAdmin && !auth.participant?.canApprove) {
-      return res.status(403).json({ error: 'Only creators, admins, or approvers can view audit logs' });
+    if (!auth.isElevated) {
+      return res.status(403).json({ error: 'Only admin, agent, or partner can view audit logs' });
     }
     
     const limit = parseInt(req.query.limit as string) || 100;
