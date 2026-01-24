@@ -381,7 +381,8 @@ export default function AgentESignPage() {
     onDrop,
     accept: { 
       'application/pdf': ['.pdf'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx']
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'application/msword': ['.doc']
     },
     maxFiles: 1,
     maxSize: 10 * 1024 * 1024,
