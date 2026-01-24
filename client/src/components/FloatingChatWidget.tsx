@@ -58,7 +58,7 @@ export function FloatingChatWidget() {
     mutationFn: async (message: string) => {
       const response = await apiRequest(`/api/chat/sessions/${currentSessionId}/messages`, {
         method: "POST",
-        body: { message },
+        body: { content: message },
       });
       return response;
     },
