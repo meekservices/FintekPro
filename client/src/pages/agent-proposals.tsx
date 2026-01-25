@@ -198,7 +198,13 @@ export default function AgentProposalsPage() {
   });
 
   const handleEditProposal = (proposal: Proposal) => {
-    setLocation(`/agent/proposal-builder?edit=${proposal.id}`);
+    if (proposal.source === 'wizard') {
+      // Wizard proposals should be edited through the prospect wizard
+      setLocation(`/agent-prospect-wizard?edit=${proposal.id}`);
+    } else {
+      // Proposal builder proposals (default for proposals without source field)
+      setLocation(`/agent/proposal-builder?edit=${proposal.id}`);
+    }
   };
 
   const handleDeleteClick = (proposal: Proposal, e: React.MouseEvent) => {
@@ -418,7 +424,7 @@ export default function AgentProposalsPage() {
                                     >
                                       <Eye className="h-4 w-4" />
                                     </Button>
-                                    {['draft', 'pending_review'].includes(proposal.status) && proposal.source === 'proposal_builder' && (
+                                    {['draft', 'pending_review'].includes(proposal.status) && (
                                       <Button 
                                         variant="ghost" 
                                         size="sm"
