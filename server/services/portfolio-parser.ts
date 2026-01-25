@@ -75,6 +75,12 @@ interface CachedParseResult {
 const parseCache = new Map<string, CachedParseResult>();
 const PARSE_CACHE_TTL = 24 * 60 * 60 * 1000;
 
+// Export function to clear cache (useful after parser updates)
+export function clearParseCache(): void {
+  parseCache.clear();
+  console.log('[PDF Parser] Cache cleared');
+}
+
 function computeFileHash(buffer: Buffer): string {
   return crypto.createHash('sha256').update(buffer).digest('hex').substring(0, 16);
 }
@@ -620,57 +626,101 @@ function parseCAMSHoldingStatementFormat(text: string): ImportedHolding[] {
         }
       }
       
-      console.log('[CAMS Holding Parser] Extracted numbers:', numbers.slice(0, 6));
+      console.log('[CAMS Holding Parser] Extracted numbers:', numbers.slice(0, 8));
       
-      // Determine which number is which based on typical patterns:
-      // For holding statements: [Cost Value, Unit Balance, NAV, Market Value]
-      // Cost Value: Usually larger (100,000+)
-      // Unit Balance: Can be any size
-      // NAV: Usually smaller (10-500 typically)
-      // Market Value: Usually larger
+      // IMPROVED: Try all possible combinations to find the correct mapping
+      // The key validation: Units × NAV ≈ Market Value (within 5% tolerance)
+      // Then select the combination where Cost is most reasonable (closest to Market)
       
       let costValue = 0;
       let unitBalance = 0;
       let nav = 0;
       let marketValue = 0;
       
-      if (numbers.length >= 4) {
-        // Standard format: Cost, Units, NAV, MarketValue
+      interface MatchCandidate {
+        units: number;
+        cost: number;
+        nav: number;
+        market: number;
+        score: number;
+      }
+      
+      const candidates: MatchCandidate[] = [];
+      const numLimit = Math.min(numbers.length, 8);
+      
+      // Try all possible 4-number combinations
+      for (let uIdx = 0; uIdx < numLimit; uIdx++) {
+        for (let cIdx = 0; cIdx < numLimit; cIdx++) {
+          if (cIdx === uIdx) continue;
+          for (let nIdx = 0; nIdx < numLimit; nIdx++) {
+            if (nIdx === uIdx || nIdx === cIdx) continue;
+            for (let mIdx = 0; mIdx < numLimit; mIdx++) {
+              if (mIdx === uIdx || mIdx === cIdx || mIdx === nIdx) continue;
+              
+              const testUnits = numbers[uIdx];
+              const testCost = numbers[cIdx];
+              const testNav = numbers[nIdx];
+              const testMarket = numbers[mIdx];
+              
+              // NAV sanity check (typical MF NAV range)
+              if (testNav > 50000 || testNav < 0.1) continue;
+              if (testUnits <= 0 || testMarket <= 0) continue;
+              
+              // KEY: Units × NAV ≈ Market Value
+              const calculated = testUnits * testNav;
+              const marketTolerance = Math.abs(calculated - testMarket) / Math.max(testMarket, 1);
+              
+              if (marketTolerance < 0.05) {
+                // Cost should be reasonable (not wildly different from market)
+                const costRatio = testCost / Math.max(testMarket, 1);
+                const costReasonable = costRatio > 0.05 && costRatio < 20; // Within 20x
+                
+                // Prefer: lower tolerance + cost closer to market
+                const costScore = Math.abs(Math.log(Math.max(costRatio, 0.01))) / 5;
+                const score = marketTolerance + (costReasonable ? 0 : 2) + costScore * 0.1;
+                
+                candidates.push({
+                  units: testUnits,
+                  cost: testCost,
+                  nav: testNav,
+                  market: testMarket,
+                  score
+                });
+              }
+            }
+          }
+        }
+      }
+      
+      // Sort by score and pick best
+      candidates.sort((a, b) => a.score - b.score);
+      
+      if (candidates.length > 0) {
+        const best = candidates[0];
+        unitBalance = best.units;
+        costValue = best.cost;
+        nav = best.nav;
+        marketValue = best.market;
+        console.log('[CAMS Holding Parser] Best match found - Units:', unitBalance, 'Cost:', costValue, 'NAV:', nav, 'Market:', marketValue);
+      } else if (numbers.length >= 4) {
+        // Fallback: use first 4 numbers as Cost, Units, NAV, Market
         costValue = numbers[0];
         unitBalance = numbers[1];
         nav = numbers[2];
         marketValue = numbers[3];
         
-        // Validate: Market Value should approximately equal Units × NAV
-        const calculatedMarketValue = unitBalance * nav;
-        const tolerance = Math.abs(calculatedMarketValue - marketValue) / marketValue;
-        
-        if (tolerance > 0.1 && numbers.length > 4) {
-          // Values might be shifted, try alternative arrangements
-          console.log('[CAMS Holding Parser] Values mismatch, trying alternatives...');
-          
-          // Try: Cost, Units, (skip date-related), NAV, MarketValue
-          if (numbers.length >= 5) {
-            const altNav = numbers[3];
-            const altMarketValue = numbers[4];
-            const altCalculated = unitBalance * altNav;
-            const altTolerance = Math.abs(altCalculated - altMarketValue) / altMarketValue;
-            
-            if (altTolerance < tolerance) {
-              nav = altNav;
-              marketValue = altMarketValue;
-              console.log('[CAMS Holding Parser] Using alternative arrangement');
-            }
-          }
+        // If NAV × Units doesn't match Market, recalculate NAV
+        const calculated = unitBalance * nav;
+        if (Math.abs(calculated - marketValue) / marketValue > 0.1 && unitBalance > 0) {
+          nav = marketValue / unitBalance;
         }
+        console.log('[CAMS Holding Parser] Using fallback - Units:', unitBalance, 'Cost:', costValue, 'NAV:', nav, 'Market:', marketValue);
       } else if (numbers.length === 3) {
-        // Might be missing one value - try to infer
         costValue = numbers[0];
         unitBalance = numbers[1];
         marketValue = numbers[2];
         nav = unitBalance > 0 ? marketValue / unitBalance : 0;
       } else if (numbers.length === 2) {
-        // Minimal data - assume units and value
         unitBalance = numbers[0];
         marketValue = numbers[1];
         nav = unitBalance > 0 ? marketValue / unitBalance : 0;

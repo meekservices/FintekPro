@@ -5,7 +5,10 @@ import { db } from '../db';
 import { prospectClients, portfolios, portfolioHoldings } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { isAuthenticated } from '../replitAuth';
-import { parsePDFPortfolio, parseURLPortfolio, createPortfolioSnapshot } from '../services/portfolio-parser';
+import { parsePDFPortfolio, parseURLPortfolio, createPortfolioSnapshot, clearParseCache } from '../services/portfolio-parser';
+
+// Clear parse cache on server start to ensure fresh parsing after code updates
+clearParseCache();
 import { holdingNormalizationService } from '../services/holding-normalization-service';
 import { portfolioStorageService } from '../services/portfolio-storage-service';
 import { unifiedPortfolioImportService } from '../services/unified-portfolio-import-service';
