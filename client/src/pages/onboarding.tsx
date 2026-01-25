@@ -220,47 +220,69 @@ export default function SmartKYCOnboarding() {
       });
     },
     onSuccess: (data) => {
-      if (data.success && data.session) {
+      // Handle both data.session (old) and data.data (new) response formats
+      const sessionData = data.session || data.data;
+      
+      if (data.success && sessionData) {
         // Check if this is a resumable session
-        if (data.resumable && !data.session.panVerified) {
+        if (data.resumable && !sessionData.stepStatus?.pan_verified) {
           // Show resume dialog only if user hasn't completed PAN yet
-          setPendingSession(data.session);
+          setPendingSession(sessionData);
           setShowResumeDialog(true);
           return;
         }
         
         // Otherwise, load the session normally
-        setSessionId(data.session.id);
-        setCurrentStep(data.session.currentStep);
+        setSessionId(sessionData.sessionId || sessionData.id);
+        setCurrentStep(sessionData.currentStep);
         setSessionError(''); // Clear any previous errors
         
         // Set session expiry time and reset warning flags
-        if (data.session.expiresAt) {
-          setSessionExpiresAt(new Date(data.session.expiresAt));
+        if (sessionData.expiresAt) {
+          setSessionExpiresAt(new Date(sessionData.expiresAt));
           setShowFiveMinWarning(false);
           setShowOneMinWarning(false);
           setSessionExpiredShown(false);
         }
         
-        // Restore state if resuming
-        if (data.session.panVerified) {
-          setPanData(data.session.panVerificationData);
-          setPanNumber(data.session.panNumber || '');
-          setPanDob(data.session.panDob || '');
-          if (data.session.panVerificationData?.name) {
-            setPanFullName(data.session.panVerificationData.name);
+        // Restore existing KYC data if user already has verified PAN/CKYC
+        const existingData = sessionData.existingKycData;
+        if (existingData?.panVerified || sessionData.stepStatus?.pan_verified) {
+          setPanData(existingData || sessionData.panVerificationData);
+          setPanNumber(existingData?.panNumber || sessionData.panNumber || '');
+          if (existingData?.fullName) {
+            setPanFullName(existingData.fullName);
           }
         }
-        if (data.session.aadhaarOtpSent) {
-          setAadhaarMasked(data.session.aadhaarNumber || '');
+        
+        // Restore state if resuming from session
+        if (sessionData.panVerified) {
+          setPanData(sessionData.panVerificationData);
+          setPanNumber(sessionData.panNumber || '');
+          setPanDob(sessionData.panDob || '');
+          if (sessionData.panVerificationData?.name) {
+            setPanFullName(sessionData.panVerificationData.name);
+          }
         }
-        if (data.session.aadhaarOtpVerified) {
-          setAadhaarData(data.session.aadhaarVerificationData);
+        if (sessionData.aadhaarOtpSent) {
+          setAadhaarMasked(sessionData.aadhaarNumber || '');
         }
+        if (sessionData.aadhaarOtpVerified) {
+          setAadhaarData(sessionData.aadhaarVerificationData);
+        }
+        
+        // Show appropriate message based on detected status
+        const stepDisplay = sessionData.currentStep === 'risk_profiling' 
+          ? 'Skipping to Risk Profile (PAN & CKYC already verified)' 
+          : sessionData.currentStep === 'aadhaar_verification'
+          ? 'Skipping to Aadhaar Verification (PAN already verified)'
+          : data.isResumed 
+          ? "Resuming your KYC session" 
+          : "New KYC session started";
         
         toast({
           title: "Session Ready",
-          description: data.resumable ? "Resuming your KYC session" : "New KYC session started",
+          description: stepDisplay,
         });
       }
     },

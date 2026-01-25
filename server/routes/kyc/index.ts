@@ -127,10 +127,11 @@ export function registerKYCWizardRoutes(app: Express) {
   app.post("/api/kyc/wizard/start", requireClientOrHigher, async (req: any, res) => {
     try {
       const userId = req.user!.id;
-      const { entityType, targetLevel } = req.body;
+      const { entityType, targetLevel, forceNew } = req.body;
       
+      // Check for existing active session
       const existingSession = await storage.getActiveKycSession(userId);
-      if (existingSession) {
+      if (existingSession && !forceNew) {
         return res.json({
           success: true,
           data: {
@@ -142,20 +143,48 @@ export function registerKYCWizardRoutes(app: Express) {
         });
       }
       
+      // Check user's existing KYC profile to determine starting step
+      const profile = await db.select().from(schema.profiles).where(eq(schema.profiles.userId, userId)).limit(1);
+      const userProfile = profile[0];
+      
+      // Determine initial step and status based on existing verified data
+      let initialStep = 'pan_verification';
+      let stepStatus = {
+        pan_verified: false,
+        aadhaar_otp_sent: false,
+        aadhaar_verified: false,
+        ckyc_fetched: false,
+        kra_verified: false,
+        risk_profiling: false,
+        compliance_signed: false
+      };
+      
+      // If user already has verified PAN, skip to next step
+      if (userProfile?.panVerifiedViaSandbox || userProfile?.panSandboxStatus === 'VALID') {
+        stepStatus.pan_verified = true;
+        initialStep = 'aadhaar_verification'; // Skip to Aadhaar step
+        
+        // If CKYC is also verified, skip further
+        if (userProfile?.ckycAuthBridgeStatus === 'found') {
+          stepStatus.ckyc_fetched = true;
+          initialStep = 'risk_profiling'; // Skip to risk profiling
+        }
+        
+        // If video KYC is completed
+        if (userProfile?.videoKycCompleted) {
+          stepStatus.aadhaar_verified = true;
+          initialStep = 'compliance_signoff'; // Skip to compliance
+        }
+      }
+      
       const session = await storage.createKycVerificationSession({
         userId,
         entityType: entityType || 'individual',
         targetLevel: targetLevel || '2',
-        currentStep: 'pan_verification',
-        stepStatus: {
-          pan_verified: false,
-          aadhaar_otp_sent: false,
-          aadhaar_verified: false,
-          ckyc_fetched: false,
-          kra_verified: false,
-          risk_profiling: false,
-          compliance_signed: false
-        }
+        currentStep: initialStep,
+        stepStatus,
+        panNumber: userProfile?.panNumber || undefined,
+        panVerificationData: userProfile?.panSandboxResponse || undefined
       });
       
       res.json({
@@ -164,7 +193,13 @@ export function registerKYCWizardRoutes(app: Express) {
           sessionId: session.id,
           currentStep: session.currentStep,
           stepStatus: session.stepStatus,
-          isResumed: false
+          isResumed: false,
+          existingKycData: {
+            panVerified: stepStatus.pan_verified,
+            ckycVerified: stepStatus.ckyc_fetched,
+            panNumber: userProfile?.panNumber,
+            fullName: userProfile?.firstName ? `${userProfile.firstName} ${userProfile.lastName || ''}`.trim() : null
+          }
         }
       });
     } catch (error) {
