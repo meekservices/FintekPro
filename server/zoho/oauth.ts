@@ -298,6 +298,85 @@ export class ZohoOAuthService {
   }
 
   /**
+   * Force refresh access token (bypasses expiry check)
+   * Used when API returns "invalid oauth token" error
+   */
+  async forceRefreshToken(connectionId: string): Promise<string> {
+    console.log('[Zoho OAuth] Force refreshing token for connection:', connectionId);
+    
+    const [connection] = await db
+      .select()
+      .from(zohoConnections)
+      .where(eq(zohoConnections.id, connectionId))
+      .limit(1);
+
+    if (!connection) {
+      throw new Error('Connection not found');
+    }
+
+    if (connection.status !== 'active') {
+      throw new Error(`Connection is ${connection.status}`);
+    }
+
+    // Decrypt refresh token - handle both encrypted and legacy unencrypted tokens
+    let decryptedRefreshToken: string | null = null;
+    try {
+      if (connection.refreshToken?.startsWith('1000.')) {
+        console.log('[Zoho OAuth] Using unencrypted refresh token (legacy format)');
+        decryptedRefreshToken = connection.refreshToken;
+      } else {
+        decryptedRefreshToken = encryptionService.decrypt(connection.refreshToken);
+      }
+    } catch (decryptError) {
+      console.error('[Zoho OAuth] Decrypt error, trying raw token:', decryptError);
+      if (connection.refreshToken?.includes('.')) {
+        decryptedRefreshToken = connection.refreshToken;
+      }
+    }
+    
+    if (!decryptedRefreshToken) {
+      throw new Error('Failed to decrypt refresh token');
+    }
+
+    // Force refresh the token
+    const tokenResponse = await this.refreshAccessToken(decryptedRefreshToken);
+    
+    // Default to 1 hour expiry if expires_in is missing or invalid
+    const expiresInMs = (tokenResponse.expires_in && typeof tokenResponse.expires_in === 'number') 
+      ? tokenResponse.expires_in * 1000 
+      : 3600 * 1000;
+    const newExpiresAt = new Date(Date.now() + expiresInMs);
+
+    // Determine storage format based on connection's existing format
+    const isLegacyFormat = connection.accessToken?.startsWith('1000.') || 
+                           connection.refreshToken?.startsWith('1000.');
+    
+    let accessTokenToStore: string;
+    if (isLegacyFormat) {
+      console.log('[Zoho OAuth] Storing new access token in legacy format (unencrypted)');
+      accessTokenToStore = tokenResponse.access_token;
+    } else {
+      const encryptedAccessToken = encryptionService.encrypt(tokenResponse.access_token);
+      if (!encryptedAccessToken) {
+        throw new Error('Failed to encrypt new access token');
+      }
+      accessTokenToStore = encryptedAccessToken;
+    }
+
+    await db
+      .update(zohoConnections)
+      .set({
+        accessToken: accessTokenToStore,
+        expiresAt: newExpiresAt,
+        updatedAt: new Date()
+      })
+      .where(eq(zohoConnections.id, connectionId));
+
+    console.log('[Zoho OAuth] Token force-refreshed successfully');
+    return tokenResponse.access_token;
+  }
+
+  /**
    * Update connection status
    */
   async updateConnectionStatus(

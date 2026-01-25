@@ -50,10 +50,38 @@ export class ZohoApiClient {
       (error) => Promise.reject(error)
     );
 
-    // Add response interceptor for error handling
+    // Add response interceptor for error handling and token refresh retry
     this.axiosInstance.interceptors.response.use(
       (response) => response,
       async (error) => {
+        const originalRequest = error.config;
+        
+        // Check if this is an auth error that we haven't retried yet
+        const isAuthError = error.response?.status === 401 || 
+          error.response?.data?.message?.toLowerCase().includes('invalid oauth token') ||
+          error.response?.data?.code === 'INVALID_TOKEN';
+        
+        if (isAuthError && !originalRequest._retry) {
+          originalRequest._retry = true;
+          
+          try {
+            console.log('[Zoho OAuth] Token invalid, forcing refresh...');
+            // Force token refresh by calling the refresh method directly
+            const newAccessToken = await this.oauthService.forceRefreshToken(this.connectionId);
+            
+            // Update the request with new token
+            originalRequest.headers.Authorization = `Zoho-oauthtoken ${newAccessToken}`;
+            
+            console.log('[Zoho OAuth] Retrying request with new token');
+            return this.axiosInstance.request(originalRequest);
+          } catch (refreshError) {
+            console.error('[Zoho OAuth] Token refresh failed:', refreshError);
+            // Log and propagate the error
+            await this.logApiError(error);
+            return Promise.reject(error);
+          }
+        }
+        
         // Log API errors
         await this.logApiError(error);
         return Promise.reject(error);
