@@ -294,69 +294,136 @@ class CASStatementService {
     let unitBalance = 0;
     let nav = 0;
     let marketValue = 0;
-    let bestMatch = { costIdx: 0, unitIdx: 1, navIdx: 2, marketIdx: 3, score: Infinity };
     
-    for (let costIdx = 0; costIdx < Math.min(numbers.length - 3, 3); costIdx++) {
-      for (let unitIdx = costIdx + 1; unitIdx < Math.min(numbers.length - 2, costIdx + 3); unitIdx++) {
-        for (let navIdx = unitIdx + 1; navIdx < Math.min(numbers.length - 1, unitIdx + 3); navIdx++) {
-          for (let marketIdx = navIdx + 1; marketIdx < Math.min(numbers.length, navIdx + 3); marketIdx++) {
-            const testCost = numbers[costIdx];
-            const testUnits = numbers[unitIdx];
-            const testNav = numbers[navIdx];
-            const testMarket = numbers[marketIdx];
+    // IMPROVED MATCHING: Try multiple field orderings common in CAS statements
+    // Order 1: Units, Cost, NAV, Market (most common in CAMS/KFintech)
+    // Order 2: Cost, Units, NAV, Market (alternate format)
+    // The key validation: Units × NAV ≈ Market Value (within 5% tolerance)
+    
+    interface MatchCandidate {
+      units: number;
+      cost: number;
+      nav: number;
+      market: number;
+      score: number;
+      order: string;
+    }
+    
+    const candidates: MatchCandidate[] = [];
+    
+    // Try all possible combinations within reasonable bounds
+    for (let i = 0; i < Math.min(numbers.length, 6); i++) {
+      for (let j = 0; j < Math.min(numbers.length, 6); j++) {
+        if (j === i) continue;
+        for (let k = 0; k < Math.min(numbers.length, 6); k++) {
+          if (k === i || k === j) continue;
+          for (let m = 0; m < Math.min(numbers.length, 6); m++) {
+            if (m === i || m === j || m === k) continue;
             
-            if (testNav > 50000) continue;
-            if (testNav < 1) continue;
+            const testUnits = numbers[i];
+            const testCost = numbers[j];
+            const testNav = numbers[k];
+            const testMarket = numbers[m];
+            
+            // NAV sanity checks - typical MF NAV is between 1 and 50000
+            if (testNav > 50000 || testNav < 1) continue;
+            
+            // Units should be positive
             if (testUnits <= 0) continue;
             
-            const calculatedMarket = testUnits * testNav;
-            const tolerance = Math.abs(calculatedMarket - testMarket) / Math.max(testMarket, 1);
+            // Market value should be positive
+            if (testMarket <= 0) continue;
             
-            if (tolerance < 0.05) {
-              const costCheck = Math.abs(testCost - testMarket) / Math.max(testMarket, 1);
-              const score = tolerance + (costCheck > 2 ? 0.5 : 0);
+            // KEY VALIDATION: Units × NAV ≈ Market Value
+            const calculatedMarket = testUnits * testNav;
+            const marketTolerance = Math.abs(calculatedMarket - testMarket) / Math.max(testMarket, 1);
+            
+            if (marketTolerance < 0.05) { // 5% tolerance for rounding
+              // Additional validation: Cost should be reasonable (not wildly different from market)
+              // Most holdings have cost within 10x of market value
+              const costRatio = testCost / Math.max(testMarket, 1);
+              const costReasonable = costRatio > 0.01 && costRatio < 100;
               
-              if (score < bestMatch.score) {
-                bestMatch = { costIdx, unitIdx, navIdx, marketIdx, score };
-              }
+              // Prefer candidates where cost is closer to market (less extreme gains/losses)
+              const costScore = Math.abs(Math.log(costRatio + 0.01)) / 5;
+              const score = marketTolerance + (costReasonable ? 0 : 1) + costScore * 0.1;
+              
+              candidates.push({
+                units: testUnits,
+                cost: testCost,
+                nav: testNav,
+                market: testMarket,
+                score,
+                order: `u${i}c${j}n${k}m${m}`
+              });
             }
           }
         }
       }
     }
     
-    if (bestMatch.score < 0.1) {
-      costValue = numbers[bestMatch.costIdx];
-      unitBalance = numbers[bestMatch.unitIdx];
-      nav = numbers[bestMatch.navIdx];
-      marketValue = numbers[bestMatch.marketIdx];
-      console.log(`[CAS Debug] ISIN ${isin}: Best match found - Cost: ${costValue}, Units: ${unitBalance}, NAV: ${nav}, Market: ${marketValue}`);
+    // Sort candidates by score (lower is better)
+    candidates.sort((a, b) => a.score - b.score);
+    
+    if (candidates.length > 0) {
+      const best = candidates[0];
+      unitBalance = best.units;
+      costValue = best.cost;
+      nav = best.nav;
+      marketValue = best.market;
+      console.log(`[CAS Debug] ISIN ${isin}: Best match (${best.order}) - Units: ${unitBalance}, Cost: ${costValue}, NAV: ${nav}, Market: ${marketValue}, Score: ${best.score.toFixed(4)}`);
     } else {
-      costValue = numbers[0];
-      unitBalance = numbers[1];
+      // Fallback: Use first 4 numbers and try to make sense of them
+      console.log(`[CAS Debug] ISIN ${isin}: No valid combination found, using fallback logic`);
       
-      for (let i = 2; i < numbers.length - 1; i++) {
-        const testNav = numbers[i];
-        const testMarket = numbers[i + 1];
+      // Look for the NAV (typically smallest sensible number between 1 and 10000)
+      const potentialNavs = numbers.filter(n => n >= 1 && n <= 10000);
+      
+      for (const testNav of potentialNavs) {
+        const navIdx = numbers.indexOf(testNav);
         
-        if (testNav >= 1 && testNav <= 50000) {
-          const calculated = unitBalance * testNav;
-          const tolerance = Math.abs(calculated - testMarket) / Math.max(testMarket, 1);
+        // Look for market value after NAV
+        for (let m = navIdx + 1; m < Math.min(numbers.length, navIdx + 3); m++) {
+          const testMarket = numbers[m];
+          const calculatedUnits = testMarket / testNav;
           
-          if (tolerance < 0.1) {
-            nav = testNav;
-            marketValue = testMarket;
-            break;
+          // Check if any number matches the calculated units
+          for (let u = 0; u < navIdx; u++) {
+            const testUnits = numbers[u];
+            const unitsTolerance = Math.abs(calculatedUnits - testUnits) / Math.max(testUnits, 0.001);
+            
+            if (unitsTolerance < 0.05) {
+              unitBalance = testUnits;
+              nav = testNav;
+              marketValue = testMarket;
+              
+              // Find cost (any remaining reasonable number)
+              for (let c = 0; c < numbers.length; c++) {
+                if (c !== u && c !== navIdx && c !== m) {
+                  const potentialCost = numbers[c];
+                  if (potentialCost > 0 && potentialCost < marketValue * 100) {
+                    costValue = potentialCost;
+                    break;
+                  }
+                }
+              }
+              break;
+            }
           }
+          if (unitBalance > 0) break;
         }
+        if (unitBalance > 0) break;
       }
       
-      if (marketValue === 0 && numbers.length >= 4) {
+      // Last resort fallback
+      if (unitBalance === 0 && numbers.length >= 4) {
+        unitBalance = numbers[0];
+        costValue = numbers[1];
         nav = numbers[2];
         marketValue = numbers[3];
       }
       
-      console.log(`[CAS Debug] ISIN ${isin}: Fallback - Cost: ${costValue}, Units: ${unitBalance}, NAV: ${nav}, Market: ${marketValue}`);
+      console.log(`[CAS Debug] ISIN ${isin}: Fallback result - Units: ${unitBalance}, Cost: ${costValue}, NAV: ${nav}, Market: ${marketValue}`);
     }
     
     if (nav > 10000 || nav < 0.1) {
