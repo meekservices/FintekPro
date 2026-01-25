@@ -21249,6 +21249,41 @@ export const insertEsignCertificateSchema = createInsertSchema(esignCertificates
 export type EsignCertificate = typeof esignCertificates.$inferSelect;
 export type InsertEsignCertificate = z.infer<typeof insertEsignCertificateSchema>;
 
+// ========================================
+// User Signatures (Upload/Draw/Type)
+// ========================================
+export const userSignatures = pgTable("user_signatures", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  name: varchar("name").notNull(),
+  signatureType: varchar("signature_type").notNull(), // upload, draw, type
+  signatureDataUrl: text("signature_data_url").notNull(),
+  
+  fontFamily: varchar("font_family"),
+  typedText: varchar("typed_text"),
+  
+  width: integer("width"),
+  height: integer("height"),
+  
+  isDefault: boolean("is_default").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_user_signatures_user").on(table.userId),
+  index("idx_user_signatures_default").on(table.userId, table.isDefault),
+]);
+
+export const insertUserSignatureSchema = createInsertSchema(userSignatures).omit({
+  userId: true,
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type UserSignature = typeof userSignatures.$inferSelect;
+export type InsertUserSignature = z.infer<typeof insertUserSignatureSchema>;
+
 export const insertEsignAuditLogSchema = createInsertSchema(esignAuditLog).omit({
   id: true,
   createdAt: true,

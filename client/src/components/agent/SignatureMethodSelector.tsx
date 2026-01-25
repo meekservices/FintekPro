@@ -1,24 +1,37 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
 import { 
   FileSignature, Fingerprint, Key, Smartphone, 
-  Shield, Clock, CheckCircle, AlertTriangle, Info
+  Shield, Clock, CheckCircle, AlertTriangle, Info, PenTool, Plus, ArrowLeft, Star
 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { SignatureCanvas, SignatureData } from '@/components/esign/SignatureCanvas';
 
 export type SignatureMethod = 'zoho_sign' | 'aadhaar_esign' | 'dsc_token' | 'otp';
 
+interface UserSignature {
+  id: string;
+  name: string;
+  signatureType: 'upload' | 'draw' | 'type';
+  signatureDataUrl: string;
+  isDefault: boolean;
+}
+
 interface SignatureMethodSelectorProps {
-  onSelect: (method: SignatureMethod) => void;
+  onSelect: (method: SignatureMethod, signatureDataUrl?: string) => void;
   onCancel?: () => void;
   selectedMethod?: SignatureMethod;
   isLoading?: boolean;
   allowedMethods?: SignatureMethod[];
   participantName?: string;
+  requireVisualSignature?: boolean;
 }
 
 interface MethodInfo {
@@ -80,6 +93,8 @@ const SIGNATURE_METHODS: MethodInfo[] = [
   },
 ];
 
+const METHODS_REQUIRING_VISUAL_SIGNATURE: SignatureMethod[] = ['zoho_sign', 'otp'];
+
 export default function SignatureMethodSelector({
   onSelect,
   onCancel,
@@ -87,16 +102,198 @@ export default function SignatureMethodSelector({
   isLoading = false,
   allowedMethods = ['zoho_sign', 'aadhaar_esign', 'dsc_token', 'otp'],
   participantName,
+  requireVisualSignature = true,
 }: SignatureMethodSelectorProps) {
   const [selected, setSelected] = useState<SignatureMethod | undefined>(selectedMethod);
+  const [step, setStep] = useState<'method' | 'signature'>('method');
+  const [selectedSignature, setSelectedSignature] = useState<string | null>(null);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [tempSignature, setTempSignature] = useState<string | null>(null);
+
+  const { data: signaturesData, isLoading: signaturesLoading } = useQuery<{ success: boolean; signatures: UserSignature[] }>({
+    queryKey: ['/api/user/signatures'],
+    enabled: step === 'signature',
+  });
+
+  const signatures = signaturesData?.signatures || [];
+  const defaultSignature = signatures.find(s => s.isDefault);
 
   const availableMethods = SIGNATURE_METHODS.filter(m => allowedMethods.includes(m.id));
 
+  const needsVisualSignature = (method: SignatureMethod) => 
+    requireVisualSignature && METHODS_REQUIRING_VISUAL_SIGNATURE.includes(method);
+
   const handleConfirm = () => {
     if (selected) {
-      onSelect(selected);
+      if (needsVisualSignature(selected)) {
+        setStep('signature');
+        if (defaultSignature) {
+          setSelectedSignature(defaultSignature.signatureDataUrl);
+        }
+      } else {
+        onSelect(selected);
+      }
     }
   };
+
+  const handleSignatureConfirm = () => {
+    if (selected && (selectedSignature || tempSignature)) {
+      onSelect(selected, selectedSignature || tempSignature || undefined);
+    }
+  };
+
+  const handleCreateSignature = (signatureData: SignatureData) => {
+    setTempSignature(signatureData.dataUrl);
+    setSelectedSignature(null);
+    setShowCreateDialog(false);
+  };
+
+  if (step === 'signature') {
+    return (
+      <>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon" onClick={() => setStep('method')}>
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <PenTool className="h-5 w-5" />
+                  Select Your Signature
+                </CardTitle>
+                <CardDescription>
+                  Choose a saved signature or create a new one
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {signaturesLoading ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-24 w-full" />
+              </div>
+            ) : signatures.length === 0 && !tempSignature ? (
+              <Alert>
+                <PenTool className="h-4 w-4" />
+                <AlertDescription>
+                  You don't have any saved signatures. Create one to proceed with signing.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {signatures.map((sig) => (
+                  <div
+                    key={sig.id}
+                    onClick={() => {
+                      setSelectedSignature(sig.signatureDataUrl);
+                      setTempSignature(null);
+                    }}
+                    className={`cursor-pointer rounded-lg border-2 p-3 transition-all ${
+                      selectedSignature === sig.signatureDataUrl
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium truncate">{sig.name}</span>
+                      {sig.isDefault && (
+                        <Badge variant="secondary" className="text-xs">
+                          <Star className="h-3 w-3 mr-1" />
+                          Default
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="border rounded bg-white dark:bg-gray-900 p-2 flex items-center justify-center min-h-[60px]">
+                      <img
+                        src={sig.signatureDataUrl}
+                        alt={sig.name}
+                        className="max-w-full max-h-[50px] object-contain"
+                      />
+                    </div>
+                  </div>
+                ))}
+                {tempSignature && (
+                  <div
+                    onClick={() => {
+                      setSelectedSignature(null);
+                    }}
+                    className={`cursor-pointer rounded-lg border-2 p-3 transition-all ${
+                      !selectedSignature && tempSignature
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">New Signature</span>
+                      <Badge variant="outline" className="text-xs">One-time</Badge>
+                    </div>
+                    <div className="border rounded bg-white dark:bg-gray-900 p-2 flex items-center justify-center min-h-[60px]">
+                      <img
+                        src={tempSignature}
+                        alt="New signature"
+                        className="max-w-full max-h-[50px] object-contain"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <Button
+              variant="outline"
+              onClick={() => setShowCreateDialog(true)}
+              className="w-full"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Create New Signature
+            </Button>
+
+            <div className="flex gap-3 pt-2">
+              <Button
+                onClick={handleSignatureConfirm}
+                disabled={!selectedSignature && !tempSignature || isLoading}
+                className="flex-1"
+              >
+                {isLoading ? (
+                  <>
+                    <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                    Signing...
+                  </>
+                ) : (
+                  <>
+                    <FileSignature className="h-4 w-4 mr-2" />
+                    Sign Document
+                  </>
+                )}
+              </Button>
+              {onCancel && (
+                <Button variant="outline" onClick={onCancel}>
+                  Cancel
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Create Signature</DialogTitle>
+              <DialogDescription>
+                This signature will be used for this document only.
+              </DialogDescription>
+            </DialogHeader>
+            <SignatureCanvas
+              onSave={handleCreateSignature}
+              onCancel={() => setShowCreateDialog(false)}
+            />
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
 
   const getValidityBadge = (validity: 'High' | 'Medium' | 'Standard') => {
     switch (validity) {

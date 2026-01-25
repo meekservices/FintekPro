@@ -24,6 +24,7 @@ import knowledgeHubRoutes from './routes/knowledge-hub-routes';
 import mcaIntelligenceRoutes from './routes/mca-intelligence-routes';
 import mcaDirectPaymentRoutes from './routes/mca-direct-payment-routes';
 import mcaFinancialBackfillRoutes from './routes/mca-financial-backfill-routes';
+import signatureRoutes from './routes/signature-routes';
 import { mcaFinancialRefreshScheduler } from "./services/mca-financial-refresh-scheduler";
 import { registerSandboxWebhookRoutes } from './routes/sandbox-webhooks';
 import { createServer, type Server } from "http";
@@ -709,6 +710,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/agent/demo-proposals", isAuthenticated, agentDemoRouter);
   app.use("/api/agent", portfolioImportRoutes);
   app.use("/api/cas-statement", isAuthenticated, casStatementRoutes);
+  app.use(signatureRoutes);
   app.use("/api/client", isAuthenticated, clientDocumentsRoutes);
   app.use("/api/admin/exchange-sync", requireAdmin, exchangeStockSyncRoutes);
   // AI Proposal Engine Routes

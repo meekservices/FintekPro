@@ -33,8 +33,10 @@ import {
   Palette,
   PanelLeft,
   PanelTop,
-  Dock
+  Dock,
+  PenTool
 } from "lucide-react";
+import { SignatureManagement } from "@/components/esign/SignatureManagement";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -292,6 +294,10 @@ export default function SettingsPage() {
           <TabsTrigger value="appearance" data-testid="tab-appearance">
             <Palette className="h-4 w-4 mr-2" />
             Appearance
+          </TabsTrigger>
+          <TabsTrigger value="signatures" data-testid="tab-signatures">
+            <PenTool className="h-4 w-4 mr-2" />
+            Signatures
           </TabsTrigger>
         </ScrollableTabsList>
 
@@ -768,6 +774,11 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Signatures Tab */}
+        <TabsContent value="signatures" className="space-y-6">
+          <SignatureManagement />
         </TabsContent>
       </Tabs>
     </div>
