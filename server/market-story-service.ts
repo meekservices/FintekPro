@@ -56,7 +56,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown code blocks or extra text.`;
         { role: "user", content: prompt }
       ], {
         provider: 'gemini',
-        model: 'gemini-2.0-flash-exp',
+        model: 'gemini-2.5-flash',
         temperature: 0.7,
         maxTokens: 1500
       });
@@ -165,7 +165,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown code blocks or extra text.`;
         { role: "user", content: text }
       ], {
         provider: 'gemini',
-        model: 'gemini-2.0-flash-exp',
+        model: 'gemini-2.5-flash',
         temperature: 0.3
       });
 

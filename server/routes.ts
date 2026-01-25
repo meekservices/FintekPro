@@ -20618,7 +20618,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               result = {
                 success: true,
                 message: 'API key configured',
-                details: { model: 'gemini-2.0-flash' },
+                details: { model: 'gemini-2.5-flash' },
                 latency: Date.now() - startTime
               };
             } catch (e: any) {
@@ -29042,7 +29042,7 @@ Provide analysis in JSON format with these sections:
 
       try {
         const response = await ai.models.generateContent({
-          model: "gemini-2.0-flash",
+          model: "gemini-2.5-flash",
           config: {
             responseMimeType: "application/json",
             responseSchema: {

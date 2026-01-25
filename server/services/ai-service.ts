@@ -25,7 +25,7 @@ export type AIProvider = 'openai' | 'openai-direct' | 'gemini';
 export type AIModel = 
   | 'gpt-5' | 'gpt-5.1' | 'gpt-5-mini' | 'gpt-4.1' | 'gpt-4o' 
   | 'gpt-5.2-instant' | 'gpt-5.2-thinking' | 'gpt-5.2-pro'
-  | 'gemini-2.0-flash-exp' | 'gemini-2.0-flash';
+  | 'gemini-2.5-flash';
 
 // GPT-5.2 models require direct OpenAI API (not Replit AI Integrations)
 const GPT52_MODELS = ['gpt-5.2-instant', 'gpt-5.2-thinking', 'gpt-5.2-pro'];
@@ -72,7 +72,7 @@ class AIService {
   ): Promise<{ content: string; usage: AIUsageMetrics }> {
     const {
       provider = 'gemini',
-      model = 'gemini-2.0-flash-exp',
+      model = 'gemini-2.5-flash',
       temperature = 0.7,
       maxTokens = 8192,
       stream = false,
@@ -119,7 +119,7 @@ class AIService {
   ): Promise<{ content: string; usage: AIUsageMetrics }> {
     const {
       provider = 'gemini',
-      model = 'gemini-2.0-flash-exp',
+      model = 'gemini-2.5-flash',
       temperature = 0.7,
       maxTokens = 8192
     } = options;
@@ -299,7 +299,7 @@ class AIService {
     const fullPrompt = systemMessage ? `${systemMessage}\n\n${prompt}` : prompt;
 
     const response = await gemini.models.generateContent({
-      model: model.includes('gemini') ? model : 'gemini-2.0-flash-exp',
+      model: model.includes('gemini') ? model : 'gemini-2.5-flash',
       config: {
         temperature,
         maxOutputTokens: maxTokens,
@@ -315,7 +315,7 @@ class AIService {
     }
     const usage: AIUsageMetrics = {
       provider: 'gemini',
-      model: model.includes('gemini') ? model : 'gemini-2.0-flash-exp',
+      model: model.includes('gemini') ? model : 'gemini-2.5-flash',
       promptTokens: response.usageMetadata?.promptTokenCount || 0,
       completionTokens: response.usageMetadata?.candidatesTokenCount || 0,
       totalTokens: response.usageMetadata?.totalTokenCount || 0,
@@ -348,7 +348,7 @@ class AIService {
     const fullPrompt = systemMessage ? `${systemMessage}\n\n${prompt}` : prompt;
 
     const stream = await gemini.models.generateContentStream({
-      model: model.includes('gemini') ? model : 'gemini-2.0-flash-exp',
+      model: model.includes('gemini') ? model : 'gemini-2.5-flash',
       config: {
         temperature,
         maxOutputTokens: maxTokens,
@@ -367,7 +367,7 @@ class AIService {
     }
     const usage: AIUsageMetrics = {
       provider: 'gemini',
-      model: model.includes('gemini') ? model : 'gemini-2.0-flash-exp',
+      model: model.includes('gemini') ? model : 'gemini-2.5-flash',
       promptTokens: finalResponse?.usageMetadata?.promptTokenCount || 0,
       completionTokens: finalResponse?.usageMetadata?.candidatesTokenCount || 0,
       totalTokens: finalResponse?.usageMetadata?.totalTokenCount || 0,
@@ -432,7 +432,7 @@ class AIService {
     if (this.isGpt52Available()) {
       return { provider: 'openai-direct', model: 'gpt-5.2-thinking' };
     }
-    return { provider: 'gemini', model: 'gemini-2.0-flash-exp' };
+    return { provider: 'gemini', model: 'gemini-2.5-flash' };
   }
 }
 

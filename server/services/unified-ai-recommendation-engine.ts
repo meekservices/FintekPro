@@ -472,7 +472,7 @@ class UnifiedAIRecommendationEngine {
     const prompt = this.buildAnalysisPrompt(product, clientProfile);
     
     const model = this.gemini!.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash',
       contents: prompt,
     });
 

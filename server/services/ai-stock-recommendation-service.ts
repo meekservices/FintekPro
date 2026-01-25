@@ -632,7 +632,7 @@ Provide analysis in JSON format:
 
     try {
       const model = this.genAI.models.generateContent({
-        model: "gemini-1.5-flash",
+        model: "gemini-2.5-flash",
         contents: prompt
       });
       

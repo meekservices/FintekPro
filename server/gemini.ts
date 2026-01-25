@@ -17,7 +17,7 @@ Please provide:
 Keep the response conversational and under 200 words.`;
 
   const response = await ai.models.generateContent({
-    model: "gemini-1.5-flash",
+    model: "gemini-2.5-flash",
     contents: prompt,
   });
 
@@ -43,7 +43,7 @@ export async function analyzePortfolio(portfolioData: any): Promise<{
     }`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       config: {
         systemInstruction: systemPrompt,
         responseMimeType: "application/json",
@@ -91,7 +91,7 @@ Write it like you're explaining to a friend what's been happening with this stoc
 Keep it under 150 words and make it interesting to read.`;
 
   const response = await ai.models.generateContent({
-    model: "gemini-1.5-flash",
+    model: "gemini-2.5-flash",
     contents: prompt,
   });
 
@@ -110,7 +110,7 @@ Include:
 Keep it under 200 words and avoid jargon.`;
 
   const response = await ai.models.generateContent({
-    model: "gemini-1.5-flash",
+    model: "gemini-2.5-flash",
     contents: prompt,
   });
 

@@ -1040,7 +1040,7 @@ class AIGlobalAdvisoryService {
 Focus on actionable advice for an Indian investor investing globally.`;
 
       const result = await this.genAI.models.generateContent({
-        model: 'gemini-2.0-flash-exp',
+        model: 'gemini-2.5-flash',
         contents: prompt,
       });
 

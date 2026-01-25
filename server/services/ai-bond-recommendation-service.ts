@@ -406,7 +406,7 @@ Format your response as JSON array matching this structure:
 [{"bondIndex": 0, "rationale": "...", "pros": ["..."], "cons": ["..."], "taxImplications": "..."}]`;
 
       const model = this.genAI.models.generateContent({
-        model: "gemini-2.0-flash-exp",
+        model: "gemini-2.5-flash",
         contents: [{ role: "user", parts: [{ text: prompt }] }],
       });
 

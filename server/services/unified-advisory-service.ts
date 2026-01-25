@@ -479,7 +479,7 @@ Rules:
 - Never guarantee returns`;
 
     const result = await this.genAI.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       contents: prompt
     });
     const text = result.text || '';

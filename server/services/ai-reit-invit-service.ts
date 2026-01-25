@@ -91,7 +91,7 @@ Consider:
 Return JSON array sorted by suitabilityScore (highest first).`;
 
       const response = await this.genAI!.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: "gemini-2.5-flash",
         config: {
           responseMimeType: "application/json",
           responseSchema: {
@@ -209,7 +209,7 @@ Provide:
 Return as JSON object.`;
 
       const response = await this.genAI!.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: "gemini-2.5-flash",
         config: {
           responseMimeType: "application/json",
           responseSchema: {

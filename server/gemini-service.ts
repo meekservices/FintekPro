@@ -25,7 +25,7 @@ Provide a structured JSON response with:
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -83,7 +83,7 @@ Provide a structured JSON response with optimization strategies.`;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -148,7 +148,7 @@ Provide detailed step-by-step instructions in JSON format.`;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -221,7 +221,7 @@ Focus on creating production-ready, type-safe code with proper error handling.`;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -282,7 +282,7 @@ Provide a structured JSON response with security recommendations.`;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -351,7 +351,7 @@ export async function generateChatResponse(
     }
 
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.5-flash",
       config,
       contents: lastUserMessage,
     });

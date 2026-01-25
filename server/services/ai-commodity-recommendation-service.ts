@@ -493,7 +493,7 @@ class AICommodityRecommendationService {
       Return JSON array with format: [{"symbol": "GOLD", "rationale": "..."}]`;
 
       const result = await this.genAI.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         contents: prompt
       });
 

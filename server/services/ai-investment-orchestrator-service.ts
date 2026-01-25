@@ -724,9 +724,9 @@ Format response as JSON: {"rationale": "...", "pros": ["...", "...", "..."], "co
         console.log(`📊 Investment rationale generated using ${model}`);
       } else if (this.genAI) {
         // Fallback to Gemini
-        modelUsed = 'gemini-2.0-flash-001';
+        modelUsed = 'gemini-2.5-flash';
         const response = await this.genAI.models.generateContent({
-          model: 'gemini-2.0-flash-001',
+          model: 'gemini-2.5-flash',
           contents: prompt,
         });
         text = response.text || '';
