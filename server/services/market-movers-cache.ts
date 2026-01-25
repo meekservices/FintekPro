@@ -696,8 +696,9 @@ class MarketMoversCache {
 
   constructor() {
     this.finnhubProvider = new FinnhubProvider();
-    this.nseProvider = new NseIndiaProvider();
-    this.bseProvider = new BseIndiaProvider();
+    // Use singleton instances instead of creating new ones
+    this.nseProvider = nseIndiaProviderInstance;
+    this.bseProvider = bseIndiaProviderInstance;
   }
 
   private async loadFromDatabase(): Promise<MarketMoversData | null> {

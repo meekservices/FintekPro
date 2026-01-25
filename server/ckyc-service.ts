@@ -191,6 +191,7 @@ export interface KINPollResponse {
 }
 
 export class CKYCService {
+  private static credentialWarningLogged = false;
   private baseUrl: string;
   private apiKey: string;
   private apiSecret: string;
@@ -201,9 +202,11 @@ export class CKYCService {
     this.apiSecret = process.env.CKYC_API_SECRET || '';
     
     // Validate credentials - use mock mode if not configured (both dev and production)
+    // Only log warning once per process to avoid duplicate messages
     const hasCredentials = this.apiKey && this.apiSecret;
     
-    if (!hasCredentials) {
+    if (!hasCredentials && !CKYCService.credentialWarningLogged) {
+      CKYCService.credentialWarningLogged = true;
       console.warn('⚠️ CKYC API credentials (CKYC_API_KEY, CKYC_API_SECRET) not configured');
       console.warn('⚠️ CKYC registration and KIN polling will use mock responses');
       console.warn('ℹ️ Set CKYC_API_KEY and CKYC_API_SECRET to enable real CKYC integration');

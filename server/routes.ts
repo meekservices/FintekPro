@@ -305,12 +305,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize API usage tracking service
   apiUsageTrackingService.initialize().catch(err => console.error("Failed to initialize API usage tracking:", err)); // Deferred startup
   
-  // Auth middleware - setup both Replit Auth and local email/password auth
-  setupReplitAuth(app);
+  // Auth middleware is set up in index.ts before registerRoutes is called
+  // to prevent duplicate session/auth strategy registration
 
   // Apply execution guard middleware for SEBI-compliant offline protection
   app.use(executionGuard({ logExecution: true, blockOfflineExecution: true }));
-  setupLocalAuth(app);
   
   // Initialize user passwords with proper hashing
   await storage.initializeUserPasswords();
