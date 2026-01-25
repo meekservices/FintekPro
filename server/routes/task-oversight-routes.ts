@@ -135,7 +135,8 @@ router.get("/agents", async (req, res: Response) => {
     const agents = await db
       .select({
         id: users.id,
-        name: users.fullName,
+        firstName: users.firstName,
+        lastName: users.lastName,
         email: users.email,
         updatedAt: users.updatedAt,
       })
@@ -219,9 +220,10 @@ router.get("/agents", async (req, res: Response) => {
         complianceStatus = "at_risk";
       }
 
+      const fullName = [agent.firstName, agent.lastName].filter(Boolean).join(' ') || "Unknown Agent";
       return {
         id: agent.id,
-        name: agent.name || "Unknown Agent",
+        name: fullName,
         email: agent.email || "",
         pendingTasks,
         overdueTasks,
