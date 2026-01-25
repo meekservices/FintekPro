@@ -722,9 +722,9 @@ export default function AgentInvestmentAdvisory() {
                     )}
                   </CommandEmpty>
                   <CommandGroup>
-                    {filteredClients.map((client) => (
+                    {filteredClients.map((client, idx) => (
                       <CommandItem
-                        key={client.uuid || client.id}
+                        key={`${client.uuid || client.id}-${idx}`}
                         value={client.uuid}
                         onSelect={() => {
                           setSelectedClientId(client.uuid);
