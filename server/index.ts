@@ -1,4 +1,33 @@
 // FintekPro Server - Main entry point
+
+// Global error handlers to prevent Neon serverless library crashes
+// The @neondatabase/serverless v0.10.4 has a bug where it tries to set
+// a read-only property on ErrorEvent when handling connection terminations
+process.on('uncaughtException', (error: Error) => {
+  // Ignore the specific Neon library bug that crashes on connection errors
+  if (error.message?.includes('Cannot set property message of') && 
+      error.message?.includes('which has only a getter')) {
+    console.error('[Global] Caught Neon library error (non-fatal):', error.message);
+    return; // Don't crash the process
+  }
+  // For other uncaught exceptions, log but don't crash in development
+  console.error('[Global] Uncaught exception:', error);
+  if (process.env.NODE_ENV === 'production') {
+    // In production, give time for error logging then exit
+    setTimeout(() => process.exit(1), 1000);
+  }
+});
+
+process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+  // Ignore Neon connection termination errors (error code 57P01)
+  if (reason?.code === '57P01' || 
+      reason?.message?.includes('terminating connection due to administrator command')) {
+    console.warn('[Global] Database connection terminated (non-fatal):', reason?.message || reason);
+    return; // Don't crash the process
+  }
+  console.error('[Global] Unhandled rejection:', reason);
+});
+
 import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import compression from "compression";
