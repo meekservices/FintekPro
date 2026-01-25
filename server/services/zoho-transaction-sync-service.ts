@@ -734,12 +734,12 @@ class ZohoTransactionSyncService {
 
     const bondResult = await db.execute(sql`
       SELECT COUNT(*)::int as count FROM bond_orders 
-      WHERE zoho_synced_at IS NULL AND status = 'completed'
+      WHERE zoho_synced_at IS NULL AND order_status = 'completed'
     `);
 
     const ipoResult = await db.execute(sql`
       SELECT COUNT(*)::int as count FROM ipo_applications 
-      WHERE zoho_synced_at IS NULL AND LOWER(status) = 'allotted'
+      WHERE zoho_synced_at IS NULL AND LOWER(allotment_status) = 'allotted'
     `);
 
     const unlistedResult = await db.execute(sql`
