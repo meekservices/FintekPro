@@ -1,7 +1,8 @@
 import { Link } from "wouter";
 import { 
   Facebook, Twitter, Linkedin, Instagram, Home, UserCheck, Briefcase, Calculator, 
-  Store, TrendingUp, CreditCard, Receipt, Users, Bell, Settings, HelpCircle, Shield 
+  Store, TrendingUp, CreditCard, Receipt, Users, Bell, Settings, HelpCircle, Shield,
+  Crown, Sparkles
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
@@ -49,9 +50,23 @@ export function Footer() {
   const productsLinks = [
     { name: "Product Store", href: "/store" },
     { name: "Mutual Funds", href: "/mutual-funds" },
-    { name: "IPO Center", href: "/ipo" },
+    { name: "IPO & Pre-IPO", href: "/ipo" },
+    { name: "Unlisted Shares", href: "/unlisted" },
     { name: "Bonds & NCDs", href: "/bonds" },
-    { name: "Insurance", href: "/insurance" },
+    { name: "MLDs", href: "/mlds" },
+    { name: "Insurance Hub", href: "/insurance" },
+  ];
+
+  const premiumLinks = [
+    { name: "AIF", href: "/aif" },
+    { name: "PMS", href: "/pms" },
+  ];
+
+  const aiLinks = [
+    { name: "AI Portfolio Insights", href: "/portfolio/ai-insights" },
+    { name: "AI Rebalancing", href: "/portfolio/rebalancing" },
+    { name: "AI Goal Planning", href: "/portfolio/goals" },
+    { name: "AI Recommendations", href: "/agent/ai-recommendations" },
   ];
 
   const investingLinks = [
@@ -171,6 +186,40 @@ export function Footer() {
             </ul>
           </div>
           
+          {/* Premium Investment */}
+          <div>
+            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-premium-title">
+              <Crown className="h-4 w-4 text-yellow-400" />
+              Premium
+            </h4>
+            <ul className="space-y-2 text-gray-300 text-sm">
+              {premiumLinks.map((link) => (
+                <li key={link.name}>
+                  <Link href={link.href}>
+                    <span className="hover:text-yellow-400 transition-colors cursor-pointer" data-testid={`footer-premium-${link.name.toLowerCase().replace(/\s+/g, "-")}`}>
+                      {link.name}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <h4 className="font-semibold mb-4 mt-6 flex items-center gap-2" data-testid="footer-ai-title">
+              <Sparkles className="h-4 w-4 text-violet-400" />
+              AI Features
+            </h4>
+            <ul className="space-y-2 text-gray-300 text-sm">
+              {aiLinks.map((link) => (
+                <li key={link.name}>
+                  <Link href={link.href}>
+                    <span className="hover:text-violet-400 transition-colors cursor-pointer" data-testid={`footer-ai-${link.name.toLowerCase().replace(/\s+/g, "-")}`}>
+                      {link.name}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
           {/* Investing & Trading */}
           <div>
             <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-investing-title">
