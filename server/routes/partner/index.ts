@@ -1,5 +1,8 @@
 import { Express, Response } from 'express';
 import { partnerService } from '../../partner-service';
+import { db } from '../../db';
+import * as schema from '@shared/schema';
+import { eq, desc } from 'drizzle-orm';
 
 const requirePartner = async (req: any, res: Response, next: any) => {
   const authHeader = req.headers.authorization;
