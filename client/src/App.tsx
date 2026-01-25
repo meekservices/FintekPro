@@ -86,6 +86,7 @@ import ComplianceDashboardPage from "@/pages/admin/compliance-dashboard";
 import NotificationManagement from "@/pages/admin/notification-management";
 import FeatureFlags from "@/pages/admin/feature-flags";
 import ParserConfigPage from "@/pages/admin/parser-config";
+import AdminESignManagement from "@/pages/admin/esign-management";
 import ReportBuilder from "@/pages/admin/report-builder";
 import StakeholdersPage from "@/pages/admin/stakeholders";
 import KycCompliancePage from "@/pages/admin/kyc-compliance";
@@ -890,6 +891,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <ParserConfigPage />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/esign-management">
+        {() => (
+          <AdminLayout>
+            <AdminESignManagement />
           </AdminLayout>
         )}
       </Route>

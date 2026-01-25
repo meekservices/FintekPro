@@ -7,8 +7,8 @@
  */
 
 import { db } from '../db';
-import { systemConfigs } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { systemConfigs, esignRequests, users } from '@shared/schema';
+import { eq, desc } from 'drizzle-orm';
 import { authBridgeESignService } from '../authbridge-esign-service';
 import { proteanESignService } from './protean-esign-service';
 import { dscTokenESignService, DSCSigningRequest, DSCSignatureSubmission } from './dsc-token-esign-service';
@@ -464,6 +464,67 @@ class UnifiedESignService {
 
   isDSCProvider(provider: ESignProvider): boolean {
     return provider === 'dsc_token';
+  }
+
+  async getAllESignRequests(): Promise<{
+    id: string;
+    documentName: string;
+    documentType: string;
+    status: string;
+    createdAt: string;
+    completedAt?: string;
+    agentName: string;
+    agentId: string;
+    clientName: string;
+    provider: string;
+    cost?: number;
+  }[]> {
+    try {
+      const requests = await db
+        .select({
+          id: esignRequests.id,
+          documentHash: esignRequests.documentHash,
+          documentName: esignRequests.documentName,
+          documentType: esignRequests.documentType,
+          status: esignRequests.status,
+          createdAt: esignRequests.createdAt,
+          completedAt: esignRequests.completedAt,
+          userId: esignRequests.userId,
+          provider: esignRequests.provider,
+          clientName: esignRequests.signerName,
+          clientEmail: esignRequests.signerEmail,
+        })
+        .from(esignRequests)
+        .orderBy(desc(esignRequests.createdAt))
+        .limit(100);
+
+      const userIds = [...new Set(requests.map(r => r.userId).filter(Boolean))];
+      const usersMap = new Map<number, string>();
+      
+      if (userIds.length > 0) {
+        const userRecords = await db
+          .select({ id: users.id, firstName: users.firstName, lastName: users.lastName })
+          .from(users);
+        userRecords.forEach(u => usersMap.set(u.id, `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Unknown'));
+      }
+
+      return requests.map(r => ({
+        id: r.id?.toString() || r.documentHash || '',
+        documentName: r.documentName || 'Unnamed Document',
+        documentType: r.documentType || 'other',
+        status: r.status || 'pending',
+        createdAt: r.createdAt?.toISOString() || new Date().toISOString(),
+        completedAt: r.completedAt?.toISOString(),
+        agentName: r.userId ? (usersMap.get(r.userId) || 'Unknown') : 'System',
+        agentId: r.userId?.toString() || '',
+        clientName: r.clientName || r.clientEmail || 'Unknown Client',
+        provider: r.provider || 'authbridge',
+        cost: 15,
+      }));
+    } catch (error) {
+      console.error('[UnifiedESign] Error fetching all requests:', error);
+      return [];
+    }
   }
 }
 

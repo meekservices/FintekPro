@@ -151,6 +151,16 @@ router.get('/api/admin/esign/usage-stats', requireAuth, requireRole('admin'), as
   }
 });
 
+router.get('/api/admin/esign/all-requests', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const requests = await unifiedESignService.getAllESignRequests();
+    res.json(requests);
+  } catch (error) {
+    console.error('[Admin eSign] Error fetching all requests:', error);
+    res.status(500).json({ error: 'Failed to fetch eSign requests' });
+  }
+});
+
 router.get('/api/admin/esign/provider/:provider', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
   try {
     const { provider } = req.params;
