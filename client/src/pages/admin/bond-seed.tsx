@@ -82,9 +82,12 @@ interface AuditLog {
   oldValues?: any;
   newValues?: any;
   performedBy: string;
-  createdAt: string;
+  timestamp: string | null;
+  userEmail?: string;
   ipAddress?: string;
   additionalInfo?: any;
+  afterValue?: any;
+  changeDescription?: string;
 }
 
 interface NetYieldResult {
@@ -986,7 +989,7 @@ export default function BondSeedAdmin() {
                 auditLogs.map((log) => (
                   <TableRow key={log.id}>
                     <TableCell className="text-sm">
-                      {format(new Date(log.createdAt), 'dd MMM yyyy HH:mm')}
+                      {log.timestamp ? format(new Date(log.timestamp), 'dd MMM yyyy HH:mm') : '-'}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{log.action}</Badge>
@@ -995,9 +998,9 @@ export default function BondSeedAdmin() {
                       <div className="text-sm">{log.entityName || log.entityId}</div>
                       <div className="text-xs text-muted-foreground">{log.entityType}</div>
                     </TableCell>
-                    <TableCell className="text-sm">{log.performedBy}</TableCell>
+                    <TableCell className="text-sm">{log.userEmail || log.performedBy || '-'}</TableCell>
                     <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
-                      {log.additionalInfo ? JSON.stringify(log.additionalInfo) : '-'}
+                      {log.changeDescription || (log.afterValue ? JSON.stringify(log.afterValue) : '-')}
                     </TableCell>
                   </TableRow>
                 ))
