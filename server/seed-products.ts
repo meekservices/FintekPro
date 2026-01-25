@@ -1,10 +1,36 @@
 import type { IStorage } from './storage';
+import { db } from './db';
+import { partners } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 
 // Seed product data for FintekPro marketplace - Updated schema sync
 export async function seedProducts(storage: IStorage) {
   console.log('🌱 Seeding products with complete schema...');
 
   const partnerId = 'platform-partner-001'; // Default partner for all seed products
+  
+  // Ensure the default partner exists before seeding products
+  try {
+    const existingPartner = await db.select().from(partners).where(eq(partners.id, partnerId)).limit(1);
+    if (existingPartner.length === 0) {
+      console.log('📦 Creating default platform partner...');
+      await db.insert(partners).values({
+        id: partnerId,
+        companyName: 'FintekPro Platform',
+        contactEmail: 'platform@fintekpro.com',
+        password: 'platform-internal-partner',
+        partnerType: 'product_provider',
+        isActive: true,
+        isVerified: true
+      });
+      console.log('✅ Default platform partner created');
+    } else {
+      console.log('✅ Default platform partner already exists');
+    }
+  } catch (partnerError) {
+    console.error('⚠️ Error ensuring partner exists:', partnerError);
+    // Continue anyway - products will fail gracefully
+  }
 
   const products = [
     // Mutual Funds - Equity
