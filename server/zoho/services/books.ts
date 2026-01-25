@@ -137,7 +137,7 @@ export class ZohoBooksService {
       date_start: params?.date_start,
       date_end: params?.date_end,
       sort_column: params?.sort_column || 'created_time',
-      sort_order: params?.sort_order || 'descending'
+      sort_order: params?.sort_order === 'ascending' ? 'A' : 'D'
     });
 
     return {
@@ -237,7 +237,7 @@ export class ZohoBooksService {
       date_start: params?.date_start,
       date_end: params?.date_end,
       sort_column: params?.sort_column || 'created_time',
-      sort_order: params?.sort_order || 'descending'
+      sort_order: params?.sort_order === 'ascending' ? 'A' : 'D'
     });
 
     return {
@@ -308,7 +308,7 @@ export class ZohoBooksService {
       contact_type: params?.contact_type,
       status: params?.status || 'active',
       sort_column: params?.sort_column || 'created_time',
-      sort_order: params?.sort_order || 'descending'
+      sort_order: params?.sort_order === 'ascending' ? 'A' : 'D'
     });
 
     return {

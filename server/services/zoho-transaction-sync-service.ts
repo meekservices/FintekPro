@@ -727,28 +727,28 @@ class ZohoTransactionSyncService {
     const configured = zohoService !== null;
 
     // Count pending transactions (not yet synced)
-    const [mfCount] = await db.execute(sql`
+    const mfResult = await db.execute(sql`
       SELECT COUNT(*)::int as count FROM mf_orders 
       WHERE zoho_synced_at IS NULL AND status = 'completed'
     `);
 
-    const [bondCount] = await db.execute(sql`
+    const bondResult = await db.execute(sql`
       SELECT COUNT(*)::int as count FROM bond_orders 
       WHERE zoho_synced_at IS NULL AND status = 'completed'
     `);
 
-    const [ipoCount] = await db.execute(sql`
+    const ipoResult = await db.execute(sql`
       SELECT COUNT(*)::int as count FROM ipo_applications 
       WHERE zoho_synced_at IS NULL AND LOWER(status) = 'allotted'
     `);
 
-    const [unlistedCount] = await db.execute(sql`
+    const unlistedResult = await db.execute(sql`
       SELECT COUNT(*)::int as count FROM unlisted_deals 
       WHERE zoho_synced_at IS NULL AND status = 'completed'
     `);
 
     // Count synced transactions by type
-    const [passThroughCount] = await db.execute(sql`
+    const passThroughResult = await db.execute(sql`
       SELECT COUNT(*)::int as count FROM (
         SELECT 1 FROM mf_orders WHERE zoho_sync_status = 'pass_through'
         UNION ALL
@@ -760,7 +760,7 @@ class ZohoTransactionSyncService {
       ) combined
     `);
 
-    const [invoicedCount] = await db.execute(sql`
+    const invoicedResult = await db.execute(sql`
       SELECT COUNT(*)::int as count FROM (
         SELECT 1 FROM bond_orders WHERE zoho_invoice_id IS NOT NULL
         UNION ALL
@@ -768,14 +768,22 @@ class ZohoTransactionSyncService {
       ) combined
     `);
 
-    const [billedCount] = await db.execute(sql`
+    const billedResult = await db.execute(sql`
       SELECT COUNT(*)::int as count FROM unlisted_deals WHERE zoho_bill_id IS NOT NULL
     `);
 
-    const mutualFunds = Number((mfCount as any)?.count || 0);
-    const bonds = Number((bondCount as any)?.count || 0);
-    const ipos = Number((ipoCount as any)?.count || 0);
-    const unlisted = Number((unlistedCount as any)?.count || 0);
+    const mfCount = (mfResult.rows?.[0] as any) || mfResult[0];
+    const bondCount = (bondResult.rows?.[0] as any) || bondResult[0];
+    const ipoCount = (ipoResult.rows?.[0] as any) || ipoResult[0];
+    const unlistedCount = (unlistedResult.rows?.[0] as any) || unlistedResult[0];
+    const passThroughCount = (passThroughResult.rows?.[0] as any) || passThroughResult[0];
+    const invoicedCount = (invoicedResult.rows?.[0] as any) || invoicedResult[0];
+    const billedCount = (billedResult.rows?.[0] as any) || billedResult[0];
+
+    const mutualFunds = Number(mfCount?.count || 0);
+    const bonds = Number(bondCount?.count || 0);
+    const ipos = Number(ipoCount?.count || 0);
+    const unlisted = Number(unlistedCount?.count || 0);
 
     return {
       configured,
@@ -787,9 +795,9 @@ class ZohoTransactionSyncService {
         total: mutualFunds + bonds + ipos + unlisted
       },
       syncedCounts: {
-        passThrough: Number((passThroughCount as any)?.count || 0),
-        invoiced: Number((invoicedCount as any)?.count || 0),
-        billed: Number((billedCount as any)?.count || 0)
+        passThrough: Number(passThroughCount?.count || 0),
+        invoiced: Number(invoicedCount?.count || 0),
+        billed: Number(billedCount?.count || 0)
       }
     };
   }
