@@ -288,9 +288,9 @@ export default function ZohoBooksPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">Receivables</p>
-                <p className="text-2xl font-bold text-emerald-400">
+                <div className="text-2xl font-bold text-emerald-400">
                   {dashboardLoading ? <Skeleton className="h-8 w-24" /> : formatCurrency(dashboard?.totalReceivables || 0)}
-                </p>
+                </div>
                 {dashboard?.overdueReceivables ? (
                   <p className="text-xs text-red-400 mt-1">
                     {formatCurrency(dashboard.overdueReceivables)} overdue
@@ -307,9 +307,9 @@ export default function ZohoBooksPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">Payables</p>
-                <p className="text-2xl font-bold text-red-400">
+                <div className="text-2xl font-bold text-red-400">
                   {dashboardLoading ? <Skeleton className="h-8 w-24" /> : formatCurrency(dashboard?.totalPayables || 0)}
-                </p>
+                </div>
                 {dashboard?.overduePayables ? (
                   <p className="text-xs text-orange-400 mt-1">
                     {formatCurrency(dashboard.overduePayables)} overdue
@@ -326,9 +326,9 @@ export default function ZohoBooksPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">Invoices</p>
-                <p className="text-2xl font-bold text-blue-400">
+                <div className="text-2xl font-bold text-blue-400">
                   {dashboardLoading ? <Skeleton className="h-8 w-16" /> : dashboard?.totalInvoices || 0}
-                </p>
+                </div>
                 <p className="text-xs text-muted-foreground mt-1">Total count</p>
               </div>
               <FileText className="h-8 w-8 text-blue-400 opacity-50" />
@@ -341,9 +341,9 @@ export default function ZohoBooksPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">Customers</p>
-                <p className="text-2xl font-bold text-purple-400">
+                <div className="text-2xl font-bold text-purple-400">
                   {dashboardLoading ? <Skeleton className="h-8 w-16" /> : dashboard?.totalCustomers || 0}
-                </p>
+                </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {dashboard?.totalVendors || 0} vendors
                 </p>
