@@ -1571,12 +1571,19 @@ router.delete("/api/agent/clients/onboard/draft/:id", requireAuth, async (req, r
 // AGENT ZOHO CRM ROUTES - Lead management for agents
 // ============================================================================
 
-// Get leads from Zoho CRM for agent
+// Get leads from Zoho CRM for agent (uses agent-specific connection resolution)
 router.get("/api/agent/zoho/leads", requireAuth, async (req, res) => {
   try {
-    const zohoCRM = await getZohoCRMService();
+    const agentId = (req as any).user?.id;
+    if (!agentId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    // Use ZohoConnectionResolver to find the agent's connection (or their master's)
+    const { ZohoConnectionResolver } = await import("./zoho/connection-resolver");
+    const connection = await ZohoConnectionResolver.resolveForAgent(agentId);
     
-    if (!zohoCRM) {
+    if (!connection) {
       return res.status(503).json({
         success: false,
         connected: false,
@@ -1586,6 +1593,7 @@ router.get("/api/agent/zoho/leads", requireAuth, async (req, res) => {
       });
     }
 
+    const zohoCRM = new ZohoCRMService(connection.connectionId, connection.zohoDataCenter);
     const result = await zohoCRM.getLeads(200);
     
     res.json({
@@ -1606,18 +1614,25 @@ router.get("/api/agent/zoho/leads", requireAuth, async (req, res) => {
   }
 });
 
-// Sync leads from Zoho CRM (refresh)
+// Sync leads from Zoho CRM (refresh) - uses agent-specific connection
 router.post("/api/agent/zoho/sync", requireAuth, async (req, res) => {
   try {
-    const zohoCRM = await getZohoCRMService();
+    const agentId = (req as any).user?.id;
+    if (!agentId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const { ZohoConnectionResolver } = await import("./zoho/connection-resolver");
+    const connection = await ZohoConnectionResolver.resolveForAgent(agentId);
     
-    if (!zohoCRM) {
+    if (!connection) {
       return res.status(400).json({
         success: false,
         message: "Zoho CRM not connected"
       });
     }
 
+    const zohoCRM = new ZohoCRMService(connection.connectionId, connection.zohoDataCenter);
     const result = await zohoCRM.getLeads(200);
     
     res.json({
@@ -1634,18 +1649,26 @@ router.post("/api/agent/zoho/sync", requireAuth, async (req, res) => {
   }
 });
 
-// Get single lead details from Zoho CRM
+// Get single lead details from Zoho CRM - uses agent-specific connection
 router.get("/api/agent/zoho/leads/:leadId", requireAuth, async (req, res) => {
   try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
     const { leadId } = req.params;
-    const zohoCRM = await getZohoCRMService();
     
-    if (!zohoCRM) {
+    const { ZohoConnectionResolver } = await import("./zoho/connection-resolver");
+    const connection = await ZohoConnectionResolver.resolveForAgent(agentId);
+    
+    if (!connection) {
       return res.status(400).json({
         error: "Zoho CRM not connected"
       });
     }
 
+    const zohoCRM = new ZohoCRMService(connection.connectionId, connection.zohoDataCenter);
     const lead = await zohoCRM.getLead(leadId);
     
     if (!lead) {
@@ -1663,9 +1686,14 @@ router.get("/api/agent/zoho/leads/:leadId", requireAuth, async (req, res) => {
   }
 });
 
-// Log proposal activity back to Zoho CRM as a note
+// Log proposal activity back to Zoho CRM as a note - uses agent-specific connection
 router.post("/api/agent/zoho/leads/:leadId/proposal", requireAuth, async (req, res) => {
   try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) {
+      return res.status(401).json({ success: false, synced: false, message: "Authentication required" });
+    }
+
     const { leadId } = req.params;
     const { proposalId, proposalType, products, amount } = req.body;
     
@@ -1700,9 +1728,11 @@ router.post("/api/agent/zoho/leads/:leadId/proposal", requireAuth, async (req, r
         message: "amount is required and must be a positive number"
       });
     }
-    const zohoCRM = await getZohoCRMService();
     
-    if (!zohoCRM) {
+    const { ZohoConnectionResolver } = await import("./zoho/connection-resolver");
+    const connection = await ZohoConnectionResolver.resolveForAgent(agentId);
+    
+    if (!connection) {
       console.log(`[Agent Zoho] Zoho not connected - proposal ${proposalId} not synced`);
       return res.status(503).json({
         success: false,
@@ -1712,6 +1742,8 @@ router.post("/api/agent/zoho/leads/:leadId/proposal", requireAuth, async (req, r
         proposalId
       });
     }
+    
+    const zohoCRM = new ZohoCRMService(connection.connectionId, connection.zohoDataCenter);
 
     const noteTitle = `Proposal Created: ${proposalType || 'Investment'}`;
     const noteContent = [
