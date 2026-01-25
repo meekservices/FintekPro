@@ -17386,6 +17386,176 @@ export const portfolioUploads = pgTable("portfolio_uploads", {
   index("idx_portfolio_uploads_status").on(table.confirmationStatus),
 ]);
 
+// PDF Profiles - Store document fingerprints and format patterns for learning
+export const pdfProfiles = pgTable("pdf_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Document Identification
+  fingerprint: varchar("fingerprint", { length: 64 }).notNull().unique(), // SHA-256 hash of normalized text
+  fileHash: varchar("file_hash", { length: 64 }), // SHA-256 hash of original file
+  
+  // Document Type Classification
+  pdfType: varchar("pdf_type").notNull(), // cas_cams, cas_kfintech, broker_zerodha, etc.
+  layoutType: varchar("layout_type").notNull(), // tabular, semi_structured, narrative, mixed
+  
+  // Document Metrics
+  pageCount: integer("page_count").default(1),
+  textDensity: integer("text_density"), // Characters per page
+  hasTableStructure: boolean("has_table_structure").default(false),
+  
+  // Format Detection Results
+  registrars: jsonb("registrars").$type<string[]>().default([]), // ['CAMS', 'KFINTECH']
+  headerPatterns: jsonb("header_patterns").$type<string[]>().default([]), // Detected header rows
+  columnOrder: jsonb("column_order").$type<string[]>().default([]), // ['cost', 'units', 'nav', 'market']
+  
+  // Parsing Strategy
+  parsingStrategy: varchar("parsing_strategy"), // header_detection, combination_search, ai_fallback
+  successfulPatterns: jsonb("successful_patterns"), // Patterns that worked for this format
+  
+  // Confidence and Quality
+  confidenceScore: decimal("confidence_score", { precision: 5, scale: 4 }), // 0.0000 to 1.0000
+  parsingSuccessRate: decimal("parsing_success_rate", { precision: 5, scale: 4 }), // Historical success rate
+  timesUsed: integer("times_used").default(0),
+  timesSucceeded: integer("times_succeeded").default(0),
+  timesFailed: integer("times_failed").default(0),
+  
+  // Version and Metadata
+  parserVersion: varchar("parser_version").default("v2"),
+  detectedAt: timestamp("detected_at").defaultNow(),
+  lastUsedAt: timestamp("last_used_at"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_pdf_profiles_fingerprint").on(table.fingerprint),
+  index("idx_pdf_profiles_type").on(table.pdfType),
+  index("idx_pdf_profiles_layout").on(table.layoutType),
+]);
+
+// PDF Parsing Audit Trail - Track every parsing attempt for compliance and debugging
+export const pdfParsingAuditTrail = pgTable("pdf_parsing_audit_trail", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Document Reference
+  profileId: varchar("profile_id").references(() => pdfProfiles.id),
+  uploadId: varchar("upload_id").references(() => portfolioUploads.id),
+  
+  // User Context
+  userId: varchar("user_id").references(() => users.id),
+  agentId: varchar("agent_id").references(() => users.id),
+  
+  // Input Details
+  fileName: varchar("file_name"),
+  fileSize: integer("file_size"),
+  fingerprint: varchar("fingerprint", { length: 64 }),
+  
+  // Parsing Execution
+  parserVersion: varchar("parser_version").notNull(), // v1, v2
+  parsingStrategy: varchar("parsing_strategy"), // header_detection, combination_search, etc.
+  parseTimeMs: integer("parse_time_ms"),
+  
+  // Results
+  success: boolean("success").default(false),
+  holdingsExtracted: integer("holdings_extracted").default(0),
+  transactionsExtracted: integer("transactions_extracted").default(0),
+  totalValueExtracted: decimal("total_value_extracted", { precision: 15, scale: 2 }),
+  confidenceScore: decimal("confidence_score", { precision: 5, scale: 4 }),
+  
+  // Validation Results
+  validationsPassed: integer("validations_passed").default(0),
+  validationsFailed: integer("validations_failed").default(0),
+  validationErrors: jsonb("validation_errors").$type<string[]>(),
+  
+  // Dual-Run Comparison (when enabled)
+  dualRunEnabled: boolean("dual_run_enabled").default(false),
+  v1HoldingsCount: integer("v1_holdings_count"),
+  v2HoldingsCount: integer("v2_holdings_count"),
+  matchPercentage: decimal("match_percentage", { precision: 5, scale: 2 }),
+  preferredVersion: varchar("preferred_version"),
+  comparisonDiscrepancies: jsonb("comparison_discrepancies"),
+  
+  // Errors and Warnings
+  errors: jsonb("errors").$type<string[]>(),
+  warnings: jsonb("warnings").$type<string[]>(),
+  
+  // Enrichment Flags
+  requiresEnrichment: boolean("requires_enrichment").default(false),
+  unresolvedItems: jsonb("unresolved_items"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_pdf_parsing_audit_profile").on(table.profileId),
+  index("idx_pdf_parsing_audit_user").on(table.userId),
+  index("idx_pdf_parsing_audit_success").on(table.success),
+  index("idx_pdf_parsing_audit_version").on(table.parserVersion),
+]);
+
+// Holding Lots v2 - Individual purchase lots for capital gains calculation
+export const holdingLotsV2 = pgTable("holding_lots_v2", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Relationships
+  portfolioId: varchar("portfolio_id").references(() => portfolios.id).notNull(),
+  holdingId: varchar("holding_id").references(() => portfolioHoldings.id),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Security Identification
+  isin: varchar("isin", { length: 12 }).notNull(),
+  folioNumber: varchar("folio_number"),
+  schemeName: text("scheme_name"),
+  amcCode: varchar("amc_code"),
+  
+  // Lot Details
+  purchaseDate: date("purchase_date").notNull(),
+  purchaseDateSource: varchar("purchase_date_source"), // cas_explicit, derived_from_sip, manual, unknown
+  purchaseDateConfidence: decimal("purchase_date_confidence", { precision: 5, scale: 4 }),
+  
+  // Transaction Reference
+  transactionType: varchar("transaction_type").notNull(), // purchase, sip, switch_in, bonus, dividend_reinvest
+  transactionId: varchar("transaction_id"), // Reference to original transaction
+  
+  // Quantity and Cost
+  units: decimal("units", { precision: 15, scale: 6 }).notNull(),
+  costPerUnit: decimal("cost_per_unit", { precision: 15, scale: 4 }).notNull(),
+  totalCost: decimal("total_cost", { precision: 15, scale: 2 }).notNull(),
+  stampDuty: decimal("stamp_duty", { precision: 10, scale: 2 }).default("0"),
+  
+  // Current Valuation (updated periodically)
+  currentNav: decimal("current_nav", { precision: 15, scale: 4 }),
+  currentValue: decimal("current_value", { precision: 15, scale: 2 }),
+  unrealizedGain: decimal("unrealized_gain", { precision: 15, scale: 2 }),
+  unrealizedGainPercent: decimal("unrealized_gain_percent", { precision: 8, scale: 4 }),
+  
+  // Capital Gains Classification
+  holdingPeriod: integer("holding_period"), // Days since purchase
+  capitalGainsType: varchar("capital_gains_type"), // stcg, ltcg (based on holding period)
+  taxRateApplicable: decimal("tax_rate_applicable", { precision: 5, scale: 2 }),
+  
+  // Source Tracking
+  sourcePdfId: varchar("source_pdf_id").references(() => pdfProfiles.id),
+  sourcePageNumber: integer("source_page_number"),
+  parsingConfidence: decimal("parsing_confidence", { precision: 5, scale: 4 }),
+  
+  // Lot Status
+  status: varchar("status").default("active"), // active, partially_sold, fully_sold, blocked
+  remainingUnits: decimal("remaining_units", { precision: 15, scale: 6 }),
+  
+  // Immutability
+  isLocked: boolean("is_locked").default(false), // Lock after tax filing
+  lockedAt: timestamp("locked_at"),
+  lockedReason: varchar("locked_reason"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_holding_lots_v2_portfolio").on(table.portfolioId),
+  index("idx_holding_lots_v2_user").on(table.userId),
+  index("idx_holding_lots_v2_isin").on(table.isin),
+  index("idx_holding_lots_v2_purchase_date").on(table.purchaseDate),
+  index("idx_holding_lots_v2_status").on(table.status),
+]);
+
+
 // Agent Compliance Audit Logs - Comprehensive immutable audit trail (8-year retention)
 export const agentComplianceAuditLogs = pgTable("agent_compliance_audit_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -17491,6 +17661,20 @@ export const insertPortfolioUploadSchema = createInsertSchema(portfolioUploads).
 });
 export type PortfolioUpload = typeof portfolioUploads.$inferSelect;
 export type InsertPortfolioUpload = z.infer<typeof insertPortfolioUploadSchema>;
+
+// PDF Profile types
+export const insertPdfProfileSchema = createInsertSchema(pdfProfiles).omit({ id: true, detectedAt: true, updatedAt: true });
+export type InsertPdfProfile = z.infer<typeof insertPdfProfileSchema>;
+export type PdfProfile = typeof pdfProfiles.$inferSelect;
+
+export const insertPdfParsingAuditTrailSchema = createInsertSchema(pdfParsingAuditTrail).omit({ id: true, createdAt: true });
+export type InsertPdfParsingAuditTrail = z.infer<typeof insertPdfParsingAuditTrailSchema>;
+export type PdfParsingAuditTrail = typeof pdfParsingAuditTrail.$inferSelect;
+
+export const insertHoldingLotV2Schema = createInsertSchema(holdingLotsV2).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertHoldingLotV2 = z.infer<typeof insertHoldingLotV2Schema>;
+export type HoldingLotV2 = typeof holdingLotsV2.$inferSelect;
+
 
 export const insertAgentComplianceAuditLogSchema = createInsertSchema(agentComplianceAuditLogs).omit({
   id: true,

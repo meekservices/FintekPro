@@ -23,6 +23,7 @@ import { pdfParserService } from './pdf-parser-service';
 import { casStatementService, type CASHolding } from './cas-statement-service';
 import { parsePDFPortfolio, parseURLPortfolio, type ImportedHolding } from './portfolio-parser';
 import { WealthyImportService, type WealthyHolding } from './wealthy-import-service';
+import { pdfParserV2Service, type ParserComparisonResult } from './pdf-parser-v2';
 
 class UnifiedPortfolioImportService {
   private wealthyService: WealthyImportService;
@@ -34,10 +35,11 @@ class UnifiedPortfolioImportService {
   async importFromPDF(
     buffer: Buffer,
     fileName: string,
-    options?: { detectCAS?: boolean }
+    options?: { detectCAS?: boolean; enableDualRun?: boolean }
   ): Promise<UnifiedImportResult> {
     const result = createEmptyImportResult('broker_pdf');
     result.sourceFileName = fileName;
+    const startTime = Date.now();
 
     try {
       const parseResult = await pdfParserService.extractTextSafe(buffer);
@@ -53,7 +55,27 @@ class UnifiedPortfolioImportService {
       const isCAS = options?.detectCAS !== false && this.detectCASStatement(text);
       
       if (isCAS) {
-        return this.importFromCASText(text, fileName);
+        return this.importFromCASText(text, fileName, options?.enableDualRun);
+      }
+
+      const isRollbackActive = pdfParserV2Service.isRollbackActive();
+      const shouldDualRun = !isRollbackActive && pdfParserV2Service.shouldExecuteDualRun();
+      const effectiveVersion = pdfParserV2Service.getEffectiveVersion();
+      
+      let profile = null;
+      
+      if (shouldDualRun || effectiveVersion === 'v2') {
+        try {
+          profile = await pdfParserV2Service.profileDocument(buffer);
+          console.log('[Parser] Document profiled:', profile.pdfType, profile.layoutType, 'confidence:', profile.confidenceScore);
+          (result as any).v2Profile = profile;
+        } catch (profileError: any) {
+          console.warn('[Parser] Profiling failed:', profileError.message);
+        }
+      }
+
+      if (isRollbackActive) {
+        console.log('[Parser] Rollback active - using v1 parser only');
       }
 
       const portfolioResult = await parsePDFPortfolio(buffer, fileName);
@@ -71,6 +93,29 @@ class UnifiedPortfolioImportService {
       result.errors = portfolioResult.errors;
       result.capturedAt = new Date().toISOString();
 
+      (result as any).parserVersion = effectiveVersion;
+      (result as any).dualRunEnabled = shouldDualRun;
+      (result as any).rollbackActive = isRollbackActive;
+
+      const auditRecord = pdfParserV2Service.createAuditRecord(
+        profile,
+        {
+          success: result.success,
+          holdingsCount: result.holdings.length,
+          totalValue: result.summary?.totalCurrentValue || 0,
+          confidenceScore: result.confidenceScore || 0,
+          errors: result.errors,
+          warnings: [],
+          parseTimeMs: Date.now() - startTime,
+        },
+        {
+          fileName,
+          fileSize: buffer.length,
+          dualRunEnabled: shouldDualRun,
+        }
+      );
+      (result as any).auditRecord = auditRecord;
+
       return result;
     } catch (error: any) {
       result.errors.push(error.message || 'Unknown error during PDF import');
@@ -79,9 +124,18 @@ class UnifiedPortfolioImportService {
     }
   }
 
-  async importFromCASText(text: string, fileName?: string): Promise<UnifiedImportResult> {
+  async importFromCASText(text: string, fileName?: string, enableDualRun?: boolean): Promise<UnifiedImportResult> {
     const result = createEmptyImportResult('cas_statement');
     result.sourceFileName = fileName;
+    
+    const config = pdfParserV2Service.getConfig();
+    const shouldDualRun = enableDualRun ?? config.enableDualRun;
+    
+    if (shouldDualRun) {
+      console.log('[Dual-Run] CAS statement parsing with v2 profiling enabled');
+      (result as any).dualRunEnabled = true;
+      (result as any).parserVersion = 'v1';
+    }
     result.rawTextLength = text.length;
 
     try {

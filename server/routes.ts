@@ -186,6 +186,7 @@ import unifiedProposalsRoutes from "./routes/unified-proposals-routes";
 import globalAdvisoryRoutes from "./routes/global-advisory";
 import feeModeRoutes from "./routes/fee-mode";
 import cacheAdminRoutes from "./routes/cache-admin";
+import parserAdminRoutes from "./routes/parser-admin";
 import historicalNavRoutes from "./routes/historical-nav";
 import { historicalNavRefreshJob } from "./services/historical-nav-refresh-job";
 import { cacheCleanupScheduler } from "./services/cache-cleanup-scheduler";
@@ -768,6 +769,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Cache Admin Routes (Data Caching & Cost Optimization)
   app.use("/api/admin/cache", requireAdmin, cacheAdminRoutes);
+  app.use("/api/admin/parser", requireAdmin, parserAdminRoutes);
+  console.log("✅ Parser Admin routes registered");
   app.use("/api/admin/exchange-filings", requireAdmin, exchangeFilingsRoutes);
   console.log("✅ Exchange Filings routes registered (admin-only)");
   cacheCleanupScheduler.initialize();
