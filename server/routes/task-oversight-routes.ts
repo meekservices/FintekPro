@@ -155,6 +155,7 @@ router.get("/agents", async (req, res: Response) => {
     }
 
     const agentIds = agents.map(a => a.id);
+    const agentIdsArray = `ARRAY[${agentIds.map(id => `'${id}'`).join(',')}]::text[]`;
 
     const appointmentStatsResult = await db.execute(sql`
       SELECT 
@@ -164,7 +165,7 @@ router.get("/agents", async (req, res: Response) => {
         COUNT(*) FILTER (WHERE status = 'scheduled' AND date < ${todayStr})::int AS overdue,
         COUNT(*) FILTER (WHERE status = 'completed' AND completed_at >= ${today})::int AS completed_today
       FROM agent_appointments
-      WHERE agent_id = ANY(${agentIds})
+      WHERE agent_id = ANY(${sql.raw(agentIdsArray)})
       GROUP BY agent_id
     `);
 
@@ -176,7 +177,7 @@ router.get("/agents", async (req, res: Response) => {
         COUNT(*) FILTER (WHERE status = 'overdue' OR (status = 'pending' AND due_date < ${todayStr}))::int AS overdue,
         COUNT(*) FILTER (WHERE status = 'completed' AND completed_at >= ${today})::int AS completed_today
       FROM client_tasks
-      WHERE metadata->>'agentId' = ANY(${agentIds})
+      WHERE metadata->>'agentId' = ANY(${sql.raw(agentIdsArray)})
       GROUP BY metadata->>'agentId'
     `);
 
@@ -303,11 +304,15 @@ router.get("/alerts", async (req, res: Response) => {
     const agentMap = new Map<string, string>();
     if (agentIds.size > 0) {
       const agentIdArray = Array.from(agentIds);
+      const agentIdsSqlArray = `ARRAY[${agentIdArray.map(id => `'${id}'`).join(',')}]::text[]`;
       const agentUsers = await db
-        .select({ id: users.id, name: users.fullName })
+        .select({ id: users.id, firstName: users.firstName, lastName: users.lastName })
         .from(users)
-        .where(sql`id = ANY(${agentIdArray})`);
-      agentUsers.forEach(a => agentMap.set(a.id, a.name || "Unknown"));
+        .where(sql`id = ANY(${sql.raw(agentIdsSqlArray)})`);
+      agentUsers.forEach(a => {
+        const fullName = [a.firstName, a.lastName].filter(Boolean).join(' ') || "Unknown";
+        agentMap.set(a.id, fullName);
+      });
     }
 
     const alerts: ComplianceAlert[] = [];
