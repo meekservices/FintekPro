@@ -1917,6 +1917,9 @@ function Router() {
         <Route path="/kyc-dashboard">
           <Redirect to="/profile?tab=kyc-dashboard" />
         </Route>
+        <Route path="/kyc/complete">
+          <Redirect to="/profile?tab=kyc-dashboard" />
+        </Route>
         <Route path="/video-kyc" component={VideoKYC} />
         <Route path="/net-worth" component={NetWorthPage} />
         <Route path="/privacy" component={Privacy} />
