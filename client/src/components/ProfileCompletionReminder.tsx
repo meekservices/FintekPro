@@ -46,10 +46,6 @@ export function ProfileCompletionReminder() {
     localStorage.setItem(`profile_reminder_${user?.id}`, JSON.stringify(updated));
   };
 
-  if (!shouldShowReminders) {
-    return null;
-  }
-
   // Smart trigger logic - show reminders at strategic moments
   const shouldShowReminder = () => {
     const state = getReminderState();
@@ -136,7 +132,8 @@ export function ProfileCompletionReminder() {
     }
   };
 
-  if (!reminderVisible) return null;
+  // Early return after all hooks if reminders shouldn't be shown
+  if (!shouldShowReminders || !reminderVisible) return null;
 
   const { icon, message, urgency } = getRouteSpecificContent();
   const priority = getReminderPriority();

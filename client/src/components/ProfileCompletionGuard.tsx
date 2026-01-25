@@ -7,7 +7,12 @@ interface ProfileCompletionGuardProps {
 }
 
 export default function ProfileCompletionGuard({ children }: ProfileCompletionGuardProps) {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
+
+  // Don't show reminder while loading or if not authenticated
+  if (isLoading || !user) {
+    return <>{children}</>;
+  }
 
   // Don't guard for agent and admin roles - no reminders needed
   if (user?.roles?.includes("agent") || user?.roles?.includes("admin")) {
