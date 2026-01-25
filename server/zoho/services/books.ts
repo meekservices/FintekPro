@@ -727,11 +727,11 @@ export async function getZohoBooksService(dataCenter: string = 'in'): Promise<Zo
       return null;
     }
 
-    // Get organization ID from environment or connection metadata
-    const organizationId = process.env.ZOHO_ZSOID || '';
+    // Get organization ID - Books uses its own org ID, fallback to ZSOID
+    const organizationId = process.env.ZOHO_BOOKS_ORGANIZATION_ID || process.env.ZOHO_ZSOID || '';
     
     if (!organizationId) {
-      console.warn('ZOHO_ZSOID not configured');
+      console.warn('ZOHO_BOOKS_ORGANIZATION_ID or ZOHO_ZSOID not configured');
       return null;
     }
 
