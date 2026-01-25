@@ -1736,18 +1736,26 @@ export default function AgentProspectWizard() {
   });
 
   // Zoho CRM Two-Way Sync
-  const { data: zohoStatus } = useQuery<{ success: boolean; isConnected: boolean; isAvailable: boolean }>({
+  const { data: zohoStatus } = useQuery<{ success: boolean; isConnected: boolean; isAvailable: boolean; isMaster: boolean }>({
     queryKey: ['/api/agent-wizard/zoho/status'],
     staleTime: 60000
   });
 
   const [showZohoImportDialog, setShowZohoImportDialog] = useState(false);
+  const [selectedAgentForImport, setSelectedAgentForImport] = useState<string>("");
+
+  // Fetch team agents for master to assign during import
+  const { data: teamAgentsData } = useQuery<{ success: boolean; agents: Array<{ id: string; name: string; email: string; isMaster: boolean }> }>({
+    queryKey: ['/api/agent-wizard/zoho/team-agents'],
+    enabled: !!zohoStatus?.isMaster,
+    staleTime: 60000
+  });
 
   const importZohoLeadsMutation = useMutation({
-    mutationFn: async ({ limit = 50, skipExisting = true }: { limit?: number; skipExisting?: boolean }) => {
+    mutationFn: async ({ limit = 50, skipExisting = true, assignToAgentId }: { limit?: number; skipExisting?: boolean; assignToAgentId?: string }) => {
       return await apiRequest("/api/agent-wizard/zoho/import/leads", {
         method: "POST",
-        body: JSON.stringify({ limit, skipExisting })
+        body: JSON.stringify({ limit, skipExisting, assignToAgentId: assignToAgentId || undefined })
       });
     },
     onSuccess: (data) => {
@@ -1766,10 +1774,10 @@ export default function AgentProspectWizard() {
   });
 
   const importZohoContactsMutation = useMutation({
-    mutationFn: async ({ limit = 50, skipExisting = true }: { limit?: number; skipExisting?: boolean }) => {
+    mutationFn: async ({ limit = 50, skipExisting = true, assignToAgentId }: { limit?: number; skipExisting?: boolean; assignToAgentId?: string }) => {
       return await apiRequest("/api/agent-wizard/zoho/import/contacts", {
         method: "POST",
-        body: JSON.stringify({ limit, skipExisting })
+        body: JSON.stringify({ limit, skipExisting, assignToAgentId: assignToAgentId || undefined })
       });
     },
     onSuccess: (data) => {
@@ -2119,7 +2127,7 @@ export default function AgentProspectWizard() {
                       data-testid="prospect-search-input"
                     />
                   </div>
-                  {zohoStatus?.isConnected && (
+                  {zohoStatus?.isConnected && zohoStatus?.isMaster && (
                     <Button 
                       variant="outline" 
                       size="default"
@@ -4234,7 +4242,10 @@ export default function AgentProspectWizard() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showZohoImportDialog} onOpenChange={setShowZohoImportDialog}>
+      <Dialog open={showZohoImportDialog} onOpenChange={(open) => {
+        setShowZohoImportDialog(open);
+        if (!open) setSelectedAgentForImport("");
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -4246,11 +4257,36 @@ export default function AgentProspectWizard() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* Agent Assignment Dropdown */}
+            {teamAgentsData?.agents && teamAgentsData.agents.length > 1 && (
+              <div className="space-y-2">
+                <Label htmlFor="assign-agent">Assign to Agent</Label>
+                <Select value={selectedAgentForImport} onValueChange={setSelectedAgentForImport}>
+                  <SelectTrigger id="assign-agent" data-testid="zoho-agent-select">
+                    <SelectValue placeholder="Assign to myself (default)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teamAgentsData.agents.map((agent) => (
+                      <SelectItem key={agent.id} value={agent.id}>
+                        {agent.name} {agent.isMaster ? "(Me)" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Choose which team member to assign the imported leads/contacts to
+                </p>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <Button
                 variant="outline"
                 className="flex flex-col h-24 gap-2"
-                onClick={() => importZohoLeadsMutation.mutate({ limit: 50, skipExisting: true })}
+                onClick={() => importZohoLeadsMutation.mutate({ 
+                  limit: 50, 
+                  skipExisting: true, 
+                  assignToAgentId: selectedAgentForImport || undefined 
+                })}
                 disabled={importZohoLeadsMutation.isPending || importZohoContactsMutation.isPending}
                 data-testid="import-zoho-leads-btn"
               >
@@ -4264,7 +4300,11 @@ export default function AgentProspectWizard() {
               <Button
                 variant="outline"
                 className="flex flex-col h-24 gap-2"
-                onClick={() => importZohoContactsMutation.mutate({ limit: 50, skipExisting: true })}
+                onClick={() => importZohoContactsMutation.mutate({ 
+                  limit: 50, 
+                  skipExisting: true, 
+                  assignToAgentId: selectedAgentForImport || undefined 
+                })}
                 disabled={importZohoLeadsMutation.isPending || importZohoContactsMutation.isPending}
                 data-testid="import-zoho-contacts-btn"
               >

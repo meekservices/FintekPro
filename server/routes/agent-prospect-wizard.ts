@@ -705,6 +705,65 @@ router.get("/zoho/status", async (req: Request, res: Response) => {
   }
 });
 
+// Get team agents for master to assign leads during import
+router.get("/zoho/team-agents", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const connection = await ZohoConnectionResolver.resolveForAgent(agentId);
+    if (!connection?.isMaster) {
+      return res.status(403).json({ success: false, message: "Only master agents can access team agents" });
+    }
+
+    // Get sub-agents for this master agent
+    const { db } = await import('../db');
+    const { users, partners } = await import('@shared/schema');
+    const { eq, or } = await import('drizzle-orm');
+
+    // Get the master agent's info
+    const masterAgent = await db.select({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      email: users.email
+    }).from(users).where(eq(users.id, agentId)).limit(1);
+
+    // Get sub-agents linked to this master
+    const subAgents = await db.select({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      email: users.email
+    }).from(users)
+    .innerJoin(partners, eq(users.id, partners.userId))
+    .where(eq(partners.masterAgentId, agentId));
+
+    // Combine master + sub-agents
+    const teamAgents = [
+      ...(masterAgent.length > 0 ? [{
+        id: masterAgent[0].id,
+        name: `${masterAgent[0].firstName || ''} ${masterAgent[0].lastName || ''}`.trim() || masterAgent[0].email || 'Me (Master)',
+        email: masterAgent[0].email,
+        isMaster: true
+      }] : []),
+      ...subAgents.map(a => ({
+        id: a.id,
+        name: `${a.firstName || ''} ${a.lastName || ''}`.trim() || a.email || 'Unknown',
+        email: a.email,
+        isMaster: false
+      }))
+    ];
+
+    res.json({ success: true, agents: teamAgents });
+  } catch (error: any) {
+    console.error("[Zoho Import] Error fetching team agents:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // Import leads from Zoho CRM as prospects
 router.post("/zoho/import/leads", async (req: Request, res: Response) => {
   try {
@@ -713,11 +772,46 @@ router.post("/zoho/import/leads", async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, message: "Authentication required" });
     }
 
-    const { limit = 50, skipExisting = true } = req.body;
+    const { limit = 50, skipExisting = true, assignToAgentId } = req.body;
 
     const connection = await ZohoConnectionResolver.resolveForAgent(agentId);
     if (!connection) {
       return res.status(400).json({ success: false, message: "No Zoho CRM connection available" });
+    }
+
+    // Only master agents (connection owners) can import from Zoho
+    if (!connection.isMaster) {
+      return res.status(403).json({ 
+        success: false, 
+        message: "Only the master agent can import from Zoho CRM. Please contact your team admin." 
+      });
+    }
+
+    // Determine target agent for prospect creation
+    let targetAgentId = agentId;
+    
+    // Validate assignToAgentId if provided - must be master or their sub-agent
+    if (assignToAgentId && assignToAgentId !== agentId) {
+      const { db } = await import('../db');
+      const { partners } = await import('@shared/schema');
+      const { eq, and } = await import('drizzle-orm');
+      
+      // Check if assignToAgentId is a sub-agent of this master
+      const validSubAgent = await db.select({ id: partners.userId })
+        .from(partners)
+        .where(and(
+          eq(partners.userId, assignToAgentId),
+          eq(partners.masterAgentId, agentId)
+        ))
+        .limit(1);
+      
+      if (validSubAgent.length === 0) {
+        return res.status(403).json({
+          success: false,
+          message: "Cannot assign to this agent. The selected agent is not part of your team."
+        });
+      }
+      targetAgentId = assignToAgentId;
     }
 
     const crmService = new ZohoCRMService(connection.connectionId, connection.zohoDataCenter);
@@ -736,10 +830,10 @@ router.post("/zoho/import/leads", async (req: Request, res: Response) => {
       const email = lead.Email?.toLowerCase();
       const mobile = lead.Phone || lead.Mobile;
 
-      // Check for existing prospect with same email/phone
+      // Check for existing prospect with same email/phone for target agent
       if (skipExisting) {
         const existingCheck = await agentProspectWizardService.checkForExistingProspect(
-          agentId,
+          targetAgentId,
           undefined,
           email,
           mobile
@@ -750,15 +844,15 @@ router.post("/zoho/import/leads", async (req: Request, res: Response) => {
         }
       }
 
-      // Create prospect from Zoho lead
+      // Create prospect from Zoho lead under target agent
       const prospectData = {
         name,
         email,
         mobile,
-        notes: `Imported from Zoho CRM (Lead ID: ${lead.id})\n${lead.Description || ''}`
+        notes: `Imported from Zoho CRM (Lead ID: ${lead.id})${assignToAgentId ? ` by master agent ${agentId}` : ''}\n${lead.Description || ''}`
       };
 
-      const prospectId = await agentProspectWizardService.createProspect(agentId, prospectData);
+      const prospectId = await agentProspectWizardService.createProspect(targetAgentId, prospectData);
       
       if (typeof prospectId === 'string') {
         // Create entity mapping for two-way sync
@@ -773,18 +867,18 @@ router.post("/zoho/import/leads", async (req: Request, res: Response) => {
           zohoModule: 'Leads',
           zohoRecordId: lead.id!,
           zohoRecordData: lead,
-          owningAgentId: agentId,
+          owningAgentId: targetAgentId,
           syncDirection: 'from_zoho',
           lastSyncedAt: new Date(),
           syncStatus: 'synced'
         });
 
         imported++;
-        importedProspects.push({ prospectId, zohoLeadId: lead.id, name });
+        importedProspects.push({ prospectId, zohoLeadId: lead.id, name, assignedTo: targetAgentId });
       }
     }
 
-    console.log(`[Zoho Import] Agent ${agentId} imported ${imported} leads, skipped ${skipped}`);
+    console.log(`[Zoho Import] Master agent ${agentId} imported ${imported} leads for agent ${targetAgentId}, skipped ${skipped}`);
     res.json({
       success: true,
       imported,
@@ -807,11 +901,46 @@ router.post("/zoho/import/contacts", async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, message: "Authentication required" });
     }
 
-    const { limit = 50, skipExisting = true } = req.body;
+    const { limit = 50, skipExisting = true, assignToAgentId } = req.body;
 
     const connection = await ZohoConnectionResolver.resolveForAgent(agentId);
     if (!connection) {
       return res.status(400).json({ success: false, message: "No Zoho CRM connection available" });
+    }
+
+    // Only master agents (connection owners) can import from Zoho
+    if (!connection.isMaster) {
+      return res.status(403).json({ 
+        success: false, 
+        message: "Only the master agent can import from Zoho CRM. Please contact your team admin." 
+      });
+    }
+
+    // Determine target agent for prospect creation
+    let targetAgentId = agentId;
+    
+    // Validate assignToAgentId if provided - must be master or their sub-agent
+    if (assignToAgentId && assignToAgentId !== agentId) {
+      const { db } = await import('../db');
+      const { partners } = await import('@shared/schema');
+      const { eq, and } = await import('drizzle-orm');
+      
+      // Check if assignToAgentId is a sub-agent of this master
+      const validSubAgent = await db.select({ id: partners.userId })
+        .from(partners)
+        .where(and(
+          eq(partners.userId, assignToAgentId),
+          eq(partners.masterAgentId, agentId)
+        ))
+        .limit(1);
+      
+      if (validSubAgent.length === 0) {
+        return res.status(403).json({
+          success: false,
+          message: "Cannot assign to this agent. The selected agent is not part of your team."
+        });
+      }
+      targetAgentId = assignToAgentId;
     }
 
     const crmService = new ZohoCRMService(connection.connectionId, connection.zohoDataCenter);
@@ -832,7 +961,7 @@ router.post("/zoho/import/contacts", async (req: Request, res: Response) => {
 
       if (skipExisting) {
         const existingCheck = await agentProspectWizardService.checkForExistingProspect(
-          agentId,
+          targetAgentId,
           undefined,
           email,
           mobile
@@ -847,10 +976,10 @@ router.post("/zoho/import/contacts", async (req: Request, res: Response) => {
         name,
         email,
         mobile,
-        notes: `Imported from Zoho CRM (Contact ID: ${contact.id})\n${contact.Description || ''}`
+        notes: `Imported from Zoho CRM (Contact ID: ${contact.id})${assignToAgentId ? ` by master agent ${agentId}` : ''}\n${contact.Description || ''}`
       };
 
-      const prospectId = await agentProspectWizardService.createProspect(agentId, prospectData);
+      const prospectId = await agentProspectWizardService.createProspect(targetAgentId, prospectData);
       
       if (typeof prospectId === 'string') {
         const { db } = await import('../db');
@@ -864,18 +993,18 @@ router.post("/zoho/import/contacts", async (req: Request, res: Response) => {
           zohoModule: 'Contacts',
           zohoRecordId: contact.id!,
           zohoRecordData: contact,
-          owningAgentId: agentId,
+          owningAgentId: targetAgentId,
           syncDirection: 'from_zoho',
           lastSyncedAt: new Date(),
           syncStatus: 'synced'
         });
 
         imported++;
-        importedProspects.push({ prospectId, zohoContactId: contact.id, name });
+        importedProspects.push({ prospectId, zohoContactId: contact.id, name, assignedTo: targetAgentId });
       }
     }
 
-    console.log(`[Zoho Import] Agent ${agentId} imported ${imported} contacts, skipped ${skipped}`);
+    console.log(`[Zoho Import] Master agent ${agentId} imported ${imported} contacts for agent ${targetAgentId}, skipped ${skipped}`);
     res.json({
       success: true,
       imported,
