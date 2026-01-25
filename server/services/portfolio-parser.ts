@@ -546,9 +546,153 @@ function parseCASFormat(text: string): ImportedHolding[] {
 }
 
 /**
+ * Column mapping configuration detected from headers
+ */
+interface ColumnMapping {
+  costIndex: number;      // Index for Cost Value / Invested Value
+  unitsIndex: number;     // Index for Unit Balance / Units
+  navIndex: number;       // Index for NAV
+  marketIndex: number;    // Index for Market Value / Current Value
+  headerDetected: boolean;
+}
+
+/**
+ * Detect column headers from CAS statement and return mapping
+ * Supports various header formats:
+ * - "Cost Value | Unit Balance | NAV | Market Value"
+ * - "Invested | Units | NAV Date | NAV | Current Value"
+ * - "Amount | Balance | Rate | Value"
+ */
+function detectColumnHeaders(text: string): ColumnMapping {
+  const defaultMapping: ColumnMapping = {
+    costIndex: 0,
+    unitsIndex: 1,
+    navIndex: 2,
+    marketIndex: 3,
+    headerDetected: false
+  };
+  
+  // Common header patterns (case-insensitive)
+  const headerPatterns = [
+    // Standard CAMS/KFintech format
+    /(?:folio|isin|scheme).*?(cost\s*(?:value)?|invested|amount).*?(unit\s*(?:balance)?|balance|units).*?(nav).*?(market\s*(?:value)?|current\s*(?:value)?|valuation)/i,
+    // Alternative ordering
+    /(?:folio|isin|scheme).*?(unit\s*(?:balance)?|balance|units).*?(cost\s*(?:value)?|invested|amount).*?(nav).*?(market\s*(?:value)?|current\s*(?:value)?|valuation)/i,
+    // Header row patterns
+    /(cost\s*value|invested\s*value|investment)[\s\|]+(unit\s*balance|units|balance)[\s\|]+(nav|net\s*asset\s*value)[\s\|]+(market\s*value|current\s*value|valuation)/i,
+    /(unit\s*balance|units|balance)[\s\|]+(cost\s*value|invested|investment)[\s\|]+(nav|net\s*asset\s*value)[\s\|]+(market\s*value|current\s*value|valuation)/i,
+  ];
+  
+  // Column header keywords for position detection
+  const columnKeywords = {
+    cost: ['cost', 'invested', 'investment', 'purchase', 'amount invested', 'acquisition'],
+    units: ['unit', 'balance', 'quantity', 'holding', 'units held'],
+    nav: ['nav', 'net asset', 'rate', 'price per unit'],
+    market: ['market', 'current', 'valuation', 'present value', 'value as on', 'closing value']
+  };
+  
+  // Split text into lines and look for header row
+  const lines = text.split('\n');
+  
+  for (const line of lines) {
+    const lowerLine = line.toLowerCase();
+    
+    // Check if this line looks like a header (contains multiple column keywords)
+    let keywordMatches = 0;
+    if (columnKeywords.cost.some(k => lowerLine.includes(k))) keywordMatches++;
+    if (columnKeywords.units.some(k => lowerLine.includes(k))) keywordMatches++;
+    if (columnKeywords.nav.some(k => lowerLine.includes(k))) keywordMatches++;
+    if (columnKeywords.market.some(k => lowerLine.includes(k))) keywordMatches++;
+    
+    // If we found at least 3 column keywords, this is likely a header row
+    if (keywordMatches >= 3) {
+      console.log('[Header Detection] Found potential header row:', line.substring(0, 100));
+      
+      // Find position of each column type
+      const positions: { type: string; index: number }[] = [];
+      
+      for (const keyword of columnKeywords.cost) {
+        const idx = lowerLine.indexOf(keyword);
+        if (idx >= 0) { positions.push({ type: 'cost', index: idx }); break; }
+      }
+      for (const keyword of columnKeywords.units) {
+        const idx = lowerLine.indexOf(keyword);
+        if (idx >= 0) { positions.push({ type: 'units', index: idx }); break; }
+      }
+      for (const keyword of columnKeywords.nav) {
+        const idx = lowerLine.indexOf(keyword);
+        if (idx >= 0) { positions.push({ type: 'nav', index: idx }); break; }
+      }
+      for (const keyword of columnKeywords.market) {
+        const idx = lowerLine.indexOf(keyword);
+        if (idx >= 0) { positions.push({ type: 'market', index: idx }); break; }
+      }
+      
+      // Sort by position to get column order
+      positions.sort((a, b) => a.index - b.index);
+      
+      if (positions.length >= 3) {
+        const mapping: ColumnMapping = {
+          costIndex: positions.findIndex(p => p.type === 'cost'),
+          unitsIndex: positions.findIndex(p => p.type === 'units'),
+          navIndex: positions.findIndex(p => p.type === 'nav'),
+          marketIndex: positions.findIndex(p => p.type === 'market'),
+          headerDetected: true
+        };
+        
+        // Handle missing columns
+        if (mapping.costIndex < 0) mapping.costIndex = 0;
+        if (mapping.unitsIndex < 0) mapping.unitsIndex = 1;
+        if (mapping.navIndex < 0) mapping.navIndex = 2;
+        if (mapping.marketIndex < 0) mapping.marketIndex = 3;
+        
+        console.log('[Header Detection] Detected column order:', 
+          `Cost=${mapping.costIndex}, Units=${mapping.unitsIndex}, NAV=${mapping.navIndex}, Market=${mapping.marketIndex}`);
+        
+        return mapping;
+      }
+    }
+  }
+  
+  // Try regex patterns on full text
+  for (const pattern of headerPatterns) {
+    const match = text.match(pattern);
+    if (match) {
+      console.log('[Header Detection] Matched pattern:', match[0].substring(0, 80));
+      
+      // Determine order based on capture groups
+      const groups = match.slice(1).map(g => g.toLowerCase());
+      const mapping: ColumnMapping = {
+        costIndex: groups.findIndex(g => columnKeywords.cost.some(k => g.includes(k))),
+        unitsIndex: groups.findIndex(g => columnKeywords.units.some(k => g.includes(k))),
+        navIndex: groups.findIndex(g => columnKeywords.nav.some(k => g.includes(k))),
+        marketIndex: groups.findIndex(g => columnKeywords.market.some(k => g.includes(k))),
+        headerDetected: true
+      };
+      
+      // Fallback for undetected columns
+      if (mapping.costIndex < 0) mapping.costIndex = 0;
+      if (mapping.unitsIndex < 0) mapping.unitsIndex = 1;
+      if (mapping.navIndex < 0) mapping.navIndex = 2;
+      if (mapping.marketIndex < 0) mapping.marketIndex = 3;
+      
+      console.log('[Header Detection] Column order from pattern:', 
+        `Cost=${mapping.costIndex}, Units=${mapping.unitsIndex}, NAV=${mapping.navIndex}, Market=${mapping.marketIndex}`);
+      
+      return mapping;
+    }
+  }
+  
+  console.log('[Header Detection] No header detected, using default order');
+  return defaultMapping;
+}
+
+/**
  * Parse CAMS/KFintech Holding Statement format (tabular with columns)
  * Format: Folio No. | ISIN | Scheme Name | Cost Value | Unit Balance | NAV Date | NAV | Market Value | Registrar
  * This is a HOLDING statement (not transaction statement) - no transaction dates, just current holdings
+ * 
+ * Now with dynamic header detection to handle variable column orders.
  * 
  * Example row from PDF:
  * 404534/62     INF579M01AF8   IFIQRG - 360 ONE Quant Fund Regular Plan       500,000.000       31,610.576 22-Jan-2026     19.1761         606,167.57      CAMS
@@ -565,6 +709,10 @@ function parseCAMSHoldingStatementFormat(text: string): ImportedHolding[] {
   const holdings: ImportedHolding[] = [];
   
   console.log('[CAMS Holding Parser] Starting parse...');
+  
+  // STEP 1: Detect column headers dynamically
+  const columnMapping = detectColumnHeaders(text);
+  console.log('[CAMS Holding Parser] Using column mapping:', columnMapping);
   
   // Find all ISINs in the text (mutual fund ISINs start with INF)
   const isinPattern = /INF[A-Z0-9]{9}/gi;
@@ -628,33 +776,63 @@ function parseCAMSHoldingStatementFormat(text: string): ImportedHolding[] {
       
       console.log('[CAMS Holding Parser] Extracted numbers:', numbers.slice(0, 8));
       
-      // IMPROVED: Try all possible combinations to find the correct mapping
-      // The key validation: Units × NAV ≈ Market Value (within 5% tolerance)
-      // Then select the combination where Cost is most reasonable (closest to Market)
-      
       let costValue = 0;
       let unitBalance = 0;
       let nav = 0;
       let marketValue = 0;
       
-      interface MatchCandidate {
-        units: number;
-        cost: number;
-        nav: number;
-        market: number;
-        score: number;
+      // PRIORITY 1: Use header-detected column mapping if available
+      if (columnMapping.headerDetected && numbers.length >= 4) {
+        // Map numbers using detected column order
+        const maxIdx = Math.max(columnMapping.costIndex, columnMapping.unitsIndex, columnMapping.navIndex, columnMapping.marketIndex);
+        
+        if (maxIdx < numbers.length) {
+          costValue = numbers[columnMapping.costIndex];
+          unitBalance = numbers[columnMapping.unitsIndex];
+          nav = numbers[columnMapping.navIndex];
+          marketValue = numbers[columnMapping.marketIndex];
+          
+          // Validate: Units × NAV ≈ Market Value
+          const calculated = unitBalance * nav;
+          const tolerance = Math.abs(calculated - marketValue) / Math.max(marketValue, 1);
+          
+          if (tolerance < 0.05) {
+            console.log('[CAMS Holding Parser] Header-based mapping validated! Units:', unitBalance, 'Cost:', costValue, 'NAV:', nav, 'Market:', marketValue);
+          } else {
+            console.log('[CAMS Holding Parser] Header-based mapping failed validation, falling back to combination search');
+            // Reset and fall through to combination search
+            costValue = 0;
+            unitBalance = 0;
+            nav = 0;
+            marketValue = 0;
+          }
+        }
       }
       
-      const candidates: MatchCandidate[] = [];
-      const numLimit = Math.min(numbers.length, 8);
-      
-      // Try all possible 4-number combinations
-      for (let uIdx = 0; uIdx < numLimit; uIdx++) {
-        for (let cIdx = 0; cIdx < numLimit; cIdx++) {
-          if (cIdx === uIdx) continue;
-          for (let nIdx = 0; nIdx < numLimit; nIdx++) {
-            if (nIdx === uIdx || nIdx === cIdx) continue;
-            for (let mIdx = 0; mIdx < numLimit; mIdx++) {
+      // PRIORITY 2: If header mapping didn't work, try all combinations
+      if (unitBalance === 0 && marketValue === 0) {
+        // Try all possible combinations to find the correct mapping
+        // The key validation: Units × NAV ≈ Market Value (within 5% tolerance)
+        // Then select the combination where Cost is most reasonable (closest to Market)
+        
+        interface MatchCandidate {
+          units: number;
+          cost: number;
+          nav: number;
+          market: number;
+          score: number;
+        }
+        
+        const candidates: MatchCandidate[] = [];
+        const numLimit = Math.min(numbers.length, 8);
+        
+        // Try all possible 4-number combinations
+        for (let uIdx = 0; uIdx < numLimit; uIdx++) {
+          for (let cIdx = 0; cIdx < numLimit; cIdx++) {
+            if (cIdx === uIdx) continue;
+            for (let nIdx = 0; nIdx < numLimit; nIdx++) {
+              if (nIdx === uIdx || nIdx === cIdx) continue;
+              for (let mIdx = 0; mIdx < numLimit; mIdx++) {
               if (mIdx === uIdx || mIdx === cIdx || mIdx === nIdx) continue;
               
               const testUnits = numbers[uIdx];
@@ -691,40 +869,41 @@ function parseCAMSHoldingStatementFormat(text: string): ImportedHolding[] {
           }
         }
       }
-      
-      // Sort by score and pick best
-      candidates.sort((a, b) => a.score - b.score);
-      
-      if (candidates.length > 0) {
-        const best = candidates[0];
-        unitBalance = best.units;
-        costValue = best.cost;
-        nav = best.nav;
-        marketValue = best.market;
-        console.log('[CAMS Holding Parser] Best match found - Units:', unitBalance, 'Cost:', costValue, 'NAV:', nav, 'Market:', marketValue);
-      } else if (numbers.length >= 4) {
-        // Fallback: use first 4 numbers as Cost, Units, NAV, Market
-        costValue = numbers[0];
-        unitBalance = numbers[1];
-        nav = numbers[2];
-        marketValue = numbers[3];
         
-        // If NAV × Units doesn't match Market, recalculate NAV
-        const calculated = unitBalance * nav;
-        if (Math.abs(calculated - marketValue) / marketValue > 0.1 && unitBalance > 0) {
-          nav = marketValue / unitBalance;
+        // Sort by score and pick best
+        candidates.sort((a, b) => a.score - b.score);
+        
+        if (candidates.length > 0) {
+          const best = candidates[0];
+          unitBalance = best.units;
+          costValue = best.cost;
+          nav = best.nav;
+          marketValue = best.market;
+          console.log('[CAMS Holding Parser] Best match found - Units:', unitBalance, 'Cost:', costValue, 'NAV:', nav, 'Market:', marketValue);
+        } else if (numbers.length >= 4) {
+          // Fallback: use first 4 numbers as Cost, Units, NAV, Market
+          costValue = numbers[0];
+          unitBalance = numbers[1];
+          nav = numbers[2];
+          marketValue = numbers[3];
+          
+          // If NAV × Units doesn't match Market, recalculate NAV
+          const calculated = unitBalance * nav;
+          if (Math.abs(calculated - marketValue) / marketValue > 0.1 && unitBalance > 0) {
+            nav = marketValue / unitBalance;
+          }
+          console.log('[CAMS Holding Parser] Using fallback - Units:', unitBalance, 'Cost:', costValue, 'NAV:', nav, 'Market:', marketValue);
+        } else if (numbers.length === 3) {
+          costValue = numbers[0];
+          unitBalance = numbers[1];
+          marketValue = numbers[2];
+          nav = unitBalance > 0 ? marketValue / unitBalance : 0;
+        } else if (numbers.length === 2) {
+          unitBalance = numbers[0];
+          marketValue = numbers[1];
+          nav = unitBalance > 0 ? marketValue / unitBalance : 0;
         }
-        console.log('[CAMS Holding Parser] Using fallback - Units:', unitBalance, 'Cost:', costValue, 'NAV:', nav, 'Market:', marketValue);
-      } else if (numbers.length === 3) {
-        costValue = numbers[0];
-        unitBalance = numbers[1];
-        marketValue = numbers[2];
-        nav = unitBalance > 0 ? marketValue / unitBalance : 0;
-      } else if (numbers.length === 2) {
-        unitBalance = numbers[0];
-        marketValue = numbers[1];
-        nav = unitBalance > 0 ? marketValue / unitBalance : 0;
-      }
+      } // End of PRIORITY 2 combination search
       
       // Detect registrar (CAMS or KFINTECH)
       const registrarMatch = afterIsin.match(/(CAMS|KFINTECH)/i);
