@@ -144,7 +144,7 @@ export function registerKYCWizardRoutes(app: Express) {
       }
       
       // Check user's existing KYC profile to determine starting step
-      const profile = await db.select().from(schema.profiles).where(eq(schema.profiles.userId, userId)).limit(1);
+      const profile = await db.select().from(schema.userProfiles).where(eq(schema.userProfiles.userId, userId)).limit(1);
       const userProfile = profile[0];
       
       // Determine initial step and status based on existing verified data
@@ -727,7 +727,7 @@ export function registerKYCWizardRoutes(app: Express) {
   app.get("/api/kyc/edit/field-rules", requireClientOrHigher, async (req: any, res) => {
     try {
       const userId = req.user!.id;
-      const profile = await db.select().from(schema.profiles).where(eq(schema.profiles.userId, userId)).limit(1);
+      const profile = await db.select().from(schema.userProfiles).where(eq(schema.userProfiles.userId, userId)).limit(1);
       const userProfile = profile[0];
       
       // Determine which fields are locked based on verification status
@@ -782,7 +782,7 @@ export function registerKYCWizardRoutes(app: Express) {
       const userAgent = req.headers['user-agent'];
       
       // Fetch current profile
-      const profiles = await db.select().from(schema.profiles).where(eq(schema.profiles.userId, userId)).limit(1);
+      const profiles = await db.select().from(schema.userProfiles).where(eq(schema.userProfiles.userId, userId)).limit(1);
       const currentProfile = profiles[0];
       
       if (!currentProfile) {
@@ -919,9 +919,9 @@ export function registerKYCWizardRoutes(app: Express) {
         allowedUpdates.kycLastUpdatedDate = new Date();
         allowedUpdates.kycUpdateMethod = 'self_service';
         
-        await db.update(schema.profiles)
+        await db.update(schema.userProfiles)
           .set(allowedUpdates)
-          .where(eq(schema.profiles.userId, userId));
+          .where(eq(schema.userProfiles.userId, userId));
         
         // Log all changes to compliance audit trail
         for (const entry of auditEntries) {
