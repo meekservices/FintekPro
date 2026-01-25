@@ -311,10 +311,12 @@ export class ZohoCRMService {
 
   /**
    * Get all leads from Zoho CRM for import
+   * Note: Zoho CRM API v6 requires the 'fields' parameter
    */
   async getLeads(limit: number = 100): Promise<ZohoCRMLead[]> {
     try {
       const response = await this.apiClient.get('/Leads', {
+        fields: 'First_Name,Last_Name,Email,Phone,Mobile,Company,Designation,Lead_Source,Lead_Status,Industry,Description,Tag,Created_Time,Modified_Time',
         per_page: Math.min(limit, 200),
         sort_by: 'Created_Time',
         sort_order: 'desc'
@@ -376,10 +378,12 @@ export class ZohoCRMService {
 
   /**
    * Get all contacts from Zoho CRM for import
+   * Note: Zoho CRM API v6 requires the 'fields' parameter
    */
   async getContacts(limit: number = 100): Promise<ZohoCRMContact[]> {
     try {
       const response = await this.apiClient.get('/Contacts', {
+        fields: 'First_Name,Last_Name,Email,Phone,Mobile,Account_Name,Title,Department,Mailing_Street,Mailing_City,Mailing_State,Mailing_Zip,Mailing_Country,Description,Lead_Source,Tag,Created_Time,Modified_Time',
         per_page: Math.min(limit, 200),
         sort_by: 'Created_Time',
         sort_order: 'desc'
