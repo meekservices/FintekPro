@@ -154,6 +154,13 @@ export default function SmartKYCOnboarding() {
   const [showOneMinWarning, setShowOneMinWarning] = useState(false);
   const [sessionExpiredShown, setSessionExpiredShown] = useState(false);
   
+  // Edit Mode State (for regulatory-compliant KYC editing)
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editFieldRules, setEditFieldRules] = useState<any>(null);
+  const [editFormData, setEditFormData] = useState<Record<string, string>>({});
+  const [editErrors, setEditErrors] = useState<string[]>([]);
+  const [editWarnings, setEditWarnings] = useState<string[]>([]);
+  
   // Pan Verification State
   const [panNumber, setPanNumber] = useState('');
   const [panFullName, setPanFullName] = useState('');
@@ -605,10 +612,79 @@ export default function SmartKYCOnboarding() {
     }
   });
 
-  // Parse and validate referral code from URL
+  // Edit KYC mutation for regulatory-compliant updates
+  const editKycMutation = useMutation({
+    mutationFn: async (updates: Record<string, string>) => {
+      return await apiRequest('/api/kyc/profile', {
+        method: 'PATCH',
+        body: JSON.stringify(updates)
+      });
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        toast({
+          title: "Profile Updated",
+          description: data.requiresDocumentUpload 
+            ? "Changes saved. Please upload supporting documents for address/name changes."
+            : "Your KYC details have been updated successfully.",
+        });
+        setEditErrors(data.errors || []);
+        setEditWarnings(data.warnings || []);
+        
+        // Redirect back after successful update
+        if (!data.requiresDocumentUpload) {
+          setTimeout(() => {
+            window.location.href = '/kyc-dashboard';
+          }, 1500);
+        }
+      } else {
+        setEditErrors(data.errors || ['Update failed']);
+        setEditWarnings(data.warnings || []);
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Update Failed",
+        description: error instanceof Error ? error.message : "Failed to update KYC details. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Parse URL parameters for edit mode and referral code
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
+    const mode = searchParams.get('mode');
     const ref = searchParams.get('ref');
+    
+    // Handle edit mode
+    if (mode === 'edit') {
+      setIsEditMode(true);
+      // Fetch field rules for edit mode
+      fetch('/api/kyc/edit/field-rules', { credentials: 'include' })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setEditFieldRules(data.data);
+            // Pre-fill form with current values
+            const currentVals: Record<string, string> = {};
+            Object.entries(data.data.currentValues || {}).forEach(([key, val]) => {
+              if (val !== null && val !== undefined) {
+                currentVals[key] = String(val);
+              }
+            });
+            setEditFormData(currentVals);
+          }
+        })
+        .catch(err => {
+          console.error('Error fetching field rules:', err);
+          toast({
+            title: "Error",
+            description: "Failed to load KYC edit form. Please try again.",
+            variant: "destructive"
+          });
+        });
+    }
     
     if (ref && !referralCode) {
       setReferralCode(ref);
@@ -2800,6 +2876,348 @@ export default function SmartKYCOnboarding() {
   
   // Show loading state while session initializes (only for steps that need session)
   const needsSession = ['pan_verification', 'aadhaar_otp', 'aadhaar_verification', 'data_collection', 'risk_profiling', 'compliance_signoff'].includes(currentStep);
+  
+  // ============================================================================
+  // EDIT MODE UI - Regulatory-Compliant KYC Editing
+  // ============================================================================
+  if (isEditMode) {
+    return (
+      <div className="container mx-auto py-8 px-4 max-w-4xl">
+        <div className="mb-6">
+          <Button 
+            variant="ghost" 
+            onClick={() => window.location.href = '/kyc-dashboard'}
+            className="mb-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to KYC Dashboard
+          </Button>
+          <h1 className="text-3xl font-bold mb-2">Edit KYC Details</h1>
+          <p className="text-muted-foreground">
+            Update your profile information. Some fields are locked for regulatory compliance.
+          </p>
+        </div>
+
+        {!editFieldRules ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="ml-2 text-muted-foreground">Loading your profile...</span>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Regulatory Notice */}
+            <Alert>
+              <Shield className="h-4 w-4" />
+              <AlertTitle>Regulatory Compliance</AlertTitle>
+              <AlertDescription>
+                As per SEBI/RBI KYC guidelines, certain fields cannot be modified after verification. 
+                Name and address changes require supporting documents for audit compliance.
+              </AlertDescription>
+            </Alert>
+
+            {editErrors.length > 0 && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Update Errors</AlertTitle>
+                <AlertDescription>
+                  <ul className="list-disc list-inside">
+                    {editErrors.map((err, i) => <li key={i}>{err}</li>)}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {editWarnings.length > 0 && (
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertTitle>Please Note</AlertTitle>
+                <AlertDescription>
+                  <ul className="list-disc list-inside">
+                    {editWarnings.map((warn, i) => <li key={i}>{warn}</li>)}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Locked Fields Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-amber-500" />
+                  Verified Information (Cannot be Changed)
+                </CardTitle>
+                <CardDescription>
+                  These fields are locked because they have been verified. Contact support for corrections.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-muted-foreground">PAN Number</Label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Input 
+                        value={editFieldRules.currentValues?.panNumber || 'Not provided'} 
+                        disabled 
+                        className="bg-muted"
+                      />
+                      {editFieldRules.lockedFields?.includes('panNumber') && (
+                        <Badge variant="secondary" className="text-xs">Verified</Badge>
+                      )}
+                    </div>
+                    {editFieldRules.lockReasons?.panNumber && (
+                      <p className="text-xs text-muted-foreground mt-1">{editFieldRules.lockReasons.panNumber}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Date of Birth</Label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Input 
+                        value={editFieldRules.currentValues?.dateOfBirth || 'Not provided'} 
+                        disabled 
+                        className="bg-muted"
+                      />
+                      {editFieldRules.lockedFields?.includes('dateOfBirth') && (
+                        <Badge variant="secondary" className="text-xs">Verified</Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Document Required Fields */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-blue-500" />
+                  Personal Information (Document Proof Required)
+                </CardTitle>
+                <CardDescription>
+                  Changes to name or address require supporting documents (e.g., Gazette notification, utility bill).
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="firstName">First Name</Label>
+                    <Input 
+                      id="firstName"
+                      value={editFormData.firstName || ''} 
+                      onChange={(e) => setEditFormData({...editFormData, firstName: e.target.value})}
+                      placeholder="Enter first name"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="middleName">Middle Name</Label>
+                    <Input 
+                      id="middleName"
+                      value={editFormData.middleName || ''} 
+                      onChange={(e) => setEditFormData({...editFormData, middleName: e.target.value})}
+                      placeholder="Enter middle name"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="lastName">Last Name</Label>
+                    <Input 
+                      id="lastName"
+                      value={editFormData.lastName || ''} 
+                      onChange={(e) => setEditFormData({...editFormData, lastName: e.target.value})}
+                      placeholder="Enter last name"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="nameChangeReason">Reason for Name Change (if applicable)</Label>
+                  <Input 
+                    id="nameChangeReason"
+                    value={editFormData.nameChangeReason || ''} 
+                    onChange={(e) => setEditFormData({...editFormData, nameChangeReason: e.target.value})}
+                    placeholder="e.g., Marriage, Legal name change"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="address">Address</Label>
+                  <Input 
+                    id="address"
+                    value={editFormData.address || ''} 
+                    onChange={(e) => setEditFormData({...editFormData, address: e.target.value})}
+                    placeholder="Enter full address"
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="city">City</Label>
+                    <Input 
+                      id="city"
+                      value={editFormData.city || ''} 
+                      onChange={(e) => setEditFormData({...editFormData, city: e.target.value})}
+                      placeholder="Enter city"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="state">State</Label>
+                    <Input 
+                      id="state"
+                      value={editFormData.state || ''} 
+                      onChange={(e) => setEditFormData({...editFormData, state: e.target.value})}
+                      placeholder="Enter state"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="pincode">Pincode</Label>
+                    <Input 
+                      id="pincode"
+                      value={editFormData.pincode || ''} 
+                      onChange={(e) => setEditFormData({...editFormData, pincode: e.target.value})}
+                      placeholder="Enter pincode"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Freely Editable Fields */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Pen className="h-5 w-5 text-green-500" />
+                  Additional Information (Freely Editable)
+                </CardTitle>
+                <CardDescription>
+                  These fields can be updated anytime without additional verification.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="occupation">Occupation</Label>
+                    <Select 
+                      value={editFormData.occupation || ''} 
+                      onValueChange={(val) => setEditFormData({...editFormData, occupation: val})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select occupation" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="salaried">Salaried</SelectItem>
+                        <SelectItem value="self_employed">Self Employed</SelectItem>
+                        <SelectItem value="business">Business Owner</SelectItem>
+                        <SelectItem value="professional">Professional</SelectItem>
+                        <SelectItem value="retired">Retired</SelectItem>
+                        <SelectItem value="homemaker">Homemaker</SelectItem>
+                        <SelectItem value="student">Student</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="annualIncome">Annual Income</Label>
+                    <Select 
+                      value={editFormData.annualIncome || ''} 
+                      onValueChange={(val) => setEditFormData({...editFormData, annualIncome: val})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select income range" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="below_5l">Below ₹5 Lakhs</SelectItem>
+                        <SelectItem value="5l_10l">₹5 - 10 Lakhs</SelectItem>
+                        <SelectItem value="10l_25l">₹10 - 25 Lakhs</SelectItem>
+                        <SelectItem value="25l_50l">₹25 - 50 Lakhs</SelectItem>
+                        <SelectItem value="50l_1cr">₹50 Lakhs - 1 Crore</SelectItem>
+                        <SelectItem value="above_1cr">Above ₹1 Crore</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="maritalStatus">Marital Status</Label>
+                    <Select 
+                      value={editFormData.maritalStatus || ''} 
+                      onValueChange={(val) => setEditFormData({...editFormData, maritalStatus: val})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="single">Single</SelectItem>
+                        <SelectItem value="married">Married</SelectItem>
+                        <SelectItem value="divorced">Divorced</SelectItem>
+                        <SelectItem value="widowed">Widowed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="investmentExperience">Investment Experience</Label>
+                    <Select 
+                      value={editFormData.investmentExperience || ''} 
+                      onValueChange={(val) => setEditFormData({...editFormData, investmentExperience: val})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select experience" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No Experience</SelectItem>
+                        <SelectItem value="beginner">Beginner (0-2 years)</SelectItem>
+                        <SelectItem value="intermediate">Intermediate (2-5 years)</SelectItem>
+                        <SelectItem value="experienced">Experienced (5+ years)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="sourceOfFunds">Source of Funds</Label>
+                  <Select 
+                    value={editFormData.sourceOfFunds || ''} 
+                    onValueChange={(val) => setEditFormData({...editFormData, sourceOfFunds: val})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select source" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="salary">Salary/Employment Income</SelectItem>
+                      <SelectItem value="business">Business Income</SelectItem>
+                      <SelectItem value="investments">Investment Returns</SelectItem>
+                      <SelectItem value="inheritance">Inheritance</SelectItem>
+                      <SelectItem value="pension">Pension</SelectItem>
+                      <SelectItem value="rental">Rental Income</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Submit Button */}
+            <div className="flex justify-end gap-4">
+              <Button 
+                variant="outline" 
+                onClick={() => window.location.href = '/kyc-dashboard'}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => editKycMutation.mutate(editFormData)}
+                disabled={editKycMutation.isPending}
+              >
+                {editKycMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving Changes...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Save Changes
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
   
   if (needsSession && startSessionMutation.isPending) {
     return (

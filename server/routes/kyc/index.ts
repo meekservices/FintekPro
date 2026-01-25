@@ -699,5 +699,279 @@ export function registerKYCWizardRoutes(app: Express) {
     }
   });
 
+  // ============================================================================
+  // REGULATORY-COMPLIANT KYC EDIT ENDPOINT
+  // Follows SEBI/RBI KYC Guidelines for field-level access controls
+  // ============================================================================
+  
+  // Field classification per regulatory requirements
+  const KYC_FIELD_RULES = {
+    // IMMUTABLE: Cannot be changed once verified (requires new account)
+    immutable: ['panNumber', 'dateOfBirth'],
+    
+    // DOCUMENT_REQUIRED: Changes need supporting documents for compliance
+    documentRequired: ['firstName', 'middleName', 'lastName', 'address', 'city', 'state', 'pincode'],
+    
+    // OTP_REQUIRED: Changes need OTP verification
+    otpRequired: ['email', 'mobile'],
+    
+    // FREELY_EDITABLE: Can be changed without additional verification
+    freeEdit: [
+      'occupation', 'annualIncome', 'investmentExperience', 'riskTolerance',
+      'maritalStatus', 'spouseName', 'nomineeDetails', 'nomineeRelation',
+      'sourceOfFunds', 'investorCategory', 'financialSituation', 'investmentObjective'
+    ]
+  };
+
+  // Get editable fields and their restrictions
+  app.get("/api/kyc/edit/field-rules", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const profile = await db.select().from(schema.profiles).where(eq(schema.profiles.userId, userId)).limit(1);
+      const userProfile = profile[0];
+      
+      // Determine which fields are locked based on verification status
+      const lockedFields: string[] = [];
+      const lockReasons: Record<string, string> = {};
+      
+      // PAN is locked if verified
+      if (userProfile?.panVerifiedViaSandbox || userProfile?.panSandboxStatus === 'VALID') {
+        lockedFields.push('panNumber');
+        lockReasons['panNumber'] = 'PAN verified via Sandbox API - cannot be changed. Contact support for assistance.';
+      }
+      
+      // DOB is locked if PAN is verified (DOB comes from PAN)
+      if (userProfile?.panVerifiedViaSandbox) {
+        lockedFields.push('dateOfBirth');
+        lockReasons['dateOfBirth'] = 'Date of birth verified via PAN - cannot be changed.';
+      }
+      
+      res.json({
+        success: true,
+        data: {
+          fieldRules: KYC_FIELD_RULES,
+          lockedFields,
+          lockReasons,
+          currentValues: {
+            panNumber: userProfile?.panNumber ? `XXXX-XXXX-${userProfile.panNumber.slice(-4)}` : null,
+            dateOfBirth: userProfile?.dateOfBirth,
+            firstName: userProfile?.firstName,
+            lastName: userProfile?.lastName,
+            address: userProfile?.address,
+            city: userProfile?.city,
+            state: userProfile?.state,
+            pincode: userProfile?.pincode,
+            occupation: userProfile?.occupation,
+            annualIncome: userProfile?.annualIncome,
+            maritalStatus: userProfile?.maritalStatus
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching KYC field rules:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch field rules' });
+    }
+  });
+
+  // Update KYC profile with regulatory compliance
+  app.patch("/api/kyc/profile", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const updates = req.body;
+      const ipAddress = req.ip || req.connection?.remoteAddress;
+      const userAgent = req.headers['user-agent'];
+      
+      // Fetch current profile
+      const profiles = await db.select().from(schema.profiles).where(eq(schema.profiles.userId, userId)).limit(1);
+      const currentProfile = profiles[0];
+      
+      if (!currentProfile) {
+        return res.status(404).json({ success: false, message: 'Profile not found' });
+      }
+      
+      const errors: string[] = [];
+      const warnings: string[] = [];
+      const auditEntries: any[] = [];
+      const allowedUpdates: Record<string, any> = {};
+      
+      // Validate each field
+      for (const [field, newValue] of Object.entries(updates)) {
+        const oldValue = (currentProfile as any)[field];
+        
+        // Skip if value hasn't changed
+        if (oldValue === newValue) continue;
+        
+        // Check immutable fields
+        if (KYC_FIELD_RULES.immutable.includes(field)) {
+          const isLocked = field === 'panNumber' 
+            ? (currentProfile.panVerifiedViaSandbox || currentProfile.panSandboxStatus === 'VALID')
+            : field === 'dateOfBirth' 
+            ? currentProfile.panVerifiedViaSandbox
+            : false;
+          
+          if (isLocked) {
+            errors.push(`${field} is verified and cannot be changed. Please contact support.`);
+            continue;
+          }
+        }
+        
+        // Check document-required fields
+        if (KYC_FIELD_RULES.documentRequired.includes(field)) {
+          // For name changes, require reason
+          if (['firstName', 'middleName', 'lastName'].includes(field)) {
+            if (!updates.nameChangeReason) {
+              warnings.push(`Name change requires a reason (e.g., marriage, legal name change). Document proof will be requested.`);
+            }
+          }
+          // Allow update but flag for document collection
+          allowedUpdates[field] = newValue;
+          auditEntries.push({
+            action: 'kyc_field_update',
+            fieldChanged: field,
+            oldValue: oldValue ? String(oldValue) : null,
+            newValue: String(newValue),
+            reason: updates.nameChangeReason || updates.addressChangeReason || 'User initiated change',
+            riskImpact: 'medium',
+            complianceImpact: 'minor',
+            requiresDocumentProof: true
+          });
+        }
+        
+        // Check OTP-required fields
+        else if (KYC_FIELD_RULES.otpRequired.includes(field)) {
+          // Verify OTP was provided and validated
+          if (!updates.otpVerified || !updates.otpSessionId) {
+            errors.push(`${field} change requires OTP verification. Please verify your ${field} first.`);
+            continue;
+          }
+          allowedUpdates[field] = newValue;
+          auditEntries.push({
+            action: 'kyc_field_update',
+            fieldChanged: field,
+            oldValue: oldValue ? String(oldValue) : null,
+            newValue: String(newValue),
+            reason: 'OTP verified change',
+            riskImpact: 'high',
+            complianceImpact: 'major',
+            otpVerified: true
+          });
+        }
+        
+        // Freely editable fields
+        else if (KYC_FIELD_RULES.freeEdit.includes(field)) {
+          allowedUpdates[field] = newValue;
+          auditEntries.push({
+            action: 'kyc_field_update',
+            fieldChanged: field,
+            oldValue: oldValue ? String(oldValue) : null,
+            newValue: String(newValue),
+            reason: 'Self-service update',
+            riskImpact: 'low',
+            complianceImpact: 'none'
+          });
+        }
+        
+        // Unknown field - reject
+        else {
+          errors.push(`Field '${field}' is not editable through this interface.`);
+        }
+      }
+      
+      // If there are blocking errors, return them
+      if (errors.length > 0 && Object.keys(allowedUpdates).length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors,
+          warnings
+        });
+      }
+      
+      // Apply allowed updates
+      if (Object.keys(allowedUpdates).length > 0) {
+        allowedUpdates.kycLastUpdatedDate = new Date();
+        allowedUpdates.kycUpdateMethod = 'self_service';
+        
+        await db.update(schema.profiles)
+          .set(allowedUpdates)
+          .where(eq(schema.profiles.userId, userId));
+        
+        // Log all changes to compliance audit trail
+        for (const entry of auditEntries) {
+          await db.insert(schema.complianceAuditTrail).values({
+            userId,
+            action: entry.action,
+            fieldChanged: entry.fieldChanged,
+            oldValue: entry.oldValue,
+            newValue: entry.newValue,
+            reason: entry.reason,
+            performedBy: userId,
+            performedByRole: 'user',
+            ipAddress,
+            userAgent,
+            riskImpact: entry.riskImpact,
+            complianceImpact: entry.complianceImpact,
+            metadata: {
+              requiresDocumentProof: entry.requiresDocumentProof || false,
+              otpVerified: entry.otpVerified || false,
+              updateMethod: 'self_service',
+              timestamp: new Date().toISOString()
+            }
+          });
+        }
+      }
+      
+      res.json({
+        success: true,
+        message: 'Profile updated successfully',
+        updatedFields: Object.keys(allowedUpdates).filter(k => k !== 'kycLastUpdatedDate' && k !== 'kycUpdateMethod'),
+        errors: errors.length > 0 ? errors : undefined,
+        warnings: warnings.length > 0 ? warnings : undefined,
+        requiresDocumentUpload: auditEntries.some(e => e.requiresDocumentProof)
+      });
+      
+    } catch (error) {
+      console.error('Error updating KYC profile:', error);
+      res.status(500).json({ success: false, message: 'Failed to update profile' });
+    }
+  });
+
+  // Get KYC change history (audit trail for user)
+  app.get("/api/kyc/change-history", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      
+      const history = await db.select()
+        .from(schema.complianceAuditTrail)
+        .where(eq(schema.complianceAuditTrail.userId, userId))
+        .orderBy(schema.complianceAuditTrail.createdAt);
+      
+      // Mask sensitive old values for security
+      const maskedHistory = history.map(entry => ({
+        id: entry.id,
+        action: entry.action,
+        fieldChanged: entry.fieldChanged,
+        changeDate: entry.createdAt,
+        reason: entry.reason,
+        performedByRole: entry.performedByRole,
+        riskImpact: entry.riskImpact,
+        // Don't expose actual values for sensitive fields
+        hadPreviousValue: !!entry.oldValue,
+        wasUpdated: entry.oldValue !== entry.newValue
+      }));
+      
+      res.json({
+        success: true,
+        data: {
+          changes: maskedHistory,
+          totalChanges: maskedHistory.length
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching KYC change history:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch change history' });
+    }
+  });
+
   console.log('✅ KYC Wizard routes registered');
 }
