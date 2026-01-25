@@ -94,10 +94,10 @@ router.get("/stats", async (req, res: Response) => {
       .from(users)
       .where(
         or(
-          sql`roles @> '["agent"]'::jsonb`,
-          sql`roles @> '["partner"]'::jsonb`,
-          sql`roles @> '["master_agent"]'::jsonb`,
-          sql`roles @> '["sub_agent"]'::jsonb`
+          sql`'agent' = ANY(roles)`,
+          sql`'partner' = ANY(roles)`,
+          sql`'master_agent' = ANY(roles)`,
+          sql`'sub_agent' = ANY(roles)`
         )
       );
 
@@ -142,10 +142,10 @@ router.get("/agents", async (req, res: Response) => {
       .from(users)
       .where(
         or(
-          sql`roles @> '["agent"]'::jsonb`,
-          sql`roles @> '["partner"]'::jsonb`,
-          sql`roles @> '["master_agent"]'::jsonb`,
-          sql`roles @> '["sub_agent"]'::jsonb`
+          sql`'agent' = ANY(roles)`,
+          sql`'partner' = ANY(roles)`,
+          sql`'master_agent' = ANY(roles)`,
+          sql`'sub_agent' = ANY(roles)`
         )
       );
 
