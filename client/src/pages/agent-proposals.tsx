@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
@@ -13,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
@@ -65,6 +67,7 @@ interface Proposal {
   sharedAt?: string;
   clientActionAt?: string;
   expiresAt?: string;
+  source?: 'proposal_builder' | 'wizard';
 }
 
 interface ProposalItem {
@@ -105,11 +108,14 @@ const WORKFLOW_STEPS = [
 
 export default function AgentProposalsPage() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
   const [showAddNoteDialog, setShowAddNoteDialog] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [proposalToDelete, setProposalToDelete] = useState<Proposal | null>(null);
   const [noteContent, setNoteContent] = useState("");
   const [noteType, setNoteType] = useState("explanation");
 
@@ -166,6 +172,46 @@ export default function AgentProposalsPage() {
       });
     }
   });
+
+  const deleteProposalMutation = useMutation({
+    mutationFn: async (proposalId: string) => {
+      return apiRequest(`/api/agent/proposals/${proposalId}`, {
+        method: 'DELETE',
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Proposal deleted successfully" });
+      queryClient.invalidateQueries({ queryKey: ['/api/agent/proposals'] });
+      setShowDeleteDialog(false);
+      setProposalToDelete(null);
+      if (selectedProposal?.id === proposalToDelete?.id) {
+        setSelectedProposal(null);
+      }
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to delete proposal", 
+        variant: "destructive" 
+      });
+    }
+  });
+
+  const handleEditProposal = (proposal: Proposal) => {
+    setLocation(`/agent/proposal-builder?edit=${proposal.id}`);
+  };
+
+  const handleDeleteClick = (proposal: Proposal, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setProposalToDelete(proposal);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDelete = () => {
+    if (proposalToDelete) {
+      deleteProposalMutation.mutate(proposalToDelete.id);
+    }
+  };
 
   const filteredProposals = proposals?.filter(proposal => {
     const matchesSearch = !searchQuery || 
@@ -359,17 +405,46 @@ export default function AgentProposalsPage() {
                                   </div>
                                 </TableCell>
                                 <TableCell className="text-right">
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedProposal(proposal);
-                                    }}
-                                    data-testid={`button-view-proposal-${proposal.id}`}
-                                  >
-                                    <Eye className="h-4 w-4" />
-                                  </Button>
+                                  <div className="flex items-center justify-end gap-1">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedProposal(proposal);
+                                      }}
+                                      data-testid={`button-view-proposal-${proposal.id}`}
+                                      title="View"
+                                    >
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                    {['draft', 'pending_review'].includes(proposal.status) && proposal.source === 'proposal_builder' && (
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleEditProposal(proposal);
+                                        }}
+                                        data-testid={`button-edit-proposal-${proposal.id}`}
+                                        title="Edit"
+                                      >
+                                        <Edit3 className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                    {!['executed', 'approved'].includes(proposal.status) && (
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        onClick={(e) => handleDeleteClick(proposal, e)}
+                                        data-testid={`button-delete-proposal-${proposal.id}`}
+                                        title="Delete"
+                                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             ))
@@ -708,6 +783,43 @@ export default function AgentProposalsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Proposal</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this proposal for {proposalToDelete?.clientName}? 
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setShowDeleteDialog(false);
+              setProposalToDelete(null);
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteProposalMutation.isPending}
+            >
+              {deleteProposalMutation.isPending ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

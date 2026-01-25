@@ -1039,6 +1039,77 @@ export function registerAgentAdvisoryRoutes(app: Express) {
     }
   });
 
+  // Delete a proposal (supports both investment_proposals and prospect_proposals)
+  app.delete("/api/agent/proposals/:proposalId", requireAgent, async (req: Request, res: Response) => {
+    try {
+      const agentId = (req.user as any).id;
+      const { proposalId } = req.params;
+
+      // First try to find in investment_proposals
+      const [investmentProposal] = await db
+        .select()
+        .from(investmentProposals)
+        .where(and(
+          eq(investmentProposals.id, proposalId),
+          eq(investmentProposals.agentId, agentId)
+        ))
+        .limit(1);
+
+      if (investmentProposal) {
+        // Delete related items first
+        await db.delete(investmentProposalItems)
+          .where(eq(investmentProposalItems.proposalId, proposalId));
+        
+        // Delete proposal shares
+        await db.delete(proposalShares)
+          .where(eq(proposalShares.proposalId, proposalId));
+        
+        // Delete the proposal
+        await db.delete(investmentProposals)
+          .where(eq(investmentProposals.id, proposalId));
+
+        await logAgentAction({
+          agentId,
+          clientId: investmentProposal.clientId,
+          proposalId,
+          actionCategory: 'proposal',
+          actionType: 'delete',
+          actionDescription: `Deleted investment proposal`,
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent']
+        });
+
+        return res.json({ success: true, message: "Proposal deleted successfully" });
+      }
+
+      // Try prospect_proposals table
+      const prospectProposalResult = await db.execute(sql`
+        SELECT id, agent_id FROM prospect_proposals 
+        WHERE id = ${proposalId} AND agent_id = ${agentId}
+        LIMIT 1
+      `);
+
+      if (prospectProposalResult.rows && prospectProposalResult.rows.length > 0) {
+        // Delete prospect proposal events first
+        await db.execute(sql`
+          DELETE FROM prospect_proposal_events WHERE proposal_id = ${proposalId}
+        `);
+        
+        // Delete the prospect proposal
+        await db.execute(sql`
+          DELETE FROM prospect_proposals WHERE id = ${proposalId} AND agent_id = ${agentId}
+        `);
+
+        return res.json({ success: true, message: "Proposal deleted successfully" });
+      }
+
+      return res.status(404).json({ error: "Proposal not found" });
+    } catch (error) {
+      console.error("Error deleting proposal:", error);
+      res.status(500).json({ error: "Failed to delete proposal" });
+    }
+  });
+
   app.post("/api/proposal/view/:shareToken/action", async (req: Request, res: Response) => {
     try {
       const { shareToken } = req.params;
