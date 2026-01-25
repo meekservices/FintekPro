@@ -85,6 +85,7 @@ import BulkOperations from "@/pages/admin/bulk-operations";
 import ComplianceDashboardPage from "@/pages/admin/compliance-dashboard";
 import NotificationManagement from "@/pages/admin/notification-management";
 import FeatureFlags from "@/pages/admin/feature-flags";
+import ParserConfigPage from "@/pages/admin/parser-config";
 import ReportBuilder from "@/pages/admin/report-builder";
 import StakeholdersPage from "@/pages/admin/stakeholders";
 import KycCompliancePage from "@/pages/admin/kyc-compliance";
@@ -882,6 +883,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <FeatureFlags />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/parser-config">
+        {() => (
+          <AdminLayout>
+            <ParserConfigPage />
           </AdminLayout>
         )}
       </Route>

@@ -74,7 +74,8 @@ import {
   Wallet,
   Inbox,
   FileSignature,
-  Palette
+  Palette,
+  FileText
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
@@ -221,6 +222,7 @@ const navCategories: NavCategory[] = [
       { title: "System Health", href: "/admin/system-health", icon: Activity, description: "Performance monitoring" },
       { title: "API Usage", href: "/admin/api-usage", icon: Activity, description: "API cost tracking" },
       { title: "Feature Flags", href: "/admin/feature-flags", icon: Lightbulb, description: "A/B testing controls" },
+      { title: "PDF Parser", href: "/admin/parser-config", icon: FileText, description: "CAS parser v1/v2 config" },
       { title: "Database", href: "/admin/database", icon: Database, description: "Database management" },
     ]
   },

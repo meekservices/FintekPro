@@ -304,13 +304,13 @@ export interface V2ParseResult {
 }
 
 const DEFAULT_CONFIG: ParserConfig = {
-  version: 'v1',
+  version: 'v2',
   enableDualRun: false,
   enableLearning: true,
   enableConfidenceScoring: true,
   logComparisons: true,
   forceV1Fallback: false,
-  minConfidenceThreshold: 0.6,
+  minConfidenceThreshold: 0.5,
 };
 
 let currentConfig: ParserConfig = { ...DEFAULT_CONFIG };
