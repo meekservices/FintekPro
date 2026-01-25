@@ -63,8 +63,84 @@ class UnifiedPortfolioImportService {
       const effectiveVersion = pdfParserV2Service.getEffectiveVersion();
       
       let profile = null;
+
+      if (isRollbackActive) {
+        console.log('[Parser] Rollback active - using v1 parser only');
+      }
+
+      // Use v2 parser when configured (and not rolled back)
+      if (effectiveVersion === 'v2' && !isRollbackActive) {
+        try {
+          console.log('[Parser] Using v2 parser pipeline');
+          const v2Result = await pdfParserV2Service.parseDocumentV2(buffer, { fileName });
+          
+          // If v2 parsing failed or confidence is too low, fall back to v1
+          if (!v2Result.success || v2Result.confidenceScore < 0.5) {
+            console.warn(`[Parser] v2 result insufficient (success=${v2Result.success}, confidence=${v2Result.confidenceScore}), falling back to v1`);
+            // Fall through to v1 parser
+          } else {
+            // Convert v2 holdings to unified format
+            result.holdings = v2Result.holdings.map(h => ({
+              id: crypto.randomUUID(),
+              isin: h.isin || '',
+              schemeName: h.schemeName,
+              folioNumber: h.folioNumber,
+              units: h.units,
+              investedValue: h.investedValue || 0,
+              currentValue: h.currentValue || 0,
+              nav: h.nav || 0,
+              unrealizedGain: h.unrealizedGain || 0,
+              unrealizedGainPercent: h.unrealizedGainPercent || 0,
+              purchaseDate: h.purchaseDate,
+              confidenceScore: h.confidenceScore,
+              assetType: 'mutual_fund' as const,
+              source: 'pdf_upload' as const,
+            }));
+            
+            result.summary = holdingNormalizationService.computeSummary(result.holdings);
+            result.confidenceScore = v2Result.confidenceScore;
+            result.success = v2Result.success;
+            result.parsingStatus = v2Result.success ? 'completed' : 'needs_review';
+            result.importedCount = v2Result.holdings.length;
+            result.errors = v2Result.errors;
+            result.capturedAt = new Date().toISOString();
+            
+            (result as any).parserVersion = 'v2';
+            (result as any).dualRunEnabled = false;
+            (result as any).rollbackActive = false;
+            (result as any).v2Profile = v2Result.profile;
+            (result as any).v2Result = v2Result;
+            
+            // Generate audit record for v2 path
+            const v2AuditRecord = pdfParserV2Service.createAuditRecord(
+              v2Result.profile,
+              {
+                success: result.success,
+                holdingsCount: result.holdings.length,
+                totalValue: result.summary?.totalCurrentValue || 0,
+                confidenceScore: result.confidenceScore || 0,
+                errors: result.errors,
+                warnings: v2Result.warnings || [],
+                parseTimeMs: Date.now() - startTime,
+              },
+              {
+                fileName,
+                fileSize: buffer.length,
+                dualRunEnabled: false,
+              }
+            );
+            (result as any).auditRecord = v2AuditRecord;
+            
+            return result;
+          }
+        } catch (v2Error: any) {
+          console.warn('[Parser] v2 pipeline failed, falling back to v1:', v2Error.message);
+          // Fall through to v1 parser
+        }
+      }
       
-      if (shouldDualRun || effectiveVersion === 'v2') {
+      // Profile for dual-run mode
+      if (shouldDualRun) {
         try {
           profile = await pdfParserV2Service.profileDocument(buffer);
           console.log('[Parser] Document profiled:', profile.pdfType, profile.layoutType, 'confidence:', profile.confidenceScore);
@@ -72,10 +148,6 @@ class UnifiedPortfolioImportService {
         } catch (profileError: any) {
           console.warn('[Parser] Profiling failed:', profileError.message);
         }
-      }
-
-      if (isRollbackActive) {
-        console.log('[Parser] Rollback active - using v1 parser only');
       }
 
       const portfolioResult = await parsePDFPortfolio(buffer, fileName);
