@@ -817,13 +817,21 @@ export function registerKYCWizardRoutes(app: Express) {
         
         // Check document-required fields
         if (KYC_FIELD_RULES.documentRequired.includes(field)) {
+          // Enforce document upload for name/address changes (SEBI/RBI compliance)
+          const documentIds = updates.documentIds || [];
+          if (documentIds.length === 0) {
+            errors.push(`${field} change requires supporting documents. Please upload proof documents first.`);
+            continue;
+          }
+          
           // For name changes, require reason
           if (['firstName', 'middleName', 'lastName'].includes(field)) {
             if (!updates.nameChangeReason) {
-              warnings.push(`Name change requires a reason (e.g., marriage, legal name change). Document proof will be requested.`);
+              warnings.push(`Name change requires a reason (e.g., marriage, legal name change).`);
             }
           }
-          // Allow update but flag for document collection
+          
+          // Allow update with document proof provided
           allowedUpdates[field] = newValue;
           auditEntries.push({
             action: 'kyc_field_update',
@@ -833,17 +841,35 @@ export function registerKYCWizardRoutes(app: Express) {
             reason: updates.nameChangeReason || updates.addressChangeReason || 'User initiated change',
             riskImpact: 'medium',
             complianceImpact: 'minor',
-            requiresDocumentProof: true
+            requiresDocumentProof: true,
+            documentIds
           });
         }
         
         // Check OTP-required fields
         else if (KYC_FIELD_RULES.otpRequired.includes(field)) {
           // Verify OTP was provided and validated
-          if (!updates.otpVerified || !updates.otpSessionId) {
+          if (!updates.otpVerified) {
             errors.push(`${field} change requires OTP verification. Please verify your ${field} first.`);
             continue;
           }
+          
+          // Verify OTP session exists and is verified in database
+          const otpRecords = await db.select()
+            .from(schema.otpVerifications)
+            .where(eq(schema.otpVerifications.identifier, `profile_change_${userId}_${field}`))
+            .limit(1);
+          
+          const otpRecord = otpRecords[0];
+          if (!otpRecord || !otpRecord.verified) {
+            errors.push(`${field} OTP verification is invalid or expired. Please request a new OTP.`);
+            continue;
+          }
+          
+          // Clean up used OTP
+          await db.delete(schema.otpVerifications)
+            .where(eq(schema.otpVerifications.id, otpRecord.id));
+          
           allowedUpdates[field] = newValue;
           auditEntries.push({
             action: 'kyc_field_update',
@@ -853,7 +879,8 @@ export function registerKYCWizardRoutes(app: Express) {
             reason: 'OTP verified change',
             riskImpact: 'high',
             complianceImpact: 'major',
-            otpVerified: true
+            otpVerified: true,
+            otpVerifiedAt: new Date().toISOString()
           });
         }
         
@@ -970,6 +997,250 @@ export function registerKYCWizardRoutes(app: Express) {
     } catch (error) {
       console.error('Error fetching KYC change history:', error);
       res.status(500).json({ success: false, message: 'Failed to fetch change history' });
+    }
+  });
+
+  // ============================================================================
+  // OTP VERIFICATION FOR PROFILE CHANGES (Email/Mobile)
+  // Per RBI/SEBI guidelines, contact info changes require re-verification
+  // ============================================================================
+  
+  // Send OTP for profile change verification
+  app.post("/api/kyc/profile-change/send-otp", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { type, newValue } = req.body; // type: 'email' | 'mobile'
+      
+      if (!type || !newValue) {
+        return res.status(400).json({ success: false, message: 'Type and new value are required' });
+      }
+      
+      if (!['email', 'mobile'].includes(type)) {
+        return res.status(400).json({ success: false, message: 'Type must be email or mobile' });
+      }
+      
+      // Validate format
+      if (type === 'email') {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(newValue)) {
+          return res.status(400).json({ success: false, message: 'Invalid email format' });
+        }
+      } else {
+        const mobileRegex = /^[6-9]\d{9}$/;
+        if (!mobileRegex.test(newValue)) {
+          return res.status(400).json({ success: false, message: 'Invalid mobile format (10 digits starting with 6-9)' });
+        }
+      }
+      
+      // Generate 6-digit OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+      
+      // Delete any existing OTP for this identifier
+      await db.delete(schema.otpVerifications)
+        .where(eq(schema.otpVerifications.identifier, `profile_change_${userId}_${type}`));
+      
+      // Store OTP with profile change context
+      await db.insert(schema.otpVerifications).values({
+        identifier: `profile_change_${userId}_${type}`,
+        otp,
+        type: 'profile_change',
+        expiresAt,
+        metadata: {
+          userId,
+          changeType: type,
+          newValue,
+          requestedAt: new Date().toISOString()
+        }
+      });
+      
+      // Send OTP (in production, use actual email/SMS services)
+      console.log(`[KYC Profile Change] OTP ${otp} sent to ${type}: ${newValue} for user ${userId}`);
+      
+      // TODO: Integrate with actual email/SMS service
+      // if (type === 'email') {
+      //   await emailService.sendOTP(newValue, otp);
+      // } else {
+      //   await smsService.sendOTP(newValue, otp);
+      // }
+      
+      res.json({
+        success: true,
+        message: `OTP sent to your new ${type}`,
+        expiresIn: 600 // 10 minutes in seconds
+      });
+      
+    } catch (error) {
+      console.error('Error sending profile change OTP:', error);
+      res.status(500).json({ success: false, message: 'Failed to send OTP' });
+    }
+  });
+
+  // Verify OTP for profile change
+  app.post("/api/kyc/profile-change/verify-otp", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { type, otp } = req.body;
+      
+      if (!type || !otp) {
+        return res.status(400).json({ success: false, message: 'Type and OTP are required' });
+      }
+      
+      // Find OTP record
+      const identifier = `profile_change_${userId}_${type}`;
+      const otpRecords = await db.select()
+        .from(schema.otpVerifications)
+        .where(eq(schema.otpVerifications.identifier, identifier))
+        .limit(1);
+      
+      const otpRecord = otpRecords[0];
+      
+      if (!otpRecord) {
+        return res.status(400).json({ success: false, message: 'No pending OTP verification found. Please request a new OTP.' });
+      }
+      
+      // Check if expired
+      if (new Date() > otpRecord.expiresAt) {
+        await db.delete(schema.otpVerifications)
+          .where(eq(schema.otpVerifications.id, otpRecord.id));
+        return res.status(400).json({ success: false, message: 'OTP has expired. Please request a new one.' });
+      }
+      
+      // Verify OTP
+      if (otpRecord.otp !== otp) {
+        return res.status(400).json({ success: false, message: 'Invalid OTP. Please check and try again.' });
+      }
+      
+      // Mark as verified
+      await db.update(schema.otpVerifications)
+        .set({ verified: true })
+        .where(eq(schema.otpVerifications.id, otpRecord.id));
+      
+      // Generate session token for the verified change
+      const sessionId = nanoid(32);
+      
+      res.json({
+        success: true,
+        message: `${type} verified successfully`,
+        otpSessionId: sessionId,
+        verifiedValue: (otpRecord.metadata as any)?.newValue
+      });
+      
+    } catch (error) {
+      console.error('Error verifying profile change OTP:', error);
+      res.status(500).json({ success: false, message: 'Failed to verify OTP' });
+    }
+  });
+
+  // ============================================================================
+  // DOCUMENT UPLOAD FOR KYC CHANGES
+  // Name/Address changes require supporting documents per regulations
+  // ============================================================================
+  
+  app.post("/api/kyc/profile-change/upload-document", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { documentType, documentName, changeType, base64Data } = req.body;
+      
+      if (!documentType || !changeType) {
+        return res.status(400).json({ success: false, message: 'Document type and change type are required' });
+      }
+      
+      // Valid document types for name/address changes
+      const validNameDocs = ['gazette_notification', 'marriage_certificate', 'court_order', 'passport'];
+      const validAddressDocs = ['utility_bill', 'bank_statement', 'aadhaar_card', 'rental_agreement', 'passport'];
+      
+      const validDocs = changeType === 'name' ? validNameDocs : validAddressDocs;
+      
+      if (!validDocs.includes(documentType)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Invalid document type for ${changeType} change. Valid types: ${validDocs.join(', ')}`
+        });
+      }
+      
+      // In production, store actual document in object storage
+      // For now, just record the document reference
+      const documentId = nanoid(16);
+      
+      // Log to audit trail
+      await db.insert(schema.complianceAuditTrail).values({
+        userId,
+        action: 'document_upload',
+        fieldChanged: changeType,
+        newValue: documentType,
+        reason: `Supporting document for ${changeType} change`,
+        performedBy: userId,
+        performedByRole: 'user',
+        riskImpact: 'medium',
+        complianceImpact: 'minor',
+        metadata: {
+          documentId,
+          documentType,
+          documentName: documentName || 'Unknown',
+          uploadedAt: new Date().toISOString()
+        }
+      });
+      
+      res.json({
+        success: true,
+        message: 'Document uploaded successfully',
+        documentId,
+        documentType
+      });
+      
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      res.status(500).json({ success: false, message: 'Failed to upload document' });
+    }
+  });
+
+  // Get required documents for a change type
+  app.get("/api/kyc/profile-change/required-documents/:changeType", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const { changeType } = req.params;
+      
+      const documentRequirements: Record<string, any> = {
+        name: {
+          required: true,
+          acceptedTypes: [
+            { id: 'gazette_notification', name: 'Gazette Notification', description: 'Official gazette notification for name change' },
+            { id: 'marriage_certificate', name: 'Marriage Certificate', description: 'For name change due to marriage' },
+            { id: 'court_order', name: 'Court Order', description: 'Legal court order for name change' },
+            { id: 'passport', name: 'Passport', description: 'Passport with new name' }
+          ],
+          message: 'As per SEBI/RBI guidelines, name changes require legal documentation.'
+        },
+        address: {
+          required: true,
+          acceptedTypes: [
+            { id: 'utility_bill', name: 'Utility Bill', description: 'Recent electricity/water/gas bill (not older than 3 months)' },
+            { id: 'bank_statement', name: 'Bank Statement', description: 'Recent bank statement with new address' },
+            { id: 'aadhaar_card', name: 'Aadhaar Card', description: 'Updated Aadhaar card with new address' },
+            { id: 'rental_agreement', name: 'Rental Agreement', description: 'Registered rental agreement' },
+            { id: 'passport', name: 'Passport', description: 'Passport with new address' }
+          ],
+          message: 'Address proof document must be recent (within 3 months) as per KYC guidelines.'
+        }
+      };
+      
+      const requirements = documentRequirements[changeType];
+      
+      if (!requirements) {
+        return res.json({
+          success: true,
+          data: { required: false, message: 'No document required for this change type' }
+        });
+      }
+      
+      res.json({
+        success: true,
+        data: requirements
+      });
+      
+    } catch (error) {
+      console.error('Error fetching document requirements:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch requirements' });
     }
   });
 

@@ -161,6 +161,23 @@ export default function SmartKYCOnboarding() {
   const [editErrors, setEditErrors] = useState<string[]>([]);
   const [editWarnings, setEditWarnings] = useState<string[]>([]);
   
+  // OTP verification state for email/mobile changes
+  const [editOtpType, setEditOtpType] = useState<'email' | 'mobile' | null>(null);
+  const [editOtpValue, setEditOtpValue] = useState('');
+  const [editOtpInput, setEditOtpInput] = useState('');
+  const [editOtpSent, setEditOtpSent] = useState(false);
+  const [editOtpVerified, setEditOtpVerified] = useState<{email?: boolean, mobile?: boolean}>({});
+  const [editOtpSessionId, setEditOtpSessionId] = useState<{email?: string, mobile?: string}>({});
+  const [editOtpSending, setEditOtpSending] = useState(false);
+  const [editOtpVerifying, setEditOtpVerifying] = useState(false);
+  
+  // Document upload state for name/address changes
+  const [editDocuments, setEditDocuments] = useState<{id: string, type: string, name: string}[]>([]);
+  const [editDocumentType, setEditDocumentType] = useState('');
+  const [editDocumentUploading, setEditDocumentUploading] = useState(false);
+  const [nameChanged, setNameChanged] = useState(false);
+  const [addressChanged, setAddressChanged] = useState(false);
+  
   // Pan Verification State
   const [panNumber, setPanNumber] = useState('');
   const [panFullName, setPanFullName] = useState('');
@@ -3188,6 +3205,303 @@ export default function SmartKYCOnboarding() {
               </CardContent>
             </Card>
 
+            {/* OTP-Required Fields Section (Email/Mobile) */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-purple-500" />
+                  Contact Information (OTP Verification Required)
+                </CardTitle>
+                <CardDescription>
+                  Changes to email or mobile require OTP verification for security.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="email">Email Address</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input 
+                        id="email"
+                        type="email"
+                        value={editFormData.email || ''} 
+                        onChange={(e) => {
+                          setEditFormData({...editFormData, email: e.target.value});
+                          if (e.target.value !== editFieldRules?.currentValues?.email) {
+                            setEditOtpVerified({...editOtpVerified, email: false});
+                          }
+                        }}
+                        placeholder="Enter email"
+                        className={editOtpVerified.email ? 'border-green-500' : ''}
+                      />
+                      {editFormData.email && editFormData.email !== editFieldRules?.currentValues?.email && (
+                        editOtpVerified.email ? (
+                          <Badge variant="default" className="bg-green-500 whitespace-nowrap">Verified</Badge>
+                        ) : (
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm"
+                            disabled={editOtpSending}
+                            onClick={async () => {
+                              setEditOtpSending(true);
+                              try {
+                                const res = await fetch('/api/kyc/profile-change/send-otp', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  credentials: 'include',
+                                  body: JSON.stringify({ type: 'email', newValue: editFormData.email })
+                                });
+                                const data = await res.json();
+                                if (data.success) {
+                                  setEditOtpType('email');
+                                  setEditOtpValue(editFormData.email || '');
+                                  setEditOtpSent(true);
+                                  toast({ title: "OTP Sent", description: "Check your email for the verification code" });
+                                } else {
+                                  toast({ title: "Error", description: data.message, variant: "destructive" });
+                                }
+                              } catch (err) {
+                                toast({ title: "Error", description: "Failed to send OTP", variant: "destructive" });
+                              }
+                              setEditOtpSending(false);
+                            }}
+                          >
+                            {editOtpSending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Verify'}
+                          </Button>
+                        )
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="mobile">Mobile Number</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input 
+                        id="mobile"
+                        type="tel"
+                        value={editFormData.mobile || ''} 
+                        onChange={(e) => {
+                          setEditFormData({...editFormData, mobile: e.target.value});
+                          if (e.target.value !== editFieldRules?.currentValues?.mobile) {
+                            setEditOtpVerified({...editOtpVerified, mobile: false});
+                          }
+                        }}
+                        placeholder="Enter 10-digit mobile"
+                        className={editOtpVerified.mobile ? 'border-green-500' : ''}
+                      />
+                      {editFormData.mobile && editFormData.mobile !== editFieldRules?.currentValues?.mobile && (
+                        editOtpVerified.mobile ? (
+                          <Badge variant="default" className="bg-green-500 whitespace-nowrap">Verified</Badge>
+                        ) : (
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm"
+                            disabled={editOtpSending}
+                            onClick={async () => {
+                              setEditOtpSending(true);
+                              try {
+                                const res = await fetch('/api/kyc/profile-change/send-otp', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  credentials: 'include',
+                                  body: JSON.stringify({ type: 'mobile', newValue: editFormData.mobile })
+                                });
+                                const data = await res.json();
+                                if (data.success) {
+                                  setEditOtpType('mobile');
+                                  setEditOtpValue(editFormData.mobile || '');
+                                  setEditOtpSent(true);
+                                  toast({ title: "OTP Sent", description: "Check your mobile for the verification code" });
+                                } else {
+                                  toast({ title: "Error", description: data.message, variant: "destructive" });
+                                }
+                              } catch (err) {
+                                toast({ title: "Error", description: "Failed to send OTP", variant: "destructive" });
+                              }
+                              setEditOtpSending(false);
+                            }}
+                          >
+                            {editOtpSending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Verify'}
+                          </Button>
+                        )
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* OTP Input Dialog */}
+                {editOtpSent && editOtpType && !editOtpVerified[editOtpType] && (
+                  <Alert className="mt-4">
+                    <Shield className="h-4 w-4" />
+                    <AlertTitle>Enter OTP sent to your {editOtpType}</AlertTitle>
+                    <AlertDescription>
+                      <div className="flex gap-2 mt-2">
+                        <Input 
+                          value={editOtpInput}
+                          onChange={(e) => setEditOtpInput(e.target.value)}
+                          placeholder="Enter 6-digit OTP"
+                          maxLength={6}
+                          className="max-w-[150px]"
+                        />
+                        <Button
+                          size="sm"
+                          disabled={editOtpVerifying || editOtpInput.length !== 6}
+                          onClick={async () => {
+                            setEditOtpVerifying(true);
+                            try {
+                              const res = await fetch('/api/kyc/profile-change/verify-otp', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                credentials: 'include',
+                                body: JSON.stringify({ type: editOtpType, otp: editOtpInput })
+                              });
+                              const data = await res.json();
+                              if (data.success) {
+                                setEditOtpVerified({...editOtpVerified, [editOtpType!]: true});
+                                setEditOtpSessionId({...editOtpSessionId, [editOtpType!]: data.otpSessionId});
+                                setEditOtpSent(false);
+                                setEditOtpInput('');
+                                toast({ title: "Verified", description: `${editOtpType} verified successfully` });
+                              } else {
+                                toast({ title: "Invalid OTP", description: data.message, variant: "destructive" });
+                              }
+                            } catch (err) {
+                              toast({ title: "Error", description: "Failed to verify OTP", variant: "destructive" });
+                            }
+                            setEditOtpVerifying(false);
+                          }}
+                        >
+                          {editOtpVerifying ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Verify OTP'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setEditOtpSent(false);
+                            setEditOtpInput('');
+                            setEditOtpType(null);
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Document Upload Section (appears when name/address is changed) */}
+            {((editFormData.firstName !== editFieldRules?.currentValues?.firstName) ||
+              (editFormData.lastName !== editFieldRules?.currentValues?.lastName) ||
+              (editFormData.address !== editFieldRules?.currentValues?.address) ||
+              (editFormData.city !== editFieldRules?.currentValues?.city) ||
+              (editFormData.pincode !== editFieldRules?.currentValues?.pincode)) && (
+              <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Upload className="h-5 w-5 text-amber-600" />
+                    Supporting Documents Required
+                  </CardTitle>
+                  <CardDescription>
+                    As per SEBI/RBI regulations, name or address changes require supporting documents.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Document Type</Label>
+                      <Select 
+                        value={editDocumentType} 
+                        onValueChange={setEditDocumentType}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select document type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="gazette_notification">Gazette Notification (Name Change)</SelectItem>
+                          <SelectItem value="marriage_certificate">Marriage Certificate</SelectItem>
+                          <SelectItem value="utility_bill">Utility Bill (Address Proof)</SelectItem>
+                          <SelectItem value="bank_statement">Bank Statement (Address Proof)</SelectItem>
+                          <SelectItem value="aadhaar_card">Aadhaar Card</SelectItem>
+                          <SelectItem value="passport">Passport</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={!editDocumentType || editDocumentUploading}
+                        onClick={async () => {
+                          setEditDocumentUploading(true);
+                          try {
+                            const changeType = editFormData.firstName !== editFieldRules?.currentValues?.firstName ||
+                                              editFormData.lastName !== editFieldRules?.currentValues?.lastName
+                              ? 'name' : 'address';
+                            const res = await fetch('/api/kyc/profile-change/upload-document', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              credentials: 'include',
+                              body: JSON.stringify({
+                                documentType: editDocumentType,
+                                documentName: editDocumentType.replace(/_/g, ' '),
+                                changeType
+                              })
+                            });
+                            const data = await res.json();
+                            if (data.success) {
+                              setEditDocuments([...editDocuments, {
+                                id: data.documentId,
+                                type: editDocumentType,
+                                name: editDocumentType.replace(/_/g, ' ')
+                              }]);
+                              setEditDocumentType('');
+                              toast({ title: "Document Uploaded", description: "Supporting document added successfully" });
+                            } else {
+                              toast({ title: "Error", description: data.message, variant: "destructive" });
+                            }
+                          } catch (err) {
+                            toast({ title: "Error", description: "Failed to upload document", variant: "destructive" });
+                          }
+                          setEditDocumentUploading(false);
+                        }}
+                      >
+                        {editDocumentUploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+                        Add Document
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {/* Uploaded documents list */}
+                  {editDocuments.length > 0 && (
+                    <div className="mt-4">
+                      <Label className="text-sm text-muted-foreground">Uploaded Documents:</Label>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {editDocuments.map((doc, i) => (
+                          <Badge key={i} variant="secondary" className="flex items-center gap-1">
+                            <FileText className="h-3 w-3" />
+                            {doc.name}
+                            <CheckCircle className="h-3 w-3 text-green-500 ml-1" />
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {editDocuments.length === 0 && (
+                    <Alert variant="destructive" className="mt-2">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        You must upload at least one supporting document before saving changes.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {/* Submit Button */}
             <div className="flex justify-end gap-4">
               <Button 
@@ -3197,7 +3511,45 @@ export default function SmartKYCOnboarding() {
                 Cancel
               </Button>
               <Button 
-                onClick={() => editKycMutation.mutate(editFormData)}
+                onClick={() => {
+                  // Validate before submit
+                  const errors: string[] = [];
+                  
+                  // Check OTP verification for email/mobile changes
+                  if (editFormData.email && editFormData.email !== editFieldRules?.currentValues?.email && !editOtpVerified.email) {
+                    errors.push('Please verify your new email address with OTP');
+                  }
+                  if (editFormData.mobile && editFormData.mobile !== editFieldRules?.currentValues?.mobile && !editOtpVerified.mobile) {
+                    errors.push('Please verify your new mobile number with OTP');
+                  }
+                  
+                  // Check document upload for name/address changes
+                  const hasNameChange = editFormData.firstName !== editFieldRules?.currentValues?.firstName ||
+                                       editFormData.lastName !== editFieldRules?.currentValues?.lastName;
+                  const hasAddressChange = editFormData.address !== editFieldRules?.currentValues?.address ||
+                                          editFormData.city !== editFieldRules?.currentValues?.city ||
+                                          editFormData.pincode !== editFieldRules?.currentValues?.pincode;
+                  
+                  if ((hasNameChange || hasAddressChange) && editDocuments.length === 0) {
+                    errors.push('Please upload supporting documents for name/address changes');
+                  }
+                  
+                  if (errors.length > 0) {
+                    setEditErrors(errors);
+                    toast({ title: "Validation Required", description: errors[0], variant: "destructive" });
+                    return;
+                  }
+                  
+                  // Include OTP session IDs in the submission
+                  const submitData = {
+                    ...editFormData,
+                    otpVerified: editOtpVerified.email || editOtpVerified.mobile,
+                    otpSessionId: editOtpSessionId.email || editOtpSessionId.mobile,
+                    documentIds: editDocuments.map(d => d.id)
+                  };
+                  
+                  editKycMutation.mutate(submitData);
+                }}
                 disabled={editKycMutation.isPending}
               >
                 {editKycMutation.isPending ? (
