@@ -956,7 +956,12 @@ export default function ProfilePage() {
 
                             {/* Edit KYC Button */}
                             <div className="flex justify-end">
-                              <Button variant="outline" className="gap-2" data-testid="button-edit-kyc">
+                              <Button 
+                                variant="outline" 
+                                className="gap-2" 
+                                data-testid="button-edit-kyc"
+                                onClick={() => setLocation('/onboarding?mode=edit')}
+                              >
                                 <Edit className="h-4 w-4" />
                                 Edit KYC Details
                               </Button>

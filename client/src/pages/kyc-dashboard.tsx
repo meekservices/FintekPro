@@ -7,11 +7,13 @@ import { Shield, ShieldCheck, Crown, CheckCircle2, XCircle, AlertCircle, Lock, U
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
+import { useLocation } from 'wouter';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function KYCDashboard() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [selectedTier, setSelectedTier] = useState<string>('');
 
   // Fetch current user
@@ -247,7 +249,12 @@ export default function KYCDashboard() {
 
           {/* Edit KYC Button */}
           <div className="flex justify-end">
-            <Button variant="outline" className="gap-2" data-testid="button-edit-kyc">
+            <Button 
+              variant="outline" 
+              className="gap-2" 
+              data-testid="button-edit-kyc"
+              onClick={() => setLocation('/onboarding?mode=edit')}
+            >
               <Edit className="h-4 w-4" />
               Edit KYC Details
             </Button>
