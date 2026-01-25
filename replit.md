@@ -28,6 +28,14 @@ The Corporate Treasury Management module is SEBI-compliant, with a configurable 
 
 External data integration includes a Financial Calendar and a Market Holiday Service. A Centralized Portfolio Import System (`unified-portfolio-import-service.ts`) supports diverse import sources (PDF/HTML, URL, API, manual) with a unified type system, normalization, and storage. It includes fund name normalization, ISIN extraction with checksum validation, AMFI lookup, and AI fallback for parsing.
 
+A **PDF Parser v2 System** (`pdf-parser-v2.ts`) provides an intelligent next-generation PDF parsing engine with:
+- **Feature Flag System**: Configurable parser version (v1/v2/dual) with admin API controls at `/api/admin/parser/*`
+- **Document Profiler**: SHA-256 fingerprinting, PDF type detection (CAS CAMS/KFINTECH, broker statements, aggregators), layout classification (tabular/semi-structured/narrative/mixed)
+- **Dual-Run Mode**: Execute both parsers simultaneously for comparison and confidence scoring
+- **Rollback Switch**: Emergency switch to force v1 usage when v2 issues are detected
+- **Audit Trail**: Comprehensive parsing history in `pdf_parsing_audit_trail` table with holdings count, confidence, errors, and dual-run comparison data
+- **Learning Store**: Pattern storage in `pdf_profiles` table for future format matching
+
 A Unified Portfolio Storage System consolidates portfolio data for prospects and clients, tracking sources and refresh statuses, and supporting prospect-to-client transitions. It includes asynchronous background CAS refreshes with transaction-safe atomic updates.
 
 The platform includes real-time portfolio/market data, financial calculators, multi-asset support, family collaboration, a 3-tier KYC system, and an AI Chat Assistant (Google Gemini).
