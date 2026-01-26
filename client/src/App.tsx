@@ -174,6 +174,9 @@ const AgentCalendar = lazy(() => import("@/pages/agent-calendar"));
 const AgentESign = lazy(() => import("@/pages/agent-esign"));
 const AgentClientOnboarding = lazy(() => import("@/pages/agent-client-onboarding"));
 const AgentLoanApply = lazy(() => import("@/pages/agent/loan-apply"));
+const AgentLoanMarketplace = lazy(() => import("@/pages/agent/loan-marketplace"));
+const AgentLoanApplications = lazy(() => import("@/pages/agent/loan-applications"));
+const AgentDSAPerformance = lazy(() => import("@/pages/agent/dsa-performance"));
 import OnboardingPage from "@/pages/onboarding";
 import PublicProposalPage from "@/pages/public-proposal";
 import ManualKYCPage from "@/pages/manual-kyc";
@@ -1859,6 +1862,33 @@ function AgentRoutes() {
           <AgentLayout>
             <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
               <AgentLoanApply />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/loan-marketplace">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentLoanMarketplace />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/loan-applications">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentLoanApplications />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/dsa-performance">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentDSAPerformance />
             </Suspense>
           </AgentLayout>
         )}
