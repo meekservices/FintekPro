@@ -688,17 +688,19 @@ app.use((req, res, next) => {
       logger.serviceError('Capital Gains Tax Reminder Scheduler', 'Error importing service module', error instanceof Error ? error : undefined);
     }
     
-    // Initialize Bond Catalog Service
-    try {
-      import('./bond-catalog-service').then(({ bondCatalogService }) => {
-        bondCatalogService.startAutoRefresh();
-        logger.service('Bond Catalog Service', 'Service initialized successfully');
-      }).catch(error => {
-        console.error('❌ Failed to initialize bond catalog service:', error);
-      });
-    } catch (error) {
-      console.error('❌ Error importing bond catalog service:', error);
-    }
+    // Initialize Bond Catalog Service (delayed to reduce startup load)
+    setTimeout(() => {
+      try {
+        import('./bond-catalog-service').then(({ bondCatalogService }) => {
+          bondCatalogService.startAutoRefresh();
+          logger.service('Bond Catalog Service', 'Service initialized successfully');
+        }).catch(error => {
+          console.error('❌ Failed to initialize bond catalog service:', error);
+        });
+      } catch (error) {
+        console.error('❌ Error importing bond catalog service:', error);
+      }
+    }, 5000); // 5 second delay
     
     // Initialize Alert Monitoring Service
     try {
@@ -712,18 +714,20 @@ app.use((req, res, next) => {
       console.error('❌ Error importing alert monitoring service:', error);
     }
     
-    // Initialize Currency Exchange Service
-    try {
-      import('./services/currency-exchange-service').then(async ({ currencyExchangeService }) => {
-        await currencyExchangeService.initializeRates();
-        currencyExchangeService.startAutoRefresh();
-        logger.service('Currency Exchange Service', 'Service initialized successfully');
-      }).catch(error => {
-        console.error('❌ Failed to initialize currency exchange service:', error);
-      });
-    } catch (error) {
-      console.error('❌ Error importing currency exchange service:', error);
-    }
+    // Initialize Currency Exchange Service (delayed to reduce startup load)
+    setTimeout(() => {
+      try {
+        import('./services/currency-exchange-service').then(async ({ currencyExchangeService }) => {
+          await currencyExchangeService.initializeRates();
+          currencyExchangeService.startAutoRefresh();
+          logger.service('Currency Exchange Service', 'Service initialized successfully');
+        }).catch(error => {
+          console.error('❌ Failed to initialize currency exchange service:', error);
+        });
+      } catch (error) {
+        console.error('❌ Error importing currency exchange service:', error);
+      }
+    }, 10000); // 10 second delay (after bond catalog)
     
     // Initialize Session Cleanup Cron Job
     try {
@@ -806,17 +810,19 @@ app.use((req, res, next) => {
       logger.serviceError('Unlisted Marketplace Cron', 'Failed to initialize cron jobs', error instanceof Error ? error : undefined);
     }
     
-    // Initialize Financial Data Scheduler for database-driven caching
-    try {
-      import('./services/financial-data-scheduler').then(({ financialDataScheduler }) => {
-        financialDataScheduler.start();
-        logger.service('Financial Data Scheduler', 'Started periodic data refresh');
-      }).catch(error => {
-        console.error('❌ Failed to start financial data scheduler:', error);
-      });
-    } catch (error) {
-      console.error('❌ Error initializing financial data scheduler:', error);
-    }
+    // Initialize Financial Data Scheduler for database-driven caching (delayed to reduce startup load)
+    setTimeout(() => {
+      try {
+        import('./services/financial-data-scheduler').then(({ financialDataScheduler }) => {
+          financialDataScheduler.start();
+          logger.service('Financial Data Scheduler', 'Started periodic data refresh');
+        }).catch(error => {
+          console.error('❌ Failed to start financial data scheduler:', error);
+        });
+      } catch (error) {
+        console.error('❌ Error initializing financial data scheduler:', error);
+      }
+    }, 15000); // 15 second delay (after currency exchange)
     
     // Seed default store categories if not present
     storage.seedDefaultStoreCategories().catch(error => {

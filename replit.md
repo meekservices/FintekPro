@@ -82,6 +82,11 @@ The platform utilizes a subdomain-based portal architecture for Admin, Partner, 
 ### Service Architecture Guidelines
 FintekPro uses a **Centralized Service Registry** pattern to prevent duplicate service initialization and ensure consistent singleton management. Key patterns include Singleton Services (lazy initialization), One-Time Logging for warnings, and predefined Service Categories (e.g., `DATA_PROVIDER`, `AI_SERVICE`, `INTEGRATION`).
 
+A **Staggered Startup System** prevents resource contention and 502 errors during server initialization:
+- **Cron Job Staggering**: Background sync jobs (REIT/InvIT, MF NAV, AIF NAV, PMS NAV, Commodity, Exit Load) start 30 seconds apart
+- **External API Service Delays**: Bond Catalog (5s), Currency Exchange (10s), Financial Data Scheduler (15s) are delayed to allow the server to become responsive before making heavy external API calls
+- **Error Monitoring**: Request latency tracking logs slow requests (>1000ms) for performance analysis
+
 ### Regulatory Compliance Infrastructure
 A comprehensive **Regulatory Gaps Tracker** monitors compliance across SEBI, RBI, IRDAI, MCA, and ITD regulators, with all 10 tracked items completed. This includes Consent Audit Trail (DPDPA 2023), AI Advisory Risk Disclosure (SEBI AI/ML Guidelines), Key Facts Statement for Loans (RBI), RIA Registration Validation (SEBI IA Regulations), Insurance Suitability Assessment (IRDAI), Beneficial Ownership Disclosure (MCA), Overseas Investment Limit Tracking (FEMA LRS), Client Money Segregation Audit (SEBI), and SEBI SCORES Integration.
 
