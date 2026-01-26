@@ -74,6 +74,13 @@ Offline & Slow-Internet Resilience is achieved through PWA capabilities includin
 
 A DSA Multi-Financier Loan Routing System enables multi-bank loan applications with RBI Digital Lending Directions 2025 compliance, featuring a credit engine and Key Facts Statement (KFS) generation. A DSA Bank Eligibility Matrix System provides configurable bank-specific eligibility rules.
 
+A **Bank OAuth Integration Infrastructure** provides secure bank API connectivity:
+- **Bank Credentials Vault Service**: AES-256-GCM encrypted credential storage with environment isolation (sandbox/production)
+- **Bank Token Management Service**: OAuth 2.0 token lifecycle with auto-refresh (5 min before expiry), circuit breaker pattern (3 failures → 60s cooldown)
+- **Bank API Rate Limiter**: Token bucket algorithm with per-bank configuration (default 60/min, ICICI 100/min, Bajaj 120/min) and operation weights (submit=5, upload=3, status=1)
+- **Bank API Audit Service**: RBI-compliant transaction logging with 180-day retention, request hashing, and sensitive data redaction
+- **Database Tables**: `bank_credentials_vault`, `bank_oauth_tokens`, `bank_api_audit_logs`
+
 An **MCA Integration System** provides comprehensive company financial data management, including direct payment processing for 14 MCA fee types with Zoho Books auto-sync, financial data backfill, and an auto-refresh scheduler. A **Database-First Data Enrichment System** for unlisted shares implements a tiered data access pattern, checking local data before API calls, with staleness detection and auto-refresh scheduling for cost optimization.
 
 ### System Design Choices
