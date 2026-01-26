@@ -564,12 +564,13 @@ export default function AuthPage() {
   });
 
   // Redirect if already authenticated
-  if (!isAuthLoading && user) {
-    navigate(withPortalParams("/"));
-    return null;
-  }
+  useEffect(() => {
+    if (!isAuthLoading && user) {
+      navigate(withPortalParams("/"));
+    }
+  }, [isAuthLoading, user, navigate, withPortalParams]);
 
-  if (isAuthLoading) {
+  if (isAuthLoading || user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" data-testid="loader-auth" />
