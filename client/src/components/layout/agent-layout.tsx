@@ -45,7 +45,11 @@ import {
   Palette,
   Banknote,
   Store,
-  ClipboardList
+  ClipboardList,
+  Video,
+  Send,
+  Sparkles,
+  Mail
 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { cn } from "@/lib/utils";
@@ -90,6 +94,7 @@ const agentNavCategories: NavCategory[] = [
       { title: "Zoho CRM", href: "/agent/zoho-crm", icon: Target, description: "All leads from Zoho" },
       { title: "Tasks", href: "/agent/tasks", icon: CheckSquare, description: "Tasks and reminders" },
       { title: "Calendar", href: "/agent/calendar", icon: Calendar, description: "Appointments" },
+      { title: "Meetings", href: "/agent/meetings", icon: Video, description: "Video meetings with clients" },
     ]
   },
   {
@@ -127,6 +132,8 @@ const agentNavCategories: NavCategory[] = [
       { title: "My Payouts", href: "/agent/payouts", icon: DollarSign, description: "Earnings & payouts" },
       { title: "Reports", href: "/agent/reports", icon: BarChart3, description: "Client reports" },
       { title: "AI Advisory", href: "/agent/investment-advisory", icon: Brain, description: "AI recommendations" },
+      { title: "Festival Greetings", href: "/agent/festival-greetings", icon: Sparkles, description: "Send festival wishes" },
+      { title: "Bulk Communication", href: "/agent/bulk-communication", icon: Mail, description: "Email/SMS campaigns" },
     ]
   },
   {
