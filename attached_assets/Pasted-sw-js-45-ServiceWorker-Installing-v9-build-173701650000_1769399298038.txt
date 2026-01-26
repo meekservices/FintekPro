@@ -1,0 +1,24 @@
+sw.js:45 [ServiceWorker] Installing v9 (build: 1737016500000)...
+sw.js:50 [ServiceWorker] Caching static assets
+sw.js:64 [ServiceWorker] Skip waiting to activate immediately
+sw.js:71 [ServiceWorker] Activating v9...
+sw.js:94 [ServiceWorker] Claiming all clients
+chunk-XQLYTHWV.js?v=228f95bf:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+main.tsx:23 [PWA] Service Worker registered: https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/
+chunk-XQLYTHWV.js?v=228f95bf:521 Warning: Cannot update a component (`AuthPage`) while rendering a different component (`AuthPage`). To locate the bad setState() call inside `AuthPage`, follow the stack trace as described in https://reactjs.org/link/setstate-in-render
+    at AuthPage (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/auth-page.tsx:72:24)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=228f95bf:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=228f95bf:379:17)
+    at AdminRoutes
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=kXjGJFaLDPka_v-ce3nQN:4204:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=228f95bf:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=228f95bf:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:22:39)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=228f95bf:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:97:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:20:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ chunk-XQLYTHWV.js?v=228f95bf:521

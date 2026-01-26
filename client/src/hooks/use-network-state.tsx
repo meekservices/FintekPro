@@ -1,16 +1,18 @@
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode, useRef } from 'react';
 
-export type NetworkStatus = 'online' | 'offline' | 'slow';
+export type NetworkStatus = 'online' | 'offline' | 'slow' | 'server-error';
 
 interface NetworkState {
   status: NetworkStatus;
   isOnline: boolean;
   isOffline: boolean;
   isSlow: boolean;
+  isServerError: boolean;
   effectiveType: string | null;
   downlink: number | null;
   rtt: number | null;
   lastChecked: Date;
+  retryCount: number;
 }
 
 interface NetworkContextValue extends NetworkState {
@@ -23,17 +25,24 @@ interface NetworkProviderProps {
   children: ReactNode;
 }
 
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1500;
+
 export function NetworkProvider({ children }: NetworkProviderProps) {
   const [state, setState] = useState<NetworkState>(() => ({
     status: navigator.onLine ? 'online' : 'offline',
     isOnline: navigator.onLine,
     isOffline: !navigator.onLine,
     isSlow: false,
+    isServerError: false,
     effectiveType: null,
     downlink: null,
     rtt: null,
     lastChecked: new Date(),
+    retryCount: 0,
   }));
+  
+  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const getNetworkInfo = useCallback(() => {
     const connection = (navigator as any).connection || 
@@ -73,7 +82,7 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
     return 'online';
   }, []);
 
-  const checkConnection = useCallback(async (): Promise<NetworkStatus> => {
+  const checkConnectionWithRetry = useCallback(async (retryCount: number = 0): Promise<NetworkStatus> => {
     const isOnline = navigator.onLine;
     const networkInfo = getNetworkInfo();
     
@@ -85,8 +94,10 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
         isOnline: false,
         isOffline: true,
         isSlow: false,
+        isServerError: false,
         ...networkInfo,
         lastChecked: new Date(),
+        retryCount: 0,
       }));
       return newStatus;
     }
@@ -96,7 +107,7 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
       
-      await fetch('/api/health', { 
+      const response = await fetch('/api/health', { 
         method: 'HEAD',
         signal: controller.signal,
         cache: 'no-store'
@@ -104,6 +115,41 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
       
       clearTimeout(timeoutId);
       const responseTime = performance.now() - startTime;
+      
+      if (response.status >= 500 && response.status < 600) {
+        if (retryCount < MAX_RETRIES) {
+          setState(prev => ({
+            ...prev,
+            status: 'server-error',
+            isOnline: true,
+            isOffline: false,
+            isSlow: false,
+            isServerError: true,
+            ...networkInfo,
+            lastChecked: new Date(),
+            retryCount: retryCount + 1,
+          }));
+          
+          retryTimeoutRef.current = setTimeout(() => {
+            checkConnectionWithRetry(retryCount + 1);
+          }, RETRY_DELAY);
+          
+          return 'server-error';
+        } else {
+          setState(prev => ({
+            ...prev,
+            status: 'server-error',
+            isOnline: true,
+            isOffline: false,
+            isSlow: false,
+            isServerError: true,
+            ...networkInfo,
+            lastChecked: new Date(),
+            retryCount: retryCount,
+          }));
+          return 'server-error';
+        }
+      }
       
       let status: NetworkStatus = determineStatus(true, networkInfo);
       if (responseTime > 2000) {
@@ -113,28 +159,97 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
       setState(prev => ({
         ...prev,
         status,
-        isOnline: status !== 'offline',
-        isOffline: status === 'offline',
+        isOnline: true,
+        isOffline: false,
         isSlow: status === 'slow',
+        isServerError: false,
         ...networkInfo,
         lastChecked: new Date(),
+        retryCount: 0,
       }));
       
       return status;
-    } catch (error) {
-      const newStatus = 'offline';
+    } catch (error: any) {
+      if (error?.name === 'AbortError') {
+        if (retryCount < MAX_RETRIES) {
+          setState(prev => ({
+            ...prev,
+            status: 'slow',
+            isOnline: true,
+            isOffline: false,
+            isSlow: true,
+            isServerError: false,
+            ...networkInfo,
+            lastChecked: new Date(),
+            retryCount: retryCount + 1,
+          }));
+          
+          retryTimeoutRef.current = setTimeout(() => {
+            checkConnectionWithRetry(retryCount + 1);
+          }, RETRY_DELAY);
+          
+          return 'slow';
+        }
+      }
+      
+      if (!navigator.onLine) {
+        const newStatus = 'offline';
+        setState(prev => ({
+          ...prev,
+          status: newStatus,
+          isOnline: false,
+          isOffline: true,
+          isSlow: false,
+          isServerError: false,
+          ...networkInfo,
+          lastChecked: new Date(),
+          retryCount: 0,
+        }));
+        return newStatus;
+      }
+      
+      if (retryCount < MAX_RETRIES) {
+        setState(prev => ({
+          ...prev,
+          status: 'server-error',
+          isOnline: true,
+          isOffline: false,
+          isSlow: false,
+          isServerError: true,
+          ...networkInfo,
+          lastChecked: new Date(),
+          retryCount: retryCount + 1,
+        }));
+        
+        retryTimeoutRef.current = setTimeout(() => {
+          checkConnectionWithRetry(retryCount + 1);
+        }, RETRY_DELAY);
+        
+        return 'server-error';
+      }
+      
       setState(prev => ({
         ...prev,
-        status: newStatus,
-        isOnline: false,
-        isOffline: true,
+        status: 'server-error',
+        isOnline: true,
+        isOffline: false,
         isSlow: false,
+        isServerError: true,
         ...networkInfo,
         lastChecked: new Date(),
+        retryCount: retryCount,
       }));
-      return newStatus;
+      return 'server-error';
     }
   }, [getNetworkInfo, determineStatus]);
+
+  const checkConnection = useCallback(async (): Promise<NetworkStatus> => {
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
+    return checkConnectionWithRetry(0);
+  }, [checkConnectionWithRetry]);
 
   useEffect(() => {
     const handleOnline = () => {
@@ -142,13 +257,19 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
     };
 
     const handleOffline = () => {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
       setState(prev => ({
         ...prev,
         status: 'offline',
         isOnline: false,
         isOffline: true,
         isSlow: false,
+        isServerError: false,
         lastChecked: new Date(),
+        retryCount: 0,
       }));
     };
 
@@ -178,6 +299,9 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
         connection.removeEventListener('change', handleConnectionChange);
       }
       clearInterval(intervalId);
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
     };
   }, [checkConnection]);
 
@@ -209,4 +333,9 @@ export function useIsOffline(): boolean {
 export function useNetworkStatus(): NetworkStatus {
   const { status } = useNetworkState();
   return status;
+}
+
+export function useIsServerError(): boolean {
+  const { isServerError } = useNetworkState();
+  return isServerError;
 }

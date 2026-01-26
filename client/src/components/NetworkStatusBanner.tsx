@@ -1,5 +1,5 @@
 import { useNetworkState, NetworkStatus } from '@/hooks/use-network-state';
-import { Wifi, WifiOff, AlertTriangle, X, RefreshCw } from 'lucide-react';
+import { Wifi, WifiOff, AlertTriangle, X, RefreshCw, Server } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
@@ -10,7 +10,7 @@ interface NetworkStatusBannerProps {
 }
 
 export function NetworkStatusBanner({ className, showWhenOnline = false }: NetworkStatusBannerProps) {
-  const { status, isOnline, isSlow, checkConnection, lastChecked } = useNetworkState();
+  const { status, isOnline, isSlow, isServerError, checkConnection, lastChecked, retryCount } = useNetworkState();
   const [dismissed, setDismissed] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
 
@@ -44,6 +44,15 @@ export function NetworkStatusBanner({ className, showWhenOnline = false }: Netwo
           title: 'You are offline',
           message: 'Some features are unavailable. Changes will sync when connected.',
           dismissible: false,
+        };
+      case 'server-error':
+        return {
+          icon: Server,
+          bgColor: 'bg-orange-500 dark:bg-orange-600',
+          textColor: 'text-white',
+          title: 'Server temporarily unavailable',
+          message: retryCount > 0 ? `Retrying... (attempt ${retryCount}/3)` : 'Reconnecting automatically...',
+          dismissible: true,
         };
       case 'slow':
         return {
@@ -82,7 +91,7 @@ export function NetworkStatusBanner({ className, showWhenOnline = false }: Netwo
       data-testid="network-status-banner"
     >
       <div className="flex items-center gap-3 flex-1">
-        <Icon className="h-5 w-5 flex-shrink-0" />
+        <Icon className={cn("h-5 w-5 flex-shrink-0", isServerError && retryCount > 0 && "animate-pulse")} />
         <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
           <span className="font-semibold text-sm" data-testid="network-status-title">
             {config.title}
@@ -99,10 +108,10 @@ export function NetworkStatusBanner({ className, showWhenOnline = false }: Netwo
           size="sm"
           className="h-8 px-2 text-white hover:bg-white/20"
           onClick={handleRefresh}
-          disabled={isChecking}
+          disabled={isChecking || (isServerError && retryCount > 0)}
           data-testid="button-check-connection"
         >
-          <RefreshCw className={cn('h-4 w-4', isChecking && 'animate-spin')} />
+          <RefreshCw className={cn('h-4 w-4', (isChecking || (isServerError && retryCount > 0)) && 'animate-spin')} />
           <span className="ml-1 hidden sm:inline">Check</span>
         </Button>
 
@@ -123,7 +132,7 @@ export function NetworkStatusBanner({ className, showWhenOnline = false }: Netwo
 }
 
 export function NetworkStatusIndicator({ className }: { className?: string }) {
-  const { status, isSlow, isOffline } = useNetworkState();
+  const { status, isSlow, isOffline, isServerError } = useNetworkState();
 
   if (status === 'online') {
     return null;
@@ -134,7 +143,8 @@ export function NetworkStatusIndicator({ className }: { className?: string }) {
       className={cn(
         'inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium',
         isOffline && 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-        isSlow && 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+        isServerError && 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+        isSlow && !isServerError && 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
         className
       )}
       data-testid="network-status-indicator"
@@ -143,6 +153,11 @@ export function NetworkStatusIndicator({ className }: { className?: string }) {
         <>
           <WifiOff className="h-3 w-3" />
           <span>Offline</span>
+        </>
+      ) : isServerError ? (
+        <>
+          <Server className="h-3 w-3" />
+          <span>Server Issue</span>
         </>
       ) : (
         <>
