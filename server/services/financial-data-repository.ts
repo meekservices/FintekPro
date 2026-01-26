@@ -1,5 +1,31 @@
 import { pool } from '../db';
 import yahooFinance from 'yahoo-finance2';
+import { executeWithRetry } from '../utils/retry';
+
+// Retry configuration for Yahoo Finance API
+const YAHOO_RETRY_OPTIONS = {
+  maxAttempts: 3,
+  baseDelay: 1000,
+  maxDelay: 8000,
+  jitter: true,
+  timeoutMs: 15000,
+  shouldRetry: (error: Error): boolean => {
+    const errorStr = error.message.toLowerCase();
+    // Retry on transient network errors, socket issues, and rate limits
+    return errorStr.includes('socket') ||
+           errorStr.includes('econnreset') ||
+           errorStr.includes('etimedout') ||
+           errorStr.includes('enotfound') ||
+           errorStr.includes('other side closed') ||
+           errorStr.includes('429') ||
+           errorStr.includes('too many') ||
+           errorStr.includes('network') ||
+           errorStr.includes('fetch failed');
+  },
+  onRetry: (error: Error, attempt: number) => {
+    console.log(`🔄 [FinancialDataRepository] Retry attempt ${attempt}/3: ${error.message}`);
+  },
+};
 
 interface InstrumentData {
   instrumentType: string;
@@ -83,7 +109,12 @@ class FinancialDataRepository {
   async fetchGlobalStock(symbol: string): Promise<FetchResult> {
     try {
       yahooFinance.suppressNotices(['yahooSurvey']);
-      const quote = await yahooFinance.quote(symbol);
+      
+      // Use retry logic for transient network errors
+      const { result: quote } = await executeWithRetry(
+        () => yahooFinance.quote(symbol),
+        YAHOO_RETRY_OPTIONS
+      );
       
       if (!quote) {
         return { success: false, error: 'No data returned' };
@@ -134,7 +165,12 @@ class FinancialDataRepository {
   async fetchETF(symbol: string): Promise<FetchResult> {
     try {
       yahooFinance.suppressNotices(['yahooSurvey']);
-      const quote = await yahooFinance.quote(symbol);
+      
+      // Use retry logic for transient network errors
+      const { result: quote } = await executeWithRetry(
+        () => yahooFinance.quote(symbol),
+        YAHOO_RETRY_OPTIONS
+      );
       
       if (!quote) {
         return { success: false, error: 'No data returned' };
