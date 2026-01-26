@@ -555,11 +555,11 @@ function AdminRoot() {
   }, [user, isLoading]);
   
   if (isLoading) {
-    return null;
+    return <LoadingState variant="dashboard" />;
   }
   
   if (!user) {
-    return null;
+    return <LoadingState variant="dashboard" />;
   }
   
   return (
