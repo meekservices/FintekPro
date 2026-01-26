@@ -376,3 +376,81 @@ export type DsaCommissionTracking = typeof dsaCommissionTracking.$inferSelect;
 export type InsertDsaCommissionTracking = z.infer<typeof insertDsaCommissionTrackingSchema>;
 export type LoanWebhookEvent = typeof loanWebhookEvents.$inferSelect;
 export type InsertLoanWebhookEvent = z.infer<typeof insertLoanWebhookEventSchema>;
+
+// Bank Credentials Vault - encrypted storage for bank API credentials
+export const bankCredentialsVault = pgTable("bank_credentials_vault", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bankCode: varchar("bank_code").notNull().references(() => bankConnectors.bankCode),
+  credentialType: varchar("credential_type").notNull(), // api_key, client_secret, certificate, etc.
+  encryptedValue: text("encrypted_value").notNull(), // AES-256-GCM encrypted
+  environment: varchar("environment").notNull().default("sandbox"), // sandbox, uat, production
+  keyVersion: integer("key_version").notNull().default(1), // For key rotation
+  metadata: jsonb("metadata").$type<{
+    description?: string;
+    expiresAt?: string;
+    rotationDue?: string;
+    lastRotated?: string;
+  }>(),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdBy: varchar("created_by"),
+});
+
+// Bank OAuth Tokens - for banks using OAuth 2.0 authentication
+export const bankOAuthTokens = pgTable("bank_oauth_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bankCode: varchar("bank_code").notNull().references(() => bankConnectors.bankCode),
+  environment: varchar("environment").notNull().default("sandbox"),
+  accessToken: text("access_token").notNull(), // Encrypted
+  refreshToken: text("refresh_token"), // Encrypted
+  tokenType: varchar("token_type").default("Bearer"),
+  scope: text("scope"),
+  expiresAt: timestamp("expires_at").notNull(),
+  refreshExpiresAt: timestamp("refresh_expires_at"),
+  issuedAt: timestamp("issued_at").notNull(),
+  lastUsed: timestamp("last_used"),
+  refreshCount: integer("refresh_count").default(0),
+  status: varchar("status").default("active"), // active, expired, revoked
+  metadata: jsonb("metadata").$type<{
+    clientId?: string;
+    grantType?: string;
+    lastRefreshError?: string;
+  }>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Bank API Audit Log - for tracking all bank API interactions
+export const bankApiAuditLogs = pgTable("bank_api_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bankCode: varchar("bank_code").notNull(),
+  environment: varchar("environment").notNull(),
+  operation: varchar("operation").notNull(), // submit_application, check_status, refresh_token, etc.
+  requestId: varchar("request_id").notNull(),
+  endpoint: varchar("endpoint"),
+  httpMethod: varchar("http_method"),
+  requestPayloadHash: varchar("request_payload_hash"), // SHA-256 hash for audit
+  responseStatus: integer("response_status"),
+  responseTime: integer("response_time"), // milliseconds
+  success: boolean("success").notNull(),
+  errorCode: varchar("error_code"),
+  errorMessage: text("error_message"),
+  userId: varchar("user_id"),
+  applicationId: varchar("application_id"),
+  ipAddress: varchar("ip_address"),
+  userAgent: varchar("user_agent"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertBankCredentialsVaultSchema = createInsertSchema(bankCredentialsVault).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertBankOAuthTokensSchema = createInsertSchema(bankOAuthTokens).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertBankApiAuditLogSchema = createInsertSchema(bankApiAuditLogs).omit({ id: true, createdAt: true });
+
+export type BankCredentialsVault = typeof bankCredentialsVault.$inferSelect;
+export type InsertBankCredentialsVault = z.infer<typeof insertBankCredentialsVaultSchema>;
+export type BankOAuthToken = typeof bankOAuthTokens.$inferSelect;
+export type InsertBankOAuthToken = z.infer<typeof insertBankOAuthTokensSchema>;
+export type BankApiAuditLog = typeof bankApiAuditLogs.$inferSelect;
+export type InsertBankApiAuditLog = z.infer<typeof insertBankApiAuditLogSchema>;

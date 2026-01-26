@@ -27849,6 +27849,12 @@ export {
   insertDsaLoanAuditLogSchema,
   insertDsaCommissionTrackingSchema,
   insertLoanWebhookEventSchema,
+  bankCredentialsVault,
+  bankOAuthTokens,
+  bankApiAuditLogs,
+  insertBankCredentialsVaultSchema,
+  insertBankOAuthTokensSchema,
+  insertBankApiAuditLogSchema,
 } from './dsa-loan-schema';
 
 export type {
@@ -27868,6 +27874,12 @@ export type {
   InsertDsaCommissionTracking,
   LoanWebhookEvent,
   InsertLoanWebhookEvent,
+  BankCredentialsVault,
+  InsertBankCredentialsVault,
+  BankOAuthToken,
+  InsertBankOAuthToken,
+  BankApiAuditLog,
+  InsertBankApiAuditLog,
 } from './dsa-loan-schema';
 
 // Picks Watchlist for agents to track favorite picks
