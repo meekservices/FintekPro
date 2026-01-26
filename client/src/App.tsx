@@ -171,6 +171,7 @@ const AgentLeaderboard = lazy(() => import("@/pages/agent-leaderboard"));
 const AgentCommissionCalculator = lazy(() => import("@/pages/agent-commission-calculator"));
 const AgentBulkCommunication = lazy(() => import("@/pages/agent-bulk-communication"));
 const AgentCalendar = lazy(() => import("@/pages/agent-calendar"));
+const AgentMeetings = lazy(() => import("@/pages/agent-meetings"));
 const AgentESign = lazy(() => import("@/pages/agent-esign"));
 const AgentClientOnboarding = lazy(() => import("@/pages/agent-client-onboarding"));
 const AgentLoanApply = lazy(() => import("@/pages/agent/loan-apply"));
@@ -1844,6 +1845,15 @@ function AgentRoutes() {
           <AgentLayout>
             <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
               <AgentCalendar />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/meetings">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentMeetings />
             </Suspense>
           </AgentLayout>
         )}
