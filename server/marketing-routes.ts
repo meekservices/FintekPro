@@ -2441,6 +2441,106 @@ export function registerMarketingRoutes(app: any) {
 </html>`;
   }
 
+  // ============================================================================
+  // AGENT-ACCESSIBLE MARKETING ENDPOINTS
+  // ============================================================================
+
+  /**
+   * Get WhatsApp templates for agents
+   */
+  app.get('/api/marketing/whatsapp/templates', async (req: any, res: Response) => {
+    try {
+      if (!req.isAuthenticated?.() || !req.user) {
+        return res.status(401).json({ success: false, error: 'Authentication required' });
+      }
+      const templates = whatsAppMarketingService.getAvailableTemplates();
+      res.json({ success: true, templates });
+    } catch (error: any) {
+      console.error('Error getting templates:', error);
+      return apiResponse.serverError(res, 'Failed to get templates');
+    }
+  });
+
+  /**
+   * Send WhatsApp marketing message (agent)
+   */
+  app.post('/api/marketing/whatsapp/send', async (req: any, res: Response) => {
+    try {
+      if (!req.isAuthenticated?.() || !req.user) {
+        return res.status(401).json({ success: false, error: 'Authentication required' });
+      }
+      const { mobile, templateType, variables, fallbackMessage } = req.body;
+
+      if (!mobile) {
+        return apiResponse.badRequest(res, 'Mobile number is required');
+      }
+
+      if (!templateType) {
+        return apiResponse.badRequest(res, 'Template type is required');
+      }
+
+      const result = await whatsAppMarketingService.sendMarketingMessage(
+        mobile,
+        templateType,
+        variables || {},
+        fallbackMessage
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error sending WhatsApp:', error);
+      return apiResponse.serverError(res, 'Failed to send WhatsApp message');
+    }
+  });
+
+  /**
+   * Get SMS templates for agents
+   */
+  app.get('/api/marketing/sms/templates', async (req: any, res: Response) => {
+    try {
+      if (!req.isAuthenticated?.() || !req.user) {
+        return res.status(401).json({ success: false, error: 'Authentication required' });
+      }
+      const templates = smsMarketingService.getAvailableTemplates();
+      res.json({ success: true, templates });
+    } catch (error: any) {
+      console.error('Error getting SMS templates:', error);
+      return apiResponse.serverError(res, 'Failed to get templates');
+    }
+  });
+
+  /**
+   * Send SMS marketing message (agent)
+   */
+  app.post('/api/marketing/sms/send', async (req: any, res: Response) => {
+    try {
+      if (!req.isAuthenticated?.() || !req.user) {
+        return res.status(401).json({ success: false, error: 'Authentication required' });
+      }
+      const { mobile, templateType, variables, customMessage } = req.body;
+
+      if (!mobile) {
+        return apiResponse.badRequest(res, 'Mobile number is required');
+      }
+
+      if (!templateType && !customMessage) {
+        return apiResponse.badRequest(res, 'Template type or custom message is required');
+      }
+
+      const result = await smsMarketingService.sendMarketingMessage(
+        mobile,
+        templateType || 'custom',
+        variables || {},
+        customMessage
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error sending SMS:', error);
+      return apiResponse.serverError(res, 'Failed to send SMS');
+    }
+  });
+
   console.log('✅ Marketing routes registered');
   console.log('   📱 SMS Marketing: ' + (smsMarketingService.isAvailable() ? 'Active' : 'Not configured'));
   console.log('   💬 WhatsApp Marketing: ' + (whatsAppMarketingService.isAvailable() ? 'Active' : 'Not configured'));
