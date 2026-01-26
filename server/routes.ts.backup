@@ -18492,153 +18492,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Agent Portal API endpoints
-  // Agent tasks list - real appointments data
+  // Agent tasks list
   app.get("/api/agent/tasks", requireAgent, async (req, res) => {
     try {
-      const agentId = req.user?.id;
-      if (!agentId) {
-        return res.json([]);
-      }
-      
-      // Get today's and upcoming appointments as tasks
-      const today = new Date().toISOString().split('T')[0];
-      const appointments = await db.select()
-        .from(agentAppointments)
-        .where(and(
-          eq(agentAppointments.agentId, agentId),
-          gte(agentAppointments.date, today)
-        ))
-        .orderBy(agentAppointments.date, agentAppointments.startTime)
-        .limit(10);
-      
-      const tasks = appointments.map(apt => ({
-        id: apt.id,
-        title: apt.title,
-        description: apt.description || '',
-        time: apt.startTime,
-        date: apt.date,
-        type: apt.meetingType || 'meeting',
-        status: apt.status,
-        clientName: apt.clientName || '',
-        clientEmail: apt.clientEmail || '',
-        location: apt.location || 'virtual'
-      }));
-      
-      res.json(tasks);
+      res.json([]);
     } catch (error) {
       console.error("Error fetching agent tasks:", error);
       res.json([]);
     }
   });
 
-  // Agent recent activity - real data from leads, prospects, and commissions
+  // Agent recent activity
   app.get("/api/agent/activity", requireAgent, async (req, res) => {
     try {
-      const agentId = req.user?.id;
-      if (!agentId) {
-        return res.json([]);
-      }
-      
-      const activities: Array<{ id: string; type: string; title: string; description: string; timestamp: string }> = [];
-      
-      // Get recent leads
-      const recentLeads = await db.select()
-        .from(agentLeads)
-        .where(eq(agentLeads.agentId, agentId))
-        .orderBy(desc(agentLeads.createdAt))
-        .limit(5);
-      
-      recentLeads.forEach((lead) => {
-        activities.push({
-          id: `lead-${lead.id}`,
-          type: "lead",
-          title: lead.stage === 'new' ? "New Lead Assigned" : `Lead ${lead.stage}`,
-          description: `${lead.name || 'Lead'} has been ${lead.stage === 'new' ? 'assigned to you' : 'updated to ' + lead.stage}`,
-          timestamp: (lead.updatedAt || lead.createdAt || new Date()).toString()
-        });
-      });
-      
-      // Get recent prospects
-      const recentProspects = await db.select()
-        .from(prospectClients)
-        .where(eq(prospectClients.agentId, agentId))
-        .orderBy(desc(prospectClients.createdAt))
-        .limit(5);
-      
-      recentProspects.forEach((prospect) => {
-        activities.push({
-          id: `prospect-${prospect.id}`,
-          type: "prospect",
-          title: prospect.uploadedPortfolio ? "Portfolio Uploaded" : "New Prospect Added",
-          description: `${prospect.name || 'Prospect'} ${prospect.uploadedPortfolio ? 'uploaded their portfolio' : 'was added as a prospect'}`,
-          timestamp: (prospect.updatedAt || prospect.createdAt || new Date()).toString()
-        });
-      });
-      
-      // Get recent commissions
-      const recentCommissions = await db.select()
-        .from(agentCommissions)
-        .where(eq(agentCommissions.agentId, agentId))
-        .orderBy(desc(agentCommissions.createdAt))
-        .limit(3);
-      
-      recentCommissions.forEach((commission) => {
-        const amount = parseFloat(commission.agentCommissionAmount || '0');
-        activities.push({
-          id: `commission-${commission.id}`,
-          type: "commission",
-          title: commission.status === 'credited' ? "Commission Credited" : "Commission Pending",
-          description: `₹${amount.toLocaleString('en-IN')} ${commission.status === 'credited' ? 'credited' : 'pending'} for ${commission.transactionType || 'transaction'}`,
-          timestamp: (commission.createdAt || new Date()).toString()
-        });
-      });
-      
-      // Sort by timestamp descending and return top 10
-      activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      res.json(activities.slice(0, 10));
+      const userId = req.user?.id;
+      const recentActivity = [
+        { id: "1", type: "lead", title: "New Lead Assigned", description: "Rahul Sharma has been assigned to you", timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
+        { id: "2", type: "task", title: "Task Completed", description: "Follow-up call with Priya Patel completed", timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString() },
+        { id: "3", type: "proposal", title: "Proposal Viewed", description: "Investment proposal was viewed by Amit Kumar", timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString() },
+        { id: "4", type: "conversion", title: "Lead Converted", description: "Kavita Iyer converted to client", timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() },
+        { id: "5", type: "commission", title: "Commission Credited", description: "Rs 15,000 credited for MF transaction", timestamp: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString() }
+      ];
+      res.json(recentActivity);
     } catch (error) {
       console.error("Error fetching agent activity:", error);
       res.json([]);
     }
   });
 
-  // Agent tasks stats for notification center - real data
+  // Agent tasks stats for notification center
   app.get("/api/agent/tasks/stats", requireAgent, async (req, res) => {
     try {
-      const agentId = req.user?.id;
-      if (!agentId) {
-        return res.json({ pendingTasks: 0, overdueCount: 0 });
-      }
-      
-      const today = new Date().toISOString().split('T')[0];
-      
-      // Get pending appointments
-      const pendingResult = await db.select({ count: count() })
-        .from(agentAppointments)
-        .where(and(
-          eq(agentAppointments.agentId, agentId),
-          eq(agentAppointments.status, 'scheduled'),
-          gte(agentAppointments.date, today)
-        ));
-      
-      // Get overdue appointments (past date but still scheduled)
-      const overdueResult = await db.select({ count: count() })
-        .from(agentAppointments)
-        .where(and(
-          eq(agentAppointments.agentId, agentId),
-          eq(agentAppointments.status, 'scheduled'),
-          lt(agentAppointments.date, today)
-        ));
-      
-      res.json({ 
-        pendingTasks: pendingResult[0]?.count || 0, 
-        overdueCount: overdueResult[0]?.count || 0 
-      });
+      res.json({ pendingTasks: 3, overdueCount: 1 });
     } catch (error) {
       console.error("Error fetching agent tasks stats:", error);
       res.json({ pendingTasks: 0, overdueCount: 0 });
     }
   });
+
   // Agent leads - Full CRUD for lead pipeline
   // GET all leads for agent
   app.get("/api/agent/leads", requireAgent, async (req, res) => {
@@ -19268,107 +19159,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get agent statistics
   app.get("/api/agent/stats", requireAgent, async (req, res) => {
     try {
-      const agentId = req.user.id;
-      
+
       // Get basic stats from existing data
-      const clientRelationships = await storage.getClientsForAgent(agentId);
+      const clientRelationships = await storage.getClientsForAgent(req.user.id);
       const activeClients = clientRelationships.filter(c => c.isActive).length;
-      
-      // Get leads count
-      const leadsResult = await db.select({ count: count() })
-        .from(agentLeads)
-        .where(eq(agentLeads.agentId, agentId));
-      const totalLeads = leadsResult[0]?.count || 0;
-      
-      // Get converted leads
-      const convertedLeadsResult = await db.select({ count: count() })
-        .from(agentLeads)
-        .where(and(
-          eq(agentLeads.agentId, agentId),
-          eq(agentLeads.stage, 'converted')
-        ));
-      const convertedLeads = convertedLeadsResult[0]?.count || 0;
-      
-      // Get AUM from client portfolios
-      const clientIds = clientRelationships.map(c => c.clientId);
-      let totalAUM = 0;
-      if (clientIds.length > 0) {
-        const portfolioValues = await db.select({ 
-          totalValue: portfolios.totalValue 
-        })
-          .from(portfolios)
-          .where(sql`${portfolios.userId} = ANY(${clientIds})`);
-        
-        totalAUM = portfolioValues.reduce((acc, p) => acc + (parseFloat(p.totalValue || '0') || 0), 0);
-      }
-      
-      // Get current month's start date
-      const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
-      
-      // Get this month's commissions (business)
-      const thisMonthCommissions = await db.select({ 
-        total: sum(agentCommissions.agentCommissionAmount) 
-      })
-        .from(agentCommissions)
-        .where(and(
-          eq(agentCommissions.agentId, agentId),
-          gte(agentCommissions.createdAt, monthStart)
-        ));
-      const thisMonthBusiness = parseFloat(thisMonthCommissions[0]?.total || '0') || 0;
-      
-      // Get last month's commissions
-      const lastMonthCommissions = await db.select({ 
-        total: sum(agentCommissions.agentCommissionAmount) 
-      })
-        .from(agentCommissions)
-        .where(and(
-          eq(agentCommissions.agentId, agentId),
-          gte(agentCommissions.createdAt, lastMonthStart),
-          lte(agentCommissions.createdAt, lastMonthEnd)
-        ));
-      const lastMonthBusiness = parseFloat(lastMonthCommissions[0]?.total || '0') || 0;
-      
-      // Get total commissions (credited)
-      const totalCommissionsResult = await db.select({ 
-        total: sum(agentCommissions.agentCommissionAmount) 
-      })
-        .from(agentCommissions)
-        .where(and(
-          eq(agentCommissions.agentId, agentId),
-          eq(agentCommissions.status, 'credited')
-        ));
-      const totalCommissions = parseFloat(totalCommissionsResult[0]?.total || '0') || 0;
-      
-      // Get pending commissions
-      const pendingCommissionsResult = await db.select({ 
-        total: sum(agentCommissions.agentCommissionAmount) 
-      })
-        .from(agentCommissions)
-        .where(and(
-          eq(agentCommissions.agentId, agentId),
-          eq(agentCommissions.status, 'pending')
-        ));
-      const pendingCommissions = parseFloat(pendingCommissionsResult[0]?.total || '0') || 0;
-      
-      // Monthly target (configurable, default 500000)
-      const monthlyTarget = 500000;
-      const targetProgress = monthlyTarget > 0 ? (thisMonthBusiness / monthlyTarget) * 100 : 0;
 
       const stats = {
+        totalPartners: 1, // Mock data
+        activePartners: 1,
         totalClients: clientRelationships.length,
-        activeClients,
-        totalLeads,
-        convertedLeads,
-        totalAUM,
-        thisMonthBusiness,
-        lastMonthBusiness,
-        totalCommissions,
-        pendingCommissions,
-        targetProgress,
-        monthlyTarget
+        activeClients: activeClients,
+        monthlyCommissions: "25,000",
+        commissionGrowth: 12,
+        pendingTasks: 3,
+        urgentTasks: 1,
+        recentActivity: [
+          {
+            description: "New client onboarded: John Doe",
+            timestamp: "2 hours ago"
+          },
+          {
+            description: "Partner agreement signed with ABC Corp",
+            timestamp: "1 day ago"
+          },
+          {
+            description: "Monthly commission report generated",
+            timestamp: "3 days ago"
+          }
+        ]
       };
 
       res.json(stats);
@@ -19377,6 +19195,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch agent statistics" });
     }
   });
+
+  // ===== Agent Appointments API =====
+  
+  // GET /api/agent/appointments - List all appointments for agent
   app.get("/api/agent/appointments", requireAgent, async (req, res) => {
     try {
       const agentId = req.user!.id;

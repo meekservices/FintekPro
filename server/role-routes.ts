@@ -261,21 +261,132 @@ export function registerRoleRoutes(app: Express) {
     }
   );
 
-  // Agent Dashboard Overview - returns client overview stats
-  app.get('/api/agent/dashboard/overview', async (req: any, res: Response) => {
+  // Agent Dashboard Overview - returns real client overview stats (agent-only access)
+  app.get('/api/agent/dashboard/overview', requireAnyRole(AGENT_PORTAL_ROLES), async (req: any, res: Response) => {
     try {
+      const { db } = await import('./db');
+      const { 
+        clientAgentRelationships, 
+        agentLeads, 
+        agentAppointments, 
+        agentCommissions,
+        portfolios,
+        prospectClients,
+        users
+      } = await import('@shared/schema');
+      const { eq, and, gte, sql, count, sum, desc } = await import('drizzle-orm');
+      
+      const agentId = req.user?.id;
+      if (!agentId) {
+        return res.status(401).json({ success: false, message: 'Agent ID not found' });
+      }
+      
+      // Get client relationships for agent
+      const clientRelations = await db.select()
+        .from(clientAgentRelationships)
+        .where(eq(clientAgentRelationships.agentId, agentId));
+      
+      const totalClients = clientRelations.length;
+      const activeClients = clientRelations.filter(c => c.isActive).length;
+      
+      // Get leads count
+      const leadsResult = await db.select({ count: count() })
+        .from(agentLeads)
+        .where(eq(agentLeads.agentId, agentId));
+      const totalLeads = leadsResult[0]?.count || 0;
+      
+      // Get converted leads (conversion rate)
+      const convertedLeadsResult = await db.select({ count: count() })
+        .from(agentLeads)
+        .where(and(
+          eq(agentLeads.agentId, agentId),
+          eq(agentLeads.stage, 'converted')
+        ));
+      const convertedLeads = convertedLeadsResult[0]?.count || 0;
+      const conversionRate = totalLeads > 0 ? ((convertedLeads / totalLeads) * 100).toFixed(1) : '0.0';
+      
+      // Get AUM from portfolios of clients
+      const clientIds = clientRelations.map(c => c.clientId);
+      let totalAUM = 0;
+      if (clientIds.length > 0) {
+        const portfolioValues = await db.select({ 
+          totalValue: portfolios.totalValue 
+        })
+          .from(portfolios)
+          .where(sql`${portfolios.userId} = ANY(${clientIds})`);
+        
+        totalAUM = portfolioValues.reduce((sum, p) => sum + (parseFloat(p.totalValue || '0') || 0), 0);
+      }
+      
+      // Get current month's start date
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      
+      // Get monthly commissions earned
+      const monthlyCommissions = await db.select({ 
+        total: sum(agentCommissions.agentCommissionAmount) 
+      })
+        .from(agentCommissions)
+        .where(and(
+          eq(agentCommissions.agentId, agentId),
+          gte(agentCommissions.createdAt, monthStart)
+        ));
+      const monthlyEarned = parseFloat(monthlyCommissions[0]?.total || '0') || 0;
+      
+      // Get pending commissions
+      const pendingCommissions = await db.select({ 
+        total: sum(agentCommissions.agentCommissionAmount) 
+      })
+        .from(agentCommissions)
+        .where(and(
+          eq(agentCommissions.agentId, agentId),
+          eq(agentCommissions.status, 'pending')
+        ));
+      const pendingEarned = parseFloat(pendingCommissions[0]?.total || '0') || 0;
+      
+      // Get upcoming appointments count
+      const upcomingAppointments = await db.select({ count: count() })
+        .from(agentAppointments)
+        .where(and(
+          eq(agentAppointments.agentId, agentId),
+          gte(agentAppointments.date, now.toISOString().split('T')[0]),
+          eq(agentAppointments.status, 'scheduled')
+        ));
+      const upcomingMeetings = upcomingAppointments[0]?.count || 0;
+      
+      // Get pending tasks (appointments with pending status)
+      const pendingTasks = await db.select({ count: count() })
+        .from(agentAppointments)
+        .where(and(
+          eq(agentAppointments.agentId, agentId),
+          eq(agentAppointments.status, 'pending')
+        ));
+      const pendingTasksCount = pendingTasks[0]?.count || 0;
+      
+      // Get prospects count
+      const prospectsResult = await db.select({ count: count() })
+        .from(prospectClients)
+        .where(eq(prospectClients.agentId, agentId));
+      const totalProspects = prospectsResult[0]?.count || 0;
+      
+      // Monthly target (configurable, default 500000)
+      const monthlyTarget = 500000;
+      
       res.json({
-        totalClients: 156,
-        activeClients: 142,
-        pendingKYC: 8,
-        completedKYC: 134,
-        totalAUM: 45600000,
-        monthlyTarget: 5000000,
-        monthlyAchieved: 3200000,
-        pendingTasks: 12,
-        upcomingMeetings: 5
+        totalClients,
+        activeClients,
+        totalLeads,
+        conversionRate,
+        totalAUM,
+        monthlyTarget,
+        monthlyAchieved: monthlyEarned,
+        pendingEarnings: pendingEarned,
+        pendingTasks: pendingTasksCount,
+        upcomingMeetings,
+        totalProspects
       });
     } catch (error: any) {
+      console.error('Error fetching dashboard overview:', error);
       res.status(500).json({ success: false, message: 'Failed to fetch dashboard overview', error: error.message });
     }
   });
