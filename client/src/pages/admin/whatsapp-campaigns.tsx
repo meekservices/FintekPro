@@ -128,7 +128,7 @@ export default function WhatsAppCampaigns() {
       variables: Record<string, string>;
       channels: { whatsapp: boolean; sms: boolean; email: boolean };
     }) => {
-      return apiRequest('/api/admin/marketing/multi-channel/bulk', 'POST', data);
+      return apiRequest('/api/admin/marketing/multi-channel/bulk', 'POST', { body: data });
     },
     onSuccess: (result: any) => {
       const channelResults = [];
@@ -154,12 +154,12 @@ export default function WhatsAppCampaigns() {
 
   const sendSingleWhatsAppMutation = useMutation({
     mutationFn: async (data: { to: string; templateType: string; variables: Record<string, string> }) => {
-      return apiRequest('/api/admin/marketing/multi-channel/bulk', 'POST', {
+      return apiRequest('/api/admin/marketing/multi-channel/bulk', 'POST', { body: {
         recipients: [{ mobile: data.to, name: 'Customer' }],
         templateType: data.templateType,
         variables: data.variables,
         channels: { whatsapp: true, sms: false, email: false }
-      });
+      }});
     },
     onSuccess: () => {
       toast({ title: 'Message sent successfully' });
