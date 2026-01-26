@@ -121,6 +121,23 @@ export default function WhatsAppCampaigns() {
     }
   });
 
+  const { data: campaignHistory, isLoading: campaignsLoading } = useQuery<Array<{
+    id: string;
+    name: string;
+    campaignType: string;
+    status: string;
+    recipientCount: number;
+    sentCount: number;
+    deliveredCount: number;
+    openedCount: number;
+    clickedCount: number;
+    whatsappTemplateName: string | null;
+    createdAt: string;
+    completedAt: string | null;
+  }>>({
+    queryKey: ['/api/admin/marketing/campaigns']
+  });
+
   const sendMultiChannelMutation = useMutation({
     mutationFn: async (data: { 
       recipients: Array<{ mobile?: string; email?: string; name?: string }>; 
@@ -142,6 +159,7 @@ export default function WhatsAppCampaigns() {
       });
       setIsCreateOpen(false);
       setTemplateVariables({});
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/marketing/campaigns'] });
     },
     onError: (error: any) => {
       toast({ 
@@ -598,10 +616,89 @@ export default function WhatsAppCampaigns() {
               <CardDescription>View past WhatsApp campaigns and their performance</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Campaign history will appear here after you send your first campaign.</p>
-              </div>
+              {campaignsLoading ? (
+                <div className="text-center py-8">
+                  <RefreshCw className="h-8 w-8 mx-auto mb-4 animate-spin text-muted-foreground" />
+                  <p className="text-muted-foreground">Loading campaigns...</p>
+                </div>
+              ) : !campaignHistory || campaignHistory.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Campaign history will appear here after you send your first campaign.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="rounded-md border">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b bg-muted/50">
+                          <th className="p-3 text-left text-sm font-medium">Campaign</th>
+                          <th className="p-3 text-left text-sm font-medium">Type</th>
+                          <th className="p-3 text-left text-sm font-medium">Status</th>
+                          <th className="p-3 text-left text-sm font-medium">Recipients</th>
+                          <th className="p-3 text-left text-sm font-medium">Sent</th>
+                          <th className="p-3 text-left text-sm font-medium">Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {campaignHistory.map((campaign) => (
+                          <tr key={campaign.id} className="border-b last:border-0 hover:bg-muted/50">
+                            <td className="p-3">
+                              <div className="font-medium">{campaign.name}</div>
+                              {campaign.whatsappTemplateName && (
+                                <div className="text-xs text-muted-foreground">
+                                  Template: {campaign.whatsappTemplateName.replace(/_/g, ' ')}
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-3">
+                              <Badge variant="outline" className="capitalize">
+                                {campaign.campaignType === 'multi_channel' ? 'Multi-Channel' : campaign.campaignType}
+                              </Badge>
+                            </td>
+                            <td className="p-3">
+                              <Badge 
+                                variant={campaign.status === 'sent' ? 'default' : campaign.status === 'failed' ? 'destructive' : 'secondary'}
+                                className="capitalize"
+                              >
+                                {campaign.status === 'sent' ? (
+                                  <><CheckCircle2 className="h-3 w-3 mr-1" /> Sent</>
+                                ) : campaign.status === 'failed' ? (
+                                  <><XCircle className="h-3 w-3 mr-1" /> Failed</>
+                                ) : campaign.status}
+                              </Badge>
+                            </td>
+                            <td className="p-3">
+                              <div className="flex items-center gap-1">
+                                <Users className="h-4 w-4 text-muted-foreground" />
+                                {campaign.recipientCount || 0}
+                              </div>
+                            </td>
+                            <td className="p-3">
+                              <span className="text-green-600 font-medium">{campaign.sentCount || 0}</span>
+                              {campaign.deliveredCount > 0 && campaign.deliveredCount !== campaign.sentCount && (
+                                <span className="text-muted-foreground text-sm"> / {campaign.deliveredCount} delivered</span>
+                              )}
+                            </td>
+                            <td className="p-3 text-sm text-muted-foreground">
+                              {new Date(campaign.createdAt).toLocaleDateString('en-IN', {
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="text-sm text-muted-foreground text-right">
+                    Showing {campaignHistory.length} campaign{campaignHistory.length !== 1 ? 's' : ''}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

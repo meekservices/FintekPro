@@ -1775,7 +1775,8 @@ export function registerMarketingRoutes(app: any) {
           new_year_greeting: `Happy New Year ${variables.festival_year || ''} from FintekPro!`,
           independence_day: `Happy Independence Day ${variables.year || ''} from FintekPro!`,
           republic_day: `Happy Republic Day ${variables.year || ''} from FintekPro!`,
-          birthday_greeting: `Happy Birthday from FintekPro!`
+          birthday_greeting: `Happy Birthday from FintekPro!`,
+          custom: variables.subject || 'Greetings from FintekPro!'
         };
 
         const subject = templateSubjects[templateType] || 'Greetings from FintekPro';
@@ -1815,7 +1816,40 @@ export function registerMarketingRoutes(app: any) {
         results.email = { total: emailRecipients.length, sent: emailSent, failed: emailFailed };
       }
 
-      res.json(results);
+      // Calculate totals for campaign record
+      const totalSent = (results.whatsapp?.sent || 0) + (results.sms?.sent || 0) + (results.email?.sent || 0);
+      const totalFailed = (results.whatsapp?.failed || 0) + (results.sms?.failed || 0) + (results.email?.failed || 0);
+      
+      // Determine campaign type based on channels used
+      const activeChannels = [];
+      if (channels.whatsapp) activeChannels.push('whatsapp');
+      if (channels.sms) activeChannels.push('sms');
+      if (channels.email) activeChannels.push('email');
+      const campaignType = activeChannels.length > 1 ? 'multi_channel' : activeChannels[0] || 'whatsapp';
+      
+      // Format template name for display
+      const templateDisplayName = templateType.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+      
+      // Save campaign record to database
+      const [savedCampaign] = await db
+        .insert(marketingCampaigns)
+        .values({
+          name: `${templateDisplayName} Campaign`,
+          description: variables.custom_message || `Bulk ${templateDisplayName} campaign`,
+          campaignType: campaignType,
+          status: totalFailed === 0 ? 'sent' : (totalSent > 0 ? 'sent' : 'failed'),
+          recipientCount: recipients.length,
+          sentCount: totalSent,
+          deliveredCount: totalSent,
+          whatsappTemplateName: templateType,
+          createdBy: req.user?.id,
+          completedAt: new Date()
+        })
+        .returning();
+      
+      console.log(`[Campaign] Saved campaign ${savedCampaign.id}: ${totalSent} sent, ${totalFailed} failed`);
+
+      res.json({ ...results, campaignId: savedCampaign.id });
     } catch (error: any) {
       console.error('Error sending multi-channel campaign:', error);
       return apiResponse.serverError(res, 'Failed to send campaign');
