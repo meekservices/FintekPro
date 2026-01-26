@@ -27,7 +27,7 @@ import { smsMarketingService } from './services/sms-marketing-service';
 import { whatsAppMarketingService } from './services/whatsapp-marketing-service';
 import { getProbe42Service, normalizeCompanyResult } from './probe42-service';
 import { apiResponse } from './utils/responses';
-import { requireAdmin } from './middleware/roleMiddleware';
+import { requireAdmin, requireAuth } from './middleware/roleMiddleware';
 
 export function registerMarketingRoutes(app: any) {
   
@@ -2448,11 +2448,8 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get agent campaigns
    */
-  app.get('/api/agent/campaigns', async (req: any, res: Response) => {
+  app.get('/api/agent/campaigns', requireAuth, async (req: any, res: Response) => {
     try {
-      if (!req.isAuthenticated?.() || !req.user) {
-        return res.status(401).json({ success: false, error: 'Authentication required' });
-      }
       
       // Return sample campaigns for the agent
       const campaigns = [
@@ -2511,11 +2508,8 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Create agent campaign
    */
-  app.post('/api/agent/campaigns/:channel', async (req: any, res: Response) => {
+  app.post('/api/agent/campaigns/:channel', requireAuth, async (req: any, res: Response) => {
     try {
-      if (!req.isAuthenticated?.() || !req.user) {
-        return res.status(401).json({ success: false, error: 'Authentication required' });
-      }
       
       const { channel } = req.params;
       const campaignData = req.body;
@@ -2546,11 +2540,8 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Sync campaign analytics
    */
-  app.post('/api/agent/campaigns/:campaignId/sync-analytics', async (req: any, res: Response) => {
+  app.post('/api/agent/campaigns/:campaignId/sync-analytics', requireAuth, async (req: any, res: Response) => {
     try {
-      if (!req.isAuthenticated?.() || !req.user) {
-        return res.status(401).json({ success: false, error: 'Authentication required' });
-      }
       
       const { campaignId } = req.params;
       
@@ -2570,11 +2561,8 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get WhatsApp templates for agents
    */
-  app.get('/api/marketing/whatsapp/templates', async (req: any, res: Response) => {
+  app.get('/api/marketing/whatsapp/templates', requireAuth, async (req: any, res: Response) => {
     try {
-      if (!req.isAuthenticated?.() || !req.user) {
-        return res.status(401).json({ success: false, error: 'Authentication required' });
-      }
       const templates = whatsAppMarketingService.getAvailableTemplates();
       res.json({ success: true, templates });
     } catch (error: any) {
@@ -2586,11 +2574,8 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Send WhatsApp marketing message (agent)
    */
-  app.post('/api/marketing/whatsapp/send', async (req: any, res: Response) => {
+  app.post('/api/marketing/whatsapp/send', requireAuth, async (req: any, res: Response) => {
     try {
-      if (!req.isAuthenticated?.() || !req.user) {
-        return res.status(401).json({ success: false, error: 'Authentication required' });
-      }
       const { mobile, templateType, variables, fallbackMessage } = req.body;
 
       if (!mobile) {
@@ -2618,11 +2603,8 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get SMS templates for agents
    */
-  app.get('/api/marketing/sms/templates', async (req: any, res: Response) => {
+  app.get('/api/marketing/sms/templates', requireAuth, async (req: any, res: Response) => {
     try {
-      if (!req.isAuthenticated?.() || !req.user) {
-        return res.status(401).json({ success: false, error: 'Authentication required' });
-      }
       const templates = smsMarketingService.getAvailableTemplates();
       res.json({ success: true, templates });
     } catch (error: any) {
@@ -2634,11 +2616,8 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Send SMS marketing message (agent)
    */
-  app.post('/api/marketing/sms/send', async (req: any, res: Response) => {
+  app.post('/api/marketing/sms/send', requireAuth, async (req: any, res: Response) => {
     try {
-      if (!req.isAuthenticated?.() || !req.user) {
-        return res.status(401).json({ success: false, error: 'Authentication required' });
-      }
       const { mobile, templateType, variables, customMessage } = req.body;
 
       if (!mobile) {
