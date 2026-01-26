@@ -42,7 +42,10 @@ import {
   Shield,
   FileCheck,
   Star,
-  Palette
+  Palette,
+  Banknote,
+  Store,
+  ClipboardList
 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { cn } from "@/lib/utils";
@@ -104,6 +107,16 @@ const agentNavCategories: NavCategory[] = [
       { title: "Create Proposal", href: "/agent/proposal-builder", icon: Plus, description: "Multi-product proposals" },
       { title: "My Proposals", href: "/agent/proposals", icon: FileCheck, description: "View proposals" },
       { title: "E-Sign", href: "/agent/esign", icon: FileSignature, description: "Electronic signatures" },
+    ]
+  },
+  {
+    title: "Loans",
+    icon: Banknote,
+    items: [
+      { title: "Apply Loan", href: "/loan-apply", icon: Plus, description: "Submit loan application" },
+      { title: "Loan Marketplace", href: "/loans", icon: Store, description: "Compare loan offers" },
+      { title: "Track Applications", href: "/loan-dashboard", icon: ClipboardList, description: "Monitor loan status" },
+      { title: "DSA Performance", href: "/admin/dsa-loan-dashboard", icon: BarChart3, description: "Loan metrics & stats" },
     ]
   },
   {
