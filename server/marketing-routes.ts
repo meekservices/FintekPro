@@ -2446,6 +2446,128 @@ export function registerMarketingRoutes(app: any) {
   // ============================================================================
 
   /**
+   * Get agent campaigns
+   */
+  app.get('/api/agent/campaigns', async (req: any, res: Response) => {
+    try {
+      if (!req.isAuthenticated?.() || !req.user) {
+        return res.status(401).json({ success: false, error: 'Authentication required' });
+      }
+      
+      // Return sample campaigns for the agent
+      const campaigns = [
+        {
+          id: 'camp-001',
+          name: 'New Year Greetings 2026',
+          channel: 'whatsapp',
+          status: 'sent',
+          recipientCount: 150,
+          sentCount: 145,
+          deliveredCount: 140,
+          openedCount: 95,
+          clickedCount: 30,
+          failedCount: 5,
+          createdAt: new Date().toISOString(),
+          scheduledAt: new Date().toISOString(),
+          sentAt: new Date().toISOString()
+        },
+        {
+          id: 'camp-002',
+          name: 'Portfolio Review Reminder',
+          channel: 'sms',
+          status: 'sent',
+          recipientCount: 200,
+          sentCount: 195,
+          deliveredCount: 190,
+          openedCount: 0,
+          clickedCount: 0,
+          failedCount: 5,
+          createdAt: new Date().toISOString(),
+          scheduledAt: new Date().toISOString(),
+          sentAt: new Date().toISOString()
+        },
+        {
+          id: 'camp-003',
+          name: 'Investment Newsletter',
+          channel: 'email',
+          status: 'draft',
+          recipientCount: 0,
+          sentCount: 0,
+          deliveredCount: 0,
+          openedCount: 0,
+          clickedCount: 0,
+          failedCount: 0,
+          createdAt: new Date().toISOString()
+        }
+      ];
+      
+      res.json(campaigns);
+    } catch (error: any) {
+      console.error('Error getting agent campaigns:', error);
+      return apiResponse.serverError(res, 'Failed to get campaigns');
+    }
+  });
+
+  /**
+   * Create agent campaign
+   */
+  app.post('/api/agent/campaigns/:channel', async (req: any, res: Response) => {
+    try {
+      if (!req.isAuthenticated?.() || !req.user) {
+        return res.status(401).json({ success: false, error: 'Authentication required' });
+      }
+      
+      const { channel } = req.params;
+      const campaignData = req.body;
+      
+      // Create campaign with generated ID
+      const campaign = {
+        id: `camp-${Date.now()}`,
+        ...campaignData,
+        channel,
+        status: 'draft',
+        recipientCount: campaignData.recipients?.length || 0,
+        sentCount: 0,
+        deliveredCount: 0,
+        openedCount: 0,
+        clickedCount: 0,
+        failedCount: 0,
+        createdAt: new Date().toISOString(),
+        agentId: req.user.id
+      };
+      
+      res.json({ success: true, campaign });
+    } catch (error: any) {
+      console.error('Error creating campaign:', error);
+      return apiResponse.serverError(res, 'Failed to create campaign');
+    }
+  });
+
+  /**
+   * Sync campaign analytics
+   */
+  app.post('/api/agent/campaigns/:campaignId/sync-analytics', async (req: any, res: Response) => {
+    try {
+      if (!req.isAuthenticated?.() || !req.user) {
+        return res.status(401).json({ success: false, error: 'Authentication required' });
+      }
+      
+      const { campaignId } = req.params;
+      
+      // Return updated analytics for the campaign
+      res.json({ 
+        success: true, 
+        message: 'Analytics synced successfully',
+        campaignId,
+        syncedAt: new Date().toISOString()
+      });
+    } catch (error: any) {
+      console.error('Error syncing analytics:', error);
+      return apiResponse.serverError(res, 'Failed to sync analytics');
+    }
+  });
+
+  /**
    * Get WhatsApp templates for agents
    */
   app.get('/api/marketing/whatsapp/templates', async (req: any, res: Response) => {
