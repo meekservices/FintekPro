@@ -13,6 +13,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { LoadingState } from "@/components/LoadingState";
@@ -33,8 +35,14 @@ import {
   TrendingUp,
   Users,
   Plus,
-  Search
+  Search,
+  Send,
+  Trash2,
+  Eye,
+  MoreVertical,
+  RefreshCw
 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const loanApplicationSchema = z.object({
   clientSource: z.enum(["existing", "new"]),
@@ -87,11 +95,35 @@ const loanTypeLabels: Record<string, string> = {
   lap: "Loan Against Property",
 };
 
+interface Bank {
+  id: string;
+  bankCode: string;
+  bankName: string;
+  supportedLoanTypes: string[];
+  isActive: boolean;
+}
+
+interface EligibilityResult {
+  bankCode: string;
+  bankName: string;
+  eligible: boolean;
+  reasons: string[];
+  matchScore: number;
+  estimatedRate?: number;
+}
+
 export default function AgentLoanApplyPage() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("apply");
   const [clientSource, setClientSource] = useState<"existing" | "new">("new");
   const [searchQuery, setSearchQuery] = useState("");
+  const [routeDialogOpen, setRouteDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [eligibilityDialogOpen, setEligibilityDialogOpen] = useState(false);
+  const [selectedApp, setSelectedApp] = useState<any>(null);
+  const [selectedBanks, setSelectedBanks] = useState<string[]>([]);
+  const [eligibilityResults, setEligibilityResults] = useState<EligibilityResult[]>([]);
 
   const form = useForm<LoanApplicationForm>({
     resolver: zodResolver(loanApplicationSchema),
@@ -130,8 +162,66 @@ export default function AgentLoanApplyPage() {
     }
   });
 
-  const { data: myApplications, isLoading: loadingApplications } = useQuery<any>({
+  const { data: myApplications, isLoading: loadingApplications, refetch: refetchApplications } = useQuery<any>({
     queryKey: ["/api/dsa-loans/applications"],
+  });
+
+  const { data: banksData } = useQuery<{ success: boolean; data: Bank[] }>({
+    queryKey: ["/api/dsa-loans/banks"],
+  });
+
+  const banks = banksData?.data || [];
+
+  const routeMutation = useMutation({
+    mutationFn: async ({ applicationId, bankCodes }: { applicationId: string; bankCodes: string[] }) => {
+      return apiRequest(`/api/dsa-loans/applications/${applicationId}/route`, {
+        method: "POST",
+        body: JSON.stringify({ bankCodes, strategy: "parallel" }),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Banks Assigned", description: "Application has been routed to selected banks." });
+      queryClient.invalidateQueries({ queryKey: ["/api/dsa-loans/applications"] });
+      setRouteDialogOpen(false);
+      setSelectedApp(null);
+      setSelectedBanks([]);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to route application", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (applicationId: string) => {
+      return apiRequest(`/api/dsa-loans/applications/${applicationId}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Application Deleted", description: "The loan application has been deleted." });
+      queryClient.invalidateQueries({ queryKey: ["/api/dsa-loans/applications"] });
+      setDeleteDialogOpen(false);
+      setSelectedApp(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to delete application", variant: "destructive" });
+    },
+  });
+
+  const checkEligibilityMutation = useMutation({
+    mutationFn: async (applicationId: string) => {
+      return apiRequest(`/api/dsa-loans/applications/${applicationId}/check-eligibility`, {
+        method: "POST",
+      });
+    },
+    onSuccess: (data: any) => {
+      setEligibilityResults([...data.data.eligible, ...data.data.ineligible]);
+      setEligibilityDialogOpen(true);
+      queryClient.invalidateQueries({ queryKey: ["/api/dsa-loans/applications"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to check eligibility", variant: "destructive" });
+    },
   });
 
   const createApplicationMutation = useMutation({
@@ -205,6 +295,59 @@ export default function AgentLoanApplyPage() {
   };
 
   const applications = myApplications?.data || [];
+
+  const openRouteDialog = (app: any) => {
+    setSelectedApp(app);
+    setSelectedBanks(app.routedBanks || []);
+    setRouteDialogOpen(true);
+  };
+
+  const openDeleteDialog = (app: any) => {
+    setSelectedApp(app);
+    setDeleteDialogOpen(true);
+  };
+
+  const openDetailsDialog = (app: any) => {
+    setSelectedApp(app);
+    setDetailsDialogOpen(true);
+  };
+
+  const handleBankToggle = (bankCode: string) => {
+    setSelectedBanks(prev => 
+      prev.includes(bankCode)
+        ? prev.filter(b => b !== bankCode)
+        : [...prev, bankCode]
+    );
+  };
+
+  const handleRouteSubmit = () => {
+    if (selectedApp && selectedBanks.length > 0) {
+      routeMutation.mutate({
+        applicationId: selectedApp.id,
+        bankCodes: selectedBanks,
+      });
+    }
+  };
+
+  const handleDeleteConfirm = () => {
+    if (selectedApp) {
+      deleteMutation.mutate(selectedApp.id);
+    }
+  };
+
+  const handleCheckEligibility = (app: any) => {
+    setSelectedApp(app);
+    checkEligibilityMutation.mutate(app.id);
+  };
+
+  const getEligibleBanks = (loanType: string) => {
+    return banks.filter(b => 
+      b.isActive && (b.supportedLoanTypes || []).includes(loanType)
+    );
+  };
+
+  const canEdit = (status: string) => ['draft', 'submitted', 'eligibility_check'].includes(status);
+  const canDelete = (status: string) => ['draft', 'submitted'].includes(status);
 
   return (
     <div className="space-y-6">
@@ -580,12 +723,18 @@ export default function AgentLoanApplyPage() {
 
         <TabsContent value="track">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                My Loan Submissions
-              </CardTitle>
-              <CardDescription>Track the status of loan applications you've submitted</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  My Loan Submissions
+                </CardTitle>
+                <CardDescription>Track the status of loan applications you've submitted</CardDescription>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => refetchApplications()}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
             </CardHeader>
             <CardContent>
               {loadingApplications ? (
@@ -618,12 +767,55 @@ export default function AgentLoanApplyPage() {
                             <span>{loanTypeLabels[app.loanType] || app.loanType}</span>
                           </div>
                         </div>
-                        <Badge className={statusColors[app.status] || "bg-gray-100"}>
-                          {app.status?.replace(/_/g, " ")}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge className={statusColors[app.status] || "bg-gray-100"}>
+                            {app.status?.replace(/_/g, " ")}
+                          </Badge>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openDetailsDialog(app)}>
+                                <Eye className="h-4 w-4 mr-2" />
+                                View Details
+                              </DropdownMenuItem>
+                              {canEdit(app.status) && (
+                                <>
+                                  <DropdownMenuItem 
+                                    onClick={() => handleCheckEligibility(app)}
+                                    disabled={checkEligibilityMutation.isPending}
+                                  >
+                                    {checkEligibilityMutation.isPending && selectedApp?.id === app.id ? (
+                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    ) : (
+                                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                                    )}
+                                    {checkEligibilityMutation.isPending && selectedApp?.id === app.id ? "Checking..." : "Check Bank Eligibility"}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => openRouteDialog(app)}>
+                                    <Send className="h-4 w-4 mr-2" />
+                                    Assign Banks
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              {canDelete(app.status) && (
+                                <DropdownMenuItem 
+                                  onClick={() => openDeleteDialog(app)}
+                                  className="text-red-600"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </div>
                       <Separator className="my-3" />
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
                         <div>
                           <span className="text-muted-foreground">Amount</span>
                           <div className="font-medium">{formatCurrency(app.requestedAmount)}</div>
@@ -640,6 +832,18 @@ export default function AgentLoanApplyPage() {
                           <span className="text-muted-foreground">Submitted</span>
                           <div className="font-medium">{formatDate(app.createdAt)}</div>
                         </div>
+                        <div className="flex items-end gap-2">
+                          {canEdit(app.status) && (
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => openRouteDialog(app)}
+                            >
+                              <Send className="h-3 w-3 mr-1" />
+                              Assign Banks
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -649,6 +853,235 @@ export default function AgentLoanApplyPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={routeDialogOpen} onOpenChange={setRouteDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Assign Banks</DialogTitle>
+            <DialogDescription>
+              Select banks to route this loan application to
+            </DialogDescription>
+          </DialogHeader>
+          {selectedApp && (
+            <div className="space-y-4">
+              <div className="p-3 bg-muted rounded-lg">
+                <p className="font-medium">{selectedApp.applicantName}</p>
+                <p className="text-sm text-muted-foreground">
+                  {loanTypeLabels[selectedApp.loanType]} - {formatCurrency(selectedApp.requestedAmount)}
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Select Banks ({selectedBanks.length} selected)</p>
+                <div className="max-h-64 overflow-y-auto space-y-2 border rounded-lg p-2">
+                  {getEligibleBanks(selectedApp.loanType).map(bank => (
+                    <div 
+                      key={bank.bankCode}
+                      className="flex items-center space-x-3 p-2 hover:bg-muted rounded-md cursor-pointer"
+                      onClick={() => handleBankToggle(bank.bankCode)}
+                    >
+                      <Checkbox 
+                        checked={selectedBanks.includes(bank.bankCode)}
+                        onCheckedChange={() => handleBankToggle(bank.bankCode)}
+                      />
+                      <div className="flex-1">
+                        <p className="font-medium">{bank.bankName}</p>
+                        <p className="text-xs text-muted-foreground">{bank.bankCode}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {getEligibleBanks(selectedApp.loanType).length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No banks available for this loan type
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRouteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleRouteSubmit}
+              disabled={selectedBanks.length === 0 || routeMutation.isPending}
+            >
+              {routeMutation.isPending ? "Routing..." : `Route to ${selectedBanks.length} Bank(s)`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Application</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this loan application? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedApp && (
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="font-medium">{selectedApp.applicantName}</p>
+              <p className="text-sm text-muted-foreground">
+                {selectedApp.applicationNumber} - {loanTypeLabels[selectedApp.loanType]}
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete Application"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Application Details</DialogTitle>
+            <DialogDescription>
+              View complete details of this loan application
+            </DialogDescription>
+          </DialogHeader>
+          {selectedApp && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Application Number</p>
+                  <p className="font-medium">{selectedApp.applicationNumber}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  <Badge className={statusColors[selectedApp.status]}>
+                    {selectedApp.status?.replace(/_/g, " ")}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Applicant Name</p>
+                  <p className="font-medium">{selectedApp.applicantName}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Phone</p>
+                  <p className="font-medium">{selectedApp.applicantPhone}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Loan Type</p>
+                  <p className="font-medium">{loanTypeLabels[selectedApp.loanType]}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Amount</p>
+                  <p className="font-medium">{formatCurrency(selectedApp.requestedAmount)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Tenure</p>
+                  <p className="font-medium">{selectedApp.requestedTenure} months</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Monthly Income</p>
+                  <p className="font-medium">{formatCurrency(selectedApp.monthlyIncome || 0)}</p>
+                </div>
+              </div>
+              {(selectedApp.routedBanks || []).length > 0 && (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-2">Routed to Banks</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedApp.routedBanks.map((bank: string) => (
+                      <Badge key={bank} variant="outline">{bank}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {selectedApp.loanPurpose && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Purpose</p>
+                  <p className="font-medium">{selectedApp.loanPurpose}</p>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetailsDialogOpen(false)}>
+              Close
+            </Button>
+            {selectedApp && canEdit(selectedApp.status) && (
+              <Button onClick={() => {
+                setDetailsDialogOpen(false);
+                openRouteDialog(selectedApp);
+              }}>
+                <Send className="h-4 w-4 mr-2" />
+                Assign Banks
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={eligibilityDialogOpen} onOpenChange={setEligibilityDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Bank Eligibility Results</DialogTitle>
+            <DialogDescription>
+              Based on the applicant's profile, here are the eligible banks
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 max-h-96 overflow-y-auto">
+            {eligibilityResults.map(result => (
+              <div 
+                key={result.bankCode}
+                className={`p-3 rounded-lg border ${result.eligible ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {result.eligible ? (
+                      <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    ) : (
+                      <XCircle className="h-5 w-5 text-red-600" />
+                    )}
+                    <span className="font-medium">{result.bankName}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={result.eligible ? "default" : "secondary"}>
+                      Score: {result.matchScore}%
+                    </Badge>
+                    {result.estimatedRate && (
+                      <Badge variant="outline">
+                        {result.estimatedRate}% p.a.
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-2 text-sm text-muted-foreground">
+                  {result.reasons.join(", ")}
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEligibilityDialogOpen(false)}>
+              Close
+            </Button>
+            {selectedApp && eligibilityResults.filter(r => r.eligible).length > 0 && (
+              <Button onClick={() => {
+                setEligibilityDialogOpen(false);
+                setSelectedBanks(eligibilityResults.filter(r => r.eligible).map(r => r.bankCode));
+                setRouteDialogOpen(true);
+              }}>
+                <Send className="h-4 w-4 mr-2" />
+                Route to Eligible Banks
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
