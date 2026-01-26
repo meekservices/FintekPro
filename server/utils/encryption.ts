@@ -105,7 +105,7 @@ export function decrypt(encryptedData: string): string {
     
     const key = deriveKey(masterKey, salt);
     
-    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
     decipher.setAuthTag(authTag);
     
     let decrypted = decipher.update(ciphertext);
