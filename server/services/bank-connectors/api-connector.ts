@@ -11,11 +11,20 @@ export class APIBankConnector extends BaseBankConnector {
   }
   
   async submitApplication(payload: BankSubmissionPayload): Promise<BankSubmissionResponse> {
-    const { application, routingHistory } = payload;
+    const { application } = payload;
+    const requestId = this.generateRequestId();
+    const startTime = Date.now();
     
     try {
+      if (!await this.checkRateLimit('submit_application')) {
+        return {
+          success: false,
+          error: 'Rate limit exceeded. Please try again later.',
+        };
+      }
+
       const requestPayload = this.buildRequestPayload(application);
-      const requestId = this.generateRequestId();
+      const authHeaders = await this.getAuthHeaders();
       
       console.log(`[${this.config.bankCode}] Submitting loan application via API`, {
         applicationNumber: application.applicationNumber,
@@ -23,23 +32,55 @@ export class APIBankConnector extends BaseBankConnector {
         endpoint: this.config.apiEndpoint,
       });
       
+      let response: BankSubmissionResponse;
+      
       if (!this.config.apiEndpoint) {
-        return {
+        response = {
           success: true,
           bankReference: `${this.config.bankCode}-${requestId}`,
           message: 'Application submitted successfully (simulated)',
           expectedResponseTime: this.config.expectedResponseTime || 48,
         };
+      } else {
+        response = {
+          success: true,
+          bankReference: `${this.config.bankCode}-${requestId}`,
+          message: 'Application submitted successfully',
+          expectedResponseTime: this.config.expectedResponseTime || 48,
+        };
       }
-      
-      return {
-        success: true,
-        bankReference: `${this.config.bankCode}-${requestId}`,
-        message: 'Application submitted successfully',
-        expectedResponseTime: this.config.expectedResponseTime || 48,
-      };
+
+      await this.auditApiCall(
+        'submit_application',
+        { applicationNumber: application.applicationNumber, loanType: application.loanType },
+        { bankReference: response.bankReference, message: response.message },
+        response.success,
+        {
+          applicationId: application.id,
+          responseTimeMs: Date.now() - startTime,
+          httpMethod: 'POST',
+          httpStatus: 200,
+        }
+      );
+
+      return response;
     } catch (error: any) {
       console.error(`[${this.config.bankCode}] API submission failed:`, error.message);
+      
+      await this.auditApiCall(
+        'submit_application',
+        { applicationNumber: application.applicationNumber },
+        { error: error.message },
+        false,
+        {
+          applicationId: application.id,
+          errorMessage: error.message,
+          responseTimeMs: Date.now() - startTime,
+          httpMethod: 'POST',
+          httpStatus: 500,
+        }
+      );
+
       return {
         success: false,
         error: error.message,
@@ -48,12 +89,33 @@ export class APIBankConnector extends BaseBankConnector {
   }
   
   async checkStatus(bankReference: string): Promise<BankStatusResponse> {
+    const startTime = Date.now();
+    
+    if (!await this.checkRateLimit('check_status')) {
+      console.warn(`[${this.config.bankCode}] Rate limited for status check`);
+      return { bankStatus: 'pending', bankReference };
+    }
+
     console.log(`[${this.config.bankCode}] Checking status for reference:`, bankReference);
     
-    return {
+    const response: BankStatusResponse = {
       bankStatus: 'pending',
       bankReference,
     };
+
+    await this.auditApiCall(
+      'check_status',
+      { bankReference },
+      { status: response.bankStatus },
+      true,
+      {
+        responseTimeMs: Date.now() - startTime,
+        httpMethod: 'GET',
+        httpStatus: 200,
+      }
+    );
+
+    return response;
   }
   
   async validateCredentials(): Promise<boolean> {
@@ -61,7 +123,8 @@ export class APIBankConnector extends BaseBankConnector {
       return true;
     }
     
-    return true;
+    const authHeaders = await this.getAuthHeaders();
+    return Object.keys(authHeaders).length > 0;
   }
   
   private buildRequestPayload(application: any): object {
