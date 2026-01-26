@@ -221,18 +221,19 @@ const taxReminderSubscriptionSchema = z.object({
   })
 });
 
-export async function registerRoutes(app: Express): Promise<Server> {
-  const server = createServer(app);
-
-  // Health check endpoint for network state detection (lightweight, no auth required)
-  app.get("/api/health", (req, res) => {
-    res.status(200).json({ 
-      status: "ok", 
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime()
+export async function registerRoutes(app: Express, existingServer?: Server): Promise<Server> {
+  const server = existingServer || createServer(app);
+  // Health check endpoint - skip if already registered in index.ts (fast boot mode)
+  if (!existingServer) {
+    app.get("/api/health", (req, res) => {
+      res.status(200).json({ 
+        status: "ok", 
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+      });
     });
-  });
-  
+  }
+
   // Diagnostics endpoint to help debug production issues (admin only)
   app.get("/api/internal/diagnostics", async (req, res) => {
     const diagnostics: Record<string, any> = {

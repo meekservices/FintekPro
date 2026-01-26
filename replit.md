@@ -87,6 +87,14 @@ A **Staggered Startup System** prevents resource contention and 502 errors durin
 - **External API Service Delays**: Bond Catalog (5s), Currency Exchange (10s), Financial Data Scheduler (15s) are delayed to allow the server to become responsive before making heavy external API calls
 - **Error Monitoring**: Request latency tracking logs slow requests (>1000ms) for performance analysis
 
+A **Fast Boot Optimization** ensures the server starts accepting requests within ~200ms instead of waiting 30-40 seconds for full initialization:
+- **Early Listen**: Server starts listening on port 5000 immediately after auth setup (~200ms)
+- **Boot State Tracking**: Global `bootState` object tracks: serverListening, authReady, routesReady, cronJobsReady
+- **Boot-in-Progress Middleware**: Returns 503 with "Server is starting up" message for API requests during boot, while whitelisting health, auth, and CSRF endpoints
+- **Background Route Registration**: Routes continue registering asynchronously while server already accepts health check requests
+- **Health Endpoints**: `/api/health` and `/api/ready` return boot status immediately, preventing 502 errors from load balancers
+- **Graceful Degradation**: Non-critical services initialize after server is responsive
+
 ### Regulatory Compliance Infrastructure
 A comprehensive **Regulatory Gaps Tracker** monitors compliance across SEBI, RBI, IRDAI, MCA, and ITD regulators, with all 10 tracked items completed. This includes Consent Audit Trail (DPDPA 2023), AI Advisory Risk Disclosure (SEBI AI/ML Guidelines), Key Facts Statement for Loans (RBI), RIA Registration Validation (SEBI IA Regulations), Insurance Suitability Assessment (IRDAI), Beneficial Ownership Disclosure (MCA), Overseas Investment Limit Tracking (FEMA LRS), Client Money Segregation Audit (SEBI), and SEBI SCORES Integration.
 

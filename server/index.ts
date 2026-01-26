@@ -51,6 +51,17 @@ import fs from "fs";
 import path from "path";
 import "./services/sms-service"; // Initialize SMS service
 
+// Global boot state - tracks server initialization progress
+export const bootState = {
+  serverListening: false,
+  authReady: false,
+  routesReady: false,
+  cronJobsReady: false,
+  startTime: Date.now(),
+  getBootTime: () => Date.now() - bootState.startTime,
+  isFullyReady: () => bootState.serverListening && bootState.authReady && bootState.routesReady
+};
+
 // Ensure static build is available for production deployments
 // Vite builds to dist/public, but serveStatic expects server/public
 function ensureStaticBuild(): void {
@@ -432,16 +443,34 @@ app.use((req, res, next) => {
   // Health check endpoints (must be before auth - no authentication required)
   const { healthCheck, readinessCheck, livenessCheck } = await import('./health-check');
   app.get('/health', healthCheck);
-  app.get('/ready', readinessCheck);
+  app.get('/ready', (req, res) => {
+    // Enhanced readiness check that includes boot state
+    if (bootState.isFullyReady()) {
+      return readinessCheck(req, res);
+    }
+    res.status(503).json({
+      status: 'booting',
+      message: 'Server is starting up',
+      bootTime: bootState.getBootTime(),
+      state: {
+        serverListening: bootState.serverListening,
+        authReady: bootState.authReady,
+        routesReady: bootState.routesReady
+      }
+    });
+  });
   app.get('/live', livenessCheck);
   
   // API health endpoint - BEFORE session middleware to ensure it always responds
   // This is critical for production load balancers and health checks
+  // Returns 200 as long as server process is running (even during boot)
   app.get('/api/health', (req, res) => {
     res.status(200).json({
-      status: 'ok',
+      status: bootState.isFullyReady() ? 'ok' : 'booting',
       timestamp: new Date().toISOString(),
-      uptime: process.uptime()
+      uptime: process.uptime(),
+      bootTime: bootState.getBootTime(),
+      ready: bootState.isFullyReady()
     });
   });
   
@@ -450,11 +479,37 @@ app.use((req, res, next) => {
     res.status(200).end();
   });
   
+  // API ready endpoint - returns 503 during boot, 200 when fully ready
+  app.get('/api/ready', async (req, res) => {
+    if (bootState.isFullyReady()) {
+      res.status(200).json({
+        status: 'ready',
+        timestamp: new Date().toISOString(),
+        bootTime: bootState.getBootTime()
+      });
+    } else {
+      res.status(503).json({
+        status: 'booting',
+        message: 'Server is starting up, please wait...',
+        bootTime: bootState.getBootTime(),
+        state: {
+          serverListening: bootState.serverListening,
+          authReady: bootState.authReady,
+          routesReady: bootState.routesReady
+        }
+      });
+    }
+  });
+  
   // Initialize authentication (Passport & sessions must be set up first)
   await setupReplitAuth(app);
   
   // Then add local email/mobile authentication routes
   setupLocalAuth(app);
+  
+  // Auth is now ready
+  bootState.authReady = true;
+  console.log(`✅ Auth ready (${bootState.getBootTime()}ms)`);
   
   // CSRF token endpoint (must be after session middleware)
   app.get('/api/csrf-token', (req: Request, res: Response) => {
@@ -471,6 +526,63 @@ app.use((req, res, next) => {
   
   // Apply CSRF protection after session/auth middleware
   app.use('/api', createCsrfProtection());
+  
+  // ============================================================================
+  // FAST BOOT: Start the HTTP server NOW, before heavy route registration
+  // This ensures health endpoints respond immediately instead of 502 errors
+  // ============================================================================
+  const { createServer } = await import('http');
+  const server = createServer(app);
+  const port = parseInt(process.env.PORT || '5000', 10);
+  
+  // Boot-in-progress middleware - returns 503 for API routes not yet loaded
+  // This will be removed once routes are fully registered
+  const bootInProgressMiddleware = (req: Request, res: Response, next: NextFunction) => {
+    // Skip if routes are ready
+    if (bootState.routesReady) {
+      return next();
+    }
+    
+    // Allow health endpoints during boot
+    if (req.path === '/api/health' || req.path === '/api/ready' || req.path === '/health' || req.path === '/ready') {
+      return next();
+    }
+    
+    // Allow auth-related endpoints during boot
+    if (req.path.startsWith('/api/auth') || req.path.startsWith('/api/login') || req.path.startsWith('/api/user')) {
+      return next();
+    }
+    
+    // Allow CSRF token endpoint during boot (needed for login forms)
+    if (req.path === '/api/csrf-token') {
+      return next();
+    }
+    
+    // Return 503 for other API routes - server is still booting
+    res.status(503).json({
+      status: 'booting',
+      message: 'Server is starting up, please wait a moment and refresh...',
+      bootTime: bootState.getBootTime(),
+      retryAfter: 5
+    });
+  };
+  
+  // Apply boot middleware for API routes
+  app.use('/api', bootInProgressMiddleware);
+  
+  // Start listening IMMEDIATELY - don't wait for routes
+  server.listen({
+    port,
+    host: "0.0.0.0",
+    reusePort: true,
+  }, () => {
+    bootState.serverListening = true;
+    console.log(`🚀 Server listening on port ${port} (boot time: ${bootState.getBootTime()}ms)`);
+    logger.info(`Server listening on port ${port}`, { port, environment: process.env.NODE_ENV || 'development', bootTime: bootState.getBootTime() });
+  });
+  
+  // Continue registering routes asynchronously (server is already listening)
+  console.log('📦 Registering routes...');
   
   // Register Zoho integration routes
   const zohoRoutes = await import('./zoho/routes');
@@ -639,7 +751,9 @@ app.use((req, res, next) => {
   }
   
   registerRoleRoutes(app);
-  const server = await registerRoutes(app);
+  
+  // Register additional routes from routes.ts (but don't create a new server - we already have one)
+  await registerRoutes(app, server);
 
   // Register API 404 handler BEFORE static file serving
   // This ensures unmatched API routes get proper JSON 404 responses
@@ -664,169 +778,165 @@ app.use((req, res, next) => {
   app.use(notFoundHandler);
   app.use(errorHandler);
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    logger.info(`Server listening on port ${port}`, { port, environment: process.env.NODE_ENV || 'development' });
-    
-    // Initialize Capital Gains Tax Reminder Scheduler
-    try {
-      import('./services/reminder-scheduler').then(({ reminderScheduler }) => {
-        reminderScheduler.start();
-        logger.service('Capital Gains Tax Reminder Scheduler', 'Service initialized successfully');
-      }).catch(error => {
-        logger.serviceError('Capital Gains Tax Reminder Scheduler', 'Failed to initialize service', error instanceof Error ? error : undefined);
-      });
-    } catch (error) {
-      logger.serviceError('Capital Gains Tax Reminder Scheduler', 'Error importing service module', error instanceof Error ? error : undefined);
-    }
-    
-    // Initialize Bond Catalog Service (delayed to reduce startup load)
-    setTimeout(() => {
-      try {
-        import('./bond-catalog-service').then(({ bondCatalogService }) => {
-          bondCatalogService.startAutoRefresh();
-          logger.service('Bond Catalog Service', 'Service initialized successfully');
-        }).catch(error => {
-          console.error('❌ Failed to initialize bond catalog service:', error);
-        });
-      } catch (error) {
-        console.error('❌ Error importing bond catalog service:', error);
-      }
-    }, 5000); // 5 second delay
-    
-    // Initialize Alert Monitoring Service
-    try {
-      import('./services/alert-monitoring-service').then(({ alertMonitoringService }) => {
-        alertMonitoringService.start();
-        logger.service('Alert Monitoring Service', 'Service initialized successfully');
-      }).catch(error => {
-        console.error('❌ Failed to initialize alert monitoring service:', error);
-      });
-    } catch (error) {
-      console.error('❌ Error importing alert monitoring service:', error);
-    }
-    
-    // Initialize Currency Exchange Service (delayed to reduce startup load)
-    setTimeout(() => {
-      try {
-        import('./services/currency-exchange-service').then(async ({ currencyExchangeService }) => {
-          await currencyExchangeService.initializeRates();
-          currencyExchangeService.startAutoRefresh();
-          logger.service('Currency Exchange Service', 'Service initialized successfully');
-        }).catch(error => {
-          console.error('❌ Failed to initialize currency exchange service:', error);
-        });
-      } catch (error) {
-        console.error('❌ Error importing currency exchange service:', error);
-      }
-    }, 10000); // 10 second delay (after bond catalog)
-    
-    // Initialize Session Cleanup Cron Job
-    try {
-      import('./session-cleanup-cron').then(({ initSessionCleanupCron }) => {
-        initSessionCleanupCron();
-      }).catch(error => {
-        console.error('❌ Failed to initialize session cleanup cron:', error);
-      });
-    } catch (error) {
-      console.error('❌ Error importing session cleanup cron:', error);
-    }
-    
-    // Initialize CKYC Provider Configuration (non-blocking)
-    try {
-      import('./services/ckyc-provider-resolution-service').then(({ ckycProviderResolutionService }) => {
-        ckycProviderResolutionService.seedDefaultProviders().then(() => {
-          console.log('✅ CKYC Provider Configuration Service initialized');
-        }).catch(error => {
-          console.warn('⚠️ CKYC Provider seeding skipped (will retry on first request):', error instanceof Error ? error.message : 'Unknown error');
-        });
-      }).catch(error => {
-        console.warn('⚠️ CKYC Provider Service not loaded (app continues without it):', error instanceof Error ? error.message : 'Unknown error');
-      });
-    } catch (error) {
-      console.warn('⚠️ Error importing CKYC provider service (non-blocking):', error instanceof Error ? error.message : 'Unknown error');
-    }
-    
-    // Initialize Retention Cleanup Service (8-year PMLA/RBI compliance)
-    try {
-      import('./services/retention-cleanup-service').then(({ retentionCleanupService }) => {
-        retentionCleanupService.scheduleCleanup();
-        logger.service('Retention Cleanup Service', 'Scheduled daily cleanup at 2:00 AM IST');
-      }).catch(error => {
-        console.error('❌ Failed to initialize retention cleanup service:', error);
-      });
-    } catch (error) {
-      console.error('❌ Error importing retention cleanup service:', error);
-    }
-    
-    // Initialize Background Job Queue
-    try {
-      import('./services/background-job-queue').then(({ jobQueue }) => {
-        import('./services/government-scheme-data-fetcher').then(({ governmentSchemeDataFetcher }) => {
-          jobQueue.registerHandler('epf_passbook_download', async (payload) => {
-            return governmentSchemeDataFetcher.fetchSchemeData({
-              userId: payload.userId,
-              schemeType: 'epf',
-              panNumber: String(payload.panNumber || ''),
-              name: String(payload.name || ''),
-              dateOfBirth: String(payload.dateOfBirth || ''),
-              consentId: payload.consentId
-            });
-          });
-          
-          jobQueue.registerHandler('nps_statement_fetch', async (payload) => {
-            return governmentSchemeDataFetcher.fetchSchemeData({
-              userId: payload.userId,
-              schemeType: 'nps',
-              panNumber: String(payload.panNumber || ''),
-              name: String(payload.name || ''),
-              dateOfBirth: String(payload.dateOfBirth || ''),
-              consentId: payload.consentId
-            });
-          });
-          
-          logger.service('Background Job Queue', 'Initialized with government scheme handlers');
-        });
-      }).catch(error => {
-        console.error('❌ Failed to initialize background job queue:', error);
-      });
-    } catch (error) {
-      console.error('❌ Error importing background job queue:', error);
-    }
-    
-    // Initialize Unlisted Marketplace Cron Jobs
-    try {
-      initializeCronJobs();
-      logger.service('Unlisted Marketplace Cron', 'Cron jobs initialized successfully');
-    } catch (error) {
-      logger.serviceError('Unlisted Marketplace Cron', 'Failed to initialize cron jobs', error instanceof Error ? error : undefined);
-    }
-    
-    // Initialize Financial Data Scheduler for database-driven caching (delayed to reduce startup load)
-    setTimeout(() => {
-      try {
-        import('./services/financial-data-scheduler').then(({ financialDataScheduler }) => {
-          financialDataScheduler.start();
-          logger.service('Financial Data Scheduler', 'Started periodic data refresh');
-        }).catch(error => {
-          console.error('❌ Failed to start financial data scheduler:', error);
-        });
-      } catch (error) {
-        console.error('❌ Error initializing financial data scheduler:', error);
-      }
-    }, 15000); // 15 second delay (after currency exchange)
-    
-    // Seed default store categories if not present
-    storage.seedDefaultStoreCategories().catch(error => {
-      console.error('❌ Failed to seed store categories:', error);
+  // ============================================================================
+  // ROUTES ARE NOW FULLY REGISTERED - mark as ready
+  // ============================================================================
+  bootState.routesReady = true;
+  console.log(`✅ All routes registered (total boot time: ${bootState.getBootTime()}ms)`);
+
+  // Initialize background services now that server is fully ready
+  
+  // Initialize Capital Gains Tax Reminder Scheduler
+  try {
+    import('./services/reminder-scheduler').then(({ reminderScheduler }) => {
+      reminderScheduler.start();
+      logger.service('Capital Gains Tax Reminder Scheduler', 'Service initialized successfully');
+    }).catch(error => {
+      logger.serviceError('Capital Gains Tax Reminder Scheduler', 'Failed to initialize service', error instanceof Error ? error : undefined);
     });
+  } catch (error) {
+    logger.serviceError('Capital Gains Tax Reminder Scheduler', 'Error importing service module', error instanceof Error ? error : undefined);
+  }
+  
+  // Initialize Bond Catalog Service (delayed to reduce startup load)
+  setTimeout(() => {
+    try {
+      import('./bond-catalog-service').then(({ bondCatalogService }) => {
+        bondCatalogService.startAutoRefresh();
+        logger.service('Bond Catalog Service', 'Service initialized successfully');
+      }).catch(error => {
+        console.error('❌ Failed to initialize bond catalog service:', error);
+      });
+    } catch (error) {
+      console.error('❌ Error importing bond catalog service:', error);
+    }
+  }, 5000); // 5 second delay
+  
+  // Initialize Alert Monitoring Service
+  try {
+    import('./services/alert-monitoring-service').then(({ alertMonitoringService }) => {
+      alertMonitoringService.start();
+      logger.service('Alert Monitoring Service', 'Service initialized successfully');
+    }).catch(error => {
+      console.error('❌ Failed to initialize alert monitoring service:', error);
+    });
+  } catch (error) {
+    console.error('❌ Error importing alert monitoring service:', error);
+  }
+  
+  // Initialize Currency Exchange Service (delayed to reduce startup load)
+  setTimeout(() => {
+    try {
+      import('./services/currency-exchange-service').then(async ({ currencyExchangeService }) => {
+        await currencyExchangeService.initializeRates();
+        currencyExchangeService.startAutoRefresh();
+        logger.service('Currency Exchange Service', 'Service initialized successfully');
+      }).catch(error => {
+        console.error('❌ Failed to initialize currency exchange service:', error);
+      });
+    } catch (error) {
+      console.error('❌ Error importing currency exchange service:', error);
+    }
+  }, 10000); // 10 second delay (after bond catalog)
+  
+  // Initialize Session Cleanup Cron Job
+  try {
+    import('./session-cleanup-cron').then(({ initSessionCleanupCron }) => {
+      initSessionCleanupCron();
+    }).catch(error => {
+      console.error('❌ Failed to initialize session cleanup cron:', error);
+    });
+  } catch (error) {
+    console.error('❌ Error importing session cleanup cron:', error);
+  }
+  
+  // Initialize CKYC Provider Configuration (non-blocking)
+  try {
+    import('./services/ckyc-provider-resolution-service').then(({ ckycProviderResolutionService }) => {
+      ckycProviderResolutionService.seedDefaultProviders().then(() => {
+        console.log('✅ CKYC Provider Configuration Service initialized');
+      }).catch(error => {
+        console.warn('⚠️ CKYC Provider seeding skipped (will retry on first request):', error instanceof Error ? error.message : 'Unknown error');
+      });
+    }).catch(error => {
+      console.warn('⚠️ CKYC Provider Service not loaded (app continues without it):', error instanceof Error ? error.message : 'Unknown error');
+    });
+  } catch (error) {
+    console.warn('⚠️ Error importing CKYC provider service (non-blocking):', error instanceof Error ? error.message : 'Unknown error');
+  }
+  
+  // Initialize Retention Cleanup Service (8-year PMLA/RBI compliance)
+  try {
+    import('./services/retention-cleanup-service').then(({ retentionCleanupService }) => {
+      retentionCleanupService.scheduleCleanup();
+      logger.service('Retention Cleanup Service', 'Scheduled daily cleanup at 2:00 AM IST');
+    }).catch(error => {
+      console.error('❌ Failed to initialize retention cleanup service:', error);
+    });
+  } catch (error) {
+    console.error('❌ Error importing retention cleanup service:', error);
+  }
+  
+  // Initialize Background Job Queue
+  try {
+    import('./services/background-job-queue').then(({ jobQueue }) => {
+      import('./services/government-scheme-data-fetcher').then(({ governmentSchemeDataFetcher }) => {
+        jobQueue.registerHandler('epf_passbook_download', async (payload) => {
+          return governmentSchemeDataFetcher.fetchSchemeData({
+            userId: payload.userId,
+            schemeType: 'epf',
+            panNumber: String(payload.panNumber || ''),
+            name: String(payload.name || ''),
+            dateOfBirth: String(payload.dateOfBirth || ''),
+            consentId: payload.consentId
+          });
+        });
+        
+        jobQueue.registerHandler('nps_statement_fetch', async (payload) => {
+          return governmentSchemeDataFetcher.fetchSchemeData({
+            userId: payload.userId,
+            schemeType: 'nps',
+            panNumber: String(payload.panNumber || ''),
+            name: String(payload.name || ''),
+            dateOfBirth: String(payload.dateOfBirth || ''),
+            consentId: payload.consentId
+          });
+        });
+        
+        logger.service('Background Job Queue', 'Initialized with government scheme handlers');
+      });
+    }).catch(error => {
+      console.error('❌ Failed to initialize background job queue:', error);
+    });
+  } catch (error) {
+    console.error('❌ Error importing background job queue:', error);
+  }
+  
+  // Initialize Unlisted Marketplace Cron Jobs
+  try {
+    initializeCronJobs();
+    bootState.cronJobsReady = true;
+    logger.service('Unlisted Marketplace Cron', 'Cron jobs initialized successfully');
+  } catch (error) {
+    logger.serviceError('Unlisted Marketplace Cron', 'Failed to initialize cron jobs', error instanceof Error ? error : undefined);
+  }
+  
+  // Initialize Financial Data Scheduler for database-driven caching (delayed to reduce startup load)
+  setTimeout(() => {
+    try {
+      import('./services/financial-data-scheduler').then(({ financialDataScheduler }) => {
+        financialDataScheduler.start();
+        logger.service('Financial Data Scheduler', 'Started periodic data refresh');
+      }).catch(error => {
+        console.error('❌ Failed to start financial data scheduler:', error);
+      });
+    } catch (error) {
+      console.error('❌ Error initializing financial data scheduler:', error);
+    }
+  }, 15000); // 15 second delay (after currency exchange)
+  
+  // Seed default store categories if not present
+  storage.seedDefaultStoreCategories().catch(error => {
+    console.error('❌ Failed to seed store categories:', error);
   });
 })();
