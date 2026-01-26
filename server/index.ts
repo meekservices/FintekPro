@@ -45,6 +45,7 @@ import { setupAuth as setupLocalAuth } from "./auth";
 import { subdomainDetection } from "./subdomain-middleware";
 import { initializeCronJobs } from "./cron-jobs";
 import { requestContextMiddleware } from "./middleware/request-context";
+import { errorMonitoringMiddleware, globalErrorHandler } from "./error-monitor";
 import { randomBytes } from "crypto";
 import fs from "fs";
 import path from "path";
@@ -114,6 +115,9 @@ app.set('trust proxy', 1);
 
 // Request context middleware - generates trace IDs for all requests
 app.use(requestContextMiddleware);
+
+// Error monitoring middleware - tracks response times and slow requests
+app.use(errorMonitoringMiddleware);
 
 // Security middleware
 app.use(helmet({

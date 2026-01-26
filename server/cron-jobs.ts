@@ -22,36 +22,58 @@ import { pmsNavSyncScheduler } from './services/pms-nav-sync-scheduler';
 import { commodityPriceSyncScheduler } from './services/commodity-price-sync-scheduler';
 import { exitLoadSyncScheduler } from './services/exit-load-sync-scheduler';
 
+const STAGGER_DELAY_MS = 30000;
+
+function staggeredStart(name: string, startFn: () => void, delayMs: number): void {
+  setTimeout(() => {
+    console.log(`🚀 [StaggeredStart] Starting ${name}...`);
+    startFn();
+  }, delayMs);
+}
+
 /**
- * Initialize scheduled cron jobs
+ * Initialize scheduled cron jobs with staggered startup to reduce resource contention
  */
 export function initializeCronJobs(): void {
-  console.log('Initializing cron jobs...');
+  console.log('Initializing cron jobs (staggered startup enabled)...');
 
+  let delay = 0;
 
-  // Start REIT/InvIT data refresh scheduler (every 6 hours)
-  reitInvitDataService.startScheduledRefresh(6);
-  console.log('🏢 [REIT/InvIT] Data refresh scheduler started (every 6 hours)');
+  staggeredStart('REIT/InvIT refresh', () => {
+    reitInvitDataService.startScheduledRefresh(6);
+    console.log('🏢 [REIT/InvIT] Data refresh scheduler started (every 6 hours)');
+  }, delay);
+  delay += STAGGER_DELAY_MS;
   
-  // Start Mutual Fund NAV sync scheduler
-  mfSyncScheduler.start();
-  console.log('📊 [MF Sync] NAV sync scheduler started (daily refresh + startup catch-up)');
+  staggeredStart('MF NAV sync', () => {
+    mfSyncScheduler.start();
+    console.log('📊 [MF Sync] NAV sync scheduler started (daily refresh + startup catch-up)');
+  }, delay);
+  delay += STAGGER_DELAY_MS;
   
-  // Start AIF NAV sync scheduler
-  aifNavSyncScheduler.start();
-  console.log('📊 [AIF Sync] NAV sync scheduler started (daily refresh at 7 AM IST)');
+  staggeredStart('AIF NAV sync', () => {
+    aifNavSyncScheduler.start();
+    console.log('📊 [AIF Sync] NAV sync scheduler started (daily refresh at 7 AM IST)');
+  }, delay);
+  delay += STAGGER_DELAY_MS;
   
-  // Start PMS NAV sync scheduler
-  pmsNavSyncScheduler.start();
-  console.log('📊 [PMS Sync] NAV sync scheduler started (daily refresh at 7:30 AM IST)');
+  staggeredStart('PMS NAV sync', () => {
+    pmsNavSyncScheduler.start();
+    console.log('📊 [PMS Sync] NAV sync scheduler started (daily refresh at 7:30 AM IST)');
+  }, delay);
+  delay += STAGGER_DELAY_MS;
   
-  // Start Commodity price sync scheduler
-  commodityPriceSyncScheduler.start();
-  console.log('📊 [Commodity Sync] Price sync scheduler started (daily refresh at 8 AM IST)');
+  staggeredStart('Commodity sync', () => {
+    commodityPriceSyncScheduler.start();
+    console.log('📊 [Commodity Sync] Price sync scheduler started (daily refresh at 8 AM IST)');
+  }, delay);
+  delay += STAGGER_DELAY_MS;
   
-  // Start Exit Load sync scheduler
-  exitLoadSyncScheduler.start();
-  console.log('📊 [ExitLoad Sync] Exit load sync scheduler started (weekly refresh)');
+  staggeredStart('Exit Load sync', () => {
+    exitLoadSyncScheduler.start();
+    console.log('📊 [ExitLoad Sync] Exit load sync scheduler started (weekly refresh)');
+  }, delay);
+  delay += STAGGER_DELAY_MS;
   
   // Probe42 Sync Job - Run every 6 hours
   cron.schedule('0 */6 * * *', async () => {
