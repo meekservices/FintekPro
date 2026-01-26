@@ -30,7 +30,7 @@ interface Bank {
   bankName: string;
   connectorType: string;
   priority: number;
-  loanTypes: string[];
+  supportedLoanTypes: string[];
   minAmount: number;
   maxAmount: number;
   minTenure: number;
@@ -62,8 +62,9 @@ export default function AgentLoanMarketplace() {
   const banks = banksData?.data || [];
   
   const filteredBanks = banks.filter(bank => {
-    const matchesSearch = bank.bankName.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesType = selectedType === "all" || bank.loanTypes.includes(selectedType);
+    const matchesSearch = bank.bankName?.toLowerCase().includes(searchQuery.toLowerCase());
+    const bankLoanTypes = bank.supportedLoanTypes || [];
+    const matchesType = selectedType === "all" || bankLoanTypes.includes(selectedType);
     return matchesSearch && matchesType && bank.isActive;
   });
 
@@ -92,7 +93,7 @@ export default function AgentLoanMarketplace() {
         {loanTypes.map(type => {
           const config = loanTypeConfig[type];
           const Icon = config.icon;
-          const count = banks.filter(b => b.loanTypes.includes(type) && b.isActive).length;
+          const count = banks.filter(b => (b.supportedLoanTypes || []).includes(type) && b.isActive).length;
           return (
             <Card 
               key={type}
@@ -142,7 +143,7 @@ export default function AgentLoanMarketplace() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-wrap gap-1">
-                {bank.loanTypes.map(type => {
+                {(bank.supportedLoanTypes || []).map(type => {
                   const config = loanTypeConfig[type];
                   return config ? (
                     <Badge key={type} variant="secondary" className="text-xs">
