@@ -1,0 +1,62 @@
+chunk-XQLYTHWV.js?v=228f95bf:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+main.tsx:23 [PWA] Service Worker registered: https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/
+client:536 WebSocket connection to 'wss://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/?token=mMs0IDccVy7B' failed: 
+setupWebSocket @ client:536
+(anonymous) @ client:531
+main.tsx:9 Unhandled promise rejection: SyntaxError: Failed to construct 'WebSocket': The URL 'wss://localhost:undefined/?token=mMs0IDccVy7B' is invalid.
+    at setupWebSocket (client:536:19)
+    at fallback (client:509:16)
+    at WebSocket.<anonymous> (client:555:7)
+(anonymous) @ main.tsx:9
+queryClient.ts:9  GET https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/csrf-token 500 (Internal Server Error)
+fetchCsrfToken @ queryClient.ts:9
+(anonymous) @ useAuth.ts:16
+commitHookEffectListMount @ chunk-XQLYTHWV.js?v=228f95bf:16915
+commitPassiveMountOnFiber @ chunk-XQLYTHWV.js?v=228f95bf:18156
+commitPassiveMountEffects_complete @ chunk-XQLYTHWV.js?v=228f95bf:18129
+commitPassiveMountEffects_begin @ chunk-XQLYTHWV.js?v=228f95bf:18119
+commitPassiveMountEffects @ chunk-XQLYTHWV.js?v=228f95bf:18109
+flushPassiveEffectsImpl @ chunk-XQLYTHWV.js?v=228f95bf:19490
+flushPassiveEffects @ chunk-XQLYTHWV.js?v=228f95bf:19447
+commitRootImpl @ chunk-XQLYTHWV.js?v=228f95bf:19416
+commitRoot @ chunk-XQLYTHWV.js?v=228f95bf:19277
+performSyncWorkOnRoot @ chunk-XQLYTHWV.js?v=228f95bf:18895
+flushSyncCallbacks @ chunk-XQLYTHWV.js?v=228f95bf:9119
+(anonymous) @ chunk-XQLYTHWV.js?v=228f95bf:18627
+setTimeout
+scheduleFn @ @tanstack_react-query.js?v=228f95bf:555
+flush @ @tanstack_react-query.js?v=228f95bf:569
+batch @ @tanstack_react-query.js?v=228f95bf:587
+dispatch_fn @ @tanstack_react-query.js?v=228f95bf:996
+setData @ @tanstack_react-query.js?v=228f95bf:696
+onSuccess @ @tanstack_react-query.js?v=228f95bf:897
+resolve @ @tanstack_react-query.js?v=228f95bf:456
+Promise.then
+run @ @tanstack_react-query.js?v=228f95bf:498
+start @ @tanstack_react-query.js?v=228f95bf:536
+fetch @ @tanstack_react-query.js?v=228f95bf:926
+executeFetch_fn @ @tanstack_react-query.js?v=228f95bf:2211
+onSubscribe @ @tanstack_react-query.js?v=228f95bf:1898
+subscribe @ @tanstack_react-query.js?v=228f95bf:24
+(anonymous) @ @tanstack_react-query.js?v=228f95bf:3022
+subscribeToStore @ chunk-XQLYTHWV.js?v=228f95bf:11984
+commitHookEffectListMount @ chunk-XQLYTHWV.js?v=228f95bf:16915
+commitPassiveMountOnFiber @ chunk-XQLYTHWV.js?v=228f95bf:18156
+commitPassiveMountEffects_complete @ chunk-XQLYTHWV.js?v=228f95bf:18129
+commitPassiveMountEffects_begin @ chunk-XQLYTHWV.js?v=228f95bf:18119
+commitPassiveMountEffects @ chunk-XQLYTHWV.js?v=228f95bf:18109
+flushPassiveEffectsImpl @ chunk-XQLYTHWV.js?v=228f95bf:19490
+flushPassiveEffects @ chunk-XQLYTHWV.js?v=228f95bf:19447
+performSyncWorkOnRoot @ chunk-XQLYTHWV.js?v=228f95bf:18868
+flushSyncCallbacks @ chunk-XQLYTHWV.js?v=228f95bf:9119
+commitRootImpl @ chunk-XQLYTHWV.js?v=228f95bf:19432
+commitRoot @ chunk-XQLYTHWV.js?v=228f95bf:19277
+finishConcurrentRender @ chunk-XQLYTHWV.js?v=228f95bf:18805
+performConcurrentWorkOnRoot @ chunk-XQLYTHWV.js?v=228f95bf:18718
+workLoop @ chunk-XQLYTHWV.js?v=228f95bf:197
+flushWork @ chunk-XQLYTHWV.js?v=228f95bf:176
+performWorkUntilDeadline @ chunk-XQLYTHWV.js?v=228f95bf:384
+store-management.tsx:587 [StoreManagement] Categories data: undefined isLoading: true isError: false error: null
+store-management.tsx:587 [StoreManagement] Categories data: {categories: Array(15)} isLoading: false isError: false error: null
+store-management.tsx:587 [StoreManagement] Categories data: {categories: Array(15)} isLoading: false isError: false error: null
+store-management.tsx:587 [StoreManagement] Categories data: {categories: Array(15)} isLoading: false isError: false error: null
