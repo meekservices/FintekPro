@@ -173,6 +173,7 @@ const AgentBulkCommunication = lazy(() => import("@/pages/agent-bulk-communicati
 const AgentCalendar = lazy(() => import("@/pages/agent-calendar"));
 const AgentESign = lazy(() => import("@/pages/agent-esign"));
 const AgentClientOnboarding = lazy(() => import("@/pages/agent-client-onboarding"));
+const AgentLoanApply = lazy(() => import("@/pages/agent/loan-apply"));
 import OnboardingPage from "@/pages/onboarding";
 import PublicProposalPage from "@/pages/public-proposal";
 import ManualKYCPage from "@/pages/manual-kyc";
@@ -1849,6 +1850,15 @@ function AgentRoutes() {
           <AgentLayout>
             <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
               <AgentESign />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/loan-apply">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentLoanApply />
             </Suspense>
           </AgentLayout>
         )}

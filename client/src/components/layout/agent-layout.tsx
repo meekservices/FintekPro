@@ -113,7 +113,7 @@ const agentNavCategories: NavCategory[] = [
     title: "Loans",
     icon: Banknote,
     items: [
-      { title: "Apply Loan", href: "/loan-apply", icon: Plus, description: "Submit loan application" },
+      { title: "Submit Loan Lead", href: "/agent/loan-apply", icon: Plus, description: "Submit client loan application" },
       { title: "Loan Marketplace", href: "/loans", icon: Store, description: "Compare loan offers" },
       { title: "Track Applications", href: "/loan-dashboard", icon: ClipboardList, description: "Monitor loan status" },
       { title: "DSA Performance", href: "/admin/dsa-loan-dashboard", icon: BarChart3, description: "Loan metrics & stats" },
