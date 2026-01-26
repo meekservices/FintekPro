@@ -46,16 +46,13 @@ const requireAuth = (req: Request, res: Response, next: NextFunction) => {
 
 router.get("/today", async (req, res) => {
   try {
-    let picks = await pickOfTheDayService.getTodaysPicks();
-    
-    if (picks.length === 0) {
-      picks = await pickOfTheDayService.generateDailyPicks();
-    }
+    const picks = await pickOfTheDayService.getTodaysPicks();
     
     res.json({
       success: true,
       date: new Date().toISOString().split('T')[0],
       picks,
+      message: picks.length === 0 ? "No picks generated for today yet. Use admin panel to generate picks." : undefined,
     });
   } catch (error) {
     console.error("[API] Error fetching today's picks:", error);
