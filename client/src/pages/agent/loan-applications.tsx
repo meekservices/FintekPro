@@ -5,9 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useQuery } from "@tanstack/react-query";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { LoadingState } from "@/components/LoadingState";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Search,
   Filter,
@@ -23,7 +26,10 @@ import {
   Phone,
   FileText,
   ArrowRight,
-  Building2
+  Building2,
+  Trash2,
+  Send,
+  Edit
 } from "lucide-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
@@ -40,6 +46,14 @@ interface LoanApplication {
   creditScore: number | null;
   routedBanks: string[];
   createdAt: string;
+}
+
+interface Bank {
+  id: string;
+  bankCode: string;
+  bankName: string;
+  supportedLoanTypes: string[];
+  isActive: boolean;
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
@@ -68,6 +82,12 @@ export default function AgentLoanApplications() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedApplication, setSelectedApplication] = useState<LoanApplication | null>(null);
+  const [routeDialogOpen, setRouteDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [applicationToRoute, setApplicationToRoute] = useState<LoanApplication | null>(null);
+  const [applicationToDelete, setApplicationToDelete] = useState<LoanApplication | null>(null);
+  const [selectedBanks, setSelectedBanks] = useState<string[]>([]);
+  const { toast } = useToast();
 
   const queryUrl = statusFilter !== "all" 
     ? `/api/dsa-loans/applications?status=${statusFilter}` 
@@ -86,6 +106,62 @@ export default function AgentLoanApplications() {
     },
   });
 
+  const { data: banksData } = useQuery<{ success: boolean; data: Bank[] }>({
+    queryKey: ["/api/dsa-loans/banks"],
+  });
+
+  const banks = banksData?.data || [];
+
+  const routeMutation = useMutation({
+    mutationFn: async ({ applicationId, bankCodes }: { applicationId: string; bankCodes: string[] }) => {
+      return apiRequest(`/api/dsa-loans/applications/${applicationId}/route`, {
+        method: "POST",
+        body: JSON.stringify({ bankCodes, strategy: "parallel" }),
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Banks Assigned",
+        description: "Application has been routed to selected banks.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/dsa-loans/applications"] });
+      setRouteDialogOpen(false);
+      setApplicationToRoute(null);
+      setSelectedBanks([]);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to route application",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (applicationId: string) => {
+      return apiRequest(`/api/dsa-loans/applications/${applicationId}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Application Deleted",
+        description: "The loan application has been deleted.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/dsa-loans/applications"] });
+      setDeleteDialogOpen(false);
+      setApplicationToDelete(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete application",
+        variant: "destructive",
+      });
+    },
+  });
+
   const applications = response?.data || [];
   
   const filteredApplications = applications.filter(app => {
@@ -101,6 +177,46 @@ export default function AgentLoanApplications() {
     pending: applications.filter(a => ["submitted", "eligibility_check", "routed", "pending_with_banks", "in_review"].includes(a.status)).length,
     approved: applications.filter(a => a.status === "approved").length,
     disbursed: applications.filter(a => a.status === "disbursed").length,
+  };
+
+  const openRouteDialog = (app: LoanApplication) => {
+    setApplicationToRoute(app);
+    setSelectedBanks(app.routedBanks || []);
+    setRouteDialogOpen(true);
+  };
+
+  const openDeleteDialog = (app: LoanApplication) => {
+    setApplicationToDelete(app);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleBankToggle = (bankCode: string) => {
+    setSelectedBanks(prev => 
+      prev.includes(bankCode)
+        ? prev.filter(b => b !== bankCode)
+        : [...prev, bankCode]
+    );
+  };
+
+  const handleRouteSubmit = () => {
+    if (applicationToRoute && selectedBanks.length > 0) {
+      routeMutation.mutate({
+        applicationId: applicationToRoute.id,
+        bankCodes: selectedBanks,
+      });
+    }
+  };
+
+  const handleDeleteConfirm = () => {
+    if (applicationToDelete) {
+      deleteMutation.mutate(applicationToDelete.id);
+    }
+  };
+
+  const getEligibleBanks = (loanType: string) => {
+    return banks.filter(b => 
+      b.isActive && (b.supportedLoanTypes || []).includes(loanType)
+    );
   };
 
   if (isLoading) {
@@ -172,6 +288,7 @@ export default function AgentLoanApplications() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="draft">Draft</SelectItem>
             <SelectItem value="submitted">Submitted</SelectItem>
             <SelectItem value="eligibility_check">Eligibility Check</SelectItem>
             <SelectItem value="routed">Routed</SelectItem>
@@ -192,15 +309,20 @@ export default function AgentLoanApplications() {
                 <TableHead>Applicant</TableHead>
                 <TableHead>Loan Type</TableHead>
                 <TableHead>Amount</TableHead>
+                <TableHead>Banks Routed</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Date</TableHead>
-                <TableHead></TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredApplications.map(app => {
                 const status = statusConfig[app.status] || statusConfig.draft;
                 const StatusIcon = status.icon;
+                const routedCount = (app.routedBanks || []).length;
+                const canEdit = ['draft', 'submitted', 'eligibility_check'].includes(app.status);
+                const canDelete = ['draft', 'submitted'].includes(app.status);
+                
                 return (
                   <TableRow key={app.id}>
                     <TableCell className="font-medium">{app.applicationNumber}</TableCell>
@@ -221,6 +343,12 @@ export default function AgentLoanApplications() {
                       </div>
                     </TableCell>
                     <TableCell>
+                      <Badge variant={routedCount > 0 ? "default" : "secondary"}>
+                        <Building2 className="h-3 w-3 mr-1" />
+                        {routedCount}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
                       <Badge className={status.color}>
                         <StatusIcon className="h-3 w-3 mr-1" />
                         {status.label}
@@ -233,68 +361,93 @@ export default function AgentLoanApplications() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button variant="ghost" size="sm" onClick={() => setSelectedApplication(app)}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-lg">
-                          <DialogHeader>
-                            <DialogTitle>Application Details</DialogTitle>
-                          </DialogHeader>
-                          {selectedApplication && (
-                            <div className="space-y-4">
-                              <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                  <p className="text-sm text-muted-foreground">Application Number</p>
-                                  <p className="font-medium">{selectedApplication.applicationNumber}</p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-muted-foreground">Status</p>
-                                  <Badge className={statusConfig[selectedApplication.status]?.color}>
-                                    {statusConfig[selectedApplication.status]?.label}
-                                  </Badge>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-muted-foreground">Applicant Name</p>
-                                  <p className="font-medium">{selectedApplication.applicantName}</p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-muted-foreground">Phone</p>
-                                  <p className="font-medium">{selectedApplication.applicantPhone}</p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-muted-foreground">Loan Type</p>
-                                  <p className="font-medium">{loanTypeLabels[selectedApplication.loanType]}</p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-muted-foreground">Amount</p>
-                                  <p className="font-medium">₹{(parseFloat(selectedApplication.requestedAmount) / 100000).toFixed(2)} Lakhs</p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-muted-foreground">Tenure</p>
-                                  <p className="font-medium">{selectedApplication.requestedTenure} months</p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-muted-foreground">Credit Score</p>
-                                  <p className="font-medium">{selectedApplication.creditScore || "Not available"}</p>
-                                </div>
-                              </div>
-                              {selectedApplication.routedBanks.length > 0 && (
-                                <div>
-                                  <p className="text-sm text-muted-foreground mb-2">Routed to Banks</p>
-                                  <div className="flex flex-wrap gap-2">
-                                    {selectedApplication.routedBanks.map(bank => (
-                                      <Badge key={bank} variant="outline">{bank}</Badge>
-                                    ))}
+                      <div className="flex items-center gap-1">
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="ghost" size="sm" onClick={() => setSelectedApplication(app)}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-lg">
+                            <DialogHeader>
+                              <DialogTitle>Application Details</DialogTitle>
+                            </DialogHeader>
+                            {selectedApplication && (
+                              <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <p className="text-sm text-muted-foreground">Application Number</p>
+                                    <p className="font-medium">{selectedApplication.applicationNumber}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-sm text-muted-foreground">Status</p>
+                                    <Badge className={statusConfig[selectedApplication.status]?.color}>
+                                      {statusConfig[selectedApplication.status]?.label}
+                                    </Badge>
+                                  </div>
+                                  <div>
+                                    <p className="text-sm text-muted-foreground">Applicant Name</p>
+                                    <p className="font-medium">{selectedApplication.applicantName}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-sm text-muted-foreground">Phone</p>
+                                    <p className="font-medium">{selectedApplication.applicantPhone}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-sm text-muted-foreground">Loan Type</p>
+                                    <p className="font-medium">{loanTypeLabels[selectedApplication.loanType]}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-sm text-muted-foreground">Amount</p>
+                                    <p className="font-medium">₹{(parseFloat(selectedApplication.requestedAmount) / 100000).toFixed(2)} Lakhs</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-sm text-muted-foreground">Tenure</p>
+                                    <p className="font-medium">{selectedApplication.requestedTenure} months</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-sm text-muted-foreground">Credit Score</p>
+                                    <p className="font-medium">{selectedApplication.creditScore || "Not available"}</p>
                                   </div>
                                 </div>
-                              )}
-                            </div>
-                          )}
-                        </DialogContent>
-                      </Dialog>
+                                {(selectedApplication.routedBanks || []).length > 0 && (
+                                  <div>
+                                    <p className="text-sm text-muted-foreground mb-2">Routed to Banks</p>
+                                    <div className="flex flex-wrap gap-2">
+                                      {selectedApplication.routedBanks.map(bank => (
+                                        <Badge key={bank} variant="outline">{bank}</Badge>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </DialogContent>
+                        </Dialog>
+                        
+                        {canEdit && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => openRouteDialog(app)}
+                            title="Assign Banks"
+                          >
+                            <Send className="h-4 w-4" />
+                          </Button>
+                        )}
+                        
+                        {canDelete && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => openDeleteDialog(app)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            title="Delete Application"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -316,6 +469,96 @@ export default function AgentLoanApplications() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={routeDialogOpen} onOpenChange={setRouteDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Assign Banks</DialogTitle>
+            <DialogDescription>
+              Select banks to route this loan application to
+            </DialogDescription>
+          </DialogHeader>
+          {applicationToRoute && (
+            <div className="space-y-4">
+              <div className="p-3 bg-muted rounded-lg">
+                <p className="font-medium">{applicationToRoute.applicantName}</p>
+                <p className="text-sm text-muted-foreground">
+                  {loanTypeLabels[applicationToRoute.loanType]} - ₹{(parseFloat(applicationToRoute.requestedAmount) / 100000).toFixed(2)}L
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Select Banks ({selectedBanks.length} selected)</p>
+                <div className="max-h-64 overflow-y-auto space-y-2 border rounded-lg p-2">
+                  {getEligibleBanks(applicationToRoute.loanType).map(bank => (
+                    <div 
+                      key={bank.bankCode}
+                      className="flex items-center space-x-3 p-2 hover:bg-muted rounded-md cursor-pointer"
+                      onClick={() => handleBankToggle(bank.bankCode)}
+                    >
+                      <Checkbox 
+                        checked={selectedBanks.includes(bank.bankCode)}
+                        onCheckedChange={() => handleBankToggle(bank.bankCode)}
+                      />
+                      <div className="flex-1">
+                        <p className="font-medium">{bank.bankName}</p>
+                        <p className="text-xs text-muted-foreground">{bank.bankCode}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {getEligibleBanks(applicationToRoute.loanType).length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No banks available for this loan type
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRouteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleRouteSubmit}
+              disabled={selectedBanks.length === 0 || routeMutation.isPending}
+            >
+              {routeMutation.isPending ? "Routing..." : `Route to ${selectedBanks.length} Bank(s)`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Application</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this loan application? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {applicationToDelete && (
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="font-medium">{applicationToDelete.applicantName}</p>
+              <p className="text-sm text-muted-foreground">
+                {applicationToDelete.applicationNumber} - {loanTypeLabels[applicationToDelete.loanType]}
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete Application"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

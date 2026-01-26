@@ -248,6 +248,46 @@ router.post("/applications/:id/route", async (req: Request, res: Response) => {
   }
 });
 
+router.delete("/applications/:id", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    const application = await dsaLoanService.getApplication(req.params.id);
+    
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        error: 'Application not found',
+      });
+    }
+    
+    if (application.agentId !== agentId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Not authorized to delete this application',
+      });
+    }
+    
+    if (!['draft', 'submitted'].includes(application.status)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot delete application that has been routed to banks',
+      });
+    }
+    
+    await dsaLoanService.deleteApplication(req.params.id);
+    
+    res.json({
+      success: true,
+      message: 'Application deleted successfully',
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
 router.get("/applications/:id/routing-history", async (req: Request, res: Response) => {
   try {
     const history = await dsaLoanService.getRoutingHistory(req.params.id);

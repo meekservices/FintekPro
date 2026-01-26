@@ -105,6 +105,12 @@ class DsaLoanService {
     return application || null;
   }
 
+  async deleteApplication(id: string): Promise<void> {
+    await db
+      .delete(dsaLoanApplications)
+      .where(eq(dsaLoanApplications.id, id));
+  }
+
   async listApplications(filters: {
     agentId?: string;
     status?: DsaLoanStatus;
