@@ -49,6 +49,7 @@ const loanTypeConfig: Record<string, { label: string; icon: any; color: string; 
   education: { label: "Education Loan", icon: GraduationCap, color: "bg-cyan-100 text-cyan-700", description: "Invest in education" },
   gold: { label: "Gold Loan", icon: Coins, color: "bg-yellow-100 text-yellow-700", description: "Leverage your gold assets" },
   lap: { label: "Loan Against Property", icon: Building2, color: "bg-rose-100 text-rose-700", description: "Unlock property value" },
+  las: { label: "Loan Against Shares", icon: TrendingUp, color: "bg-indigo-100 text-indigo-700", description: "Leverage your stock portfolio" },
 };
 
 export default function AgentLoanMarketplace() {
