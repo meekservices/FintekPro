@@ -278,33 +278,36 @@ export default function FieldAgentPortal() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {[
-                      { time: "10:00 AM", task: "Client meeting - Rahul Sharma", type: "meeting", status: "pending" },
-                      { time: "11:30 AM", task: "KYC document collection - ABC Corp", type: "kyc", status: "pending" },
-                      { time: "02:00 PM", task: "Product presentation - New lead", type: "presentation", status: "pending" },
-                      { time: "04:00 PM", task: "Follow-up call - 5 leads", type: "call", status: "pending" }
-                    ].map((item, index) => (
-                      <div key={index} className="flex items-center gap-4 p-3 border rounded-lg hover:bg-muted/50 transition-colors">
-                        <div className="flex-shrink-0 w-16 text-xs text-muted-foreground">{item.time}</div>
-                        <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                          item.type === 'meeting' ? 'bg-blue-100 text-blue-600' :
-                          item.type === 'kyc' ? 'bg-green-100 text-green-600' :
-                          item.type === 'presentation' ? 'bg-purple-100 text-purple-600' :
-                          'bg-amber-100 text-amber-600'
-                        }`}>
-                          {item.type === 'meeting' ? <Users className="h-4 w-4" /> :
-                           item.type === 'kyc' ? <FileText className="h-4 w-4" /> :
-                           item.type === 'presentation' ? <BarChart3 className="h-4 w-4" /> :
-                           <Phone className="h-4 w-4" />}
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">{item.task}</p>
-                        </div>
-                        <Badge variant="secondary" className="text-xs">
-                          {item.status}
-                        </Badge>
+                    {tasksLoading ? (
+                      <div className="flex items-center justify-center py-4">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
                       </div>
-                    ))}
+                    ) : (tasks as any)?.todayTasks?.length > 0 ? (
+                      (tasks as any).todayTasks.slice(0, 4).map((item: any, index: number) => (
+                        <div key={item.id || index} className="flex items-center gap-4 p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                          <div className="flex-shrink-0 w-16 text-xs text-muted-foreground">{item.time}</div>
+                          <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                            item.type === 'meeting' ? 'bg-blue-100 text-blue-600' :
+                            item.type === 'kyc' ? 'bg-green-100 text-green-600' :
+                            item.type === 'presentation' ? 'bg-purple-100 text-purple-600' :
+                            'bg-amber-100 text-amber-600'
+                          }`}>
+                            {item.type === 'meeting' ? <Users className="h-4 w-4" /> :
+                             item.type === 'kyc' ? <FileText className="h-4 w-4" /> :
+                             item.type === 'presentation' ? <BarChart3 className="h-4 w-4" /> :
+                             <Phone className="h-4 w-4" />}
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium text-sm">{item.task}</p>
+                          </div>
+                          <Badge variant={item.status === 'overdue' ? 'destructive' : 'secondary'} className="text-xs">
+                            {item.status}
+                          </Badge>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-muted-foreground text-center py-4">No tasks scheduled for today</p>
+                    )}
                   </div>
                 </CardContent>
               </Card>
