@@ -112,6 +112,26 @@ interface EligibilityResult {
   estimatedRate?: number;
 }
 
+interface RoutingHistoryItem {
+  id: string;
+  bankCode: string;
+  bankStatus: string;
+  submittedAt: string;
+  responseReceivedAt?: string;
+  approvedAmount?: string;
+  approvedTenure?: number;
+  offeredInterestRate?: string;
+  rejectionReason?: string;
+}
+
+const bankStatusColors: Record<string, string> = {
+  pending: "bg-yellow-100 text-yellow-800",
+  in_review: "bg-blue-100 text-blue-800",
+  approved: "bg-green-100 text-green-800",
+  rejected: "bg-red-100 text-red-800",
+  query_raised: "bg-orange-100 text-orange-800",
+};
+
 export default function AgentLoanApplyPage() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("apply");
@@ -172,6 +192,13 @@ export default function AgentLoanApplyPage() {
 
   const banks = banksData?.data || [];
 
+  const { data: routingHistoryData, isLoading: loadingHistory } = useQuery<{ success: boolean; data: RoutingHistoryItem[] }>({
+    queryKey: ["/api/dsa-loans/applications", selectedApp?.id, "routing-history"],
+    enabled: detailsDialogOpen && !!selectedApp?.id,
+  });
+
+  const routingHistory = routingHistoryData?.data || [];
+
   const routeMutation = useMutation({
     mutationFn: async ({ applicationId, bankCodes }: { applicationId: string; bankCodes: string[] }) => {
       return apiRequest(`/api/dsa-loans/applications/${applicationId}/route`, {
@@ -179,9 +206,10 @@ export default function AgentLoanApplyPage() {
         body: JSON.stringify({ bankCodes, strategy: "parallel" }),
       });
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       toast({ title: "Banks Assigned", description: "Application has been routed to selected banks." });
       queryClient.invalidateQueries({ queryKey: ["/api/dsa-loans/applications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dsa-loans/applications", variables.applicationId, "routing-history"] });
       setRouteDialogOpen(false);
       setSelectedApp(null);
       setSelectedBanks([]);
@@ -990,16 +1018,63 @@ export default function AgentLoanApplyPage() {
                   <p className="font-medium">{formatCurrency(selectedApp.monthlyIncome || 0)}</p>
                 </div>
               </div>
-              {(selectedApp.routedBanks || []).length > 0 && (
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">Routed to Banks</p>
+              <div>
+                <p className="text-sm font-medium mb-2">Bank Routing Status</p>
+                {loadingHistory ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading bank responses...
+                  </div>
+                ) : routingHistory.length > 0 ? (
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {routingHistory.map((history) => (
+                      <div 
+                        key={history.id}
+                        className={`p-3 rounded-lg border ${
+                          history.bankStatus === 'approved' ? 'bg-green-50 border-green-200' :
+                          history.bankStatus === 'rejected' ? 'bg-red-50 border-red-200' :
+                          history.bankStatus === 'in_review' ? 'bg-blue-50 border-blue-200' :
+                          'bg-yellow-50 border-yellow-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium text-sm">{history.bankCode}</span>
+                          <Badge className={bankStatusColors[history.bankStatus] || "bg-gray-100"}>
+                            {history.bankStatus?.replace(/_/g, " ")}
+                          </Badge>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Submitted: {formatDate(history.submittedAt)}
+                          {history.responseReceivedAt && (
+                            <span> | Response: {formatDate(history.responseReceivedAt)}</span>
+                          )}
+                        </div>
+                        {history.bankStatus === 'approved' && history.offeredInterestRate && (
+                          <div className="mt-1 text-xs">
+                            <span className="text-green-700">
+                              Rate: {history.offeredInterestRate}% p.a.
+                              {history.approvedAmount && ` | Amount: ${formatCurrency(history.approvedAmount)}`}
+                            </span>
+                          </div>
+                        )}
+                        {history.bankStatus === 'rejected' && history.rejectionReason && (
+                          <div className="mt-1 text-xs text-red-700">
+                            Reason: {history.rejectionReason}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (selectedApp.routedBanks || []).length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {selectedApp.routedBanks.map((bank: string) => (
                       <Badge key={bank} variant="outline">{bank}</Badge>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <p className="text-sm text-muted-foreground">No banks routed yet</p>
+                )}
+              </div>
               {selectedApp.loanPurpose && (
                 <div>
                   <p className="text-sm text-muted-foreground">Purpose</p>
