@@ -13,7 +13,7 @@
  */
 
 import { db } from '../db';
-import { eq, and, gt, desc } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import crypto from 'crypto';
 
 // Cache TTL constants (in milliseconds)
@@ -69,11 +69,12 @@ export class UnifiedDataCacheService {
   
   async getCompanyByCIN(cin: string): Promise<any | null> {
     try {
-      const result = await db.execute(`
+      const upperCin = cin.toUpperCase();
+      const result = await db.execute(sql`
         SELECT * FROM company_master_cache 
-        WHERE cin = $1
+        WHERE cin = ${upperCin}
         LIMIT 1
-      `, [cin.toUpperCase()]);
+      `);
       
       if (result.rows && result.rows.length > 0) {
         await this.trackApiUsage('company_master', 'cache_lookup', true, cin);
@@ -88,11 +89,12 @@ export class UnifiedDataCacheService {
   
   async getCompanyByPAN(pan: string): Promise<any | null> {
     try {
-      const result = await db.execute(`
+      const upperPan = pan.toUpperCase();
+      const result = await db.execute(sql`
         SELECT * FROM company_master_cache 
-        WHERE pan = $1
+        WHERE pan = ${upperPan}
         LIMIT 1
-      `, [pan.toUpperCase()]);
+      `);
       
       if (result.rows && result.rows.length > 0) {
         await this.trackApiUsage('company_master', 'cache_lookup', true, pan);
@@ -125,13 +127,27 @@ export class UnifiedDataCacheService {
     sourceReferenceId?: string;
   }): Promise<string | null> {
     try {
-      const result = await db.execute(`
+      const upperCin = company.cin?.toUpperCase() ?? null;
+      const upperPan = company.pan?.toUpperCase() ?? null;
+      const upperGstin = company.gstin?.toUpperCase() ?? null;
+      const upperTan = company.tan?.toUpperCase() ?? null;
+      const directorsJson = JSON.stringify(company.directors || []);
+      
+      const result = await db.execute(sql`
         INSERT INTO company_master_cache (
           cin, pan, gstin, tan, company_name, company_status, company_class,
           company_category, date_of_incorporation, registration_number, roc_state,
           registered_address, authorized_capital, paid_up_capital, directors,
           data_source, source_reference_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+        ) VALUES (
+          ${upperCin}, ${upperPan}, ${upperGstin}, ${upperTan}, 
+          ${company.companyName}, ${company.companyStatus ?? null}, ${company.companyClass ?? null},
+          ${company.companyCategory ?? null}, ${company.dateOfIncorporation ?? null}, 
+          ${company.registrationNumber ?? null}, ${company.rocState ?? null},
+          ${company.registeredAddress ?? null}, ${company.authorizedCapital ?? null}, 
+          ${company.paidUpCapital ?? null}, ${directorsJson},
+          ${company.dataSource}, ${company.sourceReferenceId ?? null}
+        )
         ON CONFLICT (cin) DO UPDATE SET
           pan = COALESCE(EXCLUDED.pan, company_master_cache.pan),
           gstin = COALESCE(EXCLUDED.gstin, company_master_cache.gstin),
@@ -140,25 +156,7 @@ export class UnifiedDataCacheService {
           directors = EXCLUDED.directors,
           last_verified_at = NOW()
         RETURNING id
-      `, [
-        company.cin?.toUpperCase(),
-        company.pan?.toUpperCase(),
-        company.gstin?.toUpperCase(),
-        company.tan?.toUpperCase(),
-        company.companyName,
-        company.companyStatus,
-        company.companyClass,
-        company.companyCategory,
-        company.dateOfIncorporation,
-        company.registrationNumber,
-        company.rocState,
-        company.registeredAddress,
-        company.authorizedCapital,
-        company.paidUpCapital,
-        JSON.stringify(company.directors || []),
-        company.dataSource,
-        company.sourceReferenceId
-      ]);
+      `);
       
       return result.rows?.[0]?.id || null;
     } catch (error) {
@@ -179,14 +177,14 @@ export class UnifiedDataCacheService {
       const hash = hashIdentifier(identifier);
       const now = new Date();
       
-      const result = await db.execute(`
+      const result = await db.execute(sql`
         SELECT * FROM verification_cache 
-        WHERE verification_type = $1 
-          AND identifier_hash = $2 
-          AND expires_at > $3
+        WHERE verification_type = ${type} 
+          AND identifier_hash = ${hash} 
+          AND expires_at > ${now.toISOString()}
         ORDER BY verified_at DESC
         LIMIT 1
-      `, [type, hash, now.toISOString()]);
+      `);
       
       if (result.rows && result.rows.length > 0) {
         await this.trackApiUsage('verification', `${type}_lookup`, true, hash);
@@ -216,29 +214,22 @@ export class UnifiedDataCacheService {
       const hash = hashIdentifier(params.identifier);
       const masked = maskIdentifier(params.identifier, params.type as any);
       const expiresAt = new Date(Date.now() + CACHE_TTL.VERIFICATION);
+      const additionalDataJson = JSON.stringify(params.additionalData || {});
       
-      const result = await db.execute(`
+      const result = await db.execute(sql`
         INSERT INTO verification_cache (
           verification_type, identifier_hash, identifier_masked, verified,
           verification_status, registered_name, name_match_score, additional_data,
           provider, provider_reference_id, expires_at, requested_by, request_context
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        ) VALUES (
+          ${params.type}, ${hash}, ${masked}, ${params.verified},
+          ${params.verificationStatus ?? null}, ${params.registeredName ?? null}, 
+          ${params.nameMatchScore ?? null}, ${additionalDataJson},
+          ${params.provider}, ${params.providerReferenceId ?? null}, 
+          ${expiresAt.toISOString()}, ${params.requestedBy ?? null}, ${params.requestContext ?? null}
+        )
         RETURNING id
-      `, [
-        params.type,
-        hash,
-        masked,
-        params.verified,
-        params.verificationStatus,
-        params.registeredName,
-        params.nameMatchScore,
-        JSON.stringify(params.additionalData || {}),
-        params.provider,
-        params.providerReferenceId,
-        expiresAt.toISOString(),
-        params.requestedBy,
-        params.requestContext
-      ]);
+      `);
       
       return result.rows?.[0]?.id || null;
     } catch (error) {
@@ -254,21 +245,23 @@ export class UnifiedDataCacheService {
   async getCompanyFinancials(cin: string, financialYear?: string): Promise<any[]> {
     try {
       const now = new Date();
+      const upperCin = cin.toUpperCase();
+      const nowStr = now.toISOString();
       
-      let query = `
-        SELECT * FROM company_financials_cache 
-        WHERE cin = $1 AND expires_at > $2
-      `;
-      const params: any[] = [cin.toUpperCase(), now.toISOString()];
-      
+      let result;
       if (financialYear) {
-        query += ` AND financial_year = $3`;
-        params.push(financialYear);
+        result = await db.execute(sql`
+          SELECT * FROM company_financials_cache 
+          WHERE cin = ${upperCin} AND expires_at > ${nowStr} AND financial_year = ${financialYear}
+          ORDER BY financial_year DESC, quarter DESC
+        `);
+      } else {
+        result = await db.execute(sql`
+          SELECT * FROM company_financials_cache 
+          WHERE cin = ${upperCin} AND expires_at > ${nowStr}
+          ORDER BY financial_year DESC, quarter DESC
+        `);
       }
-      
-      query += ` ORDER BY financial_year DESC, quarter DESC`;
-      
-      const result = await db.execute(query, params);
       
       if (result.rows && result.rows.length > 0) {
         await this.trackApiUsage('financials', 'cache_lookup', true, cin);
@@ -311,8 +304,11 @@ export class UnifiedDataCacheService {
   }): Promise<string | null> {
     try {
       const expiresAt = new Date(Date.now() + CACHE_TTL.COMPANY_FINANCIALS);
+      const upperCin = params.cin.toUpperCase();
+      const ratiosJson = JSON.stringify(params.ratios || {});
+      const expiresAtStr = expiresAt.toISOString();
       
-      const result = await db.execute(`
+      const result = await db.execute(sql`
         INSERT INTO company_financials_cache (
           company_id, cin, financial_year, quarter, period_start, period_end,
           revenue, ebitda, ebit, pbt, pat, net_profit,
@@ -320,37 +316,20 @@ export class UnifiedDataCacheService {
           total_debt, long_term_debt, short_term_debt,
           operating_cash_flow, investing_cash_flow, financing_cash_flow, free_cash_flow,
           ratios, data_source, expires_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
+        ) VALUES (
+          ${params.companyId ?? null}, ${upperCin}, ${params.financialYear}, ${params.quarter ?? null}, 
+          ${params.periodStart ?? null}, ${params.periodEnd ?? null},
+          ${params.revenue ?? null}, ${params.ebitda ?? null}, ${params.ebit ?? null}, 
+          ${params.pbt ?? null}, ${params.pat ?? null}, ${params.netProfit ?? null},
+          ${params.totalAssets ?? null}, ${params.totalLiabilities ?? null}, ${params.networth ?? null}, 
+          ${params.shareCapital ?? null}, ${params.reserves ?? null},
+          ${params.totalDebt ?? null}, ${params.longTermDebt ?? null}, ${params.shortTermDebt ?? null},
+          ${params.operatingCashFlow ?? null}, ${params.investingCashFlow ?? null}, 
+          ${params.financingCashFlow ?? null}, ${params.freeCashFlow ?? null},
+          ${ratiosJson}, ${params.dataSource}, ${expiresAtStr}
+        )
         RETURNING id
-      `, [
-        params.companyId,
-        params.cin.toUpperCase(),
-        params.financialYear,
-        params.quarter,
-        params.periodStart,
-        params.periodEnd,
-        params.revenue,
-        params.ebitda,
-        params.ebit,
-        params.pbt,
-        params.pat,
-        params.netProfit,
-        params.totalAssets,
-        params.totalLiabilities,
-        params.networth,
-        params.shareCapital,
-        params.reserves,
-        params.totalDebt,
-        params.longTermDebt,
-        params.shortTermDebt,
-        params.operatingCashFlow,
-        params.investingCashFlow,
-        params.financingCashFlow,
-        params.freeCashFlow,
-        JSON.stringify(params.ratios || {}),
-        params.dataSource,
-        expiresAt.toISOString()
-      ]);
+      `);
       
       return result.rows?.[0]?.id || null;
     } catch (error) {
@@ -369,15 +348,17 @@ export class UnifiedDataCacheService {
   ): Promise<any | null> {
     try {
       const now = new Date();
+      const upperSymbol = symbol.toUpperCase();
+      const nowStr = now.toISOString();
       
-      const result = await db.execute(`
+      const result = await db.execute(sql`
         SELECT * FROM market_data_cache 
-        WHERE symbol = $1 
-          AND data_type = $2 
-          AND expires_at > $3
+        WHERE symbol = ${upperSymbol} 
+          AND data_type = ${dataType} 
+          AND expires_at > ${nowStr}
         ORDER BY fetched_at DESC
         LIMIT 1
-      `, [symbol.toUpperCase(), dataType, now.toISOString()]);
+      `);
       
       if (result.rows && result.rows.length > 0) {
         await this.trackApiUsage('market_data', `${dataType}_lookup`, true, symbol);
@@ -406,7 +387,6 @@ export class UnifiedDataCacheService {
     provider: string;
   }): Promise<string | null> {
     try {
-      // Determine TTL based on data type
       let ttl: number;
       switch (params.dataType) {
         case 'quote': ttl = CACHE_TTL.MARKET_QUOTE; break;
@@ -417,29 +397,23 @@ export class UnifiedDataCacheService {
       }
       
       const expiresAt = new Date(Date.now() + ttl);
+      const upperSymbol = params.symbol.toUpperCase();
+      const additionalDataJson = JSON.stringify(params.additionalData || {});
+      const expiresAtStr = expiresAt.toISOString();
       
-      const result = await db.execute(`
+      const result = await db.execute(sql`
         INSERT INTO market_data_cache (
           symbol, exchange, data_type, last_price, previous_close, open, high, low,
           volume, change, change_percent, additional_data, provider, expires_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        ) VALUES (
+          ${upperSymbol}, ${params.exchange ?? null}, ${params.dataType}, 
+          ${params.lastPrice ?? null}, ${params.previousClose ?? null}, ${params.open ?? null}, 
+          ${params.high ?? null}, ${params.low ?? null}, ${params.volume ?? null}, 
+          ${params.change ?? null}, ${params.changePercent ?? null}, 
+          ${additionalDataJson}, ${params.provider}, ${expiresAtStr}
+        )
         RETURNING id
-      `, [
-        params.symbol.toUpperCase(),
-        params.exchange,
-        params.dataType,
-        params.lastPrice,
-        params.previousClose,
-        params.open,
-        params.high,
-        params.low,
-        params.volume,
-        params.change,
-        params.changePercent,
-        JSON.stringify(params.additionalData || {}),
-        params.provider,
-        expiresAt.toISOString()
-      ]);
+      `);
       
       return result.rows?.[0]?.id || null;
     } catch (error) {
@@ -466,24 +440,16 @@ export class UnifiedDataCacheService {
       const costKey = `${provider}_${endpoint.split('/').pop()}`;
       const estimatedCost = cacheHit ? 0 : (API_COST_ESTIMATES[costKey as keyof typeof API_COST_ESTIMATES] || 0);
       
-      await db.execute(`
+      await db.execute(sql`
         INSERT INTO api_usage_tracking (
           provider, endpoint, cache_hit, cache_key, estimated_cost_inr,
           response_status, response_time_ms, requested_by, request_context
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      `, [
-        provider,
-        endpoint,
-        cacheHit,
-        cacheKey,
-        estimatedCost,
-        responseStatus,
-        responseTimeMs,
-        requestedBy,
-        requestContext
-      ]);
+        ) VALUES (
+          ${provider}, ${endpoint}, ${cacheHit}, ${cacheKey ?? null}, ${estimatedCost},
+          ${responseStatus ?? null}, ${responseTimeMs ?? null}, ${requestedBy ?? null}, ${requestContext ?? null}
+        )
+      `);
     } catch (error) {
-      // Don't fail the main operation for tracking errors
       console.error('Error tracking API usage:', error);
     }
   }
@@ -506,26 +472,26 @@ export class UnifiedDataCacheService {
   }> {
     try {
       const [companyCount, verificationStats, financialsStats, marketDataStats, apiStats] = await Promise.all([
-        db.execute(`SELECT COUNT(*) as count FROM company_master_cache`),
-        db.execute(`
+        db.execute(sql`SELECT COUNT(*) as count FROM company_master_cache`),
+        db.execute(sql`
           SELECT 
             COUNT(*) as total,
             COUNT(*) FILTER (WHERE expires_at <= NOW()) as expired
           FROM verification_cache
         `),
-        db.execute(`
+        db.execute(sql`
           SELECT 
             COUNT(*) as total,
             COUNT(*) FILTER (WHERE expires_at <= NOW()) as expired
           FROM company_financials_cache
         `),
-        db.execute(`
+        db.execute(sql`
           SELECT 
             COUNT(*) as total,
             COUNT(*) FILTER (WHERE expires_at <= NOW()) as expired
           FROM market_data_cache
         `),
-        db.execute(`
+        db.execute(sql`
           SELECT 
             COUNT(*) as total_calls,
             COUNT(*) FILTER (WHERE cache_hit = true) as cache_hits,
@@ -574,9 +540,9 @@ export class UnifiedDataCacheService {
       const now = new Date().toISOString();
       
       const [v, f, m] = await Promise.all([
-        db.execute(`DELETE FROM verification_cache WHERE expires_at <= $1`, [now]),
-        db.execute(`DELETE FROM company_financials_cache WHERE expires_at <= $1`, [now]),
-        db.execute(`DELETE FROM market_data_cache WHERE expires_at <= $1`, [now])
+        db.execute(sql`DELETE FROM verification_cache WHERE expires_at <= ${now}`),
+        db.execute(sql`DELETE FROM company_financials_cache WHERE expires_at <= ${now}`),
+        db.execute(sql`DELETE FROM market_data_cache WHERE expires_at <= ${now}`)
       ]);
       
       const deleted = (v.rowCount || 0) + (f.rowCount || 0) + (m.rowCount || 0);
@@ -591,7 +557,7 @@ export class UnifiedDataCacheService {
   
   async getApiUsageBreakdown(days: number = 30): Promise<any[]> {
     try {
-      const result = await db.execute(`
+      const result = await db.execute(sql`
         SELECT 
           provider,
           COUNT(*) as total_calls,
@@ -601,7 +567,7 @@ export class UnifiedDataCacheService {
           COALESCE(SUM(estimated_cost_inr), 0) as total_cost,
           COALESCE(SUM(CASE WHEN cache_hit = true THEN estimated_cost_inr ELSE 0 END), 0) as saved_cost
         FROM api_usage_tracking
-        WHERE created_at > NOW() - INTERVAL '${days} days'
+        WHERE created_at > NOW() - MAKE_INTERVAL(days => ${days})
         GROUP BY provider
         ORDER BY total_calls DESC
       `);
@@ -615,7 +581,7 @@ export class UnifiedDataCacheService {
   
   async getRefreshSchedules(): Promise<any[]> {
     try {
-      const result = await db.execute(`
+      const result = await db.execute(sql`
         SELECT * FROM cache_refresh_schedule
         ORDER BY priority ASC
       `);
