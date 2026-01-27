@@ -167,5 +167,14 @@
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"
+  },
+  "overrides": {
+    "indian-stock-exchange": {
+      "axios": "^1.8.2"
+    },
+    "taxcloudjs": {
+      "node-fetch": "^2.7.0"
+    },
+    "follow-redirects": "^1.15.0"
   }
 }
