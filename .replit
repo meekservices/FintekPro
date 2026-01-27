@@ -53,3 +53,5 @@ MCA_SYSTEM_ACCESS_TOKEN = "mca-ingest-system-access-2024"
 
 [userenv.production]
 CASHFREE_ENVIRONMENT = "PRODUCTION"
+NSE_ENVIRONMENT = "production"
+BSE_BOND_ENVIRONMENT = "production"
