@@ -1,15 +1,12 @@
-import { Finance } from 'financejs';
 import * as financial from 'financial';
 import axios from 'axios';
 
 // Tata Capital API Integration
 // Based on official Tata Capital API catalogue
 export class TataCapitalAPI {
-  private finance: Finance;
   private baseURL: string = 'https://api.tatacapital.com'; // Note: Official API requires partnership
 
   constructor() {
-    this.finance = new Finance();
   }
 
   // Personal Loan Calculator (Based on Tata Capital rates)

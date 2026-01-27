@@ -1,13 +1,9 @@
-import { Finance } from 'financejs';
 import * as financial from 'financial';
 
 // Bajaj Finance API Simulation
 // Since Bajaj Finance doesn't offer public APIs, this simulates their financial products
 export class BajajFinanceAPI {
-  private finance: Finance;
-
   constructor() {
-    this.finance = new Finance();
   }
 
   // EMI Calculator (Based on Bajaj Finance rates)
