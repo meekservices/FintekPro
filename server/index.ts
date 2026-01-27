@@ -276,6 +276,23 @@ app.use('/api/webhooks/sandbox', express.json({
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: false, limit: "10mb" }));
 
+// URL decode error handling middleware - catches malformed URL parameters from bots/scanners
+app.use((req: Request, res: Response, next: NextFunction) => {
+  try {
+    // Test decode of URL path to catch malformed sequences like /%C0/
+    decodeURIComponent(req.path);
+    // Also check query string if present
+    if (req.url.includes('?')) {
+      decodeURIComponent(req.url);
+    }
+    next();
+  } catch (error) {
+    // Log the malformed request but don't crash - likely a bot/scanner
+    logger.warn(`[URL] Failed to decode malformed URL: ${req.url}`);
+    return res.status(400).json({ error: 'Malformed URL encoding' });
+  }
+});
+
 // CSRF Protection - Synchronizer Token Pattern
 const generateCsrfToken = (): string => randomBytes(32).toString('hex');
 

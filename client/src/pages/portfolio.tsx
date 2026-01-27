@@ -253,12 +253,12 @@ export default function Portfolio() {
   const epfPortfolioWeight = computePortfolioWeight(totalEpfBalance);
 
   // PPF analytics - sum of all PPF balances  
-  const totalPpfBalance = (ppfHoldings || []).reduce((sum, ppf) => sum + parseFloat(ppf.currentBalance || '0'), 0);
+  const totalPpfBalance = (ppfHoldings || []).reduce((sum, ppf) => sum + parseFloat(ppf.totalBalance || '0'), 0);
   const ppfPortfolioWeight = computePortfolioWeight(totalPpfBalance);
 
   // Insurance analytics - aggregate from holdings
   const insuranceAnalytics = {
-    totalPremium: (insuranceHoldings || []).reduce((sum, ins) => sum + parseFloat(ins.annualPremium || '0'), 0),
+    totalPremium: (insuranceHoldings || []).reduce((sum, ins) => sum + parseFloat((ins as any).annualPremium || ins.premiumAmount || '0'), 0),
     lifeCoverage: (insuranceHoldings || []).filter(ins => ins.policyType === 'life').reduce((sum, ins) => sum + parseFloat(ins.sumAssured || '0'), 0),
     healthCoverage: (insuranceHoldings || []).filter(ins => ins.policyType === 'health').reduce((sum, ins) => sum + parseFloat(ins.sumAssured || '0'), 0),
     motorCoverage: (insuranceHoldings || []).filter(ins => ins.policyType === 'motor').reduce((sum, ins) => sum + parseFloat(ins.sumAssured || '0'), 0),
@@ -358,7 +358,7 @@ export default function Portfolio() {
     );
   }
 
-  const { state: networkState } = useNetworkState();
+  const networkState = useNetworkState();
 
 
   // Portfolio V3 Dashboard (feature flag controlled)
@@ -386,7 +386,7 @@ export default function Portfolio() {
       
       {/* Sync Status Indicator */}
       <div className="flex justify-end px-4">
-        <SyncStatusIndicator />
+        <SyncStatusIndicator status="synced" />
       </div>
 
       <div className="space-y-6">
@@ -1846,7 +1846,7 @@ export default function Portfolio() {
                         </div>
                         <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
                           <span className="text-sm font-medium text-green-900">Current Balance</span>
-                          <span className="font-bold text-green-900">{ppf.currentBalance ? `₹${parseFloat(ppf.currentBalance).toLocaleString('en-IN')}` : 'Not available'}</span>
+                          <span className="font-bold text-green-900">{ppf.totalBalance ? `₹${parseFloat(ppf.totalBalance).toLocaleString('en-IN')}` : 'Not available'}</span>
                         </div>
                       </div>
                     </div>
@@ -1858,7 +1858,7 @@ export default function Portfolio() {
                           <span className="text-lg font-semibold text-gray-900">Projected Maturity Value</span>
                           {(() => {
                             const yearsToMaturity = ppf.maturityDate ? Math.ceil((new Date(ppf.maturityDate).getTime() - Date.now()) / (365.25 * 24 * 60 * 60 * 1000)) : 0;
-                            const projectedValue = calculateProjectedValue(parseFloat(ppf.currentBalance || '0'), parseFloat((ppf as any).interestRate || '7.1'), yearsToMaturity);
+                            const projectedValue = calculateProjectedValue(parseFloat(ppf.totalBalance || '0'), parseFloat((ppf as any).interestRate || '7.1'), yearsToMaturity);
                             return projectedValue ? (
                               <span className="text-2xl font-bold text-purple-600">₹{(projectedValue / 100000).toFixed(1)}L</span>
                             ) : (

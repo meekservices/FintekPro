@@ -12,9 +12,17 @@ function safeJsonParse(content: any): any {
     return content;
   }
   if (typeof content === 'string') {
-    return JSON.parse(content);
+    try {
+      return JSON.parse(content);
+    } catch (e) {
+      // If parsing fails, return a wrapper object with the raw content
+      console.warn('[Chat] JSON parse failed, returning raw content wrapper');
+      return { rawContent: content, parseError: true };
+    }
   }
-  throw new Error('Content is not a string or object');
+  // For undefined, null, or other types, return empty object
+  console.warn('[Chat] Unexpected content type:', typeof content);
+  return {};
 }
 
 interface ChatContext {
