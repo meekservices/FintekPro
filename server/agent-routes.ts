@@ -1227,10 +1227,24 @@ router.patch("/api/agent/appointments/:id", requireAuth, async (req, res) => {
       return res.status(404).json({ error: "Appointment not found" });
     }
     
-    const updates = req.body;
+    const { type, clientId, clientName, location, locationDetails, date, startTime, endTime, duration, reminder, notes, status } = req.body;
+    const allowedUpdates: Record<string, any> = {};
+    if (type !== undefined) allowedUpdates.type = type;
+    if (clientId !== undefined) allowedUpdates.clientId = clientId;
+    if (clientName !== undefined) allowedUpdates.clientName = clientName;
+    if (location !== undefined) allowedUpdates.location = location;
+    if (locationDetails !== undefined) allowedUpdates.locationDetails = locationDetails;
+    if (date !== undefined) allowedUpdates.date = date;
+    if (startTime !== undefined) allowedUpdates.startTime = startTime;
+    if (endTime !== undefined) allowedUpdates.endTime = endTime;
+    if (duration !== undefined) allowedUpdates.duration = duration;
+    if (reminder !== undefined) allowedUpdates.reminder = reminder;
+    if (notes !== undefined) allowedUpdates.notes = notes;
+    if (status !== undefined) allowedUpdates.status = status;
+    
     appointmentsStore[appointmentIndex] = {
       ...appointmentsStore[appointmentIndex],
-      ...updates,
+      ...allowedUpdates,
       updatedAt: new Date().toISOString(),
     };
     
