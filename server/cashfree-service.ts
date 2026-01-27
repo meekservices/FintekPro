@@ -72,9 +72,6 @@ export class CashfreeService {
         'Accept': 'application/json'
       }
     });
-
-    const credentialsStatus = this.appId && this.secretKey ? 'with credentials' : 'WITHOUT CREDENTIALS';
-    console.log(`✅ Cashfree service initialized (${this.environment} mode) ${credentialsStatus}`);
   }
 
   /**
