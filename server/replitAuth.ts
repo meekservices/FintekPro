@@ -6,6 +6,7 @@ import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
+import pg from 'pg';
 import { randomBytes } from "crypto";
 import { storage } from "./storage";
 import { generateUniqueUserId, hashPassword } from "./auth";
@@ -38,8 +39,23 @@ const getOidcConfig = memoize(
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
   const pgStore = connectPg(session);
+  
+  // Create a dedicated pool for sessions with resilient settings
+  const sessionPool = new pg.Pool({
+    connectionString: process.env.DATABASE_URL,
+    max: 5, // Limit connections for session store
+    idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
+    connectionTimeoutMillis: 10000, // Wait up to 10 seconds for connection
+    allowExitOnIdle: true, // Allow process to exit when pool is idle
+  });
+  
+  // Handle pool errors gracefully
+  sessionPool.on('error', (err: Error) => {
+    console.error('[Session Pool] Unexpected error on idle client:', err.message);
+  });
+  
   const sessionStore = new pgStore({
-    conString: process.env.DATABASE_URL,
+    pool: sessionPool, // Use dedicated pool instead of connection string
     createTableIfMissing: false,
     ttl: sessionTtl,
     tableName: "sessions",
