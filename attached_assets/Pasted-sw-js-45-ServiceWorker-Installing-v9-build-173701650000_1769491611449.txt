@@ -1,0 +1,293 @@
+sw.js:45 [ServiceWorker] Installing v9 (build: 1737016500000)...
+sw.js:50 [ServiceWorker] Caching static assets
+index-Bu9Cl9Lv.js:1689 [PWA] Service Worker registered: https://admin.fintekpro.com/
+sw.js:64 [ServiceWorker] Skip waiting to activate immediately
+sw.js:71 [ServiceWorker] Activating v9...
+sw.js:94 [ServiceWorker] Claiming all clients
+store-management-CilrmJl1.js:1 [StoreManagement] Categories data: undefined isLoading: true isError: false error: null
+store-management-CilrmJl1.js:1 [StoreManagement] Categories data: undefined isLoading: true isError: false error: null
+store-management-CilrmJl1.js:1 [StoreManagement] Categories data: undefined isLoading: true isError: false error: null
+store-management-CilrmJl1.js:1 [StoreManagement] Categories data: Object isLoading: false isError: false error: null
+index-Bu9Cl9Lv.js:1333  HEAD https://admin.fintekpro.com/api/health net::ERR_INTERNET_DISCONNECTED
+(anonymous) @ index-Bu9Cl9Lv.js:1333
+(anonymous) @ index-Bu9Cl9Lv.js:1333
+index-Bu9Cl9Lv.js:49  GET https://admin.fintekpro.com/api/admin/bond-seed/refresh/status net::ERR_INTERNET_DISCONNECTED
+(anonymous) @ index-Bu9Cl9Lv.js:49
+i @ index-Bu9Cl9Lv.js:49
+g @ index-Bu9Cl9Lv.js:49
+start @ index-Bu9Cl9Lv.js:49
+fetch @ index-Bu9Cl9Lv.js:49
+cw @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+setInterval
+uE @ index-Bu9Cl9Lv.js:49
+mE @ index-Bu9Cl9Lv.js:49
+onQueryUpdate @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+batch @ index-Bu9Cl9Lv.js:49
+Nh @ index-Bu9Cl9Lv.js:49
+setData @ index-Bu9Cl9Lv.js:49
+onSuccess @ index-Bu9Cl9Lv.js:49
+h @ index-Bu9Cl9Lv.js:49
+Promise.then
+g @ index-Bu9Cl9Lv.js:49
+start @ index-Bu9Cl9Lv.js:49
+fetch @ index-Bu9Cl9Lv.js:49
+cw @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+setInterval
+uE @ index-Bu9Cl9Lv.js:49
+mE @ index-Bu9Cl9Lv.js:49
+onQueryUpdate @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+batch @ index-Bu9Cl9Lv.js:49
+Nh @ index-Bu9Cl9Lv.js:49
+setData @ index-Bu9Cl9Lv.js:49
+onSuccess @ index-Bu9Cl9Lv.js:49
+h @ index-Bu9Cl9Lv.js:49
+Promise.then
+g @ index-Bu9Cl9Lv.js:49
+start @ index-Bu9Cl9Lv.js:49
+fetch @ index-Bu9Cl9Lv.js:49
+cw @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+setInterval
+uE @ index-Bu9Cl9Lv.js:49
+mE @ index-Bu9Cl9Lv.js:49
+onQueryUpdate @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+batch @ index-Bu9Cl9Lv.js:49
+Nh @ index-Bu9Cl9Lv.js:49
+setData @ index-Bu9Cl9Lv.js:49
+onSuccess @ index-Bu9Cl9Lv.js:49
+h @ index-Bu9Cl9Lv.js:49
+Promise.then
+g @ index-Bu9Cl9Lv.js:49
+start @ index-Bu9Cl9Lv.js:49
+fetch @ index-Bu9Cl9Lv.js:49
+cw @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+setInterval
+uE @ index-Bu9Cl9Lv.js:49
+mE @ index-Bu9Cl9Lv.js:49
+onQueryUpdate @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+batch @ index-Bu9Cl9Lv.js:49
+Nh @ index-Bu9Cl9Lv.js:49
+setData @ index-Bu9Cl9Lv.js:49
+onSuccess @ index-Bu9Cl9Lv.js:49
+h @ index-Bu9Cl9Lv.js:49
+Promise.then
+g @ index-Bu9Cl9Lv.js:49
+start @ index-Bu9Cl9Lv.js:49
+fetch @ index-Bu9Cl9Lv.js:49
+cw @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+setInterval
+uE @ index-Bu9Cl9Lv.js:49
+mE @ index-Bu9Cl9Lv.js:49
+onQueryUpdate @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+batch @ index-Bu9Cl9Lv.js:49
+Nh @ index-Bu9Cl9Lv.js:49
+setData @ index-Bu9Cl9Lv.js:49
+onSuccess @ index-Bu9Cl9Lv.js:49
+h @ index-Bu9Cl9Lv.js:49
+Promise.then
+g @ index-Bu9Cl9Lv.js:49
+start @ index-Bu9Cl9Lv.js:49
+fetch @ index-Bu9Cl9Lv.js:49
+cw @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+setInterval
+uE @ index-Bu9Cl9Lv.js:49
+mE @ index-Bu9Cl9Lv.js:49
+onQueryUpdate @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+batch @ index-Bu9Cl9Lv.js:49
+Nh @ index-Bu9Cl9Lv.js:49
+setData @ index-Bu9Cl9Lv.js:49
+onSuccess @ index-Bu9Cl9Lv.js:49
+h @ index-Bu9Cl9Lv.js:49
+Promise.then
+g @ index-Bu9Cl9Lv.js:49
+start @ index-Bu9Cl9Lv.js:49
+fetch @ index-Bu9Cl9Lv.js:49
+cw @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+setInterval
+uE @ index-Bu9Cl9Lv.js:49
+mE @ index-Bu9Cl9Lv.js:49
+onQueryUpdate @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+batch @ index-Bu9Cl9Lv.js:49
+Nh @ index-Bu9Cl9Lv.js:49
+setData @ index-Bu9Cl9Lv.js:49
+onSuccess @ index-Bu9Cl9Lv.js:49
+h @ index-Bu9Cl9Lv.js:49
+Promise.then
+g @ index-Bu9Cl9Lv.js:49
+start @ index-Bu9Cl9Lv.js:49
+fetch @ index-Bu9Cl9Lv.js:49
+cw @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+setInterval
+uE @ index-Bu9Cl9Lv.js:49
+mE @ index-Bu9Cl9Lv.js:49
+onQueryUpdate @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+batch @ index-Bu9Cl9Lv.js:49
+Nh @ index-Bu9Cl9Lv.js:49
+setData @ index-Bu9Cl9Lv.js:49
+onSuccess @ index-Bu9Cl9Lv.js:49
+h @ index-Bu9Cl9Lv.js:49
+Promise.then
+g @ index-Bu9Cl9Lv.js:49
+start @ index-Bu9Cl9Lv.js:49
+fetch @ index-Bu9Cl9Lv.js:49
+cw @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+setInterval
+uE @ index-Bu9Cl9Lv.js:49
+mE @ index-Bu9Cl9Lv.js:49
+onQueryUpdate @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+batch @ index-Bu9Cl9Lv.js:49
+Nh @ index-Bu9Cl9Lv.js:49
+setData @ index-Bu9Cl9Lv.js:49
+onSuccess @ index-Bu9Cl9Lv.js:49
+h @ index-Bu9Cl9Lv.js:49
+Promise.then
+g @ index-Bu9Cl9Lv.js:49
+start @ index-Bu9Cl9Lv.js:49
+fetch @ index-Bu9Cl9Lv.js:49
+cw @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+setInterval
+uE @ index-Bu9Cl9Lv.js:49
+mE @ index-Bu9Cl9Lv.js:49
+onQueryUpdate @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+batch @ index-Bu9Cl9Lv.js:49
+Nh @ index-Bu9Cl9Lv.js:49
+setData @ index-Bu9Cl9Lv.js:49
+onSuccess @ index-Bu9Cl9Lv.js:49
+h @ index-Bu9Cl9Lv.js:49
+Promise.then
+g @ index-Bu9Cl9Lv.js:49
+start @ index-Bu9Cl9Lv.js:49
+fetch @ index-Bu9Cl9Lv.js:49
+cw @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+setInterval
+uE @ index-Bu9Cl9Lv.js:49
+mE @ index-Bu9Cl9Lv.js:49
+onQueryUpdate @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+batch @ index-Bu9Cl9Lv.js:49
+Nh @ index-Bu9Cl9Lv.js:49
+setData @ index-Bu9Cl9Lv.js:49
+onSuccess @ index-Bu9Cl9Lv.js:49
+h @ index-Bu9Cl9Lv.js:49
+Promise.then
+g @ index-Bu9Cl9Lv.js:49
+start @ index-Bu9Cl9Lv.js:49
+fetch @ index-Bu9Cl9Lv.js:49
+cw @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+setInterval
+uE @ index-Bu9Cl9Lv.js:49
+mE @ index-Bu9Cl9Lv.js:49
+onQueryUpdate @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+batch @ index-Bu9Cl9Lv.js:49
+Nh @ index-Bu9Cl9Lv.js:49
+setData @ index-Bu9Cl9Lv.js:49
+onSuccess @ index-Bu9Cl9Lv.js:49
+h @ index-Bu9Cl9Lv.js:49
+Promise.then
+g @ index-Bu9Cl9Lv.js:49
+start @ index-Bu9Cl9Lv.js:49
+fetch @ index-Bu9Cl9Lv.js:49
+cw @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+setInterval
+uE @ index-Bu9Cl9Lv.js:49
+mE @ index-Bu9Cl9Lv.js:49
+onQueryUpdate @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+batch @ index-Bu9Cl9Lv.js:49
+Nh @ index-Bu9Cl9Lv.js:49
+setData @ index-Bu9Cl9Lv.js:49
+onSuccess @ index-Bu9Cl9Lv.js:49
+h @ index-Bu9Cl9Lv.js:49
+Promise.then
+g @ index-Bu9Cl9Lv.js:49
+start @ index-Bu9Cl9Lv.js:49
+fetch @ index-Bu9Cl9Lv.js:49
+cw @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+setInterval
+uE @ index-Bu9Cl9Lv.js:49
+mE @ index-Bu9Cl9Lv.js:49
+onQueryUpdate @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+batch @ index-Bu9Cl9Lv.js:49
+Nh @ index-Bu9Cl9Lv.js:49
+setData @ index-Bu9Cl9Lv.js:49
+onSuccess @ index-Bu9Cl9Lv.js:49
+h @ index-Bu9Cl9Lv.js:49
+Promise.then
+g @ index-Bu9Cl9Lv.js:49
+start @ index-Bu9Cl9Lv.js:49
+fetch @ index-Bu9Cl9Lv.js:49
+cw @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+setInterval
+uE @ index-Bu9Cl9Lv.js:49
+mE @ index-Bu9Cl9Lv.js:49
+onQueryUpdate @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+batch @ index-Bu9Cl9Lv.js:49
+Nh @ index-Bu9Cl9Lv.js:49
+setData @ index-Bu9Cl9Lv.js:49
+onSuccess @ index-Bu9Cl9Lv.js:49
+h @ index-Bu9Cl9Lv.js:49
+Promise.then
+g @ index-Bu9Cl9Lv.js:49
+start @ index-Bu9Cl9Lv.js:49
+fetch @ index-Bu9Cl9Lv.js:49
+cw @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+setInterval
+uE @ index-Bu9Cl9Lv.js:49
+mE @ index-Bu9Cl9Lv.js:49
+onQueryUpdate @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
+batch @ index-Bu9Cl9Lv.js:49
+Nh @ index-Bu9Cl9Lv.js:49
+setData @ index-Bu9Cl9Lv.js:49
+onSuccess @ index-Bu9Cl9Lv.js:49
+h @ index-Bu9Cl9Lv.js:49
+Promise.then
+g @ index-Bu9Cl9Lv.js:49
+start @ index-Bu9Cl9Lv.js:49
+fetch @ index-Bu9Cl9Lv.js:49
+cw @ index-Bu9Cl9Lv.js:49
+(anonymous) @ index-Bu9Cl9Lv.js:49
