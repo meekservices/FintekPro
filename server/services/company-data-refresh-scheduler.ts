@@ -9,6 +9,7 @@
  */
 
 import { db } from '../db';
+import { sql } from 'drizzle-orm';
 import { probe42Service } from './probe42-service';
 
 interface RefreshConfig {
@@ -226,7 +227,7 @@ class CompanyDataRefreshScheduler {
    */
   private async checkRequiredColumns(): Promise<boolean> {
     try {
-      const result = await db.execute(`
+      const result = await db.execute(sql`
         SELECT column_name 
         FROM information_schema.columns 
         WHERE table_name = 'unlisted_companies' 
@@ -243,7 +244,7 @@ class CompanyDataRefreshScheduler {
    */
   private async getStaleCompaniesFallback(): Promise<Array<{ id: number; cin: string; needsFinancials: boolean; needsDetails: boolean }>> {
     try {
-      const result = await db.execute(`
+      const result = await db.execute(sql`
         SELECT id, cin
         FROM unlisted_companies
         WHERE cin IS NOT NULL
