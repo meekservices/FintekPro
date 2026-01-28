@@ -118,21 +118,17 @@ router.post('/consent/create', async (req: Request, res: Response) => {
 /**
  * POST /api/aa/data/fetch
  * Fetch data from FIUs after consent approval
- * Clears existing holdings before fetching to prevent duplicates
+ * Routes to staging for review OR direct sync based on useStaging flag
  */
 router.post('/data/fetch', async (req: Request, res: Response) => {
   try {
-    const { consentSessionId, userId } = req.body;
+    const { consentSessionId, userId, useStaging = true } = req.body;
 
     if (!consentSessionId || !userId) {
       return res.status(400).json({ error: 'consentSessionId and userId are required' });
     }
 
-    // Step 1: Clear existing holdings before fetch (prevents duplicates)
-    const clearResult = await kycPortfolioMigrationService.onAutoSyncRefresh(userId, 'all');
-    console.log(`[AA] Cleared ${clearResult.clearedCount} holdings before fetch`);
-
-    // Step 2: Fetch fresh data from AA
+    // Step 1: Fetch fresh data from AA
     const fetchResult = await aaService.fetchAllData(consentSessionId);
 
     if (!fetchResult.success) {
@@ -142,23 +138,8 @@ router.post('/data/fetch', async (req: Request, res: Response) => {
       });
     }
 
-    // Step 3: Ensure user has a portfolio
-    let [portfolio] = await db
-      .select()
-      .from(portfolios)
-      .where(eq(portfolios.userId, userId))
-      .limit(1);
-
-    if (!portfolio) {
-      [portfolio] = await db.insert(portfolios).values({
-        userId,
-        name: 'Primary Portfolio',
-        isDefault: true,
-      }).returning();
-    }
-
-    // Step 4: Store holdings in comprehensiveHoldings table
-    let totalStored = 0;
+    // Prepare holdings for staging or direct storage
+    const allHoldings: any[] = [];
 
     if (fetchResult.aggregatedData?.mutualFunds?.length) {
       const mfHoldings = fetchResult.aggregatedData.mutualFunds.map((mf: any) => ({
@@ -167,20 +148,15 @@ router.post('/data/fetch', async (req: Request, res: Response) => {
         isin: mf.isin,
         assetType: 'mutual_fund',
         quantity: mf.units || 0,
+        units: mf.units || 0,
         averageCost: mf.avgNav,
         currentPrice: mf.currentNav,
         currentValue: mf.currentValue || (mf.units * mf.currentNav),
         investedValue: mf.investedValue,
         folioNumber: mf.folioNumber,
-        source: 'aa_mf' as const,
+        source: 'aa_mf',
       }));
-
-      totalStored += await kycPortfolioMigrationService.storeAAFetchedHoldings(
-        userId, 
-        portfolio.id, 
-        mfHoldings, 
-        'aa_mf'
-      );
+      allHoldings.push(...mfHoldings);
     }
 
     if (fetchResult.aggregatedData?.dematHoldings?.length) {
@@ -197,15 +173,9 @@ router.post('/data/fetch', async (req: Request, res: Response) => {
         investedValue: h.investedAmount,
         dematAccountNumber: h.dematAccountNumber,
         depository: h.depository,
-        source: 'aa_demat' as const,
+        source: 'aa_demat',
       }));
-
-      totalStored += await kycPortfolioMigrationService.storeAAFetchedHoldings(
-        userId, 
-        portfolio.id, 
-        dematHoldings, 
-        'aa_demat'
-      );
+      allHoldings.push(...dematHoldings);
     }
 
     // Update consent session with fetch timestamp
@@ -213,20 +183,104 @@ router.post('/data/fetch', async (req: Request, res: Response) => {
       .set({ lastDataFetchAt: new Date() })
       .where(eq(aaConsentSessions.id, consentSessionId));
 
-    res.json({
-      success: true,
-      clearedCount: clearResult.clearedCount,
-      storedCount: totalStored,
-      summary: {
-        mutualFundsCount: fetchResult.aggregatedData?.mutualFunds?.length || 0,
-        dematHoldingsCount: fetchResult.aggregatedData?.dematHoldings?.length || 0,
-        npsCount: fetchResult.aggregatedData?.nps?.length || 0,
-        epfCount: fetchResult.aggregatedData?.epf?.length || 0,
-        ppfCount: fetchResult.aggregatedData?.ppf?.length || 0,
-        loansCount: fetchResult.aggregatedData?.loans?.length || 0,
-        fetchedAt: new Date().toISOString(),
+    if (useStaging && allHoldings.length > 0) {
+      // Route to staging for user review
+      const stagingResponse = await fetch(`${process.env.APP_URL || 'http://localhost:5000'}/api/portfolio/staging/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          holdings: allHoldings,
+          source: 'account_aggregator'
+        })
+      });
+
+      if (!stagingResponse.ok) {
+        console.error('[AA] Staging creation failed:', stagingResponse.status);
+        return res.status(500).json({ 
+          error: 'Failed to create staging session for review',
+          details: `Staging service returned ${stagingResponse.status}`
+        });
       }
-    });
+
+      const stagingResult = await stagingResponse.json();
+
+      if (!stagingResult.success || !stagingResult.sessionId) {
+        console.error('[AA] Staging result invalid:', stagingResult);
+        return res.status(500).json({ 
+          error: 'Staging session creation returned invalid response',
+          details: stagingResult.error || 'No session ID returned'
+        });
+      }
+
+      res.json({
+        success: true,
+        mode: 'staging',
+        stagingSessionId: stagingResult.sessionId,
+        holdingsCount: allHoldings.length,
+        requiresReview: true,
+        summary: {
+          mutualFundsCount: fetchResult.aggregatedData?.mutualFunds?.length || 0,
+          dematHoldingsCount: fetchResult.aggregatedData?.dematHoldings?.length || 0,
+          npsCount: fetchResult.aggregatedData?.nps?.length || 0,
+          epfCount: fetchResult.aggregatedData?.epf?.length || 0,
+          ppfCount: fetchResult.aggregatedData?.ppf?.length || 0,
+          loansCount: fetchResult.aggregatedData?.loans?.length || 0,
+          fetchedAt: new Date().toISOString(),
+        }
+      });
+    } else {
+      // Direct sync mode (legacy flow or auto-sync)
+      const clearResult = await kycPortfolioMigrationService.onAutoSyncRefresh(userId, 'all');
+      console.log(`[AA] Cleared ${clearResult.clearedCount} holdings before fetch`);
+
+      let [portfolio] = await db
+        .select()
+        .from(portfolios)
+        .where(eq(portfolios.userId, userId))
+        .limit(1);
+
+      if (!portfolio) {
+        [portfolio] = await db.insert(portfolios).values({
+          userId,
+          name: 'Primary Portfolio',
+          isDefault: true,
+        }).returning();
+      }
+
+      let totalStored = 0;
+      const mfHoldings = allHoldings.filter(h => h.source === 'aa_mf');
+      const dematHoldings = allHoldings.filter(h => h.source === 'aa_demat');
+
+      if (mfHoldings.length) {
+        totalStored += await kycPortfolioMigrationService.storeAAFetchedHoldings(
+          userId, portfolio.id, mfHoldings, 'aa_mf'
+        );
+      }
+
+      if (dematHoldings.length) {
+        totalStored += await kycPortfolioMigrationService.storeAAFetchedHoldings(
+          userId, portfolio.id, dematHoldings, 'aa_demat'
+        );
+      }
+
+      res.json({
+        success: true,
+        mode: 'direct',
+        clearedCount: clearResult.clearedCount,
+        storedCount: totalStored,
+        requiresReview: false,
+        summary: {
+          mutualFundsCount: fetchResult.aggregatedData?.mutualFunds?.length || 0,
+          dematHoldingsCount: fetchResult.aggregatedData?.dematHoldings?.length || 0,
+          npsCount: fetchResult.aggregatedData?.nps?.length || 0,
+          epfCount: fetchResult.aggregatedData?.epf?.length || 0,
+          ppfCount: fetchResult.aggregatedData?.ppf?.length || 0,
+          loansCount: fetchResult.aggregatedData?.loans?.length || 0,
+          fetchedAt: new Date().toISOString(),
+        }
+      });
+    }
   } catch (error: any) {
     console.error('[AA] Error fetching data:', error);
     res.status(500).json({ error: error.message });

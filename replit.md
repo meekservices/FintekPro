@@ -26,7 +26,16 @@ An ISIN-Based Instrument Search System offers comprehensive ISIN lookup capabili
 
 A Centralized Portfolio Import System supports diverse import sources (PDF/HTML, URL, API, manual) with a unified type system, normalization, and storage, including AI fallback for parsing. An intelligent PDF Parser v2 system processes documents through phased implementation, including document profiling, layout segmentation, semantic block detection, purchase date engine, holding lots builder, confidence scoring, learning store, and comprehensive observability. The v2 parser now supports 17 provider detection patterns including major brokers (Zerodha, Groww, ICICI Direct, HDFC, Kotak, Upstox, Angel One, 5Paisa, Motilal Oswal, Axis Direct, IIFL, Sharekhan) and aggregators (MF Central, INDmoney, Kuvera, ET Money, Paytm Money), each with calibrated confidence scores. The holding lots output from v2 parser flows through to the unified storage layer, enabling accurate SIP lot tracking for LTCG/STCG calculations.
 
-A Unified Portfolio Storage System consolidates portfolio data for prospects and registered users, ensuring data consistency between the AI Advisory engine and Proposal Builder. This includes bifurcated storage strategies for prospect and registered user portfolios, with migration support.
+A Unified Portfolio Storage System consolidates portfolio data for prospects and registered users, ensuring data consistency between the AI Advisory engine and Proposal Builder. The architecture follows a bifurcated storage pattern:
+- **Prospects**: Holdings stored in `prospectClients.currentPortfolio` JSON field
+- **Registered clients (post-KYC)**: Holdings stored in `comprehensiveHoldings` table
+
+Key services:
+- `unified-holdings-reader-service.ts`: Single entry point for reading holdings - routes to correct storage based on client type
+- `kyc-portfolio-migration-service.ts`: Handles KYC completion flow - migrates prospect data to comprehensiveHoldings, clears prospect holdings, enables auto-sync
+- `aa-consent-routes.ts`: Account Aggregator consent management with RBI-compliant audit trail
+
+Auto-sync flow for registered clients: consent granted → clear existing holdings (prevents duplicates) → fetch from AA → store with ISIN+folioNumber duplicate check → update consent timestamp. Import staging UI (`ImportedHoldingsReview.tsx`) allows users to review, approve, edit, or reject individual holdings before final sync to comprehensiveHoldings.
 
 The platform integrates a Comprehensive Zoho Ecosystem covering CRM, Books, Campaigns, Meeting, and Sign, with Zoho CRM as the single source of truth. A Profit-Optimized AI Recommendation Engine provides multi-mode recommendations with deterministic numeric scoring, agent governance, and A/B testing. A Unified AI Recommendation Engine centralizes AI-powered investment analysis across nine product categories.
 

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { ImportedHoldingsReview } from "./ImportedHoldingsReview";
 import { 
   Card, 
   CardContent, 
@@ -96,6 +97,18 @@ export function ExternalPortfolioSync() {
     enabled: !!userId,
   });
 
+  const { data: pendingStagingSession } = useQuery<{
+    id: string | null;
+    holdings: any[];
+    status: string;
+  }>({
+    queryKey: ['/api/portfolio/staging', userId],
+    enabled: !!userId && !showReviewUI,
+  });
+
+  const hasPendingStaging = pendingStagingSession?.holdings?.length > 0 && 
+    pendingStagingSession?.status !== 'synced';
+
   const createConsentMutation = useMutation({
     mutationFn: async () => {
       setSyncStatus('consenting');
@@ -138,6 +151,8 @@ export function ExternalPortfolioSync() {
     }
   });
 
+  const [showReviewUI, setShowReviewUI] = useState(false);
+
   const fetchDataMutation = useMutation({
     mutationFn: async (consentSessionId: string) => {
       setSyncStatus('fetching');
@@ -145,7 +160,7 @@ export function ExternalPortfolioSync() {
       
       const response = await apiRequest('/api/aa/data/fetch', {
         method: 'POST',
-        body: JSON.stringify({ consentSessionId, userId })
+        body: JSON.stringify({ consentSessionId, userId, useStaging: true })
       });
       return response;
     },
@@ -156,9 +171,26 @@ export function ExternalPortfolioSync() {
         description: `Found ${data.summary?.mutualFundsCount || 0} MF, ${data.summary?.dematHoldingsCount || 0} stocks`,
       });
       
-      // Automatically sync to portfolio
-      if (activeConsent?.session?.id) {
-        syncToPortfolioMutation.mutate(activeConsent.session.id);
+      if (data.requiresReview && data.mode === 'staging') {
+        setSyncProgress(100);
+        setSyncStatus('complete');
+        setShowReviewUI(true);
+        setConsentDialogOpen(false);
+        queryClient.invalidateQueries({ queryKey: ['/api/portfolio/staging', userId] });
+        toast({
+          title: "Review Holdings",
+          description: `${data.holdingsCount} holdings ready for review. Please approve before syncing.`,
+        });
+      } else {
+        setSyncProgress(100);
+        setSyncStatus('complete');
+        queryClient.invalidateQueries({ queryKey: ['/api/portfolios'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/aa/consent/active', userId] });
+        setConsentDialogOpen(false);
+        toast({
+          title: "Portfolio Synced!",
+          description: `Successfully synced ${data.storedCount} holdings to your portfolio`,
+        });
       }
     },
     onError: (error: any) => {
@@ -275,6 +307,26 @@ export function ExternalPortfolioSync() {
                     fetchDataMutation.isPending || 
                     syncToPortfolioMutation.isPending;
 
+  if (showReviewUI) {
+    return (
+      <ImportedHoldingsReview
+        userId={userId}
+        onSyncComplete={() => {
+          setShowReviewUI(false);
+          setSyncStatus('idle');
+          setSyncProgress(0);
+          queryClient.invalidateQueries({ queryKey: ['/api/portfolios'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/aa/consent/active', userId] });
+        }}
+        onCancel={() => {
+          setShowReviewUI(false);
+          setSyncStatus('idle');
+          setSyncProgress(0);
+        }}
+      />
+    );
+  }
+
   return (
     <Card className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950 dark:to-blue-950 border-indigo-200 dark:border-indigo-800">
       <CardHeader>
@@ -303,6 +355,26 @@ export function ExternalPortfolioSync() {
       </CardHeader>
       
       <CardContent className="space-y-6">
+        {/* Pending Staging Alert */}
+        {hasPendingStaging && (
+          <Alert className="bg-blue-50 border-blue-200">
+            <RefreshCw className="h-4 w-4 text-blue-600" />
+            <AlertDescription className="text-blue-800 flex items-center justify-between">
+              <span>
+                You have {pendingStagingSession?.holdings?.length || 0} holdings pending review.
+              </span>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setShowReviewUI(true)}
+                className="ml-3"
+              >
+                Resume Review
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Status Alert */}
         {!userPAN && (
           <Alert className="bg-amber-50 border-amber-200">
