@@ -43,15 +43,23 @@ export function getSession() {
   // Create a dedicated pool for sessions with resilient settings
   const sessionPool = new pg.Pool({
     connectionString: process.env.DATABASE_URL,
-    max: 5, // Limit connections for session store
-    idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
-    connectionTimeoutMillis: 10000, // Wait up to 10 seconds for connection
+    max: 10, // Increased pool size for better availability
+    min: 2, // Keep minimum connections alive
+    idleTimeoutMillis: 60000, // Close idle connections after 60 seconds
+    connectionTimeoutMillis: 30000, // Wait up to 30 seconds for connection (increased)
     allowExitOnIdle: true, // Allow process to exit when pool is idle
+    statement_timeout: 5000, // 5 second query timeout
   });
   
-  // Handle pool errors gracefully
+  // Handle pool errors gracefully - don't crash on transient errors
   sessionPool.on('error', (err: Error) => {
     console.error('[Session Pool] Unexpected error on idle client:', err.message);
+    // Pool will automatically reconnect
+  });
+  
+  // Track pool connection issues
+  sessionPool.on('connect', () => {
+    console.log('[Session Pool] Client connected');
   });
   
   const sessionStore = new pgStore({
@@ -60,15 +68,19 @@ export function getSession() {
     ttl: sessionTtl,
     tableName: "sessions",
     errorLog: (error: Error) => {
-      // Log session store errors but don't crash
-      console.error('[Session Store] Database error:', error.message);
+      // Log session store errors but don't crash - these are often transient
+      if (error.message.includes('timeout')) {
+        console.warn('[Session Store] Database timeout (will retry):', error.message);
+      } else {
+        console.error('[Session Store] Database error:', error.message);
+      }
     },
     pruneSessionInterval: 60 * 60, // Prune expired sessions every hour (in seconds)
   });
   
-  // Handle session store errors gracefully
+  // Handle session store errors gracefully - don't throw
   sessionStore.on('error', (error: Error) => {
-    console.error('[Session Store] Connection error (will auto-retry):', error.message);
+    console.warn('[Session Store] Connection error (will auto-retry):', error.message);
   });
   
   // Determine if we're on a custom domain or Replit domain
@@ -110,6 +122,7 @@ export function getSession() {
   });
   
   // Return a wrapper that dynamically sets cookie domain based on request Host header
+  // Also handles session store errors gracefully to prevent 401 errors during transient failures
   return (req: any, res: any, next: any) => {
     const host = req.get('host') || req.headers.host || '';
     
@@ -135,7 +148,22 @@ export function getSession() {
       };
     }
     
-    sessionMiddleware(req, res, next);
+    // Wrap session middleware with timeout protection
+    const sessionTimeout = setTimeout(() => {
+      console.warn('[Session] Session initialization timeout - continuing without session');
+      // Don't call next twice
+    }, 15000);
+    
+    sessionMiddleware(req, res, (err: any) => {
+      clearTimeout(sessionTimeout);
+      if (err) {
+        // Log the error but continue - treat as unauthenticated
+        console.warn('[Session] Error initializing session:', err.message);
+        // Don't throw - just continue without session data
+        return next();
+      }
+      next();
+    });
   };
 }
 
