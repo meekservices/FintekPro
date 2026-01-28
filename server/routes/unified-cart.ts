@@ -226,13 +226,12 @@ router.patch("/:id", requireAuth, async (req: Request, res: Response) => {
       return res.status(403).json({ error: "Access denied" });
     }
     
-    const allowedUpdates = ['quantity', 'amount', 'targetPrice', 'metadata', 'status'];
     const updates: Record<string, any> = {};
-    for (const key of allowedUpdates) {
-      if (req.body[key] !== undefined) {
-        updates[key] = req.body[key];
-      }
-    }
+    if (req.body.quantity !== undefined) updates.quantity = req.body.quantity;
+    if (req.body.amount !== undefined) updates.amount = req.body.amount;
+    if (req.body.targetPrice !== undefined) updates.targetPrice = req.body.targetPrice;
+    if (req.body.metadata !== undefined) updates.metadata = req.body.metadata;
+    if (req.body.status !== undefined) updates.status = req.body.status;
     
     const updatedItem = await storage.updateUnifiedCartItem(id, updates);
     res.json(updatedItem);
