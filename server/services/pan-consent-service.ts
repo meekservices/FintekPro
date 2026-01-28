@@ -58,7 +58,7 @@ export class PANConsentService {
     try {
       const key = Buffer.from(this.ENCRYPTION_KEY, 'hex');
       const iv = crypto.randomBytes(16);
-      const cipher = crypto.createCipher(this.ALGORITHM, key);
+      const cipher = crypto.createCipheriv(this.ALGORITHM, key, iv);
       
       let encrypted = cipher.update(panNumber.toUpperCase(), 'utf8', 'hex');
       encrypted += cipher.final('hex');
@@ -89,7 +89,7 @@ export class PANConsentService {
       const authTag = Buffer.from(parts[1], 'hex');
       const encrypted = parts[2];
       
-      const decipher = crypto.createDecipher(this.ALGORITHM, key);
+      const decipher = crypto.createDecipheriv(this.ALGORITHM, key, iv);
       decipher.setAuthTag(authTag);
       
       let decrypted = decipher.update(encrypted, 'hex', 'utf8');
