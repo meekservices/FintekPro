@@ -1,0 +1,64 @@
+index-DXrV8PFk.js:1689 [PWA] Service Worker registered: https://agent.fintekpro.com/
+index-DXrV8PFk.js:49  GET https://agent.fintekpro.com/api/agent/zoho/leads 503 (Service Unavailable)
+(anonymous) @ index-DXrV8PFk.js:49
+i @ index-DXrV8PFk.js:49
+g @ index-DXrV8PFk.js:49
+start @ index-DXrV8PFk.js:49
+fetch @ index-DXrV8PFk.js:49
+cw @ index-DXrV8PFk.js:49
+onSubscribe @ index-DXrV8PFk.js:49
+subscribe @ index-DXrV8PFk.js:49
+(anonymous) @ index-DXrV8PFk.js:49
+bse @ index-DXrV8PFk.js:39
+L5 @ index-DXrV8PFk.js:41
+Ev @ index-DXrV8PFk.js:41
+(anonymous) @ index-DXrV8PFk.js:41
+F @ index-DXrV8PFk.js:26
+M @ index-DXrV8PFk.js:26
+index-DXrV8PFk.js:49  GET https://agent.fintekpro.com/api/agent/zoho/leads 503 (Service Unavailable)
+(anonymous) @ index-DXrV8PFk.js:49
+i @ index-DXrV8PFk.js:49
+g @ index-DXrV8PFk.js:49
+(anonymous) @ index-DXrV8PFk.js:49
+Promise.then
+(anonymous) @ index-DXrV8PFk.js:49
+Promise.catch
+g @ index-DXrV8PFk.js:49
+start @ index-DXrV8PFk.js:49
+fetch @ index-DXrV8PFk.js:49
+cw @ index-DXrV8PFk.js:49
+onSubscribe @ index-DXrV8PFk.js:49
+subscribe @ index-DXrV8PFk.js:49
+(anonymous) @ index-DXrV8PFk.js:49
+bse @ index-DXrV8PFk.js:39
+L5 @ index-DXrV8PFk.js:41
+Ev @ index-DXrV8PFk.js:41
+(anonymous) @ index-DXrV8PFk.js:41
+F @ index-DXrV8PFk.js:26
+M @ index-DXrV8PFk.js:26
+index-DXrV8PFk.js:49  GET https://agent.fintekpro.com/api/agent/zoho/leads 503 (Service Unavailable)
+(anonymous) @ index-DXrV8PFk.js:49
+i @ index-DXrV8PFk.js:49
+g @ index-DXrV8PFk.js:49
+(anonymous) @ index-DXrV8PFk.js:49
+Promise.then
+(anonymous) @ index-DXrV8PFk.js:49
+Promise.catch
+g @ index-DXrV8PFk.js:49
+(anonymous) @ index-DXrV8PFk.js:49
+Promise.then
+(anonymous) @ index-DXrV8PFk.js:49
+Promise.catch
+g @ index-DXrV8PFk.js:49
+start @ index-DXrV8PFk.js:49
+fetch @ index-DXrV8PFk.js:49
+cw @ index-DXrV8PFk.js:49
+onSubscribe @ index-DXrV8PFk.js:49
+subscribe @ index-DXrV8PFk.js:49
+(anonymous) @ index-DXrV8PFk.js:49
+bse @ index-DXrV8PFk.js:39
+L5 @ index-DXrV8PFk.js:41
+Ev @ index-DXrV8PFk.js:41
+(anonymous) @ index-DXrV8PFk.js:41
+F @ index-DXrV8PFk.js:26
+M @ index-DXrV8PFk.js:26
