@@ -2643,6 +2643,9 @@ export function registerMarketingRoutes(app: any) {
   });
 
   console.log('✅ Marketing routes registered');
-  console.log('   📱 SMS Marketing: ' + (smsMarketingService.isAvailable() ? 'Active' : 'Not configured'));
+  
+  smsMarketingService.isAvailable().then((smsAvailable) => {
+    console.log('   📱 SMS Marketing: ' + (smsAvailable ? 'Active' : 'Not configured'));
+  });
   console.log('   💬 WhatsApp Marketing: ' + (whatsAppMarketingService.isAvailable() ? 'Active' : 'Not configured'));
 }

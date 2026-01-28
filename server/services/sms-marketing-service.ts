@@ -3,6 +3,14 @@ import { db } from '../db';
 import { users, marketingCampaigns, campaignRecipients } from '@shared/schema';
 import { eq, and, inArray, sql } from 'drizzle-orm';
 
+// Twilio credentials interface from Replit connector
+interface TwilioCredentials {
+  accountSid: string;
+  apiKey: string;
+  apiKeySecret: string;
+  phoneNumber?: string;
+}
+
 interface SMSMarketingResult {
   success: boolean;
   messageSid?: string;
@@ -30,37 +38,95 @@ interface SMSCampaignConfig {
   scheduledAt?: Date;
 }
 
+// Secure credential retrieval via Replit connector (uses API Key auth, not Auth Token)
+async function getTwilioCredentials(): Promise<TwilioCredentials | null> {
+  try {
+    const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
+    const xReplitToken = process.env.REPL_IDENTITY 
+      ? 'repl ' + process.env.REPL_IDENTITY 
+      : process.env.WEB_REPL_RENEWAL 
+      ? 'depl ' + process.env.WEB_REPL_RENEWAL 
+      : null;
+
+    if (!hostname || !xReplitToken) {
+      return null;
+    }
+
+    const response = await fetch(
+      'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=twilio',
+      {
+        headers: {
+          'Accept': 'application/json',
+          'X_REPLIT_TOKEN': xReplitToken
+        }
+      }
+    );
+    
+    const data = await response.json();
+    const connectionSettings = data.items?.[0];
+
+    if (!connectionSettings?.settings?.account_sid || 
+        !connectionSettings?.settings?.api_key || 
+        !connectionSettings?.settings?.api_key_secret) {
+      return null;
+    }
+
+    return {
+      accountSid: connectionSettings.settings.account_sid,
+      apiKey: connectionSettings.settings.api_key,
+      apiKeySecret: connectionSettings.settings.api_key_secret,
+      phoneNumber: connectionSettings.settings.phone_number
+    };
+  } catch (error) {
+    console.error('Failed to retrieve Twilio credentials from connector:', error);
+    return null;
+  }
+}
+
 class SMSMarketingService {
-  private client: any;
+  private client: any = null;
   private messagingServiceSid: string = '';
   private fromNumber: string = '';
-  private isConfigured: boolean;
+  private isConfigured: boolean = false;
+  private initPromise: Promise<void> | null = null;
 
   constructor() {
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
-    const phoneNumber = process.env.TWILIO_PHONE_NUMBER;
+    this.initPromise = this.initialize();
+  }
 
-    if (accountSid && authToken && (messagingServiceSid || phoneNumber)) {
-      this.client = twilio(accountSid, authToken);
-      this.messagingServiceSid = messagingServiceSid || '';
-      this.fromNumber = phoneNumber || '';
+  private async initialize(): Promise<void> {
+    // Use Replit connector for secure credential management (API Key auth)
+    const credentials = await getTwilioCredentials();
+    
+    if (credentials) {
+      // API Key authentication (more secure than Auth Token)
+      this.client = twilio(credentials.apiKey, credentials.apiKeySecret, {
+        accountSid: credentials.accountSid
+      });
+      this.fromNumber = credentials.phoneNumber || '';
+      this.messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID || '';
       this.isConfigured = true;
-      console.log('✅ SMS Marketing service initialized');
+      console.log('✅ SMS Marketing service initialized via Replit connector (API Key auth)');
       if (this.messagingServiceSid) {
         console.log(`   Using Messaging Service: ${this.messagingServiceSid.substring(0, 10)}...`);
       }
       if (this.fromNumber) {
-        console.log(`   Fallback number: ${this.fromNumber}`);
+        console.log(`   Phone number configured`);
       }
     } else {
       this.isConfigured = false;
-      console.log('⚠️ SMS Marketing service not configured - missing credentials');
+      console.log('⚠️ SMS Marketing service not configured - Twilio connector not available');
     }
   }
 
-  isAvailable(): boolean {
+  private async ensureInitialized(): Promise<void> {
+    if (this.initPromise) {
+      await this.initPromise;
+    }
+  }
+
+  async isAvailable(): Promise<boolean> {
+    await this.ensureInitialized();
     return this.isConfigured;
   }
 
@@ -76,6 +142,8 @@ class SMSMarketingService {
   }
 
   async sendMarketingSMS(to: string, message: string, campaignId?: string, skipConsentCheck: boolean = false): Promise<SMSMarketingResult> {
+    await this.ensureInitialized();
+    
     if (!this.isConfigured) {
       console.log(`📱 Marketing SMS to ${to.substring(0, 6)}****: ${message.substring(0, 50)}... (not configured)`);
       return { success: false, error: 'SMS Marketing service not configured' };
@@ -304,12 +372,13 @@ class SMSMarketingService {
     }
   }
 
-  getStatus(): {
+  async getStatus(): Promise<{
     configured: boolean;
     messagingServiceSid: string;
     fromNumber: string;
     capabilities: string[];
-  } {
+  }> {
+    await this.ensureInitialized();
     return {
       configured: this.isConfigured,
       messagingServiceSid: this.messagingServiceSid ? `${this.messagingServiceSid.substring(0, 10)}...` : 'Not configured',
