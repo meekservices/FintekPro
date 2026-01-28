@@ -1045,9 +1045,9 @@ router.get("/api/instruments/price/:isin", async (req: Request, res: Response) =
     const [bond] = await db.select({
       id: bondCatalog.id,
       isin: bondCatalog.isin,
-      name: bondCatalog.name,
-      issuer: bondCatalog.issuer,
-      bondType: bondCatalog.bondType,
+      bondName: bondCatalog.bondName,
+      issuerName: bondCatalog.issuerName,
+      instrumentType: bondCatalog.instrumentType,
       faceValue: bondCatalog.faceValue,
       couponRate: bondCatalog.couponRate,
     })
@@ -1061,9 +1061,9 @@ router.get("/api/instruments/price/:isin", async (req: Request, res: Response) =
         source: "bonds",
         data: {
           isin: bond.isin,
-          name: bond.name,
-          issuer: bond.issuer,
-          bondType: bond.bondType,
+          name: bond.bondName,
+          issuer: bond.issuerName,
+          bondType: bond.instrumentType,
           assetClass: "bond",
           currentPrice: bond.faceValue ? parseFloat(bond.faceValue) : null,
           couponRate: bond.couponRate ? parseFloat(bond.couponRate) : null,

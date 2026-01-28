@@ -24,6 +24,13 @@ A Multi-Source Financial Data Enrichment System integrates Probe42, Finnhub, and
 
 A Historical NAV Data Service provides 10+ year historical data from MFAPI.in for portfolio metric calculations, supporting daily background refreshes and calculating metrics like Volatility, Max Drawdown, CAGR, and Sharpe Ratio.
 
+An **ISIN-Based Instrument Search System** provides comprehensive ISIN lookup capabilities across all asset classes:
+- **Database Column**: `isin` column in `mutual_funds` table with database index for efficient searching
+- **Search Endpoints**: `/api/instruments/search`, `/api/mutual-funds/autocomplete` support ISIN alongside name/symbol
+- **Price Lookup**: Single (`GET /api/instruments/price/:isin`) and bulk (`POST /api/instruments/prices`) endpoints
+- **Multi-Source Search**: Queries `instrument_master`, `mutual_funds`, `bond_catalog`, and listed stocks
+- **UI Components**: PortfolioEditor and FundAutocomplete components with ISIN search placeholders
+
 The Corporate Treasury Management module is SEBI-compliant, with a configurable Maker-Checker workflow and a four-bucket allocation system. The Unified Tax & Compliance Module offers PAN-driven ITR filing, a Unified eSign Service, and Form 15CA/15CB support, with a Document Vault and RBAC with immutable audit logging.
 
 External data integration includes a Financial Calendar and a Market Holiday Service. A Centralized Portfolio Import System (`unified-portfolio-import-service.ts`) supports diverse import sources (PDF/HTML, URL, API, manual) with a unified type system, normalization, and storage. It includes fund name normalization, ISIN extraction with checksum validation, AMFI lookup, and AI fallback for parsing.
