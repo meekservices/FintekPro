@@ -18,8 +18,10 @@ import {
   unlistedCompanies,
   corporateBonds,
   ncdPublicIssues,
-  listedStocks
+  listedStocks,
+  prospectClients
 } from "@shared/schema";
+import { unifiedHoldingsReaderService, type UnifiedHolding } from './unified-holdings-reader-service';
 import type { 
   AiProfitPick, 
   InsertAiProfitPick,
@@ -736,18 +738,50 @@ class AIInvestmentService {
   }
 
   async getClientPortfolio(clientId: string): Promise<{ portfolio: any; holdings: PortfolioHolding[] } | null> {
-    const [portfolio] = await db
-      .select()
-      .from(portfolios)
-      .where(eq(portfolios.userId, clientId))
-      .limit(1);
+    // Use unified holdings reader - single source of truth for both prospects and registered clients
+    const clientType = await unifiedHoldingsReaderService.getClientType(clientId);
+    const unifiedHoldings = await unifiedHoldingsReaderService.getHoldings(clientId);
 
-    if (!portfolio) return null;
+    if (unifiedHoldings.length === 0) {
+      // Fallback to legacy portfolioHoldings for backwards compatibility
+      const [portfolio] = await db
+        .select()
+        .from(portfolios)
+        .where(eq(portfolios.userId, clientId))
+        .limit(1);
 
-    const holdings = await db
-      .select()
-      .from(portfolioHoldings)
-      .where(eq(portfolioHoldings.portfolioId, portfolio.id));
+      if (!portfolio) return null;
+
+      const holdings = await db
+        .select()
+        .from(portfolioHoldings)
+        .where(eq(portfolioHoldings.portfolioId, portfolio.id));
+
+      return { portfolio, holdings };
+    }
+
+    // Convert unified holdings to legacy format for compatibility
+    const holdings: PortfolioHolding[] = unifiedHoldings.map(h => ({
+      id: h.id,
+      symbol: h.symbol || h.isin || 'UNKNOWN',
+      quantity: String(h.quantity || 0),
+      avgPrice: String(h.averageCost || 0),
+      assetType: h.assetType,
+      sector: null,
+      marketCap: null,
+      beta: null,
+      peRatio: null,
+      dividendYield: null,
+    }));
+
+    // Create a virtual portfolio object
+    const portfolio = {
+      id: `unified-${clientId}`,
+      userId: clientId,
+      name: clientType.isProspect ? 'Prospect Portfolio' : 'Client Portfolio',
+      isDefault: true,
+      source: 'unified_holdings_reader',
+    };
 
     return { portfolio, holdings };
   }
