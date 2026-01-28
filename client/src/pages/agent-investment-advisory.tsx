@@ -679,6 +679,22 @@ export default function AgentInvestmentAdvisory() {
     }
   }, []);
 
+  const duplicateWarnings = useMemo(() => {
+    if (!parsedHoldings.length || !portfolio?.holdings?.length) return [];
+    
+    const existingSymbols = new Set(
+      portfolio.holdings.map((h: any) => h.symbol?.toUpperCase())
+    );
+    const existingIsins = new Set(
+      portfolio.holdings.filter((h: any) => h.isin).map((h: any) => h.isin?.toUpperCase())
+    );
+    
+    return parsedHoldings.filter((h: any) => 
+      existingSymbols.has(h.symbol?.toUpperCase()) || 
+      (h.isin && existingIsins.has(h.isin?.toUpperCase()))
+    ).map((h: any) => h.symbol || h.isin);
+  }, [parsedHoldings, portfolio]);
+
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
       uploadCSVMutation.mutate(acceptedFiles[0]);
@@ -1302,38 +1318,104 @@ TCS     Tata Consultancy        25      3850.00"
                     </Alert>
                   )}
                   
+                  {duplicateWarnings.length > 0 && (
+                    <Alert className="border-amber-200 bg-amber-50">
+                      <AlertTriangle className="h-4 w-4 text-amber-600" />
+                      <AlertTitle className="text-amber-700">Duplicate Holdings Detected</AlertTitle>
+                      <AlertDescription className="text-amber-600">
+                        {duplicateWarnings.length} holding(s) already exist in portfolio: {duplicateWarnings.slice(0, 5).join(', ')}
+                        {duplicateWarnings.length > 5 && ` and ${duplicateWarnings.length - 5} more`}.
+                        Importing will add these as additional positions.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  
                   {parsedHoldings.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4 text-green-600" />
-                        <span className="text-sm font-medium text-green-600">
-                          Parsed {parsedHoldings.length} holdings
-                        </span>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          <span className="text-sm font-medium text-green-600">
+                            Parsed {parsedHoldings.length} holdings
+                          </span>
+                        </div>
+                        <div className="flex gap-2 flex-wrap">
+                          {parsedHoldings.some((h: any) => h.isin) && (
+                            <Badge variant="outline" className="text-xs">ISIN detected</Badge>
+                          )}
+                          {parsedHoldings.some((h: any) => h.folioNumber) && (
+                            <Badge variant="outline" className="text-xs">Folio detected</Badge>
+                          )}
+                          {parsedHoldings.some((h: any) => h.purchaseDate) && (
+                            <Badge variant="outline" className="text-xs">Date detected</Badge>
+                          )}
+                        </div>
                       </div>
+                      
+                      {/* Summary stats */}
+                      <div className="grid grid-cols-3 gap-2 text-xs">
+                        <div className="bg-muted/50 rounded p-2">
+                          <span className="text-muted-foreground">Total Value:</span>
+                          <span className="ml-1 font-medium">
+                            {formatCurrency(parsedHoldings.reduce((sum: number, h: any) => sum + (h.quantity * h.averagePrice), 0))}
+                          </span>
+                        </div>
+                        <div className="bg-muted/50 rounded p-2">
+                          <span className="text-muted-foreground">Missing Price:</span>
+                          <span className="ml-1 font-medium">
+                            {parsedHoldings.filter((h: any) => !h.averagePrice || h.averagePrice <= 0).length}
+                          </span>
+                        </div>
+                        <div className="bg-muted/50 rounded p-2">
+                          <span className="text-muted-foreground">Unique Types:</span>
+                          <span className="ml-1 font-medium">
+                            {new Set(parsedHoldings.map((h: any) => h.assetType)).size}
+                          </span>
+                        </div>
+                      </div>
+                      
                       <div className="border rounded-lg max-h-[200px] overflow-auto">
                         <Table>
                           <TableHeader>
                             <TableRow>
                               <TableHead>Symbol</TableHead>
+                              {parsedHoldings.some((h: any) => h.isin) && <TableHead>ISIN</TableHead>}
                               <TableHead>Name</TableHead>
                               <TableHead className="text-right">Qty</TableHead>
                               <TableHead className="text-right">Avg Price</TableHead>
                               <TableHead>Type</TableHead>
+                              {parsedHoldings.some((h: any) => h.folioNumber) && <TableHead>Folio</TableHead>}
+                              {parsedHoldings.some((h: any) => h.purchaseDate) && <TableHead>Date</TableHead>}
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {parsedHoldings.slice(0, 10).map((h, idx) => (
+                            {parsedHoldings.slice(0, 10).map((h: any, idx: number) => (
                               <TableRow key={idx}>
                                 <TableCell className="font-medium">{h.symbol}</TableCell>
-                                <TableCell className="max-w-[150px] truncate">{h.name}</TableCell>
+                                {parsedHoldings.some((ph: any) => ph.isin) && (
+                                  <TableCell className="text-xs">{h.isin || '-'}</TableCell>
+                                )}
+                                <TableCell className="max-w-[120px] truncate">{h.name}</TableCell>
                                 <TableCell className="text-right">{h.quantity}</TableCell>
-                                <TableCell className="text-right">{formatCurrency(h.averagePrice)}</TableCell>
-                                <TableCell>{h.assetType}</TableCell>
+                                <TableCell className="text-right">
+                                  {h.averagePrice > 0 ? formatCurrency(h.averagePrice) : (
+                                    <span className="text-orange-500">-</span>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className="text-xs">{h.assetType}</Badge>
+                                </TableCell>
+                                {parsedHoldings.some((ph: any) => ph.folioNumber) && (
+                                  <TableCell className="text-xs">{h.folioNumber || '-'}</TableCell>
+                                )}
+                                {parsedHoldings.some((ph: any) => ph.purchaseDate) && (
+                                  <TableCell className="text-xs">{h.purchaseDate || '-'}</TableCell>
+                                )}
                               </TableRow>
                             ))}
                             {parsedHoldings.length > 10 && (
                               <TableRow>
-                                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                                <TableCell colSpan={8} className="text-center text-muted-foreground">
                                   ... and {parsedHoldings.length - 10} more holdings
                                 </TableCell>
                               </TableRow>
