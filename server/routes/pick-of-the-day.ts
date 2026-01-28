@@ -1057,6 +1057,25 @@ function calculateSuitabilityScore(pick: any, clientProfile: {
 }
 
 // ==========================================
+// PRICE REFRESH
+// ==========================================
+
+router.post("/refresh-prices", async (req, res) => {
+  try {
+    console.log("[API] Triggering price refresh for live picks");
+    const result = await pickOfTheDayService.refreshLivePicks();
+    res.json({ 
+      success: true, 
+      message: `Refreshed prices for ${result.updated} picks`,
+      ...result 
+    });
+  } catch (error) {
+    console.error("[API] Error refreshing prices:", error);
+    res.status(500).json({ success: false, error: "Failed to refresh prices" });
+  }
+});
+
+// ==========================================
 // PRICE ALERTS
 // ==========================================
 

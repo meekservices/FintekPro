@@ -1594,6 +1594,79 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
     }
   }
 
+  /**
+   * Refresh prices for all live picks - called periodically to keep returnPct accurate
+   */
+  async refreshLivePicks(): Promise<{ updated: number; errors: number }> {
+    let updated = 0;
+    let errors = 0;
+    
+    try {
+      // Get all live picks
+      const livePicks = await db
+        .select()
+        .from(dailyPicks)
+        .where(eq(dailyPicks.status, 'live'));
+
+      console.log(`[PickOfTheDay] Refreshing prices for ${livePicks.length} live picks`);
+
+      for (const pick of livePicks) {
+        try {
+          const currentPrice = await this.getCurrentPrice(pick);
+          
+          if (currentPrice !== null && pick.recoPrice) {
+            const recoPrice = parseFloat(pick.recoPrice);
+            const returnPct = ((currentPrice - recoPrice) / recoPrice) * 100;
+            
+            // Calculate days held
+            const recoDate = new Date(pick.recoDate);
+            const today = new Date();
+            const daysHeld = Math.floor((today.getTime() - recoDate.getTime()) / (1000 * 60 * 60 * 24));
+            
+            // Check if target or stoploss hit
+            const targetPrice = parseFloat(pick.targetPrice);
+            const stoplossPrice = parseFloat(pick.stoplossPrice);
+            let newStatus = 'live';
+            
+            if (currentPrice >= targetPrice) {
+              newStatus = 'target_hit';
+            } else if (currentPrice <= stoplossPrice) {
+              newStatus = 'stoploss_hit';
+            }
+            
+            // Check if expired
+            const expiryDate = new Date(pick.expiryDate);
+            if (today > expiryDate && newStatus === 'live') {
+              newStatus = 'expired';
+            }
+
+            await db
+              .update(dailyPicks)
+              .set({
+                currentPrice: currentPrice.toString(),
+                returnPct: returnPct.toFixed(2),
+                daysHeld,
+                status: newStatus,
+                updatedAt: new Date(),
+              })
+              .where(eq(dailyPicks.id, pick.id));
+
+            updated++;
+          }
+        } catch (err) {
+          console.error(`[PickOfTheDay] Error refreshing pick ${pick.id}:`, err);
+          errors++;
+        }
+      }
+
+      console.log(`[PickOfTheDay] Refresh complete: ${updated} updated, ${errors} errors`);
+      return { updated, errors };
+    } catch (error) {
+      console.error("[PickOfTheDay] Error in refreshLivePicks:", error);
+      return { updated, errors };
+    }
+  }
+
   private transformPick(pick: any): DailyPickData {
     return {
       id: pick.id,
