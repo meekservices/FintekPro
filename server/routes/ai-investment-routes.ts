@@ -473,8 +473,34 @@ router.post("/portfolio/upload-csv", upload.single('file'), async (req, res) => 
 router.put("/portfolio/update/:holdingId", async (req, res) => {
   try {
     const { holdingId } = req.params;
-    const { quantity, avgPrice, sector, purchaseDate, folioNumber, name, isin, assetType, symbol, currentValue, investedValue, notes } = req.body;
+    const { clientId, quantity, avgPrice, sector, purchaseDate, folioNumber, name, isin, assetType, symbol, currentValue, investedValue, notes } = req.body;
 
+    // If clientId is provided, check if it's a prospect
+    if (clientId) {
+      const clientInfo = await resolveClientType(clientId);
+      if (clientInfo.isProspect) {
+        const updates: any = {};
+        if (quantity !== undefined) updates.quantity = Number(quantity);
+        if (avgPrice !== undefined) updates.averageCost = Number(avgPrice);
+        if (purchaseDate !== undefined) updates.purchaseDate = purchaseDate || undefined;
+        if (folioNumber !== undefined) updates.folioNumber = folioNumber || undefined;
+        if (name !== undefined) updates.name = name;
+        if (isin !== undefined) updates.isin = isin || undefined;
+        if (assetType !== undefined) updates.assetType = assetType;
+        if (symbol !== undefined) updates.symbol = symbol || undefined;
+        if (currentValue !== undefined) updates.currentValue = Number(currentValue);
+        if (investedValue !== undefined) updates.investedValue = Number(investedValue);
+
+        const updatedHoldings = await prospectPortfolioSyncService.updateHolding(clientId, holdingId, updates);
+        return res.json({
+          success: true,
+          holdings: updatedHoldings,
+          source: 'currentPortfolio'
+        });
+      }
+    }
+
+    // For registered users: update portfolioHoldings table
     const updateData: any = { updatedAt: new Date() };
     if (quantity !== undefined) updateData.quantity = String(quantity);
     if (avgPrice !== undefined) updateData.avgPrice = String(avgPrice);
@@ -518,7 +544,23 @@ router.put("/portfolio/update/:holdingId", async (req, res) => {
 router.delete("/portfolio/holding/:holdingId", async (req, res) => {
   try {
     const { holdingId } = req.params;
+    const { clientId } = req.query;
 
+    // If clientId is provided, check if it's a prospect
+    if (clientId && typeof clientId === 'string') {
+      const clientInfo = await resolveClientType(clientId);
+      if (clientInfo.isProspect) {
+        const updatedHoldings = await prospectPortfolioSyncService.deleteHolding(clientId, holdingId);
+        return res.json({
+          success: true,
+          message: "Holding deleted from prospect portfolio",
+          holdings: updatedHoldings,
+          source: 'currentPortfolio'
+        });
+      }
+    }
+
+    // For registered users: delete from portfolioHoldings table
     await db
       .delete(portfolioHoldings)
       .where(eq(portfolioHoldings.id, holdingId));

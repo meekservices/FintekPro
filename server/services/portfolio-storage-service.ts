@@ -21,6 +21,7 @@ import type {
   AllocationBreakdown
 } from './unified-portfolio-types';
 import { holdingNormalizationService } from './holding-normalization-service';
+import { prospectPortfolioSyncService } from './prospect-portfolio-sync-service';
 
 class PortfolioStorageService {
 
@@ -112,6 +113,25 @@ class PortfolioStorageService {
     }
     
     await this.updateProspectUploadedPortfolio(prospectId, holdings, summary, options);
+    
+    // Also update currentPortfolio JSON for unified storage (single source of truth)
+    const normalizedHoldings = holdings.map(h => ({
+      id: nanoid(),
+      name: h.name,
+      isin: h.isin,
+      symbol: h.symbol,
+      assetType: h.assetType || 'equity',
+      quantity: h.quantity || 0,
+      averageCost: h.avgCostPerUnit || 0,
+      currentValue: h.currentValue || 0,
+      investedValue: h.investedValue,
+      folioNumber: h.folioNumber,
+      broker: h.broker,
+      purchaseDate: h.purchaseDate,
+      confidenceScore: options.confidenceScore,
+    }));
+    
+    await prospectPortfolioSyncService.replaceAllHoldings(prospectId, normalizedHoldings);
     
     return {
       portfolioId,
@@ -250,18 +270,33 @@ class PortfolioStorageService {
   }
 
   async getProspectPortfolio(prospectId: string): Promise<{ portfolio: any; holdings: any[] } | null> {
+    // Read from unified currentPortfolio JSON for prospects (single source of truth)
+    const holdings = await prospectPortfolioSyncService.getHoldings(prospectId);
+    
+    // Get the prospect's portfolio metadata
     const [portfolio] = await db
       .select()
       .from(portfolios)
       .where(eq(portfolios.prospectId, prospectId))
       .limit(1);
     
-    if (!portfolio) return null;
+    // If no portfolio metadata exists but holdings exist in currentPortfolio, create a virtual portfolio object
+    if (!portfolio && holdings.length > 0) {
+      const totalValue = holdings.reduce((sum, h) => sum + (h.currentValue || 0), 0);
+      return {
+        portfolio: {
+          id: `prospect-${prospectId}`,
+          prospectId,
+          name: "Prospect Portfolio",
+          totalValue: totalValue.toString(),
+          source: 'currentPortfolio',
+          isDefault: true
+        },
+        holdings
+      };
+    }
     
-    const holdings = await db
-      .select()
-      .from(portfolioHoldings)
-      .where(eq(portfolioHoldings.portfolioId, portfolio.id));
+    if (!portfolio) return null;
     
     return { portfolio, holdings };
   }
