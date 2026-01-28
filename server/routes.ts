@@ -12892,6 +12892,73 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     }
   });
 
+  // ============ MF MONTHWISE PERFORMANCE ============
+  // Get monthwise performance for a mutual fund scheme
+  app.get("/api/mutual-funds/:schemeCode/monthwise-performance", async (req, res) => {
+    try {
+      const { schemeCode } = req.params;
+      const months = parseInt(req.query.months as string) || 24;
+      
+      console.log(`[MFMonthwise] Fetching monthwise performance for scheme ${schemeCode}`);
+      
+      // Import service dynamically to avoid circular dependencies
+      const { mfMonthwisePerformanceService } = await import("./services/mf-monthwise-performance-service");
+      
+      // First try to get cached data
+      let performance = await mfMonthwisePerformanceService.getMonthwisePerformance(schemeCode, months);
+      
+      // If no cached data, calculate and store it
+      if (performance.length === 0) {
+        console.log(`[MFMonthwise] No cached data, calculating for scheme ${schemeCode}`);
+        const calcResult = await mfMonthwisePerformanceService.calculateAndStoreMonthlyReturns(schemeCode);
+        
+        if (calcResult.success) {
+          performance = await mfMonthwisePerformanceService.getMonthwisePerformance(schemeCode, months);
+        }
+      }
+      
+      res.json({
+        success: true,
+        schemeCode,
+        data: performance,
+        count: performance.length,
+      });
+    } catch (error) {
+      console.error(`[MFMonthwise] Error:`, error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch monthwise performance",
+        message: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  // Trigger recalculation of monthwise performance for a scheme
+  app.post("/api/mutual-funds/:schemeCode/monthwise-performance/refresh", async (req, res) => {
+    try {
+      const { schemeCode } = req.params;
+      
+      const { mfMonthwisePerformanceService } = await import("./services/mf-monthwise-performance-service");
+      const result = await mfMonthwisePerformanceService.calculateAndStoreMonthlyReturns(schemeCode);
+      
+      res.json({
+        success: result.success,
+        schemeCode,
+        monthsCalculated: result.monthsCalculated,
+        dateRange: result.dateRange,
+        error: result.error,
+      });
+    } catch (error) {
+      console.error(`[MFMonthwise] Refresh error:`, error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to refresh monthwise performance",
+        message: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+
   // MF Central style endpoints
   app.get("/api/mfcentral/all-schemes", async (req, res) => {
     try {

@@ -1,3 +1,4 @@
+import { MfMonthwisePerformance } from "./MfMonthwisePerformance";
 import { useState } from "react";
 import {
   Dialog,
@@ -370,6 +371,24 @@ export function InvestmentModal({ fund, isOpen, onClose }: InvestmentModalProps)
                   </>
                 )}
               </div>
+            </div>
+          )}
+
+
+          {/* Monthly Performance Section */}
+          {fund?.schemeCode && (
+            <div className="mt-4 border-t pt-4">
+              <details className="group">
+                <summary className="flex items-center justify-between cursor-pointer list-none">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    View Monthly Performance
+                  </span>
+                  <span className="text-muted-foreground text-xs group-open:rotate-180 transition-transform">▼</span>
+                </summary>
+                <div className="mt-3">
+                  <MfMonthwisePerformance schemeCode={fund.schemeCode} months={12} />
+                </div>
+              </details>
             </div>
           )}
 

@@ -26959,6 +26959,36 @@ export const insertHistoricalNavDataSchema = createInsertSchema(historicalNavDat
 export type HistoricalNavData = typeof historicalNavData.$inferSelect;
 export type InsertHistoricalNavData = z.infer<typeof insertHistoricalNavDataSchema>;
 
+// ============ MUTUAL FUND MONTHWISE PERFORMANCE ============
+// Pre-calculated monthly returns for mutual funds, derived from historical NAV data
+export const mfMonthwisePerformance = pgTable("mf_monthwise_performance", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  schemeCode: text("scheme_code").notNull().references(() => mutualFunds.schemeCode),
+  
+  monthYear: date("month_year").notNull(), // First day of the month (e.g., 2025-01-01)
+  navStart: decimal("nav_start", { precision: 15, scale: 4 }), // NAV at start of month
+  navEnd: decimal("nav_end", { precision: 15, scale: 4 }), // NAV at end of month
+  returnPercent: decimal("return_percent", { precision: 8, scale: 4 }), // Monthly return percentage
+  benchmarkReturn: decimal("benchmark_return", { precision: 8, scale: 4 }), // Benchmark (Nifty/Sensex) return for comparison
+  excessReturn: decimal("excess_return", { precision: 8, scale: 4 }), // Alpha over benchmark
+  isPartial: boolean("is_partial").default(false), // True if month is incomplete
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_mf_monthwise_performance_scheme").on(table.schemeCode),
+  index("idx_mf_monthwise_performance_month").on(table.monthYear),
+  index("idx_mf_monthwise_performance_unique").on(table.schemeCode, table.monthYear),
+]);
+
+export const insertMfMonthwisePerformanceSchema = createInsertSchema(mfMonthwisePerformance).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type MfMonthwisePerformance = typeof mfMonthwisePerformance.$inferSelect;
+export type InsertMfMonthwisePerformance = z.infer<typeof insertMfMonthwisePerformanceSchema>;
+
 // Scheme/Stock Metadata Cache - Store fund/stock info for quick lookups
 export const assetMetadataCache = pgTable("asset_metadata_cache", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
