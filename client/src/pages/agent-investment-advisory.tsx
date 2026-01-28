@@ -268,7 +268,25 @@ export default function AgentInvestmentAdvisory() {
     quantity: 0,
     averagePrice: 0,
     assetType: "EQUITY",
-    purchaseDate: ""
+    purchaseDate: "",
+    isin: "",
+    folioNumber: ""
+  });
+
+  const [instrumentSearch, setInstrumentSearch] = useState("");
+  const [instrumentSearchOpen, setInstrumentSearchOpen] = useState(false);
+  
+  const { data: searchResults = [], isFetching: isSearching } = useQuery<any[]>({
+    queryKey: ['/api/instruments/unified-search', instrumentSearch],
+    queryFn: async () => {
+      if (!instrumentSearch || instrumentSearch.length < 2) return [];
+      const params = new URLSearchParams({ q: instrumentSearch, limit: '10' });
+      const response = await fetch(`/api/instruments/unified-search?${params}`);
+      const data = await response.json();
+      return data.results || [];
+    },
+    enabled: instrumentSearch.length >= 2,
+    staleTime: 30000,
   });
 
   // Calculate holding period info for tax classification
@@ -436,7 +454,8 @@ export default function AgentInvestmentAdvisory() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/ai-investment/portfolio', selectedClientId] });
       setShowAddHoldingDialog(false);
-      setNewHolding({ symbol: "", name: "", quantity: 0, averagePrice: 0, assetType: "EQUITY", purchaseDate: "" });
+      setNewHolding({ symbol: "", name: "", quantity: 0, averagePrice: 0, assetType: "EQUITY", purchaseDate: "", isin: "", folioNumber: "" });
+      setInstrumentSearch("");
       toast({ title: "Holding added", description: "Portfolio updated successfully" });
     },
     onError: () => {
@@ -933,11 +952,116 @@ export default function AgentInvestmentAdvisory() {
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
+                  {/* Instrument Search with Autocomplete */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Search className="h-4 w-4" />
+                      Search Instrument
+                      <span className="text-xs text-muted-foreground">(by name, symbol, or ISIN)</span>
+                    </Label>
+                    <Popover open={instrumentSearchOpen} onOpenChange={setInstrumentSearchOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className="w-full justify-between h-10 font-normal"
+                          data-testid="instrument-search-trigger"
+                        >
+                          {newHolding.symbol ? (
+                            <span className="truncate">
+                              {newHolding.symbol} - {newHolding.name || 'Unknown'}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">Type to search stocks, mutual funds, bonds...</span>
+                          )}
+                          <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[400px] p-0" align="start">
+                        <Command shouldFilter={false}>
+                          <CommandInput 
+                            placeholder="Search by name, symbol, or ISIN..."
+                            value={instrumentSearch}
+                            onValueChange={setInstrumentSearch}
+                            data-testid="instrument-search-input"
+                          />
+                          <CommandList>
+                            {isSearching && (
+                              <div className="p-4 text-sm text-center text-muted-foreground">
+                                <RefreshCw className="h-4 w-4 animate-spin mx-auto mb-1" />
+                                Searching...
+                              </div>
+                            )}
+                            {!isSearching && instrumentSearch.length >= 2 && searchResults.length === 0 && (
+                              <CommandEmpty>
+                                No instruments found. Try a different search term.
+                              </CommandEmpty>
+                            )}
+                            {!isSearching && instrumentSearch.length < 2 && (
+                              <div className="p-4 text-sm text-center text-muted-foreground">
+                                Type at least 2 characters to search
+                              </div>
+                            )}
+                            {searchResults.length > 0 && (
+                              <CommandGroup heading="Results">
+                                {searchResults.map((result: any) => (
+                                  <CommandItem
+                                    key={result.id || `${result.type}-${result.symbol}`}
+                                    value={result.symbol || result.isin}
+                                    onSelect={() => {
+                                      const assetTypeMap: Record<string, string> = {
+                                        stock: 'EQUITY',
+                                        mutual_fund: 'MUTUAL_FUND',
+                                        bond: 'BOND',
+                                        etf: 'ETF'
+                                      };
+                                      setNewHolding({
+                                        ...newHolding,
+                                        symbol: result.symbol || result.isin || '',
+                                        name: result.name || result.schemeName || '',
+                                        assetType: assetTypeMap[result.type] || 'EQUITY',
+                                        isin: result.isin || '',
+                                      });
+                                      setInstrumentSearchOpen(false);
+                                      setInstrumentSearch('');
+                                    }}
+                                    className="cursor-pointer"
+                                  >
+                                    <div className="flex flex-col gap-0.5 w-full">
+                                      <div className="flex items-center justify-between">
+                                        <span className="font-medium truncate">
+                                          {result.symbol || result.isin}
+                                        </span>
+                                        <Badge variant="outline" className="ml-2 text-xs shrink-0">
+                                          {result.type === 'stock' ? 'Stock' : 
+                                           result.type === 'mutual_fund' ? 'MF' : 
+                                           result.type === 'bond' ? 'Bond' : result.type}
+                                        </Badge>
+                                      </div>
+                                      <span className="text-xs text-muted-foreground truncate">
+                                        {result.name || result.schemeName}
+                                      </span>
+                                      {result.isin && (
+                                        <span className="text-xs text-muted-foreground">
+                                          ISIN: {result.isin}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            )}
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Symbol</Label>
+                      <Label>Symbol / ISIN</Label>
                       <Input 
-                        placeholder="e.g., RELIANCE"
+                        placeholder="e.g., RELIANCE or INE002A01018"
                         value={newHolding.symbol}
                         onChange={(e) => setNewHolding({ ...newHolding, symbol: e.target.value.toUpperCase() })}
                         data-testid="input-symbol"
@@ -970,6 +1094,19 @@ export default function AgentInvestmentAdvisory() {
                       data-testid="input-name"
                     />
                   </div>
+                  
+                  {/* Folio Number for Mutual Funds */}
+                  {(newHolding.assetType === 'MUTUAL_FUND' || newHolding.assetType === 'ETF') && (
+                    <div className="space-y-2">
+                      <Label>Folio Number (Optional)</Label>
+                      <Input 
+                        placeholder="e.g., 1234567890"
+                        value={newHolding.folioNumber}
+                        onChange={(e) => setNewHolding({ ...newHolding, folioNumber: e.target.value })}
+                        data-testid="input-folio"
+                      />
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Quantity</Label>
