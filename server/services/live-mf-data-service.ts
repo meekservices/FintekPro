@@ -416,7 +416,7 @@ class LiveMFDataService {
           extendedData: mutualFunds.extendedData
         })
         .from(mutualFunds)
-        .where(sql`${mutualFunds.extendedData}->>'isin' = ANY(${sql.raw(`ARRAY[${isins.map(i => `'${i}'`).join(',')}]`)}::text[])`);
+        .where(sql`${mutualFunds.extendedData}->>'isin' = ANY(${isins}::text[])`);
 
       for (const fund of funds) {
         const isin = (fund.extendedData as any)?.isin;
