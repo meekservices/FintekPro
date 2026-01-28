@@ -15,6 +15,8 @@ import {
 import { eq, and, desc, sql } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
+import { prospectPortfolioSyncService } from "../services/prospect-portfolio-sync-service";
+import { requireRole } from "../middleware/roleMiddleware";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -95,7 +97,72 @@ router.get("/portfolio/:clientId", async (req, res) => {
     if (!clientInfo.isProspect && !clientInfo.isUser) {
       return res.status(404).json({ error: "Client not found" });
     }
+
+    // For prospects: read from unified currentPortfolio JSON
+    if (clientInfo.isProspect) {
+      const holdings = await prospectPortfolioSyncService.getHoldings(clientId);
+      
+      // Enrich with market data and tax calculations
+      const holdingsWithMarketData = await Promise.all(
+        holdings.map(async (holding) => {
+          const symbol = holding.symbol || holding.name?.replace(/[^A-Za-z0-9]/g, '').substring(0, 10);
+          const [market] = symbol ? await db
+            .select()
+            .from(marketData)
+            .where(eq(marketData.symbol, symbol))
+            .limit(1) : [];
+          
+          const avgPrice = holding.averageCost || 0;
+          const quantity = holding.quantity || 0;
+          const currentPrice = market?.price ? parseFloat(market.price) : avgPrice;
+          const marketValue = quantity * currentPrice;
+          const investedValue = quantity * avgPrice;
+          const gainLoss = marketValue - investedValue;
+          const gainLossPercent = investedValue > 0 ? (gainLoss / investedValue) * 100 : 0;
+
+          // Calculate holding period and tax classification
+          const purchaseDate = holding.purchaseDate ? new Date(holding.purchaseDate) : null;
+          const holdingDays = purchaseDate 
+            ? Math.floor((Date.now() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24))
+            : null;
+          const isLTCG = holdingDays !== null && holdingDays > 365;
+          const daysToLTCG = holdingDays !== null && !isLTCG ? 365 - holdingDays : 0;
+
+          return {
+            id: holding.id,
+            symbol: symbol || holding.name,
+            name: holding.name,
+            quantity,
+            averagePrice: avgPrice,
+            currentPrice,
+            currentValue: marketValue,
+            gainLoss,
+            gainLossPercent,
+            assetType: holding.assetType || 'equity',
+            isin: holding.isin,
+            purchaseDate: holding.purchaseDate,
+            holdingDays,
+            taxType: holdingDays !== null ? (isLTCG ? 'LTCG' : 'STCG') : null,
+            daysToLTCG,
+            exitLoadApplicable: holdingDays !== null && holdingDays < 365
+          };
+        })
+      );
+
+      const totalValue = holdingsWithMarketData.reduce((sum, h) => sum + h.currentValue, 0);
+
+      return res.json({
+        id: `prospect-${clientId}`,
+        clientId,
+        name: `${clientInfo.prospect?.name || 'Prospect'}'s Portfolio`,
+        totalValue,
+        holdings: holdingsWithMarketData,
+        lastUpdated: clientInfo.prospect?.updatedAt?.toISOString() || new Date().toISOString(),
+        source: 'currentPortfolio'
+      });
+    }
     
+    // For registered users: read from portfolioHoldings table
     const [portfolio] = await db
       .select()
       .from(portfolios)
@@ -126,9 +193,9 @@ router.get("/portfolio/:clientId", async (req, res) => {
           .where(eq(marketData.symbol, holding.symbol))
           .limit(1);
         
-        const currentPrice = market?.price ? parseFloat(market.price) : parseFloat(holding.avgPrice);
+        const currentPrice = market?.price ? parseFloat(market.price) : parseFloat(holding.avgPrice || '0');
         const quantity = parseFloat(holding.quantity);
-        const avgPrice = parseFloat(holding.avgPrice);
+        const avgPrice = parseFloat(holding.avgPrice || '0');
         const marketValue = quantity * currentPrice;
         const investedValue = quantity * avgPrice;
         const gainLoss = marketValue - investedValue;
@@ -163,8 +230,7 @@ router.get("/portfolio/:clientId", async (req, res) => {
       })
     );
 
-    const totalValue = holdingsWithMarketData.reduce((sum, h) => sum + h.marketValue, 0);
-    const totalInvested = holdingsWithMarketData.reduce((sum, h) => sum + h.investedValue, 0);
+    const totalValue = holdingsWithMarketData.reduce((sum, h) => sum + h.currentValue, 0);
 
     res.json({
       id: portfolio.id,
@@ -194,6 +260,31 @@ router.post("/portfolio/manual-entry", async (req, res) => {
       return res.status(404).json({ error: "Client not found" });
     }
 
+    // For prospects: write to unified currentPortfolio JSON
+    if (clientInfo.isProspect) {
+      const normalizedHoldings = holdings.map(h => ({
+        name: h.stockName || h.symbol,
+        symbol: h.symbol?.toUpperCase(),
+        assetType: h.assetType || 'equity',
+        quantity: h.quantity,
+        averageCost: h.avgPrice,
+        currentValue: h.quantity * h.avgPrice, // Calculate current value from quantity * avgPrice
+        sector: h.sector,
+        purchaseDate: h.purchaseDate,
+        source: 'manual' as const,
+      }));
+
+      const updatedHoldings = await prospectPortfolioSyncService.addHoldings(clientId, normalizedHoldings);
+
+      return res.json({
+        success: true,
+        message: `Added ${normalizedHoldings.length} holdings to prospect portfolio`,
+        holdings: updatedHoldings,
+        source: 'currentPortfolio'
+      });
+    }
+
+    // For registered users: write to portfolioHoldings table
     let [portfolio] = await db
       .select()
       .from(portfolios)
@@ -288,19 +379,8 @@ router.post("/portfolio/upload-csv", upload.single('file'), async (req, res) => 
       return res.status(404).json({ error: "Client not found" });
     }
 
-    let [portfolio] = await db
-      .select()
-      .from(portfolios)
-      .where(clientInfo.portfolioWhereClause)
-      .limit(1);
-
-    if (!portfolio) {
-      [portfolio] = await db.insert(portfolios).values(
-        clientInfo.getPortfolioCreateValues("CSV Uploaded Portfolio", "uploaded")
-      ).returning();
-    }
-
-    const insertedHoldings = [];
+    // Parse CSV rows into holdings
+    const parsedHoldings: Array<{symbol: string; quantity: number; avgPrice: number; sector?: string}> = [];
     const errors: string[] = [];
 
     for (let i = 1; i < lines.length; i++) {
@@ -317,19 +397,61 @@ router.post("/portfolio/upload-csv", upload.single('file'), async (req, res) => 
           continue;
         }
 
-        const [inserted] = await db.insert(portfolioHoldings).values({
-          portfolioId: portfolio.id,
-          symbol: symbol.toUpperCase(),
-          quantity: String(quantity),
-          avgPrice: String(avgPrice),
-          assetType: 'equity',
-          sector,
-          purchaseDate: new Date()
-        }).returning();
-        insertedHoldings.push(inserted);
+        parsedHoldings.push({ symbol: symbol.toUpperCase(), quantity, avgPrice, sector });
       } catch (err) {
         errors.push(`Row ${i + 1}: Failed to process`);
       }
+    }
+
+    // For prospects: write to unified currentPortfolio JSON
+    if (clientInfo.isProspect) {
+      const normalizedHoldings = parsedHoldings.map(h => ({
+        name: h.symbol,
+        symbol: h.symbol,
+        assetType: 'equity' as const,
+        quantity: h.quantity,
+        averageCost: h.avgPrice,
+        currentValue: h.quantity * h.avgPrice, // Calculate current value
+        sector: h.sector,
+        source: 'uploaded' as const,
+      }));
+
+      const updatedHoldings = await prospectPortfolioSyncService.addHoldings(clientId, normalizedHoldings);
+
+      return res.json({
+        success: true,
+        message: `Uploaded ${normalizedHoldings.length} holdings to prospect portfolio`,
+        holdingsAdded: normalizedHoldings.length,
+        errors: errors.length > 0 ? errors : undefined,
+        source: 'currentPortfolio'
+      });
+    }
+
+    // For registered users: write to portfolioHoldings table
+    let [portfolio] = await db
+      .select()
+      .from(portfolios)
+      .where(clientInfo.portfolioWhereClause)
+      .limit(1);
+
+    if (!portfolio) {
+      [portfolio] = await db.insert(portfolios).values(
+        clientInfo.getPortfolioCreateValues("CSV Uploaded Portfolio", "uploaded")
+      ).returning();
+    }
+
+    const insertedHoldings = [];
+    for (const h of parsedHoldings) {
+      const [inserted] = await db.insert(portfolioHoldings).values({
+        portfolioId: portfolio.id,
+        symbol: h.symbol,
+        quantity: String(h.quantity),
+        avgPrice: String(h.avgPrice),
+        assetType: 'equity',
+        sector: h.sector,
+        purchaseDate: new Date()
+      }).returning();
+      insertedHoldings.push(inserted);
     }
 
     res.json({
@@ -796,6 +918,26 @@ router.post("/portfolio/:clientId/holdings", async (req, res) => {
       return res.status(404).json({ error: "Client not found" });
     }
 
+    // For prospects: use unified currentPortfolio storage
+    if (clientInfo.isProspect) {
+      const holdings = await prospectPortfolioSyncService.addHolding(clientId, {
+        symbol: symbol?.toUpperCase(),
+        name: name || symbol,
+        quantity: parseFloat(quantity) || 0,
+        averageCost: parseFloat(averagePrice) || 0,
+        currentValue: (parseFloat(quantity) || 0) * (parseFloat(averagePrice) || 0),
+        assetType: assetType || 'equity',
+        purchaseDate: purchaseDate || undefined,
+      });
+      
+      return res.json({ 
+        success: true, 
+        holding: holdings[holdings.length - 1],
+        totalHoldings: holdings.length 
+      });
+    }
+
+    // For registered users: use portfolioHoldings table
     let [portfolio] = await db
       .select()
       .from(portfolios)
@@ -1011,6 +1153,34 @@ router.post("/portfolio/:clientId/import-previewed", async (req, res) => {
       return res.status(404).json({ error: "Client not found. Must be a valid prospect or user." });
     }
 
+    // For prospects: write to unified currentPortfolio
+    if (clientInfo.isProspect) {
+      const normalizedHoldings = holdings.map((h: any) => ({
+        name: h.name || h.schemeName || h.symbol || 'Unknown',
+        isin: h.isin,
+        symbol: h.symbol?.toUpperCase(),
+        assetType: h.assetType === 'mutual_fund' ? 'mutual_fund' : (h.assetType || 'equity'),
+        productType: h.productType || (h.assetType === 'mutual_fund' ? 'MF' : undefined),
+        quantity: parseFloat(h.quantity || h.units) || 0,
+        averageCost: parseFloat(h.averagePrice || h.avgPrice) || 0,
+        currentValue: parseFloat(h.value || h.currentValue) || 0,
+        investedValue: parseFloat(h.investedValue) || undefined,
+        folioNumber: h.folioNumber,
+        purchaseDate: h.purchaseDate,
+      }));
+
+      const updatedHoldings = await prospectPortfolioSyncService.replaceAllHoldings(clientId, normalizedHoldings);
+      const totalValue = updatedHoldings.reduce((sum, h) => sum + h.currentValue, 0);
+
+      return res.json({
+        success: true,
+        imported: updatedHoldings.length,
+        totalValue,
+        source: 'currentPortfolio'
+      });
+    }
+
+    // For registered users: write to portfolioHoldings table
     let [portfolio] = await db
       .select()
       .from(portfolios)
@@ -1091,6 +1261,38 @@ router.post("/portfolio/:clientId/upload-cas", upload.single('file'), async (req
       });
     }
 
+    // For prospects: write to unified currentPortfolio (auto-fetch refresh)
+    if (clientInfo.isProspect) {
+      const normalizedHoldings = result.holdings.map((h: any) => ({
+        name: h.name || h.symbol || 'Unknown',
+        isin: h.isin,
+        symbol: (h.isin || h.symbol || h.name?.replace(/[^A-Za-z0-9]/g, '').substring(0, 20))?.toUpperCase(),
+        assetType: h.assetType === 'mutual_fund' ? 'mutual_fund' : 'equity',
+        quantity: h.quantity || 0,
+        averageCost: h.averageCost || (h.currentValue / (h.quantity || 1)) || 0,
+        currentValue: h.currentValue || 0,
+        folioNumber: h.folioNumber,
+        purchaseDate: h.purchaseDate,
+        confidenceScore: h.confidenceScore,
+        broker: h.broker,
+      }));
+
+      const updatedHoldings = await prospectPortfolioSyncService.replaceAllHoldings(clientId, normalizedHoldings);
+      const totalValue = updatedHoldings.reduce((sum, h) => sum + h.currentValue, 0);
+
+      return res.json({
+        success: true,
+        imported: updatedHoldings.length,
+        totalValue,
+        brokerDetected: result.brokerDetected,
+        confidenceScore: result.confidenceScore,
+        warnings: result.errors,
+        needsManualReview: result.needsManualReview,
+        source: 'currentPortfolio'
+      });
+    }
+
+    // For registered users: write to portfolioHoldings table
     let [portfolio] = await db
       .select()
       .from(portfolios)
@@ -1570,6 +1772,37 @@ router.get("/benchmark/:clientId", async (req, res) => {
       beta
     });
   } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Migration endpoint: Sync portfolioHoldings to currentPortfolio for all prospects (admin only)
+router.post("/admin/migrate-prospect-portfolios", requireRole('admin', 'superadmin'), async (req, res) => {
+  try {
+    const result = await prospectPortfolioSyncService.migrateAllProspects();
+    res.json({
+      success: true,
+      message: `Migration complete: ${result.migrated} prospects migrated out of ${result.total}`,
+      ...result
+    });
+  } catch (error: any) {
+    console.error("Error migrating portfolios:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Migration endpoint for single prospect (admin only)
+router.post("/admin/migrate-prospect-portfolio/:prospectId", requireRole('admin', 'superadmin'), async (req, res) => {
+  try {
+    const { prospectId } = req.params;
+    const result = await prospectPortfolioSyncService.migrateToCurrentPortfolio(prospectId);
+    res.json({
+      success: true,
+      message: `Migrated ${result.migrated} holdings`,
+      holdings: result.holdings
+    });
+  } catch (error: any) {
+    console.error("Error migrating portfolio:", error);
     res.status(500).json({ error: error.message });
   }
 });

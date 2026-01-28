@@ -495,6 +495,70 @@ router.get("/public/proposal/:token", async (req: Request, res: Response) => {
 
 // ============ PORTFOLIO HOLDINGS CRUD ============
 
+// GET full portfolio for a prospect (used by Proposal Builder)
+router.get("/prospects/:id/portfolio", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const prospect = await agentProspectWizardService.getProspect(req.params.id);
+    if (!prospect) {
+      return res.status(404).json({ success: false, message: "Prospect not found" });
+    }
+    if (prospect.agentId !== agentId) {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+
+    const holdings = (prospect.currentPortfolio as any[]) || [];
+    
+    // Calculate asset allocation from holdings
+    let equity = 0, debt = 0, gold = 0, cash = 0, others = 0;
+    let totalValue = 0;
+    
+    holdings.forEach((h: any) => {
+      const value = h.currentValue || 0;
+      totalValue += value;
+      
+      const assetType = (h.assetType || '').toLowerCase();
+      if (['equity', 'stock', 'etf', 'pms', 'aif'].includes(assetType)) {
+        equity += value;
+      } else if (['bond', 'debt', 'fd', 'fixed_deposit'].includes(assetType)) {
+        debt += value;
+      } else if (['gold', 'silver'].includes(assetType)) {
+        gold += value;
+      } else if (['cash', 'liquid'].includes(assetType)) {
+        cash += value;
+      } else {
+        others += value;
+      }
+    });
+
+    const allocation = totalValue > 0 ? {
+      equity: Math.round((equity / totalValue) * 100),
+      debt: Math.round((debt / totalValue) * 100),
+      gold: Math.round((gold / totalValue) * 100),
+      cash: Math.round((cash / totalValue) * 100),
+      others: Math.round((others / totalValue) * 100),
+    } : { equity: 0, debt: 0, gold: 0, cash: 0, others: 0 };
+
+    res.json({ 
+      success: true, 
+      portfolio: {
+        holdings,
+        allocation,
+        totalValue,
+        source: 'currentPortfolio',
+        importedAt: prospect.updatedAt?.toISOString()
+      }
+    });
+  } catch (error: any) {
+    console.error("[Agent Wizard] Error fetching portfolio:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // GET saved holdings for a prospect
 router.get("/prospects/:id/holdings", async (req: Request, res: Response) => {
   try {
