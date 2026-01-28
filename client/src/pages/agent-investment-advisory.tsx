@@ -581,11 +581,14 @@ export default function AgentInvestmentAdvisory() {
       const matchColumn = (patterns: string[]) => 
         headerRow.findIndex(h => patterns.some(p => h.includes(p)));
       
-      const symbolIdx = matchColumn(['symbol', 'ticker', 'stock', 'scrip', 'isin', 'code']);
+      const symbolIdx = matchColumn(['symbol', 'ticker', 'stock', 'scrip', 'code']);
+      const isinIdx = matchColumn(['isin']);
       const nameIdx = matchColumn(['name', 'company', 'scheme', 'fund', 'security']);
       const qtyIdx = matchColumn(['qty', 'quantity', 'units', 'shares', 'holding', 'balance']);
       const priceIdx = matchColumn(['price', 'avg', 'average', 'cost', 'nav', 'buy']);
       const typeIdx = matchColumn(['type', 'asset', 'category', 'class']);
+      const folioIdx = matchColumn(['folio', 'foliono', 'account']);
+      const dateIdx = matchColumn(['date', 'purchase', 'acquired', 'bought']);
 
       const hasHeader = symbolIdx !== -1 || qtyIdx !== -1 || priceIdx !== -1;
       const dataRows = hasHeader ? rows.slice(1) : rows;
@@ -603,25 +606,34 @@ export default function AgentInvestmentAdvisory() {
           return '';
         };
         
-        const rawSymbol = safeGet(symbolIdx, 0);
+        const rawSymbol = safeGet(symbolIdx, isinIdx !== -1 ? -1 : 0);
+        const rawIsin = safeGet(isinIdx, -1);
         const rawName = safeGet(nameIdx, numCols >= 4 ? 1 : -1);
         const rawQty = safeGet(qtyIdx, numCols >= 3 ? (numCols >= 4 ? 2 : 1) : -1);
         const rawPrice = safeGet(priceIdx, numCols >= 3 ? (numCols >= 4 ? 3 : 2) : -1);
         const rawType = safeGet(typeIdx, -1);
+        const rawFolio = safeGet(folioIdx, -1);
+        const rawDate = safeGet(dateIdx, -1);
         
-        const symbol = rawSymbol.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const symbol = rawSymbol.toUpperCase().replace(/[^A-Z0-9]/g, '') || rawIsin.toUpperCase();
+        const isin = rawIsin.toUpperCase().replace(/[^A-Z0-9]/g, '');
         const quantity = parseFloat(rawQty.replace(/,/g, '')) || 0;
         const averagePrice = parseFloat(rawPrice.replace(/[₹,Rs.\s]/g, '').trim()) || 0;
+        const folioNumber = rawFolio.trim() || undefined;
+        const purchaseDate = rawDate ? rawDate.trim() : undefined;
         
         return {
           symbol,
-          name: rawName || rawSymbol,
+          isin: isin || undefined,
+          name: rawName || rawSymbol || rawIsin,
           quantity,
           averagePrice,
           assetType: rawType.toUpperCase() || 'EQUITY',
+          folioNumber,
+          purchaseDate,
           _hasValidPrice: averagePrice > 0
         };
-      }).filter(h => h.symbol && h.quantity > 0);
+      }).filter(h => (h.symbol || h.isin) && h.quantity > 0);
 
       if (parsed.length === 0) {
         setParseError("Could not parse any valid holdings. Ensure data has symbol and quantity columns.");
@@ -637,7 +649,12 @@ export default function AgentInvestmentAdvisory() {
         setParseError(null);
       }
 
-      setParsedHoldings(parsed.map(({ _hasValidPrice, ...rest }) => rest));
+      setParsedHoldings(parsed.map(({ _hasValidPrice, isin, folioNumber, purchaseDate, ...rest }) => ({
+        ...rest,
+        isin,
+        folioNumber,
+        purchaseDate,
+      })));
     } catch (err) {
       setParseError("Failed to parse data. Try copying from Excel or use CSV format.");
     }

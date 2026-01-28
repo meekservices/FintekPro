@@ -1044,28 +1044,65 @@ router.post("/portfolio/:clientId/upload", upload.single('file'), async (req, re
     const lines = csvContent.split('\n').filter(line => line.trim());
     
     const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-    const symbolIdx = headers.findIndex(h => h.includes('symbol'));
-    const quantityIdx = headers.findIndex(h => h.includes('quantity') || h.includes('qty'));
-    const priceIdx = headers.findIndex(h => h.includes('price'));
+    const symbolIdx = headers.findIndex(h => h.includes('symbol') || h.includes('ticker') || h.includes('isin'));
+    const nameIdx = headers.findIndex(h => h.includes('name') || h.includes('scheme') || h.includes('fund'));
+    const quantityIdx = headers.findIndex(h => h.includes('quantity') || h.includes('qty') || h.includes('units'));
+    const priceIdx = headers.findIndex(h => h.includes('price') || h.includes('nav') || h.includes('cost') || h.includes('avg'));
+    const typeIdx = headers.findIndex(h => h.includes('type') || h.includes('asset') || h.includes('category'));
+    const isinIdx = headers.findIndex(h => h === 'isin');
+    const folioIdx = headers.findIndex(h => h.includes('folio'));
+    const dateIdx = headers.findIndex(h => h.includes('date') || h.includes('purchase'));
 
-    let count = 0;
+    const parsedHoldings = [];
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
-      const symbol = values[symbolIdx];
-      const quantity = parseFloat(values[quantityIdx]);
-      const avgPrice = parseFloat(values[priceIdx]);
+      const symbol = values[symbolIdx >= 0 ? symbolIdx : 0] || '';
+      const name = nameIdx >= 0 ? values[nameIdx] : symbol;
+      const quantity = parseFloat(values[quantityIdx >= 0 ? quantityIdx : 1]) || 0;
+      const avgPrice = parseFloat(values[priceIdx >= 0 ? priceIdx : 2]) || 0;
+      const assetType = typeIdx >= 0 ? values[typeIdx] : 'EQUITY';
+      const isin = isinIdx >= 0 ? values[isinIdx] : undefined;
+      const folioNumber = folioIdx >= 0 ? values[folioIdx] : undefined;
+      const purchaseDate = dateIdx >= 0 && values[dateIdx] ? new Date(values[dateIdx]) : new Date();
       
-      if (symbol && !isNaN(quantity) && !isNaN(avgPrice)) {
-        await db.insert(portfolioHoldings).values({
-          portfolioId: portfolio.id,
-          symbol: symbol.toUpperCase(),
-          quantity: String(quantity),
-          avgPrice: String(avgPrice),
-          assetType: 'EQUITY',
-          purchaseDate: new Date()
+      if (symbol && quantity > 0) {
+        parsedHoldings.push({ symbol: symbol.toUpperCase(), name, quantity, avgPrice, assetType, isin, folioNumber, purchaseDate });
+      }
+    }
+
+    let count = 0;
+    
+    // For prospects: use unified currentPortfolio storage via sync service
+    if (clientInfo.isProspect) {
+      for (const h of parsedHoldings) {
+        await prospectPortfolioSyncService.addHolding(clientId, {
+          symbol: h.symbol,
+          name: h.name || h.symbol,
+          quantity: h.quantity,
+          averageCost: h.avgPrice,
+          currentValue: h.quantity * h.avgPrice,
+          assetType: h.assetType?.toLowerCase() || 'equity',
+          isin: h.isin,
+          folioNumber: h.folioNumber,
+          purchaseDate: h.purchaseDate?.toISOString().split('T')[0],
         });
         count++;
       }
+      return res.json({ success: true, count, storage: 'prospect_currentPortfolio' });
+    }
+
+    // For registered users: use portfolioHoldings table
+    for (const h of parsedHoldings) {
+      await db.insert(portfolioHoldings).values({
+        portfolioId: portfolio.id,
+        symbol: h.symbol,
+        name: h.name,
+        quantity: String(h.quantity),
+        avgPrice: String(h.avgPrice),
+        assetType: h.assetType || 'EQUITY',
+        purchaseDate: h.purchaseDate
+      });
+      count++;
     }
 
     res.json({ success: true, count });
@@ -1117,12 +1154,45 @@ router.post("/portfolio/:clientId/bulk-import", async (req, res) => {
     }
 
     let imported = 0;
+    
+    // For prospects: use unified currentPortfolio storage via sync service
+    if (clientInfo.isProspect) {
+      for (const holding of validHoldings) {
+        const { symbol, name, quantity, averagePrice, assetType, isin, folioNumber, purchaseDate } = holding;
+        const qty = parseFloat(quantity) || 0;
+        const price = parseFloat(averagePrice) || 0;
+        
+        await prospectPortfolioSyncService.addHolding(clientId, {
+          symbol: symbol?.toString().toUpperCase().replace(/[^A-Z0-9]/g, ''),
+          name: name || symbol,
+          quantity: qty,
+          averageCost: price,
+          currentValue: qty * price,
+          assetType: assetType?.toLowerCase() || 'equity',
+          isin: isin,
+          folioNumber: folioNumber,
+          purchaseDate: purchaseDate ? new Date(purchaseDate).toISOString().split('T')[0] : undefined,
+        });
+        imported++;
+      }
+      
+      return res.json({ 
+        success: true, 
+        imported,
+        skipped: invalidCount,
+        warnings: missingPriceCount > 0 ? [`${missingPriceCount} holdings imported with price = 0`] : [],
+        storage: 'prospect_currentPortfolio'
+      });
+    }
+
+    // For registered users: use portfolioHoldings table
     for (const holding of validHoldings) {
       const { symbol, name, quantity, averagePrice, assetType } = holding;
       
       await db.insert(portfolioHoldings).values({
         portfolioId: portfolio.id,
         symbol: symbol.toString().toUpperCase().replace(/[^A-Z0-9]/g, ''),
+        name: name || symbol,
         quantity: String(parseFloat(quantity) || 0),
         avgPrice: String(parseFloat(averagePrice) || 0),
         assetType: assetType || 'EQUITY',
