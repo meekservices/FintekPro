@@ -881,10 +881,6 @@ export default function AgentInvestmentAdvisory() {
             <Send className="h-4 w-4 mr-2" />
             Finalize
           </TabsTrigger>
-          <TabsTrigger value="itr-services" data-testid="tab-itr-services">
-            <FileText className="h-4 w-4 mr-2" />
-            ITR Services
-          </TabsTrigger>
           <TabsTrigger value="goal-planning" data-testid="tab-goal-planning">
             <Goal className="h-4 w-4 mr-2" />
             Goal Planning
@@ -2411,9 +2407,6 @@ TCS     Tata Consultancy        25      3850.00"
           </Card>
         </TabsContent>
 
-        <TabsContent value="itr-services" className="space-y-4">
-          <ItrServicesTab clientId={selectedClientId} />
-        </TabsContent>
 
         <TabsContent value="goal-planning" className="space-y-4">
           <GoalPlanningTab clientId={selectedClientId} clientName={selectedClient ? `${selectedClient.firstName} ${selectedClient.lastName}` : ''} />

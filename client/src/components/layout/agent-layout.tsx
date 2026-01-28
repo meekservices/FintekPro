@@ -132,6 +132,7 @@ const agentNavCategories: NavCategory[] = [
       { title: "My Payouts", href: "/agent/payouts", icon: DollarSign, description: "Earnings & payouts" },
       { title: "Reports", href: "/agent/reports", icon: BarChart3, description: "Client reports" },
       { title: "AI Advisory", href: "/agent/investment-advisory", icon: Brain, description: "AI recommendations" },
+      { title: "ITR Services", href: "/agent/tax-cases", icon: FileText, description: "ITR filing & tax services" },
       { title: "Festival Greetings", href: "/agent/festival-greetings", icon: Sparkles, description: "Send festival wishes" },
       { title: "Bulk Communication", href: "/agent/bulk-communication", icon: Mail, description: "Email/SMS campaigns" },
     ]
