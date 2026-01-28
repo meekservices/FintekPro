@@ -79,23 +79,43 @@ class UnifiedPortfolioImportService {
             console.warn(`[Parser] v2 result insufficient (success=${v2Result.success}, confidence=${v2Result.confidenceScore}), falling back to v1`);
             // Fall through to v1 parser
           } else {
-            // Convert v2 holdings to unified format
-            result.holdings = v2Result.holdings.map(h => ({
-              id: crypto.randomUUID(),
-              isin: h.isin || '',
-              schemeName: h.schemeName,
-              folioNumber: h.folioNumber,
-              units: h.units,
-              investedValue: h.investedValue || 0,
-              currentValue: h.currentValue || 0,
-              nav: h.nav || 0,
-              unrealizedGain: h.unrealizedGain || 0,
-              unrealizedGainPercent: h.unrealizedGainPercent || 0,
-              purchaseDate: h.purchaseDate,
-              confidenceScore: h.confidenceScore,
-              assetType: 'mutual_fund' as const,
-              source: 'pdf_upload' as const,
-            }));
+            // Convert v2 holdings to unified format with lot information
+            result.holdings = v2Result.holdings.map(h => {
+              // Find matching lots for this holding (by ISIN or folio)
+              const matchingLots = (v2Result.holdingLots || []).filter(lot => 
+                lot.id?.startsWith(h.isin || '') || 
+                lot.id?.includes(h.folioNumber || '')
+              );
+              
+              return {
+                id: crypto.randomUUID(),
+                isin: h.isin || '',
+                schemeName: h.schemeName,
+                folioNumber: h.folioNumber,
+                units: h.units,
+                investedValue: h.investedValue || 0,
+                currentValue: h.currentValue || 0,
+                nav: h.nav || 0,
+                unrealizedGain: h.unrealizedGain || 0,
+                unrealizedGainPercent: h.unrealizedGainPercent || 0,
+                purchaseDate: h.purchaseDate,
+                confidenceScore: h.confidenceScore,
+                assetType: 'mutual_fund' as const,
+                source: 'pdf_upload' as const,
+                // Include lot information for SIP tracking
+                lots: matchingLots.length > 0 ? matchingLots.map(lot => ({
+                  purchaseDate: lot.purchaseDate,
+                  quantity: lot.units,
+                  purchaseNav: lot.purchaseNav,
+                  purchaseValue: lot.purchaseValue,
+                  source: lot.source,
+                  status: lot.status,
+                })) : undefined,
+              };
+            });
+            
+            // Store holdingLots separately for LTCG/STCG calculations
+            (result as any).holdingLots = v2Result.holdingLots;
             
             result.summary = holdingNormalizationService.computeSummary(result.holdings);
             result.confidenceScore = v2Result.confidenceScore;

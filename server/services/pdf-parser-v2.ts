@@ -26,8 +26,17 @@ export type PDFType =
   | 'broker_kotak'       // Kotak Securities holdings
   | 'broker_upstox'      // Upstox holdings
   | 'broker_angelone'    // Angel One holdings
+  | 'broker_5paisa'      // 5Paisa holdings
+  | 'broker_motilal'     // Motilal Oswal holdings
+  | 'broker_axis'        // Axis Direct holdings
+  | 'broker_iifl'        // IIFL Securities holdings
+  | 'broker_sharekhan'   // Sharekhan holdings
   | 'aggregator_wealthy' // Wealthy.in summary
   | 'aggregator_mfcentral' // MF Central
+  | 'aggregator_indmoney' // INDmoney
+  | 'aggregator_kuvera'  // Kuvera
+  | 'aggregator_etmoney' // ET Money
+  | 'aggregator_paytm'   // Paytm Money
   | 'summary_only'       // Summary PDF without transactions
   | 'transaction_only'   // Transaction statement only
   | 'unknown';
@@ -610,15 +619,27 @@ class PDFParserV2Service {
       return 'cas_cams';
     }
 
-    if (/zerodha|kite\./i.test(text)) return 'broker_zerodha';
-    if (/groww\.in|groww\s+portfolio/i.test(text)) return 'broker_groww';
-    if (/icici\s*direct|icicidirect/i.test(text)) return 'broker_icici';
-    if (/hdfc\s*securities/i.test(text)) return 'broker_hdfc';
-    if (/kotak\s*securities/i.test(text)) return 'broker_kotak';
-    if (/upstox/i.test(text)) return 'broker_upstox';
-    if (/angel\s*one|angelbroking/i.test(text)) return 'broker_angelone';
+    // Broker detection patterns
+    if (/zerodha|kite\.|console\.zerodha/i.test(text)) return 'broker_zerodha';
+    if (/groww\.in|groww\s+portfolio|groww\s+investments/i.test(text)) return 'broker_groww';
+    if (/icici\s*direct|icicidirect\.com/i.test(text)) return 'broker_icici';
+    if (/hdfc\s*securities|hdfcsec\.com/i.test(text)) return 'broker_hdfc';
+    if (/kotak\s*securities|kotaksecurities/i.test(text)) return 'broker_kotak';
+    if (/upstox|upstox\.com/i.test(text)) return 'broker_upstox';
+    if (/angel\s*one|angelbroking|angelone\.in/i.test(text)) return 'broker_angelone';
+    if (/5paisa|5\s*paisa|fivepaisa/i.test(text)) return 'broker_5paisa';
+    if (/motilal\s*oswal|motilaloswal/i.test(text)) return 'broker_motilal';
+    if (/axis\s*direct|axisdirect\.in/i.test(text)) return 'broker_axis';
+    if (/iifl\s*securities|indiainfoline/i.test(text)) return 'broker_iifl';
+    if (/sharekhan/i.test(text)) return 'broker_sharekhan';
+    
+    // Aggregator detection patterns
     if (/wealthy\.in|wealthy\s+portfolio/i.test(text)) return 'aggregator_wealthy';
-    if (/mf\s*central|mfcentral/i.test(text)) return 'aggregator_mfcentral';
+    if (/mf\s*central|mfcentral\.com/i.test(text)) return 'aggregator_mfcentral';
+    if (/indmoney|ind\s*money/i.test(text)) return 'aggregator_indmoney';
+    if (/kuvera\.in|kuvera\s+portfolio/i.test(text)) return 'aggregator_kuvera';
+    if (/et\s*money|etmoney\.com/i.test(text)) return 'aggregator_etmoney';
+    if (/paytm\s*money|paytmmoney/i.test(text)) return 'aggregator_paytm';
 
     const hasTransactions = /transaction\s*date|purchase|redemption|switch\s*(in|out)/i.test(text);
     const hasHoldings = /unit\s*balance|market\s*value|current\s*value/i.test(text);
@@ -1966,8 +1987,17 @@ class PDFParserV2Service {
       'broker_kotak': 0.85,
       'broker_upstox': 0.80,
       'broker_angelone': 0.80,
+      'broker_5paisa': 0.75,
+      'broker_motilal': 0.85,
+      'broker_axis': 0.80,
+      'broker_iifl': 0.75,
+      'broker_sharekhan': 0.75,
       'aggregator_wealthy': 0.60,
       'aggregator_mfcentral': 0.70,
+      'aggregator_indmoney': 0.65,
+      'aggregator_kuvera': 0.70,
+      'aggregator_etmoney': 0.65,
+      'aggregator_paytm': 0.60,
       'summary_only': 0.40,
       'transaction_only': 0.50,
       'unknown': 0.30,

@@ -129,6 +129,8 @@ class PortfolioStorageService {
       broker: h.broker,
       purchaseDate: h.purchaseDate,
       confidenceScore: options.confidenceScore,
+      // Include lot information for SIP tracking and LTCG/STCG calculations
+      lots: (h as any).lots || undefined,
     }));
     
     await prospectPortfolioSyncService.replaceAllHoldings(prospectId, normalizedHoldings);
