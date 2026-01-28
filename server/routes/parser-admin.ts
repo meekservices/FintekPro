@@ -1,27 +1,29 @@
 /**
  * Parser Admin Routes
  * 
- * Admin endpoints for controlling PDF Parser v2 configuration:
- * - Set parser version (v1/v2/dual)
- * - Enable/disable dual-run mode
- * - Force v1 fallback (rollback switch)
+ * Admin endpoints for controlling Unified PDF Parser configuration:
  * - View parser stats and cache
+ * - Enable/disable learning mode
+ * - Set confidence threshold
+ * - Clear caches
  */
 
 import { Router } from 'express';
-import { pdfParserV2Service, type ParserVersion, type ParserConfig } from '../services/pdf-parser-v2';
+import { unifiedPDFParser } from '../services/unified-pdf-parser';
 
 const router = Router();
 
 router.get('/config', (req, res) => {
   try {
-    const config = pdfParserV2Service.getConfig();
-    const cacheStats = pdfParserV2Service.getProfileCacheStats();
+    const cacheStats = unifiedPDFParser.getProfileCacheStats();
+    const metrics = unifiedPDFParser.getParsingMetrics(24);
     
     res.json({
       success: true,
-      config,
       cache: cacheStats,
+      metrics: {
+        last24Hours: metrics,
+      },
     });
   } catch (error: any) {
     res.status(500).json({ 
@@ -33,116 +35,17 @@ router.get('/config', (req, res) => {
 
 router.post('/config', (req, res) => {
   try {
-    const updates: Partial<ParserConfig> = {};
-    
-    if (req.body.version && ['v1', 'v2', 'dual'].includes(req.body.version)) {
-      updates.version = req.body.version as ParserVersion;
-    }
-    
-    if (typeof req.body.enableDualRun === 'boolean') {
-      updates.enableDualRun = req.body.enableDualRun;
-    }
-    
     if (typeof req.body.enableLearning === 'boolean') {
-      updates.enableLearning = req.body.enableLearning;
-    }
-    
-    if (typeof req.body.enableConfidenceScoring === 'boolean') {
-      updates.enableConfidenceScoring = req.body.enableConfidenceScoring;
-    }
-    
-    if (typeof req.body.logComparisons === 'boolean') {
-      updates.logComparisons = req.body.logComparisons;
-    }
-    
-    if (typeof req.body.forceV1Fallback === 'boolean') {
-      updates.forceV1Fallback = req.body.forceV1Fallback;
+      unifiedPDFParser.setLearningEnabled(req.body.enableLearning);
     }
     
     if (typeof req.body.minConfidenceThreshold === 'number') {
-      updates.minConfidenceThreshold = Math.max(0, Math.min(1, req.body.minConfidenceThreshold));
+      unifiedPDFParser.setMinConfidenceThreshold(req.body.minConfidenceThreshold);
     }
-    
-    pdfParserV2Service.setConfig(updates);
     
     res.json({
       success: true,
       message: 'Parser configuration updated',
-      config: pdfParserV2Service.getConfig(),
-    });
-  } catch (error: any) {
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
-    });
-  }
-});
-
-router.post('/version', (req, res) => {
-  try {
-    const { version } = req.body;
-    
-    if (!version || !['v1', 'v2', 'dual'].includes(version)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid version. Must be v1, v2, or dual',
-      });
-    }
-    
-    pdfParserV2Service.setVersion(version as ParserVersion);
-    
-    res.json({
-      success: true,
-      message: `Parser version set to ${version}`,
-      config: pdfParserV2Service.getConfig(),
-    });
-  } catch (error: any) {
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
-    });
-  }
-});
-
-router.post('/dual-run', (req, res) => {
-  try {
-    const { enable } = req.body;
-    
-    if (typeof enable !== 'boolean') {
-      return res.status(400).json({
-        success: false,
-        error: 'enable must be a boolean',
-      });
-    }
-    
-    pdfParserV2Service.enableDualRun(enable);
-    
-    res.json({
-      success: true,
-      message: `Dual-run mode ${enable ? 'enabled' : 'disabled'}`,
-      config: pdfParserV2Service.getConfig(),
-    });
-  } catch (error: any) {
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
-    });
-  }
-});
-
-router.post('/rollback', (req, res) => {
-  try {
-    const { force } = req.body;
-    const shouldForce = force !== false;
-    
-    pdfParserV2Service.forceV1Fallback(shouldForce);
-    
-    res.json({
-      success: true,
-      message: shouldForce 
-        ? 'Rollback activated - all parsing will use v1' 
-        : 'Rollback deactivated - parser will use configured version',
-      config: pdfParserV2Service.getConfig(),
     });
   } catch (error: any) {
     res.status(500).json({ 
@@ -154,12 +57,20 @@ router.post('/rollback', (req, res) => {
 
 router.post('/cache/clear', (req, res) => {
   try {
-    pdfParserV2Service.clearProfileCache();
+    const { type } = req.body;
+    
+    if (type === 'profile' || type === 'all') {
+      unifiedPDFParser.clearProfileCache();
+    }
+    
+    if (type === 'all') {
+      unifiedPDFParser.clearParseCache();
+    }
     
     res.json({
       success: true,
-      message: 'Profile cache cleared',
-      cache: pdfParserV2Service.getProfileCacheStats(),
+      message: `Cache${type === 'all' ? 's' : ''} cleared successfully`,
+      cacheStats: unifiedPDFParser.getProfileCacheStats(),
     });
   } catch (error: any) {
     res.status(500).json({ 
@@ -169,13 +80,34 @@ router.post('/cache/clear', (req, res) => {
   }
 });
 
-router.get('/cache/stats', (req, res) => {
+router.get('/stats', (req, res) => {
   try {
-    const stats = pdfParserV2Service.getProfileCacheStats();
+    const hours = parseInt(req.query.hours as string) || 24;
+    const metrics = unifiedPDFParser.getParsingMetrics(hours);
+    const cacheStats = unifiedPDFParser.getProfileCacheStats();
     
     res.json({
       success: true,
-      cache: stats,
+      metrics,
+      cache: cacheStats,
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+router.get('/errors', (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 20;
+    const errors = unifiedPDFParser.getErrorSummary(limit);
+    
+    res.json({
+      success: true,
+      errors,
+      count: errors.length,
     });
   } catch (error: any) {
     res.status(500).json({ 

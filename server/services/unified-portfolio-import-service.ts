@@ -19,11 +19,10 @@ import type {
 import { createEmptyImportResult } from './unified-portfolio-types';
 import { holdingNormalizationService } from './holding-normalization-service';
 import { portfolioStorageService } from './portfolio-storage-service';
-import { pdfParserService } from './pdf-parser-service';
+import { unifiedPDFParser } from './unified-pdf-parser';
 import { casStatementService, type CASHolding } from './cas-statement-service';
 import { parsePDFPortfolio, parseURLPortfolio, type ImportedHolding } from './portfolio-parser';
 import { WealthyImportService, type WealthyHolding } from './wealthy-import-service';
-import { pdfParserV2Service, type ParserComparisonResult } from './pdf-parser-v2';
 
 class UnifiedPortfolioImportService {
   private wealthyService: WealthyImportService;
@@ -42,7 +41,7 @@ class UnifiedPortfolioImportService {
     const startTime = Date.now();
 
     try {
-      const parseResult = await pdfParserService.extractTextSafe(buffer);
+      const parseResult = await unifiedPDFParser.extractTextSafe(buffer);
       if (!parseResult.success || !parseResult.result) {
         result.errors.push(parseResult.error || 'Failed to parse PDF');
         result.parsingStatus = 'failed';
@@ -55,121 +54,67 @@ class UnifiedPortfolioImportService {
       const isCAS = options?.detectCAS !== false && this.detectCASStatement(text);
       
       if (isCAS) {
-        return this.importFromCASText(text, fileName, options?.enableDualRun);
+        return this.importFromCASText(text, fileName);
       }
 
-      const isRollbackActive = pdfParserV2Service.isRollbackActive();
-      const shouldDualRun = !isRollbackActive && pdfParserV2Service.shouldExecuteDualRun();
-      const effectiveVersion = pdfParserV2Service.getEffectiveVersion();
+      // Use unified parser for all PDF parsing
+      console.log('[Parser] Using unified PDF parser');
+      const parserResult = await unifiedPDFParser.parseDocument(buffer, { fileName });
       
-      let profile = null;
-
-      if (isRollbackActive) {
-        console.log('[Parser] Rollback active - using v1 parser only');
-      }
-
-      // Use v2 parser when configured (and not rolled back)
-      if (effectiveVersion === 'v2' && !isRollbackActive) {
-        try {
-          console.log('[Parser] Using v2 parser pipeline');
-          const v2Result = await pdfParserV2Service.parseDocumentV2(buffer, { fileName });
+      if (!parserResult.success || parserResult.confidenceScore < 0.5) {
+        console.warn(`[Parser] Unified parser result insufficient (success=${parserResult.success}, confidence=${parserResult.confidenceScore})`);
+        // Fall through to legacy parsing
+      } else {
+        // Convert holdings to unified format with lot information
+        result.holdings = parserResult.holdings.map(h => {
+          const matchingLots = (parserResult.holdingLots || []).filter(lot => 
+            lot.id?.startsWith(h.isin || '') || 
+            lot.id?.includes(h.folioNumber || '')
+          );
           
-          // If v2 parsing failed or confidence is too low, fall back to v1
-          if (!v2Result.success || v2Result.confidenceScore < 0.5) {
-            console.warn(`[Parser] v2 result insufficient (success=${v2Result.success}, confidence=${v2Result.confidenceScore}), falling back to v1`);
-            // Fall through to v1 parser
-          } else {
-            // Convert v2 holdings to unified format with lot information
-            result.holdings = v2Result.holdings.map(h => {
-              // Find matching lots for this holding (by ISIN or folio)
-              const matchingLots = (v2Result.holdingLots || []).filter(lot => 
-                lot.id?.startsWith(h.isin || '') || 
-                lot.id?.includes(h.folioNumber || '')
-              );
-              
-              return {
-                id: crypto.randomUUID(),
-                isin: h.isin || '',
-                schemeName: h.schemeName,
-                folioNumber: h.folioNumber,
-                units: h.units,
-                investedValue: h.investedValue || 0,
-                currentValue: h.currentValue || 0,
-                nav: h.nav || 0,
-                unrealizedGain: h.unrealizedGain || 0,
-                unrealizedGainPercent: h.unrealizedGainPercent || 0,
-                purchaseDate: h.purchaseDate,
-                confidenceScore: h.confidenceScore,
-                assetType: 'mutual_fund' as const,
-                source: 'pdf_upload' as const,
-                // Include lot information for SIP tracking
-                lots: matchingLots.length > 0 ? matchingLots.map(lot => ({
-                  purchaseDate: lot.purchaseDate,
-                  quantity: lot.units,
-                  purchaseNav: lot.purchaseNav,
-                  purchaseValue: lot.purchaseValue,
-                  source: lot.source,
-                  status: lot.status,
-                })) : undefined,
-              };
-            });
-            
-            // Store holdingLots separately for LTCG/STCG calculations
-            (result as any).holdingLots = v2Result.holdingLots;
-            
-            result.summary = holdingNormalizationService.computeSummary(result.holdings);
-            result.confidenceScore = v2Result.confidenceScore;
-            result.success = v2Result.success;
-            result.parsingStatus = v2Result.success ? 'completed' : 'needs_review';
-            result.importedCount = v2Result.holdings.length;
-            result.errors = v2Result.errors;
-            result.capturedAt = new Date().toISOString();
-            
-            (result as any).parserVersion = 'v2';
-            (result as any).dualRunEnabled = false;
-            (result as any).rollbackActive = false;
-            (result as any).v2Profile = v2Result.profile;
-            (result as any).v2Result = v2Result;
-            
-            // Generate audit record for v2 path
-            const v2AuditRecord = pdfParserV2Service.createAuditRecord(
-              v2Result.profile,
-              {
-                success: result.success,
-                holdingsCount: result.holdings.length,
-                totalValue: result.summary?.totalCurrentValue || 0,
-                confidenceScore: result.confidenceScore || 0,
-                errors: result.errors,
-                warnings: v2Result.warnings || [],
-                parseTimeMs: Date.now() - startTime,
-              },
-              {
-                fileName,
-                fileSize: buffer.length,
-                dualRunEnabled: false,
-              }
-            );
-            (result as any).auditRecord = v2AuditRecord;
-            
-            return result;
-          }
-        } catch (v2Error: any) {
-          console.warn('[Parser] v2 pipeline failed, falling back to v1:', v2Error.message);
-          // Fall through to v1 parser
-        }
-      }
-      
-      // Profile for dual-run mode
-      if (shouldDualRun) {
-        try {
-          profile = await pdfParserV2Service.profileDocument(buffer);
-          console.log('[Parser] Document profiled:', profile.pdfType, profile.layoutType, 'confidence:', profile.confidenceScore);
-          (result as any).v2Profile = profile;
-        } catch (profileError: any) {
-          console.warn('[Parser] Profiling failed:', profileError.message);
-        }
+          return {
+            id: crypto.randomUUID(),
+            isin: h.isin || '',
+            schemeName: h.schemeName,
+            folioNumber: h.folioNumber,
+            units: h.units,
+            investedValue: h.investedValue || 0,
+            currentValue: h.currentValue || 0,
+            nav: h.nav || 0,
+            unrealizedGain: h.unrealizedGain || 0,
+            unrealizedGainPercent: h.unrealizedGainPercent || 0,
+            purchaseDate: h.purchaseDate,
+            confidenceScore: h.confidenceScore,
+            assetType: 'mutual_fund' as const,
+            source: 'pdf_upload' as const,
+            lots: matchingLots.length > 0 ? matchingLots.map(lot => ({
+              purchaseDate: lot.purchaseDate,
+              quantity: lot.units,
+              purchaseNav: lot.purchaseNav,
+              purchaseValue: lot.purchaseValue,
+              source: lot.source,
+              status: lot.status,
+            })) : undefined,
+          };
+        });
+        
+        (result as any).holdingLots = parserResult.holdingLots;
+        
+        result.summary = holdingNormalizationService.computeSummary(result.holdings);
+        result.confidenceScore = parserResult.confidenceScore;
+        result.success = parserResult.success;
+        result.parsingStatus = parserResult.success ? 'completed' : 'needs_review';
+        result.importedCount = parserResult.holdings.length;
+        result.errors = parserResult.errors;
+        result.capturedAt = new Date().toISOString();
+        
+        (result as any).profile = parserResult.profile;
+        (result as any).parsingMetrics = parserResult.parsingMetrics;
+        
+        return result;
       }
 
+      // Fallback to legacy portfolio parser if unified parser fails
       const portfolioResult = await parsePDFPortfolio(buffer, fileName);
       
       result.holdings = this.convertImportedHoldings(portfolioResult.holdings);
@@ -185,29 +130,6 @@ class UnifiedPortfolioImportService {
       result.errors = portfolioResult.errors;
       result.capturedAt = new Date().toISOString();
 
-      (result as any).parserVersion = effectiveVersion;
-      (result as any).dualRunEnabled = shouldDualRun;
-      (result as any).rollbackActive = isRollbackActive;
-
-      const auditRecord = pdfParserV2Service.createAuditRecord(
-        profile,
-        {
-          success: result.success,
-          holdingsCount: result.holdings.length,
-          totalValue: result.summary?.totalCurrentValue || 0,
-          confidenceScore: result.confidenceScore || 0,
-          errors: result.errors,
-          warnings: [],
-          parseTimeMs: Date.now() - startTime,
-        },
-        {
-          fileName,
-          fileSize: buffer.length,
-          dualRunEnabled: shouldDualRun,
-        }
-      );
-      (result as any).auditRecord = auditRecord;
-
       return result;
     } catch (error: any) {
       result.errors.push(error.message || 'Unknown error during PDF import');
@@ -216,18 +138,9 @@ class UnifiedPortfolioImportService {
     }
   }
 
-  async importFromCASText(text: string, fileName?: string, enableDualRun?: boolean): Promise<UnifiedImportResult> {
+  async importFromCASText(text: string, fileName?: string): Promise<UnifiedImportResult> {
     const result = createEmptyImportResult('cas_statement');
     result.sourceFileName = fileName;
-    
-    const config = pdfParserV2Service.getConfig();
-    const shouldDualRun = enableDualRun ?? config.enableDualRun;
-    
-    if (shouldDualRun) {
-      console.log('[Dual-Run] CAS statement parsing with v2 profiling enabled');
-      (result as any).dualRunEnabled = true;
-      (result as any).parserVersion = 'v1';
-    }
     result.rawTextLength = text.length;
 
     try {

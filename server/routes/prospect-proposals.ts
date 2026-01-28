@@ -1136,7 +1136,7 @@ async function buildDynamicRecommendations(options: {
 }
 import { nanoid } from "nanoid";
 import multer from "multer";
-import { pdfParserService } from "../services/pdf-parser-service";
+import { unifiedPDFParser } from "../services/unified-pdf-parser";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -2351,7 +2351,7 @@ router.post("/api/agent/parse-holding-report", upload.single('file'), async (req
     }
 
     // Parse PDF using centralized PDF parser service
-    const parseResult = await pdfParserService.extractTextSafe(file.buffer);
+    const parseResult = await unifiedPDFParser.extractTextSafe(file.buffer);
     if (!parseResult.success || !parseResult.result) {
       return res.status(400).json({ 
         error: parseResult.error || "Failed to parse PDF file" 

@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import { isAuthenticated } from '../replitAuth';
 import { casStatementService, CASStatementResult } from '../services/cas-statement-service';
-import { pdfParserService } from '../services/pdf-parser-service';
+import { unifiedPDFParser } from '../services/unified-pdf-parser';
 import { unifiedPortfolioImportService } from '../services/unified-portfolio-import-service';
 import { portfolioStorageService } from '../services/portfolio-storage-service';
 import { holdingNormalizationService } from '../services/holding-normalization-service';
@@ -37,7 +37,7 @@ router.post(
       
       console.log('[CAS Routes] Parsing CAS statement:', req.file.originalname);
       
-      const parseResult = await pdfParserService.extractTextSafe(req.file.buffer);
+      const parseResult = await unifiedPDFParser.extractTextSafe(req.file.buffer);
       if (!parseResult.success || !parseResult.result) {
         return res.status(400).json({ 
           success: false, 
@@ -92,7 +92,7 @@ router.post(
       
       console.log('[CAS Routes] Importing CAS for prospect:', prospect.name);
       
-      const parseResult = await pdfParserService.extractTextSafe(req.file.buffer);
+      const parseResult = await unifiedPDFParser.extractTextSafe(req.file.buffer);
       if (!parseResult.success || !parseResult.result) {
         return res.status(400).json({
           success: false,
@@ -194,7 +194,7 @@ router.post(
         return res.status(400).json({ success: false, error: 'No file uploaded' });
       }
       
-      const parseResult = await pdfParserService.extractTextSafe(req.file.buffer);
+      const parseResult = await unifiedPDFParser.extractTextSafe(req.file.buffer);
       if (!parseResult.success || !parseResult.result) {
         return res.status(400).json({
           success: false,

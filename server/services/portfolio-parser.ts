@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio';
 import { liveMFDataService } from './live-mf-data-service';
 import { isinIntelligenceService } from './isin-intelligence-service';
-import { pdfParserService } from './pdf-parser-service';
+import { unifiedPDFParser } from './unified-pdf-parser';
 import { holdingNormalizationService } from './holding-normalization-service';
 import { GoogleGenAI } from '@google/genai';
 
@@ -1606,7 +1606,7 @@ export async function parsePDFPortfolio(buffer: Buffer, fileName: string): Promi
   
   try {
     // Use centralized PDF parser service
-    const parseResult = await pdfParserService.extractTextSafe(buffer);
+    const parseResult = await unifiedPDFParser.extractTextSafe(buffer);
     if (!parseResult.success || !parseResult.result) {
       return {
         success: false,

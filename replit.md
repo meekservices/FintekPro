@@ -24,7 +24,15 @@ A Multi-Source Financial Data Enrichment System integrates various providers wit
 
 An ISIN-Based Instrument Search System offers comprehensive ISIN lookup capabilities across all asset classes through dedicated search endpoints and UI components. The Corporate Treasury Management module is SEBI-compliant with a configurable Maker-Checker workflow. The Unified Tax & Compliance Module offers PAN-driven ITR filing, a Unified eSign Service, and Form 15CA/15CB support, with a Document Vault and RBAC.
 
-A Centralized Portfolio Import System supports diverse import sources (PDF/HTML, URL, API, manual) with a unified type system, normalization, and storage, including AI fallback for parsing. An intelligent PDF Parser v2 system processes documents through phased implementation, including document profiling, layout segmentation, semantic block detection, purchase date engine, holding lots builder, confidence scoring, learning store, and comprehensive observability. The v2 parser now supports 17 provider detection patterns including major brokers (Zerodha, Groww, ICICI Direct, HDFC, Kotak, Upstox, Angel One, 5Paisa, Motilal Oswal, Axis Direct, IIFL, Sharekhan) and aggregators (MF Central, INDmoney, Kuvera, ET Money, Paytm Money), each with calibrated confidence scores. The holding lots output from v2 parser flows through to the unified storage layer, enabling accurate SIP lot tracking for LTCG/STCG calculations.
+A Centralized Portfolio Import System supports diverse import sources (PDF/HTML, URL, API, manual) with a unified type system, normalization, and storage, including AI fallback for parsing. A **Unified PDF Parser** (`unified-pdf-parser.ts`) provides a single entry point for all PDF parsing operations, combining text extraction, document profiling, semantic data extraction, and holding lots building. Features include:
+- Document type detection for 17+ providers (brokers: Zerodha, Groww, ICICI Direct, HDFC, Kotak, Upstox, Angel One, 5Paisa, Motilal Oswal, Axis Direct, IIFL, Sharekhan; aggregators: MF Central, INDmoney, Kuvera, ET Money, Paytm Money)
+- Layout analysis with page zone detection and AMC block identification
+- Semantic extraction of holdings, transactions, and investor information
+- Purchase date resolution from transaction history
+- Holding lots builder for SIP lot tracking and LTCG/STCG calculations
+- Confidence scoring with component breakdown
+- Pattern learning from successful parses
+- Parsing metrics and observability
 
 A Unified Portfolio Storage System consolidates portfolio data for prospects and registered users, ensuring data consistency between the AI Advisory engine and Proposal Builder. The architecture follows a bifurcated storage pattern:
 - **Prospects**: Holdings stored in `prospectClients.currentPortfolio` JSON field
