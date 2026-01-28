@@ -343,6 +343,15 @@ export default function AgentInvestmentAdvisory() {
       return fullName.includes(query) || uuid.includes(query);
     });
   }, [allClientsAndProspects, clientSearchQuery]);
+  
+  // Create a lookup map from unique key to client uuid for reliable command selection
+  const clientLookupMap = useMemo(() => {
+    const map = new Map<string, string>();
+    filteredClients.forEach((client, idx) => {
+      map.set(`${idx}`, client.uuid);
+    });
+    return map;
+  }, [filteredClients]);
 
   // Get the selected client display name
   const selectedClient = useMemo(() => {
@@ -752,9 +761,13 @@ export default function AgentInvestmentAdvisory() {
                     {filteredClients.map((client, idx) => (
                       <CommandItem
                         key={`${client.uuid || client.id}-${idx}`}
-                        value={client.uuid}
-                        onSelect={() => {
-                          setSelectedClientId(client.uuid);
+                        value={`${idx}`}
+                        onSelect={(selectedIdx) => {
+                          // Use lookup map for reliable client selection
+                          const uuid = clientLookupMap.get(selectedIdx);
+                          if (uuid) {
+                            setSelectedClientId(uuid);
+                          }
                           setClientSearchOpen(false);
                           setClientSearchQuery("");
                         }}
