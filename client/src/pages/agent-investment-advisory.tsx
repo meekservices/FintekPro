@@ -758,53 +758,58 @@ export default function AgentInvestmentAdvisory() {
                     )}
                   </CommandEmpty>
                   <CommandGroup>
-                    {filteredClients.map((client, idx) => (
-                      <CommandItem
-                        key={`${client.uuid || client.id}-${idx}`}
-                        value={`${idx}`}
-                        onSelect={(selectedIdx) => {
-                          // Use lookup map for reliable client selection
-                          const uuid = clientLookupMap.get(selectedIdx);
-                          if (uuid) {
-                            setSelectedClientId(uuid);
-                          }
-                          setClientSearchOpen(false);
-                          setClientSearchQuery("");
-                        }}
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            selectedClientId === client.uuid ? "opacity-100" : "opacity-0"
-                          )}
-                        />
-                        <div className="flex flex-col flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="truncate">
-                              {(client.firstName || client.lastName) 
-                                ? `${client.firstName || ''} ${client.lastName || ''}`.trim()
-                                : (client.name || client.email?.split('@')[0] || 'Unnamed')}
-                            </span>
-                            {client.prospectState === 'lead' ? (
-                              <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
-                                Lead {client.leadQuality === 'hot' && '🔥'}
-                              </Badge>
-                            ) : client.isProspect ? (
-                              <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800">
-                                Prospect
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800">
-                                Client
-                              </Badge>
+                    {filteredClients.map((client, idx) => {
+                      const clientUuid = client.uuid;
+                      const handleSelect = () => {
+                        setSelectedClientId(clientUuid);
+                        setClientSearchOpen(false);
+                        setClientSearchQuery("");
+                      };
+                      return (
+                        <CommandItem
+                          key={`${client.uuid || client.id}-${idx}`}
+                          value={`select-client-${idx}-${clientUuid}`}
+                          onSelect={handleSelect}
+                          onMouseDown={(e) => {
+                            // Direct click handler as backup
+                            e.preventDefault();
+                            handleSelect();
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedClientId === client.uuid ? "opacity-100" : "opacity-0"
                             )}
+                          />
+                          <div className="flex flex-col flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="truncate">
+                                {(client.firstName || client.lastName) 
+                                  ? `${client.firstName || ''} ${client.lastName || ''}`.trim()
+                                  : (client.name || client.email?.split('@')[0] || 'Unnamed')}
+                              </span>
+                              {client.prospectState === 'lead' ? (
+                                <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                                  Lead {client.leadQuality === 'hot' && '🔥'}
+                                </Badge>
+                              ) : client.isProspect ? (
+                                <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800">
+                                  Prospect
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800">
+                                  Client
+                                </Badge>
+                              )}
+                            </div>
+                            <span className="text-xs text-muted-foreground truncate">
+                              {client.email || client.companyName || client.phone || client.uuid?.slice(0, 8) + '...'}
+                            </span>
                           </div>
-                          <span className="text-xs text-muted-foreground truncate">
-                            {client.email || client.companyName || client.phone || client.uuid?.slice(0, 8) + '...'}
-                          </span>
-                        </div>
-                      </CommandItem>
-                    ))}
+                        </CommandItem>
+                      );
+                    })}
                   </CommandGroup>
                   <CommandGroup>
                     <CommandItem
