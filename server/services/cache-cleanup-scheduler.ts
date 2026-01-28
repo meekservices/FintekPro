@@ -10,6 +10,7 @@
  */
 
 import cron from 'node-cron';
+import { sql } from 'drizzle-orm';
 import { dataCacheService } from './unified-data-cache-service';
 import { db } from '../db';
 
@@ -58,26 +59,26 @@ class CacheCleanupScheduler {
       console.log(`[CacheScheduler] Daily cleanup complete. Deleted ${result.deleted} expired entries.`);
       
       // Log to cache_refresh_schedule
-      await db.execute(`
+      await db.execute(sql`
         UPDATE cache_refresh_schedule 
         SET last_run_at = NOW(), 
             last_run_status = 'success',
-            last_run_records_processed = $1,
+            last_run_records_processed = ${result.deleted},
             next_run_at = NOW() + INTERVAL '1 day'
         WHERE cache_type = 'cleanup'
-      `, [result.deleted]);
+      `);
       
       return result;
     } catch (error: any) {
       console.error('[CacheScheduler] Daily cleanup failed:', error.message);
       
-      await db.execute(`
+      await db.execute(sql`
         UPDATE cache_refresh_schedule 
         SET last_run_at = NOW(), 
             last_run_status = 'failed',
-            last_run_errors = $1::jsonb
+            last_run_errors = ${JSON.stringify([{ error: error.message, timestamp: new Date().toISOString() }])}::jsonb
         WHERE cache_type = 'cleanup'
-      `, [JSON.stringify([{ error: error.message, timestamp: new Date().toISOString() }])]);
+      `);
       
       throw error;
     }
@@ -91,7 +92,7 @@ class CacheCleanupScheduler {
     console.log('[CacheScheduler] Company financials will be refreshed on next access (120-day TTL expired).');
     
     // Mark in database for admin visibility
-    await db.execute(`
+    await db.execute(sql`
       UPDATE cache_refresh_schedule 
       SET last_run_at = NOW(), 
           last_run_status = 'reminder_sent',
@@ -128,11 +129,11 @@ class CacheCleanupScheduler {
       ];
       
       for (const schedule of schedules) {
-        await db.execute(`
+        await db.execute(sql`
           INSERT INTO cache_refresh_schedule (cache_type, refresh_frequency, cron_expression, next_run_at)
-          VALUES ($1, $2, $3, NOW() + INTERVAL '1 day')
+          VALUES (${schedule.type}, ${schedule.frequency}, ${schedule.cron}, NOW() + INTERVAL '1 day')
           ON CONFLICT DO NOTHING
-        `, [schedule.type, schedule.frequency, schedule.cron]);
+        `);
       }
       
       console.log('[CacheScheduler] Default schedule records initialized');
