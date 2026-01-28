@@ -1193,4 +1193,176 @@ router.post("/api/instruments/prices", async (req: Request, res: Response) => {
   }
 });
 
+// Unified instrument search - searches across all data sources (instrumentMaster, mutualFunds, listedStocks, corporateBonds)
+router.get("/api/instruments/unified-search", async (req: Request, res: Response) => {
+  try {
+    const { q, limit = 20 } = req.query;
+    
+    if (!q || String(q).length < 2) {
+      return res.json({ instruments: [] });
+    }
+
+    const searchTerm = String(q).trim().toUpperCase();
+    const searchPattern = `%${searchTerm}%`;
+    const maxResults = Math.min(Number(limit), 50);
+    
+    // Check if searching by ISIN format
+    const isIsinSearch = /^[A-Z]{2}[A-Z0-9]{9}[0-9]?$/.test(searchTerm);
+
+    const results: any[] = [];
+
+    // 1. Search instrumentMaster (primary source)
+    const masterResults = await db.select({
+      id: instrumentMaster.id,
+      isin: instrumentMaster.isin,
+      symbol: instrumentMaster.symbol,
+      name: instrumentMaster.name,
+      shortName: instrumentMaster.shortName,
+      assetClass: instrumentMaster.assetClass,
+      subType: instrumentMaster.subType,
+      category: instrumentMaster.category,
+      issuer: instrumentMaster.issuer,
+      lastPrice: instrumentMaster.lastPrice,
+      riskLevel: instrumentMaster.riskLevel,
+    })
+      .from(instrumentMaster)
+      .where(and(
+        or(
+          ilike(instrumentMaster.isin, searchPattern),
+          ilike(instrumentMaster.name, searchPattern),
+          ilike(instrumentMaster.symbol, searchPattern),
+          ilike(instrumentMaster.shortName, searchPattern)
+        ),
+        eq(instrumentMaster.isActive, true)
+      ))
+      .limit(maxResults);
+
+    for (const item of masterResults) {
+      let matchScore = 50;
+      let matchField = 'name';
+      
+      if (item.isin?.toUpperCase() === searchTerm) {
+        matchScore = 100;
+        matchField = 'isin';
+      } else if (item.symbol?.toUpperCase() === searchTerm) {
+        matchScore = 95;
+        matchField = 'symbol';
+      } else if (item.isin?.toUpperCase().includes(searchTerm)) {
+        matchScore = 90;
+        matchField = 'isin';
+      } else if (item.symbol?.toUpperCase().includes(searchTerm)) {
+        matchScore = 80;
+        matchField = 'symbol';
+      } else if (item.name?.toUpperCase().startsWith(searchTerm)) {
+        matchScore = 75;
+      }
+
+      results.push({
+        id: item.id,
+        name: item.name || item.shortName || '',
+        symbol: item.symbol || undefined,
+        isin: item.isin || undefined,
+        assetType: mapAssetClass(item.assetClass),
+        category: item.category || undefined,
+        subCategory: item.subType || undefined,
+        issuer: item.issuer || undefined,
+        currentPrice: item.lastPrice ? parseFloat(item.lastPrice) : undefined,
+        riskLevel: item.riskLevel || undefined,
+        matchScore,
+        matchField,
+        source: 'instrumentMaster'
+      });
+    }
+
+    // 2. Search mutualFunds if not enough results
+    if (results.length < maxResults) {
+      const mfResults = await db.select({
+        id: mutualFunds.id,
+        schemeCode: mutualFunds.schemeCode,
+        schemeName: mutualFunds.schemeName,
+        category: mutualFunds.category,
+        fundHouse: mutualFunds.fundHouse,
+        nav: mutualFunds.nav,
+        riskLevel: mutualFunds.riskLevel,
+        returns1y: mutualFunds.returns1y,
+        isin: mutualFunds.isin,
+        isinGrowth: mutualFunds.isinGrowth,
+      })
+        .from(mutualFunds)
+        .where(
+          or(
+            ilike(mutualFunds.schemeName, searchPattern),
+            ilike(mutualFunds.schemeCode, searchPattern),
+            sql`${mutualFunds.isin} ILIKE ${searchPattern}`,
+            sql`${mutualFunds.isinGrowth} ILIKE ${searchPattern}`
+          )
+        )
+        .limit(maxResults - results.length);
+
+      for (const fund of mfResults) {
+        // Skip if already in results by ISIN
+        const isin = fund.isinGrowth || fund.isin;
+        if (isin && results.some(r => r.isin === isin)) continue;
+
+        let matchScore = 50;
+        let matchField = 'name';
+        
+        if (isin?.toUpperCase() === searchTerm) {
+          matchScore = 100;
+          matchField = 'isin';
+        } else if (isin?.toUpperCase().includes(searchTerm)) {
+          matchScore = 90;
+          matchField = 'isin';
+        } else if (fund.schemeCode?.toUpperCase() === searchTerm) {
+          matchScore = 85;
+          matchField = 'symbol';
+        } else if (fund.schemeName?.toUpperCase().startsWith(searchTerm)) {
+          matchScore = 75;
+        }
+
+        const isEtf = fund.category?.toLowerCase().includes('etf') || 
+                     fund.schemeName?.toLowerCase().includes('etf');
+
+        results.push({
+          id: fund.id,
+          name: fund.schemeName || '',
+          symbol: fund.schemeCode || undefined,
+          isin: isin || undefined,
+          assetType: isEtf ? 'ETF' : 'MUTUAL_FUND',
+          category: fund.category || undefined,
+          fundHouse: fund.fundHouse || undefined,
+          currentNav: fund.nav ? parseFloat(fund.nav) : undefined,
+          riskLevel: fund.riskLevel || undefined,
+          returns1y: fund.returns1y ? parseFloat(fund.returns1y) : undefined,
+          matchScore,
+          matchField,
+          source: 'mutualFunds'
+        });
+      }
+    }
+
+    // Sort by match score descending
+    results.sort((a, b) => b.matchScore - a.matchScore);
+
+    res.json({ 
+      instruments: results.slice(0, maxResults),
+      total: results.length,
+      searchTerm
+    });
+  } catch (error: any) {
+    console.error("Unified instrument search error:", error);
+    res.status(500).json({ error: "Failed to search instruments" });
+  }
+});
+
+function mapAssetClass(assetClass?: string | null): string {
+  if (!assetClass) return 'EQUITY';
+  const lc = assetClass.toLowerCase();
+  if (lc.includes('mutual') || lc === 'mf') return 'MUTUAL_FUND';
+  if (lc.includes('bond') || lc === 'debt') return 'BOND';
+  if (lc.includes('etf')) return 'ETF';
+  if (lc.includes('equity') || lc.includes('stock')) return 'EQUITY';
+  return 'EQUITY';
+}
+
 export default router;
