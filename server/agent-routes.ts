@@ -1598,8 +1598,8 @@ router.get("/api/agent/zoho/leads", requireAuth, async (req, res) => {
     const connection = await ZohoConnectionResolver.resolveForAgent(agentId);
     
     if (!connection) {
-      return res.status(503).json({
-        success: false,
+      return res.status(200).json({
+        success: true,
         connected: false,
         leads: [],
         total: 0,
