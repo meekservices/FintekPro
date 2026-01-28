@@ -1551,6 +1551,21 @@ class UnifiedPDFParser {
     this.minConfidenceThreshold = Math.max(0, Math.min(1, threshold));
     console.log(`[UnifiedPDFParser] Min confidence threshold set to ${this.minConfidenceThreshold}`);
   }
+
+  getLearningEnabled(): boolean {
+    return this.enableLearning;
+  }
+
+  getMinConfidenceThreshold(): number {
+    return this.minConfidenceThreshold;
+  }
+
+  getConfig(): { enableLearning: boolean; minConfidenceThreshold: number } {
+    return {
+      enableLearning: this.enableLearning,
+      minConfidenceThreshold: this.minConfidenceThreshold,
+    };
+  }
 }
 
 export const unifiedPDFParser = UnifiedPDFParser.getInstance();

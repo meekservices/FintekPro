@@ -17,9 +17,11 @@ router.get('/config', (req, res) => {
   try {
     const cacheStats = unifiedPDFParser.getProfileCacheStats();
     const metrics = unifiedPDFParser.getParsingMetrics(24);
+    const config = unifiedPDFParser.getConfig();
     
     res.json({
       success: true,
+      config,
       cache: cacheStats,
       metrics: {
         last24Hours: metrics,
