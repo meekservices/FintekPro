@@ -3920,6 +3920,20 @@ export const mutualFunds = pgTable("mutual_funds", {
   lastVerifiedAt: timestamp("last_verified_at"), // Last API verification timestamp
   dataSource: varchar("data_source"), // 'AMFI', 'MFAPI', 'CACHED'
   
+  // Extended AMFI data fields
+  isinDividendPayout: varchar("isin_dividend_payout"), // ISIN for dividend payout option
+  isinDividendReinvest: varchar("isin_dividend_reinvest"), // ISIN for dividend reinvestment option
+  isinGrowth: varchar("isin_growth"), // ISIN for growth option (canonical)
+  repurchasePrice: decimal("repurchase_price", { precision: 15, scale: 4 }), // Repurchase/redemption price
+  salePrice: decimal("sale_price", { precision: 15, scale: 4 }), // Sale/purchase price
+  launchDate: date("launch_date"), // Scheme launch date
+  minSipAmount: decimal("min_sip_amount", { precision: 15, scale: 2 }), // Minimum SIP investment amount
+  minLumpsumAmount: decimal("min_lumpsum_amount", { precision: 15, scale: 2 }), // Minimum lumpsum investment amount
+  amcCode: varchar("amc_code"), // Asset Management Company code
+  exitLoadPercent: decimal("exit_load_percent", { precision: 8, scale: 4 }), // Exit load percentage
+  exitLoadDays: integer("exit_load_days"), // Exit load applicable days
+  schemeSubCategory: varchar("scheme_sub_category"), // AMFI scheme sub-category
+  
   lastUpdated: timestamp("last_updated").defaultNow(),
 });
 
