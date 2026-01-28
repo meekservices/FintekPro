@@ -89,7 +89,11 @@ export class PANConsentService {
       const authTag = Buffer.from(parts[1], 'hex');
       const encrypted = parts[2];
       
-      const decipher = crypto.createDecipheriv(this.ALGORITHM, key, iv);
+      if (authTag.length !== 16) {
+        throw new Error('Invalid authentication tag length');
+      }
+      
+      const decipher = crypto.createDecipheriv(this.ALGORITHM, key, iv, { authTagLength: 16 });
       decipher.setAuthTag(authTag);
       
       let decrypted = decipher.update(encrypted, 'hex', 'utf8');
