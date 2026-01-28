@@ -76,6 +76,7 @@ const manualEntrySchema = z.object({
     avgPrice: z.number().positive(),
     assetType: z.string().default('equity'),
     sector: z.string().optional(),
+    purchaseDate: z.string().optional(), // ISO date string for exit load & capital gains calculation
   }))
 });
 
@@ -133,10 +134,18 @@ router.get("/portfolio/:clientId", async (req, res) => {
         const gainLoss = marketValue - investedValue;
         const gainLossPercent = investedValue > 0 ? (gainLoss / investedValue) * 100 : 0;
 
+        // Calculate holding period and tax classification
+        const purchaseDate = holding.purchaseDate ? new Date(holding.purchaseDate) : null;
+        const holdingDays = purchaseDate 
+          ? Math.floor((Date.now() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24))
+          : null;
+        const isLTCG = holdingDays !== null && holdingDays > 365;
+        const daysToLTCG = holdingDays !== null && !isLTCG ? 365 - holdingDays : 0;
+
         return {
           id: holding.id,
           symbol: holding.symbol,
-          name: holding.symbol,
+          name: holding.name || holding.symbol,
           quantity,
           averagePrice: avgPrice,
           currentPrice,
@@ -144,7 +153,12 @@ router.get("/portfolio/:clientId", async (req, res) => {
           gainLoss,
           gainLossPercent,
           sector: holding.sector,
-          assetType: holding.assetType || 'EQUITY'
+          assetType: holding.assetType || 'EQUITY',
+          purchaseDate: holding.purchaseDate,
+          holdingDays,
+          taxType: holdingDays !== null ? (isLTCG ? 'LTCG' : 'STCG') : null,
+          daysToLTCG,
+          exitLoadApplicable: holdingDays !== null && holdingDays < 365
         };
       })
     );
@@ -194,14 +208,21 @@ router.post("/portfolio/manual-entry", async (req, res) => {
 
     const insertedHoldings = [];
     for (const holding of holdings) {
+      // Use provided purchaseDate or default to today if not specified
+      const parsedPurchaseDate = holding.purchaseDate 
+        ? new Date(holding.purchaseDate) 
+        : new Date();
+      
       const [inserted] = await db.insert(portfolioHoldings).values({
         portfolioId: portfolio.id,
         symbol: holding.symbol,
+        name: holding.stockName || holding.symbol,
         quantity: String(holding.quantity),
         avgPrice: String(holding.avgPrice),
         assetType: holding.assetType,
         sector: holding.sector,
-        purchaseDate: new Date()
+        purchaseDate: parsedPurchaseDate,
+        source: 'manual'
       }).returning();
       insertedHoldings.push(inserted);
     }
@@ -767,7 +788,7 @@ router.get("/ai/analysis/detail/:analysisId", async (req, res) => {
 router.post("/portfolio/:clientId/holdings", async (req, res) => {
   try {
     const { clientId } = req.params;
-    const { symbol, name, quantity, averagePrice, assetType } = req.body;
+    const { symbol, name, quantity, averagePrice, assetType, purchaseDate } = req.body;
 
     // Resolve client type (prospect vs user)
     const clientInfo = await resolveClientType(clientId);
@@ -787,13 +808,18 @@ router.post("/portfolio/:clientId/holdings", async (req, res) => {
       ).returning();
     }
 
+    // Use provided purchaseDate or default to today
+    const parsedPurchaseDate = purchaseDate ? new Date(purchaseDate) : new Date();
+
     const [inserted] = await db.insert(portfolioHoldings).values({
       portfolioId: portfolio.id,
       symbol: symbol.toUpperCase(),
+      name: name || symbol,
       quantity: String(quantity),
       avgPrice: String(averagePrice),
       assetType: assetType || 'EQUITY',
-      purchaseDate: new Date()
+      purchaseDate: parsedPurchaseDate,
+      source: 'manual'
     }).returning();
 
     res.json({ success: true, holding: inserted });

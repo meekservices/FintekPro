@@ -102,6 +102,7 @@ class PortfolioStorageService {
       isin: h.isin,
       folioNumber: h.folioNumber,
       schemeCode: h.schemeCode,
+      purchaseDate: h.purchaseDate ? new Date(h.purchaseDate) : null,
       source: this.mapSourceToStorageFormat(options.source),
       confidenceScore: options.confidenceScore
     }));
@@ -187,6 +188,7 @@ class PortfolioStorageService {
       isin: h.isin,
       folioNumber: h.folioNumber,
       schemeCode: h.schemeCode,
+      purchaseDate: h.purchaseDate ? new Date(h.purchaseDate) : null,
       source: this.mapSourceToStorageFormat(options.source)
     }));
     

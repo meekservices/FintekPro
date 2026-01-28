@@ -267,8 +267,35 @@ export default function AgentInvestmentAdvisory() {
     name: "",
     quantity: 0,
     averagePrice: 0,
-    assetType: "EQUITY"
+    assetType: "EQUITY",
+    purchaseDate: ""
   });
+
+  // Calculate holding period info for tax classification
+  const getHoldingPeriodInfo = (purchaseDate: string) => {
+    if (!purchaseDate) return null;
+    const purchase = new Date(purchaseDate);
+    const today = new Date();
+    const diffTime = today.getTime() - purchase.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const isLTCG = diffDays > 365;
+    const daysToLTCG = isLTCG ? 0 : 365 - diffDays;
+    const isFutureDate = diffDays < 0;
+    const isVeryOld = diffDays > 365 * 20; // More than 20 years
+    
+    return {
+      days: diffDays,
+      isLTCG,
+      daysToLTCG,
+      isFutureDate,
+      isVeryOld,
+      taxType: isLTCG ? 'LTCG' : 'STCG',
+      taxRate: isLTCG ? '12.5%' : '20%',
+      exitLoadApplicable: diffDays < 365
+    };
+  };
+
+  const holdingPeriodInfo = getHoldingPeriodInfo(newHolding.purchaseDate);
 
   // Fetch clients for searchable dropdown
   const { data: clients = [], isLoading: clientsLoading } = useQuery<Client[]>({
@@ -400,7 +427,7 @@ export default function AgentInvestmentAdvisory() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/ai-investment/portfolio', selectedClientId] });
       setShowAddHoldingDialog(false);
-      setNewHolding({ symbol: "", name: "", quantity: 0, averagePrice: 0, assetType: "EQUITY" });
+      setNewHolding({ symbol: "", name: "", quantity: 0, averagePrice: 0, assetType: "EQUITY", purchaseDate: "" });
       toast({ title: "Holding added", description: "Portfolio updated successfully" });
     },
     onError: () => {
@@ -930,6 +957,79 @@ export default function AgentInvestmentAdvisory() {
                       />
                     </div>
                   </div>
+                  
+                  {/* Purchase Date with Tax Classification Indicator */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      Purchase Date
+                      <span className="text-xs text-muted-foreground">(for exit load & capital gains)</span>
+                    </Label>
+                    <Input 
+                      type="date"
+                      value={newHolding.purchaseDate}
+                      onChange={(e) => setNewHolding({ ...newHolding, purchaseDate: e.target.value })}
+                      max={new Date().toISOString().split('T')[0]}
+                      data-testid="input-purchase-date"
+                    />
+                    
+                    {/* Tax Classification Preview */}
+                    {holdingPeriodInfo && (
+                      <div className="mt-3 p-3 rounded-lg border bg-muted/30">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium">Tax Classification</span>
+                          <Badge 
+                            variant={holdingPeriodInfo.isLTCG ? "default" : "secondary"}
+                            className={cn(
+                              holdingPeriodInfo.isLTCG 
+                                ? "bg-green-500/10 text-green-600 border-green-200" 
+                                : "bg-orange-500/10 text-orange-600 border-orange-200"
+                            )}
+                          >
+                            {holdingPeriodInfo.taxType} @ {holdingPeriodInfo.taxRate}
+                          </Badge>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="flex items-center gap-1">
+                            <Timer className="h-3 w-3 text-muted-foreground" />
+                            <span>Holding: {holdingPeriodInfo.days} days</span>
+                          </div>
+                          {!holdingPeriodInfo.isLTCG && holdingPeriodInfo.daysToLTCG > 0 && (
+                            <div className="flex items-center gap-1 text-orange-600">
+                              <Clock className="h-3 w-3" />
+                              <span>{holdingPeriodInfo.daysToLTCG} days to LTCG</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {holdingPeriodInfo.exitLoadApplicable && (
+                          <div className="mt-2 flex items-center gap-1 text-xs text-amber-600">
+                            <AlertTriangle className="h-3 w-3" />
+                            <span>Exit load may apply (within 1 year)</span>
+                          </div>
+                        )}
+                        
+                        {/* Date Validation Warnings */}
+                        {holdingPeriodInfo.isFutureDate && (
+                          <Alert variant="destructive" className="mt-2 py-2">
+                            <AlertCircle className="h-3 w-3" />
+                            <AlertDescription className="text-xs">
+                              Purchase date cannot be in the future
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                        {holdingPeriodInfo.isVeryOld && (
+                          <Alert className="mt-2 py-2 border-amber-200 bg-amber-50">
+                            <AlertTriangle className="h-3 w-3 text-amber-600" />
+                            <AlertDescription className="text-xs text-amber-700">
+                              This date is over 20 years ago. Please verify.
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setShowAddHoldingDialog(false)}>
@@ -1381,6 +1481,49 @@ TCS     Tata Consultancy        25      3850.00"
                 </div>
               </CardHeader>
               <CardContent>
+                {/* Tax Summary Card */}
+                {(() => {
+                  const stcgHoldings = portfolio.holdings.filter((h: any) => h.taxType === 'STCG' && h.gainLoss > 0);
+                  const ltcgHoldings = portfolio.holdings.filter((h: any) => h.taxType === 'LTCG' && h.gainLoss > 0);
+                  const totalSTCG = stcgHoldings.reduce((sum: number, h: any) => sum + h.gainLoss, 0);
+                  const totalLTCG = ltcgHoldings.reduce((sum: number, h: any) => sum + h.gainLoss, 0);
+                  const stcgTax = totalSTCG * 0.20;
+                  const ltcgTax = totalLTCG * 0.125;
+                  
+                  if (totalSTCG > 0 || totalLTCG > 0) {
+                    return (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 p-3 rounded-lg border bg-muted/20">
+                        <div className="text-center p-2">
+                          <div className="text-xs text-muted-foreground mb-1">STCG Gains</div>
+                          <div className="font-semibold text-orange-600">{formatCurrency(totalSTCG)}</div>
+                          <div className="text-xs text-muted-foreground">Tax @ 20%: {formatCurrency(stcgTax)}</div>
+                        </div>
+                        <div className="text-center p-2">
+                          <div className="text-xs text-muted-foreground mb-1">LTCG Gains</div>
+                          <div className="font-semibold text-green-600">{formatCurrency(totalLTCG)}</div>
+                          <div className="text-xs text-muted-foreground">Tax @ 12.5%: {formatCurrency(ltcgTax)}</div>
+                        </div>
+                        <div className="text-center p-2">
+                          <div className="text-xs text-muted-foreground mb-1">Total Tax Liability</div>
+                          <div className="font-bold text-primary">{formatCurrency(stcgTax + ltcgTax)}</div>
+                        </div>
+                        <div className="text-center p-2">
+                          <div className="text-xs text-muted-foreground mb-1">Holdings Breakdown</div>
+                          <div className="flex justify-center gap-2">
+                            <Badge variant="secondary" className="bg-orange-500/10 text-orange-600 text-xs">
+                              {stcgHoldings.length} STCG
+                            </Badge>
+                            <Badge variant="secondary" className="bg-green-500/10 text-green-600 text-xs">
+                              {ltcgHoldings.length} LTCG
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+                
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1391,10 +1534,11 @@ TCS     Tata Consultancy        25      3850.00"
                       <TableHead className="text-right">Current</TableHead>
                       <TableHead className="text-right">Value</TableHead>
                       <TableHead className="text-right">P&L</TableHead>
+                      <TableHead className="text-center">Tax Type</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {portfolio.holdings.map((holding, idx) => (
+                    {portfolio.holdings.map((holding: any, idx: number) => (
                       <TableRow key={holding.id || idx} data-testid={`row-holding-${idx}`}>
                         <TableCell className="font-medium">{holding.symbol}</TableCell>
                         <TableCell className="text-muted-foreground max-w-[200px] truncate">
@@ -1410,6 +1554,35 @@ TCS     Tata Consultancy        25      3850.00"
                             <br />
                             <span className="text-xs">({formatPercent(holding.gainLossPercent)})</span>
                           </span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {holding.taxType ? (
+                            <div className="flex flex-col items-center gap-1">
+                              <Badge 
+                                variant="secondary"
+                                className={cn(
+                                  "text-xs",
+                                  holding.taxType === 'LTCG' 
+                                    ? "bg-green-500/10 text-green-600 border-green-200" 
+                                    : "bg-orange-500/10 text-orange-600 border-orange-200"
+                                )}
+                              >
+                                {holding.taxType}
+                              </Badge>
+                              {holding.taxType === 'STCG' && holding.daysToLTCG > 0 && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  {holding.daysToLTCG}d to LTCG
+                                </span>
+                              )}
+                              {holding.exitLoadApplicable && (
+                                <span className="text-[10px] text-amber-600">
+                                  Exit load
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
