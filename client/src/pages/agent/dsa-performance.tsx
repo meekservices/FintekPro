@@ -68,7 +68,7 @@ export default function AgentDSAPerformance() {
     return <LoadingState variant="agent-dashboard" />;
   }
 
-  if (!stats) {
+  if (!stats || !stats.overview) {
     return (
       <div className="space-y-6">
         <div>
@@ -95,7 +95,7 @@ export default function AgentDSAPerformance() {
     return `₹${amount.toLocaleString()}`;
   };
 
-  const estimatedCommission = stats.overview.disbursedAmount * 0.015;
+  const estimatedCommission = (stats.overview.disbursedAmount || 0) * 0.015;
 
   return (
     <div className="space-y-6">
