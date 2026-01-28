@@ -193,6 +193,7 @@ import { historicalNavRefreshJob } from "./services/historical-nav-refresh-job";
 import { cacheCleanupScheduler } from "./services/cache-cleanup-scheduler";
 import exchangeFilingsRoutes from "./routes/exchange-filings-routes";
 import financialMetricsRoutes from './routes/financial-metrics-routes';
+import aaConsentRoutes from './routes/aa-consent-routes';
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -821,6 +822,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   console.log("✅ Recommendation Products routes registered");
 
   app.use("/api/financial-metrics", financialMetricsRoutes);
+  app.use("/api/aa", aaConsentRoutes);
   console.log("✅ Financial Metrics routes registered");
   app.post("/api/admin/seed-products", requireAdmin, async (req, res) => {
     try {
