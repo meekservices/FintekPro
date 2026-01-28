@@ -731,74 +731,78 @@ export default function AgentInvestmentAdvisory() {
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-64 p-0" align="start">
-              <Command shouldFilter={false}>
-                <CommandInput 
-                  placeholder="Search by name or ID..." 
-                  value={clientSearchQuery}
-                  onValueChange={setClientSearchQuery}
-                />
-                <CommandList>
-                  <CommandEmpty>
-                    {isLoadingClientsOrProspects ? "Loading clients & prospects..." : (
-                      <div className="py-2">
-                        <p className="text-sm text-muted-foreground mb-2">No clients or prospects found.</p>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => {
-                            setClientSearchOpen(false);
-                            setShowNewClientDialog(true);
-                          }}
-                        >
-                          <UserPlus className="h-4 w-4 mr-2" />
-                          Add New Client
-                        </Button>
-                      </div>
-                    )}
-                  </CommandEmpty>
-                  <CommandGroup>
-                    {filteredClients.map((client, idx) => {
-                      const clientUuid = client.uuid;
-                      const handleSelect = () => {
-                        setSelectedClientId(clientUuid);
+            <PopoverContent className="w-72 p-0" align="start">
+              <div className="p-2 border-b">
+                <div className="flex items-center px-2">
+                  <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                  <Input
+                    placeholder="Search by name or ID..."
+                    value={clientSearchQuery}
+                    onChange={(e) => setClientSearchQuery(e.target.value)}
+                    className="h-9 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                </div>
+              </div>
+              <ScrollArea className="h-[300px]">
+                {isLoadingClientsOrProspects ? (
+                  <div className="py-6 text-center text-sm text-muted-foreground">
+                    Loading clients & prospects...
+                  </div>
+                ) : filteredClients.length === 0 ? (
+                  <div className="py-6 text-center">
+                    <p className="text-sm text-muted-foreground mb-2">No clients or prospects found.</p>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
                         setClientSearchOpen(false);
-                        setClientSearchQuery("");
-                      };
+                        setShowNewClientDialog(true);
+                      }}
+                    >
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Add New Client
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="p-1">
+                    {filteredClients.map((client) => {
+                      const isSelected = selectedClientId === client.uuid;
                       return (
-                        <CommandItem
-                          key={`${client.uuid || client.id}-${idx}`}
-                          value={`select-client-${idx}-${clientUuid}`}
-                          onSelect={handleSelect}
-                          onMouseDown={(e) => {
-                            // Direct click handler as backup
-                            e.preventDefault();
-                            handleSelect();
+                        <div
+                          key={client.uuid || client.id}
+                          className={cn(
+                            "flex items-center gap-2 px-2 py-2 cursor-pointer rounded-sm hover:bg-accent",
+                            isSelected && "bg-accent"
+                          )}
+                          onClick={() => {
+                            setSelectedClientId(client.uuid);
+                            setClientSearchOpen(false);
+                            setClientSearchQuery("");
                           }}
                         >
                           <Check
                             className={cn(
-                              "mr-2 h-4 w-4",
-                              selectedClientId === client.uuid ? "opacity-100" : "opacity-0"
+                              "h-4 w-4 shrink-0",
+                              isSelected ? "opacity-100" : "opacity-0"
                             )}
                           />
-                          <div className="flex flex-col flex-1">
+                          <div className="flex flex-col flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className="truncate">
+                              <span className="truncate font-medium">
                                 {(client.firstName || client.lastName) 
                                   ? `${client.firstName || ''} ${client.lastName || ''}`.trim()
                                   : (client.name || client.email?.split('@')[0] || 'Unnamed')}
                               </span>
                               {client.prospectState === 'lead' ? (
-                                <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                                <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800 shrink-0">
                                   Lead {client.leadQuality === 'hot' && '🔥'}
                                 </Badge>
                               ) : client.isProspect ? (
-                                <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800">
+                                <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800 shrink-0">
                                   Prospect
                                 </Badge>
                               ) : (
-                                <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800">
+                                <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800 shrink-0">
                                   Client
                                 </Badge>
                               )}
@@ -807,24 +811,24 @@ export default function AgentInvestmentAdvisory() {
                               {client.email || client.companyName || client.phone || client.uuid?.slice(0, 8) + '...'}
                             </span>
                           </div>
-                        </CommandItem>
+                        </div>
                       );
                     })}
-                  </CommandGroup>
-                  <CommandGroup>
-                    <CommandItem
-                      onSelect={() => {
-                        setClientSearchOpen(false);
-                        setShowNewClientDialog(true);
-                      }}
-                      className="border-t"
-                    >
-                      <UserPlus className="mr-2 h-4 w-4" />
-                      Add New Client
-                    </CommandItem>
-                  </CommandGroup>
-                </CommandList>
-              </Command>
+                  </div>
+                )}
+              </ScrollArea>
+              <div className="border-t p-1">
+                <div
+                  className="flex items-center gap-2 px-2 py-2 cursor-pointer rounded-sm hover:bg-accent"
+                  onClick={() => {
+                    setClientSearchOpen(false);
+                    setShowNewClientDialog(true);
+                  }}
+                >
+                  <UserPlus className="h-4 w-4" />
+                  <span className="text-sm">Add New Client</span>
+                </div>
+              </div>
             </PopoverContent>
           </Popover>
           <Button 
