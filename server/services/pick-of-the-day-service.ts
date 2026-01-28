@@ -32,6 +32,7 @@ export interface DailyPickData {
   isin?: string;
   symbol?: string;
   market?: string;
+  exchange?: string;
   recoDate: string;
   recoPrice: number;
   targetPrice: number;
@@ -327,12 +328,16 @@ class PickOfTheDayService {
         analystRating: topStock.analystRating,
       });
 
+      // Determine exchange from available data
+      const exchange = topStock.nseCode ? 'NSE' : (topStock.bseCode ? 'BSE' : 'NSE');
+      
       return {
         category: 'listed_stocks',
         instrumentId: topStock.id,
         instrumentName: topStock.companyName || topStock.symbol,
         isin: topStock.isin || undefined,
         symbol: topStock.symbol,
+        exchange,
         recoDate: new Date().toISOString().split('T')[0],
         recoPrice: currentPrice,
         targetPrice,
@@ -350,9 +355,12 @@ class PickOfTheDayService {
           cmp: currentPrice,
           pe: topStock.peRatio ? parseFloat(topStock.peRatio) : null,
           returns1y: topStock.returns1Y ? parseFloat(topStock.returns1Y) : null,
+          returns3y: topStock.returns3Y ? parseFloat(topStock.returns3Y) : null,
+          volatility: topStock.volatility ? parseFloat(topStock.volatility) : null,
           sector: topStock.sector,
           marketCap: topStock.marketCap,
           analystRating: topStock.analystRating,
+          dividendYield: topStock.dividendYield ? parseFloat(topStock.dividendYield) : null,
         },
       };
     } catch (error) {
@@ -1595,6 +1603,7 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
       isin: pick.isin,
       symbol: pick.symbol,
       market: pick.market,
+      exchange: pick.exchange,
       recoDate: pick.recoDate,
       recoPrice: parseFloat(pick.recoPrice),
       targetPrice: parseFloat(pick.targetPrice),

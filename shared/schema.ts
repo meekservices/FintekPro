@@ -27820,6 +27820,9 @@ export const dailyPicks = pgTable("daily_picks", {
   // Market region for global stocks
   market: varchar("market", { length: 20 }),
   
+  // Exchange for stocks (NSE/BSE/MCX/NASDAQ etc.)
+  exchange: varchar("exchange", { length: 20 }),
+  
   recoDate: date("reco_date").notNull(),
   recoPrice: decimal("reco_price", { precision: 18, scale: 4 }).notNull(),
   targetPrice: decimal("target_price", { precision: 18, scale: 4 }).notNull(),

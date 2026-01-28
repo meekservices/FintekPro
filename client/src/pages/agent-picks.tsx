@@ -55,6 +55,7 @@ interface DailyPick {
   symbol?: string;
   isin?: string;
   market?: string;
+  exchange?: string;
   recoDate: string;
   recoPrice: number;
   targetPrice: number;
@@ -947,9 +948,17 @@ function PickCard({
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-semibold">{pick.instrumentName}</h3>
-                {pick.symbol && (
-                  <span className="text-sm text-muted-foreground">{pick.symbol}</span>
-                )}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {pick.symbol && (
+                    <span className="text-sm text-muted-foreground font-mono">{pick.symbol}</span>
+                  )}
+                  {pick.exchange && pick.category === 'listed_stocks' && (
+                    <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-1.5 py-0.5 rounded">{pick.exchange}</span>
+                  )}
+                  {pick.isin && (pick.category === 'mutual_funds' || pick.category === 'bonds') && (
+                    <span className="text-xs text-muted-foreground font-mono">ISIN: {pick.isin}</span>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 {pick.confidenceScore !== undefined && (
