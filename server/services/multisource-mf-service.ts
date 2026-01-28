@@ -1249,7 +1249,17 @@ export class MultiSourceMFService {
         optionType: this.detectOptionType(fund.schemeName),
         schemeStatus: (fund as any).schemeStatus || 'active',
         lastVerifiedAt: new Date(),
-        dataSource: fund.provenance?.primarySource || 'LIVE_API'
+        dataSource: fund.provenance?.primarySource || 'LIVE_API',
+        // Extended AMFI data fields
+        isinDividendPayout: (fund as any).isinDiv || null,
+        isinDividendReinvest: (fund as any).isinDiv || null, // Same as payout in AMFI data
+        isinGrowth: (fund as any).isinGrowth || null,
+        minSipAmount: (fund as any).minSipAmount?.toString() || fund.minInvestment?.sip?.toString() || null,
+        minLumpsumAmount: (fund as any).minLumpsumAmount?.toString() || fund.minInvestment?.lumpsum?.toString() || null,
+        amcCode: (fund as any).amcCode || null,
+        exitLoadPercent: (fund as any).exitLoadPercent?.toString() || null,
+        exitLoadDays: (fund as any).exitLoadDays || null,
+        schemeSubCategory: (fund as any).schemeSubCategory || null
       };
       
       // Store full FundExtended in extendedData for complete round-trip fidelity
