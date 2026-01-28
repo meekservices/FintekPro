@@ -7,7 +7,7 @@ import {
   bondCatalog,
   unlistedCompanies 
 } from "@shared/schema";
-import { eq, ilike, or, and, sql, desc } from "drizzle-orm";
+import { eq, ilike, or, and, sql, desc, inArray } from "drizzle-orm";
 import { NseIndia } from "stock-nse-india";
 
 const router = Router();
@@ -963,6 +963,233 @@ router.post("/api/valuation/compute", async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error("Compute valuation error:", error);
     res.status(500).json({ error: "Failed to compute valuation" });
+  }
+});
+
+/**
+ * Get current price for an instrument by ISIN
+ * Searches across instrument_master, mutual_funds, and bond_catalog
+ */
+router.get("/api/instruments/price/:isin", async (req: Request, res: Response) => {
+  try {
+    const { isin } = req.params;
+    
+    if (!isin || isin.length < 3) {
+      return res.status(400).json({ error: "Invalid ISIN" });
+    }
+
+    const isinUpper = isin.toUpperCase();
+
+    // Search instrument_master first
+    const [instrument] = await db.select({
+      id: instrumentMaster.id,
+      isin: instrumentMaster.isin,
+      name: instrumentMaster.name,
+      shortName: instrumentMaster.shortName,
+      assetClass: instrumentMaster.assetClass,
+      lastPrice: instrumentMaster.lastPrice,
+      currency: instrumentMaster.currency,
+      priceUpdatedAt: instrumentMaster.priceUpdatedAt,
+    })
+      .from(instrumentMaster)
+      .where(eq(instrumentMaster.isin, isinUpper))
+      .limit(1);
+
+    if (instrument) {
+      return res.json({
+        success: true,
+        source: "instrument_master",
+        data: {
+          isin: instrument.isin,
+          name: instrument.name || instrument.shortName,
+          assetClass: instrument.assetClass,
+          currentPrice: instrument.lastPrice ? parseFloat(instrument.lastPrice) : null,
+          currency: instrument.currency || "INR",
+          priceUpdatedAt: instrument.priceUpdatedAt,
+        }
+      });
+    }
+
+    // Search mutual_funds by ISIN
+    const [fund] = await db.select({
+      id: mutualFunds.id,
+      schemeCode: mutualFunds.schemeCode,
+      schemeName: mutualFunds.schemeName,
+      isin: mutualFunds.isin,
+      nav: mutualFunds.nav,
+      fundHouse: mutualFunds.fundHouse,
+      lastUpdated: mutualFunds.lastUpdated,
+    })
+      .from(mutualFunds)
+      .where(eq(mutualFunds.isin, isinUpper))
+      .limit(1);
+
+    if (fund) {
+      return res.json({
+        success: true,
+        source: "mutual_funds",
+        data: {
+          isin: fund.isin,
+          schemeCode: fund.schemeCode,
+          name: fund.schemeName,
+          fundHouse: fund.fundHouse,
+          assetClass: "mutual_fund",
+          currentPrice: fund.nav ? parseFloat(fund.nav) : null,
+          currency: "INR",
+          priceUpdatedAt: fund.lastUpdated,
+        }
+      });
+    }
+
+    // Search bonds by ISIN
+    const [bond] = await db.select({
+      id: bondCatalog.id,
+      isin: bondCatalog.isin,
+      name: bondCatalog.name,
+      issuer: bondCatalog.issuer,
+      bondType: bondCatalog.bondType,
+      faceValue: bondCatalog.faceValue,
+      couponRate: bondCatalog.couponRate,
+    })
+      .from(bondCatalog)
+      .where(eq(bondCatalog.isin, isinUpper))
+      .limit(1);
+
+    if (bond) {
+      return res.json({
+        success: true,
+        source: "bonds",
+        data: {
+          isin: bond.isin,
+          name: bond.name,
+          issuer: bond.issuer,
+          bondType: bond.bondType,
+          assetClass: "bond",
+          currentPrice: bond.faceValue ? parseFloat(bond.faceValue) : null,
+          couponRate: bond.couponRate ? parseFloat(bond.couponRate) : null,
+          currency: "INR",
+          priceUpdatedAt: null,
+        }
+      });
+    }
+
+    // Check listed stocks
+    const listedStock = LISTED_STOCKS.find(s => s.isin === isinUpper);
+    if (listedStock) {
+      return res.json({
+        success: true,
+        source: "listed_stocks",
+        data: {
+          isin: listedStock.isin,
+          symbol: listedStock.symbol,
+          name: listedStock.name,
+          sector: listedStock.sector,
+          assetClass: "equity",
+          currentPrice: null, // Would need real-time fetch
+          currency: "INR",
+          priceUpdatedAt: null,
+          note: "Real-time price requires market data fetch"
+        }
+      });
+    }
+
+    return res.status(404).json({
+      success: false,
+      error: "Instrument not found",
+      message: `No instrument found with ISIN: ${isinUpper}`
+    });
+
+  } catch (error: any) {
+    console.error("ISIN price lookup error:", error);
+    res.status(500).json({ error: "Failed to lookup price" });
+  }
+});
+
+/**
+ * Bulk price lookup by multiple ISINs
+ */
+router.post("/api/instruments/prices", async (req: Request, res: Response) => {
+  try {
+    const { isins } = req.body;
+    
+    if (!isins || !Array.isArray(isins) || isins.length === 0) {
+      return res.status(400).json({ error: "ISINs array required" });
+    }
+
+    if (isins.length > 100) {
+      return res.status(400).json({ error: "Maximum 100 ISINs per request" });
+    }
+
+    const isinList = isins.map((i: string) => i.toUpperCase());
+    const results: Record<string, any> = {};
+
+    // Fetch from instrument_master
+    const instruments = await db.select({
+      isin: instrumentMaster.isin,
+      name: instrumentMaster.name,
+      assetClass: instrumentMaster.assetClass,
+      lastPrice: instrumentMaster.lastPrice,
+      currency: instrumentMaster.currency,
+      priceUpdatedAt: instrumentMaster.priceUpdatedAt,
+    })
+      .from(instrumentMaster)
+      .where(inArray(instrumentMaster.isin, isinList));
+
+    for (const inst of instruments) {
+      if (inst.isin) {
+        results[inst.isin] = {
+          isin: inst.isin,
+          name: inst.name,
+          assetClass: inst.assetClass,
+          currentPrice: inst.lastPrice ? parseFloat(inst.lastPrice) : null,
+          currency: inst.currency || "INR",
+          source: "instrument_master",
+        };
+      }
+    }
+
+    // Fetch remaining from mutual_funds
+    const remainingIsins = isinList.filter((i: string) => !results[i]);
+    if (remainingIsins.length > 0) {
+      const funds = await db.select({
+        isin: mutualFunds.isin,
+        schemeName: mutualFunds.schemeName,
+        nav: mutualFunds.nav,
+      })
+        .from(mutualFunds)
+        .where(inArray(mutualFunds.isin, remainingIsins));
+
+      for (const fund of funds) {
+        if (fund.isin) {
+          results[fund.isin] = {
+            isin: fund.isin,
+            name: fund.schemeName,
+            assetClass: "mutual_fund",
+            currentPrice: fund.nav ? parseFloat(fund.nav) : null,
+            currency: "INR",
+            source: "mutual_funds",
+          };
+        }
+      }
+    }
+
+    // Return results with not-found marked
+    const finalResults = isinList.map((isin: string) => ({
+      isin,
+      found: !!results[isin],
+      ...(results[isin] || { error: "Not found" })
+    }));
+
+    res.json({
+      success: true,
+      count: finalResults.filter((r: any) => r.found).length,
+      total: isinList.length,
+      data: finalResults
+    });
+
+  } catch (error: any) {
+    console.error("Bulk price lookup error:", error);
+    res.status(500).json({ error: "Failed to lookup prices" });
   }
 });
 

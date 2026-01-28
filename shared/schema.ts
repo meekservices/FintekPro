@@ -3914,6 +3914,7 @@ export const mutualFunds = pgTable("mutual_funds", {
   
   // Search resilience & AMFI alignment fields
   amfiCode: varchar("amfi_code"), // AMFI unique identifier (indexed)
+  isin: varchar("isin"), // ISIN code for the scheme (e.g., INF204K01HN1)
   optionType: varchar("option_type"), // 'growth' or 'idcw' (dividend)
   schemeStatus: varchar("scheme_status").default("active"), // 'active', 'merged', 'wound_up'
   lastVerifiedAt: timestamp("last_verified_at"), // Last API verification timestamp

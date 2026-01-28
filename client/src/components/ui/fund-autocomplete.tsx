@@ -116,7 +116,7 @@ export function FundAutocomplete({
           <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
           <Input
             ref={inputRef}
-            placeholder="Type to search..."
+            placeholder="Search by name or ISIN..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 h-8"
@@ -126,7 +126,7 @@ export function FundAutocomplete({
         <div className="max-h-[300px] overflow-y-auto">
           {searchQuery.length < 2 ? (
             <div className="py-6 text-center text-sm text-muted-foreground">
-              Type at least 2 characters to search...
+              Search by fund name or ISIN (min 2 characters)
             </div>
           ) : funds.length === 0 && !isLoading ? (
             <div className="py-6 text-center text-sm text-muted-foreground">

@@ -642,14 +642,21 @@ export class MultiSourceMFService {
 
         // Handle different query types
         if (type === 'fund' && param) {
-          // Search by scheme code or name
+          // Search by scheme code, name, or ISIN
+          const paramLower = param.toLowerCase();
           if (fundData.schemeCode === param || 
-              fundData.schemeName.toLowerCase().includes(param.toLowerCase())) {
+              fundData.schemeName.toLowerCase().includes(paramLower) ||
+              fundData.isinDiv?.toLowerCase() === paramLower ||
+              fundData.isinGrowth?.toLowerCase() === paramLower) {
             return this.normalizeAMFIFund(fundData);
           }
         } else if (type === 'search' && param) {
-          // Return all matching funds
-          if (fundData.schemeName.toLowerCase().includes(param.toLowerCase())) {
+          // Return all matching funds by name, scheme code, or ISIN
+          const paramLower = param.toLowerCase();
+          if (fundData.schemeName.toLowerCase().includes(paramLower) ||
+              fundData.schemeCode === param ||
+              fundData.isinDiv?.toLowerCase().includes(paramLower) ||
+              fundData.isinGrowth?.toLowerCase().includes(paramLower)) {
             funds.push(this.normalizeAMFIFund(fundData));
           }
         } else if (type === 'popular') {
@@ -739,6 +746,9 @@ export class MultiSourceMFService {
    * Normalize AMFI fund data to our schema
    */
   private normalizeAMFIFund(data: any): FundExtended {
+    // Select primary ISIN: prefer growth ISIN, fall back to div ISIN
+    const isin = data.isinGrowth || data.isinDiv || '';
+    
     return {
       schemeCode: data.schemeCode || '',
       schemeName: data.schemeName || '',
@@ -746,6 +756,9 @@ export class MultiSourceMFService {
       category: '', // AMFI doesn't provide category in NAV file
       currentNav: data.currentNav || '0',
       navDate: data.navDate || new Date().toISOString(),
+      isin: isin, // ISIN code from AMFI data
+      isinDiv: data.isinDiv || '',
+      isinGrowth: data.isinGrowth || '',
       returns: {},
       returnStrings: {},
       provenance: {
@@ -1232,6 +1245,7 @@ export class MultiSourceMFService {
         crisilLastUpdated: fund.crisilLastUpdated || new Date(),
         // Search resilience fields
         amfiCode: (fund as any).amfiCode || fund.schemeCode || null,
+        isin: (fund as any).isin || (fund as any).isinGrowth || (fund as any).isinDiv || null, // ISIN code for search
         optionType: this.detectOptionType(fund.schemeName),
         schemeStatus: (fund as any).schemeStatus || 'active',
         lastVerifiedAt: new Date(),

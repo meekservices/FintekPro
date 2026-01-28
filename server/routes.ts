@@ -12543,8 +12543,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       }
       
       const searchPattern = `%${String(q).toLowerCase()}%`;
+      const searchPatternUpper = `%${String(q).toUpperCase()}%`;
       
       const funds = await db.select({
+        isin: mutualFunds.isin,
         schemeCode: mutualFunds.schemeCode,
         schemeName: mutualFunds.schemeName,
         fundHouse: mutualFunds.fundHouse,
@@ -12557,7 +12559,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       .where(
         or(
           sql`LOWER(${mutualFunds.schemeName}) LIKE ${searchPattern}`,
-          sql`LOWER(${mutualFunds.fundHouse}) LIKE ${searchPattern}`
+          sql`LOWER(${mutualFunds.fundHouse}) LIKE ${searchPattern}`,
+          sql`UPPER(${mutualFunds.isin}) LIKE ${searchPatternUpper}`
         )
       )
       .limit(parseInt(limit as string));
@@ -12569,7 +12572,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         category: fund.category || '',
         nav: parseFloat(fund.nav || '0'),
         planType: fund.planType || 'Regular',
-        isin: (fund.extendedData as any)?.isin || ''
+        isin: fund.isin || (fund.extendedData as any)?.isin || ''
       }));
       
       res.json({ success: true, funds: results });
@@ -12588,6 +12591,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       }
       
       const funds = await db.select({
+        isin: mutualFunds.isin,
         schemeCode: mutualFunds.schemeCode,
         schemeName: mutualFunds.schemeName,
         fundHouse: mutualFunds.fundHouse,
@@ -12614,7 +12618,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           category: fund.category || '',
           nav: parseFloat(fund.nav || '0'),
           planType: fund.planType || 'Regular',
-          isin: (fund.extendedData as any)?.isin || ''
+          isin: fund.isin || (fund.extendedData as any)?.isin || ''
         }
       });
     } catch (error) {

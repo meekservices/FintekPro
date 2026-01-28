@@ -1840,7 +1840,9 @@ export class DatabaseStorage implements IStorage {
         .where(
           sql`LOWER(${schema.mutualFunds.schemeName}) LIKE ${searchTerm} 
               OR LOWER(${schema.mutualFunds.fundHouse}) LIKE ${searchTerm}
-              OR LOWER(${schema.mutualFunds.category}) LIKE ${searchTerm}`
+              OR LOWER(${schema.mutualFunds.category}) LIKE ${searchTerm}
+              OR ${schema.mutualFunds.schemeCode} = ${query}
+              OR LOWER(${schema.mutualFunds.isin}) LIKE ${searchTerm}`
         )
         .orderBy(desc(schema.mutualFunds.lastUpdated))
         .limit(50);
