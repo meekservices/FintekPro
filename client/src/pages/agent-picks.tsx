@@ -952,11 +952,24 @@ function PickCard({
                   {pick.symbol && (
                     <span className="text-sm text-muted-foreground font-mono">{pick.symbol}</span>
                   )}
-                  {pick.exchange && pick.category === 'listed_stocks' && (
-                    <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-1.5 py-0.5 rounded">{pick.exchange}</span>
+                  {pick.exchange && ['listed_stocks', 'reits_invits', 'etfs', 'global_stocks', 'bonds'].includes(pick.category) && (
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${
+                      pick.category === 'global_stocks' 
+                        ? 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200'
+                        : 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200'
+                    }`}>{pick.exchange}</span>
                   )}
-                  {pick.isin && (pick.category === 'mutual_funds' || pick.category === 'bonds') && (
+                  {pick.isin && pick.category === 'mutual_funds' && (
                     <span className="text-xs text-muted-foreground font-mono">ISIN: {pick.isin}</span>
+                  )}
+                  {pick.isin && pick.category === 'bonds' && (
+                    <span className="text-xs text-muted-foreground font-mono">ISIN: {pick.isin}</span>
+                  )}
+                  {pick.category === 'unlisted' && pick.keyMetrics?.cin && (
+                    <span className="text-xs text-orange-600 dark:text-orange-400 font-mono">CIN: {pick.keyMetrics.cin}</span>
+                  )}
+                  {pick.category === 'sgb' && pick.keyMetrics?.seriesCode && (
+                    <span className="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-1.5 py-0.5 rounded">Series: {pick.keyMetrics.seriesCode}</span>
                   )}
                 </div>
               </div>

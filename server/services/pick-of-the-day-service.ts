@@ -503,11 +503,16 @@ class PickOfTheDayService {
         maturityDate: topBond.maturityDate,
       });
 
+      // Bonds trade on NSE/BSE - use exchange field from bondCatalog or default to NSE
+      const exchange = topBond.exchange || 'NSE';
+
       return {
         category: 'bonds',
         instrumentId: topBond.id?.toString(),
         instrumentName: topBond.bondName,
         isin: topBond.isin || undefined,
+        symbol: topBond.symbol || undefined,
+        exchange,
         recoDate: new Date().toISOString().split('T')[0],
         recoPrice: currentPrice,
         targetPrice,
@@ -527,6 +532,7 @@ class PickOfTheDayService {
           couponRate: topBond.couponRate ? parseFloat(topBond.couponRate) : null,
           creditRating: topBond.creditRating,
           issuer: topBond.issuerName,
+          maturityDate: topBond.maturityDate,
         },
       };
     } catch (error) {
@@ -580,6 +586,7 @@ class PickOfTheDayService {
         instrumentId: topCompany.id,
         instrumentName: topCompany.name,
         isin: topCompany.isin || undefined,
+        symbol: topCompany.cin || undefined, // Use CIN as symbol for unlisted companies
         recoDate: new Date().toISOString().split('T')[0],
         recoPrice: currentPrice,
         targetPrice,
@@ -594,8 +601,10 @@ class PickOfTheDayService {
         confidenceScore: this.getConfidenceScore('unlisted', scoredCompanies[0].score, 50),
         sectorCategory: topCompany.sector || 'Pre-IPO',
         keyMetrics: {
+          cin: topCompany.cin,
           sector: topCompany.sector,
           listingStage: topCompany.listingStage,
+          lotSize: topCompany.minOrderQuantity,
         },
       };
     } catch (error) {
@@ -710,6 +719,19 @@ class PickOfTheDayService {
 
       console.log(`[PickOfTheDay] Generated global stock pick: ${topInstrument.symbol} (${market})`);
 
+      // Detect exchange from symbol suffix or market data
+      const detectGlobalExchange = (): string => {
+        const sym = topInstrument.symbol?.toUpperCase() || '';
+        if (topInstrument.exchange) return topInstrument.exchange;
+        if (sym.endsWith('.O') || market === 'us') return 'NASDAQ';
+        if (sym.endsWith('.N') || sym.endsWith('.K')) return 'NYSE';
+        if (sym.endsWith('.L')) return 'LSE';
+        if (sym.endsWith('.T')) return 'TSE';
+        if (sym.endsWith('.HK')) return 'HKEX';
+        return 'NASDAQ'; // Default for US stocks
+      };
+      const exchange = detectGlobalExchange();
+
       return {
         category: "global_stocks",
         instrumentId: topInstrument.id,
@@ -717,6 +739,7 @@ class PickOfTheDayService {
         isin: topInstrument.isin || undefined,
         symbol: topInstrument.symbol,
         market,
+        exchange,
         recoDate: new Date().toISOString().split("T")[0],
         recoPrice: currentPrice,
         targetPrice,
@@ -734,7 +757,6 @@ class PickOfTheDayService {
           cmp: currentPrice,
           pe: topInstrument.peRatio ? parseFloat(topInstrument.peRatio) : null,
           returns1y: topInstrument.returns1Y ? parseFloat(topInstrument.returns1Y) : null,
-          exchange: topInstrument.exchange,
           currency: topInstrument.currency,
           sector: topInstrument.sector,
         },
@@ -811,12 +833,16 @@ class PickOfTheDayService {
 
       console.log(`[PickOfTheDay] Generated ETF pick: ${topETF.name}`);
 
+      // ETFs trade on NSE/BSE - default to NSE (most common)
+      const exchange = 'NSE';
+
       return {
         category: 'etfs',
         instrumentId: topETF.id,
         instrumentName: topETF.name,
         isin: topETF.isin || undefined,
         symbol: topETF.symbol || undefined,
+        exchange,
         recoDate: new Date().toISOString().split('T')[0],
         recoPrice: currentPrice,
         targetPrice,
@@ -835,6 +861,7 @@ class PickOfTheDayService {
           issuer: topETF.issuer,
           category: topETF.category,
           currency: topETF.currency,
+          nav: currentPrice,
         },
       };
     } catch (error) {
@@ -978,12 +1005,16 @@ class PickOfTheDayService {
 
       console.log(`[PickOfTheDay] Generated REIT/InvIT pick: ${topReit.name}`);
 
+      // REITs/InvITs trade on NSE/BSE - determine from symbol or default to NSE
+      const exchange = topReit.symbol?.includes('BSE') ? 'BSE' : 'NSE';
+
       return {
         category: 'reits_invits',
         instrumentId: String(topReit.id),
         instrumentName: topReit.name || 'Unknown REIT/InvIT',
         isin: topReit.isin || undefined,
         symbol: topReit.symbol || undefined,
+        exchange,
         recoDate: new Date().toISOString().split('T')[0],
         recoPrice: currentPrice,
         targetPrice,
@@ -1000,8 +1031,8 @@ class PickOfTheDayService {
         keyMetrics: {
           type: topReit.type,
           sector: topReit.sector,
-          dividendYield: topReit.dividendYield,
-          nav: topReit.nav,
+          dividendYield: topReit.dividendYield ? parseFloat(String(topReit.dividendYield)) : null,
+          nav: topReit.nav ? parseFloat(String(topReit.nav)) : null,
         },
       };
     } catch (error) {
