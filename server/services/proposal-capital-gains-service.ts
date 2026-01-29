@@ -8,6 +8,39 @@
 import { exitLoadService } from './exit-load-service';
 import { historicalNavService } from './historical-nav-service';
 
+// Cost Inflation Index (CII) data from Income Tax Department
+// Source: https://incometaxindia.gov.in/Pages/tools/cost-inflation-index.aspx
+const COST_INFLATION_INDEX: Record<string, number> = {
+  '2001-02': 100,
+  '2002-03': 105,
+  '2003-04': 109,
+  '2004-05': 113,
+  '2005-06': 117,
+  '2006-07': 122,
+  '2007-08': 129,
+  '2008-09': 137,
+  '2009-10': 148,
+  '2010-11': 167,
+  '2011-12': 184,
+  '2012-13': 200,
+  '2013-14': 220,
+  '2014-15': 240,
+  '2015-16': 254,
+  '2016-17': 264,
+  '2017-18': 272,
+  '2018-19': 280,
+  '2019-20': 289,
+  '2020-21': 301,
+  '2021-22': 317,
+  '2022-23': 331,
+  '2023-24': 348,
+  '2024-25': 363,
+  '2025-26': 377  // Estimated (to be updated when announced)
+};
+
+// Deadline for indexation benefit eligibility
+const INDEXATION_CUTOFF_DATE = new Date('2023-04-01');
+
 // Tax Regime Constants
 // Note: Debt MF taxation changed significantly:
 // - Pre-April 2023: 3-year LTCG at 20% with indexation
@@ -1603,6 +1636,150 @@ _This is not tax advice. Consult your CA/Tax Advisor for personalized guidance._
         potentialExitLoadSavings
       }
     };
+  }
+
+  /**
+   * Calculate indexation benefit for debt funds purchased before April 1, 2023
+   * Indexation adjusts the purchase cost for inflation, reducing taxable gains
+   * 
+   * Eligibility:
+   * - Debt funds purchased BEFORE April 1, 2023
+   * - Holding period of 3+ years (1095 days)
+   * - Also applies to gold/silver funds
+   */
+  calculateIndexationBenefit(input: {
+    purchaseDate: Date | string;
+    saleDate?: Date | string;
+    purchaseCost: number;
+    saleValue: number;
+    productType: string;
+    category?: string;
+  }): {
+    eligible: boolean;
+    eligibilityReason: string;
+    purchaseCost: number;
+    indexedCost: number;
+    saleValue: number;
+    gainWithoutIndexation: number;
+    gainWithIndexation: number;
+    taxWithoutIndexation: number;
+    taxWithIndexation: number;
+    taxSavingsFromIndexation: number;
+    purchaseFY: string;
+    saleFY: string;
+    purchaseCII: number;
+    saleCII: number;
+    indexationFactor: number;
+  } {
+    const purchaseDate = new Date(input.purchaseDate);
+    const saleDate = input.saleDate ? new Date(input.saleDate) : new Date();
+    
+    // Get financial years
+    const purchaseFY = this.getFinancialYear(purchaseDate);
+    const saleFY = this.getFinancialYear(saleDate);
+    
+    // Calculate holding period
+    const holdingPeriodDays = Math.floor((saleDate.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Check eligibility
+    let eligible = false;
+    let eligibilityReason = '';
+    
+    // Check if purchased before April 1, 2023
+    if (purchaseDate >= INDEXATION_CUTOFF_DATE) {
+      eligibilityReason = 'Purchased after April 1, 2023 - indexation benefit not available for debt funds';
+    } else if (holdingPeriodDays < 1095) {
+      eligibilityReason = `Holding period (${holdingPeriodDays} days) is less than 3 years (1095 days)`;
+    } else {
+      // Check if it's a debt/gold fund
+      const isDebtOrGold = this.isDebtOrGoldFund(input.productType, input.category);
+      if (!isDebtOrGold) {
+        eligibilityReason = 'Indexation benefit only applies to debt and gold funds';
+      } else {
+        eligible = true;
+        eligibilityReason = 'Eligible for indexation benefit (debt/gold fund purchased before April 2023, held for 3+ years)';
+      }
+    }
+    
+    // Get CII values
+    const purchaseCII = COST_INFLATION_INDEX[purchaseFY] || COST_INFLATION_INDEX['2024-25'];
+    const saleCII = COST_INFLATION_INDEX[saleFY] || COST_INFLATION_INDEX['2025-26'];
+    
+    // Calculate indexation factor
+    const indexationFactor = saleCII / purchaseCII;
+    
+    // Calculate indexed cost of acquisition
+    const indexedCost = eligible ? input.purchaseCost * indexationFactor : input.purchaseCost;
+    
+    // Calculate gains
+    const gainWithoutIndexation = input.saleValue - input.purchaseCost;
+    const gainWithIndexation = input.saleValue - indexedCost;
+    
+    // Calculate taxes
+    // Without indexation: 30% slab rate (post-April 2023 rules)
+    // With indexation: 20% LTCG rate (pre-April 2023 rules for grandfathered holdings)
+    const taxRateWithoutIndexation = 0.30;
+    const taxRateWithIndexation = 0.20;
+    
+    const taxWithoutIndexation = Math.max(0, gainWithoutIndexation * taxRateWithoutIndexation);
+    const taxWithIndexation = eligible ? Math.max(0, gainWithIndexation * taxRateWithIndexation) : taxWithoutIndexation;
+    
+    const taxSavingsFromIndexation = eligible ? taxWithoutIndexation - taxWithIndexation : 0;
+    
+    return {
+      eligible,
+      eligibilityReason,
+      purchaseCost: input.purchaseCost,
+      indexedCost: Math.round(indexedCost * 100) / 100,
+      saleValue: input.saleValue,
+      gainWithoutIndexation: Math.round(gainWithoutIndexation * 100) / 100,
+      gainWithIndexation: Math.round(gainWithIndexation * 100) / 100,
+      taxWithoutIndexation: Math.round(taxWithoutIndexation * 100) / 100,
+      taxWithIndexation: Math.round(taxWithIndexation * 100) / 100,
+      taxSavingsFromIndexation: Math.round(taxSavingsFromIndexation * 100) / 100,
+      purchaseFY,
+      saleFY,
+      purchaseCII,
+      saleCII,
+      indexationFactor: Math.round(indexationFactor * 1000) / 1000
+    };
+  }
+
+  /**
+   * Get the financial year string for a given date
+   * Financial year runs from April 1 to March 31
+   */
+  private getFinancialYear(date: Date): string {
+    const year = date.getFullYear();
+    const month = date.getMonth(); // 0-indexed
+    
+    // If date is between Jan 1 and Mar 31, it's part of previous calendar year's FY
+    if (month < 3) { // Jan, Feb, Mar
+      return `${year - 1}-${String(year).slice(2)}`;
+    } else { // Apr onwards
+      return `${year}-${String(year + 1).slice(2)}`;
+    }
+  }
+
+  /**
+   * Check if a fund is debt or gold-oriented (eligible for indexation)
+   */
+  private isDebtOrGoldFund(productType: string, category?: string): boolean {
+    const debtGoldTypes = ['DEBT', 'BOND', 'GOLD', 'SILVER', 'LIQUID', 'GILT'];
+    if (debtGoldTypes.some(t => productType?.toUpperCase().includes(t))) {
+      return true;
+    }
+    
+    const debtGoldCategories = [
+      'debt', 'bond', 'gilt', 'liquid', 'money market', 'ultra short', 'short duration',
+      'medium duration', 'long duration', 'dynamic bond', 'corporate bond', 'banking psu',
+      'credit risk', 'floater', 'overnight', 'gold', 'silver', 'commodity'
+    ];
+    if (category && debtGoldCategories.some(c => category.toLowerCase().includes(c))) {
+      return true;
+    }
+    
+    return false;
   }
 
   /**

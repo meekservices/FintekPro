@@ -45,6 +45,15 @@ Key services:
 
 Auto-sync flow for registered clients: consent granted → clear existing holdings (prevents duplicates) → fetch from AA → store with ISIN+folioNumber duplicate check → update consent timestamp. Import staging UI (`ImportedHoldingsReview.tsx`) allows users to review, approve, edit, or reject individual holdings before final sync to comprehensiveHoldings.
 
+A **Capital Gains & Tax Optimization System** (`proposal-capital-gains-service.ts`, `capital-gains.ts`) provides comprehensive tax planning:
+- LTCG/STCG thresholds: Equity 365 days, pre-Apr 2023 debt 1095 days (with indexation), post-Apr 2023 debt 730 days, gold/silver 730 days
+- Grandfathering benefit using actual Jan 31, 2018 NAV (for equity purchased before Feb 2018)
+- Exit load lookup by ISIN from database with calendar view showing upcoming exit-load-free dates
+- Tax-efficient sell advice API with SELL_NOW/WAIT_FOR_LTCG/WAIT_FOR_EXIT_LOAD recommendations
+- Indexation benefit calculator for debt funds purchased before April 2023 with CII data through 2025-26
+- ITR Schedule CG export with ESTIMATE/ACTUAL modes for tax filing (sections A1, A2, B, C)
+- What-if redemption simulator for tax impact analysis
+
 The platform integrates a Comprehensive Zoho Ecosystem covering CRM, Books, Campaigns, Meeting, and Sign, with Zoho CRM as the single source of truth. A Profit-Optimized AI Recommendation Engine provides multi-mode recommendations with deterministic numeric scoring, agent governance, and A/B testing. A Unified AI Recommendation Engine centralizes AI-powered investment analysis across nine product categories.
 
 A Stock Enrichment System consolidates NSE/BSE listed stocks into broad sectors, and an ISIN Intelligence Layer provides automatic instrument classification. A "Pick of the Day" feature offers daily investment recommendations with AI-generated rationale. The Agent Knowledge Hub provides market intelligence and a Gemini-powered Daily AI Market Brief Engine.
