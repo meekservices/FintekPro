@@ -170,11 +170,36 @@ export function PortfolioImportPanel({
   }, [wealthyUrl, replaceExisting, importWealthy, handleParseSuccess, toast]);
 
   const handleSaveHoldings = useCallback(async () => {
+    const holdingsWithIsin = previewHoldings.filter(h => h.isin);
+    const totalValue = previewHoldings.reduce((sum, h) => {
+      const qty = parseFloat(h.quantity as string) || 0;
+      const price = parseFloat(h.avgPrice as string) || 0;
+      return sum + (qty * price);
+    }, 0);
+
     saveHoldings.mutate(
       { holdings: previewHoldings, prospectId, portfolioId, source: importSource, replaceExisting },
       {
         onSuccess: (result) => {
           toast({ title: "Holdings Saved", description: `Successfully saved ${result.savedCount} holdings.` });
+          
+          // Record import history for tracking
+          if (prospectId) {
+            recordHistory.mutate({
+              clientId: prospectId,
+              data: {
+                source: importSource,
+                provider: null,
+                holdingsCount: result.savedCount,
+                totalValue: totalValue,
+                isinMatchedCount: holdingsWithIsin.length,
+                confidenceScore: holdingsWithIsin.length / Math.max(previewHoldings.length, 1),
+                status: holdingsWithIsin.length === previewHoldings.length ? 'success' : 'partial',
+                errors: []
+              }
+            });
+          }
+          
           setPreviewMode(false);
           setPreviewHoldings([]);
           onHoldingsSaved?.(result.savedCount);
@@ -184,7 +209,7 @@ export function PortfolioImportPanel({
         },
       }
     );
-  }, [previewHoldings, prospectId, portfolioId, importSource, replaceExisting, saveHoldings, toast, onHoldingsSaved]);
+  }, [previewHoldings, prospectId, portfolioId, importSource, replaceExisting, saveHoldings, recordHistory, toast, onHoldingsSaved]);
 
   const updateHolding = useCallback((index: number, updates: Partial<ImportedHolding>) => {
     setPreviewHoldings(prev => prev.map((h, i) => i === index ? { ...h, ...updates } : h));
