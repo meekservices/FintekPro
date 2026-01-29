@@ -1,6 +1,6 @@
 import { db } from "../db";
-import { portfolioHoldings, capitalGainsTaxReminders, taxRules, portfolios } from "@shared/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { portfolioHoldings, capitalGainsTaxReminders, taxRules, portfolios, mfOrders } from "@shared/schema";
+import { eq, and, sql, inArray, gte, lte } from "drizzle-orm";
 import type { InsertCapitalGainsTaxReminder } from "@shared/schema";
 
 interface CapitalGainsBreakdown {
@@ -19,6 +19,37 @@ interface CapitalGainsBreakdown {
     unrealizedGain: number;
     unrealizedTax: number;
   }[];
+}
+
+interface RealizedGainsBreakdown {
+  stcgAmount: number;
+  ltcgAmount: number;
+  stcgTax: number;
+  ltcgTax: number;
+  totalTaxLiability: number;
+  trades: {
+    orderId: string;
+    schemeName: string;
+    isin?: string;
+    saleDate: string;
+    type: 'STCG' | 'LTCG';
+    realizedGain: number;
+    taxableGain: number;
+    estimatedTax: number;
+  }[];
+}
+
+interface CombinedGainsBreakdown {
+  unrealized: CapitalGainsBreakdown;
+  realized: RealizedGainsBreakdown;
+  combined: {
+    stcgAmount: number;
+    ltcgAmount: number;
+    stcgTax: number;
+    ltcgTax: number;
+    totalTaxLiability: number;
+  };
+  fiscalYear: string;
 }
 
 interface QuarterlyReminderData {
@@ -174,6 +205,109 @@ export class CapitalGainsCalculatorService {
       console.error('Error calculating portfolio gains:', error);
       throw new Error('Failed to calculate capital gains');
     }
+  }
+
+  getCurrentFiscalYear(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    return month >= 4 ? `${year}-${(year + 1).toString().slice(-2)}` : `${year - 1}-${year.toString().slice(-2)}`;
+  }
+
+  getFiscalYearDates(fiscalYear: string): { start: Date; end: Date } {
+    const [startYear] = fiscalYear.split('-').map(Number);
+    return {
+      start: new Date(startYear, 3, 1),
+      end: new Date(startYear + 1, 2, 31),
+    };
+  }
+
+  async calculateRealizedGains(userId: string, fiscalYear?: string): Promise<RealizedGainsBreakdown> {
+    try {
+      const fy = fiscalYear || this.getCurrentFiscalYear();
+      const { start, end } = this.getFiscalYearDates(fy);
+
+      const { stcgRate, ltcgRate } = await this.getTaxRates();
+
+      const settledSellOrders = await db
+        .select()
+        .from(mfOrders)
+        .where(
+          and(
+            eq(mfOrders.userId, userId),
+            inArray(mfOrders.orderType, ['sell', 'redeem', 'switch']),
+            eq(mfOrders.status, 'settled'),
+            gte(mfOrders.settledAt, start),
+            lte(mfOrders.settledAt, end)
+          )
+        );
+
+      let totalSTCG = 0;
+      let totalLTCG = 0;
+      const trades: RealizedGainsBreakdown['trades'] = [];
+
+      for (const order of settledSellOrders) {
+        const realizedGain = parseFloat(order.realizedGain?.toString() || '0');
+        const taxableGain = parseFloat(order.taxableGain?.toString() || '0');
+        const estimatedTax = parseFloat(order.estimatedTax?.toString() || '0');
+        const gainType = (order.gainType || 'STCG') as 'STCG' | 'LTCG';
+
+        if (gainType === 'STCG') {
+          totalSTCG += realizedGain;
+        } else {
+          totalLTCG += realizedGain;
+        }
+
+        trades.push({
+          orderId: order.id,
+          schemeName: order.schemeName,
+          isin: order.isin || undefined,
+          saleDate: order.settledAt?.toISOString().split('T')[0] || '',
+          type: gainType,
+          realizedGain,
+          taxableGain,
+          estimatedTax,
+        });
+      }
+
+      const stcgTax = totalSTCG > 0 ? totalSTCG * stcgRate : 0;
+      const ltcgExemption = Math.min(125000, Math.max(0, totalLTCG));
+      const ltcgTax = Math.max(0, totalLTCG - ltcgExemption) * ltcgRate;
+
+      return {
+        stcgAmount: Math.round(totalSTCG * 100) / 100,
+        ltcgAmount: Math.round(totalLTCG * 100) / 100,
+        stcgTax: Math.round(stcgTax * 100) / 100,
+        ltcgTax: Math.round(ltcgTax * 100) / 100,
+        totalTaxLiability: Math.round((stcgTax + ltcgTax) * 100) / 100,
+        trades,
+      };
+    } catch (error) {
+      console.error('Error calculating realized gains:', error);
+      throw new Error('Failed to calculate realized capital gains');
+    }
+  }
+
+  async getCombinedGains(userId: string, fiscalYear?: string): Promise<CombinedGainsBreakdown> {
+    const fy = fiscalYear || this.getCurrentFiscalYear();
+    
+    const [unrealized, realized] = await Promise.all([
+      this.calculatePortfolioGains(userId),
+      this.calculateRealizedGains(userId, fy),
+    ]);
+
+    return {
+      unrealized,
+      realized,
+      combined: {
+        stcgAmount: unrealized.stcgAmount + realized.stcgAmount,
+        ltcgAmount: unrealized.ltcgAmount + realized.ltcgAmount,
+        stcgTax: unrealized.stcgTax + realized.stcgTax,
+        ltcgTax: unrealized.ltcgTax + realized.ltcgTax,
+        totalTaxLiability: unrealized.totalTaxLiability + realized.totalTaxLiability,
+      },
+      fiscalYear: fy,
+    };
   }
 
   async generateQuarterlyReminders(

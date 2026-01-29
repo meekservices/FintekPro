@@ -4,6 +4,8 @@ import { db } from '../db';
 import { capitalGainsReports, insertCapitalGainsReportSchema } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { proposalCapitalGainsService } from '../services/proposal-capital-gains-service';
+import { realizedGainsAggregationService } from '../services/realized-gains-aggregation-service';
+import { capitalGainsCalculator } from '../services/capital-gains-calculator';
 
 export function registerCapitalGainsRoutes(app: Express): void {
   app.post("/api/nsdl/capital-gains", async (req, res) => {
@@ -863,6 +865,171 @@ export function registerCapitalGainsRoutes(app: Express): void {
     } catch (error) {
       console.error("Error calculating batch indexation benefit:", error);
       res.status(500).json({ error: "Failed to calculate indexation benefit" });
+    }
+  });
+
+  app.get("/api/advance-tax/status", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const fiscalYear = req.query.fiscalYear as string | undefined;
+      const status = await realizedGainsAggregationService.getAdvanceTaxStatus(req.user.id, fiscalYear);
+
+      res.json(status);
+    } catch (error) {
+      console.error("Error fetching advance tax status:", error);
+      res.status(500).json({ error: "Failed to fetch advance tax status" });
+    }
+  });
+
+  app.get("/api/capital-gains/realized", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const fiscalYear = req.query.fiscalYear as string | undefined;
+      const gains = await realizedGainsAggregationService.aggregateRealizedGains(req.user.id, fiscalYear);
+
+      res.json(gains);
+    } catch (error) {
+      console.error("Error fetching realized gains:", error);
+      res.status(500).json({ error: "Failed to fetch realized gains" });
+    }
+  });
+
+  app.get("/api/capital-gains/combined", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const fiscalYear = req.query.fiscalYear as string | undefined;
+      const combined = await capitalGainsCalculator.getCombinedGains(req.user.id, fiscalYear);
+
+      res.json(combined);
+    } catch (error) {
+      console.error("Error fetching combined gains:", error);
+      res.status(500).json({ error: "Failed to fetch combined capital gains" });
+    }
+  });
+
+  app.post("/api/capital-gains/itr-export-actual", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { assessmentYear, panNumber, fiscalYear } = req.body;
+      const fy = fiscalYear || realizedGainsAggregationService.getCurrentFiscalYear();
+      const assessYear = assessmentYear || getAssessmentYear();
+
+      const gains = await realizedGainsAggregationService.aggregateRealizedGains(req.user.id, fy);
+
+      if (gains.trades.length === 0) {
+        return res.json({
+          mode: 'ACTUAL',
+          fiscalYear: fy,
+          assessmentYear: assessYear,
+          panNumber: panNumber || 'XXXPX0000X',
+          message: 'No realized capital gains found for this fiscal year',
+          generatedAt: new Date().toISOString(),
+          sectionA1_EquitySTCG: { totalCapitalGain: 0, netTaxableGain: 0, transactions: [] },
+          sectionA2_EquityLTCG: { totalCapitalGain: 0, netTaxableGain: 0, transactions: [] },
+          sectionB_OtherSTCG: { totalCapitalGain: 0, netTaxableGain: 0, transactions: [] },
+          sectionC_OtherLTCG: { totalCapitalGain: 0, netTaxableGain: 0, transactions: [] },
+          summary: {
+            totalRealizedGains: 0,
+            totalSTCG: 0,
+            totalLTCG: 0,
+            totalTaxLiability: 0
+          }
+        });
+      }
+
+      const equitySTCG: any[] = [];
+      const equityLTCG: any[] = [];
+      const debtSTCG: any[] = [];
+      const debtLTCG: any[] = [];
+
+      for (const trade of gains.trades) {
+        const entry = {
+          orderId: trade.orderId,
+          schemeName: trade.schemeName,
+          isin: trade.isin,
+          saleDate: trade.saleDate,
+          gainType: trade.gainType,
+          realizedGain: trade.realizedGain,
+          taxableGain: trade.taxableGain,
+          estimatedTax: trade.estimatedTax,
+        };
+
+        if (trade.gainType === 'STCG') {
+          equitySTCG.push(entry);
+        } else {
+          equityLTCG.push(entry);
+        }
+      }
+
+      const totalEquitySTCG = equitySTCG.reduce((sum, e) => sum + e.realizedGain, 0);
+      const totalEquityLTCG = equityLTCG.reduce((sum, e) => sum + e.realizedGain, 0);
+
+      res.json({
+        mode: 'ACTUAL',
+        fiscalYear: fy,
+        assessmentYear: assessYear,
+        panNumber: panNumber || 'XXXPX0000X',
+        generatedAt: new Date().toISOString(),
+
+        sectionA1_EquitySTCG: {
+          description: 'Short Term Capital Gain on equity shares/units on which STT is paid',
+          applicableSection: '111A',
+          taxRate: '20%',
+          transactions: equitySTCG,
+          totalCapitalGain: totalEquitySTCG,
+          netTaxableGain: Math.max(0, totalEquitySTCG)
+        },
+
+        sectionA2_EquityLTCG: {
+          description: 'Long Term Capital Gain on equity shares/units on which STT is paid',
+          applicableSection: '112A',
+          taxRate: '12.5%',
+          exemptionLimit: 125000,
+          transactions: equityLTCG,
+          totalCapitalGain: totalEquityLTCG,
+          exemptionClaimed: Math.min(125000, Math.max(0, totalEquityLTCG)),
+          netTaxableGain: Math.max(0, totalEquityLTCG - 125000)
+        },
+
+        sectionB_OtherSTCG: {
+          description: 'Short Term Capital Gain on assets other than equity',
+          transactions: debtSTCG,
+          totalCapitalGain: 0,
+          netTaxableGain: 0
+        },
+
+        sectionC_OtherLTCG: {
+          description: 'Long Term Capital Gain on assets other than equity',
+          transactions: debtLTCG,
+          totalCapitalGain: 0,
+          netTaxableGain: 0
+        },
+
+        summary: {
+          totalRealizedGains: gains.totalRealizedGains,
+          totalSTCG: gains.stcg.total,
+          totalLTCG: gains.ltcg.total,
+          totalTaxLiability: gains.totalTaxLiability,
+          tradesCount: gains.trades.length
+        },
+
+        quarterlyBreakdown: gains.quarterlyBreakdown
+      });
+    } catch (error) {
+      console.error("Error generating actual ITR export:", error);
+      res.status(500).json({ error: "Failed to generate ITR export from realized gains" });
     }
   });
 
