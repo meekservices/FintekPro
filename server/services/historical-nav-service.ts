@@ -268,6 +268,148 @@ export class HistoricalNavService {
   }
 
   /**
+   * Get NAV for a specific date (or nearest available date)
+   * Used for grandfathering calculations (Jan 31, 2018)
+   */
+  async getNavForDate(
+    schemeCode: string,
+    targetDate: string,
+    toleranceDays: number = 5
+  ): Promise<{ nav: number; date: string; isExact: boolean } | null> {
+    const identifier = schemeCode.toString();
+    const identifierType = 'mutual_fund';
+    
+    // First try exact date
+    const exactResult = await db.select({
+      date: historicalNavData.date,
+      nav: historicalNavData.nav
+    })
+    .from(historicalNavData)
+    .where(and(
+      eq(historicalNavData.identifier, identifier),
+      eq(historicalNavData.identifierType, identifierType),
+      eq(historicalNavData.date, targetDate)
+    ))
+    .limit(1);
+    
+    if (exactResult.length > 0) {
+      return {
+        nav: parseFloat(exactResult[0].nav as string),
+        date: exactResult[0].date as string,
+        isExact: true
+      };
+    }
+    
+    // Find nearest date within tolerance (prefer earlier date)
+    const targetDateObj = new Date(targetDate);
+    const minDate = new Date(targetDateObj);
+    minDate.setDate(minDate.getDate() - toleranceDays);
+    const maxDate = new Date(targetDateObj);
+    maxDate.setDate(maxDate.getDate() + toleranceDays);
+    
+    const nearbyResults = await db.select({
+      date: historicalNavData.date,
+      nav: historicalNavData.nav
+    })
+    .from(historicalNavData)
+    .where(and(
+      eq(historicalNavData.identifier, identifier),
+      eq(historicalNavData.identifierType, identifierType),
+      gte(historicalNavData.date, minDate.toISOString().split('T')[0]),
+      lte(historicalNavData.date, maxDate.toISOString().split('T')[0])
+    ))
+    .orderBy(desc(historicalNavData.date))
+    .limit(1);
+    
+    if (nearbyResults.length > 0) {
+      return {
+        nav: parseFloat(nearbyResults[0].nav as string),
+        date: nearbyResults[0].date as string,
+        isExact: false
+      };
+    }
+    
+    return null;
+  }
+
+  /**
+   * Get Jan 31, 2018 NAV for grandfathering calculation
+   * This is the Fair Market Value (FMV) date for LTCG grandfathering
+   */
+  async getGrandfatheringNav(schemeCode: string): Promise<{ nav: number; date: string; isExact: boolean } | null> {
+    return this.getNavForDate(schemeCode, '2018-01-31', 5);
+  }
+
+  /**
+   * Batch lookup of Jan 31, 2018 NAVs for multiple schemes
+   */
+  async batchGetGrandfatheringNavs(schemeCodes: string[]): Promise<Map<string, { nav: number; date: string; isExact: boolean }>> {
+    const results = new Map<string, { nav: number; date: string; isExact: boolean }>();
+    
+    if (schemeCodes.length === 0) return results;
+    
+    // Query all scheme codes at once for the grandfathering date range
+    const targetDate = '2018-01-31';
+    const minDate = '2018-01-26';
+    const maxDate = '2018-02-05';
+    
+    const navResults = await db.select({
+      identifier: historicalNavData.identifier,
+      date: historicalNavData.date,
+      nav: historicalNavData.nav
+    })
+    .from(historicalNavData)
+    .where(and(
+      sql`${historicalNavData.identifier} = ANY(${schemeCodes})`,
+      eq(historicalNavData.identifierType, 'mutual_fund'),
+      gte(historicalNavData.date, minDate),
+      lte(historicalNavData.date, maxDate)
+    ))
+    .orderBy(desc(historicalNavData.date));
+    
+    // Group by scheme and pick best date (prefer exact, then closest to target date)
+    const schemeData = new Map<string, Array<{ date: string; nav: string }>>();
+    for (const row of navResults) {
+      const code = row.identifier as string;
+      if (!schemeData.has(code)) {
+        schemeData.set(code, []);
+      }
+      schemeData.get(code)!.push({
+        date: row.date as string,
+        nav: row.nav as string
+      });
+    }
+    
+    const targetDateMs = new Date(targetDate).getTime();
+    
+    for (const [code, dataPoints] of schemeData) {
+      // Prefer exact date
+      const exact = dataPoints.find(d => d.date === targetDate);
+      if (exact) {
+        results.set(code, {
+          nav: parseFloat(exact.nav),
+          date: exact.date,
+          isExact: true
+        });
+      } else if (dataPoints.length > 0) {
+        // Find closest date by minimizing absolute delta from target
+        const closest = dataPoints.reduce((prev, curr) => {
+          const prevDelta = Math.abs(new Date(prev.date).getTime() - targetDateMs);
+          const currDelta = Math.abs(new Date(curr.date).getTime() - targetDateMs);
+          return currDelta < prevDelta ? curr : prev;
+        });
+        results.set(code, {
+          nav: parseFloat(closest.nav),
+          date: closest.date,
+          isExact: false
+        });
+      }
+    }
+    
+    return results;
+  }
+
+  /**
    * Get existing date range for a scheme
    */
   async getExistingDateRange(identifier: string, identifierType: string): Promise<{ start: string | null; end: string | null }> {
