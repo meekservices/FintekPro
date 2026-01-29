@@ -857,7 +857,7 @@ class UnifiedPortfolioImportService {
       assetType = 'mutual_fund';
     }
 
-    // Parse purchase date
+    // Parse purchase date - use today as default for capital gains tracking
     let purchaseDate: string | undefined;
     if (purchaseDateStr) {
       try {
@@ -867,6 +867,15 @@ class UnifiedPortfolioImportService {
         }
       } catch {}
     }
+    // Default to today's date if not provided (important for capital gains tracking)
+    if (!purchaseDate) {
+      purchaseDate = new Date().toISOString().split('T')[0];
+    }
+
+    // Ensure currentValue has a minimum value for calculations
+    if (currentValue <= 0 && investedValue > 0) {
+      currentValue = investedValue;
+    }
 
     return {
       id: crypto.randomUUID(),
@@ -875,10 +884,10 @@ class UnifiedPortfolioImportService {
       isin: isin.toUpperCase() || undefined,
       folioNumber: folioNumber || undefined,
       assetType,
-      quantity,
-      avgCostPerUnit: avgPrice || undefined,
-      investedValue: investedValue || undefined,
-      currentValue,
+      quantity: quantity || 1, // Default to 1 unit if not provided
+      avgCostPerUnit: avgPrice || (currentValue / (quantity || 1)) || undefined,
+      investedValue: investedValue || currentValue || undefined,
+      currentValue: currentValue || investedValue || 0,
       purchaseDate,
       source: 'csv_upload' as any,
     };

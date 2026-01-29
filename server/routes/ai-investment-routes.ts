@@ -982,7 +982,7 @@ router.post("/portfolio/:clientId/holdings", async (req, res) => {
   }
 });
 
-// POST endpoint for file upload (CSV, Excel, PDF, HTML)
+// POST endpoint for file upload (CSV, Excel) - for PDF/HTML use /prospects/:prospectId/portfolio/upload
 router.post("/portfolio/:clientId/upload", upload.single('file'), async (req, res) => {
   try {
     const { clientId } = req.params;
@@ -1014,7 +1014,7 @@ router.post("/portfolio/:clientId/upload", upload.single('file'), async (req, re
         req.file.originalname
       );
     } else {
-      return res.status(400).json({ error: "Only CSV and Excel files are supported for this endpoint" });
+      return res.status(400).json({ error: "Only CSV and Excel files are supported for this endpoint. For PDF/HTML, use /prospects/:prospectId/portfolio/upload" });
     }
 
     if (!importResult.success || importResult.holdings.length === 0) {

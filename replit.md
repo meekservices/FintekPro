@@ -24,7 +24,22 @@ A Multi-Source Financial Data Enrichment System integrates various providers wit
 
 An ISIN-Based Instrument Search System offers comprehensive ISIN lookup capabilities across all asset classes through dedicated search endpoints and UI components. The Corporate Treasury Management module is SEBI-compliant with a configurable Maker-Checker workflow. The Unified Tax & Compliance Module offers PAN-driven ITR filing, a Unified eSign Service, and Form 15CA/15CB support, with a Document Vault and RBAC.
 
-A Centralized Portfolio Import System supports diverse import sources (PDF/HTML, URL, API, manual) with a unified type system, normalization, and storage, including AI fallback for parsing. A **Unified PDF Parser** (`unified-pdf-parser.ts`) provides a single entry point for all PDF parsing operations, combining text extraction, document profiling, semantic data extraction, and holding lots building. Features include:
+A Centralized Portfolio Import System supports diverse import sources (PDF/HTML, CSV, Excel, URL, API, manual) with a unified type system, normalization, and storage, including AI fallback for parsing. The `unified-portfolio-import-service.ts` provides centralized import methods:
+- `importFromPDF()`: PDF broker statements and CAS statements
+- `importFromHTML()`: HTML portfolio exports
+- `importFromCSV()`: CSV files with flexible column detection (supports 10+ header variations)
+- `importFromExcel()`: Excel files (.xlsx, .xls) using the xlsx package
+- `importFromURL()`: URL-based portfolio imports (Wealthy.in, etc.)
+
+CSV/Excel import features flexible column detection supporting:
+- Names: name, scheme, fund, security, stock, scrip
+- Symbols: symbol, ticker, scrip code, nse, bse
+- Quantities: quantity, qty, units, shares
+- Prices: avg, average, cost, price, nav, buy price
+- Types: type, asset, category, product
+- Dates: date, purchase date, buy date
+
+A **Unified PDF Parser** (`unified-pdf-parser.ts`) provides a single entry point for all PDF parsing operations, combining text extraction, document profiling, semantic data extraction, and holding lots building. Features include:
 - Document type detection for 17+ providers (brokers: Zerodha, Groww, ICICI Direct, HDFC, Kotak, Upstox, Angel One, 5Paisa, Motilal Oswal, Axis Direct, IIFL, Sharekhan; aggregators: MF Central, INDmoney, Kuvera, ET Money, Paytm Money)
 - Layout analysis with page zone detection and AMC block identification
 - Semantic extraction of holdings, transactions, and investor information
