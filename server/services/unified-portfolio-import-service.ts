@@ -663,6 +663,281 @@ class UnifiedPortfolioImportService {
     console.log(`[CAS Import] Enriched ${enrichedCount}/${holdings.length} holdings with ISIN metadata from database`);
     return enrichedHoldings;
   }
+
+  /**
+   * Import portfolio from CSV file content
+   * Supports flexible column detection for various formats:
+   * - Mutual funds: scheme name, folio, units, NAV, invested amount
+   * - Stocks: symbol, quantity, avg price, sector
+   * - Generic: name, quantity, value
+   */
+  async importFromCSV(
+    csvContent: string,
+    fileName?: string,
+    options?: { 
+      defaultAssetType?: AssetType;
+      detectAssetType?: boolean;
+    }
+  ): Promise<UnifiedImportResult> {
+    const result = createEmptyImportResult('csv_upload');
+    result.sourceFileName = fileName;
+    const startTime = Date.now();
+
+    try {
+      const lines = csvContent.split('\n').filter(line => line.trim());
+      
+      if (lines.length < 2) {
+        result.errors.push('CSV file must have headers and at least one data row');
+        result.parsingStatus = 'failed';
+        return result;
+      }
+
+      // Parse headers with flexible column detection
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
+      
+      // Column detection with priority matching
+      const columnMap = this.detectCSVColumns(headers);
+      
+      if (!columnMap.hasMinimumColumns) {
+        result.errors.push('CSV must have at least name/symbol and quantity/units columns');
+        result.parsingStatus = 'failed';
+        return result;
+      }
+
+      const parsedHoldings: UnifiedHolding[] = [];
+      const parseErrors: string[] = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const row = this.parseCSVRow(lines[i]);
+        
+        if (row.length === 0) continue;
+
+        try {
+          const holding = this.parseCSVRowToHolding(row, columnMap, options);
+          if (holding) {
+            parsedHoldings.push(holding);
+          }
+        } catch (err: any) {
+          parseErrors.push(`Row ${i + 1}: ${err.message || 'Failed to parse'}`);
+        }
+      }
+
+      if (parsedHoldings.length === 0) {
+        result.errors.push('No valid holdings found in CSV');
+        result.errors.push(...parseErrors.slice(0, 5));
+        result.parsingStatus = 'failed';
+        return result;
+      }
+
+      // Enrich holdings with ISIN lookup if names/symbols are present
+      result.holdings = await this.enrichCSVHoldings(parsedHoldings);
+      result.summary = holdingNormalizationService.computeSummary(result.holdings);
+      result.success = true;
+      result.parsingStatus = parseErrors.length > 0 ? 'needs_review' : 'completed';
+      result.confidenceScore = parseErrors.length === 0 ? 0.9 : 0.7;
+      result.capturedAt = new Date().toISOString();
+      
+      if (parseErrors.length > 0) {
+        result.errors = parseErrors.slice(0, 10);
+      }
+
+      console.log(`[CSV Import] Parsed ${result.holdings.length} holdings from ${fileName || 'CSV'} in ${Date.now() - startTime}ms`);
+      return result;
+    } catch (error: any) {
+      result.errors.push(error.message || 'Failed to parse CSV');
+      result.parsingStatus = 'failed';
+      return result;
+    }
+  }
+
+  /**
+   * Detect CSV columns with flexible matching
+   */
+  private detectCSVColumns(headers: string[]): CSVColumnMap {
+    const findColumn = (patterns: string[]): number => {
+      for (const pattern of patterns) {
+        const idx = headers.findIndex(h => h.includes(pattern) || h === pattern);
+        if (idx !== -1) return idx;
+      }
+      return -1;
+    };
+
+    const nameIdx = findColumn(['name', 'scheme', 'fund', 'security', 'stock', 'scrip']);
+    const symbolIdx = findColumn(['symbol', 'ticker', 'scrip code', 'nse', 'bse']);
+    const isinIdx = findColumn(['isin']);
+    const folioIdx = findColumn(['folio', 'folio number', 'folio no']);
+    const quantityIdx = findColumn(['quantity', 'qty', 'units', 'shares', 'unit']);
+    const avgPriceIdx = findColumn(['avg', 'average', 'cost', 'price', 'nav', 'buy price', 'purchase']);
+    const currentValueIdx = findColumn(['current value', 'value', 'market value', 'amount']);
+    const investedValueIdx = findColumn(['invested', 'investment', 'cost value', 'purchase value']);
+    const typeIdx = findColumn(['type', 'asset', 'category', 'asset type', 'product']);
+    const sectorIdx = findColumn(['sector', 'industry']);
+    const dateIdx = findColumn(['date', 'purchase date', 'buy date', 'transaction date']);
+
+    return {
+      nameIdx,
+      symbolIdx,
+      isinIdx,
+      folioIdx,
+      quantityIdx,
+      avgPriceIdx,
+      currentValueIdx,
+      investedValueIdx,
+      typeIdx,
+      sectorIdx,
+      dateIdx,
+      hasMinimumColumns: (nameIdx !== -1 || symbolIdx !== -1 || isinIdx !== -1) && 
+                         (quantityIdx !== -1 || currentValueIdx !== -1)
+    };
+  }
+
+  /**
+   * Parse a CSV row handling quoted values and commas
+   */
+  private parseCSVRow(line: string): string[] {
+    const values: string[] = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        values.push(current.trim().replace(/^"|"$/g, ''));
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    values.push(current.trim().replace(/^"|"$/g, ''));
+
+    return values;
+  }
+
+  /**
+   * Convert a parsed CSV row to a UnifiedHolding
+   */
+  private parseCSVRowToHolding(
+    values: string[],
+    columnMap: CSVColumnMap,
+    options?: { defaultAssetType?: AssetType; detectAssetType?: boolean }
+  ): UnifiedHolding | null {
+    const getValue = (idx: number): string => (idx >= 0 && idx < values.length) ? values[idx] : '';
+    const getNumber = (idx: number): number => {
+      const val = getValue(idx).replace(/[₹$,\s]/g, '');
+      return parseFloat(val) || 0;
+    };
+
+    const name = getValue(columnMap.nameIdx) || getValue(columnMap.symbolIdx) || '';
+    const symbol = getValue(columnMap.symbolIdx) || '';
+    const isin = getValue(columnMap.isinIdx) || '';
+    const quantity = getNumber(columnMap.quantityIdx);
+    const avgPrice = getNumber(columnMap.avgPriceIdx);
+    let currentValue = getNumber(columnMap.currentValueIdx);
+    const investedValue = getNumber(columnMap.investedValueIdx) || (quantity * avgPrice);
+    const folioNumber = getValue(columnMap.folioIdx);
+    const typeRaw = getValue(columnMap.typeIdx).toLowerCase();
+    const purchaseDateStr = getValue(columnMap.dateIdx);
+
+    // Skip rows without essential data
+    if (!name && !symbol && !isin) return null;
+    if (quantity <= 0 && currentValue <= 0) return null;
+
+    // Calculate current value if not provided
+    if (currentValue <= 0 && quantity > 0 && avgPrice > 0) {
+      currentValue = quantity * avgPrice;
+    }
+
+    // Determine asset type
+    let assetType: AssetType = options?.defaultAssetType || 'equity';
+    if (options?.detectAssetType !== false && typeRaw) {
+      assetType = holdingNormalizationService.normalizeAssetType(typeRaw);
+    } else if (name.toLowerCase().includes('fund') || folioNumber) {
+      assetType = 'mutual_fund';
+    }
+
+    // Parse purchase date
+    let purchaseDate: string | undefined;
+    if (purchaseDateStr) {
+      try {
+        const parsed = new Date(purchaseDateStr);
+        if (!isNaN(parsed.getTime())) {
+          purchaseDate = parsed.toISOString().split('T')[0];
+        }
+      } catch {}
+    }
+
+    return {
+      id: crypto.randomUUID(),
+      name: name || symbol || isin,
+      symbol: symbol.toUpperCase() || undefined,
+      isin: isin.toUpperCase() || undefined,
+      folioNumber: folioNumber || undefined,
+      assetType,
+      quantity,
+      avgCostPerUnit: avgPrice || undefined,
+      investedValue: investedValue || undefined,
+      currentValue,
+      purchaseDate,
+      source: 'csv_upload' as any,
+    };
+  }
+
+  /**
+   * Enrich CSV holdings with ISIN lookup from database
+   */
+  private async enrichCSVHoldings(holdings: UnifiedHolding[]): Promise<UnifiedHolding[]> {
+    const enrichedHoldings: UnifiedHolding[] = [];
+
+    for (const holding of holdings) {
+      let enriched = { ...holding };
+
+      // Try to enrich with ISIN lookup if we have a symbol or name but no ISIN
+      if (!holding.isin && (holding.symbol || holding.name)) {
+        try {
+          const searchTerm = holding.symbol || holding.name;
+          const enrichment = await holdingNormalizationService.enrichWithISIN(searchTerm);
+          if (enrichment.isin) {
+            enriched.isin = enrichment.isin;
+            enriched.name = enrichment.schemeName || enriched.name;
+            if (enrichment.assetType) {
+              enriched.assetType = enrichment.assetType as AssetType;
+            }
+          }
+        } catch (err) {
+          // Continue without enrichment
+        }
+      }
+
+      // Calculate unrealized gain if we have cost and current value
+      if (enriched.investedValue && enriched.currentValue) {
+        enriched.unrealizedGain = enriched.currentValue - enriched.investedValue;
+        enriched.unrealizedGainPercent = enriched.investedValue > 0 
+          ? (enriched.unrealizedGain / enriched.investedValue) * 100 
+          : 0;
+      }
+
+      enrichedHoldings.push(enriched);
+    }
+
+    return enrichedHoldings;
+  }
+}
+
+interface CSVColumnMap {
+  nameIdx: number;
+  symbolIdx: number;
+  isinIdx: number;
+  folioIdx: number;
+  quantityIdx: number;
+  avgPriceIdx: number;
+  currentValueIdx: number;
+  investedValueIdx: number;
+  typeIdx: number;
+  sectorIdx: number;
+  dateIdx: number;
+  hasMinimumColumns: boolean;
 }
 
 export const unifiedPortfolioImportService = new UnifiedPortfolioImportService();
