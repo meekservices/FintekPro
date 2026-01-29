@@ -1451,6 +1451,176 @@ _This is not tax advice. Consult your CA/Tax Advisor for personalized guidance._
       recommendation
     };
   }
+
+  /**
+   * Generate tax-efficient sell timing advice for AI recommendations
+   * Returns actionable insights about when to sell holdings for optimal tax efficiency
+   */
+  async generateTaxEfficientSellAdvice(holdings: Array<{
+    name: string;
+    productType: string;
+    category?: string;
+    isin?: string;
+    schemeCode?: string;
+    currentValue: number;
+    investedAmount?: number;
+    purchaseDate?: Date | string;
+    quantity?: number;
+    unrealizedGain?: number;
+  }>): Promise<{
+    holdingsWithAdvice: Array<{
+      name: string;
+      isin?: string;
+      currentValue: number;
+      unrealizedGain: number;
+      taxType: 'STCG' | 'LTCG' | 'SLAB' | 'UNKNOWN';
+      daysToLTCG: number | null;
+      daysToExitLoadFree: number | null;
+      sellAdvice: 'SELL_NOW' | 'WAIT_FOR_LTCG' | 'WAIT_FOR_EXIT_LOAD' | 'WAIT_FOR_BOTH' | 'OPTIMAL';
+      estimatedSavingsIfWait: number;
+      advisoryMessage: string;
+      waitDays: number;
+    }>;
+    summary: {
+      totalHoldings: number;
+      optimalToSell: number;
+      waitForLTCG: number;
+      waitForExitLoad: number;
+      potentialTaxSavings: number;
+      potentialExitLoadSavings: number;
+    };
+  }> {
+    const holdingsWithAdvice: Array<{
+      name: string;
+      isin?: string;
+      currentValue: number;
+      unrealizedGain: number;
+      taxType: 'STCG' | 'LTCG' | 'SLAB' | 'UNKNOWN';
+      daysToLTCG: number | null;
+      daysToExitLoadFree: number | null;
+      sellAdvice: 'SELL_NOW' | 'WAIT_FOR_LTCG' | 'WAIT_FOR_EXIT_LOAD' | 'WAIT_FOR_BOTH' | 'OPTIMAL';
+      estimatedSavingsIfWait: number;
+      advisoryMessage: string;
+      waitDays: number;
+    }> = [];
+
+    let totalOptimal = 0;
+    let totalWaitLTCG = 0;
+    let totalWaitExitLoad = 0;
+    let potentialTaxSavings = 0;
+    let potentialExitLoadSavings = 0;
+
+    for (const holding of holdings) {
+      const taxDetails = await this.calculateHoldingTaxAsync(holding);
+      const holdingPeriodDays = this.calculateHoldingPeriod(holding.purchaseDate);
+      
+      // Calculate days to LTCG (365 days for equity, 1095 for debt)
+      const ltcgThreshold = this.isEquityOriented(holding.productType, holding.category) ? 365 : 1095;
+      const daysToLTCG = holdingPeriodDays < ltcgThreshold ? ltcgThreshold - holdingPeriodDays : null;
+      
+      // Calculate days to exit load free
+      const daysToExitLoadFree = taxDetails.daysToZeroExitLoad;
+      
+      // Determine sell advice
+      let sellAdvice: 'SELL_NOW' | 'WAIT_FOR_LTCG' | 'WAIT_FOR_EXIT_LOAD' | 'WAIT_FOR_BOTH' | 'OPTIMAL' = 'OPTIMAL';
+      let estimatedSavingsIfWait = 0;
+      let advisoryMessage = '';
+      let waitDays = 0;
+
+      // Check if STCG and close to LTCG threshold (within 90 days)
+      const shouldWaitForLTCG = daysToLTCG !== null && daysToLTCG <= 90 && taxDetails.unrealizedGain > 0;
+      
+      // Check if exit load applies and close to expiry (within 60 days)
+      const shouldWaitForExitLoad = daysToExitLoadFree !== null && daysToExitLoadFree > 0 && daysToExitLoadFree <= 60;
+
+      if (shouldWaitForLTCG && shouldWaitForExitLoad) {
+        sellAdvice = 'WAIT_FOR_BOTH';
+        waitDays = Math.max(daysToLTCG, daysToExitLoadFree);
+        
+        // Calculate STCG vs LTCG savings (20% STCG vs 12.5% LTCG post-budget)
+        const stcgTax = taxDetails.unrealizedGain * 0.20;
+        const ltcgTax = Math.max(0, taxDetails.unrealizedGain - 125000) * 0.125; // ₹1.25L exemption
+        const taxSavings = stcgTax - ltcgTax;
+        
+        estimatedSavingsIfWait = taxSavings + taxDetails.exitLoad;
+        potentialTaxSavings += taxSavings;
+        potentialExitLoadSavings += taxDetails.exitLoad;
+        
+        advisoryMessage = `Wait ${waitDays} days to save ₹${Math.round(estimatedSavingsIfWait).toLocaleString('en-IN')} (LTCG + exit load)`;
+        totalWaitLTCG++;
+        totalWaitExitLoad++;
+      } else if (shouldWaitForLTCG) {
+        sellAdvice = 'WAIT_FOR_LTCG';
+        waitDays = daysToLTCG;
+        
+        const stcgTax = taxDetails.unrealizedGain * 0.20;
+        const ltcgTax = Math.max(0, taxDetails.unrealizedGain - 125000) * 0.125;
+        estimatedSavingsIfWait = stcgTax - ltcgTax;
+        potentialTaxSavings += estimatedSavingsIfWait;
+        
+        advisoryMessage = `Wait ${daysToLTCG} days to convert STCG to LTCG, saving ₹${Math.round(estimatedSavingsIfWait).toLocaleString('en-IN')} in taxes`;
+        totalWaitLTCG++;
+      } else if (shouldWaitForExitLoad) {
+        sellAdvice = 'WAIT_FOR_EXIT_LOAD';
+        waitDays = daysToExitLoadFree;
+        estimatedSavingsIfWait = taxDetails.exitLoad;
+        potentialExitLoadSavings += estimatedSavingsIfWait;
+        
+        advisoryMessage = `Wait ${daysToExitLoadFree} days to avoid ₹${Math.round(taxDetails.exitLoad).toLocaleString('en-IN')} exit load`;
+        totalWaitExitLoad++;
+      } else if (taxDetails.unrealizedGain < 0) {
+        sellAdvice = 'SELL_NOW';
+        advisoryMessage = 'Consider tax loss harvesting - this loss can offset gains';
+      } else {
+        sellAdvice = 'OPTIMAL';
+        advisoryMessage = 'No timing benefit - can sell at current conditions';
+        totalOptimal++;
+      }
+
+      holdingsWithAdvice.push({
+        name: holding.name,
+        isin: holding.isin,
+        currentValue: holding.currentValue,
+        unrealizedGain: taxDetails.unrealizedGain,
+        taxType: taxDetails.taxType,
+        daysToLTCG,
+        daysToExitLoadFree,
+        sellAdvice,
+        estimatedSavingsIfWait,
+        advisoryMessage,
+        waitDays
+      });
+    }
+
+    return {
+      holdingsWithAdvice,
+      summary: {
+        totalHoldings: holdings.length,
+        optimalToSell: totalOptimal,
+        waitForLTCG: totalWaitLTCG,
+        waitForExitLoad: totalWaitExitLoad,
+        potentialTaxSavings,
+        potentialExitLoadSavings
+      }
+    };
+  }
+
+  /**
+   * Helper to check if a fund is equity-oriented (for tax threshold purposes)
+   */
+  private isEquityOriented(productType: string, category?: string): boolean {
+    const equityTypes = ['STOCK', 'EQUITY', 'ETF'];
+    if (equityTypes.some(t => productType?.toUpperCase().includes(t))) {
+      return true;
+    }
+    
+    const equityCategories = ['equity', 'large cap', 'mid cap', 'small cap', 'flexi cap', 'multi cap', 'focused', 'elss', 'index'];
+    if (category && equityCategories.some(c => category.toLowerCase().includes(c))) {
+      return true;
+    }
+    
+    return false;
+  }
 }
 
 export const proposalCapitalGainsService = new ProposalCapitalGainsService();

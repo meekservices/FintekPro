@@ -3,6 +3,7 @@ import { storage } from '../storage';
 import { db } from '../db';
 import { capitalGainsReports, insertCapitalGainsReportSchema } from '@shared/schema';
 import { eq } from 'drizzle-orm';
+import { proposalCapitalGainsService } from '../services/proposal-capital-gains-service';
 
 export function registerCapitalGainsRoutes(app: Express): void {
   app.post("/api/nsdl/capital-gains", async (req, res) => {
@@ -195,6 +196,178 @@ export function registerCapitalGainsRoutes(app: Express): void {
     } catch (error) {
       console.error("Error deleting capital gains report:", error);
       res.status(500).json({ error: "Failed to delete capital gains report" });
+    }
+  });
+
+  // Tax-efficient sell timing advice endpoint
+  app.post("/api/capital-gains/sell-advice", async (req, res) => {
+    try {
+      const { holdings } = req.body;
+
+      if (!holdings || !Array.isArray(holdings) || holdings.length === 0) {
+        return res.status(400).json({ error: "Holdings array is required" });
+      }
+
+      const advice = await proposalCapitalGainsService.generateTaxEfficientSellAdvice(holdings);
+      res.json(advice);
+    } catch (error) {
+      console.error("Error generating tax-efficient sell advice:", error);
+      res.status(500).json({ error: "Failed to generate sell advice" });
+    }
+  });
+
+  // What-if redemption simulator endpoint
+  app.post("/api/capital-gains/simulate-redemption", async (req, res) => {
+    try {
+      const { holding, redemptionAmount, strategy = 'fifo' } = req.body;
+
+      if (!holding || !redemptionAmount) {
+        return res.status(400).json({ error: "Holding and redemption amount are required" });
+      }
+
+      // Calculate current NAV and prepare lots
+      const units = holding.quantity || 100;
+      const currentNav = holding.currentValue / units;
+      const purchaseNav = (holding.investedAmount || holding.currentValue * 0.85) / units;
+      
+      // Generate lots for simulation if not provided
+      const lots = holding.lots || [{
+        id: 'lot-1',
+        purchaseDate: holding.purchaseDate || new Date().toISOString(),
+        purchaseNav,
+        purchaseValue: purchaseNav * units,
+        units,
+        remainingUnits: units,
+        source: 'purchase' as const
+      }];
+
+      // First calculate lot-wise tax summary using the correct signature
+      const lotWiseSummary = proposalCapitalGainsService.calculateLotWiseTax(
+        holding.name || 'Holding',
+        lots.map((lot: any) => ({
+          id: lot.id || lot.lotId || 'lot-1',
+          purchaseDate: lot.purchaseDate,
+          purchaseNav: lot.purchaseNav || purchaseNav,
+          purchaseValue: lot.purchaseValue || (lot.purchaseNav || purchaseNav) * (lot.units || units),
+          units: lot.units || units,
+          remainingUnits: lot.remainingUnits || lot.units || units,
+          source: lot.source || 'purchase'
+        })),
+        currentNav,
+        holding.productType || 'MUTUAL_FUND',
+        holding.category,
+        holding.isin,
+        holding.schemeCode,
+        undefined, // exitLoadDays - will use ISIN lookup
+        undefined  // exitLoadPercent - will use ISIN lookup
+      );
+
+      // Then get optimized redemption plan
+      const redemptionPlan = proposalCapitalGainsService.getOptimizedRedemptionPlan(
+        lotWiseSummary,
+        redemptionAmount,
+        strategy
+      );
+
+      // Also get comprehensive tax details for context
+      const taxDetails = await proposalCapitalGainsService.calculateHoldingTaxAsync(holding);
+
+      res.json({
+        holding: {
+          name: holding.name,
+          isin: holding.isin,
+          currentValue: holding.currentValue,
+          investedAmount: holding.investedAmount
+        },
+        redemptionAmount,
+        strategy,
+        lotWiseSummary: {
+          totalLots: lotWiseSummary.lots.length,
+          stcgLots: lotWiseSummary.stcgLots,
+          ltcgLots: lotWiseSummary.ltcgLots,
+          totalUnrealizedGain: lotWiseSummary.totalUnrealizedGain,
+          totalEstimatedTax: lotWiseSummary.totalEstimatedTax,
+          totalValue: lotWiseSummary.totalCurrentValue
+        },
+        redemptionPlan,
+        currentTaxDetails: {
+          taxType: taxDetails.taxType,
+          holdingPeriodDays: taxDetails.holdingPeriodDays,
+          exitLoad: taxDetails.exitLoad,
+          exitLoadSource: taxDetails.exitLoadSource,
+          daysToZeroExitLoad: taxDetails.daysToZeroExitLoad,
+          grandfatheringApplied: taxDetails.grandfatheringApplied,
+          grandfatheringBenefit: taxDetails.grandfatheringBenefit
+        },
+        comparison: {
+          withCurrentStrategy: {
+            totalTax: redemptionPlan.totalTax,
+            totalExitLoad: redemptionPlan.totalExitLoad,
+            totalCost: redemptionPlan.totalTax + redemptionPlan.totalExitLoad
+          }
+        }
+      });
+    } catch (error) {
+      console.error("Error simulating redemption:", error);
+      res.status(500).json({ error: "Failed to simulate redemption" });
+    }
+  });
+
+  // Exit load status dashboard endpoint
+  app.post("/api/capital-gains/exit-load-status", async (req, res) => {
+    try {
+      const { holdings } = req.body;
+
+      if (!holdings || !Array.isArray(holdings)) {
+        return res.status(400).json({ error: "Holdings array is required" });
+      }
+
+      const statusList = await Promise.all(holdings.map(async (holding: any) => {
+        const taxDetails = await proposalCapitalGainsService.calculateHoldingTaxAsync(holding);
+        const holdingPeriodDays = Math.floor(
+          (Date.now() - new Date(holding.purchaseDate || Date.now()).getTime()) / (1000 * 60 * 60 * 24)
+        );
+
+        return {
+          name: holding.name,
+          isin: holding.isin,
+          currentValue: holding.currentValue,
+          holdingPeriodDays,
+          exitLoadPercent: taxDetails.exitLoad > 0 ? (taxDetails.exitLoad / holding.currentValue) * 100 : 0,
+          exitLoadAmount: taxDetails.exitLoad,
+          exitLoadSource: taxDetails.exitLoadSource,
+          daysToExitLoadFree: taxDetails.daysToZeroExitLoad,
+          exitLoadFreeDate: taxDetails.daysToZeroExitLoad !== null 
+            ? new Date(Date.now() + taxDetails.daysToZeroExitLoad * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+            : null,
+          isExitLoadFree: taxDetails.exitLoad === 0,
+          taxType: taxDetails.taxType,
+          unrealizedGain: taxDetails.unrealizedGain
+        };
+      }));
+
+      // Sort by days to exit load free (soonest first)
+      statusList.sort((a, b) => {
+        if (a.daysToExitLoadFree === null) return 1;
+        if (b.daysToExitLoadFree === null) return -1;
+        return a.daysToExitLoadFree - b.daysToExitLoadFree;
+      });
+
+      const summary = {
+        totalHoldings: statusList.length,
+        exitLoadFree: statusList.filter(h => h.isExitLoadFree).length,
+        withinExitLoadPeriod: statusList.filter(h => !h.isExitLoadFree).length,
+        totalExitLoadExposure: statusList.reduce((sum, h) => sum + h.exitLoadAmount, 0),
+        holdingsNearExitLoadExpiry: statusList.filter(h => h.daysToExitLoadFree !== null && h.daysToExitLoadFree <= 60).length
+      };
+
+      res.json({
+        holdings: statusList,
+        summary
+      });
+    } catch (error) {
+      console.error("Error getting exit load status:", error);
+      res.status(500).json({ error: "Failed to get exit load status" });
     }
   });
 
