@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Calculator, 
   TrendingUp, 
@@ -15,10 +17,17 @@ import {
   RefreshCw,
   Info,
   Scale,
-  IndianRupee
+  IndianRupee,
+  Loader2,
+  Download,
+  FileText,
+  PieChart
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Link } from "wouter";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface TaxCalculation {
   grossIncome: number;
@@ -119,6 +128,87 @@ export default function TaxRegimeComparison() {
     }).format(value);
   };
 
+  const { toast } = useToast();
+
+  const regimeComparisonMutation = useMutation({
+    mutationFn: async (data: {
+      salaryIncome: number;
+      otherIncome: number;
+      deductions80C: number;
+      deductions80D: number;
+      homeLoanInterest: number;
+    }) => {
+      const response = await apiRequest('/api/tax/regime-comparison', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      return response;
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Comparison Complete",
+        description: `${data.recommendation?.regime === 'new' ? 'New' : 'Old'} regime saves you ${formatCurrency(data.recommendation?.savings || 0)}`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Comparison Failed",
+        description: error.message || "Could not compare tax regimes",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const taxPnlMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('/api/tax/pnl-report', {
+        method: 'POST',
+        body: JSON.stringify({ format: 'json' }),
+      });
+      return response;
+    },
+    onSuccess: (data) => {
+      const blob = new Blob([JSON.stringify(data.data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tax-pnl-report-${data.data?.fiscalYear || 'current'}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast({
+        title: "Report Downloaded",
+        description: "Your Tax P&L report has been downloaded",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Download Failed",
+        description: error.message || "Could not generate report",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const handleServerComparison = () => {
+    regimeComparisonMutation.mutate({
+      salaryIncome: parseFloat(grossIncome) || 0,
+      otherIncome: 0,
+      deductions80C: parseFloat(section80C) || 0,
+      deductions80D: parseFloat(section80D) || 0,
+      homeLoanInterest: parseFloat(homeLoan) || 0,
+    });
+  };
+
+  const capitalGainsBreakdown = regimeComparisonMutation.data?.capitalGainsBreakdown;
+  const serverComparison = regimeComparisonMutation.data?.comparison;
+  const serverRecommendation = regimeComparisonMutation.data?.recommendation;
+
+  const displayOldRegime = serverComparison?.oldRegime || oldRegimeCalc;
+  const displayNewRegime = serverComparison?.newRegime || newRegimeCalc;
+  const displayRecommendation = serverRecommendation?.regime || recommendation;
+  const displaySavings = serverRecommendation?.savings !== undefined ? serverRecommendation.savings : Math.abs(savings);
+  const hasServerData = !!serverComparison;
+
   return (
     <div className="container py-8 space-y-6" data-testid="tax-regime-comparison-page">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -131,10 +221,72 @@ export default function TaxRegimeComparison() {
             Compare old vs new tax regime to optimize your tax liability
           </p>
         </div>
-        <Badge variant="secondary" className="text-sm px-4 py-2">
-          FY 2024-25 (AY 2025-26)
-        </Badge>
+        <div className="flex gap-2">
+          <Button 
+            onClick={handleServerComparison} 
+            disabled={regimeComparisonMutation.isPending}
+            variant="default"
+            data-testid="btn-compare-with-portfolio"
+          >
+            {regimeComparisonMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            <PieChart className="h-4 w-4 mr-2" />
+            Include Portfolio Gains
+          </Button>
+          <Button 
+            onClick={() => taxPnlMutation.mutate()} 
+            disabled={taxPnlMutation.isPending}
+            variant="outline"
+            data-testid="btn-download-pnl"
+          >
+            {taxPnlMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            <Download className="h-4 w-4 mr-2" />
+            Tax P&L Report
+          </Button>
+        </div>
       </div>
+
+      {hasServerData && (
+        <Alert className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/20">
+          <CheckCircle2 className="h-4 w-4 text-blue-600" />
+          <AlertTitle>Portfolio-Inclusive Comparison</AlertTitle>
+          <AlertDescription>
+            Results below include your realized capital gains from investments. {serverRecommendation?.explanation}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {capitalGainsBreakdown && (
+        <Card className="border-orange-200 bg-orange-50/50 dark:bg-orange-950/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <PieChart className="h-4 w-4 text-orange-600" />
+              Capital Gains from Your Portfolio
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <p className="text-muted-foreground">Short Term (STCG)</p>
+                <p className="font-semibold">{formatCurrency(capitalGainsBreakdown.stcg?.amount || 0)}</p>
+                <p className="text-xs text-orange-600">Tax: {formatCurrency(capitalGainsBreakdown.stcg?.tax || 0)} @ 20%</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Long Term (LTCG)</p>
+                <p className="font-semibold">{formatCurrency(capitalGainsBreakdown.ltcg?.amount || 0)}</p>
+                <p className="text-xs text-orange-600">Tax: {formatCurrency(capitalGainsBreakdown.ltcg?.tax || 0)} @ 12.5%</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">LTCG Exemption</p>
+                <p className="font-semibold text-green-600">-{formatCurrency(capitalGainsBreakdown.ltcg?.exemption || 0)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Total CG Tax</p>
+                <p className="font-semibold text-red-600">{formatCurrency(capitalGainsBreakdown.totalTax || 0)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card>
@@ -241,11 +393,11 @@ export default function TaxRegimeComparison() {
           </CardContent>
         </Card>
 
-        <Card className={`border-2 ${recommendation === 'old' ? 'border-green-500 bg-green-50/50 dark:bg-green-950/50' : ''}`}>
+        <Card className={`border-2 ${displayRecommendation === 'old' ? 'border-green-500 bg-green-50/50 dark:bg-green-950/50' : ''}`}>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">Old Tax Regime</CardTitle>
-              {recommendation === 'old' && (
+              {displayRecommendation === 'old' && (
                 <Badge className="bg-green-100 text-green-800">
                   <CheckCircle2 className="h-3 w-3 mr-1" />
                   Recommended
@@ -296,11 +448,11 @@ export default function TaxRegimeComparison() {
           </CardContent>
         </Card>
 
-        <Card className={`border-2 ${recommendation === 'new' ? 'border-green-500 bg-green-50/50 dark:bg-green-950/50' : ''}`}>
+        <Card className={`border-2 ${displayRecommendation === 'new' ? 'border-green-500 bg-green-50/50 dark:bg-green-950/50' : ''}`}>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">New Tax Regime (2024)</CardTitle>
-              {recommendation === 'new' && (
+              {displayRecommendation === 'new' && (
                 <Badge className="bg-green-100 text-green-800">
                   <CheckCircle2 className="h-3 w-3 mr-1" />
                   Recommended
@@ -353,39 +505,42 @@ export default function TaxRegimeComparison() {
       </div>
 
       <Card className={`${
-        recommendation === 'old' ? 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950' :
-        recommendation === 'new' ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950' :
+        displayRecommendation === 'old' ? 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950' :
+        displayRecommendation === 'new' ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950' :
         ''
       }`}>
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              {recommendation === 'old' ? (
+              {displayRecommendation === 'old' ? (
                 <TrendingDown className="h-10 w-10 text-green-600 dark:text-green-400" />
-              ) : recommendation === 'new' ? (
+              ) : displayRecommendation === 'new' ? (
                 <TrendingUp className="h-10 w-10 text-blue-600 dark:text-blue-400" />
               ) : (
                 <Scale className="h-10 w-10 text-muted-foreground dark:text-muted-foreground" />
               )}
               <div>
                 <h3 className="text-xl font-bold">
-                  {recommendation === 'old' && 'Old Regime saves you more!'}
-                  {recommendation === 'new' && 'New Regime is better for you!'}
-                  {recommendation === 'either' && 'Both regimes result in same tax'}
+                  {displayRecommendation === 'old' && 'Old Regime saves you more!'}
+                  {displayRecommendation === 'new' && 'New Regime is better for you!'}
+                  {displayRecommendation === 'either' && 'Both regimes result in same tax'}
                 </h3>
                 <p className="text-muted-foreground">
-                  {savings !== 0 && (
+                  {displaySavings !== 0 && (
                     <>
-                      You save {formatCurrency(Math.abs(savings))} by choosing the {recommendation === 'old' ? 'Old' : 'New'} Regime
+                      You save {formatCurrency(displaySavings)} by choosing the {displayRecommendation === 'old' ? 'Old' : 'New'} Regime
+                      {hasServerData && <span className="ml-1 text-blue-600">(including portfolio)</span>}
                     </>
                   )}
                 </p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-sm text-muted-foreground">Tax Difference</p>
-              <p className={`text-2xl font-bold ${savings > 0 ? 'text-green-600' : savings < 0 ? 'text-blue-600' : ''}`}>
-                {savings > 0 ? '+' : ''}{formatCurrency(savings)}
+              <p className="text-sm text-muted-foreground">
+                Tax Difference {hasServerData && <Badge variant="outline" className="ml-1 text-xs">With Portfolio</Badge>}
+              </p>
+              <p className={`text-2xl font-bold ${displaySavings > 0 ? 'text-green-600' : displaySavings < 0 ? 'text-blue-600' : ''}`}>
+                {displayRecommendation === 'old' ? '+' : displayRecommendation === 'new' ? '-' : ''}{formatCurrency(displaySavings)}
               </p>
             </div>
           </div>
