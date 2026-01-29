@@ -22,10 +22,13 @@ import {
   useParseCASStatement,
   useImportWealthyURL,
   useSaveImportedHoldings,
+  useImportHistory,
+  useRecordImportHistory,
   type ImportedHolding,
   type ImportResult,
   type AssetType,
   type ImportSource,
+  type ImportHistoryEntry,
 } from "@/hooks/use-portfolio";
 
 const ASSET_TYPE_OPTIONS: { value: AssetType; label: string }[] = [
@@ -89,6 +92,9 @@ export function PortfolioImportPanel({
   const parseCAS = useParseCASStatement();
   const importWealthy = useImportWealthyURL();
   const saveHoldings = useSaveImportedHoldings();
+  const importHistory = useImportHistory(prospectId);
+  const recordHistory = useRecordImportHistory();
+  const [showHistory, setShowHistory] = useState(false);
 
   const isLoading = parsePDF.isPending || parseURL.isPending || parseCAS.isPending || importWealthy.isPending || saveHoldings.isPending;
 
@@ -257,6 +263,22 @@ export function PortfolioImportPanel({
                 <p className="text-xs text-muted-foreground">Estimated Value</p>
                 <p className="text-lg font-bold">{formatCurrency(totalValue)}</p>
               </div>
+              <div className="border-l pl-4">
+                <p className="text-xs text-muted-foreground">ISIN Enrichment</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-sm font-medium text-green-600">
+                    {previewHoldings.filter(h => h.isin).length} matched
+                  </span>
+                  <span className="text-sm text-muted-foreground">/</span>
+                  <span className="text-sm text-amber-600">
+                    {previewHoldings.filter(h => !h.isin && h.symbol).length} partial
+                  </span>
+                  <span className="text-sm text-muted-foreground">/</span>
+                  <span className="text-sm text-muted-foreground">
+                    {previewHoldings.filter(h => !h.isin && !h.symbol).length} unknown
+                  </span>
+                </div>
+              </div>
             </div>
             <Badge variant="secondary">{importSource.replace('_', ' ')}</Badge>
           </div>
@@ -265,8 +287,9 @@ export function PortfolioImportPanel({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[300px]">Name / Symbol</TableHead>
+                  <TableHead className="w-[280px]">Name / Symbol</TableHead>
                   <TableHead>Asset Type</TableHead>
+                  <TableHead className="w-[80px]">ISIN Status</TableHead>
                   <TableHead className="text-right">Quantity</TableHead>
                   <TableHead className="text-right">Avg Price</TableHead>
                   <TableHead className="text-right">Value</TableHead>
@@ -317,6 +340,23 @@ export function PortfolioImportPanel({
                         ) : (
                           <Badge variant="outline" className="text-xs">
                             {ASSET_TYPE_OPTIONS.find(o => o.value === holding.assetType)?.label || holding.assetType}
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {holding.isin ? (
+                          <Badge variant="default" className="text-xs bg-green-600 hover:bg-green-700">
+                            <CheckCircle2 className="w-3 h-3 mr-1" />
+                            Matched
+                          </Badge>
+                        ) : holding.symbol ? (
+                          <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 hover:bg-amber-200">
+                            <AlertCircle className="w-3 h-3 mr-1" />
+                            Partial
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs text-muted-foreground">
+                            Unknown
                           </Badge>
                         )}
                       </TableCell>
@@ -584,6 +624,63 @@ export function PortfolioImportPanel({
             </TabsContent>
           )}
         </Tabs>
+
+        {/* Import History Section */}
+        {prospectId && (
+          <div className="mt-6 pt-4 border-t">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-between text-muted-foreground"
+              onClick={() => setShowHistory(!showHistory)}
+            >
+              <span className="flex items-center gap-2">
+                <RefreshCw className="w-4 h-4" />
+                Import History
+                {importHistory.data?.count ? ` (${importHistory.data.count})` : ''}
+              </span>
+              {showHistory ? <ArrowLeft className="w-4 h-4 rotate-90" /> : <ArrowLeft className="w-4 h-4 -rotate-90" />}
+            </Button>
+
+            {showHistory && (
+              <div className="mt-3 space-y-2 max-h-[200px] overflow-auto">
+                {importHistory.isLoading ? (
+                  <div className="flex items-center justify-center p-4">
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    <span className="text-sm text-muted-foreground">Loading history...</span>
+                  </div>
+                ) : !importHistory.data?.history?.length ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">No import history yet</p>
+                ) : (
+                  importHistory.data.history.map((entry) => (
+                    <div
+                      key={entry.id}
+                      className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant={entry.status === 'success' ? 'default' : entry.status === 'partial' ? 'secondary' : 'destructive'}
+                          className="text-xs"
+                        >
+                          {entry.status}
+                        </Badge>
+                        <span className="font-medium">{entry.source.replace(/_/g, ' ')}</span>
+                        {entry.provider && (
+                          <span className="text-muted-foreground">via {entry.provider}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 text-muted-foreground text-xs">
+                        <span>{entry.holdingsCount} holdings</span>
+                        <span className="text-green-600">{entry.isinMatchedCount} matched</span>
+                        <span>{new Date(entry.timestamp).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

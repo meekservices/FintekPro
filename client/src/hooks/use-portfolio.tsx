@@ -391,3 +391,43 @@ export function useUpdateHolding() {
     },
   });
 }
+
+// Import History Types
+export interface ImportHistoryEntry {
+  id: string;
+  timestamp: string;
+  source: string;
+  provider: string | null;
+  holdingsCount: number;
+  totalValue: number;
+  isinMatchedCount: number;
+  confidenceScore: number;
+  status: 'success' | 'partial' | 'failed';
+  errors?: string[];
+}
+
+// Hook to fetch import history for a client
+export function useImportHistory(clientId: string | undefined) {
+  return useQuery<{ history: ImportHistoryEntry[]; count: number }>({
+    queryKey: ['/api/ai-investment/portfolio', clientId, 'import-history'],
+    enabled: !!clientId,
+  });
+}
+
+// Hook to record import history entry
+export function useRecordImportHistory() {
+  const queryClient = useQueryClient();
+
+  return useMutation<{ success: boolean; entry: ImportHistoryEntry }, Error, { clientId: string; data: Omit<ImportHistoryEntry, 'id' | 'timestamp'> }>({
+    mutationFn: async ({ clientId, data }) => {
+      const res = await apiRequest(`/api/ai-investment/portfolio/${clientId}/import-history`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      return res.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/ai-investment/portfolio', variables.clientId, 'import-history'] });
+    },
+  });
+}

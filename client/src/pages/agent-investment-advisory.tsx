@@ -90,8 +90,10 @@ import {
   IndianRupee,
   Sparkles,
   ChevronRight,
-  RotateCcw
+  RotateCcw,
+  FolderUp
 } from "lucide-react";
+import { PortfolioImportPanel } from "@/components/portfolio/PortfolioImportPanel";
 
 interface Portfolio {
   id: string;
@@ -236,6 +238,7 @@ export default function AgentInvestmentAdvisory() {
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showPasteDialog, setShowPasteDialog] = useState(false);
   const [showCASUploadDialog, setShowCASUploadDialog] = useState(false);
+  const [showUnifiedImportDialog, setShowUnifiedImportDialog] = useState(false);
   const [casFile, setCasFile] = useState<File | null>(null);
   const [casUploadType, setCasUploadType] = useState<'cas' | 'demat' | null>(null);
   const [casPreviewHoldings, setCasPreviewHoldings] = useState<Array<{
@@ -953,6 +956,46 @@ export default function AgentInvestmentAdvisory() {
 
         <TabsContent value="portfolio" className="space-y-4">
           <div className="flex flex-wrap gap-2 mb-4">
+            {/* Unified Portfolio Import - Uses centralized service with provider detection */}
+            <Dialog open={showUnifiedImportDialog} onOpenChange={setShowUnifiedImportDialog}>
+              <DialogTrigger asChild>
+                <Button variant="default" data-testid="button-unified-import">
+                  <FolderUp className="h-4 w-4 mr-2" />
+                  Smart Import
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[85vh] overflow-auto">
+                <DialogHeader>
+                  <DialogTitle>Smart Portfolio Import</DialogTitle>
+                  <DialogDescription>
+                    Import from PDF, CAS statements, URLs, or enter manually. Auto-detects 17+ providers with ISIN enrichment.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-2">
+                  <PortfolioImportPanel
+                    prospectId={selectedClient}
+                    onImportComplete={(result) => {
+                      console.log("Import complete:", result);
+                    }}
+                    onHoldingsSaved={(count) => {
+                      setShowUnifiedImportDialog(false);
+                      queryClient.invalidateQueries({ queryKey: ['/api/ai-investment/holdings', selectedClient] });
+                      toast({
+                        title: "Import Successful",
+                        description: `${count} holdings imported and enriched with ISIN data.`,
+                      });
+                    }}
+                    showWealthyImport={true}
+                    showCASImport={true}
+                    showPDFImport={true}
+                    showURLImport={true}
+                    showManualEntry={true}
+                    compact={true}
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
+            
             <Dialog open={showAddHoldingDialog} onOpenChange={setShowAddHoldingDialog}>
               <DialogTrigger asChild>
                 <Button variant="outline" data-testid="button-add-holding">
