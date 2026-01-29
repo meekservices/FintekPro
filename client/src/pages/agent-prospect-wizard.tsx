@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import jsPDF from "jspdf";
+import PortfolioImportPanel from "@/components/portfolio/PortfolioImportPanel";
 
 interface PortfolioHolding {
   productType: string;
@@ -597,6 +598,9 @@ export default function AgentProspectWizard() {
   
   // CAS/Statement Import State
   const [showCASUploadDialog, setShowCASUploadDialog] = useState(false);
+  
+  // Smart Import Dialog State
+  const [showSmartImportDialog, setShowSmartImportDialog] = useState(false);
   const [casFile, setCasFile] = useState<File | null>(null);
   const [casUploadType, setCasUploadType] = useState<'cas' | 'demat' | null>(null);
   const [casPreviewHoldings, setCasPreviewHoldings] = useState<Array<{
@@ -634,6 +638,21 @@ export default function AgentProspectWizard() {
   const [taxSummary, setTaxSummary] = useState<any>(null);
   const [freshInvestments, setFreshInvestments] = useState<FreshInvestmentSuggestion[]>([]);
   const [proposal, setProposal] = useState<CombinedProposal | null>(null);
+  
+  // Exit Load Calendar State
+  const [exitLoadData, setExitLoadData] = useState<{
+    summary: { totalHoldings: number; exitLoadFree: number; withinExitLoadPeriod: number; totalExitLoadExposure: number };
+    holdings: Array<{
+      name: string;
+      isin?: string;
+      currentValue: number;
+      isExitLoadFree: boolean;
+      exitLoadFreeDate: string | null;
+      daysToExitLoadFree: number | null;
+      exitLoadPercent: number;
+      currentExitLoadAmount: number;
+    }>;
+  } | null>(null);
   const [prospectId, setProspectId] = useState<string | null>(urlProspectId);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
@@ -1658,11 +1677,39 @@ export default function AgentProspectWizard() {
         body: JSON.stringify({ holdings, riskProfile })
       });
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       if (data.success) {
         setAnalysis(data.analysis);
         toast({ title: "Analysis Complete", description: "Portfolio analyzed successfully." });
         setCurrentStep(4);
+        
+        // Fetch exit load calendar data
+        try {
+          const exitLoadRes = await fetch("/api/capital-gains/exit-load-status", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              holdings: holdings.map(h => ({
+                name: h.productName,
+                isin: h.isin,
+                currentValue: h.currentValue,
+                purchaseDate: h.purchaseDate,
+                productType: h.productType
+              }))
+            })
+          });
+          if (exitLoadRes.ok) {
+            const exitData = await exitLoadRes.json();
+            if (exitData.holdings && exitData.summary) {
+              setExitLoadData({
+                summary: exitData.summary,
+                holdings: exitData.holdings
+              });
+            }
+          }
+        } catch (e) {
+          console.log("Exit load fetch skipped:", e);
+        }
       } else {
         toast({ title: "Analysis Failed", description: data.error || "Could not analyze portfolio.", variant: "destructive" });
       }
@@ -2432,6 +2479,15 @@ export default function AgentProspectWizard() {
             {/* Import Mode Selection */}
             <div className="flex gap-2 flex-wrap">
               <Button 
+                variant="default"
+                size="sm"
+                onClick={() => setShowSmartImportDialog(true)}
+                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                data-testid="smart-import-btn"
+              >
+                <Wand2 className="h-4 w-4 mr-1" /> Smart Import
+              </Button>
+              <Button 
                 variant={importMode === 'manual' ? 'default' : 'outline'} 
                 size="sm"
                 onClick={() => setImportMode('manual')}
@@ -3128,6 +3184,43 @@ export default function AgentProspectWizard() {
         </Card>
       )}
 
+      {/* Smart Import Dialog */}
+      <Dialog open={showSmartImportDialog} onOpenChange={setShowSmartImportDialog}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wand2 className="h-5 w-5 text-purple-600" />
+              Smart Portfolio Import
+            </DialogTitle>
+            <DialogDescription>
+              Auto-detect 17+ broker formats with ISIN enrichment and holding lots tracking
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto py-4">
+            <PortfolioImportPanel
+              prospectId={prospectId || undefined}
+              onHoldingsSaved={(count) => {
+                setShowSmartImportDialog(false);
+                toast({
+                  title: "Portfolio Imported",
+                  description: `Successfully imported ${count} holdings with ISIN enrichment.`
+                });
+                // Refresh the holdings list
+                if (prospectId) {
+                  apiRequest(`/api/ai-investment/prospects/${prospectId}/portfolio`)
+                    .then((data: any) => {
+                      if (data?.portfolio?.holdings) {
+                        setHoldings(data.portfolio.holdings.map(toFrontendHolding));
+                      }
+                    })
+                    .catch((err: any) => console.log("Refresh holdings error:", err));
+                }
+              }}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {currentStep === 4 && analysis && (
         <Card>
           <CardHeader>
@@ -3198,6 +3291,187 @@ export default function AgentProspectWizard() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Exit Load Calendar */}
+            {exitLoadData && exitLoadData.holdings.length > 0 && (
+              <Card className="mt-4 border-blue-200 dark:border-blue-800">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-blue-600" />
+                    Exit Load Calendar
+                  </CardTitle>
+                  <CardDescription>
+                    Track when your holdings become exit-load-free
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {/* Summary Stats */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                    <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
+                      <p className="text-xs text-muted-foreground">Exit Load Free</p>
+                      <p className="text-lg font-bold text-green-600">{exitLoadData.summary.exitLoadFree}</p>
+                    </div>
+                    <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-center">
+                      <p className="text-xs text-muted-foreground">Within Exit Period</p>
+                      <p className="text-lg font-bold text-amber-600">{exitLoadData.summary.withinExitLoadPeriod}</p>
+                    </div>
+                    <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded-lg text-center">
+                      <p className="text-xs text-muted-foreground">Exit Load Exposure</p>
+                      <p className="text-lg font-bold text-red-600">{formatCurrency(exitLoadData.summary.totalExitLoadExposure)}</p>
+                    </div>
+                    <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-center">
+                      <p className="text-xs text-muted-foreground">Total Holdings</p>
+                      <p className="text-lg font-bold text-blue-600">{exitLoadData.summary.totalHoldings}</p>
+                    </div>
+                  </div>
+
+                  {/* Holdings List */}
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {exitLoadData.holdings
+                      .filter(h => !h.isExitLoadFree && h.daysToExitLoadFree !== null)
+                      .slice(0, 5)
+                      .map((holding, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg text-sm">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{holding.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {holding.daysToExitLoadFree} days to 0% exit load
+                            </p>
+                          </div>
+                          <div className="text-right ml-2">
+                            <Badge variant="outline" className="text-amber-600 border-amber-300">
+                              {holding.exitLoadPercent.toFixed(2)}% load
+                            </Badge>
+                            {holding.exitLoadFreeDate && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Free by {new Date(holding.exitLoadFreeDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    {exitLoadData.holdings.filter(h => h.isExitLoadFree).length > 0 && (
+                      <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg text-sm flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <span className="text-green-700 dark:text-green-300">
+                          {exitLoadData.holdings.filter(h => h.isExitLoadFree).length} holdings are already exit-load-free
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Goal Projection Visualization */}
+            {analysis && analysis.totalValue > 0 && (
+              <Card className="mt-4 border-purple-200 dark:border-purple-800">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-purple-600" />
+                    Portfolio Growth Projection
+                  </CardTitle>
+                  <CardDescription>
+                    Expected growth based on {riskProfile.primaryGoal?.replace('_', ' ')} goal and {riskProfile.riskTolerance} risk tolerance
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const totalValue = analysis.totalValue;
+                    const horizonMap: Record<string, number> = {
+                      '3_months': 0.25,
+                      '6_months': 0.5,
+                      '9_months': 0.75,
+                      '1_year': 1,
+                      'short_term': 3,
+                      'medium_term': 5,
+                      'long_term': 10
+                    };
+                    const horizonYears = horizonMap[riskProfile.investmentHorizon] || 5;
+                    const riskReturns = {
+                      conservative: { expected: 8, low: 5, high: 10 },
+                      moderate: { expected: 12, low: 8, high: 15 },
+                      aggressive: { expected: 15, low: 10, high: 20 },
+                      very_aggressive: { expected: 18, low: 12, high: 25 }
+                    };
+                    const returns = riskReturns[riskProfile.riskTolerance] || riskReturns.moderate;
+                    const projections = {
+                      conservative: totalValue * Math.pow(1 + returns.low / 100, horizonYears),
+                      expected: totalValue * Math.pow(1 + returns.expected / 100, horizonYears),
+                      optimistic: totalValue * Math.pow(1 + returns.high / 100, horizonYears)
+                    };
+                    const maxProjection = projections.optimistic;
+                    
+                    return (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between text-sm mb-2">
+                          <span className="text-muted-foreground">
+                            Investment Horizon: {horizonYears < 1 ? `${Math.round(horizonYears * 12)} months` : `${horizonYears} year${horizonYears > 1 ? 's' : ''}`}
+                          </span>
+                          <span className="font-medium">Current: {formatCurrency(totalValue)}</span>
+                        </div>
+                        
+                        {/* Projection Bars */}
+                        <div className="space-y-3">
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="flex items-center gap-1">
+                                <div className="w-3 h-3 rounded-full bg-amber-500" />
+                                Conservative ({returns.low}% p.a.)
+                              </span>
+                              <span className="font-semibold">{formatCurrency(projections.conservative)}</span>
+                            </div>
+                            <div className="h-3 bg-muted rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-amber-500 rounded-full transition-all"
+                                style={{ width: `${(projections.conservative / maxProjection) * 100}%` }}
+                              />
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="flex items-center gap-1">
+                                <div className="w-3 h-3 rounded-full bg-blue-500" />
+                                Expected ({returns.expected}% p.a.)
+                              </span>
+                              <span className="font-semibold text-blue-600">{formatCurrency(projections.expected)}</span>
+                            </div>
+                            <div className="h-3 bg-muted rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-blue-500 rounded-full transition-all"
+                                style={{ width: `${(projections.expected / maxProjection) * 100}%` }}
+                              />
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="flex items-center gap-1">
+                                <div className="w-3 h-3 rounded-full bg-green-500" />
+                                Optimistic ({returns.high}% p.a.)
+                              </span>
+                              <span className="font-semibold text-green-600">{formatCurrency(projections.optimistic)}</span>
+                            </div>
+                            <div className="h-3 bg-muted rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-green-500 rounded-full transition-all"
+                                style={{ width: `100%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-3 p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-xs text-purple-700 dark:text-purple-300">
+                          <Info className="h-3 w-3 inline mr-1" />
+                          Projections are estimates based on historical returns and do not guarantee future performance.
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            )}
           </CardContent>
           <CardFooter className="justify-between">
             <Button variant="outline" onClick={() => setCurrentStep(3)} data-testid="back-to-portfolio-btn">
