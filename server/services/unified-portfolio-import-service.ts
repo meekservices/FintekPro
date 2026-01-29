@@ -923,6 +923,152 @@ class UnifiedPortfolioImportService {
 
     return enrichedHoldings;
   }
+
+  /**
+   * Import portfolio from Excel file (.xlsx, .xls)
+   * Supports same flexible column detection as CSV import
+   */
+  async importFromExcel(
+    buffer: Buffer,
+    fileName?: string,
+    options?: {
+      sheetName?: string;
+      defaultAssetType?: AssetType;
+      detectAssetType?: boolean;
+    }
+  ): Promise<UnifiedImportResult> {
+    const result = createEmptyImportResult('csv_upload');
+    result.sourceFileName = fileName;
+    const startTime = Date.now();
+
+    try {
+      const XLSX = await import('xlsx');
+      const workbook = XLSX.read(buffer, { type: 'buffer' });
+
+      // Get the target sheet (first sheet by default, or specified by name)
+      const sheetName = options?.sheetName || workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+
+      if (!sheet) {
+        result.errors.push(`Sheet "${sheetName}" not found in Excel file`);
+        result.parsingStatus = 'failed';
+        return result;
+      }
+
+      // Convert sheet to JSON array
+      const jsonData: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+      if (jsonData.length < 2) {
+        result.errors.push('Excel file must have headers and at least one data row');
+        result.parsingStatus = 'failed';
+        return result;
+      }
+
+      // Extract headers (first row)
+      const headers = (jsonData[0] as any[]).map(h => 
+        String(h || '').trim().toLowerCase()
+      );
+
+      const columnMap = this.detectCSVColumns(headers);
+
+      if (!columnMap.hasMinimumColumns) {
+        result.errors.push('Excel must have at least name/symbol and quantity/units columns');
+        result.parsingStatus = 'failed';
+        return result;
+      }
+
+      const parsedHoldings: UnifiedHolding[] = [];
+      const parseErrors: string[] = [];
+
+      for (let i = 1; i < jsonData.length; i++) {
+        const row = (jsonData[i] as any[]).map(v => String(v ?? '').trim());
+        
+        if (row.every(cell => !cell)) continue;
+
+        try {
+          const holding = this.parseCSVRowToHolding(row, columnMap, options);
+          if (holding) {
+            parsedHoldings.push(holding);
+          }
+        } catch (err: any) {
+          parseErrors.push(`Row ${i + 1}: ${err.message || 'Failed to parse'}`);
+        }
+      }
+
+      if (parsedHoldings.length === 0) {
+        result.errors.push('No valid holdings found in Excel file');
+        result.errors.push(...parseErrors.slice(0, 5));
+        result.parsingStatus = 'failed';
+        return result;
+      }
+
+      // Enrich holdings with ISIN lookup
+      result.holdings = await this.enrichCSVHoldings(parsedHoldings);
+      result.summary = holdingNormalizationService.computeSummary(result.holdings);
+      result.success = true;
+      result.parsingStatus = parseErrors.length > 0 ? 'needs_review' : 'completed';
+      result.confidenceScore = parseErrors.length === 0 ? 0.9 : 0.7;
+      result.capturedAt = new Date().toISOString();
+
+      if (parseErrors.length > 0) {
+        result.errors = parseErrors.slice(0, 10);
+      }
+
+      console.log(`[Excel Import] Parsed ${result.holdings.length} holdings from ${fileName || 'Excel'} in ${Date.now() - startTime}ms`);
+      return result;
+    } catch (error: any) {
+      result.errors.push(error.message || 'Failed to parse Excel file');
+      result.parsingStatus = 'failed';
+      return result;
+    }
+  }
+
+  /**
+   * Import and save for prospect (CSV/Excel)
+   */
+  async importCSVAndSaveForProspect(
+    prospectId: string,
+    content: string | Buffer,
+    fileName: string,
+    options?: { replaceExisting?: boolean; isExcel?: boolean }
+  ): Promise<UnifiedImportResult & { storageResult?: any }> {
+    let importResult: UnifiedImportResult;
+
+    if (options?.isExcel) {
+      importResult = await this.importFromExcel(
+        Buffer.isBuffer(content) ? content : Buffer.from(content),
+        fileName
+      );
+    } else {
+      importResult = await this.importFromCSV(
+        Buffer.isBuffer(content) ? content.toString('utf-8') : content,
+        fileName
+      );
+    }
+
+    if (!importResult.success || importResult.holdings.length === 0) {
+      return importResult;
+    }
+
+    const storageOptions: PortfolioStorageOptions = {
+      prospectId,
+      source: importResult.source,
+      sourceFileName: fileName,
+      replaceExisting: options?.replaceExisting !== false,
+      confidenceScore: importResult.confidenceScore
+    };
+
+    const storageResult = await portfolioStorageService.upsertProspectPortfolio(
+      prospectId,
+      importResult.holdings,
+      storageOptions
+    );
+
+    return {
+      ...importResult,
+      storageResult
+    };
+  }
 }
 
 interface CSVColumnMap {

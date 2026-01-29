@@ -71,6 +71,18 @@ async function upsertProspectPortfolio(
 }
 
 
+function isCSVFile(filename: string, mimetype: string): boolean {
+  const ext = filename.toLowerCase();
+  return ext.endsWith('.csv') || mimetype === 'text/csv' || mimetype === 'application/csv';
+}
+
+function isExcelFile(filename: string, mimetype: string): boolean {
+  const ext = filename.toLowerCase();
+  return ext.endsWith('.xlsx') || ext.endsWith('.xls') ||
+         mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+         mimetype === 'application/vnd.ms-excel';
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -81,15 +93,21 @@ const upload = multer({
       'application/pdf', 
       'application/x-pdf',
       'text/html',
-      'application/xhtml+xml'
+      'application/xhtml+xml',
+      'text/csv',
+      'application/csv',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel'
     ];
-    // Also check file extension for HTML files (some browsers send different mime types)
-    const isHtmlFile = file.originalname.toLowerCase().endsWith('.html') || 
-                       file.originalname.toLowerCase().endsWith('.htm');
-    if (allowedMimes.includes(file.mimetype) || isHtmlFile) {
+    const filename = file.originalname.toLowerCase();
+    const isHtmlFile = filename.endsWith('.html') || filename.endsWith('.htm');
+    const isCsvFile = filename.endsWith('.csv');
+    const isExcelExt = filename.endsWith('.xlsx') || filename.endsWith('.xls');
+    
+    if (allowedMimes.includes(file.mimetype) || isHtmlFile || isCsvFile || isExcelExt) {
       cb(null, true);
     } else {
-      cb(new Error('Only PDF and HTML files are allowed'));
+      cb(new Error('Supported formats: PDF, HTML, CSV, Excel (.xlsx, .xls)'));
     }
   }
 });
@@ -124,19 +142,41 @@ router.post(
         return res.status(404).json({ error: 'Prospect not found' });
       }
       
-      // Use unified import service for PDF/HTML parsing
-      const isHTML = isHTMLFile(req.file.originalname, req.file.mimetype);
-      const fileType = isHTML ? 'html' : 'pdf';
+      // Determine file type and use appropriate parser
+      const filename = req.file.originalname;
+      const mimetype = req.file.mimetype;
+      const isHTML = isHTMLFile(filename, mimetype);
+      const isCSV = isCSVFile(filename, mimetype);
+      const isExcel = isExcelFile(filename, mimetype);
       
-      const importResult = isHTML
-        ? await unifiedPortfolioImportService.importFromHTML(
-            req.file.buffer.toString('utf-8'),
-            req.file.originalname
-          )
-        : await unifiedPortfolioImportService.importFromPDF(
-            req.file.buffer,
-            req.file.originalname
-          );
+      let fileType = 'pdf';
+      let importResult;
+      
+      if (isCSV) {
+        fileType = 'csv';
+        importResult = await unifiedPortfolioImportService.importFromCSV(
+          req.file.buffer.toString('utf-8'),
+          filename
+        );
+      } else if (isExcel) {
+        fileType = 'excel';
+        importResult = await unifiedPortfolioImportService.importFromExcel(
+          req.file.buffer,
+          filename
+        );
+      } else if (isHTML) {
+        fileType = 'html';
+        importResult = await unifiedPortfolioImportService.importFromHTML(
+          req.file.buffer.toString('utf-8'),
+          filename
+        );
+      } else {
+        fileType = 'pdf';
+        importResult = await unifiedPortfolioImportService.importFromPDF(
+          req.file.buffer,
+          filename
+        );
+      }
       
       if (!importResult.success) {
         return res.status(400).json({ 
