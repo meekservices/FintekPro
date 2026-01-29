@@ -13,6 +13,7 @@ import { nanoid } from 'nanoid';
 import { requireAuth, requireRole } from '../middleware/roleMiddleware';
 import { orderAuditHook } from '../services/order-audit-hook';
 import { mfBatchCredentialValidator } from '../services/mf-batch-credential-validator';
+import { realizedGainsAggregationService } from '../services/realized-gains-aggregation-service';
 
 const isAuthenticated = requireAuth;
 
@@ -777,6 +778,18 @@ router.patch('/api/mf-orders/:id/status', isAuthenticated, async (req: Request, 
       req
     );
 
+
+    // Calculate capital gains when sell/redemption orders are settled
+    if (validated.status === 'settled' && ['sell', 'redeem', 'switch'].includes(existingOrder.orderType || '')) {
+      try {
+        await realizedGainsAggregationService.calculateAndStoreTradeGains(id);
+        await realizedGainsAggregationService.recalculateUserReminders(existingOrder.userId);
+        console.log('[MF Orders] Capital gains calculated on status change to settled:', id);
+      } catch (gainError) {
+        console.error('[MF Orders] Failed to calculate capital gains:', gainError);
+      }
+    }
+
     res.json({ order: updatedOrder });
   } catch (error) {
     console.error('[MF Orders] Error updating order status:', error);
@@ -1363,6 +1376,16 @@ router.post('/api/admin/mf-orders/:id/mark-settled', isAuthenticated, async (req
             navDate: new Date().toISOString().split('T')[0],
           })
           .where(eq(mfHoldings.id, existingHolding.id));
+      }
+      
+      // Calculate and store realized capital gains for sell/redemption orders
+      try {
+        await realizedGainsAggregationService.calculateAndStoreTradeGains(id);
+        await realizedGainsAggregationService.recalculateUserReminders(existingOrder.userId);
+        console.log('[MF Orders] Capital gains calculated for sell order', id);
+      } catch (gainError) {
+        console.error('[MF Orders] Failed to calculate capital gains:', gainError);
+        // Non-blocking - order is still settled
       }
     }
 
