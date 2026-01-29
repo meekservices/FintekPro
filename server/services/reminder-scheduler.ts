@@ -3,6 +3,7 @@ import { db } from "../db";
 import { capitalGainsTaxReminders, taxReminderSubscriptions, users, userProfiles } from "@shared/schema";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 import { capitalGainsCalculator } from './capital-gains-calculator';
+import { realizedGainsAggregationService } from './realized-gains-aggregation-service';
 
 interface ReminderNotification {
   userId: string;
@@ -293,6 +294,44 @@ export class ReminderSchedulerService {
   async triggerManualCheck(): Promise<void> {
     console.log('🔧 Manual reminder check triggered');
     await this.checkAndSendReminders();
+  }
+
+  async recalculateForUser(userId: string): Promise<void> {
+    console.log(`🔄 Recalculating advance tax reminders for user ${userId}`);
+    await realizedGainsAggregationService.recalculateUserReminders(userId);
+  }
+
+  async recalculateAllUsers(): Promise<{ recalculated: number; errors: number }> {
+    console.log('🔄 Recalculating advance tax reminders for all users with realized gains...');
+    
+    let recalculated = 0;
+    let errors = 0;
+
+    try {
+      const distinctUsers = await db
+        .selectDistinct({ userId: capitalGainsTaxReminders.userId })
+        .from(capitalGainsTaxReminders);
+
+      for (const { userId } of distinctUsers) {
+        try {
+          await realizedGainsAggregationService.recalculateUserReminders(userId);
+          recalculated++;
+        } catch (error) {
+          console.error(`Error recalculating for user ${userId}:`, error);
+          errors++;
+        }
+      }
+
+      console.log(`✅ Recalculation complete: ${recalculated} users updated, ${errors} errors`);
+    } catch (error) {
+      console.error('Error in bulk recalculation:', error);
+    }
+
+    return { recalculated, errors };
+  }
+
+  async getAdvanceTaxStatus(userId: string, fiscalYear?: string): Promise<any> {
+    return realizedGainsAggregationService.getAdvanceTaxStatus(userId, fiscalYear);
   }
 }
 

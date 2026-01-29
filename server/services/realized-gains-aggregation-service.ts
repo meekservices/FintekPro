@@ -130,11 +130,31 @@ class RealizedGainsAggregationService {
       quarterlyBreakdown: [],
     };
 
+    let totalTaxableSTCG = 0;
+    let totalTaxableLTCG = 0;
+
     for (const order of settledSellOrders) {
       const realizedGain = parseFloat(order.realizedGain?.toString() || '0');
-      const taxableGain = parseFloat(order.taxableGain?.toString() || '0');
-      const estimatedTax = parseFloat(order.estimatedTax?.toString() || '0');
+      const taxableGain = parseFloat(order.taxableGain?.toString() || realizedGain.toString());
+      const grandfatheredValue = parseFloat(order.grandfatheredValue?.toString() || '0');
+      const storedTax = parseFloat(order.estimatedTax?.toString() || '0');
       const gainType = order.gainType || 'STCG';
+      
+      result.totalRealizedGains += realizedGain;
+      
+      if (gainType === 'STCG') {
+        result.stcg.equity += realizedGain;
+        result.stcg.total += realizedGain;
+        totalTaxableSTCG += Math.max(0, taxableGain);
+      } else if (gainType === 'LTCG') {
+        if (grandfatheredValue > 0) {
+          result.ltcg.equityWithGrandfathering += realizedGain;
+        } else {
+          result.ltcg.equity += realizedGain;
+        }
+        result.ltcg.total += realizedGain;
+        totalTaxableLTCG += Math.max(0, taxableGain);
+      }
       
       result.trades.push({
         orderId: order.id,
@@ -144,25 +164,15 @@ class RealizedGainsAggregationService {
         gainType,
         realizedGain,
         taxableGain,
-        estimatedTax,
+        estimatedTax: storedTax,
       });
-
-      if (gainType === 'STCG') {
-        result.stcg.equity += realizedGain;
-        result.stcg.total += realizedGain;
-      } else if (gainType === 'LTCG') {
-        const grandfatheredValue = parseFloat(order.grandfatheredValue?.toString() || '0');
-        if (grandfatheredValue > 0) {
-          result.ltcg.equityWithGrandfathering += realizedGain;
-        } else {
-          result.ltcg.equity += realizedGain;
-        }
-        result.ltcg.total += realizedGain;
-      }
-      
-      result.totalRealizedGains += realizedGain;
-      result.totalTaxLiability += estimatedTax;
     }
+
+    const stcgTax = totalTaxableSTCG * this.STCG_EQUITY_RATE;
+    const ltcgExemption = Math.min(125000, Math.max(0, totalTaxableLTCG));
+    const ltcgTaxableAfterExemption = Math.max(0, totalTaxableLTCG - ltcgExemption);
+    const ltcgTax = ltcgTaxableAfterExemption * this.LTCG_EQUITY_RATE;
+    result.totalTaxLiability = stcgTax + ltcgTax;
 
     result.quarterlyBreakdown = await this.calculateQuarterlyBreakdown(userId, fy, result);
     
