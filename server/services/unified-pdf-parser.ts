@@ -108,6 +108,14 @@ export interface SemanticHolding {
   purchaseDateSource?: 'explicit' | 'transaction' | 'sip_first' | 'unresolved';
   unrealizedGain?: number;
   unrealizedGainPercent?: number;
+  // Exit load fields extracted from CAS statement
+  exitLoadText?: string;           // Raw exit load text from statement
+  exitLoadPercent?: number;        // Parsed exit load percentage
+  exitLoadDays?: number;           // Parsed exit load applicable days
+  // Enriched fields (filled via ISIN lookup)
+  category?: string;               // Fund category for STCG/LTCG determination
+  fundHouse?: string;              // AMC name
+  currentNav?: number;             // Latest NAV from live data
   confidenceScore: number;
   sourceLines: number[];
   requiresEnrichment: boolean;
@@ -1143,11 +1151,14 @@ class UnifiedPDFParser {
       }
     }
 
-    const requiresEnrichment = holdings.some(h => h.requiresEnrichment) || 
+    // Extract exit load information for each holding
+    const holdingsWithExitLoad = this.extractExitLoadForHoldings(text, holdings);
+
+    const requiresEnrichment = holdingsWithExitLoad.some(h => h.requiresEnrichment) || 
       unresolvedItems.length > 0 ||
       profile.pdfType === 'summary_only';
 
-    return { holdings, transactions, investor, unresolvedItems, requiresEnrichment };
+    return { holdings: holdingsWithExitLoad, transactions, investor, unresolvedItems, requiresEnrichment };
   }
 
   private extractInvestorInfo(text: string): InvestorInfo {
@@ -1186,6 +1197,145 @@ class UnifiedPDFParser {
     if (lowerType.includes('dividend')) return 'dividend';
     if (lowerType.includes('bonus')) return 'bonus';
     return 'unknown';
+  }
+
+  /**
+   * Parse exit load text from CAS statement
+   * Examples:
+   * - "Exit Load- 1% if redeemed/switched out, on or before 12 months from the date of allotment"
+   * - "Exit Load: 1% if redeemed / switched out within 6 months"
+   * - "Exit Load : (w.e.f 08-May-2020) If redeemed / Switched Out within 365 days - 1.00%"
+   * - "Exit Load: Nil"
+   */
+  private parseExitLoadText(text: string): { exitLoadText: string; exitLoadPercent?: number; exitLoadDays?: number } | null {
+    // Find exit load text pattern
+    const exitLoadPatterns = [
+      /exit\s*load[:\-\s]*([^.]+(?:\.\s*[^.]+)?)/i,
+      /exit\s*load[:\-\s]*(nil|none)/i,
+    ];
+
+    for (const pattern of exitLoadPatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        const exitLoadText = match[1].trim();
+        
+        // Check for Nil/None
+        if (/^(nil|none|no\s*exit\s*load)$/i.test(exitLoadText)) {
+          return { exitLoadText: 'Nil', exitLoadPercent: 0, exitLoadDays: 0 };
+        }
+
+        // Extract percentage
+        let exitLoadPercent: number | undefined;
+        const percentPatterns = [
+          /(\d+(?:\.\d+)?)\s*%/,                    // 1% or 1.00%
+          /(\d+(?:\.\d+)?)\s*percent/i,             // 1 percent
+        ];
+        for (const pPattern of percentPatterns) {
+          const pMatch = exitLoadText.match(pPattern);
+          if (pMatch) {
+            exitLoadPercent = parseFloat(pMatch[1]);
+            break;
+          }
+        }
+
+        // Extract days/period
+        let exitLoadDays: number | undefined;
+        const daysPatterns = [
+          /within\s*(\d+)\s*days/i,                  // within 365 days
+          /before\s*(\d+)\s*days/i,                  // before 30 days
+          /(\d+)\s*days?\s*from/i,                   // 30 days from
+          /within\s*(\d+)\s*months?/i,               // within 12 months
+          /before\s*(\d+)\s*months?/i,               // before 6 months
+          /(\d+)\s*months?\s*from/i,                 // 6 months from
+          /within\s*(\d+)\s*years?/i,                // within 1 year
+          /before\s*(\d+)\s*years?/i,                // before 1 year
+          /(\d+)\s*years?\s*from/i,                  // 1 year from
+          /on\s*or\s*before\s*(\d+)\s*(day|month|year)s?/i,  // on or before 12 months
+        ];
+
+        for (const dPattern of daysPatterns) {
+          const dMatch = exitLoadText.match(dPattern);
+          if (dMatch) {
+            const value = parseInt(dMatch[1], 10);
+            const unit = dMatch[2]?.toLowerCase() || '';
+            
+            // Also check context for units
+            const contextLower = exitLoadText.toLowerCase();
+            
+            if (unit.includes('year') || contextLower.includes('year')) {
+              exitLoadDays = value * 365;
+            } else if (unit.includes('month') || contextLower.includes('month')) {
+              exitLoadDays = value * 30;
+            } else {
+              exitLoadDays = value;
+            }
+            break;
+          }
+        }
+
+        // If still no days found, try common patterns
+        if (!exitLoadDays) {
+          if (exitLoadText.toLowerCase().includes('1 year') || exitLoadText.toLowerCase().includes('12 month')) {
+            exitLoadDays = 365;
+          } else if (exitLoadText.toLowerCase().includes('6 month')) {
+            exitLoadDays = 180;
+          } else if (exitLoadText.toLowerCase().includes('3 month')) {
+            exitLoadDays = 90;
+          }
+        }
+
+        return { exitLoadText, exitLoadPercent, exitLoadDays };
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Extract exit load for holdings from full text
+   * Parses the text after each holding to find associated exit load
+   */
+  private extractExitLoadForHoldings(text: string, holdings: SemanticHolding[]): SemanticHolding[] {
+    const lines = text.split('\n');
+    
+    return holdings.map(holding => {
+      // Find the ISIN line
+      const isinLine = lines.findIndex(line => 
+        line.includes(holding.isin || '') && holding.isin
+      );
+      
+      if (isinLine === -1) return holding;
+
+      // Look for exit load in the next 30 lines after the ISIN
+      for (let i = isinLine; i < Math.min(isinLine + 30, lines.length); i++) {
+        const line = lines[i];
+        if (/exit\s*load/i.test(line)) {
+          // Gather full exit load text (may span multiple lines)
+          let exitLoadBlock = line;
+          let j = i + 1;
+          while (j < lines.length && 
+                 !lines[j].match(/folio/i) && 
+                 !lines[j].match(/^[A-Z][A-Z0-9]+-/) &&  // Next scheme
+                 j < i + 5) {
+            exitLoadBlock += ' ' + lines[j];
+            j++;
+          }
+
+          const parsed = this.parseExitLoadText(exitLoadBlock);
+          if (parsed) {
+            return {
+              ...holding,
+              exitLoadText: parsed.exitLoadText,
+              exitLoadPercent: parsed.exitLoadPercent,
+              exitLoadDays: parsed.exitLoadDays,
+            };
+          }
+          break;
+        }
+      }
+
+      return holding;
+    });
   }
 
   // ============================================

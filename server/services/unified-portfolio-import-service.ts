@@ -17,9 +17,9 @@ import type {
   PortfolioStorageOptions
 } from './unified-portfolio-types';
 import { createEmptyImportResult } from './unified-portfolio-types';
-import { holdingNormalizationService } from './holding-normalization-service';
+import { holdingNormalizationService, type IsinEnrichmentResult } from './holding-normalization-service';
 import { portfolioStorageService } from './portfolio-storage-service';
-import { unifiedPDFParser } from './unified-pdf-parser';
+import { unifiedPDFParser, type SemanticHolding } from './unified-pdf-parser';
 import { casStatementService, type CASHolding } from './cas-statement-service';
 import { parsePDFPortfolio, parseURLPortfolio, type ImportedHolding } from './portfolio-parser';
 import { WealthyImportService, type WealthyHolding } from './wealthy-import-service';
@@ -97,6 +97,9 @@ class UnifiedPortfolioImportService {
             })) : undefined,
           };
         });
+
+        // Enrich holdings with ISIN-based metadata (category, fundHouse, currentNav, exitLoad)
+        result.holdings = await this.enrichHoldingsWithIsin(result.holdings, parserResult.holdings);
         
         (result as any).holdingLots = parserResult.holdingLots;
         
@@ -161,6 +164,10 @@ class UnifiedPortfolioImportService {
       };
 
       result.holdings = this.convertCASHoldings(casResult.holdings);
+      
+      // Enrich CAS holdings with ISIN-based metadata
+      result.holdings = await this.enrichCASHoldingsWithIsin(result.holdings);
+      
       result.summary = holdingNormalizationService.computeSummary(result.holdings);
       result.summary.registrarBreakdown = {
         cams: casResult.summary.registrarBreakdown.cams,
@@ -441,6 +448,220 @@ class UnifiedPortfolioImportService {
       };
       return unified;
     });
+  }
+
+  /**
+   * Enrich holdings with ISIN-based metadata from database
+   * Adds category, fundHouse, currentNav, exitLoad for capital gains calculations
+   */
+  private async enrichHoldingsWithIsin(
+    holdings: any[], 
+    semanticHoldings: SemanticHolding[]
+  ): Promise<any[]> {
+    // Collect all ISINs that need enrichment
+    const isins = holdings
+      .map(h => h.isin)
+      .filter((isin): isin is string => !!isin && isin.length >= 10);
+
+    if (isins.length === 0) {
+      console.log('[Import] No ISINs to enrich');
+      return holdings;
+    }
+
+    // Batch lookup enrichment data
+    const enrichmentMap = await holdingNormalizationService.enrichByIsins(isins);
+    
+    let enrichedCount = 0;
+    const enrichedHoldings = holdings.map((holding, index) => {
+      const isin = holding.isin;
+      if (!isin) return holding;
+
+      const enrichment = enrichmentMap.get(isin);
+      const semantic = semanticHoldings[index];
+
+      if (enrichment?.found) {
+        enrichedCount++;
+        
+        // Calculate holding period (days since purchase = today - purchaseDate)
+        const holdingPeriodDays = this.calculateHoldingPeriodDays(holding.purchaseDate);
+        
+        // Exit load from database (primary source by ISIN)
+        const exitLoadApplicableDays = enrichment.exitLoadDays;
+        const exitLoadPercent = enrichment.exitLoadPercent;
+        
+        // Determine if exit load is currently applicable
+        const exitLoadApplicable = holdingPeriodDays !== null && 
+          exitLoadApplicableDays !== undefined && 
+          holdingPeriodDays < exitLoadApplicableDays;
+
+        return {
+          ...holding,
+          // Category for STCG/LTCG determination
+          category: enrichment.category,
+          assetType: enrichment.category ? 
+            holdingNormalizationService.normalizeAssetTypeFromMFCategory(enrichment.category) : 
+            holding.assetType,
+          // Fund metadata
+          fundHouse: enrichment.fundHouse || holding.amcName,
+          amcName: enrichment.fundHouse || holding.amcName,
+          schemeCode: enrichment.schemeCode || holding.schemeCode,
+          // Use database NAV if more recent
+          currentNav: enrichment.currentNav || holding.nav,
+          navDate: enrichment.navDate || holding.navDate,
+          // Holding period - days since purchase (today - purchaseDate)
+          holdingPeriodDays,
+          // Exit load from database (primary source by ISIN)
+          exitLoadPercent,
+          exitLoadApplicableDays,
+          exitLoadApplicable,
+          // Plan and option types
+          planType: holding.planType || enrichment.planType,
+          optionType: holding.optionType || enrichment.optionType,
+          // Returns data
+          returns1y: enrichment.returns1y,
+          returns3y: enrichment.returns3y,
+          returns5y: enrichment.returns5y,
+          riskLevel: enrichment.riskLevel,
+          // Flag for enrichment status
+          enrichedFromDb: true,
+        };
+      }
+
+      // Still add parsed exit load even if DB enrichment failed
+      if (semantic?.exitLoadText) {
+        const holdingPeriodDays = this.calculateHoldingPeriodDays(holding.purchaseDate);
+        const exitLoadApplicable = holdingPeriodDays !== null && 
+          semantic.exitLoadDays !== undefined && 
+          holdingPeriodDays < semantic.exitLoadDays;
+
+        return {
+          ...holding,
+          holdingPeriodDays,
+          exitLoadPercent: semantic.exitLoadPercent,
+          exitLoadApplicableDays: semantic.exitLoadDays,
+          exitLoadText: semantic.exitLoadText,
+          exitLoadApplicable,
+          enrichedFromDb: false,
+        };
+      }
+
+      // Add holding period even without exit load data
+      const holdingPeriodDays = this.calculateHoldingPeriodDays(holding.purchaseDate);
+      return {
+        ...holding,
+        holdingPeriodDays,
+      };
+    });
+
+    console.log(`[Import] Enriched ${enrichedCount}/${holdings.length} holdings with ISIN metadata`);
+    return enrichedHoldings;
+  }
+
+  /**
+   * Calculate days since purchase (holding period)
+   * Returns null if purchaseDate is not available
+   */
+  private calculateHoldingPeriodDays(purchaseDate?: string | Date): number | null {
+    if (!purchaseDate) return null;
+
+    try {
+      const purchase = typeof purchaseDate === 'string' 
+        ? new Date(purchaseDate) 
+        : purchaseDate;
+      
+      if (isNaN(purchase.getTime())) return null;
+
+      const today = new Date();
+      const diffTime = today.getTime() - purchase.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      
+      return diffDays >= 0 ? diffDays : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Enrich CAS holdings with ISIN-based metadata from database
+   * Exit load data comes from database lookup by ISIN (primary source)
+   */
+  private async enrichCASHoldingsWithIsin(holdings: UnifiedHolding[]): Promise<UnifiedHolding[]> {
+    const isins = holdings
+      .map(h => h.isin)
+      .filter((isin): isin is string => !!isin && isin.length >= 10);
+
+    if (isins.length === 0) {
+      console.log('[CAS Import] No ISINs to enrich');
+      return holdings;
+    }
+
+    // Batch lookup enrichment data from database
+    const enrichmentMap = await holdingNormalizationService.enrichByIsins(isins);
+    
+    let enrichedCount = 0;
+    const enrichedHoldings = holdings.map(holding => {
+      const isin = holding.isin;
+      if (!isin) return holding;
+
+      const enrichment = enrichmentMap.get(isin);
+      
+      // Calculate holding period (days since purchase = today - purchaseDate)
+      const holdingPeriodDays = this.calculateHoldingPeriodDays(holding.purchaseDate);
+      
+      if (enrichment?.found) {
+        enrichedCount++;
+        
+        // Exit load from database (primary source)
+        const exitLoadApplicableDays = enrichment.exitLoadDays;
+        const exitLoadPercent = enrichment.exitLoadPercent;
+        
+        // Determine if exit load is currently applicable
+        const exitLoadApplicable = holdingPeriodDays !== null && 
+          exitLoadApplicableDays !== undefined && 
+          holdingPeriodDays < exitLoadApplicableDays;
+
+        return {
+          ...holding,
+          // Category for STCG/LTCG determination
+          category: enrichment.category,
+          assetType: enrichment.category ? 
+            holdingNormalizationService.normalizeAssetTypeFromMFCategory(enrichment.category) : 
+            holding.assetType,
+          // Fund metadata
+          fundHouse: enrichment.fundHouse || holding.amcName,
+          amcName: enrichment.fundHouse || holding.amcName,
+          schemeCode: enrichment.schemeCode || holding.schemeCode,
+          // NAV data
+          currentNav: enrichment.currentNav || holding.currentNav,
+          navDate: enrichment.navDate || holding.navDate,
+          // Holding period - days since purchase
+          holdingPeriodDays,
+          // Exit load from database (primary source by ISIN)
+          exitLoadPercent,
+          exitLoadApplicableDays,
+          exitLoadApplicable,
+          // Plan and option types
+          planType: holding.planType || enrichment.planType,
+          optionType: holding.optionType || enrichment.optionType,
+          // Returns data
+          returns1y: enrichment.returns1y,
+          returns3y: enrichment.returns3y,
+          returns5y: enrichment.returns5y,
+          riskLevel: enrichment.riskLevel,
+          enrichedFromDb: true,
+        };
+      }
+
+      // Still add holding period even if DB enrichment failed
+      return {
+        ...holding,
+        holdingPeriodDays,
+        enrichedFromDb: false,
+      };
+    });
+
+    console.log(`[CAS Import] Enriched ${enrichedCount}/${holdings.length} holdings with ISIN metadata from database`);
+    return enrichedHoldings;
   }
 }
 

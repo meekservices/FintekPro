@@ -29,6 +29,27 @@ interface AmfiLookupResult {
   confidence: number;
 }
 
+// Extended enrichment result with all fields needed for capital gains calculations
+export interface IsinEnrichmentResult {
+  found: boolean;
+  schemeCode?: string;
+  schemeName?: string;
+  isin?: string;
+  category?: string;           // equity/debt/hybrid/liquid - needed for STCG vs LTCG
+  fundHouse?: string;          // AMC name
+  currentNav?: number;         // Latest NAV for current value calculation
+  navDate?: string;            // Date of the NAV
+  exitLoadPercent?: number;    // Exit load percentage
+  exitLoadDays?: number;       // Exit load applicable days
+  planType?: string;           // direct/regular
+  optionType?: string;         // growth/idcw
+  returns1y?: number;
+  returns3y?: number;
+  returns5y?: number;
+  riskLevel?: string;
+  confidence: number;
+}
+
 const amfiLookupCache = new Map<string, { result: AmfiLookupResult | null; timestamp: number }>();
 const CACHE_TTL = 24 * 60 * 60 * 1000;
 
@@ -549,6 +570,251 @@ class HoldingNormalizationService {
     }
     
     return enriched;
+  }
+
+  /**
+   * Comprehensive ISIN-based enrichment for capital gains calculations
+   * Fetches category, fundHouse, currentNav, exitLoad from mutualFunds table
+   */
+  async enrichByIsin(isin: string): Promise<IsinEnrichmentResult> {
+    if (!isin || isin.length < 10) {
+      return { found: false, confidence: 0 };
+    }
+
+    try {
+      const result = await db
+        .select({
+          schemeCode: mutualFunds.schemeCode,
+          schemeName: mutualFunds.schemeName,
+          isin: mutualFunds.isin,
+          category: mutualFunds.category,
+          fundHouse: mutualFunds.fundHouse,
+          nav: mutualFunds.nav,
+          planType: mutualFunds.planType,
+          optionType: mutualFunds.optionType,
+          exitLoadPercent: mutualFunds.exitLoadPercent,
+          exitLoadDays: mutualFunds.exitLoadDays,
+          returns1y: mutualFunds.returns1y,
+          returns3y: mutualFunds.returns3y,
+          returns5y: mutualFunds.returns5y,
+          riskLevel: mutualFunds.riskLevel,
+          lastUpdated: mutualFunds.lastUpdated,
+          extendedData: mutualFunds.extendedData,
+        })
+        .from(mutualFunds)
+        .where(
+          or(
+            eq(mutualFunds.isin, isin),
+            sql`${mutualFunds.extendedData}->>'isin' = ${isin}`,
+            sql`${mutualFunds.extendedData}->>'isinReinvestment' = ${isin}`,
+            eq(mutualFunds.isinGrowth, isin),
+            eq(mutualFunds.isinDividendPayout, isin),
+            eq(mutualFunds.isinDividendReinvest, isin)
+          )
+        )
+        .limit(1);
+
+      if (result.length === 0) {
+        return { found: false, confidence: 0 };
+      }
+
+      const fund = result[0];
+      const extData = fund.extendedData as Record<string, any> | null;
+
+      // Extract exit load from extended data if not in main columns
+      let exitLoadPercent = fund.exitLoadPercent ? parseFloat(fund.exitLoadPercent) : undefined;
+      let exitLoadDays = fund.exitLoadDays ?? undefined;
+
+      if (!exitLoadPercent && extData?.exitLoad) {
+        const exitLoadStr = typeof extData.exitLoad === 'string' ? extData.exitLoad : '';
+        const percentMatch = exitLoadStr.match(/(\d+(?:\.\d+)?)\s*%/);
+        const daysMatch = exitLoadStr.match(/(\d+)\s*(?:days?|months?|years?)/i);
+        
+        if (percentMatch) {
+          exitLoadPercent = parseFloat(percentMatch[1]);
+        }
+        if (daysMatch) {
+          const value = parseInt(daysMatch[1], 10);
+          if (exitLoadStr.toLowerCase().includes('year')) exitLoadDays = value * 365;
+          else if (exitLoadStr.toLowerCase().includes('month')) exitLoadDays = value * 30;
+          else exitLoadDays = value;
+        }
+      }
+
+      return {
+        found: true,
+        schemeCode: fund.schemeCode,
+        schemeName: fund.schemeName,
+        isin: fund.isin || isin,
+        category: fund.category || this.deriveCategoryFromName(fund.schemeName),
+        fundHouse: fund.fundHouse || undefined,
+        currentNav: fund.nav ? parseFloat(fund.nav) : undefined,
+        navDate: fund.lastUpdated?.toISOString().split('T')[0],
+        exitLoadPercent,
+        exitLoadDays,
+        planType: fund.planType || undefined,
+        optionType: fund.optionType || undefined,
+        returns1y: fund.returns1y ? parseFloat(fund.returns1y) : undefined,
+        returns3y: fund.returns3y ? parseFloat(fund.returns3y) : undefined,
+        returns5y: fund.returns5y ? parseFloat(fund.returns5y) : undefined,
+        riskLevel: fund.riskLevel || undefined,
+        confidence: 100
+      };
+    } catch (error) {
+      console.warn('[HoldingNormalization] ISIN enrichment failed:', error);
+      return { found: false, confidence: 0 };
+    }
+  }
+
+  /**
+   * Derive category from scheme name when not available in DB
+   */
+  private deriveCategoryFromName(name: string): string | undefined {
+    if (!name) return undefined;
+    
+    const lower = name.toLowerCase();
+    
+    // Debt funds
+    if (lower.includes('liquid') || lower.includes('overnight') || lower.includes('money market')) {
+      return 'Liquid';
+    }
+    if (lower.includes('gilt') || lower.includes('government securities')) {
+      return 'Gilt';
+    }
+    if (lower.includes('corporate bond') || lower.includes('short duration') || 
+        lower.includes('medium duration') || lower.includes('long duration') ||
+        lower.includes('credit risk') || lower.includes('banking') || lower.includes('dynamic bond')) {
+      return 'Debt';
+    }
+    
+    // Hybrid funds
+    if (lower.includes('hybrid') || lower.includes('balanced') || lower.includes('arbitrage') ||
+        lower.includes('aggressive') || lower.includes('conservative') || lower.includes('multi asset')) {
+      return 'Hybrid';
+    }
+    
+    // Equity funds
+    if (lower.includes('large cap') || lower.includes('largecap')) return 'Equity - Large Cap';
+    if (lower.includes('mid cap') || lower.includes('midcap')) return 'Equity - Mid Cap';
+    if (lower.includes('small cap') || lower.includes('smallcap')) return 'Equity - Small Cap';
+    if (lower.includes('flexi cap') || lower.includes('flexicap') || lower.includes('multi cap')) return 'Equity - Flexi Cap';
+    if (lower.includes('focused') || lower.includes('thematic') || lower.includes('sectoral')) return 'Equity - Thematic';
+    if (lower.includes('elss') || lower.includes('tax saver')) return 'ELSS';
+    if (lower.includes('index') || lower.includes('nifty') || lower.includes('sensex')) return 'Index Fund';
+    if (lower.includes('quant')) return 'Equity - Quant';
+    
+    // Default to equity if contains fund indicators
+    if (lower.includes('growth') || lower.includes('equity') || lower.includes('fund')) {
+      return 'Equity';
+    }
+    
+    return undefined;
+  }
+
+  /**
+   * Batch enrich multiple ISINs (for efficiency)
+   */
+  async enrichByIsins(isins: string[]): Promise<Map<string, IsinEnrichmentResult>> {
+    const results = new Map<string, IsinEnrichmentResult>();
+    
+    const validIsins = isins.filter(isin => isin && isin.length >= 10);
+    if (validIsins.length === 0) return results;
+
+    try {
+      const funds = await db
+        .select({
+          schemeCode: mutualFunds.schemeCode,
+          schemeName: mutualFunds.schemeName,
+          isin: mutualFunds.isin,
+          category: mutualFunds.category,
+          fundHouse: mutualFunds.fundHouse,
+          nav: mutualFunds.nav,
+          planType: mutualFunds.planType,
+          optionType: mutualFunds.optionType,
+          exitLoadPercent: mutualFunds.exitLoadPercent,
+          exitLoadDays: mutualFunds.exitLoadDays,
+          returns1y: mutualFunds.returns1y,
+          returns3y: mutualFunds.returns3y,
+          returns5y: mutualFunds.returns5y,
+          riskLevel: mutualFunds.riskLevel,
+          lastUpdated: mutualFunds.lastUpdated,
+          extendedData: mutualFunds.extendedData,
+          isinGrowth: mutualFunds.isinGrowth,
+          isinDividendPayout: mutualFunds.isinDividendPayout,
+          isinDividendReinvest: mutualFunds.isinDividendReinvest,
+        })
+        .from(mutualFunds)
+        .where(
+          or(
+            sql`${mutualFunds.isin} = ANY(${validIsins})`,
+            sql`${mutualFunds.isinGrowth} = ANY(${validIsins})`,
+            sql`${mutualFunds.isinDividendPayout} = ANY(${validIsins})`,
+            sql`${mutualFunds.isinDividendReinvest} = ANY(${validIsins})`
+          )
+        );
+
+      // Map results by ISIN
+      for (const fund of funds) {
+        const matchedIsin = validIsins.find(isin => 
+          fund.isin === isin || 
+          fund.isinGrowth === isin || 
+          fund.isinDividendPayout === isin || 
+          fund.isinDividendReinvest === isin
+        );
+
+        if (matchedIsin && !results.has(matchedIsin)) {
+          const extData = fund.extendedData as Record<string, any> | null;
+          let exitLoadPercent = fund.exitLoadPercent ? parseFloat(fund.exitLoadPercent) : undefined;
+          let exitLoadDays = fund.exitLoadDays ?? undefined;
+
+          if (!exitLoadPercent && extData?.exitLoad) {
+            const exitLoadStr = typeof extData.exitLoad === 'string' ? extData.exitLoad : '';
+            const percentMatch = exitLoadStr.match(/(\d+(?:\.\d+)?)\s*%/);
+            const daysMatch = exitLoadStr.match(/(\d+)\s*(?:days?|months?|years?)/i);
+            
+            if (percentMatch) exitLoadPercent = parseFloat(percentMatch[1]);
+            if (daysMatch) {
+              const value = parseInt(daysMatch[1], 10);
+              if (exitLoadStr.toLowerCase().includes('year')) exitLoadDays = value * 365;
+              else if (exitLoadStr.toLowerCase().includes('month')) exitLoadDays = value * 30;
+              else exitLoadDays = value;
+            }
+          }
+
+          results.set(matchedIsin, {
+            found: true,
+            schemeCode: fund.schemeCode,
+            schemeName: fund.schemeName,
+            isin: fund.isin || matchedIsin,
+            category: fund.category || this.deriveCategoryFromName(fund.schemeName),
+            fundHouse: fund.fundHouse || undefined,
+            currentNav: fund.nav ? parseFloat(fund.nav) : undefined,
+            navDate: fund.lastUpdated?.toISOString().split('T')[0],
+            exitLoadPercent,
+            exitLoadDays,
+            planType: fund.planType || undefined,
+            optionType: fund.optionType || undefined,
+            returns1y: fund.returns1y ? parseFloat(fund.returns1y) : undefined,
+            returns3y: fund.returns3y ? parseFloat(fund.returns3y) : undefined,
+            returns5y: fund.returns5y ? parseFloat(fund.returns5y) : undefined,
+            riskLevel: fund.riskLevel || undefined,
+            confidence: 100
+          });
+        }
+      }
+
+      // Mark not-found ISINs
+      for (const isin of validIsins) {
+        if (!results.has(isin)) {
+          results.set(isin, { found: false, confidence: 0 });
+        }
+      }
+
+    } catch (error) {
+      console.warn('[HoldingNormalization] Batch ISIN enrichment failed:', error);
+    }
+
+    return results;
   }
 }
 
