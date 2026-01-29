@@ -16446,6 +16446,20 @@ export const mfOrders = pgTable("mf_orders", {
   ipAddress: varchar("ip_address"),
   userAgent: text("user_agent"),
   
+  // Capital Gains Tracking (for sell/redemption orders)
+  purchaseDate: date("purchase_date"), // Original purchase date of units being sold
+  purchaseNav: decimal("purchase_nav", { precision: 12, scale: 4 }), // Original NAV at purchase
+  purchaseValue: decimal("purchase_value", { precision: 15, scale: 2 }), // Total cost basis
+  saleValue: decimal("sale_value", { precision: 15, scale: 2 }), // Gross sale proceeds
+  realizedGain: decimal("realized_gain", { precision: 15, scale: 2 }), // Gain/loss amount
+  gainType: varchar("gain_type"), // 'STCG' or 'LTCG'
+  holdingPeriodDays: integer("holding_period_days"), // Days held
+  grandfatheredValue: decimal("grandfathered_value", { precision: 15, scale: 2 }), // For pre-2018 equity
+  indexedCost: decimal("indexed_cost", { precision: 15, scale: 2 }), // For debt with indexation
+  taxableGain: decimal("taxable_gain", { precision: 15, scale: 2 }), // After exemptions/indexation
+  estimatedTax: decimal("estimated_tax", { precision: 15, scale: 2 }), // Tax liability on this trade
+  fiscalYear: varchar("fiscal_year"), // e.g., "2024-25" for advance tax tracking
+
   // Zoho Books Sync (SEBI/AMFI Compliance - Pass-Through only, no invoices)
   zohoSyncedAt: timestamp("zoho_synced_at"), // When compliance tracking was done
   zohoSyncStatus: varchar("zoho_sync_status", { length: 50 }), // pass_through (money flows to AMC)
@@ -16465,6 +16479,8 @@ export const mfOrders = pgTable("mf_orders", {
   index("idx_mf_orders_scheme").on(table.schemeCode),
   index("idx_mf_orders_reference").on(table.orderReference),
   index("idx_mf_orders_created").on(table.createdAt),
+  index("idx_mf_orders_fiscal_year").on(table.fiscalYear),
+  index("idx_mf_orders_gain_type").on(table.gainType),
 ]);
 
 // Order Audit Log - Track every action on orders
