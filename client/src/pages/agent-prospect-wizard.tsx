@@ -2763,11 +2763,11 @@ export default function AgentProspectWizard() {
               <div className="border-2 border-dashed rounded-lg p-6 text-center bg-muted/20">
                 <FileText className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
                 <p className="text-sm text-muted-foreground mb-3">
-                  Upload a portfolio statement (PDF or HTML) from Zerodha, Groww, ICICI Direct, HDFC Securities, Kotak, Wealthy.in, or other brokers
+                  Upload a portfolio statement from Zerodha, Groww, ICICI Direct, HDFC Securities, Kotak, Wealthy.in, or other brokers
                 </p>
                 <input
                   type="file"
-                  accept=".pdf,.html,.htm"
+                  accept=".pdf,.html,.htm,.csv,.xlsx,.xls"
                   id="portfolio-upload"
                   className="hidden"
                   onChange={(e) => {
@@ -2785,16 +2785,20 @@ export default function AgentProspectWizard() {
                     variant="secondary" 
                     disabled={uploadPortfolioMutation.isPending || !prospectId}
                     asChild
+                    title="Supports PDF, HTML, CSV, and Excel files"
                   >
                     <span>
                       {uploadPortfolioMutation.isPending ? (
                         <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Parsing...</>
                       ) : (
-                        <><Upload className="h-4 w-4 mr-2" /> Choose PDF or HTML File</>
+                        <><Upload className="h-4 w-4 mr-2" /> Upload Portfolio</>
                       )}
                     </span>
                   </Button>
                 </label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  PDF, HTML, CSV, or Excel (.xlsx, .xls)
+                </p>
                 {importResult && (
                   <div className="mt-4 space-y-2">
                     {/* Success/Failure Message */}

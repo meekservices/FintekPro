@@ -17,6 +17,7 @@ import { z } from "zod";
 import multer from "multer";
 import { prospectPortfolioSyncService } from "../services/prospect-portfolio-sync-service";
 import { requireRole } from "../middleware/roleMiddleware";
+import { unifiedPortfolioImportService } from "../services/unified-portfolio-import-service";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -350,79 +351,45 @@ router.post("/portfolio/upload-csv", upload.single('file'), async (req, res) => 
       });
     }
 
-    const csvContent = req.file.buffer.toString('utf-8');
-    const lines = csvContent.split('\n').filter(line => line.trim());
-    
-    if (lines.length < 2) {
-      return res.status(400).json({
-        success: false,
-        error: "CSV file must have headers and at least one data row"
-      });
-    }
-
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-    const symbolIdx = headers.findIndex(h => h.includes('symbol') || h.includes('stock'));
-    const quantityIdx = headers.findIndex(h => h.includes('quantity') || h.includes('qty'));
-    const priceIdx = headers.findIndex(h => h.includes('price') || h.includes('avg'));
-    const sectorIdx = headers.findIndex(h => h.includes('sector'));
-
-    if (symbolIdx === -1 || quantityIdx === -1 || priceIdx === -1) {
-      return res.status(400).json({
-        success: false,
-        error: "CSV must have symbol, quantity, and price columns"
-      });
-    }
-
     // Resolve client type (prospect vs user)
     const clientInfo = await resolveClientType(clientId);
     if (!clientInfo.isProspect && !clientInfo.isUser) {
       return res.status(404).json({ error: "Client not found" });
     }
 
-    // Parse CSV rows into holdings
-    const parsedHoldings: Array<{symbol: string; quantity: number; avgPrice: number; sector?: string}> = [];
-    const errors: string[] = [];
+    // Use centralized CSV import service
+    const csvContent = req.file.buffer.toString('utf-8');
+    const importResult = await unifiedPortfolioImportService.importFromCSV(csvContent, req.file.originalname);
 
-    for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map(v => v.trim());
-      
-      try {
-        const symbol = values[symbolIdx]?.replace(/"/g, '');
-        const quantity = parseFloat(values[quantityIdx]?.replace(/"/g, ''));
-        const avgPrice = parseFloat(values[priceIdx]?.replace(/"/g, ''));
-        const sector = sectorIdx !== -1 ? values[sectorIdx]?.replace(/"/g, '') : undefined;
-
-        if (!symbol || isNaN(quantity) || isNaN(avgPrice)) {
-          errors.push(`Row ${i + 1}: Invalid data`);
-          continue;
-        }
-
-        parsedHoldings.push({ symbol: symbol.toUpperCase(), quantity, avgPrice, sector });
-      } catch (err) {
-        errors.push(`Row ${i + 1}: Failed to process`);
-      }
+    if (!importResult.success || importResult.holdings.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: importResult.errors?.[0] || "No valid holdings found in CSV"
+      });
     }
 
     // For prospects: write to unified currentPortfolio JSON
     if (clientInfo.isProspect) {
-      const normalizedHoldings = parsedHoldings.map(h => ({
-        name: h.symbol,
+      const normalizedHoldings = importResult.holdings.map(h => ({
+        name: h.name || h.symbol || 'Unknown',
         symbol: h.symbol,
-        assetType: 'equity' as const,
+        isin: h.isin,
+        assetType: h.assetType || 'equity',
         quantity: h.quantity,
-        averageCost: h.avgPrice,
-        currentValue: h.quantity * h.avgPrice, // Calculate current value
-        sector: h.sector,
+        averageCost: h.avgCostPerUnit,
+        currentValue: h.currentValue,
+        folioNumber: h.folioNumber,
+        purchaseDate: h.purchaseDate,
         source: 'uploaded' as const,
       }));
 
-      const updatedHoldings = await prospectPortfolioSyncService.addHoldings(clientId, normalizedHoldings);
+      await prospectPortfolioSyncService.addHoldings(clientId, normalizedHoldings);
 
       return res.json({
         success: true,
         message: `Uploaded ${normalizedHoldings.length} holdings to prospect portfolio`,
         holdingsAdded: normalizedHoldings.length,
-        errors: errors.length > 0 ? errors : undefined,
+        errors: importResult.errors?.length > 0 ? importResult.errors : undefined,
         source: 'currentPortfolio'
       });
     }
@@ -441,15 +408,17 @@ router.post("/portfolio/upload-csv", upload.single('file'), async (req, res) => 
     }
 
     const insertedHoldings = [];
-    for (const h of parsedHoldings) {
+    for (const h of importResult.holdings) {
       const [inserted] = await db.insert(portfolioHoldings).values({
         portfolioId: portfolio.id,
-        symbol: h.symbol,
+        symbol: h.symbol || h.name,
+        name: h.name,
         quantity: String(h.quantity),
-        avgPrice: String(h.avgPrice),
-        assetType: 'equity',
-        sector: h.sector,
-        purchaseDate: new Date()
+        avgPrice: String(h.avgCostPerUnit || 0),
+        assetType: h.assetType || 'equity',
+        isin: h.isin,
+        folioNumber: h.folioNumber,
+        purchaseDate: h.purchaseDate ? new Date(h.purchaseDate) : new Date()
       }).returning();
       insertedHoldings.push(inserted);
     }
@@ -459,7 +428,7 @@ router.post("/portfolio/upload-csv", upload.single('file'), async (req, res) => 
       message: `Uploaded ${insertedHoldings.length} holdings`,
       portfolioId: portfolio.id,
       holdingsAdded: insertedHoldings.length,
-      errors: errors.length > 0 ? errors : undefined
+      errors: importResult.errors?.length > 0 ? importResult.errors : undefined
     });
   } catch (error) {
     console.error("Error uploading CSV:", error);
@@ -1013,7 +982,7 @@ router.post("/portfolio/:clientId/holdings", async (req, res) => {
   }
 });
 
-// POST endpoint for CSV upload
+// POST endpoint for file upload (CSV, Excel, PDF, HTML)
 router.post("/portfolio/:clientId/upload", upload.single('file'), async (req, res) => {
   try {
     const { clientId } = req.params;
@@ -1028,6 +997,55 @@ router.post("/portfolio/:clientId/upload", upload.single('file'), async (req, re
       return res.status(404).json({ error: "Client not found" });
     }
 
+    // Determine file type and use appropriate parser
+    const filename = req.file.originalname.toLowerCase();
+    const isCSV = filename.endsWith('.csv');
+    const isExcel = filename.endsWith('.xlsx') || filename.endsWith('.xls');
+
+    let importResult;
+    if (isCSV) {
+      importResult = await unifiedPortfolioImportService.importFromCSV(
+        req.file.buffer.toString('utf-8'),
+        req.file.originalname
+      );
+    } else if (isExcel) {
+      importResult = await unifiedPortfolioImportService.importFromExcel(
+        req.file.buffer,
+        req.file.originalname
+      );
+    } else {
+      return res.status(400).json({ error: "Only CSV and Excel files are supported for this endpoint" });
+    }
+
+    if (!importResult.success || importResult.holdings.length === 0) {
+      return res.status(400).json({
+        error: importResult.errors?.[0] || "No valid holdings found in file"
+      });
+    }
+
+    // For prospects: use unified currentPortfolio storage via sync service
+    if (clientInfo.isProspect) {
+      const normalizedHoldings = importResult.holdings.map(h => ({
+        symbol: h.symbol || h.name,
+        name: h.name || h.symbol || 'Unknown',
+        quantity: h.quantity,
+        averageCost: h.avgCostPerUnit,
+        currentValue: h.currentValue,
+        assetType: h.assetType || 'equity',
+        isin: h.isin,
+        folioNumber: h.folioNumber,
+        purchaseDate: h.purchaseDate,
+      }));
+
+      await prospectPortfolioSyncService.addHoldings(clientId, normalizedHoldings);
+      return res.json({ 
+        success: true, 
+        count: normalizedHoldings.length, 
+        storage: 'prospect_currentPortfolio' 
+      });
+    }
+
+    // For registered users: use portfolioHoldings table
     let [portfolio] = await db
       .select()
       .from(portfolios)
@@ -1040,75 +1058,26 @@ router.post("/portfolio/:clientId/upload", upload.single('file'), async (req, re
       ).returning();
     }
 
-    const csvContent = req.file.buffer.toString('utf-8');
-    const lines = csvContent.split('\n').filter(line => line.trim());
-    
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-    const symbolIdx = headers.findIndex(h => h.includes('symbol') || h.includes('ticker') || h.includes('isin'));
-    const nameIdx = headers.findIndex(h => h.includes('name') || h.includes('scheme') || h.includes('fund'));
-    const quantityIdx = headers.findIndex(h => h.includes('quantity') || h.includes('qty') || h.includes('units'));
-    const priceIdx = headers.findIndex(h => h.includes('price') || h.includes('nav') || h.includes('cost') || h.includes('avg'));
-    const typeIdx = headers.findIndex(h => h.includes('type') || h.includes('asset') || h.includes('category'));
-    const isinIdx = headers.findIndex(h => h === 'isin');
-    const folioIdx = headers.findIndex(h => h.includes('folio'));
-    const dateIdx = headers.findIndex(h => h.includes('date') || h.includes('purchase'));
-
-    const parsedHoldings = [];
-    for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
-      const symbol = values[symbolIdx >= 0 ? symbolIdx : 0] || '';
-      const name = nameIdx >= 0 ? values[nameIdx] : symbol;
-      const quantity = parseFloat(values[quantityIdx >= 0 ? quantityIdx : 1]) || 0;
-      const avgPrice = parseFloat(values[priceIdx >= 0 ? priceIdx : 2]) || 0;
-      const assetType = typeIdx >= 0 ? values[typeIdx] : 'EQUITY';
-      const isin = isinIdx >= 0 ? values[isinIdx] : undefined;
-      const folioNumber = folioIdx >= 0 ? values[folioIdx] : undefined;
-      const purchaseDate = dateIdx >= 0 && values[dateIdx] ? new Date(values[dateIdx]) : new Date();
-      
-      if (symbol && quantity > 0) {
-        parsedHoldings.push({ symbol: symbol.toUpperCase(), name, quantity, avgPrice, assetType, isin, folioNumber, purchaseDate });
-      }
-    }
-
     let count = 0;
-    
-    // For prospects: use unified currentPortfolio storage via sync service
-    if (clientInfo.isProspect) {
-      for (const h of parsedHoldings) {
-        await prospectPortfolioSyncService.addHolding(clientId, {
-          symbol: h.symbol,
-          name: h.name || h.symbol,
-          quantity: h.quantity,
-          averageCost: h.avgPrice,
-          currentValue: h.quantity * h.avgPrice,
-          assetType: h.assetType?.toLowerCase() || 'equity',
-          isin: h.isin,
-          folioNumber: h.folioNumber,
-          purchaseDate: h.purchaseDate?.toISOString().split('T')[0],
-        });
-        count++;
-      }
-      return res.json({ success: true, count, storage: 'prospect_currentPortfolio' });
-    }
-
-    // For registered users: use portfolioHoldings table
-    for (const h of parsedHoldings) {
+    for (const h of importResult.holdings) {
       await db.insert(portfolioHoldings).values({
         portfolioId: portfolio.id,
-        symbol: h.symbol,
+        symbol: h.symbol || h.name,
         name: h.name,
         quantity: String(h.quantity),
-        avgPrice: String(h.avgPrice),
-        assetType: h.assetType || 'EQUITY',
-        purchaseDate: h.purchaseDate
+        avgPrice: String(h.avgCostPerUnit || 0),
+        assetType: h.assetType || 'equity',
+        isin: h.isin,
+        folioNumber: h.folioNumber,
+        purchaseDate: h.purchaseDate ? new Date(h.purchaseDate) : new Date()
       });
       count++;
     }
 
     res.json({ success: true, count });
   } catch (error) {
-    console.error("Error uploading CSV:", error);
-    res.status(500).json({ error: "Failed to process CSV" });
+    console.error("Error uploading file:", error);
+    res.status(500).json({ error: "Failed to process file" });
   }
 });
 
