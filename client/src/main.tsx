@@ -22,6 +22,9 @@ if ('serviceWorker' in navigator) {
       .then((registration) => {
         console.log('[PWA] Service Worker registered:', registration.scope);
         
+        // Store registration globally for refresh functionality
+        (window as any).__swRegistration = registration;
+        
         // Listen for updates
         registration.addEventListener('updatefound', () => {
           const newWorker = registration.installing;
@@ -29,10 +32,22 @@ if ('serviceWorker' in navigator) {
             newWorker.addEventListener('statechange', () => {
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                 console.log('[PWA] New content available, refresh to update');
+                // Dispatch custom event for UI notification
+                window.dispatchEvent(new CustomEvent('appUpdateAvailable', {
+                  detail: { registration, newWorker }
+                }));
               }
             });
           }
         });
+        
+        // Check for waiting worker on page load (update was found previously)
+        if (registration.waiting) {
+          console.log('[PWA] Update waiting from previous session');
+          window.dispatchEvent(new CustomEvent('appUpdateAvailable', {
+            detail: { registration, newWorker: registration.waiting }
+          }));
+        }
       })
       .catch((error) => {
         console.error('[PWA] Service Worker registration failed:', error);
@@ -46,6 +61,12 @@ if ('serviceWorker' in navigator) {
       if (event.data && event.data.type === 'SYNC_ACTIONS') {
         window.dispatchEvent(new CustomEvent('syncActions'));
       }
+    });
+    
+    // Listen for controller change (new SW activated) and reload
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      console.log('[PWA] New service worker activated, reloading...');
+      window.location.reload();
     });
   });
 }

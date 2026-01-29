@@ -11,6 +11,7 @@ import { LowDataProvider } from "@/contexts/LowDataContext";
 import { UnifiedCartProvider } from "@/contexts/UnifiedCartContext";
 import { NetworkProvider } from "@/hooks/use-network-state";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
+import { UpdateNotificationBanner } from "@/components/UpdateNotificationBanner";
 import { DSCBackgroundSync } from "@/components/DSCBackgroundSync";
 import { GlobalActionQueueMonitor } from "@/components/GlobalActionQueueMonitor";
 import { LoadingState } from "@/components/LoadingState";
@@ -2038,6 +2039,7 @@ function App() {
         <QueryClientProvider client={queryClient}>
           <UnifiedCartProvider>
             <TooltipProvider>
+              <UpdateNotificationBanner />
               <NetworkStatusBanner />
               <GlobalActionQueueMonitor />
               <DSCBackgroundSync />
