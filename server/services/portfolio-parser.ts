@@ -708,6 +708,7 @@ function detectColumnHeaders(text: string): ColumnMapping {
 function extractTransactionLots(holdingBlockText: string): TransactionLot[] {
   const lots: TransactionLot[] = [];
   const lines = holdingBlockText.split('\n');
+  console.log(`[TxnLots] Processing ${lines.length} lines from holding block`);
   
   // Transaction keywords (aligned with cas-statement-service)
   const transactionKeywords = [
@@ -793,6 +794,8 @@ function extractTransactionLots(holdingBlockText: string): TransactionLot[] {
         // nav3 = n1 (often smaller), nav4 = n2 (often larger like 119.xx)
         // If nav4 > nav3, it's likely 4-number format (NAV is the larger middle number)
         const nav4LargerThanNav3 = nav4 > nav3;
+        
+        console.log(`[TxnLots] AMBIGUOUS: numbers=[${n0.toFixed(2)},${n1.toFixed(3)},${n2.toFixed(4)},${n3.toFixed(3)}] bal=units4=${balanceEqualsUnits4} 4th≠3rd=${fourthDiffersThird} nav4>nav3=${nav4LargerThanNav3}`);
         
         if (balanceEqualsUnits4 || fourthDiffersThird || nav4LargerThanNav3) {
           // Use 4-number format
@@ -887,8 +890,14 @@ function extractTransactionLots(holdingBlockText: string): TransactionLot[] {
   }
   
   if (lots.length > 0) {
-    console.log(`[Transaction Extractor] Found ${lots.length} transaction lots`);
-    console.log('[Transaction Extractor] First:', lots[0].purchaseDate, lots[0].transactionType, '₹' + lots[0].amount);
+    const totalAmount = lots.reduce((sum, l) => sum + l.amount, 0);
+    const totalUnits = lots.reduce((sum, l) => sum + l.units, 0);
+    console.log(`[TxnLots] Found ${lots.length} transaction lots, total invested: ₹${totalAmount.toLocaleString('en-IN')}, total units: ${totalUnits.toFixed(3)}`);
+    for (const lot of lots) {
+      console.log(`[TxnLots] ${lot.purchaseDate} ${lot.transactionType}: ₹${lot.amount.toFixed(2)} = ${lot.units.toFixed(3)} units @ NAV ${lot.navAtPurchase.toFixed(4)}`);
+    }
+  } else {
+    console.log(`[TxnLots] No transaction lots found`);
   }
   
   return lots;
