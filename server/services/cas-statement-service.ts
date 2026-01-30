@@ -628,11 +628,10 @@ class CASStatementService {
       return null;
     }
     
-    const closingPatterns = [
-      /Closing Unit Balance:\s*([\d,]+\.?\d*)\s+NAV on\s*(\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{4}):\s*(?:INR|Rs\.?)\s*([\d,]+\.?\d*)\s+Total Cost(?: Value)?:\s*([\d,]+\.?\d*)\s+Market Value on[^:]+:\s*(?:INR|Rs\.?)\s*([\d,]+\.?\d*)/i,
-      /Closing Unit Balance:\s*([\d,]+\.?\d*)\s+NAV[^:]*:\s*(?:INR|Rs\.?)?\s*([\d,]+\.?\d*)\s+.*?Cost[^:]*:\s*([\d,]+\.?\d*)\s+.*?Value[^:]*:\s*(?:INR|Rs\.?)?\s*([\d,]+\.?\d*)/i,
-      /Closing Unit Balance:\s*([\d,]+\.?\d*)/i
-    ];
+    // PDF-parse extracts data in multi-line format:
+    // Line 1: "Closing Unit Balance: X Total Cost Value: Y"
+    // Line 2: "NAV on date: INR Z Market Value on date: INR W"
+    // We need to extract from both lines separately
     
     let unitBalance = 0;
     let navDate = '';
@@ -640,41 +639,55 @@ class CASStatementService {
     let costValue = 0;
     let marketValue = 0;
     
-    // Debug: Extract and log the raw closing line
-    const closingLineMatch = blockText.match(/Closing Unit Balance:[^\n]+/i);
-    if (closingLineMatch) {
-      console.log(`[CAS Service v4] Raw closing line: "${closingLineMatch[0].substring(0, 200)}"`);
-    }
+    // Pattern 1: Original single-line format (for reference PDFs)
+    const singleLinePattern = /Closing Unit Balance:\s*([\d,]+\.?\d*)\s+NAV on\s*(\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{4}):\s*(?:INR|Rs\.?)\s*([\d,]+\.?\d*)\s+Total Cost(?: Value)?:\s*([\d,]+\.?\d*)\s+Market Value on[^:]+:\s*(?:INR|Rs\.?)\s*([\d,]+\.?\d*)/i;
+    const singleMatch = blockText.match(singleLinePattern);
     
-    for (const pattern of closingPatterns) {
-      const closingMatch = blockText.match(pattern);
-      if (closingMatch) {
-        console.log(`[CAS Service v4] Closing pattern matched with ${closingMatch.length} groups`);
-        if (closingMatch.length >= 6) {
-          unitBalance = this.parseNumber(closingMatch[1]);
-          navDate = closingMatch[2] || '';
-          nav = this.parseNumber(closingMatch[3]);
-          costValue = this.parseNumber(closingMatch[4]);
-          marketValue = this.parseNumber(closingMatch[5]);
-          console.log(`[CAS Service v4] Extracted: Units=${unitBalance}, NAV=${nav}, Cost=${costValue}, Market=${marketValue}`);
-        } else if (closingMatch.length >= 5) {
-          unitBalance = this.parseNumber(closingMatch[1]);
-          nav = this.parseNumber(closingMatch[2]);
-          costValue = this.parseNumber(closingMatch[3]);
-          marketValue = this.parseNumber(closingMatch[4]);
-          console.log(`[CAS Service v4] Extracted (alt): Units=${unitBalance}, NAV=${nav}, Cost=${costValue}, Market=${marketValue}`);
-        } else if (closingMatch.length >= 2) {
-          unitBalance = this.parseNumber(closingMatch[1]);
-          console.log(`[CAS Service v4] Extracted (minimal): Units=${unitBalance}`);
+    if (singleMatch && singleMatch.length >= 6) {
+      unitBalance = this.parseNumber(singleMatch[1]);
+      navDate = singleMatch[2] || '';
+      nav = this.parseNumber(singleMatch[3]);
+      costValue = this.parseNumber(singleMatch[4]);
+      marketValue = this.parseNumber(singleMatch[5]);
+      console.log(`[CAS Service v4] Single-line match: Units=${unitBalance}, Cost=${costValue}, Market=${marketValue}`);
+    } else {
+      // Pattern 2: Multi-line format from pdf-parse (common case)
+      // Extract Units + Cost from "Closing Unit Balance: X Total Cost Value: Y"
+      const closingCostPattern = /Closing Unit Balance:\s*([\d,]+\.?\d*)\s+Total Cost(?: Value)?:\s*([\d,]+\.?\d*)/i;
+      const closingCostMatch = blockText.match(closingCostPattern);
+      
+      if (closingCostMatch) {
+        unitBalance = this.parseNumber(closingCostMatch[1]);
+        costValue = this.parseNumber(closingCostMatch[2]);
+        console.log(`[CAS Service v4] Multi-line: Units=${unitBalance}, Cost=${costValue}`);
+      } else {
+        // Fallback: extract just units
+        const unitsOnlyPattern = /Closing Unit Balance:\s*([\d,]+\.?\d*)/i;
+        const unitsMatch = blockText.match(unitsOnlyPattern);
+        if (unitsMatch) {
+          unitBalance = this.parseNumber(unitsMatch[1]);
+          console.log(`[CAS Service v4] Units-only: ${unitBalance}`);
         }
-        
-        if (unitBalance > 0) break;
+      }
+      
+      // Extract NAV and Market Value from separate line: "NAV on date: INR X Market Value on date: INR Y"
+      const navMarketPattern = /NAV on\s*(\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{4}):\s*(?:INR|Rs\.?)\s*([\d,]+\.?\d*)\s+Market Value on[^:]+:\s*(?:INR|Rs\.?)\s*([\d,]+\.?\d*)/i;
+      const navMarketMatch = blockText.match(navMarketPattern);
+      
+      if (navMarketMatch) {
+        navDate = navMarketMatch[1];
+        nav = this.parseNumber(navMarketMatch[2]);
+        marketValue = this.parseNumber(navMarketMatch[3]);
+        console.log(`[CAS Service v4] NAV+Market: NAV=${nav}, Market=${marketValue}, Date=${navDate}`);
       }
     }
     
-    const navDateMatch = blockText.match(/NAV on\s*(\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{4})/i);
-    if (navDateMatch && !navDate) {
-      navDate = navDateMatch[1];
+    // Fallback NAV date extraction
+    if (!navDate) {
+      const navDateMatch = blockText.match(/NAV on\s*(\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{4})/i);
+      if (navDateMatch) {
+        navDate = navDateMatch[1];
+      }
     }
     
     let registrar: 'CAMS' | 'KFINTECH' | 'UNKNOWN' = 'UNKNOWN';
