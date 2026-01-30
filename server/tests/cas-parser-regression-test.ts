@@ -37,9 +37,9 @@ const GOLDEN_FIXTURES: GoldenFixture[] = [
   {
     name: 'AJPB CAS 2021-2026 (Multi-Line Format)',
     filePath: 'attached_assets/AJXXXXXX9R_01012021-24012026_CP203204091_24012026071436194_-_A_1769782761584.pdf',
-    expectedHoldings: 37,  // Note: CAS has 41 total, 4 schemes with complex formats not yet parsed
-    expectedTotalCost: 12134091.24,
-    expectedTotalMarket: 18106744.10,  // Post-enrichment value (NAVs updated from database)
+    expectedHoldings: 40,  // Tier 1: 37 full + Tier 3: 3 placeholders (Franklin Templeton, NAVI MF, 360 ONE)
+    expectedTotalCost: 13334091.24,  // Includes Tier 3 placeholder cost values
+    expectedTotalMarket: 19391872.52,  // Post-enrichment with Tier 3 placeholders (~₹193.92L)
     tolerance: 8.0,  // 8% tolerance accounts for database NAV enrichment variance
     isinSamples: [
       'INF179K01574',  // ICICI Prudential
@@ -50,9 +50,12 @@ const GOLDEN_FIXTURES: GoldenFixture[] = [
       cams: 28,  // Approximate - will be validated
       kfintech: 9,
     },
-    // Known issue: Parser finds 37/41 holdings (10% delta from CAS Portfolio Summary)
-    // Pre-enrichment parsed: ₹151.56L, CAS Summary: ₹168.45L
-    // Reconciliation uses pre-enrichment values for validation
+    // Tiered Parsing Status:
+    // - Tier 1: 37 fully parsed holdings with transactions
+    // - Tier 2: 0 valuation-only recoveries (no dropped blocks with NAV+Market)
+    // - Tier 3: 3 placeholders for completely missing AMCs
+    // Pre-enrichment: ₹164.42L, CAS Summary: ₹168.45L (2.39% delta)
+    // Reconciliation fails strict 0.5% threshold - this is expected for incomplete CAS parsing
   },
 ];
 

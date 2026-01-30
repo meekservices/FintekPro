@@ -750,9 +750,12 @@ class CASStatementService {
   }
 
   /**
-   * Tier 3: Summary Diff Injection
-   * Compares parsed AMC totals against CAS Portfolio Summary
-   * Injects placeholders for AMCs where parsed value significantly differs from expected
+   * Tier 3: Summary Diff Injection (CONSERVATIVE MODE)
+   * Only injects placeholders for AMCs that are COMPLETELY missing from parsed holdings
+   * Does NOT inject for under-parsed AMCs to avoid duplicate counting
+   * 
+   * IMPORTANT: This is conservative by design. Missing individual schemes within an AMC
+   * should be caught by Tier 2, not filled with placeholders that corrupt tax calculations.
    */
   private applyTier3SummaryDiffInjection(
     holdings: CASHolding[], 
@@ -760,51 +763,59 @@ class CASStatementService {
   ): CASHolding[] {
     const injectedHoldings: CASHolding[] = [];
     
-    // Calculate parsed value per AMC
+    // Calculate parsed value per AMC with multiple name variations for matching
     const parsedByAMC = new Map<string, { costValue: number; marketValue: number }>();
+    const amcNameVariations = new Map<string, string[]>(); // normalized -> original names
+    
     for (const holding of holdings) {
-      const amcKey = this.normalizeAMCName(holding.amcName || 'Unknown');
-      const current = parsedByAMC.get(amcKey) || { costValue: 0, marketValue: 0 };
+      const originalAMC = holding.amcName || 'Unknown';
+      const normalized = this.normalizeAMCName(originalAMC);
+      
+      const current = parsedByAMC.get(normalized) || { costValue: 0, marketValue: 0 };
       current.costValue += holding.costValue;
       current.marketValue += holding.marketValue;
-      parsedByAMC.set(amcKey, current);
+      parsedByAMC.set(normalized, current);
+      
+      // Track variations
+      if (!amcNameVariations.has(normalized)) {
+        amcNameVariations.set(normalized, []);
+      }
+      if (!amcNameVariations.get(normalized)!.includes(originalAMC)) {
+        amcNameVariations.get(normalized)!.push(originalAMC);
+      }
     }
     
-    // Compare against summary entries
+    // Only inject for COMPLETELY missing AMCs
     let placeholderIndex = 0;
     for (const entry of summary.entries) {
-      const amcKey = this.normalizeAMCName(entry.amcName);
-      const parsed = parsedByAMC.get(amcKey);
+      const normalizedEntry = this.normalizeAMCName(entry.amcName);
+      
+      // Try exact normalized match first
+      let parsed = parsedByAMC.get(normalizedEntry);
+      
+      // If not found, try fuzzy match (first word match)
+      if (!parsed) {
+        const firstWord = normalizedEntry.split(' ')[0];
+        for (const [key, value] of parsedByAMC) {
+          if (key.startsWith(firstWord) || key.includes(firstWord)) {
+            parsed = value;
+            break;
+          }
+        }
+      }
       
       if (!parsed) {
-        // AMC completely missing - inject placeholder
-        console.log(`[CAS Service Tier3] AMC "${entry.amcName}" missing entirely: Expected ₹${(entry.marketValue / 100000).toFixed(2)} L`);
+        // AMC completely missing - inject placeholder with warning
+        console.log(`[CAS Service Tier3] AMC "${entry.amcName}" not found in parsed holdings: Expected ₹${(entry.marketValue / 100000).toFixed(2)} L`);
         injectedHoldings.push(this.createTier3PlaceholderHolding(
           entry.amcName,
           entry.costValue,
           entry.marketValue,
           placeholderIndex++
         ));
-        continue;
       }
-      
-      // Calculate delta
-      const marketDelta = entry.marketValue - parsed.marketValue;
-      const deltaPercent = entry.marketValue > 0 ? (marketDelta / entry.marketValue) * 100 : 0;
-      
-      // Only inject placeholder if significant gap (> 10% of expected AND > ₹10,000)
-      if (deltaPercent > 10 && marketDelta > 10000) {
-        console.log(`[CAS Service Tier3] AMC "${entry.amcName}" under-parsed: Expected ₹${(entry.marketValue / 100000).toFixed(2)} L, Got ₹${(parsed.marketValue / 100000).toFixed(2)} L (${deltaPercent.toFixed(1)}% gap)`);
-        
-        // Inject placeholder for the missing delta amount only
-        const deltaCost = entry.costValue - parsed.costValue;
-        injectedHoldings.push(this.createTier3PlaceholderHolding(
-          entry.amcName,
-          Math.max(0, deltaCost),
-          Math.max(0, marketDelta),
-          placeholderIndex++
-        ));
-      }
+      // Note: We deliberately do NOT inject for under-parsed AMCs
+      // This prevents double-counting and ensures conservative behavior
     }
     
     return injectedHoldings;
