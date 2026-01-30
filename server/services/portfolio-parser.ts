@@ -744,19 +744,75 @@ function extractTransactionLots(holdingBlockText: string): TransactionLot[] {
       .map(n => parseFloat(n.replace(/,/g, '')))
       .filter(n => !isNaN(n) && n > 0);
     
-    if (numbers.length < 3) continue; // Need at least amount, units, nav
+    if (numbers.length < 2) continue; // Need at least amount and one more number
     
-    // Parse numbers: Amount, Units, NAV, Balance
+    // CAS transaction format can be:
+    // 4 numbers: Amount, Units, NAV, RunningBalance (explicit units)
+    // 3 numbers: Amount, NAV, RunningBalance (units = amount/nav)
+    // We need to detect which format based on mathematical consistency
     let amount = 0, units = 0, nav = 0, balance = 0;
+    
     if (numbers.length >= 4) {
-      amount = numbers[0];
-      units = numbers[1];
-      nav = numbers[2];
-      balance = numbers[3];
+      // Try 4-number format: Amount, Units, NAV, Balance
+      const amt4 = numbers[0];
+      const u4 = numbers[1];
+      const n4 = numbers[2];
+      const b4 = numbers[3];
+      
+      // Verify: Amount ≈ Units × NAV
+      const calculated4 = u4 * n4;
+      const tolerance4 = Math.abs(calculated4 - amt4) / Math.max(amt4, 1);
+      
+      if (tolerance4 < 0.02 && n4 > 1 && n4 < 5000) {
+        // 4-number format with explicit units
+        amount = amt4;
+        units = u4;
+        nav = n4;
+        balance = b4;
+      } else {
+        // Try 3-number format: Amount, NAV, Balance (units = amount/nav)
+        const amt3 = numbers[0];
+        const n3 = numbers[1];
+        const b3 = numbers[2];
+        
+        // NAV sanity check (typical MF NAV: 5-500)
+        if (n3 > 1 && n3 < 500 && amt3 > n3) {
+          amount = amt3;
+          nav = n3;
+          units = amt3 / n3;
+          balance = b3;
+        } else {
+          // Fallback to 4-number interpretation
+          amount = amt4;
+          units = u4;
+          nav = n4;
+          balance = b4;
+        }
+      }
     } else if (numbers.length === 3) {
+      // 3-number format: Amount, NAV, RunningBalance
+      const amt = numbers[0];
+      const n = numbers[1];
+      const b = numbers[2];
+      
+      // Check if second number looks like NAV (5-500 range for typical MFs)
+      if (n > 1 && n < 500 && amt > n) {
+        amount = amt;
+        nav = n;
+        units = amt / n;
+        balance = b;
+      } else {
+        // Second number might be units, third is NAV
+        amount = amt;
+        units = n;
+        nav = b;
+        balance = n; // Running balance equals units purchased
+      }
+    } else if (numbers.length === 2) {
+      // 2-number format: Amount, NAV (units = amount/nav)
       amount = numbers[0];
-      units = numbers[1];
-      nav = numbers[2];
+      nav = numbers[1];
+      units = nav > 0 ? amount / nav : 0;
       balance = units;
     }
     
