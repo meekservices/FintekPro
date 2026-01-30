@@ -1251,6 +1251,13 @@ export const comprehensiveHoldings = pgTable("comprehensive_holdings", {
   nomineeName: text("nominee_name"),
   nomineeRelation: varchar("nominee_relation"),
   
+  nomineeDetails: jsonb("nominee_details"), // All 3 nominees from CAS
+  kycStatus: varchar("kyc_status"), // "OK", "PENDING"
+  exitLoadRules: text("exit_load_rules"), // Full exit load text from CAS
+  navDate: date("nav_date"), // NAV valuation date
+  openingUnitBalance: decimal("opening_unit_balance", { precision: 15, scale: 6 }), // Opening units from CAS
+  registrarType: varchar("registrar_type"), // "CAMS" or "KFINTECH"
+  advisorArnCode: varchar("advisor_arn_code"), // ARN code of distributor
   // Metadata and Tracking
   metadata: jsonb("metadata"), // Additional holding-specific data
   lastUpdated: timestamp("last_updated").defaultNow(),
@@ -17549,6 +17556,11 @@ export const holdingLotsV2 = pgTable("holding_lots_v2", {
   costPerUnit: decimal("cost_per_unit", { precision: 15, scale: 4 }).notNull(),
   totalCost: decimal("total_cost", { precision: 15, scale: 2 }).notNull(),
   stampDuty: decimal("stamp_duty", { precision: 10, scale: 2 }).default("0"),
+  purchaseNav: decimal("purchase_nav", { precision: 15, scale: 4 }), // NAV at time of purchase
+  balanceAfterTransaction: decimal("balance_after_transaction", { precision: 15, scale: 6 }), // Running balance after this lot
+  transactionDescription: text("transaction_description"), // Full description e.g., "SIP Instalment No - 1"
+  exitLoadText: text("exit_load_text"), // Exit load rules from CAS
+  advisorArn: varchar("advisor_arn"), // ARN code of distributor
   
   // Current Valuation (updated periodically)
   currentNav: decimal("current_nav", { precision: 15, scale: 4 }),
