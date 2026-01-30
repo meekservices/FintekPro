@@ -984,6 +984,136 @@ export function createTwilioWebhookRouter(): Router {
     }
   });
 
+  router.post('/admin/messages/:messageId/reply', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { messageId } = req.params;
+      const { message } = req.body;
+      
+      if (!message || !message.trim()) {
+        return res.status(400).json({ error: 'Reply message is required' });
+      }
+
+      const [originalMessage] = await db.select()
+        .from(inboundMessages)
+        .where(eq(inboundMessages.id, messageId))
+        .limit(1);
+      
+      if (!originalMessage) {
+        return res.status(404).json({ error: 'Original message not found' });
+      }
+
+      const recipientNumber = originalMessage.fromNumber;
+      const channel = originalMessage.channel;
+      
+      let result: { success: boolean; messageSid?: string; error?: string };
+      
+      if (channel === 'whatsapp') {
+        result = await twilioWhatsAppService.sendMessage(recipientNumber.replace('whatsapp:', ''), message.trim());
+      } else {
+        const formattedNumber = recipientNumber.startsWith('+') ? recipientNumber : `+${recipientNumber}`;
+        
+        const { getTwilioClient, getTwilioFromPhoneNumber, isTwilioConfigured } = await import('./twilio-client');
+        const isConfigured = await isTwilioConfigured();
+        
+        if (!isConfigured) {
+          return res.status(500).json({ error: 'SMS service not configured' });
+        }
+        
+        const client = await getTwilioClient();
+        const fromNumber = await getTwilioFromPhoneNumber();
+        const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
+        
+        const messageOptions: any = {
+          body: message.trim(),
+          to: formattedNumber,
+        };
+        
+        if (messagingServiceSid) {
+          messageOptions.messagingServiceSid = messagingServiceSid;
+        } else if (fromNumber) {
+          messageOptions.from = fromNumber;
+        }
+        
+        const twilioMessage = await client.messages.create(messageOptions);
+        result = { success: true, messageSid: twilioMessage.sid };
+      }
+      
+      if (result.success) {
+        console.log(`📤 Admin reply sent to ${recipientNumber} via ${channel} - SID: ${result.messageSid}`);
+        res.json({ 
+          success: true, 
+          messageSid: result.messageSid,
+          channel,
+          recipient: recipientNumber 
+        });
+      } else {
+        console.error(`❌ Failed to send reply: ${result.error}`);
+        res.status(500).json({ error: result.error || 'Failed to send reply' });
+      }
+    } catch (error) {
+      console.error('Error sending reply:', error);
+      res.status(500).json({ error: 'Failed to send reply message' });
+    }
+  });
+
+  router.post('/admin/reply', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { to, message, channel } = req.body;
+      
+      if (!to || !message?.trim()) {
+        return res.status(400).json({ error: 'Recipient and message are required' });
+      }
+
+      let result: { success: boolean; messageSid?: string; error?: string };
+      
+      if (channel === 'whatsapp') {
+        const cleanNumber = to.replace('whatsapp:', '');
+        result = await twilioWhatsAppService.sendMessage(cleanNumber, message.trim());
+      } else {
+        const { getTwilioClient, getTwilioFromPhoneNumber, isTwilioConfigured } = await import('./twilio-client');
+        const isConfigured = await isTwilioConfigured();
+        
+        if (!isConfigured) {
+          return res.status(500).json({ error: 'SMS service not configured' });
+        }
+        
+        const client = await getTwilioClient();
+        const fromNumber = await getTwilioFromPhoneNumber();
+        const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
+        const formattedNumber = to.startsWith('+') ? to : `+${to}`;
+        
+        const messageOptions: any = {
+          body: message.trim(),
+          to: formattedNumber,
+        };
+        
+        if (messagingServiceSid) {
+          messageOptions.messagingServiceSid = messagingServiceSid;
+        } else if (fromNumber) {
+          messageOptions.from = fromNumber;
+        }
+        
+        const twilioMessage = await client.messages.create(messageOptions);
+        result = { success: true, messageSid: twilioMessage.sid };
+      }
+      
+      if (result.success) {
+        console.log(`📤 Admin message sent to ${to} via ${channel || 'sms'} - SID: ${result.messageSid}`);
+        res.json({ 
+          success: true, 
+          messageSid: result.messageSid,
+          channel: channel || 'sms',
+          recipient: to 
+        });
+      } else {
+        res.status(500).json({ error: result.error || 'Failed to send message' });
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      res.status(500).json({ error: 'Failed to send message' });
+    }
+  });
+
   // Admin routes for call logs management (protected)
   router.get('/admin/calls', requireAdmin, async (req: Request, res: Response) => {
     try {

@@ -26,7 +26,9 @@ import {
   CheckCheck,
   StickyNote,
   Inbox,
-  Bell
+  Bell,
+  Reply,
+  Send
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { LoadingState } from '@/components/LoadingState';
@@ -117,6 +119,8 @@ export default function SmsInbox() {
   const [page, setPage] = useState(0);
   const [callbackDialogOpen, setCallbackDialogOpen] = useState(false);
   const [callbackStatus, setCallbackStatus] = useState('');
+  const [replyDialogOpen, setReplyDialogOpen] = useState(false);
+  const [replyMessage, setReplyMessage] = useState('');
   const pageSize = 20;
 
   const { data: combinedUnreadCount, refetch: refetchUnread } = useQuery<CombinedUnreadCount>({
@@ -195,6 +199,30 @@ export default function SmsInbox() {
       setNoteDialogOpen(false);
       setAdminNote('');
       refetch();
+    },
+  });
+
+  const replyMutation = useMutation({
+    mutationFn: async ({ messageId, message }: { messageId: string; message: string }) => {
+      return apiRequest(`/api/twilio/admin/messages/${messageId}/reply`, {
+        method: 'POST',
+        body: JSON.stringify({ message }),
+      });
+    },
+    onSuccess: (data: any) => {
+      toast({ 
+        title: 'Reply sent successfully', 
+        description: `Message sent via ${data.channel} to ${data.recipient}` 
+      });
+      setReplyDialogOpen(false);
+      setReplyMessage('');
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: 'Failed to send reply', 
+        description: error.message || 'Please try again',
+        variant: 'destructive'
+      });
     },
   });
 
@@ -497,37 +525,88 @@ export default function SmsInbox() {
                               <Badge variant="default" className="text-xs">Unread</Badge>
                             )}
                           </div>
-                          <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
-                            <DialogTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                <StickyNote className="h-4 w-4 mr-2" />
-                                Add Note
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Add Admin Note</DialogTitle>
-                                <DialogDescription>Add a note to this message for future reference.</DialogDescription>
-                              </DialogHeader>
-                              <Textarea
-                                value={adminNote}
-                                onChange={(e) => setAdminNote(e.target.value)}
-                                placeholder="Enter your note..."
-                                rows={4}
-                              />
-                              <DialogFooter>
-                                <Button 
-                                  onClick={() => addNoteMutation.mutate({ 
-                                    messageId: selectedMessage.id, 
-                                    note: adminNote 
-                                  })}
-                                  disabled={!adminNote || addNoteMutation.isPending}
-                                >
-                                  Save Note
+                          <div className="flex items-center gap-2">
+                            <Dialog open={replyDialogOpen} onOpenChange={setReplyDialogOpen}>
+                              <DialogTrigger asChild>
+                                <Button variant="default" size="sm">
+                                  <Reply className="h-4 w-4 mr-2" />
+                                  Reply
                                 </Button>
-                              </DialogFooter>
-                            </DialogContent>
-                          </Dialog>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>Reply to Message</DialogTitle>
+                                  <DialogDescription>
+                                    Send a reply to {selectedMessage.fromNumber} via {selectedMessage.channel === 'whatsapp' ? 'WhatsApp' : 'SMS'}
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-4">
+                                  <div className="p-3 bg-muted rounded-lg text-sm">
+                                    <p className="text-muted-foreground mb-1">Original message:</p>
+                                    <p className="line-clamp-3">{selectedMessage.body}</p>
+                                  </div>
+                                  <Textarea
+                                    value={replyMessage}
+                                    onChange={(e) => setReplyMessage(e.target.value)}
+                                    placeholder="Type your reply..."
+                                    rows={4}
+                                  />
+                                </div>
+                                <DialogFooter>
+                                  <Button variant="outline" onClick={() => setReplyDialogOpen(false)}>
+                                    Cancel
+                                  </Button>
+                                  <Button 
+                                    onClick={() => replyMutation.mutate({ 
+                                      messageId: selectedMessage.id, 
+                                      message: replyMessage 
+                                    })}
+                                    disabled={!replyMessage.trim() || replyMutation.isPending}
+                                  >
+                                    {replyMutation.isPending ? (
+                                      <>Sending...</>
+                                    ) : (
+                                      <>
+                                        <Send className="h-4 w-4 mr-2" />
+                                        Send Reply
+                                      </>
+                                    )}
+                                  </Button>
+                                </DialogFooter>
+                              </DialogContent>
+                            </Dialog>
+                            <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
+                              <DialogTrigger asChild>
+                                <Button variant="outline" size="sm">
+                                  <StickyNote className="h-4 w-4 mr-2" />
+                                  Add Note
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>Add Admin Note</DialogTitle>
+                                  <DialogDescription>Add a note to this message for future reference.</DialogDescription>
+                                </DialogHeader>
+                                <Textarea
+                                  value={adminNote}
+                                  onChange={(e) => setAdminNote(e.target.value)}
+                                  placeholder="Enter your note..."
+                                  rows={4}
+                                />
+                                <DialogFooter>
+                                  <Button 
+                                    onClick={() => addNoteMutation.mutate({ 
+                                      messageId: selectedMessage.id, 
+                                      note: adminNote 
+                                    })}
+                                    disabled={!adminNote || addNoteMutation.isPending}
+                                  >
+                                    Save Note
+                                  </Button>
+                                </DialogFooter>
+                              </DialogContent>
+                            </Dialog>
+                          </div>
                         </div>
 
                         <div className="space-y-3">
