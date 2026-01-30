@@ -5,7 +5,8 @@ import { db } from '../db';
 import { prospectClients, portfolios, portfolioHoldings } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { isAuthenticated } from '../replitAuth';
-import { parsePDFPortfolio, parseURLPortfolio, createPortfolioSnapshot, clearParseCache } from '../services/portfolio-parser';
+import { parsePDFPortfolio, parseURLPortfolio, createPortfolioSnapshot, clearParseCache, TransactionLot } from '../services/portfolio-parser';
+import { holdingLotsStorageService, LotStorageInput } from '../services/holding-lots-storage-service';
 
 // Clear parse cache on server start to ensure fresh parsing after code updates
 clearParseCache();
@@ -40,7 +41,8 @@ async function upsertProspectPortfolio(
   holdings: any[],
   source: string,
   sourceFileName?: string,
-  confidenceScore?: number
+  confidenceScore?: number,
+  userId?: string
 ): Promise<string> {
   const unifiedHoldings: UnifiedHolding[] = holdings.map(h => ({
     name: h.name || h.productName || 'Unknown',
@@ -66,6 +68,42 @@ async function upsertProspectPortfolio(
       replaceExisting: true
     }
   );
+
+  // Store transaction lots for registered users
+  if (userId && result.portfolioId) {
+    const lotsToStore: LotStorageInput[] = [];
+    
+    for (const h of holdings) {
+      if (h.transactionLots && Array.isArray(h.transactionLots) && h.transactionLots.length > 0) {
+        for (const lot of h.transactionLots as TransactionLot[]) {
+          lotsToStore.push({
+            portfolioId: result.portfolioId,
+            userId,
+            isin: h.isin || '',
+            folioNumber: h.folioNumber,
+            schemeName: h.name,
+            purchaseDate: lot.purchaseDate,
+            transactionType: lot.transactionType,
+            units: lot.units,
+            costPerUnit: lot.navAtPurchase,
+            totalCost: lot.amount,
+            purchaseNav: lot.navAtPurchase,
+            balanceAfterTransaction: lot.runningBalance,
+            transactionDescription: lot.description,
+            parsingConfidence: confidenceScore
+          });
+        }
+      }
+    }
+    
+    if (lotsToStore.length > 0) {
+      const storageResult = await holdingLotsStorageService.insertLots(lotsToStore);
+      console.log(`[Portfolio Import] Stored ${storageResult.inserted} transaction lots for portfolio ${result.portfolioId}`);
+      if (storageResult.errors.length > 0) {
+        console.warn('[Portfolio Import] Lot storage errors:', storageResult.errors.slice(0, 3));
+      }
+    }
+  }
 
   return result.portfolioId;
 }
