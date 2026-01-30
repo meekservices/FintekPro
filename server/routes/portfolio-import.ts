@@ -577,7 +577,7 @@ router.post(
         });
       }
       
-      // Transform holdings to expected format with confidence scores
+      // Transform holdings to expected format with confidence scores and transaction lots
       const holdings = parseResult.holdings.map((h, idx) => ({
         id: `cas-${idx}-${Date.now()}`,
         name: h.name || 'Unknown Fund',
@@ -593,7 +593,8 @@ router.post(
         assetType: h.assetType || 'mutual_fund',
         folioNumber: h.folioNumber || '',
         confidenceScore: h.confidenceScore || 85,
-        broker: parseResult.brokerDetected || (statementType === 'cas' ? 'CAMS/KFintech' : 'NSDL/CDSL')
+        broker: parseResult.brokerDetected || (statementType === 'cas' ? 'CAMS/KFintech' : 'NSDL/CDSL'),
+        transactionLots: h.lots || []
       }));
       
       const totalValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
