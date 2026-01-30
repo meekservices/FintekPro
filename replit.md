@@ -56,14 +56,24 @@ A **CAS Statement Service** (`cas-statement-service.ts`) provides specialized CA
 - **Epic 4 - Agent-Safe Import UX**: Per-holding confidence scores, warnings metadata, `/api/cas-statement/audit-view` endpoint, `/api/cas-statement/tax-analysis` endpoint (gated on reconciliation success)
 - **Epic 5 - Regression Tests** (`cas-parser-regression-test.ts`): Golden CAS fixtures, format variance tests (single-line, multi-line, demat, multi-folio), date parsing tests
 
+**Tiered Fallback Parser** - Three-tier holding classification for incomplete CAS parsing:
+- **Tier 1 (FULL)**: Complete scheme blocks with transactions, eligible for capital gains/exit load calculations
+- **Tier 2 (VALUATION_ONLY)**: Holdings recovered from dropped blocks with NAV+Market value but no transactions, excluded from tax calculations
+- **Tier 3 (SUMMARY_PLACEHOLDER)**: Conservative placeholders for AMCs completely missing from parsed holdings, excluded from tax calculations
+- Design principle: "Prefer incompleteness over false precision" - better to show warnings than create false tax calculations
+- `eligibleForTax` boolean gates tax analysis to Tier 1 holdings only
+- `holdingTier` field enables downstream logic to differentiate treatment
+
 CAS parsing architecture:
 1. Parse text from PDF using unified-pdf-parser
 2. Extract investor info, Portfolio Summary, and scheme blocks
-3. Calculate pre-enrichment summary for strict reconciliation
-4. Perform reconciliation against CAS Portfolio Summary (0.5% threshold)
-5. Enrich holdings from database (updates NAVs with current values)
-6. Build FIFO lot ledger from transactions
-7. Return comprehensive result with confidence scores and warnings
+3. Apply Tier 1 parsing (full scheme blocks with transactions)
+4. Apply Tier 2 recovery (valuation-only blocks with NAV+Market)
+5. Apply Tier 3 injection (conservative placeholders for missing AMCs)
+6. Calculate pre-enrichment summary for strict reconciliation (0.5% threshold)
+7. Enrich holdings from database (updates NAVs with current values)
+8. Build FIFO lot ledger from transactions (Tier 1 only)
+9. Return comprehensive result with confidence scores, tier classifications, and warnings
 
 Test runner: `npx tsx server/tests/run-cas-tests.ts` or `/api/cas-statement/run-tests` (dev mode only)
 
