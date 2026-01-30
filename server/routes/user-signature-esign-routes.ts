@@ -55,6 +55,8 @@ router.get('/api/esign/user-signature/status', async (req: Request, res: Respons
   });
 });
 
+const MAX_DOCUMENT_SIZE = 10 * 1024 * 1024;
+
 router.post('/api/esign/user-signature/sign', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = (req.user as any)?.id;
@@ -82,6 +84,19 @@ router.post('/api/esign/user-signature/sign', requireAuth, async (req: Request, 
     }
 
     const documentBuffer = Buffer.from(validated.documentBase64, 'base64');
+
+    if (documentBuffer.length > MAX_DOCUMENT_SIZE) {
+      return res.status(400).json({ 
+        error: `Document too large. Maximum size is ${MAX_DOCUMENT_SIZE / (1024 * 1024)}MB` 
+      });
+    }
+
+    const pdfHeader = documentBuffer.slice(0, 5).toString('ascii');
+    if (pdfHeader !== '%PDF-') {
+      return res.status(400).json({ 
+        error: 'Invalid document format. Only PDF files are supported.' 
+      });
+    }
 
     const result = await userSignatureESignService.signDocument({
       userId: userId.toString(),

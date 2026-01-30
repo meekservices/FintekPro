@@ -197,6 +197,9 @@ class UnifiedESignService {
     if (transactionId.startsWith('DSC-')) {
       return 'dsc_token';
     }
+    if (transactionId.startsWith('USIG-')) {
+      return 'user_signature';
+    }
     return 'authbridge';
   }
 
@@ -407,6 +410,11 @@ class UnifiedESignService {
       case 'dsc_token':
         const dscStatus = await dscTokenESignService.getStatus(transactionId);
         return { ...dscStatus, provider: 'dsc_token' };
+
+      case 'user_signature':
+        const { userSignatureESignService } = await import('./user-signature-esign-service');
+        const userSigStatus = await userSignatureESignService.getSigningStatus(transactionId);
+        return { ...userSigStatus, provider: 'user_signature' };
 
       case 'authbridge':
       default:

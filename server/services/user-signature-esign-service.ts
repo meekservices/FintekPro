@@ -237,9 +237,19 @@ class UserSignatureESignService {
 
       const signedHash = this.generateDocumentHash(signedBuffer);
 
+      const userIdNum = typeof request.userId === 'string' ? parseInt(request.userId, 10) : request.userId;
+      if (isNaN(userIdNum) || userIdNum <= 0) {
+        console.error('[UserSignatureESign] Invalid userId:', request.userId);
+        return {
+          success: false,
+          message: 'Invalid user ID provided',
+          transactionId,
+        };
+      }
+
       await db.insert(esignRequests).values({
         transactionId,
-        userId: parseInt(request.userId) || 0,
+        userId: userIdNum,
         documentType: request.documentType,
         documentName: request.documentName,
         documentHash: originalHash,
