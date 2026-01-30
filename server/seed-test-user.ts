@@ -50,23 +50,20 @@ export async function seedTestUser(): Promise<void> {
       .limit(1);
     
     if (existingUser.length > 0) {
-      const user = existingUser[0];
       const allRoles = ['superadmin', 'admin', 'partner', 'agent', 'client', 'user'];
+      const hashedPassword = await hashPassword(testPassword);
       
-      const hasAllRoles = allRoles.every(role => user.roles?.includes(role));
-      
-      if (!hasAllRoles) {
-        await db
-          .update(users)
-          .set({
-            roles: allRoles,
-            isActive: true,
-          })
-          .where(eq(users.email, testEmail));
-        console.log("✅ Test user updated with all roles");
-      } else {
-        console.log("✅ Test user already exists with all roles");
-      }
+      await db
+        .update(users)
+        .set({
+          password: hashedPassword,
+          roles: allRoles,
+          isActive: true,
+          isEmailVerified: true,
+          isMobileVerified: true,
+        })
+        .where(eq(users.email, testEmail));
+      console.log("✅ Test user password reset and roles updated");
       
       console.log("\n╔════════════════════════════════════════════╗");
       console.log("║       TEST USER LOGIN CREDENTIALS          ║");
