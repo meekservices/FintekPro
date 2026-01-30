@@ -1714,22 +1714,58 @@ export async function parsePDFPortfolio(buffer: Buffer, fileName: string): Promi
     const expectedCountMatch = text.match(/MUTUAL FUNDS\s*\((\d+)\)/i);
     const expectedCount = expectedCountMatch ? parseInt(expectedCountMatch[1], 10) : undefined;
     
-    // Extract expected total value from PDF header (various formats)
-    // Format 1: "Total Value : Rs. 1,68,52,343.45" or "Total Value Rs 16852343.45"
-    // Format 2: "Market Value: ₹1,68,52,343.45"
-    const totalValuePatterns = [
-      /Total\s*Value\s*[:\s]*(?:Rs\.?|₹|INR)?\s*([\d,]+(?:\.\d{2})?)/i,
-      /Market\s*Value\s*[:\s]*(?:Rs\.?|₹|INR)?\s*([\d,]+(?:\.\d{2})?)/i,
-      /Grand\s*Total\s*[:\s]*(?:Rs\.?|₹|INR)?\s*([\d,]+(?:\.\d{2})?)/i,
-    ];
-    
+    // Extract PORTFOLIO SUMMARY section (AMC-wise totals)
+    // Format: "AMC Name   Cost   MarketValue" followed by "Total  X  Y"
+    interface AMCSummary {
+      amcName: string;
+      costValue: number;
+      marketValue: number;
+    }
+    const amcSummaries: AMCSummary[] = [];
     let expectedTotalValue: number | undefined;
-    for (const pattern of totalValuePatterns) {
-      const match = text.match(pattern);
-      if (match) {
-        expectedTotalValue = parseFloat(match[1].replace(/,/g, ''));
-        console.log('[PDF Parser] Expected total value from PDF:', expectedTotalValue.toLocaleString('en-IN'));
-        break;
+    let expectedTotalCost: number | undefined;
+    
+    // Look for PORTFOLIO SUMMARY section
+    const portfolioSummaryMatch = text.match(/PORTFOLIO\s+SUMMARY[\s\S]*?Total\s+([\d,]+\.?\d*)\s+([\d,]+\.?\d*)/i);
+    if (portfolioSummaryMatch) {
+      expectedTotalCost = parseFloat(portfolioSummaryMatch[1].replace(/,/g, ''));
+      expectedTotalValue = parseFloat(portfolioSummaryMatch[2].replace(/,/g, ''));
+      console.log('[PDF Parser] PORTFOLIO SUMMARY found:');
+      console.log(`[PDF Parser]   Total Cost: ₹${expectedTotalCost.toLocaleString('en-IN')}`);
+      console.log(`[PDF Parser]   Total Market: ₹${expectedTotalValue.toLocaleString('en-IN')}`);
+      
+      // Extract individual AMC lines
+      // Pattern: "AMC Name  cost_value  market_value" (AMC names often have "Mutual Fund" suffix)
+      const amcPattern = /([A-Za-z\s]+(?:Mutual\s+Fund|MF))\s+([\d,]+\.?\d*)\s+([\d,]+\.?\d*)/gi;
+      let amcMatch;
+      while ((amcMatch = amcPattern.exec(text)) !== null) {
+        const amcName = amcMatch[1].trim();
+        const cost = parseFloat(amcMatch[2].replace(/,/g, ''));
+        const market = parseFloat(amcMatch[3].replace(/,/g, ''));
+        
+        // Only add if values are reasonable (> 1000)
+        if (cost > 1000 && market > 1000 && !amcName.toLowerCase().includes('total')) {
+          amcSummaries.push({ amcName, costValue: cost, marketValue: market });
+          console.log(`[PDF Parser]   ${amcName}: Cost ₹${cost.toLocaleString('en-IN')}, Market ₹${market.toLocaleString('en-IN')}`);
+        }
+      }
+    }
+    
+    // Fallback: Try other patterns for total value
+    if (!expectedTotalValue) {
+      const totalValuePatterns = [
+        /Total\s*Value\s*[:\s]*(?:Rs\.?|₹|INR)?\s*([\d,]+(?:\.\d{2})?)/i,
+        /Market\s*Value\s*[:\s]*(?:Rs\.?|₹|INR)?\s*([\d,]+(?:\.\d{2})?)/i,
+        /Grand\s*Total\s*[:\s]*(?:Rs\.?|₹|INR)?\s*([\d,]+(?:\.\d{2})?)/i,
+      ];
+      
+      for (const pattern of totalValuePatterns) {
+        const match = text.match(pattern);
+        if (match) {
+          expectedTotalValue = parseFloat(match[1].replace(/,/g, ''));
+          console.log('[PDF Parser] Expected total value from PDF:', expectedTotalValue.toLocaleString('en-IN'));
+          break;
+        }
       }
     }
     
@@ -1796,8 +1832,10 @@ export async function parsePDFPortfolio(buffer: Buffer, fileName: string): Promi
     const needsManualReview = unimportedCount > 0;
     
     // Calculate parsed total value
-    const parsedTotalValue = holdings.reduce((sum, h) => sum + (h.currentValue || 0), 0);
+    let parsedTotalValue = holdings.reduce((sum, h) => sum + (h.currentValue || 0), 0);
+    let parsedTotalCost = holdings.reduce((sum, h) => sum + (h.investedValue || 0), 0);
     console.log('[PDF Parser] Parsed total value:', parsedTotalValue.toLocaleString('en-IN'));
+    console.log('[PDF Parser] Parsed total cost:', parsedTotalCost.toLocaleString('en-IN'));
     
     // Build error messages
     const errors: string[] = [];
@@ -1805,7 +1843,80 @@ export async function parsePDFPortfolio(buffer: Buffer, fileName: string): Promi
       errors.push('Could not extract holdings from PDF. Please verify the format.');
     }
     
-    // Check if parsed value significantly differs from expected value
+    // CRITICAL: If we have portfolio summary and parsed values are significantly off,
+    // use AMC-wise summaries to correct the values
+    if (expectedTotalValue && amcSummaries.length > 0 && parsedTotalValue > 0) {
+      const valueDiffPercent = Math.abs(parsedTotalValue - expectedTotalValue) / expectedTotalValue * 100;
+      
+      if (valueDiffPercent > 20) {
+        console.log('[PDF Parser] Significant value mismatch detected. Attempting AMC-based correction...');
+        
+        // Create AMC lookup map (normalize names for matching)
+        const amcLookup = new Map<string, AMCSummary>();
+        for (const amc of amcSummaries) {
+          // Create various forms of the name for matching
+          const normalizedName = amc.amcName.toLowerCase().replace(/\s+/g, ' ').trim();
+          amcLookup.set(normalizedName, amc);
+          
+          // Also store without "Mutual Fund" suffix
+          const shortName = normalizedName.replace(/\s*mutual\s*fund\s*$/i, '').trim();
+          amcLookup.set(shortName, amc);
+        }
+        
+        // Group holdings by fund house and calculate totals
+        const holdingsByAMC = new Map<string, typeof holdings>();
+        for (const holding of holdings) {
+          // Try to identify AMC from fund name or broker
+          const fundName = (holding.name || '').toLowerCase();
+          let matchedAMC: AMCSummary | undefined;
+          
+          // Try to match against known AMCs
+          for (const [key, amc] of amcLookup.entries()) {
+            if (fundName.includes(key) || key.split(' ')[0] && fundName.includes(key.split(' ')[0])) {
+              matchedAMC = amc;
+              break;
+            }
+          }
+          
+          if (matchedAMC) {
+            const amcKey = matchedAMC.amcName;
+            if (!holdingsByAMC.has(amcKey)) {
+              holdingsByAMC.set(amcKey, []);
+            }
+            holdingsByAMC.get(amcKey)!.push(holding);
+          }
+        }
+        
+        // Calculate scaling factors per AMC and apply corrections
+        let correctedCount = 0;
+        for (const [amcName, amcHoldings] of holdingsByAMC.entries()) {
+          const amcSummary = amcSummaries.find(a => a.amcName === amcName);
+          if (!amcSummary) continue;
+          
+          const parsedAMCTotal = amcHoldings.reduce((sum, h) => sum + (h.currentValue || 0), 0);
+          const expectedAMCTotal = amcSummary.marketValue;
+          
+          if (parsedAMCTotal > 0 && Math.abs(parsedAMCTotal - expectedAMCTotal) / expectedAMCTotal > 0.1) {
+            const scaleFactor = expectedAMCTotal / parsedAMCTotal;
+            console.log(`[PDF Parser] AMC ${amcName}: Scaling by ${scaleFactor.toFixed(2)} (parsed ₹${parsedAMCTotal.toLocaleString('en-IN')} → expected ₹${expectedAMCTotal.toLocaleString('en-IN')})`);
+            
+            // Apply scaling factor to each holding in this AMC
+            for (const holding of amcHoldings) {
+              holding.currentValue = (holding.currentValue || 0) * scaleFactor;
+              correctedCount++;
+            }
+          }
+        }
+        
+        if (correctedCount > 0) {
+          // Recalculate totals after correction
+          parsedTotalValue = holdings.reduce((sum, h) => sum + (h.currentValue || 0), 0);
+          console.log(`[PDF Parser] Applied AMC-based corrections to ${correctedCount} holdings. New total: ₹${parsedTotalValue.toLocaleString('en-IN')}`);
+        }
+      }
+    }
+    
+    // Check if parsed value still significantly differs from expected value
     if (expectedTotalValue && parsedTotalValue > 0) {
       const valueDiff = Math.abs(parsedTotalValue - expectedTotalValue);
       const valueDiffPercent = (valueDiff / expectedTotalValue) * 100;
