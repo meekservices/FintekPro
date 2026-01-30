@@ -5,6 +5,16 @@ import { unifiedPDFParser } from './unified-pdf-parser';
 import { holdingNormalizationService } from './holding-normalization-service';
 import { GoogleGenAI } from '@google/genai';
 
+export interface TransactionLot {
+  purchaseDate: string;
+  transactionType: 'purchase' | 'sip' | 'switch_in' | 'bonus' | 'dividend_reinvest' | 'redemption' | 'switch_out';
+  amount: number;
+  units: number;
+  navAtPurchase: number;
+  runningBalance: number;
+  description?: string;
+}
+
 export interface ImportedHolding {
   id?: string;
   name: string;
@@ -25,6 +35,8 @@ export interface ImportedHolding {
   instrumentType?: string;
   regulator?: string;
   isEdgeCase?: boolean;
+  // Transaction-level lots for LTCG/STCG tracking
+  lots?: TransactionLot[];
 }
 
 export interface ImportedAllocation {
@@ -688,6 +700,110 @@ function detectColumnHeaders(text: string): ColumnMapping {
 }
 
 /**
+ * Extract transaction lots from CAS holding block text
+ * Uses line-by-line parsing similar to cas-statement-service for robustness
+ * Transaction line format: "DD-MMM-YYYY Transaction Type Amount Units NAV Running Balance"
+ * Example: "18-Mar-2024 Purchase 499,975.00 31,610.576 15.8167 31,610.576"
+ */
+function extractTransactionLots(holdingBlockText: string): TransactionLot[] {
+  const lots: TransactionLot[] = [];
+  const lines = holdingBlockText.split('\n');
+  
+  // Transaction keywords (aligned with cas-statement-service)
+  const transactionKeywords = [
+    'Purchase', 'Redemption', 'Switch In', 'Switch Out', 'Switch-In', 'Switch-Out',
+    'Systematic Investment', 'SIP', 'Initial Purchase', 'NFO Purchase',
+    'Dividend', 'Dividend Reinvestment', 'Reinvestment', 'Bonus',
+    'Additional Purchase', 'Transfer In', 'Transfer Out'
+  ];
+  const keywordPattern = new RegExp(`(${transactionKeywords.join('|')})`, 'i');
+  
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    
+    // Skip non-transaction lines
+    if (trimmedLine.includes('***') || trimmedLine.includes('Stamp Duty') || 
+        trimmedLine.includes('NAV on') || trimmedLine.includes('Market Value on') ||
+        trimmedLine.includes('Closing Unit') || trimmedLine.includes('Opening Unit')) {
+      continue;
+    }
+    
+    // Match date at start of line: DD-MMM-YYYY
+    const dateMatch = trimmedLine.match(/^(\d{1,2}-[A-Za-z]{3}-\d{4})/);
+    if (!dateMatch) continue;
+    
+    const dateStr = dateMatch[1];
+    const restOfLine = trimmedLine.substring(dateMatch[0].length).trim();
+    
+    // Check if line contains a transaction keyword
+    if (!keywordPattern.test(restOfLine)) continue;
+    
+    // Extract all numbers from the rest of the line
+    const numberMatches = restOfLine.match(/[\d,]+\.?\d*/g) || [];
+    const numbers = numberMatches
+      .map(n => parseFloat(n.replace(/,/g, '')))
+      .filter(n => !isNaN(n) && n > 0);
+    
+    if (numbers.length < 3) continue; // Need at least amount, units, nav
+    
+    // Parse numbers: Amount, Units, NAV, Balance
+    let amount = 0, units = 0, nav = 0, balance = 0;
+    if (numbers.length >= 4) {
+      amount = numbers[0];
+      units = numbers[1];
+      nav = numbers[2];
+      balance = numbers[3];
+    } else if (numbers.length === 3) {
+      amount = numbers[0];
+      units = numbers[1];
+      nav = numbers[2];
+      balance = units;
+    }
+    
+    // Classify transaction type
+    const lowerLine = restOfLine.toLowerCase();
+    let transactionType: TransactionLot['transactionType'] = 'purchase';
+    let isCredit = true;
+    
+    if (lowerLine.includes('sip') || lowerLine.includes('systematic')) {
+      transactionType = 'sip';
+    } else if (lowerLine.includes('switch') && (lowerLine.includes('in') || lowerLine.includes('-in'))) {
+      transactionType = 'switch_in';
+    } else if (lowerLine.includes('switch') && (lowerLine.includes('out') || lowerLine.includes('-out'))) {
+      transactionType = 'switch_out';
+      isCredit = false;
+    } else if (lowerLine.includes('redemption')) {
+      transactionType = 'redemption';
+      isCredit = false;
+    } else if (lowerLine.includes('bonus')) {
+      transactionType = 'bonus';
+    } else if (lowerLine.includes('dividend') || lowerLine.includes('reinvestment')) {
+      transactionType = 'dividend_reinvest';
+    }
+    
+    // Only add purchase-type transactions for lot tracking
+    if (isCredit && units > 0) {
+      lots.push({
+        purchaseDate: dateStr,
+        transactionType,
+        amount,
+        units,
+        navAtPurchase: nav,
+        runningBalance: balance,
+        description: trimmedLine.substring(0, 100)
+      });
+    }
+  }
+  
+  if (lots.length > 0) {
+    console.log(`[Transaction Extractor] Found ${lots.length} transaction lots`);
+    console.log('[Transaction Extractor] First:', lots[0].purchaseDate, lots[0].transactionType, '₹' + lots[0].amount);
+  }
+  
+  return lots;
+}
+
+/**
  * Parse CAMS/KFintech Holding Statement format (tabular with columns)
  * Format: Folio No. | ISIN | Scheme Name | Cost Value | Unit Balance | NAV Date | NAV | Market Value | Registrar
  * This is a HOLDING statement (not transaction statement) - no transaction dates, just current holdings
@@ -1032,21 +1148,37 @@ function parseCAMSHoldingStatementFormat(text: string): ImportedHolding[] {
         nav = unitBalance > 0 ? marketValue / unitBalance : 0;
       }
       
+      // Extract transaction lots from the holding block
+      const lots = extractTransactionLots(afterIsin);
+      
+      // If we found transaction lots, calculate cost from sum of transactions
+      let finalCostValue = costValue;
+      if (lots.length > 0) {
+        const lotsTotal = lots.reduce((sum, lot) => sum + lot.amount, 0);
+        console.log(`[CAMS Holding Parser] Found ${lots.length} transaction lots with total cost: ₹${lotsTotal.toLocaleString()}`);
+        // Use lots total if it's more accurate (within reasonable range of units)
+        if (lotsTotal > 0 && Math.abs(lotsTotal - costValue) > 100) {
+          console.log(`[CAMS Holding Parser] Using transaction-based cost: ₹${lotsTotal.toLocaleString()} instead of extracted cost: ₹${costValue.toLocaleString()}`);
+          finalCostValue = lotsTotal;
+        }
+      }
+      
       const holding: ImportedHolding = {
         id: `cas-holding-${Date.now()}-${holdings.length}`,
         name: schemeName || `Mutual Fund (ISIN: ${isin})`,
         isin: isin,
         assetType: 'mutual_fund',
         quantity: unitBalance,
-        averageCost: unitBalance > 0 ? costValue / unitBalance : 0,
-        investedValue: costValue,
+        averageCost: unitBalance > 0 ? finalCostValue / unitBalance : 0,
+        investedValue: finalCostValue,
         currentNav: nav,
         currentValue: marketValue,
-        unrealizedGain: marketValue - costValue,
-        unrealizedGainPercent: costValue > 0 ? ((marketValue - costValue) / costValue) * 100 : 0,
+        unrealizedGain: marketValue - finalCostValue,
+        unrealizedGainPercent: finalCostValue > 0 ? ((marketValue - finalCostValue) / finalCostValue) * 100 : 0,
         folioNumber: folioNumber,
         broker: registrar === 'KFINTECH' ? 'KFintech' : 'CAMS',
-        confidenceScore: 90
+        confidenceScore: 90,
+        lots: lots.length > 0 ? lots : undefined
       };
       
       console.log('[CAMS Holding Parser] Added holding:', {
