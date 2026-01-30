@@ -660,25 +660,15 @@ export function setupAuth(app: Express) {
         let otpDestination: string;
         let otpType: string;
 
-        if (identifier.includes("@")) {
-          // Email login - still use email for OTP since that's what user entered
-          otpDestination = user.email;
-          otpType = "email";
-        } else if (identifier.startsWith("FTP")) {
-          // For userId login, prefer mobile for OTP (enables Replit SMS testing), fallback to email
-          if (user.mobile) {
-            otpDestination = user.mobile;
-            otpType = "mobile";
-          } else if (user.email) {
-            otpDestination = user.email;
-            otpType = "email";
-          } else {
-            return apiResponse.badRequest(res, "User account has no email or mobile for OTP verification");
-          }
-        } else {
-          // Mobile number login - use mobile for OTP
+        // Always prefer mobile for OTP (enables Replit SMS testing), regardless of login method
+        if (user.mobile) {
           otpDestination = user.mobile;
           otpType = "mobile";
+        } else if (user.email) {
+          otpDestination = user.email;
+          otpType = "email";
+        } else {
+          return apiResponse.badRequest(res, "User account has no email or mobile for OTP verification");
         }
 
         if (!otpDestination) {
