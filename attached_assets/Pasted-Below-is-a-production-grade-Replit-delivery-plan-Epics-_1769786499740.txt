@@ -1,0 +1,174 @@
+Below is a production-grade Replit delivery plan: Epics → Stories → Acceptance Tests, written so that
+(a) your current fix is locked in,
+(b) CAS parsing becomes non-regressive, and
+(c) the system becomes advisory-safe for capital gains, exit load, and tax harvesting.
+This is written in engineering language, not conceptual fluff—your Replit team can execute this directly.
+EPIC 1 — CAS PARSING CORE STABILITY (FOUNDATION)
+Goal
+Ensure CAMS/KFintech CAS PDFs are parsed correctly, completely, and defensibly, regardless of layout variations.
+Story 1.1 — Robust Scheme Block Segmentation
+Problem: Incorrect scheme boundary detection causes folio merging and silent drops.
+Tasks
+Segment schemeText using explicit anchors:
+Scheme name line (contains ISIN)
+Folio number
+Registrar (CAMS / KFintech)
+Enforce invariant:
+1 schemeText = 1 (ISIN + Folio + Demat Flag)
+Acceptance Tests
+Given a CAS with:
+Same ISIN across 3 folios
+When parsed
+Then:
+3 distinct scheme blocks must exist
+No overwriting allowed
+Story 1.2 — Multi-Line Valuation Extraction (LOCK CURRENT FIX)
+Problem: NAV / Market Value split across lines.
+Tasks
+Retain your two-step valuation logic:
+Single-line regex (backward compatibility)
+Multi-line fallback (Closing Balance + NAV line)
+Add defensive logging if any of the 4 values are missing.
+Acceptance Tests
+Given CAS where:
+Closing balance + cost on Line A
+NAV + market value on Line B
+Then:
+All 4 values must be populated
+Market total must reconcile within ₹0.01
+Story 1.3 — CAS Summary Reconciliation Guardrail
+Problem: Silent valuation drift is unacceptable.
+Tasks
+Parse Portfolio Summary page totals
+Enforce reconciliation rule:
+|Parsed Total − CAS Summary Total| ≤ 0.5%
+Acceptance Tests
+If parsed total = ₹1.17 Cr and CAS summary = ₹1.68 Cr
+Then:
+Import must fail with CAS_RECONCILIATION_ERROR
+If delta ≤ ₹1
+Then:
+Import succeeds with confidence = HIGH
+EPIC 2 — TRANSACTION → LOT LEDGER ENGINE (ADVISORY CORE)
+Goal
+Convert transaction tables into FIFO-compliant investment lots usable for tax and exit-load logic.
+Story 2.1 — Transaction Normalization Layer
+Tasks
+Normalize transaction types:
+Purchase
+SIP Purchase
+Switch-In
+Redemption / Switch-Out
+Explicitly ignore metadata rows:
+Address update
+Broker change
+Nominee registration
+Acceptance Tests
+Given a scheme with:
+SIP + Switch-In + Redemption
+Then:
+Only financial transactions create or consume lots
+Story 2.2 — FIFO Lot Creation & Consumption
+Tasks
+Each purchase / switch-in → new lot
+Each redemption / switch-out → FIFO consumption
+Track:
+Units remaining
+Purchase date
+Purchase NAV
+Cost basis
+Acceptance Tests
+Given:
+3 SIP lots
+1 partial redemption
+Then:
+Oldest lots are consumed first
+Remaining units are correct
+Story 2.3 — Closing Balance Reconciliation
+Tasks
+Recompute:
+SUM(lot.units_remaining) == Closing Unit Balance
+If mismatch:
+Flag LOT_RECONCILIATION_WARNING
+Acceptance Tests
+If lots total = 9,940.35 but closing = 9,941.35
+Then:
+Warning raised
+Holding marked confidence = MEDIUM
+EPIC 3 — TAX & EXIT LOAD COMPUTATION ENGINE
+Goal
+Enable tax-aware rebalancing, not just valuation.
+Story 3.1 — Asset Classification Enrichment
+Tasks
+Enrich each ISIN with:
+Equity / Debt / Hybrid / Gold / International
+Source via internal master or API
+Acceptance Tests
+Equity MF → LTCG after 1 year
+Debt MF → LTCG after 3 years
+Story 3.2 — Capital Gains Calculator (India-Specific)
+Tasks
+Compute:
+STCG / LTCG
+Equity ₹1.25L exemption
+Indexed cost (debt)
+Lot-wise calculation only
+Acceptance Tests
+Given SIP lots across 18 months
+Then:
+Some units classified STCG, others LTCG
+Story 3.3 — Exit Load Simulator
+Tasks
+Parse exit load rules (text → structured)
+Apply per-lot holding period
+Compute ₹ exit load impact
+Acceptance Tests
+If redeemed before 12 months
+Then:
+1% load applied only to eligible units
+EPIC 4 — AGENT-SAFE IMPORT UX & AUDITABILITY
+Goal
+Make the system defensible for advisors.
+Story 4.1 — Import Confidence & Warning System
+Tasks
+Store per-holding metadata:
+{
+  "confidence": "HIGH | MEDIUM | LOW",
+  "reconciliation_delta": 0.01,
+  "warnings": []
+}
+Acceptance Tests
+Missing NAV date → confidence = MEDIUM
+Reconciliation failure → import blocked
+Story 4.2 — Diff & Audit View
+Tasks
+Show agent:
+CAS total
+Parsed total
+Missing folios (if any)
+Acceptance Tests
+Agent must see why a holding is flagged, not guess.
+EPIC 5 — REGRESSION TEST SUITE (NON-NEGOTIABLE)
+Goal
+Never break CAS parsing again.
+Story 5.1 — Golden CAS Fixtures
+Tasks
+Store 5–10 real CAS PDFs (sanitized)
+Lock expected:
+Holdings count
+Cost total
+Market total
+Acceptance Tests
+Any PR changing totals → test failure
+Story 5.2 — Format Variance Tests
+Tasks
+CAS with:
+Single-line valuation
+Multi-line valuation
+Demat + Non-Demat
+Multiple folios per ISIN
+Final Note (Important)
+With these epics:
+Your ₹1.68 Cr bug never comes back
+FintekPro moves from “import tool” → true advisory engine
+You become audit-safe under SEBI scrutiny
