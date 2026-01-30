@@ -455,9 +455,12 @@ class ExitLoadService {
     const lotsWithExitLoad = [];
 
     for (const lot of activeLots) {
+      const units = parseFloat(lot.remainingUnits ?? lot.units ?? '0');
+      
+      if (isNaN(units) || units <= 0) continue;
+      
       const purchaseDate = new Date(lot.purchaseDate);
       const holdingDays = Math.floor((now.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24));
-      const units = parseFloat(lot.remainingUnits || lot.units);
       
       const exitLoadResult = await this.getExitLoad({
         isin,

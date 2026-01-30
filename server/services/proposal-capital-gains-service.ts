@@ -1818,17 +1818,25 @@ _This is not tax advice. Consult your CA/Tax Advisor for personalized guidance._
 
       const formattedLots = lots
         .filter(lot => lot.status === 'active' || lot.status === 'partial')
-        .map(lot => ({
-          id: lot.id,
-          purchaseDate: lot.purchaseDate,
-          purchaseNav: parseFloat(lot.purchaseNav || lot.costPerUnit),
-          purchaseValue: parseFloat(lot.totalCost),
-          units: parseFloat(lot.units),
-          remainingUnits: parseFloat(lot.remainingUnits || lot.units),
-          source: (lot.transactionType === 'sip' ? 'sip' : 
-                   lot.transactionType === 'switch_in' ? 'switch_in' :
-                   lot.transactionType === 'bonus' ? 'bonus' : 'purchase') as 'purchase' | 'sip' | 'switch_in' | 'bonus'
-        }));
+        .map(lot => {
+          const purchaseNav = parseFloat(lot.purchaseNav ?? lot.costPerUnit ?? '0');
+          const purchaseValue = parseFloat(lot.totalCost ?? '0');
+          const units = parseFloat(lot.units ?? '0');
+          const remainingUnits = parseFloat(lot.remainingUnits ?? lot.units ?? '0');
+          
+          return {
+            id: lot.id,
+            purchaseDate: lot.purchaseDate,
+            purchaseNav: isNaN(purchaseNav) ? 0 : purchaseNav,
+            purchaseValue: isNaN(purchaseValue) ? 0 : purchaseValue,
+            units: isNaN(units) ? 0 : units,
+            remainingUnits: isNaN(remainingUnits) ? 0 : remainingUnits,
+            source: (lot.transactionType === 'sip' ? 'sip' : 
+                     lot.transactionType === 'switch_in' ? 'switch_in' :
+                     lot.transactionType === 'bonus' ? 'bonus' : 'purchase') as 'purchase' | 'sip' | 'switch_in' | 'bonus'
+          };
+        })
+        .filter(lot => lot.remainingUnits > 0);
 
       if (formattedLots.length === 0) {
         console.log(`[CapitalGains] No active lots for ${isin}`);
