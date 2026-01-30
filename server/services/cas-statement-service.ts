@@ -93,6 +93,18 @@ export interface CASHolding {
   holderName?: string;
 }
 
+export interface CASPortfolioSummaryEntry {
+  amcName: string;
+  costValue: number;
+  marketValue: number;
+}
+
+export interface CASPortfolioSummary {
+  entries: CASPortfolioSummaryEntry[];
+  totalCostValue: number;
+  totalMarketValue: number;
+}
+
 export interface CASStatementResult {
   success: boolean;
   statementType: 'holding' | 'transaction' | 'combined';
@@ -101,6 +113,7 @@ export interface CASStatementResult {
   investor: CASInvestorInfo;
   holdings: CASHolding[];
   transactions: CASTransaction[];
+  portfolioSummary?: CASPortfolioSummary;
   summary: {
     totalHoldings: number;
     totalInvestedValue: number;
@@ -168,6 +181,14 @@ class CASStatementService {
       console.log('[CAS Service v4] Investor:', result.investor.name || 'Unknown');
       console.log('[CAS Service v4] PAN:', result.investor.pan || 'Not found');
       
+      // Extract Portfolio Summary first - this is the source of truth
+      result.portfolioSummary = this.extractPortfolioSummary(text);
+      if (result.portfolioSummary) {
+        console.log(`[CAS Service v4] Portfolio Summary: ${result.portfolioSummary.entries.length} AMCs`);
+        console.log(`[CAS Service v4] Summary Total Cost: ₹${(result.portfolioSummary.totalCostValue / 100000).toFixed(2)} L`);
+        console.log(`[CAS Service v4] Summary Total Market: ₹${(result.portfolioSummary.totalMarketValue / 100000).toFixed(2)} L`);
+      }
+      
       const schemeBlocks = this.splitBySchemeBlocks(text);
       console.log('[CAS Service v4] Found', schemeBlocks.length, 'scheme blocks');
       
@@ -192,11 +213,20 @@ class CASStatementService {
       result.confidenceScore = this.calculateConfidenceScore(result);
       result.success = result.holdings.length > 0;
       
+      // Validate against Portfolio Summary if available
+      if (result.portfolioSummary) {
+        const discrepancy = this.validateAgainstPortfolioSummary(result, result.portfolioSummary);
+        if (discrepancy) {
+          result.warnings.push(discrepancy);
+        }
+      }
+      
       console.log('[CAS Service v4] Parse complete:', {
         holdings: result.holdings.length,
         transactions: result.transactions.length,
         totalInvested: result.summary.totalInvestedValue.toFixed(2),
         totalValue: result.summary.totalCurrentValue.toFixed(2),
+        expectedTotal: result.portfolioSummary?.totalMarketValue.toFixed(2) || 'N/A',
         confidence: result.confidenceScore
       });
       
@@ -307,6 +337,162 @@ class CASStatementService {
       return { from: periodMatch[1], to: periodMatch[2] };
     }
     return undefined;
+  }
+  
+  /**
+   * Extract Portfolio Summary from CAS statement header.
+   * This provides AMC-wise totals which serve as the source of truth.
+   * 
+   * Format:
+   * PORTFOLIO SUMMARY
+   *                                     Cost Value    Market Value
+   * Mutual Fund including SIF             (INR)          (INR)
+   * ICICI Prudential Mutual Fund       2,132,044.04   2,601,202.77
+   * ...
+   *                     Total          13,678,248.63  16,844,766.49
+   */
+  private extractPortfolioSummary(text: string): CASPortfolioSummary | undefined {
+    try {
+      const summaryMatch = text.match(/PORTFOLIO\s+SUMMARY[\s\S]*?(?=Date\s+Transaction|Folio No:|$)/i);
+      if (!summaryMatch) {
+        console.log('[CAS Service v4] Portfolio Summary section not found');
+        return undefined;
+      }
+      
+      const summaryText = summaryMatch[0];
+      const entries: CASPortfolioSummaryEntry[] = [];
+      let totalCostValue = 0;
+      let totalMarketValue = 0;
+      
+      // Known AMC names to match (handles multi-line and partial names)
+      const amcPatterns = [
+        'ICICI Prudential Mutual Fund',
+        'HDFC Mutual Fund',
+        'DSP Mutual Fund',
+        'SBI Mutual Fund',
+        'HSBC Mutual Fund',
+        'Franklin Templeton Mutual Fund',
+        'Bandhan Mutual Fund',
+        'NAVI MF',
+        '360 ONE Mutual Fund',
+        'Bajaj Finserv Mutual Fund',
+        'MOTILAL OSWAL MUTUAL FUND',
+        'Sundaram Mutual Fund',
+        'Nippon India Mutual Fund',
+        'Axis Mutual Fund',
+        'Kotak Mutual Fund',
+        'Aditya Birla Sun Life Mutual Fund',
+        'UTI Mutual Fund',
+        'Tata Mutual Fund',
+        'Mirae Asset Mutual Fund',
+        'PGIM India Mutual Fund',
+        'Invesco Mutual Fund',
+        'Canara Robeco Mutual Fund',
+        'Edelweiss Mutual Fund',
+        'Quantum Mutual Fund',
+        'PPFAS Mutual Fund',
+        'Parag Parikh Mutual Fund',
+        'Quant Mutual Fund',
+        'L&T Mutual Fund',
+        'Baroda BNP Paribas Mutual Fund',
+        'JM Financial Mutual Fund',
+        'Groww Mutual Fund',
+        'WhiteOak Capital Mutual Fund',
+        'ITI Mutual Fund',
+        'Samco Mutual Fund',
+        'NJ Mutual Fund',
+        'Helios Mutual Fund',
+        'Trust Mutual Fund',
+        'Old Bridge Mutual Fund',
+        'Zerodha Fund House',
+        'Mahindra Manulife Mutual Fund',
+        'Bank of India Mutual Fund',
+        'IDBI Mutual Fund',
+        'LIC Mutual Fund',
+        'Principal Mutual Fund',
+        'Union Mutual Fund',
+        'Shriram Mutual Fund',
+        'IIFL Mutual Fund',
+        'NAVI Mutual Fund',
+        '360 ONE Mutual Fund',
+        'Motilal Oswal Mutual Fund'
+      ];
+      
+      // Split by lines and look for AMC entries with amounts
+      const lines = summaryText.split('\n');
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        // Check if this line contains "Total" - this is the grand total line
+        if (line.toLowerCase().includes('total') && !line.toLowerCase().includes('mutual fund')) {
+          // Extract total values - look for two large numbers
+          const totalMatch = line.match(/Total\s+([\d,]+\.?\d*)\s+([\d,]+\.?\d*)/i);
+          if (totalMatch) {
+            totalCostValue = parseFloat(totalMatch[1].replace(/,/g, ''));
+            totalMarketValue = parseFloat(totalMatch[2].replace(/,/g, ''));
+            console.log(`[CAS Service v4] Portfolio Summary Total - Cost: ${totalCostValue}, Market: ${totalMarketValue}`);
+          } else {
+            // Try alternative pattern - numbers might be on same line but different format
+            const numbers = line.match(/[\d,]+\.?\d*/g);
+            if (numbers && numbers.length >= 2) {
+              const vals = numbers.map(n => parseFloat(n.replace(/,/g, ''))).filter(n => n > 10000);
+              if (vals.length >= 2) {
+                totalCostValue = vals[vals.length - 2];
+                totalMarketValue = vals[vals.length - 1];
+                console.log(`[CAS Service v4] Portfolio Summary Total (alt) - Cost: ${totalCostValue}, Market: ${totalMarketValue}`);
+              }
+            }
+          }
+          continue;
+        }
+        
+        // Look for AMC names and their corresponding values
+        for (const amcName of amcPatterns) {
+          if (line.toLowerCase().includes(amcName.toLowerCase().substring(0, 15))) {
+            // Found an AMC - extract values from this line and possibly next line
+            const combinedLine = line + ' ' + (lines[i + 1] || '');
+            
+            // Extract two consecutive numbers (cost and market value)
+            const numbers = combinedLine.match(/[\d,]+\.?\d*/g);
+            if (numbers && numbers.length >= 2) {
+              const vals = numbers.map(n => parseFloat(n.replace(/,/g, ''))).filter(n => n > 1000);
+              if (vals.length >= 2) {
+                entries.push({
+                  amcName: amcName,
+                  costValue: vals[vals.length - 2],
+                  marketValue: vals[vals.length - 1]
+                });
+                console.log(`[CAS Service v4] Portfolio Summary: ${amcName} - Cost: ${vals[vals.length - 2]}, Market: ${vals[vals.length - 1]}`);
+              }
+            }
+            break;
+          }
+        }
+      }
+      
+      if (entries.length === 0 && totalCostValue === 0) {
+        console.log('[CAS Service v4] Could not parse Portfolio Summary entries');
+        return undefined;
+      }
+      
+      // If we found entries but not total, calculate from entries
+      if (totalCostValue === 0 && entries.length > 0) {
+        totalCostValue = entries.reduce((sum, e) => sum + e.costValue, 0);
+        totalMarketValue = entries.reduce((sum, e) => sum + e.marketValue, 0);
+      }
+      
+      console.log(`[CAS Service v4] Portfolio Summary: ${entries.length} AMCs, Total Cost: ${totalCostValue}, Total Market: ${totalMarketValue}`);
+      
+      return {
+        entries,
+        totalCostValue,
+        totalMarketValue
+      };
+    } catch (error: any) {
+      console.error('[CAS Service v4] Error extracting Portfolio Summary:', error.message);
+      return undefined;
+    }
   }
   
   /**
@@ -454,22 +640,32 @@ class CASStatementService {
     let costValue = 0;
     let marketValue = 0;
     
+    // Debug: Extract and log the raw closing line
+    const closingLineMatch = blockText.match(/Closing Unit Balance:[^\n]+/i);
+    if (closingLineMatch) {
+      console.log(`[CAS Service v4] Raw closing line: "${closingLineMatch[0].substring(0, 200)}"`);
+    }
+    
     for (const pattern of closingPatterns) {
       const closingMatch = blockText.match(pattern);
       if (closingMatch) {
+        console.log(`[CAS Service v4] Closing pattern matched with ${closingMatch.length} groups`);
         if (closingMatch.length >= 6) {
           unitBalance = this.parseNumber(closingMatch[1]);
           navDate = closingMatch[2] || '';
           nav = this.parseNumber(closingMatch[3]);
           costValue = this.parseNumber(closingMatch[4]);
           marketValue = this.parseNumber(closingMatch[5]);
+          console.log(`[CAS Service v4] Extracted: Units=${unitBalance}, NAV=${nav}, Cost=${costValue}, Market=${marketValue}`);
         } else if (closingMatch.length >= 5) {
           unitBalance = this.parseNumber(closingMatch[1]);
           nav = this.parseNumber(closingMatch[2]);
           costValue = this.parseNumber(closingMatch[3]);
           marketValue = this.parseNumber(closingMatch[4]);
+          console.log(`[CAS Service v4] Extracted (alt): Units=${unitBalance}, NAV=${nav}, Cost=${costValue}, Market=${marketValue}`);
         } else if (closingMatch.length >= 2) {
           unitBalance = this.parseNumber(closingMatch[1]);
+          console.log(`[CAS Service v4] Extracted (minimal): Units=${unitBalance}`);
         }
         
         if (unitBalance > 0) break;
@@ -859,6 +1055,47 @@ class CASStatementService {
         }
       }
     };
+  }
+  
+  /**
+   * Validate parsed holdings against Portfolio Summary.
+   * Returns a warning message if there's a significant discrepancy.
+   */
+  private validateAgainstPortfolioSummary(
+    result: CASStatementResult, 
+    summary: CASPortfolioSummary
+  ): string | null {
+    const parsedTotal = result.summary.totalCurrentValue;
+    const expectedTotal = summary.totalMarketValue;
+    
+    const discrepancy = Math.abs(parsedTotal - expectedTotal);
+    const discrepancyPercent = expectedTotal > 0 ? (discrepancy / expectedTotal) * 100 : 0;
+    
+    console.log(`[CAS Service v4] Validation: Parsed ₹${(parsedTotal / 100000).toFixed(2)} L vs Expected ₹${(expectedTotal / 100000).toFixed(2)} L`);
+    console.log(`[CAS Service v4] Discrepancy: ₹${(discrepancy / 100000).toFixed(2)} L (${discrepancyPercent.toFixed(1)}%)`);
+    
+    // Also validate at AMC level
+    const holdingsByAmc = new Map<string, number>();
+    for (const holding of result.holdings) {
+      const amcName = holding.amcName || 'Unknown';
+      holdingsByAmc.set(amcName, (holdingsByAmc.get(amcName) || 0) + holding.marketValue);
+    }
+    
+    // Compare with summary entries
+    for (const entry of summary.entries) {
+      const parsedAmcValue = holdingsByAmc.get(entry.amcName) || 0;
+      const amcDiscrepancy = Math.abs(parsedAmcValue - entry.marketValue);
+      if (amcDiscrepancy > 10000) {
+        console.log(`[CAS Service v4] AMC Discrepancy - ${entry.amcName}: Parsed ₹${(parsedAmcValue / 100000).toFixed(2)} L vs Expected ₹${(entry.marketValue / 100000).toFixed(2)} L`);
+      }
+    }
+    
+    // Allow 2% tolerance for rounding differences
+    if (discrepancyPercent > 2) {
+      return `Portfolio value discrepancy: Parsed ₹${(parsedTotal / 100000).toFixed(2)} L but expected ₹${(expectedTotal / 100000).toFixed(2)} L from Portfolio Summary (${discrepancyPercent.toFixed(1)}% difference)`;
+    }
+    
+    return null;
   }
   
   private calculateConfidenceScore(result: CASStatementResult): number {
