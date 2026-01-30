@@ -1,12 +1,12 @@
 /**
  * Centralized Exit Load Service
  * Provides ISIN/schemeCode-based exit load lookup for all FintekPro services
- * Features: Database lookup, in-memory caching, generic fallback rates
+ * Features: Database lookup, in-memory caching, generic fallback rates, lot-wise calculations
  */
 
 import { db } from "../db";
-import { mfSchemeExitLoads, mutualFunds } from "@shared/schema";
-import { eq, sql, or } from "drizzle-orm";
+import { mfSchemeExitLoads, mutualFunds, holdingLotsV2 } from "@shared/schema";
+import { eq, sql, or, and, inArray } from "drizzle-orm";
 
 // Generic fallback exit load rules when ISIN-specific data is unavailable
 const GENERIC_EXIT_LOAD_RULES: Record<string, ExitLoadRule[]> = {
@@ -421,6 +421,103 @@ class ExitLoadService {
       timestamp: Date.now(),
       source
     });
+  }
+
+  async calculateLotWiseExitLoad(
+    userId: string,
+    isin: string,
+    category?: string
+  ): Promise<{
+    lots: Array<{
+      lotId: string;
+      purchaseDate: string;
+      holdingDays: number;
+      units: number;
+      exitLoadPercent: number;
+      daysToZeroExitLoad: number | null;
+    }>;
+    totalExitLoadableUnits: number;
+    totalExitLoadFreeUnits: number;
+  }> {
+    const activeLots = await db.select()
+      .from(holdingLotsV2)
+      .where(and(
+        eq(holdingLotsV2.userId, userId),
+        eq(holdingLotsV2.isin, isin),
+        inArray(holdingLotsV2.status, ['active', 'partial'])
+      ))
+      .orderBy(holdingLotsV2.purchaseDate);
+
+    const now = new Date();
+    let totalExitLoadableUnits = 0;
+    let totalExitLoadFreeUnits = 0;
+    
+    const lotsWithExitLoad = [];
+
+    for (const lot of activeLots) {
+      const purchaseDate = new Date(lot.purchaseDate);
+      const holdingDays = Math.floor((now.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24));
+      const units = parseFloat(lot.remainingUnits || lot.units);
+      
+      const exitLoadResult = await this.getExitLoad({
+        isin,
+        holdingDays,
+        category
+      });
+
+      if (exitLoadResult.exitLoadPercent > 0) {
+        totalExitLoadableUnits += units;
+      } else {
+        totalExitLoadFreeUnits += units;
+      }
+
+      lotsWithExitLoad.push({
+        lotId: lot.id,
+        purchaseDate: lot.purchaseDate,
+        holdingDays,
+        units,
+        exitLoadPercent: exitLoadResult.exitLoadPercent,
+        daysToZeroExitLoad: exitLoadResult.daysToZeroExitLoad
+      });
+    }
+
+    return {
+      lots: lotsWithExitLoad,
+      totalExitLoadableUnits,
+      totalExitLoadFreeUnits
+    };
+  }
+
+  async getExitLoadCalendar(
+    userId: string,
+    isin: string,
+    category?: string
+  ): Promise<Array<{ date: string; unitsFreeFromExitLoad: number; cumulativeFreedUnits: number }>> {
+    const result = await this.calculateLotWiseExitLoad(userId, isin, category);
+    const calendar: Array<{ date: string; unitsFreeFromExitLoad: number; cumulativeFreedUnits: number }> = [];
+    
+    const lotsByExitFreeDate = new Map<string, number>();
+    
+    for (const lot of result.lots) {
+      if (lot.daysToZeroExitLoad && lot.daysToZeroExitLoad > 0) {
+        const freeDate = new Date();
+        freeDate.setDate(freeDate.getDate() + lot.daysToZeroExitLoad);
+        const dateStr = freeDate.toISOString().split('T')[0];
+        
+        lotsByExitFreeDate.set(dateStr, (lotsByExitFreeDate.get(dateStr) || 0) + lot.units);
+      }
+    }
+
+    const sortedDates = Array.from(lotsByExitFreeDate.keys()).sort();
+    let cumulative = result.totalExitLoadFreeUnits;
+    
+    for (const date of sortedDates) {
+      const unitsFree = lotsByExitFreeDate.get(date) || 0;
+      cumulative += unitsFree;
+      calendar.push({ date, unitsFreeFromExitLoad: unitsFree, cumulativeFreedUnits: cumulative });
+    }
+
+    return calendar;
   }
 }
 

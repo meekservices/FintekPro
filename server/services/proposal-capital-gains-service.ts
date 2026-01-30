@@ -7,6 +7,7 @@
 
 import { exitLoadService } from './exit-load-service';
 import { historicalNavService } from './historical-nav-service';
+import { holdingLotsStorageService } from './holding-lots-storage-service';
 
 // Cost Inflation Index (CII) data from Income Tax Department
 // Source: https://incometaxindia.gov.in/Pages/tools/cost-inflation-index.aspx
@@ -1797,6 +1798,57 @@ _This is not tax advice. Consult your CA/Tax Advisor for personalized guidance._
     }
     
     return false;
+  }
+
+  async calculateLotWiseTaxFromDatabase(
+    userId: string,
+    isin: string,
+    holdingName: string,
+    currentNav: number,
+    productType: string = 'mutual_fund',
+    category?: string
+  ): Promise<LotWiseTaxSummary | null> {
+    try {
+      const { lots } = await holdingLotsStorageService.getLotsByIsin(userId, isin);
+      
+      if (lots.length === 0) {
+        console.log(`[CapitalGains] No stored lots found for ${isin}`);
+        return null;
+      }
+
+      const formattedLots = lots
+        .filter(lot => lot.status === 'active' || lot.status === 'partial')
+        .map(lot => ({
+          id: lot.id,
+          purchaseDate: lot.purchaseDate,
+          purchaseNav: parseFloat(lot.purchaseNav || lot.costPerUnit),
+          purchaseValue: parseFloat(lot.totalCost),
+          units: parseFloat(lot.units),
+          remainingUnits: parseFloat(lot.remainingUnits || lot.units),
+          source: (lot.transactionType === 'sip' ? 'sip' : 
+                   lot.transactionType === 'switch_in' ? 'switch_in' :
+                   lot.transactionType === 'bonus' ? 'bonus' : 'purchase') as 'purchase' | 'sip' | 'switch_in' | 'bonus'
+        }));
+
+      if (formattedLots.length === 0) {
+        console.log(`[CapitalGains] No active lots for ${isin}`);
+        return null;
+      }
+
+      console.log(`[CapitalGains] Calculating tax for ${formattedLots.length} lots from database for ${isin}`);
+      
+      return this.calculateLotWiseTax(
+        holdingName,
+        formattedLots,
+        currentNav,
+        productType,
+        category,
+        isin
+      );
+    } catch (error) {
+      console.error(`[CapitalGains] Error reading lots from database:`, error);
+      return null;
+    }
   }
 }
 

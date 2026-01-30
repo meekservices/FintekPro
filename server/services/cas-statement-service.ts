@@ -1,4 +1,5 @@
 import { liveMFDataService } from './live-mf-data-service';
+import { holdingLotsStorageService, LotStorageInput } from './holding-lots-storage-service';
 
 /**
  * Parse CAS statement date format (DD-Mon-YYYY or DD/Mon/YYYY)
@@ -830,6 +831,60 @@ class CASStatementService {
   
   getRedemptionsByHolding(holding: CASHolding): CASTransaction[] {
     return holding.transactions.filter(t => !t.isCredit);
+  }
+
+  async persistLotsToDatabase(
+    result: CASStatementResult,
+    userId: string,
+    portfolioId: string
+  ): Promise<{ inserted: number; errors: string[] }> {
+    const lots: LotStorageInput[] = [];
+
+    for (const holding of result.holdings) {
+      const purchaseTransactions = holding.transactions.filter(t => 
+        t.isCredit && ['Purchase', 'SIP', 'Switch In', 'Bonus', 'Reinvestment'].includes(t.transactionType)
+      );
+
+      let runningBalance = holding.openingUnitBalance || 0;
+
+      for (const txn of purchaseTransactions) {
+        if (txn.units <= 0) continue;
+
+        runningBalance += txn.units;
+
+        lots.push({
+          portfolioId,
+          userId,
+          isin: holding.isin,
+          folioNumber: holding.folioNumber,
+          schemeName: holding.schemeName,
+          amcCode: holding.amcName,
+          purchaseDate: txn.transactionDate,
+          purchaseDateSource: 'cas_explicit',
+          purchaseDateConfidence: 1.0,
+          transactionType: txn.transactionType.toLowerCase().replace(' ', '_'),
+          units: txn.units,
+          costPerUnit: txn.nav,
+          totalCost: txn.amount,
+          stampDuty: txn.stampDuty,
+          purchaseNav: txn.nav,
+          balanceAfterTransaction: runningBalance,
+          transactionDescription: txn.description,
+          exitLoadText: holding.exitLoadText,
+          advisorArn: holding.advisorArn,
+          status: 'active',
+          remainingUnits: txn.units,
+        });
+      }
+    }
+
+    if (lots.length === 0) {
+      console.log('[CAS Service v4] No purchase lots to persist');
+      return { inserted: 0, errors: [] };
+    }
+
+    console.log(`[CAS Service v4] Persisting ${lots.length} lots to database`);
+    return holdingLotsStorageService.insertLots(lots);
   }
 }
 
