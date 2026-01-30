@@ -279,10 +279,16 @@ router.post(
         });
       }
       
-      // Calculate tax for each holding's lots
+      // Calculate tax for each holding's lots (Tier 1 only)
       const taxAnalysis = [];
       
       for (const holding of result.holdings) {
+        // Tax safety invariant: Only Tier 1 (FULL) holdings enter CG engine
+        if (!holding.eligibleForTax) {
+          console.log('[CAS Routes] Skipping tax analysis for non-eligible holding:', holding.isin, 'tier:', holding.holdingTier);
+          continue;
+        }
+        
         const lotResult = result.lotLedger.results.find(r => r.isin === holding.isin);
         if (!lotResult || lotResult.lots.length === 0) continue;
         
@@ -335,17 +341,33 @@ router.post(
       const totalTax = taxAnalysis.reduce((sum, t) => sum + t.estimatedTax, 0);
       const totalExitLoad = taxAnalysis.reduce((sum, t) => sum + t.exitLoadAmount, 0);
       
+      // Audit transparency: Count holdings by tier
+      const tierCounts = { FULL: 0, VALUATION_ONLY: 0, SUMMARY_PLACEHOLDER: 0 };
+      result.holdings.forEach(h => {
+        const tier = h.holdingTier || 'FULL';
+        tierCounts[tier as keyof typeof tierCounts]++;
+      });
+      
       res.json({
         success: true,
         fileName: req.file.originalname,
         summary: {
           holdingsAnalyzed: taxAnalysis.length,
+          totalHoldings: result.holdings.length,
           totalSTCG: totalStcg,
           totalLTCG: totalLtcg,
           totalEstimatedTax: totalTax,
           totalExitLoad: totalExitLoad,
           equityLTCGExemption: 125000,  // ₹1.25L exemption
           ltcgAfterExemption: Math.max(0, totalLtcg - 125000),
+        },
+        // Audit transparency: Show agent which holdings are tax-eligible
+        auditInfo: {
+          tierBreakdown: tierCounts,
+          taxEligibleCount: tierCounts.FULL,
+          valuationOnlyCount: tierCounts.VALUATION_ONLY,
+          placeholderCount: tierCounts.SUMMARY_PLACEHOLDER,
+          message: `${tierCounts.FULL} holdings with full transaction history (tax computed). ${tierCounts.VALUATION_ONLY + tierCounts.SUMMARY_PLACEHOLDER} holdings excluded from capital gains (valuation only).`
         },
         holdings: taxAnalysis,
         warnings: result.warnings.slice(0, 10),
