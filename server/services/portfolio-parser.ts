@@ -775,14 +775,39 @@ function parseCAMSHoldingStatementFormat(text: string): ImportedHolding[] {
         schemeName = schemeName.replace(/\s+/g, ' ').replace(/\s*-\s*$/, '').trim();
       }
       
-      // Extract all decimal numbers from afterIsin
-      // Pattern: numbers with commas and decimals like "500,000.000" or "31,610.576" or "19.1761"
-      const numberPattern = /(\d{1,3}(?:,\d{3})*\.\d{2,6})/g;
+      // Extract all numbers from afterIsin (with or without decimals)
+      // Pattern 1: Numbers with commas and decimals like "500,000.000" or "31,610.576" or "19.1761"
+      // Pattern 2: Numbers with commas but no decimals like "1,68,52,343" (Indian format) or "168,523"
+      // Pattern 3: Plain integers like "199990" or "1470"
+      const decimalPattern = /(\d{1,3}(?:,\d{2,3})*\.\d{2,6})/g;
+      const indianCommaPattern = /(\d{1,2}(?:,\d{2})*(?:,\d{3}))/g;
+      const plainIntegerPattern = /\b(\d{4,})\b/g;
+      
       const numbers: number[] = [];
       let match;
-      while ((match = numberPattern.exec(afterIsin)) !== null) {
+      
+      // First extract decimal numbers (highest priority)
+      while ((match = decimalPattern.exec(afterIsin)) !== null) {
         const num = parseFloat(match[1].replace(/,/g, ''));
         if (!isNaN(num) && num > 0) {
+          numbers.push(num);
+        }
+      }
+      
+      // Then extract Indian comma format numbers (like 1,68,52,343)
+      const afterWithoutDecimals = afterIsin.replace(decimalPattern, ' ');
+      while ((match = indianCommaPattern.exec(afterWithoutDecimals)) !== null) {
+        const num = parseFloat(match[1].replace(/,/g, ''));
+        if (!isNaN(num) && num > 1000 && !numbers.includes(num)) {
+          numbers.push(num);
+        }
+      }
+      
+      // Finally extract plain integers (4+ digits) not already captured
+      const afterWithoutCommas = afterWithoutDecimals.replace(indianCommaPattern, ' ');
+      while ((match = plainIntegerPattern.exec(afterWithoutCommas)) !== null) {
+        const num = parseFloat(match[1]);
+        if (!isNaN(num) && num > 100 && !numbers.includes(num)) {
           numbers.push(num);
         }
       }
@@ -1314,30 +1339,52 @@ export async function enrichHoldingsWithDatabaseLookup(holdings: ImportedHolding
       const dbFund = fundLookup.get(holding.isin)!;
       const currentNav = dbFund.nav || 0;
       
-      // Calculate current value using today's NAV from database
-      // If we have units, use: units × current NAV
-      // Otherwise keep the statement value as fallback
-      let calculatedCurrentValue = holding.currentValue;
-      if (holding.quantity > 0 && currentNav > 0) {
-        calculatedCurrentValue = holding.quantity * currentNav;
-        console.log(`[CAS Parser] Calculated current value: ${holding.quantity} units × ₹${currentNav} NAV = ₹${calculatedCurrentValue.toFixed(2)}`);
+      // CRITICAL: Preserve original CAS market value if it exists and is reasonable
+      // Only recalculate if original value is missing/zero or if the CAS value seems like invested value
+      // (detected when CAS value equals investedValue, meaning market value wasn't parsed separately)
+      let finalCurrentValue = holding.currentValue;
+      let shouldUseDbNav = false;
+      
+      // Check if we should use database NAV to recalculate:
+      // 1. If currentValue is 0 or missing
+      // 2. If currentValue equals investedValue (market wasn't parsed separately)
+      // 3. If currentValue seems unreasonable (e.g., matches avg cost × units pattern)
+      const originalMarketValue = holding.currentValue || 0;
+      const investedValue = holding.investedValue || 0;
+      
+      if (originalMarketValue === 0) {
+        shouldUseDbNav = true;
+        console.log(`[CAS Parser] No market value found, will calculate from DB NAV`);
+      } else if (originalMarketValue === investedValue && investedValue > 0) {
+        // Market value wasn't parsed separately - it was set to invested value as fallback
+        shouldUseDbNav = true;
+        console.log(`[CAS Parser] Market value equals invested value (fallback), will recalculate`);
+      }
+      
+      if (shouldUseDbNav && holding.quantity > 0 && currentNav > 0) {
+        finalCurrentValue = holding.quantity * currentNav;
+        console.log(`[CAS Parser] Calculated current value: ${holding.quantity} units × ₹${currentNav} NAV = ₹${finalCurrentValue.toFixed(2)}`);
+      } else if (originalMarketValue > 0) {
+        // PRESERVE the original CAS market value - it's more accurate
+        finalCurrentValue = originalMarketValue;
+        console.log(`[CAS Parser] PRESERVING original CAS market value: ₹${originalMarketValue.toFixed(2)} (DB NAV would give ₹${(holding.quantity * currentNav).toFixed(2)})`);
       }
       
       // Calculate unrealized gain if we have invested value
       let unrealizedGain = 0;
       let unrealizedGainPercent = 0;
-      if (holding.investedValue && holding.investedValue > 0) {
-        unrealizedGain = calculatedCurrentValue - holding.investedValue;
-        unrealizedGainPercent = (unrealizedGain / holding.investedValue) * 100;
+      if (investedValue > 0) {
+        unrealizedGain = finalCurrentValue - investedValue;
+        unrealizedGainPercent = (unrealizedGain / investedValue) * 100;
       }
       
-      console.log(`[CAS Parser] Enriched: ${dbFund.schemeName} | Folio: ${holding.folioNumber} | Units: ${holding.quantity} | NAV: ₹${currentNav} | Value: ₹${calculatedCurrentValue.toFixed(2)}`);
+      console.log(`[CAS Parser] Enriched: ${dbFund.schemeName} | Folio: ${holding.folioNumber} | Units: ${holding.quantity} | NAV: ₹${currentNav} | Value: ₹${finalCurrentValue.toFixed(2)}`);
       
       return {
         ...holding,
         name: dbFund.schemeName,
         currentNav: currentNav,
-        currentValue: calculatedCurrentValue,
+        currentValue: finalCurrentValue,
         unrealizedGain: unrealizedGain,
         unrealizedGainPercent: unrealizedGainPercent,
         broker: holding.broker || dbFund.fundHouse,
