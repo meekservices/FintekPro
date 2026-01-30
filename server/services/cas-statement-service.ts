@@ -259,12 +259,14 @@ class CASStatementService {
       '$1\n$2'
     );
     
-    // Debug: Log how many newlines were added
+    // Debug: Log normalization details
     const originalLines = text.split('\n').length;
     const normalizedLines = normalized.split('\n').length;
-    if (normalizedLines > originalLines) {
-      console.log(`[CAS Service v4] Text normalization added ${normalizedLines - originalLines} newlines`);
-    }
+    console.log(`[CAS Service v4] Text normalization: ${originalLines} -> ${normalizedLines} lines (added ${normalizedLines - originalLines})`);
+    
+    // Log sample of date patterns found after normalization
+    const dateLines = normalized.split('\n').filter(line => /^\d{2}-[A-Za-z]{3}-\d{4}/.test(line.trim()));
+    console.log(`[CAS Service v4] Found ${dateLines.length} lines starting with dates after normalization`);
     
     return normalized;
   }
