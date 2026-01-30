@@ -1,5 +1,4 @@
 import { liveMFDataService } from './live-mf-data-service';
-import { isinIntelligenceService } from './isin-intelligence-service';
 
 /**
  * Parse CAS statement date format (DD-Mon-YYYY or DD/Mon/YYYY)
@@ -53,13 +52,14 @@ export interface CASTransaction {
   isin: string;
   schemeName: string;
   transactionDate: string;
-  transactionType: 'Purchase' | 'Redemption' | 'Switch In' | 'Switch Out' | 'SIP' | 'Dividend' | 'Bonus' | 'Other';
+  transactionType: 'Purchase' | 'Redemption' | 'Switch In' | 'Switch Out' | 'SIP' | 'Dividend' | 'Bonus' | 'Reinvestment' | 'STT' | 'Other';
   amount: number;
   units: number;
   nav: number;
   balance: number;
   description: string;
   stampDuty?: number;
+  isCredit: boolean;
 }
 
 export interface CASHolding {
@@ -116,20 +116,11 @@ export interface CASStatementResult {
   confidenceScore: number;
 }
 
-interface HoldingBlock {
-  rawText: string;
-  folioLine: string;
-  schemeLine: string;
-  closingLine: string;
-  transactionLines: string[];
-  exitLoadLine?: string;
-}
-
 class CASStatementService {
   private static instance: CASStatementService;
   
   private constructor() {
-    console.log('✅ CAS Statement Service initialized (v2 - Block Parser)');
+    console.log('✅ CAS Statement Service initialized (v4 - Multi-Scheme Parser)');
   }
   
   static getInstance(): CASStatementService {
@@ -163,27 +154,28 @@ class CASStatementService {
     };
     
     try {
-      console.log('[CAS Service v2] Starting block-based parse...');
+      console.log('[CAS Service v4] Starting multi-scheme parse...');
+      console.log('[CAS Service v4] Text length:', text.length);
       
       result.investor = this.extractInvestorInfo(text);
       result.statementPeriod = this.extractStatementPeriod(text);
       
-      console.log('[CAS Service v2] Investor:', result.investor.name || 'Unknown');
-      console.log('[CAS Service v2] PAN:', result.investor.pan || 'Not found');
+      console.log('[CAS Service v4] Investor:', result.investor.name || 'Unknown');
+      console.log('[CAS Service v4] PAN:', result.investor.pan || 'Not found');
       
-      const holdingBlocks = this.splitIntoHoldingBlocks(text);
-      console.log('[CAS Service v2] Found', holdingBlocks.length, 'holding blocks');
+      const schemeBlocks = this.splitBySchemeBlocks(text);
+      console.log('[CAS Service v4] Found', schemeBlocks.length, 'scheme blocks');
       
-      for (let i = 0; i < holdingBlocks.length; i++) {
+      for (let i = 0; i < schemeBlocks.length; i++) {
         try {
-          const holding = this.parseHoldingBlock(holdingBlocks[i], i);
-          if (holding && holding.unitBalance > 0) {
+          const holding = this.parseSchemeBlock(schemeBlocks[i], i);
+          if (holding) {
             result.holdings.push(holding);
             result.transactions.push(...holding.transactions);
           }
         } catch (error: any) {
-          console.warn('[CAS Service v2] Failed to parse block', i, ':', error.message);
-          result.warnings.push(`Block ${i}: ${error.message}`);
+          console.warn('[CAS Service v4] Failed to parse scheme block', i, ':', error.message);
+          result.warnings.push(`Scheme block ${i}: ${error.message}`);
         }
       }
       
@@ -195,7 +187,7 @@ class CASStatementService {
       result.confidenceScore = this.calculateConfidenceScore(result);
       result.success = result.holdings.length > 0;
       
-      console.log('[CAS Service v2] Parse complete:', {
+      console.log('[CAS Service v4] Parse complete:', {
         holdings: result.holdings.length,
         transactions: result.transactions.length,
         totalInvested: result.summary.totalInvestedValue.toFixed(2),
@@ -204,7 +196,7 @@ class CASStatementService {
       });
       
     } catch (error: any) {
-      console.error('[CAS Service v2] Parse error:', error);
+      console.error('[CAS Service v4] Parse error:', error);
       result.errors.push(`Parse error: ${error.message}`);
     }
     
@@ -250,41 +242,56 @@ class CASStatementService {
   }
   
   /**
-   * Split the CAS statement into individual holding blocks.
-   * Each block starts with "Folio No:" and ends before the next "Folio No:" or AMC section.
+   * Split CAS statement by scheme blocks (ISIN-based)
+   * This handles multiple schemes under the same folio
    */
-  private splitIntoHoldingBlocks(text: string): HoldingBlock[] {
-    const blocks: HoldingBlock[] = [];
+  private splitBySchemeBlocks(text: string): string[] {
+    const blocks: string[] = [];
     
-    const closingLinePattern = /Closing Unit Balance:\s*([\d,]+\.\d+)\s*NAV on\s*(\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{4}):\s*INR\s*([\d,]+\.\d+)\s*Total Cost Value:\s*([\d,]+\.\d+)\s*Market Value on\s*[\d\-A-Za-z]+:\s*INR\s*([\d,]+\.\d+)/gi;
+    const closingLinePattern = /Closing Unit Balance:\s*[\d,]+\.?\d*/gi;
+    const closingMatches: { index: number }[] = [];
     
     let match;
-    const closingLinePositions: { position: number; match: string }[] = [];
-    
     while ((match = closingLinePattern.exec(text)) !== null) {
-      closingLinePositions.push({ position: match.index, match: match[0] });
+      closingMatches.push({ index: match.index });
     }
     
-    console.log('[CAS Service v2] Found', closingLinePositions.length, 'closing lines');
+    console.log('[CAS Service v4] Found', closingMatches.length, 'Closing Unit Balance lines');
     
-    for (const closingPos of closingLinePositions) {
-      const blockStart = Math.max(0, closingPos.position - 3000);
-      const blockEnd = Math.min(text.length, closingPos.position + closingPos.match.length + 1500);
+    for (let i = 0; i < closingMatches.length; i++) {
+      const closingIndex = closingMatches[i].index;
+      
+      let blockStart = closingIndex - 5000;
+      for (let j = i - 1; j >= 0; j--) {
+        const prevClosingEnd = text.indexOf('\n', closingMatches[j].index) + 200;
+        if (prevClosingEnd > blockStart && prevClosingEnd < closingIndex) {
+          blockStart = prevClosingEnd;
+          break;
+        }
+      }
+      blockStart = Math.max(0, blockStart);
+      
+      const isinBefore = text.substring(blockStart, closingIndex).lastIndexOf('ISIN:');
+      if (isinBefore > 0) {
+        const folioBeforeIsin = text.substring(blockStart, blockStart + isinBefore).lastIndexOf('Folio No:');
+        if (folioBeforeIsin > 0) {
+          blockStart = blockStart + folioBeforeIsin;
+        }
+      }
+      
+      let blockEnd = closingIndex + 1500;
+      if (i < closingMatches.length - 1) {
+        const nextIsinPos = text.indexOf('ISIN:', closingIndex + 50);
+        if (nextIsinPos > 0 && nextIsinPos < closingMatches[i + 1].index) {
+          blockEnd = nextIsinPos - 50;
+        }
+      }
+      blockEnd = Math.min(text.length, blockEnd);
+      
       const blockText = text.substring(blockStart, blockEnd);
       
-      const folioMatch = blockText.match(/Folio No:\s*([\d\/]+)\s*(?:.*?)PAN:\s*([A-Z]{5}\d{4}[A-Z])/i);
-      const schemeMatch = blockText.match(/([A-Z0-9]{2,10})-([^(]+)\s*\([^)]*\)\s*-\s*ISIN:\s*(INF[A-Z0-9]{9})/i);
-      const closingMatch = blockText.match(/Closing Unit Balance:\s*([\d,]+\.\d+)\s*NAV on\s*(\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{4}):\s*INR\s*([\d,]+\.\d+)\s*Total Cost Value:\s*([\d,]+\.\d+)\s*Market Value on\s*[\d\-A-Za-z]+:\s*INR\s*([\d,]+\.\d+)/i);
-      
-      if (closingMatch) {
-        blocks.push({
-          rawText: blockText,
-          folioLine: folioMatch ? folioMatch[0] : '',
-          schemeLine: schemeMatch ? schemeMatch[0] : '',
-          closingLine: closingMatch[0],
-          transactionLines: [],
-          exitLoadLine: undefined
-        });
+      if (blockText.match(/INF[A-Z0-9]{9}/) && blockText.includes('Closing Unit Balance')) {
+        blocks.push(blockText);
       }
     }
     
@@ -292,75 +299,119 @@ class CASStatementService {
   }
   
   /**
-   * Parse a single holding block to extract all data
+   * Parse a single scheme block to extract holding and transaction data
+   * Each block represents one mutual fund scheme (even if multiple schemes share a folio)
    */
-  private parseHoldingBlock(block: HoldingBlock, index: number): CASHolding | null {
-    const text = block.rawText;
-    
-    const closingMatch = text.match(/Closing Unit Balance:\s*([\d,]+\.\d+)\s*NAV on\s*(\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{4}):\s*INR\s*([\d,]+\.\d+)\s*Total Cost Value:\s*([\d,]+\.\d+)\s*Market Value on\s*[\d\-A-Za-z]+:\s*INR\s*([\d,]+\.\d+)/i);
-    
-    if (!closingMatch) {
-      console.warn('[CAS Service v2] Block', index, 'has no valid closing line');
-      return null;
-    }
-    
-    const unitBalance = parseFloat(closingMatch[1].replace(/,/g, ''));
-    const navDate = closingMatch[2];
-    const nav = parseFloat(closingMatch[3].replace(/,/g, ''));
-    const costValue = parseFloat(closingMatch[4].replace(/,/g, ''));
-    const marketValue = parseFloat(closingMatch[5].replace(/,/g, ''));
-    
+  private parseSchemeBlock(blockText: string, index: number): CASHolding | null {
     let folioNumber = '';
     let pan = '';
     let kycStatus = '';
-    const folioMatch = text.match(/Folio No:\s*([\d\/\s]+)/i);
+    
+    const folioMatch = blockText.match(/Folio No:\s*([\d\/\s]+)/i);
     if (folioMatch) {
       folioNumber = folioMatch[1].replace(/\s/g, '').trim();
     }
     
-    const panMatch = text.match(/PAN:\s*([A-Z]{5}\d{4}[A-Z])/i);
+    const panMatch = blockText.match(/PAN:\s*([A-Z]{5}\d{4}[A-Z])/i);
     if (panMatch) pan = panMatch[1];
     
-    const kycMatch = text.match(/KYC:\s*(OK|PENDING|NOT OK)/i);
-    if (kycMatch) kycStatus = kycMatch[1];
+    const kycMatch = blockText.match(/KYC:\s*(OK|PENDING|NOT\s*OK)/i);
+    if (kycMatch) kycStatus = kycMatch[1].replace(/\s+/g, ' ');
     
     let isin = '';
     let schemeCode = '';
     let schemeName = '';
-    const schemeMatch = text.match(/([A-Z0-9]{2,10})-(.+?)\s*(?:\([^)]*Non-?Demat[^)]*\)|\([^)]*Demat[^)]*\))?\s*-\s*ISIN:\s*(INF[A-Z0-9]{9})/i);
-    if (schemeMatch) {
-      schemeCode = schemeMatch[1].trim();
-      schemeName = schemeMatch[2].trim()
-        .replace(/\s+/g, ' ')
-        .replace(/\([^)]*Non-?Demat[^)]*\)/gi, '')
-        .replace(/\([^)]*Demat[^)]*\)/gi, '')
-        .trim();
-      isin = schemeMatch[3].toUpperCase();
-    } else {
-      const isinOnlyMatch = text.match(/ISIN:\s*(INF[A-Z0-9]{9})/i);
+    
+    const isinPatterns = [
+      /([A-Z0-9]{2,10})\s*[-–]\s*([^-]+?)\s*[-–]\s*ISIN:\s*(INF[A-Z0-9]{9})/i,
+      /([A-Z0-9]{2,10})-(.+?)\s*\([^)]*\)\s*-\s*ISIN:\s*(INF[A-Z0-9]{9})/i,
+      /ISIN:\s*(INF[A-Z0-9]{9})/i
+    ];
+    
+    for (const pattern of isinPatterns) {
+      const isinMatch = blockText.match(pattern);
+      if (isinMatch) {
+        if (isinMatch.length >= 4) {
+          schemeCode = isinMatch[1].trim();
+          schemeName = isinMatch[2].trim()
+            .replace(/\s+/g, ' ')
+            .replace(/\([^)]*Non-?Demat[^)]*\)/gi, '')
+            .replace(/\([^)]*Demat[^)]*\)/gi, '')
+            .replace(/\s*[-–]\s*$/, '')
+            .trim();
+          isin = isinMatch[3].toUpperCase();
+        } else {
+          isin = isinMatch[1].toUpperCase();
+          schemeName = `Mutual Fund (${isin})`;
+        }
+        break;
+      }
+    }
+    
+    if (!isin) {
+      const isinOnlyMatch = blockText.match(/INF[A-Z0-9]{9}/);
       if (isinOnlyMatch) {
-        isin = isinOnlyMatch[1].toUpperCase();
+        isin = isinOnlyMatch[0].toUpperCase();
         schemeName = `Mutual Fund (${isin})`;
       }
     }
     
     if (!isin) {
-      console.warn('[CAS Service v2] Block', index, 'has no ISIN');
+      console.warn('[CAS Service v3] Folio block', index, 'has no ISIN');
       return null;
     }
     
+    const closingPatterns = [
+      /Closing Unit Balance:\s*([\d,]+\.?\d*)\s+NAV on\s*(\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{4}):\s*(?:INR|Rs\.?)\s*([\d,]+\.?\d*)\s+Total Cost(?: Value)?:\s*([\d,]+\.?\d*)\s+Market Value on[^:]+:\s*(?:INR|Rs\.?)\s*([\d,]+\.?\d*)/i,
+      /Closing Unit Balance:\s*([\d,]+\.?\d*)\s+NAV[^:]*:\s*(?:INR|Rs\.?)?\s*([\d,]+\.?\d*)\s+.*?Cost[^:]*:\s*([\d,]+\.?\d*)\s+.*?Value[^:]*:\s*(?:INR|Rs\.?)?\s*([\d,]+\.?\d*)/i,
+      /Closing Unit Balance:\s*([\d,]+\.?\d*)/i
+    ];
+    
+    let unitBalance = 0;
+    let navDate = '';
+    let nav = 0;
+    let costValue = 0;
+    let marketValue = 0;
+    
+    for (const pattern of closingPatterns) {
+      const closingMatch = blockText.match(pattern);
+      if (closingMatch) {
+        if (closingMatch.length >= 6) {
+          unitBalance = this.parseNumber(closingMatch[1]);
+          navDate = closingMatch[2] || '';
+          nav = this.parseNumber(closingMatch[3]);
+          costValue = this.parseNumber(closingMatch[4]);
+          marketValue = this.parseNumber(closingMatch[5]);
+        } else if (closingMatch.length >= 5) {
+          unitBalance = this.parseNumber(closingMatch[1]);
+          nav = this.parseNumber(closingMatch[2]);
+          costValue = this.parseNumber(closingMatch[3]);
+          marketValue = this.parseNumber(closingMatch[4]);
+        } else if (closingMatch.length >= 2) {
+          unitBalance = this.parseNumber(closingMatch[1]);
+        }
+        
+        if (unitBalance > 0) break;
+      }
+    }
+    
+    const navDateMatch = blockText.match(/NAV on\s*(\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{4})/i);
+    if (navDateMatch && !navDate) {
+      navDate = navDateMatch[1];
+    }
+    
     let registrar: 'CAMS' | 'KFINTECH' | 'UNKNOWN' = 'UNKNOWN';
-    if (/Registrar\s*:\s*CAMS/i.test(text)) {
+    if (/Registrar\s*:\s*CAMS/i.test(blockText)) {
       registrar = 'CAMS';
-    } else if (/Registrar\s*:\s*KFINTECH/i.test(text)) {
+    } else if (/Registrar\s*:\s*KFINTECH/i.test(blockText)) {
       registrar = 'KFINTECH';
     }
     
     let advisorArn = '';
-    const arnMatch = text.match(/\(Advisor:\s*(ARN-\d+|DIRECT)\)/i);
+    const arnMatch = blockText.match(/\(Advisor:\s*(ARN-\d+|DIRECT)\)/i);
     if (arnMatch) advisorArn = arnMatch[1];
     
-    const isDemat = /\(Demat\)/i.test(text) && !/\(Non-?Demat\)/i.test(text);
+    const isDemat = /\(Demat\)/i.test(blockText) && !/\(Non-?Demat\)/i.test(blockText);
     
     let planType: 'Regular' | 'Direct' | undefined;
     if (/Direct\s*Plan/i.test(schemeName) || advisorArn === 'DIRECT') {
@@ -378,11 +429,13 @@ class CASStatementService {
     
     let amcName = '';
     const amcPatterns = [
-      /(\w+\s+(?:Mutual\s+)?Fund)\s*$/im,
-      /^(\w+\s+(?:Prudential|Finserv|Templeton)?\s*Mutual\s*Fund)/im
+      /^(\w+(?:\s+\w+)?\s+(?:Mutual\s+)?Fund)/im,
+      /(\w+\s+Prudential\s+Mutual\s+Fund)/i,
+      /(\w+\s+Finserv\s+Mutual\s+Fund)/i,
+      /(\w+\s+Templeton\s+Mutual\s+Fund)/i
     ];
     for (const pattern of amcPatterns) {
-      const amcMatch = text.match(pattern);
+      const amcMatch = blockText.match(pattern);
       if (amcMatch) {
         amcName = amcMatch[1].trim();
         break;
@@ -390,31 +443,36 @@ class CASStatementService {
     }
     
     const nomineeDetails: CASNomineeDetails = {};
-    const nominee1Match = text.match(/Nominee\s*1:\s*([A-Za-z\s]+?)(?=Nominee\s*2:|$)/i);
-    if (nominee1Match) nomineeDetails.nominee1 = nominee1Match[1].trim();
-    const nominee2Match = text.match(/Nominee\s*2:\s*([A-Za-z\s]+?)(?=Nominee\s*3:|$)/i);
-    if (nominee2Match) nomineeDetails.nominee2 = nominee2Match[1].trim();
-    const nominee3Match = text.match(/Nominee\s*3:\s*([A-Za-z\s]+)/i);
-    if (nominee3Match) nomineeDetails.nominee3 = nominee3Match[1].trim();
+    const nominee1Match = blockText.match(/Nominee\s*1:\s*([A-Za-z\s]+?)(?=\s*Nominee\s*2:|$)/i);
+    if (nominee1Match && nominee1Match[1].trim()) nomineeDetails.nominee1 = nominee1Match[1].trim();
+    const nominee2Match = blockText.match(/Nominee\s*2:\s*([A-Za-z\s]+?)(?=\s*Nominee\s*3:|$)/i);
+    if (nominee2Match && nominee2Match[1].trim()) nomineeDetails.nominee2 = nominee2Match[1].trim();
+    const nominee3Match = blockText.match(/Nominee\s*3:\s*([A-Za-z\s]+)/i);
+    if (nominee3Match && nominee3Match[1].trim()) nomineeDetails.nominee3 = nominee3Match[1].trim();
     
     let openingUnitBalance = 0;
-    const openingMatch = text.match(/Opening Unit Balance:\s*([\d,]+\.\d+)/i);
+    const openingMatch = blockText.match(/Opening Unit Balance:\s*([\d,]+\.?\d*)/i);
     if (openingMatch) {
-      openingUnitBalance = parseFloat(openingMatch[1].replace(/,/g, ''));
+      openingUnitBalance = this.parseNumber(openingMatch[1]);
     }
     
     let exitLoadText = '';
-    const exitLoadMatch = text.match(/(?:Exit Load|Entry Load)[:\s]*([^"]+?)(?="Please ensure|$)/is);
-    if (exitLoadMatch) {
-      exitLoadText = exitLoadMatch[1].trim().substring(0, 500);
+    const exitLoadPatterns = [
+      /(?:Exit Load|Entry Load)[:\s]*([^"]+?)(?="Please ensure|$)/is,
+      /Exit Load[:\s-]*(.{10,500}?)(?=\n\n|\nClosing|Entry Load|$)/is
+    ];
+    for (const pattern of exitLoadPatterns) {
+      const exitLoadMatch = blockText.match(pattern);
+      if (exitLoadMatch) {
+        exitLoadText = exitLoadMatch[1].trim().substring(0, 500);
+        break;
+      }
     }
     
-    const transactions = this.parseTransactionsFromBlock(text, isin, folioNumber, schemeName);
+    const transactions = this.parseTransactionsFromBlock(blockText, isin, folioNumber, schemeName);
     
     let firstPurchaseDate: string | undefined;
-    const purchaseTransactions = transactions.filter(t => 
-      ['Purchase', 'SIP', 'Switch In'].includes(t.transactionType)
-    );
+    const purchaseTransactions = transactions.filter(t => t.isCredit && t.units > 0);
     if (purchaseTransactions.length > 0) {
       const sortedDates = purchaseTransactions
         .map(t => ({ date: t.transactionDate, parsed: parseCASDate(t.transactionDate) }))
@@ -427,19 +485,27 @@ class CASStatementService {
     }
     
     let holderName = '';
-    const holderMatch = text.match(/Folio No:[^\n]+\n([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/);
-    if (holderMatch) {
-      holderName = holderMatch[1].trim();
+    const lines = blockText.split('\n');
+    for (let i = 0; i < Math.min(5, lines.length); i++) {
+      const line = lines[i].trim();
+      if (line.match(/^[A-Z][A-Za-z]+\s+[A-Z][A-Za-z]+/) && 
+          !line.includes('Folio') && 
+          !line.includes('PAN') &&
+          !line.includes('Mutual Fund') &&
+          line.length < 50) {
+        holderName = line;
+        break;
+      }
     }
     
     const unrealizedGain = marketValue - costValue;
     const unrealizedGainPercent = costValue > 0 ? (unrealizedGain / costValue) * 100 : 0;
     const avgCostPerUnit = unitBalance > 0 ? costValue / unitBalance : 0;
     
-    console.log(`[CAS Service v2] Parsed: ${schemeName.substring(0, 40)}... | Units: ${unitBalance} | Cost: ${costValue} | Market: ${marketValue} | Txns: ${transactions.length}`);
+    console.log(`[CAS Service v3] Parsed: Folio ${folioNumber} | ${schemeName.substring(0, 35)}... | Units: ${unitBalance.toFixed(3)} | Cost: ${costValue.toFixed(2)} | Market: ${marketValue.toFixed(2)} | Txns: ${transactions.length}`);
     
     return {
-      id: `cas-${isin}-${index}`,
+      id: `cas-${isin}-${folioNumber}-${index}`,
       folioNumber,
       isin,
       schemeCode,
@@ -470,65 +536,173 @@ class CASStatementService {
   }
   
   /**
-   * Parse all transactions from a holding block
+   * Parse all transactions from a folio block with comprehensive pattern matching
    */
-  private parseTransactionsFromBlock(text: string, isin: string, folioNumber: string, schemeName: string): CASTransaction[] {
+  private parseTransactionsFromBlock(blockText: string, isin: string, folioNumber: string, schemeName: string): CASTransaction[] {
     const transactions: CASTransaction[] = [];
-    
-    const txnPattern = /(\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{4})\s+((?:Purchase|Redemption|Switch[\s-]*In|Switch[\s-]*Out|Systematic Investment|Initial Purchase|NFO Purchase|Dividend)[^\n]*?)\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{3,6})\s+([\d,]+\.\d{4})\s+([\d,]+\.\d{3,6})/gi;
-    
-    let match;
+    const lines = blockText.split('\n');
     let txnIndex = 0;
     
-    while ((match = txnPattern.exec(text)) !== null) {
-      const dateStr = match[1];
-      const description = match[2].trim();
-      const amount = parseFloat(match[3].replace(/,/g, ''));
-      const units = parseFloat(match[4].replace(/,/g, ''));
-      const nav = parseFloat(match[5].replace(/,/g, ''));
-      const balance = parseFloat(match[6].replace(/,/g, ''));
+    const transactionKeywords = [
+      'Purchase', 'Redemption', 'Switch In', 'Switch Out', 'Switch-In', 'Switch-Out',
+      'Systematic Investment', 'SIP', 'Initial Purchase', 'NFO Purchase',
+      'Dividend', 'Dividend Reinvestment', 'Reinvestment', 'Bonus',
+      'STT', 'Gross', 'Net', 'Unclaimed', 'Rejection', 'Reversal',
+      'Additional Purchase', 'Transfer In', 'Transfer Out', 'Transmission'
+    ];
+    
+    const keywordPattern = new RegExp(`(${transactionKeywords.join('|')})`, 'i');
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
       
-      let transactionType: CASTransaction['transactionType'] = 'Other';
-      
-      if (/Systematic Investment|SIP/i.test(description)) {
-        transactionType = 'SIP';
-      } else if (/Initial Purchase|NFO Purchase|Purchase/i.test(description)) {
-        transactionType = 'Purchase';
-      } else if (/Redemption/i.test(description)) {
-        transactionType = 'Redemption';
-      } else if (/Switch[\s-]*In/i.test(description)) {
-        transactionType = 'Switch In';
-      } else if (/Switch[\s-]*Out/i.test(description)) {
-        transactionType = 'Switch Out';
-      } else if (/Dividend/i.test(description)) {
-        transactionType = 'Dividend';
-      } else if (/Bonus/i.test(description)) {
-        transactionType = 'Bonus';
+      if (line.includes('***') || line.includes('Stamp Duty') || 
+          line.includes('Registration') || line.includes('Address Updated') ||
+          line.includes('Change of Broker') || line.includes('Cancellation')) {
+        continue;
       }
       
+      const dateMatch = line.match(/^(\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{4})/);
+      if (!dateMatch) continue;
+      
+      const dateStr = dateMatch[1];
+      const restOfLine = line.substring(dateMatch[0].length).trim();
+      
+      if (!keywordPattern.test(restOfLine)) continue;
+      
+      const numbers = this.extractNumbers(restOfLine);
+      
+      if (numbers.length < 2) continue;
+      
+      let amount = 0;
+      let units = 0;
+      let nav = 0;
+      let balance = 0;
+      
+      if (numbers.length >= 4) {
+        amount = numbers[0];
+        units = numbers[1];
+        nav = numbers[2];
+        balance = numbers[3];
+      } else if (numbers.length === 3) {
+        amount = numbers[0];
+        units = numbers[1];
+        nav = numbers[2];
+        balance = units;
+      } else if (numbers.length === 2) {
+        units = numbers[0];
+        nav = numbers[1];
+        balance = units;
+      }
+      
+      const description = restOfLine.replace(/[\d,]+\.?\d*/g, '').trim();
+      
+      const { transactionType, isCredit } = this.classifyTransaction(description);
+      
       let stampDuty = 0;
-      const stampDutyMatch = text.substring(match.index, match.index + 200).match(/\*{3}\s*Stamp Duty\s*\*{3}\s*([\d,]+\.\d{2})/i);
-      if (stampDutyMatch) {
-        stampDuty = parseFloat(stampDutyMatch[1].replace(/,/g, ''));
+      if (i + 1 < lines.length && lines[i + 1].includes('Stamp Duty')) {
+        const stampMatch = lines[i + 1].match(/([\d,]+\.?\d*)/);
+        if (stampMatch) {
+          stampDuty = this.parseNumber(stampMatch[1]);
+        }
       }
       
       transactions.push({
-        id: `txn-${isin}-${txnIndex++}`,
+        id: `txn-${isin}-${folioNumber}-${txnIndex++}`,
         folioNumber,
         isin,
         schemeName,
         transactionDate: dateStr,
         transactionType,
-        amount,
-        units,
+        amount: Math.abs(amount),
+        units: isCredit ? Math.abs(units) : -Math.abs(units),
         nav,
         balance,
         description,
-        stampDuty
+        stampDuty,
+        isCredit
       });
     }
     
     return transactions;
+  }
+  
+  /**
+   * Classify transaction type and determine if it's a credit (units added) or debit (units removed)
+   */
+  private classifyTransaction(description: string): { transactionType: CASTransaction['transactionType']; isCredit: boolean } {
+    const desc = description.toLowerCase();
+    
+    if (/systematic investment|sip/i.test(desc)) {
+      return { transactionType: 'SIP', isCredit: true };
+    }
+    if (/initial purchase|nfo purchase|additional purchase/i.test(desc)) {
+      return { transactionType: 'Purchase', isCredit: true };
+    }
+    if (/purchase(?!.*switch)/i.test(desc)) {
+      return { transactionType: 'Purchase', isCredit: true };
+    }
+    if (/redemption/i.test(desc)) {
+      return { transactionType: 'Redemption', isCredit: false };
+    }
+    if (/switch[\s-]*in|transfer[\s-]*in/i.test(desc)) {
+      return { transactionType: 'Switch In', isCredit: true };
+    }
+    if (/switch[\s-]*out|transfer[\s-]*out/i.test(desc)) {
+      return { transactionType: 'Switch Out', isCredit: false };
+    }
+    if (/dividend.*reinvest|reinvest.*dividend/i.test(desc)) {
+      return { transactionType: 'Reinvestment', isCredit: true };
+    }
+    if (/dividend/i.test(desc)) {
+      return { transactionType: 'Dividend', isCredit: true };
+    }
+    if (/bonus/i.test(desc)) {
+      return { transactionType: 'Bonus', isCredit: true };
+    }
+    if (/reinvest/i.test(desc)) {
+      return { transactionType: 'Reinvestment', isCredit: true };
+    }
+    if (/stt/i.test(desc)) {
+      return { transactionType: 'STT', isCredit: false };
+    }
+    if (/rejection|reversal/i.test(desc)) {
+      return { transactionType: 'Other', isCredit: false };
+    }
+    if (/transmission|unclaimed/i.test(desc)) {
+      return { transactionType: 'Other', isCredit: true };
+    }
+    
+    return { transactionType: 'Other', isCredit: true };
+  }
+  
+  /**
+   * Extract all numeric values from a string (preserving zeros and negative signs)
+   */
+  private extractNumbers(text: string): number[] {
+    const numbers: number[] = [];
+    const pattern = /(-?[\d,]+\.?\d*)/g;
+    let match;
+    
+    while ((match = pattern.exec(text)) !== null) {
+      const numStr = match[1].replace(/,/g, '');
+      const num = parseFloat(numStr);
+      if (!isNaN(num)) {
+        numbers.push(num);
+      }
+    }
+    
+    return numbers;
+  }
+  
+  /**
+   * Parse number from string, handling commas and optional decimals
+   */
+  private parseNumber(str: string): number {
+    if (!str) return 0;
+    const cleaned = str.replace(/,/g, '').trim();
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? 0 : num;
   }
   
   private async enrichHoldingsWithDatabase(holdings: CASHolding[]): Promise<CASHolding[]> {
@@ -536,7 +710,7 @@ class CASStatementService {
     
     if (isins.length === 0) return holdings;
     
-    console.log('[CAS Service v2] Enriching', isins.length, 'holdings from database...');
+    console.log('[CAS Service v3] Enriching', isins.length, 'holdings from database...');
     
     try {
       const fundLookup = await liveMFDataService.getFundsByIsinBatch(isins);
@@ -567,7 +741,7 @@ class CASStatementService {
         return holding;
       });
     } catch (error: any) {
-      console.warn('[CAS Service v2] Database enrichment failed:', error.message);
+      console.warn('[CAS Service v3] Database enrichment failed:', error.message);
       return holdings;
     }
   }
@@ -651,10 +825,11 @@ class CASStatementService {
   }
   
   getTransactionLotsByHolding(holding: CASHolding): CASTransaction[] {
-    return holding.transactions.filter(t => 
-      ['Purchase', 'SIP', 'Switch In', 'Bonus', 'Dividend'].includes(t.transactionType) &&
-      t.units > 0
-    );
+    return holding.transactions.filter(t => t.isCredit && t.units > 0);
+  }
+  
+  getRedemptionsByHolding(holding: CASHolding): CASTransaction[] {
+    return holding.transactions.filter(t => !t.isCredit);
   }
 }
 
