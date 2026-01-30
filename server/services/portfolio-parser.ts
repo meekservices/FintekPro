@@ -761,16 +761,18 @@ function extractTransactionLots(holdingBlockText: string): TransactionLot[] {
       const n1 = numbers[1]; // Could be Units (4-num) or NAV (3-num)
       const n2 = numbers[2]; // Could be NAV (4-num) or Balance (3-num)
       const n3 = numbers.length >= 4 ? numbers[3] : n2;
+      const has4Numbers = numbers.length >= 4;
       
-      // Strategy: Try 3-number format first (Amount | NAV | Balance)
-      // Key insight: In 3-num format, Balance ≈ Amount/NAV (i.e., Balance = Units accumulated)
+      // Test 3-number format: Amount | NAV | Balance
+      // Key insight: Balance ≈ Amount/NAV (i.e., Balance = Units calculated)
       const nav3 = n1;
       const balance3 = n2;
       const units3 = nav3 > 0 ? n0 / nav3 : 0;
       const balanceMatchUnits3 = Math.abs(units3 - balance3) / Math.max(balance3, 1) < 0.01;
       const navInRange3 = nav3 > 1 && nav3 < 500;
+      const valid3Num = navInRange3 && balanceMatchUnits3;
       
-      // Try 4-number format: Amount | Units | NAV | Balance
+      // Test 4-number format: Amount | Units | NAV | Balance
       // Key check: Amount ≈ Units × NAV
       const units4 = n1;
       const nav4 = n2;
@@ -778,20 +780,47 @@ function extractTransactionLots(holdingBlockText: string): TransactionLot[] {
       const calculated4 = units4 * nav4;
       const amountMatch4 = Math.abs(calculated4 - n0) / Math.max(n0, 1) < 0.02;
       const navInRange4 = nav4 > 1 && nav4 < 500;
+      const valid4Num = amountMatch4 && navInRange4;
       
-      // Prefer 3-number if: NAV in typical range AND calculated units match balance
-      if (navInRange3 && balanceMatchUnits3) {
-        amount = n0;
-        nav = nav3;
-        units = units3;
-        balance = balance3;
-      } 
-      // Use 4-number if: Amount = Units × NAV AND NAV in range
-      else if (amountMatch4 && navInRange4) {
+      // DISAMBIGUATION: When both formats pass, use tiebreakers
+      if (valid3Num && valid4Num && has4Numbers) {
+        // Tiebreaker 1: In 4-num format, 4th number (balance) is often ≈ 2nd number (units) for first transaction
+        // or the 4th number differs significantly from the 3rd number
+        const balanceEqualsUnits4 = Math.abs(n3 - n1) / Math.max(n1, 1) < 0.01;
+        const fourthDiffersThird = Math.abs(n3 - n2) / Math.max(n2, 1) > 0.1;
+        
+        // Tiebreaker 2: Compare which NAV looks more reasonable (lower NAV more common for MFs)
+        // nav3 = n1 (often smaller), nav4 = n2 (often larger like 119.xx)
+        // If nav4 > nav3, it's likely 4-number format (NAV is the larger middle number)
+        const nav4LargerThanNav3 = nav4 > nav3;
+        
+        if (balanceEqualsUnits4 || fourthDiffersThird || nav4LargerThanNav3) {
+          // Use 4-number format
+          amount = n0;
+          units = units4;
+          nav = nav4;
+          balance = balance4;
+        } else {
+          // Use 3-number format
+          amount = n0;
+          nav = nav3;
+          units = units3;
+          balance = balance3;
+        }
+      }
+      // Only 4-number format passes
+      else if (valid4Num) {
         amount = n0;
         units = units4;
         nav = nav4;
         balance = balance4;
+      }
+      // Only 3-number format passes
+      else if (valid3Num) {
+        amount = n0;
+        nav = nav3;
+        units = units3;
+        balance = balance3;
       }
       // Extended 4-number check: Allow higher NAV range (up to 5000 for some funds)
       else if (amountMatch4 && nav4 > 1 && nav4 < 5000) {
