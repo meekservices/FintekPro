@@ -291,10 +291,23 @@ class CASStatementService {
       
       const blockText = text.substring(blockStart, blockEnd);
       
-      if (blockText.match(/INF[A-Z0-9]{9}/) && blockText.includes('Closing Unit Balance')) {
+      // Check if this block has valid ISIN and closing balance
+      const hasINFIsin = blockText.match(/INF[A-Z0-9]{9}/);
+      const hasINEIsin = blockText.match(/INE[A-Z0-9]{9}/);
+      const hasIN0Isin = blockText.match(/IN0[A-Z0-9]{9}/);
+      const hasIsin = hasINFIsin || hasINEIsin || hasIN0Isin;
+      const hasClosingBalance = blockText.includes('Closing Unit Balance');
+      
+      if (hasIsin && hasClosingBalance) {
         blocks.push(blockText);
+      } else {
+        // Debug: Log why block was skipped
+        const preview = blockText.substring(0, 150).replace(/\n/g, ' ');
+        console.log(`[CAS Service v4] Skipped block ${i+1}: hasISIN=${!!hasIsin} hasClosing=${hasClosingBalance} preview="${preview}..."`);
       }
     }
+    
+    console.log(`[CAS Service v4] Extracted ${blocks.length} valid blocks from ${closingMatches.length} closing balance lines`);
     
     return blocks;
   }
