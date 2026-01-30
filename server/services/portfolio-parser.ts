@@ -752,61 +752,67 @@ function extractTransactionLots(holdingBlockText: string): TransactionLot[] {
     // We need to detect which format based on mathematical consistency
     let amount = 0, units = 0, nav = 0, balance = 0;
     
-    if (numbers.length >= 4) {
-      // Try 4-number format: Amount, Units, NAV, Balance
-      const amt4 = numbers[0];
-      const u4 = numbers[1];
-      const n4 = numbers[2];
-      const b4 = numbers[3];
+    // CAS transaction formats:
+    // 4-num: Amount | Units | NAV | Balance  (Amount ≈ Units × NAV, NAV typically 5-500)
+    // 3-num: Amount | NAV | Balance          (Balance ≈ Amount/NAV, NAV typically 5-500)
+    
+    if (numbers.length >= 3) {
+      const n0 = numbers[0]; // Always Amount
+      const n1 = numbers[1]; // Could be Units (4-num) or NAV (3-num)
+      const n2 = numbers[2]; // Could be NAV (4-num) or Balance (3-num)
+      const n3 = numbers.length >= 4 ? numbers[3] : n2;
       
-      // Verify: Amount ≈ Units × NAV
-      const calculated4 = u4 * n4;
-      const tolerance4 = Math.abs(calculated4 - amt4) / Math.max(amt4, 1);
+      // Strategy: Try 3-number format first (Amount | NAV | Balance)
+      // Key insight: In 3-num format, Balance ≈ Amount/NAV (i.e., Balance = Units accumulated)
+      const nav3 = n1;
+      const balance3 = n2;
+      const units3 = nav3 > 0 ? n0 / nav3 : 0;
+      const balanceMatchUnits3 = Math.abs(units3 - balance3) / Math.max(balance3, 1) < 0.01;
+      const navInRange3 = nav3 > 1 && nav3 < 500;
       
-      if (tolerance4 < 0.02 && n4 > 1 && n4 < 5000) {
-        // 4-number format with explicit units
-        amount = amt4;
-        units = u4;
-        nav = n4;
-        balance = b4;
-      } else {
-        // Try 3-number format: Amount, NAV, Balance (units = amount/nav)
-        const amt3 = numbers[0];
-        const n3 = numbers[1];
-        const b3 = numbers[2];
-        
-        // NAV sanity check (typical MF NAV: 5-500)
-        if (n3 > 1 && n3 < 500 && amt3 > n3) {
-          amount = amt3;
-          nav = n3;
-          units = amt3 / n3;
-          balance = b3;
-        } else {
-          // Fallback to 4-number interpretation
-          amount = amt4;
-          units = u4;
-          nav = n4;
-          balance = b4;
-        }
+      // Try 4-number format: Amount | Units | NAV | Balance
+      // Key check: Amount ≈ Units × NAV
+      const units4 = n1;
+      const nav4 = n2;
+      const balance4 = n3;
+      const calculated4 = units4 * nav4;
+      const amountMatch4 = Math.abs(calculated4 - n0) / Math.max(n0, 1) < 0.02;
+      const navInRange4 = nav4 > 1 && nav4 < 500;
+      
+      // Prefer 3-number if: NAV in typical range AND calculated units match balance
+      if (navInRange3 && balanceMatchUnits3) {
+        amount = n0;
+        nav = nav3;
+        units = units3;
+        balance = balance3;
+      } 
+      // Use 4-number if: Amount = Units × NAV AND NAV in range
+      else if (amountMatch4 && navInRange4) {
+        amount = n0;
+        units = units4;
+        nav = nav4;
+        balance = balance4;
       }
-    } else if (numbers.length === 3) {
-      // 3-number format: Amount, NAV, RunningBalance
-      const amt = numbers[0];
-      const n = numbers[1];
-      const b = numbers[2];
-      
-      // Check if second number looks like NAV (5-500 range for typical MFs)
-      if (n > 1 && n < 500 && amt > n) {
-        amount = amt;
-        nav = n;
-        units = amt / n;
-        balance = b;
-      } else {
-        // Second number might be units, third is NAV
-        amount = amt;
-        units = n;
-        nav = b;
-        balance = n; // Running balance equals units purchased
+      // Extended 4-number check: Allow higher NAV range (up to 5000 for some funds)
+      else if (amountMatch4 && nav4 > 1 && nav4 < 5000) {
+        amount = n0;
+        units = units4;
+        nav = nav4;
+        balance = balance4;
+      }
+      // Fallback: Assume 3-number if NAV looks reasonable
+      else if (nav3 > 1 && nav3 < 1000 && n0 > nav3) {
+        amount = n0;
+        nav = nav3;
+        units = units3;
+        balance = balance3;
+      }
+      // Final fallback: Use 4-number interpretation
+      else {
+        amount = n0;
+        units = units4;
+        nav = nav4;
+        balance = balance4;
       }
     } else if (numbers.length === 2) {
       // 2-number format: Amount, NAV (units = amount/nav)
