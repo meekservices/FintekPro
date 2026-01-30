@@ -158,6 +158,10 @@ class CASStatementService {
       console.log('[CAS Service v4] Starting multi-scheme parse...');
       console.log('[CAS Service v4] Text length:', text.length);
       
+      // Normalize text: ensure date patterns start on new lines
+      // This handles PDFs where text is extracted without proper line breaks
+      text = this.normalizeTextForParsing(text);
+      
       result.investor = this.extractInvestorInfo(text);
       result.statementPeriod = this.extractStatementPeriod(text);
       
@@ -202,6 +206,67 @@ class CASStatementService {
     }
     
     return result;
+  }
+  
+  /**
+   * Normalize text for parsing by ensuring date patterns start on new lines.
+   * This fixes issues where PDF text extraction doesn't preserve proper line breaks.
+   */
+  private normalizeTextForParsing(text: string): string {
+    // CAS date format: DD-Mon-YYYY (e.g., 01-Aug-2023, 18-Mar-2024)
+    // Insert newline before date patterns that are preceded by non-newline chars
+    // This ensures each transaction starts on its own line
+    
+    // Pattern: digit followed by date pattern (e.g., "83.85501-Aug-2023" -> "83.855\n01-Aug-2023")
+    let normalized = text.replace(
+      /(\d)(\d{2}-[A-Za-z]{3}-\d{4})/g, 
+      '$1\n$2'
+    );
+    
+    // Pattern: letter followed by date pattern (e.g., "OK01-Aug-2023" -> "OK\n01-Aug-2023")
+    normalized = normalized.replace(
+      /([A-Za-z])(\d{2}-[A-Za-z]{3}-\d{4})/g,
+      '$1\n$2'
+    );
+    
+    // Pattern: closing paren or asterisk followed by date (e.g., "***01-Aug-2023" -> "***\n01-Aug-2023")
+    normalized = normalized.replace(
+      /(\*{3}|\))(\d{2}-[A-Za-z]{3}-\d{4})/g,
+      '$1\n$2'
+    );
+    
+    // Ensure "Closing Unit Balance" starts on new line
+    normalized = normalized.replace(
+      /([^\n])(Closing Unit Balance)/gi,
+      '$1\n$2'
+    );
+    
+    // Ensure "Opening Unit Balance" starts on new line
+    normalized = normalized.replace(
+      /([^\n])(Opening Unit Balance)/gi,
+      '$1\n$2'
+    );
+    
+    // Ensure "Folio No:" starts on new line
+    normalized = normalized.replace(
+      /([^\n])(Folio No:)/gi,
+      '$1\n$2'
+    );
+    
+    // Ensure "ISIN:" has proper spacing
+    normalized = normalized.replace(
+      /([^\n\s])(ISIN:)/gi,
+      '$1\n$2'
+    );
+    
+    // Debug: Log how many newlines were added
+    const originalLines = text.split('\n').length;
+    const normalizedLines = normalized.split('\n').length;
+    if (normalizedLines > originalLines) {
+      console.log(`[CAS Service v4] Text normalization added ${normalizedLines - originalLines} newlines`);
+    }
+    
+    return normalized;
   }
   
   private extractInvestorInfo(text: string): CASInvestorInfo {
