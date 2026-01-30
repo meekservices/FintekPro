@@ -6,6 +6,8 @@ import { unifiedPDFParser } from '../services/unified-pdf-parser';
 import { unifiedPortfolioImportService } from '../services/unified-portfolio-import-service';
 import { portfolioStorageService } from '../services/portfolio-storage-service';
 import { holdingNormalizationService } from '../services/holding-normalization-service';
+import { lotTaxCalculatorService } from '../services/lot-tax-calculator-service';
+import { fifoLotLedgerService } from '../services/fifo-lot-ledger-service';
 import type { UnifiedHolding } from '../services/unified-portfolio-types';
 import { db } from '../db';
 import { portfolios, portfolioHoldings, prospectClients } from '@shared/schema';
@@ -231,5 +233,280 @@ router.post(
     }
   }
 );
+
+/**
+ * Epic 3: Tax Analysis Endpoint
+ * Returns lot-level capital gains and exit load analysis
+ */
+router.post(
+  '/tax-analysis',
+  isAuthenticated,
+  upload.single('file'),
+  async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ success: false, error: 'No file uploaded' });
+      }
+      
+      console.log('[CAS Routes] Generating tax analysis for:', req.file.originalname);
+      
+      const parseResult = await unifiedPDFParser.extractTextSafe(req.file.buffer);
+      if (!parseResult.success || !parseResult.result) {
+        return res.status(400).json({ 
+          success: false, 
+          error: parseResult.error || 'Failed to parse PDF file'
+        });
+      }
+      const text = parseResult.result.text;
+      
+      const result = await casStatementService.parseStatement(text);
+      
+      if (!result.success || !result.lotLedger) {
+        return res.status(400).json({
+          success: false,
+          error: 'Failed to parse CAS statement or build lot ledger',
+          errors: result.errors,
+        });
+      }
+      
+      // Epic 1.3: Gate tax analysis on reconciliation success
+      if (result.reconciliation && !result.reconciliation.passed) {
+        return res.status(400).json({
+          success: false,
+          error: 'Tax analysis blocked - CAS reconciliation failed. Please verify the statement is complete.',
+          reconciliation: result.reconciliation,
+          errors: result.errors,
+        });
+      }
+      
+      // Calculate tax for each holding's lots
+      const taxAnalysis = [];
+      
+      for (const holding of result.holdings) {
+        const lotResult = result.lotLedger.results.find(r => r.isin === holding.isin);
+        if (!lotResult || lotResult.lots.length === 0) continue;
+        
+        // Guard against zero/undefined unit balance to avoid NaN/Infinity
+        if (!holding.unitBalance || holding.unitBalance <= 0) {
+          console.log('[CAS Routes] Skipping tax analysis for holding with zero units:', holding.isin);
+          continue;
+        }
+        const currentNav = holding.nav || (holding.marketValue / holding.unitBalance);
+        const taxSummary = await lotTaxCalculatorService.calculateHoldingTaxSummary(
+          lotResult.lots,
+          currentNav,
+          holding.schemeName
+        );
+        
+        taxAnalysis.push({
+          isin: holding.isin,
+          schemeName: holding.schemeName.substring(0, 50),
+          assetClass: taxSummary.assetClass,
+          totalUnits: taxSummary.totalUnits,
+          totalCostBasis: taxSummary.totalCostBasis,
+          totalCurrentValue: taxSummary.totalCurrentValue,
+          unrealizedGain: taxSummary.totalUnrealizedGain,
+          stcgAmount: taxSummary.stcgAmount,
+          ltcgAmount: taxSummary.ltcgAmount,
+          estimatedTax: taxSummary.totalEstimatedTax,
+          exitLoadAmount: taxSummary.totalExitLoad,
+          netProceedsAfterTaxAndExit: taxSummary.netProceedsAfterTaxAndExit,
+          recommendation: taxSummary.overallRecommendation,
+          lotCount: taxSummary.lots.length,
+          lotDetails: taxSummary.lots.map(l => ({
+            lotId: l.lotId,
+            holdingPeriodDays: l.holdingPeriodDays,
+            capitalGainsType: l.capitalGainsType,
+            units: l.units,
+            costBasis: l.costBasis,
+            currentValue: l.currentValue,
+            unrealizedGain: l.unrealizedGain,
+            estimatedTax: l.estimatedTax,
+            recommendation: l.recommendation,
+            daysToLTCG: l.daysToLTCG,
+            daysToZeroExitLoad: l.daysToZeroExitLoad,
+          })),
+        });
+      }
+      
+      // Summary
+      const totalStcg = taxAnalysis.reduce((sum, t) => sum + t.stcgAmount, 0);
+      const totalLtcg = taxAnalysis.reduce((sum, t) => sum + t.ltcgAmount, 0);
+      const totalTax = taxAnalysis.reduce((sum, t) => sum + t.estimatedTax, 0);
+      const totalExitLoad = taxAnalysis.reduce((sum, t) => sum + t.exitLoadAmount, 0);
+      
+      res.json({
+        success: true,
+        fileName: req.file.originalname,
+        summary: {
+          holdingsAnalyzed: taxAnalysis.length,
+          totalSTCG: totalStcg,
+          totalLTCG: totalLtcg,
+          totalEstimatedTax: totalTax,
+          totalExitLoad: totalExitLoad,
+          equityLTCGExemption: 125000,  // ₹1.25L exemption
+          ltcgAfterExemption: Math.max(0, totalLtcg - 125000),
+        },
+        holdings: taxAnalysis,
+        warnings: result.warnings.slice(0, 10),
+      });
+    } catch (error: any) {
+      console.error('[CAS Routes] Tax analysis error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: error.message || 'Failed to generate tax analysis'
+      });
+    }
+  }
+);
+
+/**
+ * Epic 4.2: Audit View Endpoint
+ * Returns reconciliation details for agent review
+ */
+router.post(
+  '/audit-view',
+  isAuthenticated,
+  upload.single('file'),
+  async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ success: false, error: 'No file uploaded' });
+      }
+      
+      console.log('[CAS Routes] Generating audit view for:', req.file.originalname);
+      
+      const parseResult = await unifiedPDFParser.extractTextSafe(req.file.buffer);
+      if (!parseResult.success || !parseResult.result) {
+        return res.status(400).json({ 
+          success: false, 
+          error: parseResult.error || 'Failed to parse PDF file'
+        });
+      }
+      const text = parseResult.result.text;
+      
+      const result = await casStatementService.parseStatement(text);
+      
+      // Build audit view response
+      const auditView = {
+        success: result.success,
+        fileName: req.file.originalname,
+        
+        // Reconciliation summary
+        reconciliation: result.reconciliation ? {
+          status: result.reconciliation.passed ? 'PASSED' : 'FAILED',
+          parsedTotal: result.reconciliation.parsedTotal,
+          expectedTotal: result.reconciliation.expectedTotal,
+          delta: result.reconciliation.delta,
+          deltaPercent: result.reconciliation.deltaPercent,
+          message: result.reconciliation.message,
+        } : null,
+        
+        // Portfolio summary from CAS
+        casSummary: result.portfolioSummary ? {
+          amcCount: result.portfolioSummary.entries.length,
+          totalCostValue: result.portfolioSummary.totalCostValue,
+          totalMarketValue: result.portfolioSummary.totalMarketValue,
+          entries: result.portfolioSummary.entries,
+        } : null,
+        
+        // Parsed holdings summary
+        parsedSummary: {
+          holdingsCount: result.holdings.length,
+          totalCostValue: result.summary.totalInvestedValue,
+          totalMarketValue: result.summary.totalCurrentValue,
+          unrealizedGain: result.summary.totalUnrealizedGain,
+          unrealizedGainPercent: result.summary.totalUnrealizedGainPercent,
+        },
+        
+        // Lot ledger summary
+        lotLedger: result.lotLedger ? {
+          totalLots: result.lotLedger.summary.totalLots,
+          successfulLedgers: result.lotLedger.summary.successfulLedgers,
+          reconciledCount: result.lotLedger.summary.reconciledCount,
+          warnings: result.lotLedger.summary.warnings.slice(0, 10),
+        } : null,
+        
+        // Flagged holdings (low confidence or warnings)
+        flaggedHoldings: result.holdings
+          .filter(h => {
+            const conf = result.holdingConfidence.get(`${h.isin}|${h.folioNumber}`);
+            return conf && (conf.level !== 'HIGH' || conf.warnings.length > 0);
+          })
+          .map(h => {
+            const conf = result.holdingConfidence.get(`${h.isin}|${h.folioNumber}`);
+            return {
+              isin: h.isin,
+              folioNumber: h.folioNumber,
+              schemeName: h.schemeName.substring(0, 50),
+              unitBalance: h.unitBalance,
+              marketValue: h.marketValue,
+              confidence: conf?.level,
+              warnings: conf?.warnings || [],
+              missingFields: conf?.missingFields || [],
+            };
+          }),
+        
+        // Overall warnings and errors
+        errors: result.errors,
+        warnings: result.warnings.slice(0, 20),
+        
+        // Confidence score
+        confidenceScore: result.confidenceScore,
+      };
+      
+      res.json(auditView);
+    } catch (error: any) {
+      console.error('[CAS Routes] Audit view error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: error.message || 'Failed to generate audit view'
+      });
+    }
+  }
+);
+
+/**
+ * Epic 5: Regression Test Runner Endpoint
+ * Runs CAS parser regression tests (dev environment only)
+ */
+router.get('/run-tests', async (req: Request, res: Response) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ error: 'Tests not available in production' });
+  }
+  
+  try {
+    console.log('[CAS Routes] Running regression tests...');
+    
+    // Dynamic import for test module
+    const testModule = await import('../tests/cas-parser-regression-test');
+    
+    // Run date parsing tests
+    const dateResults = testModule.testDateParsing();
+    
+    // Run format variance tests
+    const formatResults = await testModule.testFormatVariance();
+    
+    // Run full regression suite (includes golden fixtures if available)
+    const fullResults = await testModule.runAllCASRegressionTests();
+    
+    res.json({
+      success: fullResults.passed,
+      dateParsing: dateResults,
+      formatVariance: formatResults,
+      summary: {
+        goldenFixtures: fullResults.goldenFixtures,
+        formatVariance: fullResults.formatVariance,
+        overallPassed: fullResults.passed,
+      },
+    });
+  } catch (error: any) {
+    console.error('[CAS Routes] Regression test error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to run regression tests'
+    });
+  }
+});
 
 export default router;

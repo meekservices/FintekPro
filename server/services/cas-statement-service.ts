@@ -1,5 +1,6 @@
 import { liveMFDataService } from './live-mf-data-service';
 import { holdingLotsStorageService, LotStorageInput } from './holding-lots-storage-service';
+import { fifoLotLedgerService, LotLedgerResult } from './fifo-lot-ledger-service';
 
 /**
  * Parse CAS statement date format (DD-Mon-YYYY or DD/Mon/YYYY)
@@ -105,6 +106,29 @@ export interface CASPortfolioSummary {
   totalMarketValue: number;
 }
 
+/**
+ * Epic 4.1: Per-holding confidence and reconciliation metadata
+ */
+export interface HoldingConfidence {
+  level: 'HIGH' | 'MEDIUM' | 'LOW';
+  reconciliationDelta: number;
+  warnings: string[];
+  missingFields: string[];
+}
+
+/**
+ * Epic 1.3: Reconciliation result with strict validation
+ */
+export interface ReconciliationResult {
+  passed: boolean;
+  parsedTotal: number;
+  expectedTotal: number;
+  delta: number;
+  deltaPercent: number;
+  errorCode?: 'CAS_RECONCILIATION_ERROR' | 'CAS_PARTIAL_RECONCILIATION';
+  message: string;
+}
+
 export interface CASStatementResult {
   success: boolean;
   statementType: 'holding' | 'transaction' | 'combined';
@@ -114,6 +138,18 @@ export interface CASStatementResult {
   holdings: CASHolding[];
   transactions: CASTransaction[];
   portfolioSummary?: CASPortfolioSummary;
+  reconciliation?: ReconciliationResult;
+  holdingConfidence: Map<string, HoldingConfidence>;
+  lotLedger?: {
+    results: LotLedgerResult[];
+    summary: {
+      totalHoldings: number;
+      successfulLedgers: number;
+      totalLots: number;
+      reconciledCount: number;
+      warnings: string[];
+    };
+  };
   summary: {
     totalHoldings: number;
     totalInvestedValue: number;
@@ -151,6 +187,7 @@ class CASStatementService {
       investor: {},
       holdings: [],
       transactions: [],
+      holdingConfidence: new Map<string, HoldingConfidence>(),
       summary: {
         totalHoldings: 0,
         totalInvestedValue: 0,
@@ -205,19 +242,55 @@ class CASStatementService {
         }
       }
       
+      // Epic 1.3: Calculate pre-enrichment summary for strict reconciliation
+      // Reconciliation must compare CAS-reported values against parsed values BEFORE database enrichment
+      const preEnrichmentSummary = this.calculateSummary(result.holdings);
+      
+      // Epic 1.3: Strict reconciliation guardrail (before enrichment)
+      if (result.portfolioSummary) {
+        const preEnrichmentResult = { ...result, summary: preEnrichmentSummary };
+        result.reconciliation = this.performStrictReconciliation(preEnrichmentResult, result.portfolioSummary);
+        
+        if (!result.reconciliation.passed) {
+          // Reconciliation failed - fail the import
+          result.success = false;
+          result.errors.push(result.reconciliation.message);
+          console.error(`[CAS Service v4] RECONCILIATION FAILED: ${result.reconciliation.message}`);
+        } else {
+          result.success = result.holdings.length > 0;
+          if (result.reconciliation.deltaPercent > 0.1) {
+            result.warnings.push(`Minor reconciliation delta: ${result.reconciliation.deltaPercent.toFixed(2)}%`);
+          }
+        }
+      } else {
+        // No portfolio summary - success if we have holdings, but add warning
+        result.success = result.holdings.length > 0;
+        result.warnings.push('No Portfolio Summary found for validation - reconciliation skipped');
+      }
+      
+      // Database enrichment happens AFTER reconciliation to update with latest NAVs
       if (result.holdings.length > 0) {
         result.holdings = await this.enrichHoldingsWithDatabase(result.holdings);
       }
       
+      // Final summary with enriched values
       result.summary = this.calculateSummary(result.holdings);
-      result.confidenceScore = this.calculateConfidenceScore(result);
-      result.success = result.holdings.length > 0;
       
-      // Validate against Portfolio Summary if available
-      if (result.portfolioSummary) {
-        const discrepancy = this.validateAgainstPortfolioSummary(result, result.portfolioSummary);
-        if (discrepancy) {
-          result.warnings.push(discrepancy);
+      // Epic 4.1: Build per-holding confidence scores
+      result.holdingConfidence = this.buildHoldingConfidence(result.holdings);
+      
+      result.confidenceScore = this.calculateConfidenceScore(result);
+      
+      // Epic 2: Build FIFO lot ledger for all holdings
+      if (result.holdings.length > 0) {
+        result.lotLedger = fifoLotLedgerService.processAllHoldings(result.holdings);
+        console.log(`[CAS Service v4] Lot Ledger: ${result.lotLedger.summary.totalLots} lots across ${result.lotLedger.summary.successfulLedgers} holdings`);
+        
+        // Add lot reconciliation warnings
+        for (const lotResult of result.lotLedger.results) {
+          if (lotResult.reconciliation.warning) {
+            result.warnings.push(`${lotResult.isin}: ${lotResult.reconciliation.warning}`);
+          }
         }
       }
       
@@ -496,71 +569,151 @@ class CASStatementService {
   }
   
   /**
-   * Split CAS statement by scheme blocks (ISIN-based)
-   * This handles multiple schemes under the same folio
+   * Split CAS statement by scheme blocks using explicit anchors.
+   * 
+   * Epic 1.1: Robust Scheme Block Segmentation
+   * - Segments using ISIN + Folio + Demat anchors
+   * - Enforces 1 schemeText = 1 (ISIN + Folio + Demat)
+   * - Prevents silent drops and overwrites
+   * - Handles same ISIN across multiple folios correctly
    */
   private splitBySchemeBlocks(text: string): string[] {
     const blocks: string[] = [];
+    const seenHoldings = new Map<string, { index: number; preview: string }>();
+    const droppedBlocks: { reason: string; preview: string }[] = [];
     
-    const closingLinePattern = /Closing Unit Balance:\s*[\d,]+\.?\d*/gi;
-    const closingMatches: { index: number }[] = [];
+    // Step 1: Find all ISIN occurrences as primary anchors
+    // ISIN format: INF/INE/IN0 followed by 9 alphanumeric characters
+    const isinPattern = /(INF[A-Z0-9]{9}|INE[A-Z0-9]{9}|IN0[A-Z0-9]{9})/g;
+    const isinMatches: { isin: string; index: number }[] = [];
     
     let match;
-    while ((match = closingLinePattern.exec(text)) !== null) {
-      closingMatches.push({ index: match.index });
+    while ((match = isinPattern.exec(text)) !== null) {
+      isinMatches.push({ isin: match[1], index: match.index });
     }
     
-    console.log('[CAS Service v4] Found', closingMatches.length, 'Closing Unit Balance lines');
+    console.log(`[CAS Service v4] Found ${isinMatches.length} ISIN occurrences`);
     
-    for (let i = 0; i < closingMatches.length; i++) {
-      const closingIndex = closingMatches[i].index;
+    // Step 2: For each ISIN, extract the complete scheme block
+    for (let i = 0; i < isinMatches.length; i++) {
+      const { isin, index: isinIndex } = isinMatches[i];
       
-      let blockStart = closingIndex - 5000;
-      for (let j = i - 1; j >= 0; j--) {
-        const prevClosingEnd = text.indexOf('\n', closingMatches[j].index) + 200;
-        if (prevClosingEnd > blockStart && prevClosingEnd < closingIndex) {
-          blockStart = prevClosingEnd;
-          break;
-        }
-      }
+      // Find block boundaries
+      // Start: Look backward for "Folio No:" before this ISIN
+      let blockStart = isinIndex - 3000;
       blockStart = Math.max(0, blockStart);
       
-      const isinBefore = text.substring(blockStart, closingIndex).lastIndexOf('ISIN:');
-      if (isinBefore > 0) {
-        const folioBeforeIsin = text.substring(blockStart, blockStart + isinBefore).lastIndexOf('Folio No:');
-        if (folioBeforeIsin > 0) {
-          blockStart = blockStart + folioBeforeIsin;
+      const textBeforeIsin = text.substring(blockStart, isinIndex);
+      const folioPos = textBeforeIsin.lastIndexOf('Folio No:');
+      
+      if (folioPos > 0) {
+        blockStart = blockStart + folioPos;
+      } else {
+        // No folio found - look for scheme name pattern instead
+        const schemeLinePos = textBeforeIsin.lastIndexOf('\n');
+        if (schemeLinePos > 0) {
+          blockStart = blockStart + schemeLinePos;
         }
       }
       
-      let blockEnd = closingIndex + 1500;
-      if (i < closingMatches.length - 1) {
-        const nextIsinPos = text.indexOf('ISIN:', closingIndex + 50);
-        if (nextIsinPos > 0 && nextIsinPos < closingMatches[i + 1].index) {
-          blockEnd = nextIsinPos - 50;
+      // End: Look forward for next ISIN or end of logical block
+      let blockEnd: number;
+      if (i < isinMatches.length - 1) {
+        // Find the "Closing Unit Balance" or "NAV on" after this ISIN
+        const closingPos = text.indexOf('Closing Unit Balance', isinIndex);
+        const navLineEnd = text.indexOf('Market Value on', isinIndex);
+        
+        // Block ends after the market value line (add buffer for the value)
+        const logicalEnd = Math.max(closingPos, navLineEnd);
+        if (logicalEnd > 0 && logicalEnd < isinMatches[i + 1].index) {
+          // Find end of line after market value
+          const lineEnd = text.indexOf('\n', logicalEnd + 50);
+          blockEnd = lineEnd > 0 ? lineEnd + 500 : logicalEnd + 1000;
+        } else {
+          blockEnd = isinMatches[i + 1].index - 50;
+        }
+      } else {
+        // Last ISIN - go to end of text or reasonable buffer
+        const closingPos = text.indexOf('Closing Unit Balance', isinIndex);
+        if (closingPos > 0) {
+          blockEnd = Math.min(text.length, closingPos + 1500);
+        } else {
+          blockEnd = Math.min(text.length, isinIndex + 3000);
         }
       }
+      
       blockEnd = Math.min(text.length, blockEnd);
       
       const blockText = text.substring(blockStart, blockEnd);
       
-      // Check if this block has valid ISIN and closing balance
-      const hasINFIsin = blockText.match(/INF[A-Z0-9]{9}/);
-      const hasINEIsin = blockText.match(/INE[A-Z0-9]{9}/);
-      const hasIN0Isin = blockText.match(/IN0[A-Z0-9]{9}/);
-      const hasIsin = hasINFIsin || hasINEIsin || hasIN0Isin;
-      const hasClosingBalance = blockText.includes('Closing Unit Balance');
+      // Step 3: Validate block has required components
+      const hasClosingBalance = /Closing Unit Balance:\s*[\d,]+\.?\d*/i.test(blockText);
+      const hasCostValue = /Total Cost(?: Value)?:\s*[\d,]+\.?\d*/i.test(blockText);
       
-      if (hasIsin && hasClosingBalance) {
-        blocks.push(blockText);
-      } else {
-        // Debug: Log why block was skipped
-        const preview = blockText.substring(0, 150).replace(/\n/g, ' ');
-        console.log(`[CAS Service v4] Skipped block ${i+1}: hasISIN=${!!hasIsin} hasClosing=${hasClosingBalance} preview="${preview}..."`);
+      if (!hasClosingBalance) {
+        droppedBlocks.push({
+          reason: 'no_closing_balance',
+          preview: `ISIN ${isin}: ${blockText.substring(0, 100).replace(/\n/g, ' ')}...`
+        });
+        continue;
+      }
+      
+      // Step 4: Extract unique holding key (ISIN + Folio + Demat)
+      const folioMatch = blockText.match(/Folio No:\s*([\d\/\s]+)/i);
+      const folioNumber = folioMatch ? folioMatch[1].replace(/\s/g, '').trim() : 'unknown';
+      const isDemat = /\(Demat\)/i.test(blockText) && !/\(Non-?Demat\)/i.test(blockText);
+      
+      // Create unique holding key
+      const holdingKey = `${isin}|${folioNumber}|${isDemat ? 'demat' : 'non-demat'}`;
+      
+      // Step 5: Check for duplicates - same ISIN+Folio+Demat should not appear twice
+      if (seenHoldings.has(holdingKey)) {
+        const existing = seenHoldings.get(holdingKey)!;
+        droppedBlocks.push({
+          reason: 'duplicate_holding',
+          preview: `ISIN ${isin} Folio ${folioNumber}: Already processed at index ${existing.index}`
+        });
+        continue;
+      }
+      
+      seenHoldings.set(holdingKey, { 
+        index: blocks.length, 
+        preview: blockText.substring(0, 80).replace(/\n/g, ' ') 
+      });
+      
+      blocks.push(blockText);
+    }
+    
+    // Log diagnostics
+    console.log(`[CAS Service v4] Extracted ${blocks.length} unique scheme blocks from ${isinMatches.length} ISIN occurrences`);
+    console.log(`[CAS Service v4] Unique holdings: ${seenHoldings.size}`);
+    
+    if (droppedBlocks.length > 0) {
+      console.log(`[CAS Service v4] Dropped ${droppedBlocks.length} blocks:`);
+      for (const dropped of droppedBlocks.slice(0, 5)) {
+        console.log(`  - ${dropped.reason}: ${dropped.preview.substring(0, 100)}`);
+      }
+      if (droppedBlocks.length > 5) {
+        console.log(`  ... and ${droppedBlocks.length - 5} more`);
       }
     }
     
-    console.log(`[CAS Service v4] Extracted ${blocks.length} valid blocks from ${closingMatches.length} closing balance lines`);
+    // Validate: Check for same ISIN across different folios (should be allowed)
+    const isinToFolios = new Map<string, string[]>();
+    for (const [key] of seenHoldings) {
+      const [isin, folio] = key.split('|');
+      if (!isinToFolios.has(isin)) {
+        isinToFolios.set(isin, []);
+      }
+      isinToFolios.get(isin)!.push(folio);
+    }
+    
+    // Log multi-folio ISINs (same scheme in multiple folios - valid scenario)
+    for (const [isin, folios] of isinToFolios) {
+      if (folios.length > 1) {
+        console.log(`[CAS Service v4] ISIN ${isin} appears in ${folios.length} folios: ${folios.join(', ')}`);
+      }
+    }
     
     return blocks;
   }
@@ -688,6 +841,27 @@ class CASStatementService {
       if (navDateMatch) {
         navDate = navDateMatch[1];
       }
+    }
+    
+    // Epic 1.2: Defensive logging for missing/incomplete valuation data
+    const missingFields: string[] = [];
+    if (unitBalance <= 0) missingFields.push('unitBalance');
+    if (costValue <= 0) missingFields.push('costValue');
+    if (nav <= 0) missingFields.push('nav');
+    if (marketValue <= 0) missingFields.push('marketValue');
+    if (!navDate) missingFields.push('navDate');
+    
+    if (missingFields.length > 0) {
+      console.warn(`[CAS Service v4] WARN: Block ${index} (ISIN: ${isin}) missing fields: [${missingFields.join(', ')}]`);
+      // Log the block content for debugging
+      const blockPreview = blockText.substring(0, 300).replace(/\n/g, '\\n');
+      console.warn(`[CAS Service v4] Block preview: ${blockPreview}...`);
+    }
+    
+    // If we have units but no market value, try to compute from NAV
+    if (unitBalance > 0 && marketValue <= 0 && nav > 0) {
+      marketValue = unitBalance * nav;
+      console.log(`[CAS Service v4] Computed marketValue from units*NAV: ${marketValue.toFixed(2)}`);
     }
     
     let registrar: 'CAMS' | 'KFINTECH' | 'UNKNOWN' = 'UNKNOWN';
@@ -1071,8 +1245,127 @@ class CASStatementService {
   }
   
   /**
-   * Validate parsed holdings against Portfolio Summary.
-   * Returns a warning message if there's a significant discrepancy.
+   * Epic 4.1: Build per-holding confidence scores
+   */
+  private buildHoldingConfidence(holdings: CASHolding[]): Map<string, HoldingConfidence> {
+    const confidenceMap = new Map<string, HoldingConfidence>();
+    
+    for (const holding of holdings) {
+      const holdingKey = `${holding.isin}|${holding.folioNumber}`;
+      const missingFields: string[] = [];
+      const warnings: string[] = [];
+      
+      // Check for missing fields
+      if (holding.unitBalance <= 0) missingFields.push('unitBalance');
+      if (holding.costValue <= 0) missingFields.push('costValue');
+      if (holding.nav <= 0) missingFields.push('nav');
+      if (holding.marketValue <= 0) missingFields.push('marketValue');
+      if (!holding.navDate) missingFields.push('navDate');
+      if (!holding.folioNumber) missingFields.push('folioNumber');
+      
+      // Add warnings for partial data
+      if (holding.transactions.length === 0) {
+        warnings.push('No transactions found');
+      }
+      
+      if (!holding.firstPurchaseDate && holding.transactions.length > 0) {
+        warnings.push('Could not determine first purchase date');
+      }
+      
+      // Validate cost per unit consistency
+      if (holding.unitBalance > 0 && holding.costValue > 0) {
+        const avgCost = holding.costValue / holding.unitBalance;
+        if (holding.avgCostPerUnit && Math.abs(avgCost - holding.avgCostPerUnit) > 1) {
+          warnings.push(`Avg cost inconsistency: calculated ${avgCost.toFixed(2)} vs stored ${holding.avgCostPerUnit?.toFixed(2)}`);
+        }
+      }
+      
+      // Determine confidence level
+      let level: 'HIGH' | 'MEDIUM' | 'LOW' = 'HIGH';
+      if (missingFields.length > 0 || warnings.length > 0) {
+        level = missingFields.length > 2 ? 'LOW' : 'MEDIUM';
+      }
+      
+      confidenceMap.set(holdingKey, {
+        level,
+        reconciliationDelta: 0, // Will be updated during reconciliation
+        warnings,
+        missingFields
+      });
+    }
+    
+    return confidenceMap;
+  }
+  
+  /**
+   * Epic 1.3: Strict reconciliation with 0.5% threshold
+   * Fails import if discrepancy > 0.5%
+   */
+  private performStrictReconciliation(
+    result: CASStatementResult,
+    summary: CASPortfolioSummary
+  ): ReconciliationResult {
+    const parsedTotal = result.summary.totalCurrentValue;
+    const expectedTotal = summary.totalMarketValue;
+    
+    const delta = Math.abs(parsedTotal - expectedTotal);
+    const deltaPercent = expectedTotal > 0 ? (delta / expectedTotal) * 100 : 0;
+    
+    console.log(`[CAS Service v4] Strict Reconciliation:`);
+    console.log(`  Parsed Total:  ₹${parsedTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`);
+    console.log(`  Expected Total: ₹${expectedTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`);
+    console.log(`  Delta: ₹${delta.toLocaleString('en-IN', { minimumFractionDigits: 2 })} (${deltaPercent.toFixed(3)}%)`);
+    
+    // Also check at AMC level for diagnostics
+    const holdingsByAmc = new Map<string, number>();
+    for (const holding of result.holdings) {
+      const amcName = holding.amcName || 'Unknown';
+      holdingsByAmc.set(amcName, (holdingsByAmc.get(amcName) || 0) + holding.marketValue);
+    }
+    
+    // Log AMC-level discrepancies for debugging
+    for (const entry of summary.entries) {
+      const parsedAmcValue = holdingsByAmc.get(entry.amcName) || 0;
+      const amcDelta = Math.abs(parsedAmcValue - entry.marketValue);
+      const amcDeltaPercent = entry.marketValue > 0 ? (amcDelta / entry.marketValue) * 100 : 0;
+      if (amcDeltaPercent > 0.5) {
+        console.log(`  AMC ${entry.amcName}: Parsed ₹${parsedAmcValue.toLocaleString('en-IN')} vs Expected ₹${entry.marketValue.toLocaleString('en-IN')} (${amcDeltaPercent.toFixed(2)}% delta)`);
+      }
+    }
+    
+    // Epic 1.3: Strict 0.5% threshold
+    if (deltaPercent > 0.5) {
+      return {
+        passed: false,
+        parsedTotal,
+        expectedTotal,
+        delta,
+        deltaPercent,
+        errorCode: 'CAS_RECONCILIATION_ERROR',
+        message: `RECONCILIATION FAILED: Parsed ₹${(parsedTotal / 100000).toFixed(2)} L but expected ₹${(expectedTotal / 100000).toFixed(2)} L from CAS Portfolio Summary. Delta: ${deltaPercent.toFixed(2)}% exceeds 0.5% threshold. Holdings may be missing or incorrectly parsed.`
+      };
+    }
+    
+    // Success - delta within tolerance
+    const confidenceMessage = delta <= 1 
+      ? 'Exact match (delta ≤ ₹1)'
+      : `Minor delta: ₹${delta.toFixed(2)} (${deltaPercent.toFixed(3)}%)`;
+    
+    console.log(`[CAS Service v4] Reconciliation PASSED: ${confidenceMessage}`);
+    
+    return {
+      passed: true,
+      parsedTotal,
+      expectedTotal,
+      delta,
+      deltaPercent,
+      message: confidenceMessage
+    };
+  }
+  
+  /**
+   * @deprecated Use performStrictReconciliation instead
+   * Kept for backward compatibility
    */
   private validateAgainstPortfolioSummary(
     result: CASStatementResult, 

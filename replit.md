@@ -49,6 +49,24 @@ A **Unified PDF Parser** (`unified-pdf-parser.ts`) provides a single entry point
 - Pattern learning from successful parses
 - Parsing metrics and observability
 
+A **CAS Statement Service** (`cas-statement-service.ts`) provides specialized CAMS/KFintech CAS PDF parsing with comprehensive advisory features:
+- **Epic 1 - Parsing Core**: ISIN+Folio+Demat anchored scheme block segmentation, multi-line valuation extraction (handles pdf-parse output format), strict 0.5% reconciliation guardrail using pre-enrichment values
+- **Epic 2 - FIFO Lot Ledger** (`fifo-lot-ledger-service.ts`): Transaction normalization (ignores metadata rows), lot creation from purchases, FIFO consumption from redemptions, closing balance reconciliation
+- **Epic 3 - Tax & Exit Load** (`lot-tax-calculator-service.ts`): Asset classification (Equity/Debt/Hybrid/Gold/International), lot-level STCG/LTCG calculation with correct holding period thresholds, exit load simulation
+- **Epic 4 - Agent-Safe Import UX**: Per-holding confidence scores, warnings metadata, `/api/cas-statement/audit-view` endpoint, `/api/cas-statement/tax-analysis` endpoint (gated on reconciliation success)
+- **Epic 5 - Regression Tests** (`cas-parser-regression-test.ts`): Golden CAS fixtures, format variance tests (single-line, multi-line, demat, multi-folio), date parsing tests
+
+CAS parsing architecture:
+1. Parse text from PDF using unified-pdf-parser
+2. Extract investor info, Portfolio Summary, and scheme blocks
+3. Calculate pre-enrichment summary for strict reconciliation
+4. Perform reconciliation against CAS Portfolio Summary (0.5% threshold)
+5. Enrich holdings from database (updates NAVs with current values)
+6. Build FIFO lot ledger from transactions
+7. Return comprehensive result with confidence scores and warnings
+
+Test runner: `npx tsx server/tests/run-cas-tests.ts` or `/api/cas-statement/run-tests` (dev mode only)
+
 A Unified Portfolio Storage System consolidates portfolio data for prospects and registered users, ensuring data consistency between the AI Advisory engine and Proposal Builder. The architecture follows a bifurcated storage pattern:
 - **Prospects**: Holdings stored in `prospectClients.currentPortfolio` JSON field
 - **Registered clients (post-KYC)**: Holdings stored in `comprehensiveHoldings` table
