@@ -341,7 +341,7 @@ export function useSaveImportedHoldings() {
   }>({
     mutationFn: async ({ holdings, prospectId, portfolioId, source, replaceExisting }) => {
       const endpoint = prospectId 
-        ? `/api/agent/prospects/${prospectId}/portfolio/save`
+        ? `/api/agent-wizard/prospects/${prospectId}/portfolio/save`
         : '/api/portfolio/import/save';
       
       const res = await apiRequest(endpoint, {

@@ -331,6 +331,57 @@ router.put("/prospects/:id/portfolio", async (req: Request, res: Response) => {
   }
 });
 
+// POST endpoint to save imported holdings for prospects (used by portfolio import panel)
+router.post("/prospects/:id/portfolio/save", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const prospect = await agentProspectWizardService.getProspect(req.params.id);
+    if (!prospect) {
+      return res.status(404).json({ success: false, message: "Prospect not found" });
+    }
+    if (prospect.agentId !== agentId) {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+
+    const { holdings, source, replaceExisting } = req.body;
+    
+    if (!holdings || !Array.isArray(holdings)) {
+      return res.status(400).json({ success: false, message: "Holdings array required" });
+    }
+
+    // Normalize and validate holdings
+    const flexibleHoldings = z.array(flexibleHoldingSchema).parse(holdings);
+    const normalizedHoldings = normalizeHoldings(flexibleHoldings);
+    
+    // Get existing holdings if not replacing
+    let finalHoldings = normalizedHoldings;
+    if (!replaceExisting && prospect.currentPortfolio) {
+      const existingHoldings = Array.isArray(prospect.currentPortfolio) 
+        ? prospect.currentPortfolio 
+        : [];
+      finalHoldings = [...existingHoldings, ...normalizedHoldings];
+    }
+    
+    // Update prospect portfolio
+    await agentProspectWizardService.updateProspectPortfolio(req.params.id, finalHoldings);
+    
+    console.log(`[Agent Wizard] Saved ${normalizedHoldings.length} imported holdings for prospect ${req.params.id} from source: ${source || 'unknown'}`);
+    
+    res.json({ 
+      success: true, 
+      savedCount: normalizedHoldings.length,
+      totalCount: finalHoldings.length
+    });
+  } catch (error: any) {
+    console.error("[Agent Wizard] Error saving imported holdings:", error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
 router.put("/prospects/:id/risk-profile", async (req: Request, res: Response) => {
   try {
     const agentId = (req as any).user?.id;
