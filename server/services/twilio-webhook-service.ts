@@ -823,12 +823,66 @@ export function createTwilioWebhookRouter(): Router {
     }
   });
 
+  // Messaging Service webhook - handles both SMS and WhatsApp from Messaging Service
+  router.post('/webhook/messaging-service', async (req: Request, res: Response) => {
+    try {
+      console.log('📨 Messaging Service webhook received:', JSON.stringify(req.body, null, 2));
+      
+      const message: IncomingMessage = req.body;
+      const isWhatsApp = message.From?.startsWith('whatsapp:') || message.To?.startsWith('whatsapp:');
+      
+      let response: string;
+      if (isWhatsApp) {
+        response = await twilioWebhookService.handleIncomingWhatsApp(message);
+      } else {
+        response = await twilioWebhookService.handleIncomingSMS(message);
+      }
+
+      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Message>${escapeXml(response)}</Message>
+</Response>`;
+
+      res.type('text/xml').send(twiml);
+    } catch (error) {
+      console.error('Error handling Messaging Service webhook:', error);
+      res.status(500).send('Internal Server Error');
+    }
+  });
+
+  // Delivery status callback webhook
+  router.post('/webhook/status', async (req: Request, res: Response) => {
+    try {
+      const { MessageSid, MessageStatus, To, From, ErrorCode, ErrorMessage } = req.body;
+      
+      console.log(`📬 Message status update - SID: ${MessageSid}, Status: ${MessageStatus}, To: ${To}`);
+      
+      if (ErrorCode || ErrorMessage) {
+        console.error(`❌ Message delivery error - SID: ${MessageSid}, Error: ${ErrorCode} - ${ErrorMessage}`);
+      }
+
+      // Log successful delivery for monitoring
+      if (MessageStatus === 'delivered') {
+        console.log(`✅ Message delivered successfully to ${To}`);
+      } else if (MessageStatus === 'failed' || MessageStatus === 'undelivered') {
+        console.error(`❌ Message failed to ${To}: ${ErrorMessage || 'Unknown error'}`);
+      }
+
+      res.status(200).send('OK');
+    } catch (error) {
+      console.error('Error handling status webhook:', error);
+      res.status(500).send('Internal Server Error');
+    }
+  });
+
   router.get('/status', (req: Request, res: Response) => {
     res.json({
       configured: twilioWebhookService.isAvailable(),
       endpoints: {
         sms: '/api/twilio/sms/webhook',
         whatsapp: '/api/twilio/whatsapp/webhook',
+        messagingService: '/api/twilio/webhook/messaging-service',
+        statusCallback: '/api/twilio/webhook/status',
       },
       recentMessages: twilioWebhookService.getMessageLogs(10).map(m => ({
         direction: m.direction,
