@@ -9,6 +9,8 @@ import { db } from '../../db';
 import * as schema from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { smsService } from '../../services/sms-service';
+import { emailService } from '../../email-service';
 
 export function registerKYCWizardRoutes(app: Express) {
   app.get("/api/kyc/status", requireClientOrHigher, async (req: any, res) => {
@@ -1054,20 +1056,46 @@ export function registerKYCWizardRoutes(app: Express) {
         }
       });
       
-      // Send OTP (in production, use actual email/SMS services)
-      console.log(`[KYC Profile Change] OTP ${otp} sent to ${type}: ${newValue} for user ${userId}`);
+      // Send OTP via SMS as primary channel (for Replit testing compatibility)
+      console.log(`[KYC Profile Change] Sending OTP to ${type}: ${newValue} for user ${userId}`);
       
-      // TODO: Integrate with actual email/SMS service
-      // if (type === 'email') {
-      //   await emailService.sendOTP(newValue, otp);
-      // } else {
-      //   await smsService.sendOTP(newValue, otp);
-      // }
+      let otpSent = false;
+      let deliveryChannel = '';
+      
+      if (type === 'mobile') {
+        // For mobile changes, send to the NEW mobile number
+        const smsSent = await smsService.sendOTP(newValue, otp);
+        if (smsSent) {
+          console.log(`✅ Profile change OTP sent via SMS to: ${newValue}`);
+          otpSent = true;
+          deliveryChannel = 'SMS';
+        } else {
+          console.log(`⚠️ SMS delivery failed for ${newValue}`);
+        }
+      } else {
+        // For email changes, send to the NEW email address
+        const emailSent = await emailService.sendLoginOTP(newValue, otp);
+        if (emailSent) {
+          console.log(`✅ Profile change OTP sent via email to: ${newValue}`);
+          otpSent = true;
+          deliveryChannel = 'email';
+        } else {
+          console.log(`⚠️ Email delivery failed for ${newValue}`);
+        }
+      }
+      
+      if (!otpSent) {
+        return res.status(500).json({ 
+          success: false, 
+          message: `Failed to send OTP to ${type}. Please try again.` 
+        });
+      }
       
       res.json({
         success: true,
-        message: `OTP sent to your new ${type}`,
-        expiresIn: 600 // 10 minutes in seconds
+        message: `OTP sent to your new ${type} via ${deliveryChannel}`,
+        expiresIn: 600, // 10 minutes in seconds
+        deliveryChannel
       });
       
     } catch (error) {
