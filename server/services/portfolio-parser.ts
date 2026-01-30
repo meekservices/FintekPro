@@ -750,8 +750,9 @@ function parseCAMSHoldingStatementFormat(text: string): ImportedHolding[] {
       if (isinIndex < 0) continue;
       
       // Get text around ISIN (before and after)
+      // Use larger window (2000 chars) to capture NAV/Market Value which appear at end of holding block
       const beforeIsin = text.substring(Math.max(0, isinIndex - 100), isinIndex);
-      const afterIsin = text.substring(isinIndex + isin.length, Math.min(text.length, isinIndex + isin.length + 500));
+      const afterIsin = text.substring(isinIndex + isin.length, Math.min(text.length, isinIndex + isin.length + 2000));
       
       console.log('[CAMS Holding Parser] Processing ISIN:', isin);
       console.log('[CAMS Holding Parser] Before:', beforeIsin.slice(-50));
@@ -830,8 +831,51 @@ function parseCAMSHoldingStatementFormat(text: string): ImportedHolding[] {
       let nav = 0;
       let marketValue = 0;
       
-      // PRIORITY 1: Use header-detected column mapping if available
-      if (columnMapping.headerDetected && numbers.length >= 4) {
+      // PRIORITY 0: Look for explicit NAV, Market Value, and Closing Unit Balance patterns
+      // These are the most accurate values in CAS statements
+      // Pattern: "NAV on DD-Mon-YYYY: INR X.XX"
+      // Pattern: "Market Value on DD-Mon-YYYY: INR X,XX,XXX.XX"
+      // Pattern: "Closing Unit Balance: X,XXX.XXX"
+      const navPattern = /NAV\s+on\s+[\d\w-]+:\s*(?:INR|Rs\.?|₹)?\s*([\d,]+\.?\d*)/i;
+      const marketPattern = /Market\s+Value\s+on\s+[\d\w-]+:\s*(?:INR|Rs\.?|₹)?\s*([\d,]+\.?\d*)/i;
+      const closingUnitsPattern = /Closing\s+Unit\s+Balance:\s*([\d,]+\.?\d*)/i;
+      const openingUnitsPattern = /Opening\s+Unit\s+Balance:\s*([\d,]+\.?\d*)/i;
+      
+      const navMatch = afterIsin.match(navPattern);
+      const marketMatch = afterIsin.match(marketPattern);
+      const closingUnitsMatch = afterIsin.match(closingUnitsPattern);
+      
+      if (navMatch && marketMatch && closingUnitsMatch) {
+        nav = parseFloat(navMatch[1].replace(/,/g, ''));
+        marketValue = parseFloat(marketMatch[1].replace(/,/g, ''));
+        unitBalance = parseFloat(closingUnitsMatch[1].replace(/,/g, ''));
+        
+        // Try to find cost from Purchase transactions or first large number
+        // Look for purchase amount pattern
+        const purchasePattern = /Purchase\s+([\d,]+\.?\d*)/gi;
+        let totalPurchases = 0;
+        let purchaseMatch;
+        while ((purchaseMatch = purchasePattern.exec(afterIsin)) !== null) {
+          const amount = parseFloat(purchaseMatch[1].replace(/,/g, ''));
+          if (amount > 1000) {
+            totalPurchases += amount;
+          }
+        }
+        
+        if (totalPurchases > 0) {
+          costValue = totalPurchases;
+        } else {
+          // Fallback: use first large number as cost
+          const largeCostNum = numbers.find(n => n > 10000);
+          costValue = largeCostNum || marketValue;
+        }
+        
+        console.log('[CAMS Holding Parser] PRIORITY 0 MATCH - Explicit patterns found:');
+        console.log(`[CAMS Holding Parser]   Units: ${unitBalance}, NAV: ₹${nav}, Market: ₹${marketValue.toLocaleString()}, Cost: ₹${costValue.toLocaleString()}`);
+      }
+      
+      // PRIORITY 1: Use header-detected column mapping if available (skip if PRIORITY 0 succeeded)
+      if (unitBalance === 0 && marketValue === 0 && columnMapping.headerDetected && numbers.length >= 4) {
         // Map numbers using detected column order
         const maxIdx = Math.max(columnMapping.costIndex, columnMapping.unitsIndex, columnMapping.navIndex, columnMapping.marketIndex);
         
