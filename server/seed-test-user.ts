@@ -1,0 +1,124 @@
+import { scrypt, randomBytes } from "crypto";
+import { promisify } from "util";
+import { db } from "./db";
+import { users } from "@shared/schema";
+import { eq } from "drizzle-orm";
+
+const scryptAsync = promisify(scrypt);
+
+async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16).toString("hex");
+  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
+  return `${buf.toString("hex")}.${salt}`;
+}
+
+async function generateUniqueUserId(): Promise<string> {
+  const prefix = "FTP";
+  let attempts = 0;
+  const maxAttempts = 10;
+  
+  while (attempts < maxAttempts) {
+    const randomNumber = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+    const userId = `${prefix}${randomNumber}`;
+    
+    const existingUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.userId, userId))
+      .limit(1);
+    
+    if (existingUser.length === 0) {
+      return userId;
+    }
+    
+    attempts++;
+  }
+  
+  throw new Error("Failed to generate unique userId after maximum attempts");
+}
+
+export async function seedTestUser(): Promise<void> {
+  try {
+    const testEmail = "test@fintekpro.com";
+    const testPassword = "Test@123456";
+    const testMobile = "9876543210";
+    
+    const existingUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, testEmail))
+      .limit(1);
+    
+    if (existingUser.length > 0) {
+      const user = existingUser[0];
+      const allRoles = ['superadmin', 'admin', 'partner', 'agent', 'client', 'user'];
+      
+      const hasAllRoles = allRoles.every(role => user.roles?.includes(role));
+      
+      if (!hasAllRoles) {
+        await db
+          .update(users)
+          .set({
+            roles: allRoles,
+            isActive: true,
+          })
+          .where(eq(users.email, testEmail));
+        console.log("✅ Test user updated with all roles");
+      } else {
+        console.log("✅ Test user already exists with all roles");
+      }
+      
+      console.log("\n╔════════════════════════════════════════════╗");
+      console.log("║       TEST USER LOGIN CREDENTIALS          ║");
+      console.log("╠════════════════════════════════════════════╣");
+      console.log("║ Email:    test@fintekpro.com               ║");
+      console.log("║ Password: Test@123456                      ║");
+      console.log("║ Roles:    ALL (superadmin, admin, partner, ║");
+      console.log("║           agent, client, user)             ║");
+      console.log("╚════════════════════════════════════════════╝");
+      return;
+    }
+    
+    const userId = await generateUniqueUserId();
+    const hashedPassword = await hashPassword(testPassword);
+    
+    await db
+      .insert(users)
+      .values({
+        userId,
+        email: testEmail,
+        mobile: testMobile,
+        password: hashedPassword,
+        firstName: "Test",
+        lastName: "SuperUser",
+        isEmailVerified: true,
+        isMobileVerified: true,
+        roles: ['superadmin', 'admin', 'partner', 'agent', 'client', 'user'],
+        isActive: true,
+      });
+    
+    console.log("\n✅ TEST USER CREATED SUCCESSFULLY!\n");
+    console.log("╔════════════════════════════════════════════╗");
+    console.log("║       TEST USER LOGIN CREDENTIALS          ║");
+    console.log("╠════════════════════════════════════════════╣");
+    console.log("║ User ID:  " + userId.padEnd(33) + "║");
+    console.log("║ Email:    test@fintekpro.com               ║");
+    console.log("║ Mobile:   9876543210                       ║");
+    console.log("║ Password: Test@123456                      ║");
+    console.log("║ Roles:    ALL (superadmin, admin, partner, ║");
+    console.log("║           agent, client, user)             ║");
+    console.log("╚════════════════════════════════════════════╝");
+    console.log("\n🔐 ACCESS ALL PORTALS:");
+    console.log("   - Admin Portal: Add ?admin=true to URL");
+    console.log("   - Agent Portal: /agent-dashboard");
+    console.log("   - Client Portal: /dashboard\n");
+    
+  } catch (error) {
+    console.error("⚠️ Error seeding test user:", error instanceof Error ? error.message : "Unknown error");
+  }
+}
+
+const isMainModule = import.meta.url === `file://${process.argv[1]}`;
+if (isMainModule) {
+  seedTestUser().then(() => process.exit(0));
+}
