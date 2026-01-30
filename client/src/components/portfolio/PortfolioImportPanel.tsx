@@ -100,7 +100,16 @@ export function PortfolioImportPanel({
 
   const handleParseSuccess = useCallback((result: ImportResult, source: ImportSource) => {
     if (result.success && result.holdings?.length > 0) {
-      setPreviewHoldings(result.holdings.map((h, i) => ({ ...h, id: h.id || `temp-${i}` })));
+      // Transform holdings to ensure avgPrice is properly mapped from various backend field names
+      const transformedHoldings = result.holdings.map((h: any, i: number) => ({
+        ...h,
+        id: h.id || `temp-${i}`,
+        // Map various backend field names to avgPrice
+        avgPrice: String(h.avgPrice || h.averagePrice || h.avgCostPerUnit || h.averageCost || 0),
+        quantity: String(h.quantity || h.units || 0),
+        currentValue: String(h.currentValue || 0),
+      }));
+      setPreviewHoldings(transformedHoldings);
       setPreviewMode(true);
       setImportSource(source);
       onImportComplete?.(result);
