@@ -714,13 +714,26 @@ function parseCAMSHoldingStatementFormat(text: string): ImportedHolding[] {
   const columnMapping = detectColumnHeaders(text);
   console.log('[CAMS Holding Parser] Using column mapping:', columnMapping);
   
-  // Find all ISINs in the text (mutual fund ISINs start with INF)
-  const isinPattern = /INF[A-Z0-9]{9}/gi;
+  // Find all ISINs in the text
+  // INF = Mutual Funds, INE = Stocks/ETFs, IN0 = Debt instruments
+  // Also check for 12-character ISINs that may be formatted differently
+  const isinPattern = /IN[EF0][A-Z0-9]{9}/gi;
   const isinMatches = [...new Set(text.match(isinPattern) || [])];
   
-  console.log('[CAMS Holding Parser] Found', isinMatches.length, 'unique ISINs');
+  // Also look for ISINs with potential spaces or hyphens (sometimes OCR artifacts)
+  const spacedIsinPattern = /IN[EF0]\s*[A-Z0-9]{2}\s*[A-Z0-9]{2}\s*[A-Z0-9]{2}\s*[A-Z0-9]{3}/gi;
+  const spacedMatches = (text.match(spacedIsinPattern) || []).map(m => m.replace(/\s/g, ''));
   
-  if (isinMatches.length === 0) {
+  // Combine both patterns
+  const allIsinMatches = [...new Set([...isinMatches, ...spacedMatches])];
+  
+  // Log what we're finding for debugging
+  console.log('[CAMS Holding Parser] Found', allIsinMatches.length, 'unique ISINs');
+  console.log('[CAMS Holding Parser] ISIN breakdown - INF (MF):', allIsinMatches.filter(i => i.startsWith('INF')).length, 
+    'INE (Stock):', allIsinMatches.filter(i => i.startsWith('INE')).length,
+    'IN0 (Debt):', allIsinMatches.filter(i => i.startsWith('IN0')).length);
+  
+  if (allIsinMatches.length === 0) {
     // Check for UNCLAIMDISIN or other special markers
     const hasUnclaimedFunds = text.includes('UNCLAIMDISIN') || text.includes('Unclaimed');
     if (hasUnclaimedFunds) {
@@ -730,7 +743,7 @@ function parseCAMSHoldingStatementFormat(text: string): ImportedHolding[] {
   }
   
   // For each ISIN, extract the holding data
-  for (const isin of isinMatches) {
+  for (const isin of allIsinMatches) {
     try {
       // Find position of ISIN in text
       const isinIndex = text.indexOf(isin);
@@ -1625,6 +1638,29 @@ export async function parsePDFPortfolio(buffer: Buffer, fileName: string): Promi
     const expectedCountMatch = text.match(/MUTUAL FUNDS\s*\((\d+)\)/i);
     const expectedCount = expectedCountMatch ? parseInt(expectedCountMatch[1], 10) : undefined;
     
+    // Extract expected total value from PDF header (various formats)
+    // Format 1: "Total Value : Rs. 1,68,52,343.45" or "Total Value Rs 16852343.45"
+    // Format 2: "Market Value: ₹1,68,52,343.45"
+    const totalValuePatterns = [
+      /Total\s*Value\s*[:\s]*(?:Rs\.?|₹|INR)?\s*([\d,]+(?:\.\d{2})?)/i,
+      /Market\s*Value\s*[:\s]*(?:Rs\.?|₹|INR)?\s*([\d,]+(?:\.\d{2})?)/i,
+      /Grand\s*Total\s*[:\s]*(?:Rs\.?|₹|INR)?\s*([\d,]+(?:\.\d{2})?)/i,
+    ];
+    
+    let expectedTotalValue: number | undefined;
+    for (const pattern of totalValuePatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        expectedTotalValue = parseFloat(match[1].replace(/,/g, ''));
+        console.log('[PDF Parser] Expected total value from PDF:', expectedTotalValue.toLocaleString('en-IN'));
+        break;
+      }
+    }
+    
+    if (expectedCount) {
+      console.log('[PDF Parser] Expected fund count from PDF header:', expectedCount);
+    }
+    
     if (broker === 'CAMS/KFintech CAS') {
       // Try the new ISIN-based holding statement parser first (most accurate)
       holdings = parseCAMSHoldingStatementFormat(text);
@@ -1683,10 +1719,30 @@ export async function parsePDFPortfolio(buffer: Buffer, fileName: string): Promi
     const unimportedCount = expectedCount ? Math.max(0, expectedCount - importedCount) : 0;
     const needsManualReview = unimportedCount > 0;
     
+    // Calculate parsed total value
+    const parsedTotalValue = holdings.reduce((sum, h) => sum + (h.currentValue || 0), 0);
+    console.log('[PDF Parser] Parsed total value:', parsedTotalValue.toLocaleString('en-IN'));
+    
     // Build error messages
     const errors: string[] = [];
     if (holdings.length === 0) {
       errors.push('Could not extract holdings from PDF. Please verify the format.');
+    }
+    
+    // Check if parsed value significantly differs from expected value
+    if (expectedTotalValue && parsedTotalValue > 0) {
+      const valueDiff = Math.abs(parsedTotalValue - expectedTotalValue);
+      const valueDiffPercent = (valueDiff / expectedTotalValue) * 100;
+      
+      if (valueDiffPercent > 10) {
+        const missingValue = expectedTotalValue - parsedTotalValue;
+        console.warn(`[Portfolio Parser] VALUE MISMATCH: Expected ₹${expectedTotalValue.toLocaleString('en-IN')}, Parsed ₹${parsedTotalValue.toLocaleString('en-IN')}`);
+        console.warn(`[Portfolio Parser] Missing value: ₹${missingValue.toLocaleString('en-IN')} (${valueDiffPercent.toFixed(1)}% difference)`);
+        
+        if (missingValue > 0) {
+          errors.push(`Parsing may be incomplete. Expected ₹${(expectedTotalValue/100000).toFixed(2)}L but found ₹${(parsedTotalValue/100000).toFixed(2)}L. Some holdings may need manual review.`);
+        }
+      }
     }
     
     // Log and track unimported funds
