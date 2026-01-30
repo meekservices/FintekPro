@@ -1,12 +1,14 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import fetch from 'node-fetch';
+import * as pdfParse from 'pdf-parse';
 import { db } from '../db';
 import { prospectClients, portfolios, portfolioHoldings } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { isAuthenticated } from '../replitAuth';
 import { parsePDFPortfolio, parseURLPortfolio, createPortfolioSnapshot, clearParseCache, TransactionLot } from '../services/portfolio-parser';
 import { holdingLotsStorageService, LotStorageInput } from '../services/holding-lots-storage-service';
+import { casStatementService } from '../services/cas-statement-service';
 
 // Clear parse cache on server start to ensure fresh parsing after code updates
 clearParseCache();
@@ -586,6 +588,7 @@ router.delete(
 );
 
 // CAS/Statement parsing endpoint (preview before import)
+// Uses the improved CAS Statement Service with tiered fallback parsing
 router.post(
   '/portfolio/parse-cas',
   isAuthenticated,
@@ -604,7 +607,97 @@ router.post(
       
       const statementType = req.body.type || 'cas'; // 'cas' or 'demat'
       
-      // Parse the PDF
+      // For CAS statements, use the improved CAS Statement Service with tiered parsing
+      if (statementType === 'cas') {
+        try {
+          // Extract text from PDF
+          const pdfData = await pdfParse(req.file.buffer);
+          const text = pdfData.text;
+          
+          // Detect if this is a CAS statement
+          const isCAS = /Consolidated\s*Account\s*Statement/i.test(text) ||
+                       /CAMS.*Statement/i.test(text) ||
+                       /KFintech.*Statement/i.test(text);
+          
+          if (isCAS) {
+            console.log('[Portfolio Import] Using CAS Statement Service for parsing');
+            
+            // Parse using CAS Statement Service (includes tiered fallback)
+            const casResult = await casStatementService.parseStatement(text);
+            
+            if (!casResult.success || casResult.holdings.length === 0) {
+              return res.json({
+                success: false,
+                error: 'No holdings found in CAS statement',
+                errors: casResult.warnings || ['Failed to parse CAS statement']
+              });
+            }
+            
+            // Transform CAS holdings to expected format
+            const holdings = casResult.holdings.map((h, idx) => ({
+              id: `cas-${idx}-${Date.now()}`,
+              name: h.schemeName || 'Unknown Fund',
+              symbol: '',
+              isin: h.isin || '',
+              quantity: h.unitBalance || 0,
+              averagePrice: h.avgCostPerUnit || 0,
+              investedValue: h.costValue || 0,
+              currentValue: h.marketValue || 0,
+              currentNav: h.nav || 0,
+              unrealizedGain: h.unrealizedGain || 0,
+              unrealizedGainPercent: h.unrealizedGainPercent || 0,
+              assetType: 'mutual_fund',
+              folioNumber: h.folioNumber || '',
+              confidenceScore: h.confidenceScore || 90,
+              broker: 'CAMS/KFintech CAS',
+              transactionLots: h.transactions?.map(t => ({
+                purchaseDate: t.date,
+                transactionType: t.transactionType,
+                amount: t.amount,
+                units: t.units,
+                navAtPurchase: t.nav,
+                runningBalance: t.runningBalance,
+                description: t.description
+              })) || [],
+              // Include tier information for UI display
+              holdingTier: h.holdingTier,
+              eligibleForTax: h.eligibleForTax,
+              tierWarnings: h.tierWarnings
+            }));
+            
+            const totalValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
+            const totalInvested = holdings.reduce((sum, h) => sum + h.investedValue, 0);
+            const fundsCount = holdings.length;
+            
+            // Count by tier for summary
+            const tierCounts = { FULL: 0, VALUATION_ONLY: 0, SUMMARY_PLACEHOLDER: 0 };
+            holdings.forEach(h => {
+              const tier = (h as any).holdingTier || 'FULL';
+              tierCounts[tier as keyof typeof tierCounts]++;
+            });
+            
+            const importSummary = `${fundsCount} mutual fund${fundsCount > 1 ? 's' : ''} imported (${tierCounts.FULL} with full data${tierCounts.SUMMARY_PLACEHOLDER > 0 ? `, ${tierCounts.SUMMARY_PLACEHOLDER} placeholders` : ''}). Current value calculated using today's NAV from FintekPro database.`;
+            
+            return res.json({
+              success: true,
+              holdings,
+              brokerDetected: 'CAMS/KFintech CAS',
+              confidenceScore: casResult.confidence,
+              totalValue,
+              totalInvested,
+              holdingsCount: fundsCount,
+              importSummary,
+              reconciliation: casResult.reconciliation,
+              tierBreakdown: tierCounts
+            });
+          }
+        } catch (casError: any) {
+          console.error('[Portfolio Import] CAS Statement Service error, falling back:', casError.message);
+          // Fall through to legacy parser
+        }
+      }
+      
+      // Fallback: Parse using legacy parser for non-CAS or if CAS parsing fails
       const parseResult = await parsePDFPortfolio(req.file.buffer, req.file.originalname);
       
       if (!parseResult.success || parseResult.holdings.length === 0) {
