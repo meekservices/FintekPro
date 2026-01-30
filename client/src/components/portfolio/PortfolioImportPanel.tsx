@@ -181,9 +181,7 @@ export function PortfolioImportPanel({
   const handleSaveHoldings = useCallback(async () => {
     const holdingsWithIsin = previewHoldings.filter(h => h.isin);
     const totalValue = previewHoldings.reduce((sum, h) => {
-      const qty = parseFloat(h.quantity as string) || 0;
-      const price = parseFloat(h.avgPrice as string) || 0;
-      return sum + (qty * price);
+      return sum + (parseFloat(h.currentValue as string) || 0);
     }, 0);
 
     saveHoldings.mutate(
@@ -258,9 +256,7 @@ export function PortfolioImportPanel({
 
   if (previewMode) {
     const totalValue = previewHoldings.reduce((sum, h) => {
-      const qty = parseFloat(h.quantity) || 0;
-      const price = parseFloat(h.avgPrice) || 0;
-      return sum + (qty * price);
+      return sum + (parseFloat(h.currentValue) || 0);
     }, 0);
 
     return (
@@ -333,9 +329,7 @@ export function PortfolioImportPanel({
               <TableBody>
                 {previewHoldings.map((holding, index) => {
                   const isEditing = editingIndex === index;
-                  const qty = parseFloat(holding.quantity) || 0;
-                  const price = parseFloat(holding.avgPrice) || 0;
-                  const value = qty * price;
+                  const value = parseFloat(holding.currentValue) || 0;
 
                   return (
                     <TableRow key={holding.id || index}>
