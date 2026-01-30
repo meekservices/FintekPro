@@ -263,7 +263,7 @@ export function setupAuth(app: Express) {
 
       // Store OTP with registration data in metadata
       await storage.createOtpVerification({
-        identifier: email, // Use email as primary identifier for registration
+        identifier: mobile, // Use mobile as primary identifier for registration (enables Replit SMS testing)
         otp,
         type: "registration",
         expiresAt,
@@ -277,36 +277,41 @@ export function setupAuth(app: Express) {
         }
       });
 
-      // Send OTP via email (primary channel)
+      // Send OTP via SMS first (primary channel for Replit testing compatibility)
+      let primaryDelivered = false;
+      const smsSent = await smsService.sendOTP(mobile, otp);
+      if (smsSent) {
+        console.log(`✅ Registration OTP sent via SMS to: ${mobile}`);
+        primaryDelivered = true;
+      } else {
+        console.log(`⚠️ SMS delivery failed for ${mobile}, trying WhatsApp...`);
+        // Try WhatsApp as fallback
+        const whatsappSent = await whatsappService.sendLoginOTP(mobile, otp);
+        if (whatsappSent) {
+          console.log(`✅ Registration OTP sent via WhatsApp to: ${mobile}`);
+          primaryDelivered = true;
+        }
+      }
+
+      // Also send to email as secondary channel
       const emailSent = await emailService.sendRegistrationOTP(email, otp);
       if (emailSent) {
-        console.log(`✅ Registration OTP sent to email: ${email}`);
+        console.log(`✅ Registration OTP also sent to email: ${email}`);
       } else {
         console.log(`⚠️ Email delivery failed for ${email}`);
       }
 
-      // Also try sending via WhatsApp to mobile (default preference), then SMS as backup
-      const whatsappSent = await whatsappService.sendLoginOTP(mobile, otp);
-      if (whatsappSent) {
-        console.log(`✅ Registration OTP sent via WhatsApp to: ${mobile}`);
-      } else {
-        console.log(`⚠️ WhatsApp delivery failed for ${mobile}, trying SMS...`);
-        // Try SMS as fallback
-        const smsSent = await smsService.sendOTP(mobile, otp);
-        if (smsSent) {
-          console.log(`✅ Registration OTP sent via SMS to: ${mobile}`);
-        } else {
-          console.log(`⚠️ All delivery channels failed for registration. Please check service configuration.`);
-        }
+      if (!primaryDelivered && !emailSent) {
+        console.log(`⚠️ All delivery channels failed for registration. Please check service configuration.`);
       }
 
       // Return success response indicating OTP is required
       return apiResponse.success(res, {
         requiresOtp: true,
-        identifier: email,
+        identifier: mobile, // Use mobile as primary identifier
         registrationToken, // Send token to frontend (NOT password)
-        otpSentTo: `${email} and ${mobile}`
-      }, "Verification code sent to your email and mobile");
+        otpSentTo: `${mobile} (SMS) and ${email}`
+      }, "Verification code sent to your mobile and email");
 
     } catch (error) {
       console.error("Registration error:", error);
@@ -558,27 +563,30 @@ export function setupAuth(app: Express) {
         })
         .where(eq(schema.otpVerifications.id, otpRecord.id));
 
-      // Send new OTP via email (primary channel)
-      const emailSent = await emailService.sendRegistrationOTP(metadata.email, newOtp);
-      if (emailSent) {
-        console.log(`✅ Resend OTP sent to email: ${metadata.email}`);
+      // Send new OTP via SMS first (primary channel for Replit testing compatibility)
+      let primaryDelivered = false;
+      const smsSent = await smsService.sendOTP(metadata.mobile, newOtp);
+      if (smsSent) {
+        console.log(`✅ Resend OTP sent via SMS to: ${metadata.mobile}`);
+        primaryDelivered = true;
+      } else {
+        console.log(`⚠️ SMS delivery failed for ${metadata.mobile}, trying WhatsApp...`);
+        const whatsappSent = await whatsappService.sendLoginOTP(metadata.mobile, newOtp);
+        if (whatsappSent) {
+          console.log(`✅ Resend OTP sent via WhatsApp to: ${metadata.mobile}`);
+          primaryDelivered = true;
+        }
       }
 
-      // Also try sending via WhatsApp (default preference), then SMS as fallback
-      const whatsappSent = await whatsappService.sendLoginOTP(metadata.mobile, newOtp);
-      if (whatsappSent) {
-        console.log(`✅ Resend OTP sent via WhatsApp to: ${metadata.mobile}`);
-      } else {
-        console.log(`⚠️ WhatsApp delivery failed for ${metadata.mobile}, trying SMS...`);
-        const smsSent = await smsService.sendOTP(metadata.mobile, newOtp);
-        if (smsSent) {
-          console.log(`✅ Resend OTP sent via SMS to: ${metadata.mobile}`);
-        }
+      // Also send to email as secondary channel
+      const emailSent = await emailService.sendRegistrationOTP(metadata.email, newOtp);
+      if (emailSent) {
+        console.log(`✅ Resend OTP also sent to email: ${metadata.email}`);
       }
 
       return apiResponse.success(res, {
         success: true,
-        otpSentTo: `${metadata.email} and ${metadata.mobile}`
+        otpSentTo: `${metadata.mobile} (SMS) and ${metadata.email}`
       }, "New verification code sent");
 
     } catch (error) {
@@ -653,20 +661,22 @@ export function setupAuth(app: Express) {
         let otpType: string;
 
         if (identifier.includes("@")) {
+          // Email login - still use email for OTP since that's what user entered
           otpDestination = user.email;
           otpType = "email";
         } else if (identifier.startsWith("FTP")) {
-          // For userId login, prefer email, fallback to mobile
-          if (user.email) {
-            otpDestination = user.email;
-            otpType = "email";
-          } else if (user.mobile) {
+          // For userId login, prefer mobile for OTP (enables Replit SMS testing), fallback to email
+          if (user.mobile) {
             otpDestination = user.mobile;
             otpType = "mobile";
+          } else if (user.email) {
+            otpDestination = user.email;
+            otpType = "email";
           } else {
             return apiResponse.badRequest(res, "User account has no email or mobile for OTP verification");
           }
         } else {
+          // Mobile number login - use mobile for OTP
           otpDestination = user.mobile;
           otpType = "mobile";
         }
