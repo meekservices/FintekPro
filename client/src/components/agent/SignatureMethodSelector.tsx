@@ -14,7 +14,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { SignatureCanvas, SignatureData } from '@/components/esign/SignatureCanvas';
 
-export type SignatureMethod = 'zoho_sign' | 'aadhaar_esign' | 'dsc_token' | 'otp';
+export type SignatureMethod = 'zoho_sign' | 'aadhaar_esign' | 'dsc_token' | 'otp' | 'user_signature';
 
 interface UserSignature {
   id: string;
@@ -91,16 +91,27 @@ const SIGNATURE_METHODS: MethodInfo[] = [
     bestFor: 'Simple documents, quick approvals',
     sebiCompliant: true,
   },
+  {
+    id: 'user_signature',
+    name: 'Saved Signature',
+    description: 'Use your uploaded, drawn, or typed signature instantly',
+    icon: PenTool,
+    legalValidity: 'Standard',
+    timeEstimate: 'Instant',
+    requirements: ['Saved signature in your profile'],
+    bestFor: 'Quick internal documents, agreements',
+    sebiCompliant: false,
+  },
 ];
 
-const METHODS_REQUIRING_VISUAL_SIGNATURE: SignatureMethod[] = ['zoho_sign', 'otp'];
+const METHODS_REQUIRING_VISUAL_SIGNATURE: SignatureMethod[] = ['zoho_sign', 'otp', 'user_signature'];
 
 export default function SignatureMethodSelector({
   onSelect,
   onCancel,
   selectedMethod,
   isLoading = false,
-  allowedMethods = ['zoho_sign', 'aadhaar_esign', 'dsc_token', 'otp'],
+  allowedMethods = ['zoho_sign', 'aadhaar_esign', 'dsc_token', 'otp', 'user_signature'],
   participantName,
   requireVisualSignature = true,
 }: SignatureMethodSelectorProps) {

@@ -14,7 +14,7 @@ import { proteanESignService } from './protean-esign-service';
 import { dscTokenESignService, DSCSigningRequest, DSCSignatureSubmission } from './dsc-token-esign-service';
 import { nanoid } from 'nanoid';
 
-export type ESignProvider = 'authbridge' | 'protean' | 'emudhra' | 'cvl' | 'dsc_token';
+export type ESignProvider = 'authbridge' | 'protean' | 'emudhra' | 'cvl' | 'dsc_token' | 'user_signature';
 
 export interface ESignProviderConfig {
   provider: ESignProvider;
@@ -131,6 +131,17 @@ class UnifiedESignService {
       isConfigured: true,
       features: ['USB Token', 'Smart Card', 'Class 2/3 DSC', 'No OTP Required', 'Offline Capable', 'TSA Timestamping'],
       environment: 'sandbox',
+    }],
+    ['user_signature', {
+      provider: 'user_signature',
+      displayName: 'Saved Signature',
+      description: 'Use your uploaded, drawn, or typed signature to sign documents instantly',
+      pricingPerSign: 0.00,
+      pricingCurrency: 'INR',
+      isActive: true,
+      isConfigured: true,
+      features: ['Upload Image', 'Draw Signature', 'Type Signature', 'Instant Signing', 'No OTP Required', 'PDF Embedding'],
+      environment: 'production',
     }],
   ]);
 
@@ -433,6 +444,13 @@ class UnifiedESignService {
       {
         provider: 'dsc_token',
         displayName: 'DSC Token (Hardware)',
+        totalSigns: 0,
+        lastUsed: null,
+        estimatedCost: 0,
+      },
+      {
+        provider: 'user_signature',
+        displayName: 'Saved Signature',
         totalSigns: 0,
         lastUsed: null,
         estimatedCost: 0,
