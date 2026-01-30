@@ -794,11 +794,22 @@ function parseCAMSHoldingStatementFormat(text: string): ImportedHolding[] {
         }
       }
       
+      // Helper to check if a number should be excluded
+      const shouldExcludeNumber = (num: number): boolean => {
+        // Exclude years (2020-2030 range)
+        if (num >= 2020 && num <= 2030) return true;
+        // Exclude folio numbers (very large integers, typically 9+ digits)
+        if (num >= 100000000) return true;
+        // Exclude numbers that are too small to be meaningful (less than 0.01)
+        if (num < 0.01) return true;
+        return false;
+      };
+      
       // Then extract Indian comma format numbers (like 1,68,52,343)
       const afterWithoutDecimals = afterIsin.replace(decimalPattern, ' ');
       while ((match = indianCommaPattern.exec(afterWithoutDecimals)) !== null) {
         const num = parseFloat(match[1].replace(/,/g, ''));
-        if (!isNaN(num) && num > 1000 && !numbers.includes(num)) {
+        if (!isNaN(num) && num > 1000 && !numbers.includes(num) && !shouldExcludeNumber(num)) {
           numbers.push(num);
         }
       }
@@ -807,7 +818,7 @@ function parseCAMSHoldingStatementFormat(text: string): ImportedHolding[] {
       const afterWithoutCommas = afterWithoutDecimals.replace(indianCommaPattern, ' ');
       while ((match = plainIntegerPattern.exec(afterWithoutCommas)) !== null) {
         const num = parseFloat(match[1]);
-        if (!isNaN(num) && num > 100 && !numbers.includes(num)) {
+        if (!isNaN(num) && num > 100 && !numbers.includes(num) && !shouldExcludeNumber(num)) {
           numbers.push(num);
         }
       }
@@ -878,9 +889,19 @@ function parseCAMSHoldingStatementFormat(text: string): ImportedHolding[] {
               const testNav = numbers[nIdx];
               const testMarket = numbers[mIdx];
               
-              // NAV sanity check (typical MF NAV range)
-              if (testNav > 50000 || testNav < 0.1) continue;
+              // NAV sanity check (typical MF NAV range: 5 to 5000)
+              if (testNav > 5000 || testNav < 5) continue;
               if (testUnits <= 0 || testMarket <= 0) continue;
+              
+              // Market value sanity check (should be at least ₹100)
+              if (testMarket < 100) continue;
+              
+              // Units should typically be much smaller than market value for reasonable NAVs
+              // If units > market, it's likely a wrong mapping
+              if (testUnits > testMarket && testNav > 1) continue;
+              
+              // Cost should be in reasonable range (at least ₹100)
+              if (testCost < 100) continue;
               
               // KEY: Units × NAV ≈ Market Value
               const calculated = testUnits * testNav;
@@ -888,12 +909,20 @@ function parseCAMSHoldingStatementFormat(text: string): ImportedHolding[] {
               
               if (marketTolerance < 0.05) {
                 // Cost should be reasonable (not wildly different from market)
+                // For mutual funds, cost is typically within 0.2x to 5x of market
                 const costRatio = testCost / Math.max(testMarket, 1);
-                const costReasonable = costRatio > 0.05 && costRatio < 20; // Within 20x
+                const costReasonable = costRatio > 0.1 && costRatio < 10;
                 
-                // Prefer: lower tolerance + cost closer to market
-                const costScore = Math.abs(Math.log(Math.max(costRatio, 0.01))) / 5;
-                const score = marketTolerance + (costReasonable ? 0 : 2) + costScore * 0.1;
+                // Additional check: if Cost equals Market exactly, it's suspicious
+                // (parser might be using same number for both)
+                const costEqualsMarket = Math.abs(testCost - testMarket) < 1;
+                
+                // Prefer: lower tolerance + cost closer to market + distinct values
+                const costScore = Math.abs(Math.log(Math.max(costRatio, 0.1))) / 5;
+                const score = marketTolerance 
+                  + (costReasonable ? 0 : 2) 
+                  + costScore * 0.1
+                  + (costEqualsMarket ? 1 : 0);  // Penalize when cost=market
                 
                 candidates.push({
                   units: testUnits,
