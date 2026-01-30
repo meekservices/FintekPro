@@ -50,6 +50,12 @@ const getConfidenceDot = (score: number) => {
   return "bg-red-500";
 };
 
+// Currency helper for global stocks (USD) vs domestic (INR)
+const formatPrice = (price: number, category: string): string => {
+  const symbol = category === 'global_stocks' ? '$' : '₹';
+  return `${symbol}${price.toLocaleString()}`;
+};
+
 const categoryIcons: Record<string, any> = {
   listed_stocks: TrendingUp,
   mutual_funds: BarChart3,
@@ -166,7 +172,7 @@ export default function PickOfTheDayWidget() {
                     </span>
                     <span className="flex items-center gap-1">
                       <Shield className="h-3 w-3" />
-                      ₹{pick.stoplossPrice.toLocaleString()}
+                      {formatPrice(pick.stoplossPrice, pick.category)}
                     </span>
                     {currentReturn && (
                       <span className={`flex items-center gap-1 ${parseFloat(currentReturn) >= 0 ? 'text-green-600' : 'text-red-600'}`}>

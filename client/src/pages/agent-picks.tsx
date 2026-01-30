@@ -126,6 +126,16 @@ const categoryLabels: Record<string, string> = {
   sgb: "SGBs",
 };
 
+// Currency helper for global stocks (USD) vs domestic (INR)
+const getCurrencySymbol = (category: string): string => {
+  return category === 'global_stocks' ? '$' : '₹';
+};
+
+const formatPrice = (price: number, category: string): string => {
+  const symbol = getCurrencySymbol(category);
+  return `${symbol}${price.toLocaleString()}`;
+};
+
 const statusConfig: Record<string, { color: string; icon: any; label: string }> = {
   live: { color: "bg-green-500", icon: Clock, label: "Live" },
   target_hit: { color: "bg-blue-500", icon: CheckCircle, label: "Target Hit" },
@@ -919,8 +929,8 @@ function PickCard({
             )}
           </div>
           <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
-            <span>Reco: ₹{pick.recoPrice.toLocaleString()}</span>
-            <span>Target: ₹{pick.targetPrice.toLocaleString()}</span>
+            <span>Reco: {formatPrice(pick.recoPrice, pick.category)}</span>
+            <span>Target: {formatPrice(pick.targetPrice, pick.category)}</span>
             <span>{new Date(pick.recoDate).toLocaleDateString('en-IN')}</span>
           </div>
         </div>
@@ -1020,28 +1030,28 @@ function PickCard({
             <div className="grid grid-cols-3 gap-4 mt-4">
               <div>
                 <div className="text-xs text-muted-foreground">Entry Price</div>
-                <div className="font-medium">₹{pick.recoPrice.toLocaleString()}</div>
+                <div className="font-medium">{formatPrice(pick.recoPrice, pick.category)}</div>
               </div>
               <div>
                 <div className="text-xs text-muted-foreground flex items-center gap-1">
                   <ArrowUpRight className="h-3 w-3 text-green-500" />
                   Target (+{upside}%)
                 </div>
-                <div className="font-medium text-green-600">₹{pick.targetPrice.toLocaleString()}</div>
+                <div className="font-medium text-green-600">{formatPrice(pick.targetPrice, pick.category)}</div>
               </div>
               <div>
                 <div className="text-xs text-muted-foreground flex items-center gap-1">
                   <ArrowDownRight className="h-3 w-3 text-red-500" />
                   Stoploss (-{downside}%)
                 </div>
-                <div className="font-medium text-red-600">₹{pick.stoplossPrice.toLocaleString()}</div>
+                <div className="font-medium text-red-600">{formatPrice(pick.stoplossPrice, pick.category)}</div>
               </div>
             </div>
 
             {pick.currentPrice && (
               <div className="mt-3 p-2 rounded bg-muted/50">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm">Current: ₹{pick.currentPrice.toLocaleString()}</span>
+                  <span className="text-sm">Current: {formatPrice(pick.currentPrice, pick.category)}</span>
                   <span className={`font-medium ${parseFloat(currentReturn || '0') >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {parseFloat(currentReturn || '0') >= 0 ? '+' : ''}{currentReturn}%
                   </span>
