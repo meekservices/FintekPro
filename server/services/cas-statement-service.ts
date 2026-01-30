@@ -584,7 +584,13 @@ class CASStatementService {
       
       if (!keywordPattern.test(restOfLine)) continue;
       
-      const numbers = this.extractNumbers(restOfLine);
+      // Remove installment numbers before extracting financial values
+      // This prevents "Instalment No - 1" from being counted as a number
+      const cleanedLine = restOfLine
+        .replace(/Instalment\s*No\s*[-–]\s*\d+(?:\/\d+)?/gi, '')
+        .replace(/No\s*[-–]\s*\d+(?:\/\d+)?/gi, '');
+      
+      const numbers = this.extractNumbers(cleanedLine);
       
       if (numbers.length < 2) continue;
       
