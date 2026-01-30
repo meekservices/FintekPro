@@ -64,6 +64,14 @@ export interface CASTransaction {
   isCredit: boolean;
 }
 
+/**
+ * Tiered Holding Classification (Epic T1-T3)
+ * - FULL: Complete holding with transactions and lot data (Tier 1)
+ * - VALUATION_ONLY: NAV + Market Value but no/incomplete transactions (Tier 2)
+ * - SUMMARY_PLACEHOLDER: From CAS summary, missing from parsed holdings (Tier 3)
+ */
+export type HoldingTier = 'FULL' | 'VALUATION_ONLY' | 'SUMMARY_PLACEHOLDER';
+
 export interface CASHolding {
   id: string;
   folioNumber: string;
@@ -92,6 +100,9 @@ export interface CASHolding {
   transactions: CASTransaction[];
   firstPurchaseDate?: string;
   holderName?: string;
+  holdingTier: HoldingTier;
+  eligibleForTax: boolean;
+  tierWarnings?: string[];
 }
 
 export interface CASPortfolioSummaryEntry {
@@ -226,9 +237,11 @@ class CASStatementService {
         console.log(`[CAS Service v4] Summary Total Market: ₹${(result.portfolioSummary.totalMarketValue / 100000).toFixed(2)} L`);
       }
       
-      const schemeBlocks = this.splitBySchemeBlocks(text);
-      console.log('[CAS Service v4] Found', schemeBlocks.length, 'scheme blocks');
+      // Tiered Parsing: Extract scheme blocks with fallback recovery
+      const { blocks: schemeBlocks, droppedForTier2 } = this.splitBySchemeBlocks(text);
+      console.log('[CAS Service v4] Found', schemeBlocks.length, 'Tier 1 scheme blocks');
       
+      // === TIER 1: Full parsing with transactions ===
       for (let i = 0; i < schemeBlocks.length; i++) {
         try {
           const holding = this.parseSchemeBlock(schemeBlocks[i], i);
@@ -239,6 +252,44 @@ class CASStatementService {
         } catch (error: any) {
           console.warn('[CAS Service v4] Failed to parse scheme block', i, ':', error.message);
           result.warnings.push(`Scheme block ${i}: ${error.message}`);
+        }
+      }
+      
+      // Track ISINs already parsed in Tier 1
+      const tier1ISINs = new Set(result.holdings.map(h => h.isin));
+      
+      // === TIER 2: Valuation-only fallback for dropped blocks ===
+      let tier2RecoveryCount = 0;
+      for (let i = 0; i < droppedForTier2.length; i++) {
+        const { isin, blockText } = droppedForTier2[i];
+        
+        // Skip if already parsed in Tier 1
+        if (tier1ISINs.has(isin)) continue;
+        
+        try {
+          const tier2Holding = this.parseTier2ValuationOnlyBlock(blockText, isin, result.holdings.length);
+          if (tier2Holding) {
+            result.holdings.push(tier2Holding);
+            tier2RecoveryCount++;
+          }
+        } catch (error: any) {
+          console.warn('[CAS Service v4] Tier 2 recovery failed for', isin, ':', error.message);
+        }
+      }
+      
+      if (tier2RecoveryCount > 0) {
+        console.log(`[CAS Service v4] Tier 2 recovered ${tier2RecoveryCount} valuation-only holdings`);
+        result.warnings.push(`${tier2RecoveryCount} holdings imported without transaction history. Capital gains not computed for these.`);
+      }
+      
+      // === TIER 3: Summary Diff Injection ===
+      // Compare parsed AMC totals against CAS summary to inject placeholders for missing value
+      if (result.portfolioSummary) {
+        const tier3Holdings = this.applyTier3SummaryDiffInjection(result.holdings, result.portfolioSummary);
+        if (tier3Holdings.length > 0) {
+          result.holdings.push(...tier3Holdings);
+          console.log(`[CAS Service v4] Tier 3 injected ${tier3Holdings.length} placeholder holdings for missing AMC value`);
+          result.warnings.push(`${tier3Holdings.length} holdings require manual review - imported from CAS summary only.`);
         }
       }
       
@@ -569,6 +620,208 @@ class CASStatementService {
   }
   
   /**
+   * Tier 2: Parse valuation-only holdings from dropped blocks
+   * These are holdings that have NAV + Market Value but no closing balance or transactions
+   */
+  private parseTier2ValuationOnlyBlock(blockText: string, isin: string, index: number): CASHolding | null {
+    // Extract basic info even without closing balance
+    const folioMatch = blockText.match(/Folio No:\s*([\d\/\s]+)/i);
+    const folioNumber = folioMatch ? folioMatch[1].replace(/\s/g, '').trim() : 'unknown';
+    const isDemat = /\(Demat\)/i.test(blockText) && !/\(Non-?Demat\)/i.test(blockText);
+    
+    // Extract NAV
+    let nav = 0;
+    const navPatterns = [
+      /NAV on\s+[\d-]+[A-Za-z-]+[\d]+:\s*INR\s*([\d,]+\.?\d*)/i,
+      /NAV[:\s]*([\d,]+\.?\d*)/i
+    ];
+    for (const pattern of navPatterns) {
+      const match = blockText.match(pattern);
+      if (match) {
+        nav = this.parseNumber(match[1]);
+        if (nav > 0) break;
+      }
+    }
+    
+    // Extract Market Value
+    let marketValue = 0;
+    const marketPatterns = [
+      /Market Value\s*(?:on\s+[\d-]+[A-Za-z-]+[\d]+)?:\s*INR\s*([\d,]+\.?\d*)/i,
+      /Valuation[:\s]*([\d,]+\.?\d*)/i,
+      /Current Value[:\s]*([\d,]+\.?\d*)/i
+    ];
+    for (const pattern of marketPatterns) {
+      const match = blockText.match(pattern);
+      if (match) {
+        marketValue = this.parseNumber(match[1]);
+        if (marketValue > 0) break;
+      }
+    }
+    
+    if (nav <= 0 || marketValue <= 0) {
+      return null; // Cannot recover without NAV and market value
+    }
+    
+    // Infer units from market value / NAV
+    const unitBalance = nav > 0 ? marketValue / nav : 0;
+    
+    // Extract cost value if available
+    let costValue = 0;
+    const costPatterns = [
+      /Total Cost(?: Value)?:\s*(?:INR\s*)?([\d,]+\.?\d*)/i,
+      /Cost Value:\s*(?:INR\s*)?([\d,]+\.?\d*)/i
+    ];
+    for (const pattern of costPatterns) {
+      const match = blockText.match(pattern);
+      if (match) {
+        costValue = this.parseNumber(match[1]);
+        if (costValue > 0) break;
+      }
+    }
+    
+    // Use market value as fallback for cost (conservative)
+    if (costValue <= 0) {
+      costValue = marketValue;
+    }
+    
+    // Extract scheme name
+    let schemeName = `Mutual Fund (${isin})`;
+    const schemeMatch = blockText.match(/([A-Z][A-Za-z0-9\s&-]+(?:Fund|Growth|IDCW|Dividend|Plan))/i);
+    if (schemeMatch) {
+      schemeName = schemeMatch[1].trim().substring(0, 100);
+    }
+    
+    const registrar: 'CAMS' | 'KFINTECH' | 'UNKNOWN' = /KFINTECH|KARVY/i.test(blockText) 
+      ? 'KFINTECH' 
+      : /CAMS/i.test(blockText) 
+        ? 'CAMS' 
+        : 'UNKNOWN';
+    
+    console.log(`[CAS Service Tier2] Recovered valuation-only: ${isin} | Folio ${folioNumber} | Units: ${unitBalance.toFixed(3)} | Market: ${marketValue.toFixed(2)}`);
+    
+    return {
+      id: `cas-tier2-${isin}-${folioNumber}-${index}`,
+      folioNumber,
+      isin,
+      schemeName,
+      costValue,
+      unitBalance,
+      openingUnitBalance: 0,
+      nav,
+      marketValue,
+      registrar,
+      assetType: 'mutual_fund',
+      isDemat,
+      transactions: [],
+      holdingTier: 'VALUATION_ONLY',
+      eligibleForTax: false,
+      tierWarnings: ['Recovered from valuation-only block - no transaction history available']
+    };
+  }
+
+  /**
+   * Tier 3: Create placeholder holdings from CAS summary for missing schemes
+   * These are flagged as requiring manual review
+   */
+  private createTier3PlaceholderHolding(amcName: string, costValue: number, marketValue: number, index: number): CASHolding {
+    const placeholderId = `cas-tier3-placeholder-${index}`;
+    
+    console.log(`[CAS Service Tier3] Created placeholder for ${amcName}: Cost ${costValue.toFixed(2)}, Market ${marketValue.toFixed(2)}`);
+    
+    return {
+      id: placeholderId,
+      folioNumber: 'PLACEHOLDER',
+      isin: 'PLACEHOLDER',
+      schemeName: `${amcName} - Unrecognized Holdings`,
+      amcName,
+      costValue,
+      unitBalance: 0,
+      openingUnitBalance: 0,
+      nav: 0,
+      marketValue,
+      registrar: 'UNKNOWN',
+      assetType: 'mutual_fund',
+      isDemat: false,
+      transactions: [],
+      holdingTier: 'SUMMARY_PLACEHOLDER',
+      eligibleForTax: false,
+      tierWarnings: ['Manual review required - holdings not found in parsed data']
+    };
+  }
+
+  /**
+   * Tier 3: Summary Diff Injection
+   * Compares parsed AMC totals against CAS Portfolio Summary
+   * Injects placeholders for AMCs where parsed value significantly differs from expected
+   */
+  private applyTier3SummaryDiffInjection(
+    holdings: CASHolding[], 
+    summary: CASPortfolioSummary
+  ): CASHolding[] {
+    const injectedHoldings: CASHolding[] = [];
+    
+    // Calculate parsed value per AMC
+    const parsedByAMC = new Map<string, { costValue: number; marketValue: number }>();
+    for (const holding of holdings) {
+      const amcKey = this.normalizeAMCName(holding.amcName || 'Unknown');
+      const current = parsedByAMC.get(amcKey) || { costValue: 0, marketValue: 0 };
+      current.costValue += holding.costValue;
+      current.marketValue += holding.marketValue;
+      parsedByAMC.set(amcKey, current);
+    }
+    
+    // Compare against summary entries
+    let placeholderIndex = 0;
+    for (const entry of summary.entries) {
+      const amcKey = this.normalizeAMCName(entry.amcName);
+      const parsed = parsedByAMC.get(amcKey);
+      
+      if (!parsed) {
+        // AMC completely missing - inject placeholder
+        console.log(`[CAS Service Tier3] AMC "${entry.amcName}" missing entirely: Expected ₹${(entry.marketValue / 100000).toFixed(2)} L`);
+        injectedHoldings.push(this.createTier3PlaceholderHolding(
+          entry.amcName,
+          entry.costValue,
+          entry.marketValue,
+          placeholderIndex++
+        ));
+        continue;
+      }
+      
+      // Calculate delta
+      const marketDelta = entry.marketValue - parsed.marketValue;
+      const deltaPercent = entry.marketValue > 0 ? (marketDelta / entry.marketValue) * 100 : 0;
+      
+      // Only inject placeholder if significant gap (> 10% of expected AND > ₹10,000)
+      if (deltaPercent > 10 && marketDelta > 10000) {
+        console.log(`[CAS Service Tier3] AMC "${entry.amcName}" under-parsed: Expected ₹${(entry.marketValue / 100000).toFixed(2)} L, Got ₹${(parsed.marketValue / 100000).toFixed(2)} L (${deltaPercent.toFixed(1)}% gap)`);
+        
+        // Inject placeholder for the missing delta amount only
+        const deltaCost = entry.costValue - parsed.costValue;
+        injectedHoldings.push(this.createTier3PlaceholderHolding(
+          entry.amcName,
+          Math.max(0, deltaCost),
+          Math.max(0, marketDelta),
+          placeholderIndex++
+        ));
+      }
+    }
+    
+    return injectedHoldings;
+  }
+
+  /**
+   * Normalize AMC name for comparison
+   */
+  private normalizeAMCName(name: string): string {
+    return name
+      .toLowerCase()
+      .replace(/mutual\s*fund/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  /**
    * Split CAS statement by scheme blocks using explicit anchors.
    * 
    * Epic 1.1: Robust Scheme Block Segmentation
@@ -576,9 +829,12 @@ class CASStatementService {
    * - Enforces 1 schemeText = 1 (ISIN + Folio + Demat)
    * - Prevents silent drops and overwrites
    * - Handles same ISIN across multiple folios correctly
+   * 
+   * Returns both valid blocks and dropped blocks for Tier 2 recovery
    */
-  private splitBySchemeBlocks(text: string): string[] {
+  private splitBySchemeBlocks(text: string): { blocks: string[]; droppedForTier2: { isin: string; blockText: string }[] } {
     const blocks: string[] = [];
+    const droppedForTier2: { isin: string; blockText: string }[] = [];
     const seenHoldings = new Map<string, { index: number; preview: string }>();
     const droppedBlocks: { reason: string; preview: string }[] = [];
     
@@ -655,6 +911,12 @@ class CASStatementService {
           reason: 'no_closing_balance',
           preview: `ISIN ${isin}: ${blockText.substring(0, 100).replace(/\n/g, ' ')}...`
         });
+        // Save for Tier 2 recovery if has NAV or market value
+        const hasNAV = /NAV[:\s]*([\d,]+\.?\d*)/i.test(blockText);
+        const hasMarket = /Market Value|Valuation|Current Value/i.test(blockText);
+        if (hasNAV || hasMarket) {
+          droppedForTier2.push({ isin, blockText });
+        }
         continue;
       }
       
@@ -715,7 +977,11 @@ class CASStatementService {
       }
     }
     
-    return blocks;
+    if (droppedForTier2.length > 0) {
+      console.log(`[CAS Service v4] ${droppedForTier2.length} blocks available for Tier 2 valuation-only recovery`);
+    }
+    
+    return { blocks, droppedForTier2 };
   }
   
   /**
@@ -966,7 +1232,16 @@ class CASStatementService {
     const unrealizedGainPercent = costValue > 0 ? (unrealizedGain / costValue) * 100 : 0;
     const avgCostPerUnit = unitBalance > 0 ? costValue / unitBalance : 0;
     
-    console.log(`[CAS Service v3] Parsed: Folio ${folioNumber} | ${schemeName.substring(0, 35)}... | Units: ${unitBalance.toFixed(3)} | Cost: ${costValue.toFixed(2)} | Market: ${marketValue.toFixed(2)} | Txns: ${transactions.length}`);
+    const hasPurchaseTransactions = transactions.some(t => t.isCredit && t.units > 0);
+    const holdingTier: HoldingTier = hasPurchaseTransactions ? 'FULL' : 'VALUATION_ONLY';
+    const eligibleForTax = holdingTier === 'FULL';
+    const tierWarnings: string[] = [];
+    
+    if (holdingTier === 'VALUATION_ONLY') {
+      tierWarnings.push('No purchase transactions found - capital gains cannot be computed');
+    }
+    
+    console.log(`[CAS Service v3] Parsed: Folio ${folioNumber} | ${schemeName.substring(0, 35)}... | Units: ${unitBalance.toFixed(3)} | Cost: ${costValue.toFixed(2)} | Market: ${marketValue.toFixed(2)} | Txns: ${transactions.length} | Tier: ${holdingTier}`);
     
     return {
       id: `cas-${isin}-${folioNumber}-${index}`,
@@ -995,7 +1270,10 @@ class CASStatementService {
       nomineeDetails,
       transactions,
       firstPurchaseDate,
-      holderName
+      holderName,
+      holdingTier,
+      eligibleForTax,
+      tierWarnings
     };
   }
   
