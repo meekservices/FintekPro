@@ -1348,9 +1348,23 @@ class UnifiedPDFParser {
         return { ...holding, purchaseDateSource: 'explicit' as const };
       }
 
-      const matchingTxns = transactions.filter(t => 
-        t.type === 'purchase' || t.type === 'sip'
-      ).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      const matchingTxns = transactions.filter(t => {
+        if (t.type !== 'purchase' && t.type !== 'sip' && t.type !== 'switch_in') {
+          return false;
+        }
+        if (holding.isin && t.isin && t.isin === holding.isin) {
+          return true;
+        }
+        if (holding.name && t.scheme) {
+          const normalizedHoldingName = holding.name.toLowerCase().replace(/\s+/g, '');
+          const normalizedTxnScheme = t.scheme.toLowerCase().replace(/\s+/g, '');
+          if (normalizedHoldingName.includes(normalizedTxnScheme) || 
+              normalizedTxnScheme.includes(normalizedHoldingName)) {
+            return true;
+          }
+        }
+        return false;
+      }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
       if (matchingTxns.length > 0) {
         return {

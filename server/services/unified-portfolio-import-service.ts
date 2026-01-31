@@ -424,7 +424,8 @@ class UnifiedPortfolioImportService {
         navDate: h.navDate,
         planType: h.planType,
         optionType: h.optionType,
-        isDemat: h.isDemat
+        isDemat: h.isDemat,
+        purchaseDate: h.firstPurchaseDate
       };
       return unified;
     });
