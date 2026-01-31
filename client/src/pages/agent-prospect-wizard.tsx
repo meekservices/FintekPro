@@ -413,6 +413,12 @@ export default function AgentProspectWizard() {
   });
   const [editingHoldingIndex, setEditingHoldingIndex] = useState<number | null>(null);
   
+  // SIP Mode - for adding multiple purchase lots for the same fund
+  const [sipMode, setSipMode] = useState(false);
+  const [sipLots, setSipLots] = useState<Array<{ purchaseDate: string; units: number; investedAmount?: number }>>([
+    { purchaseDate: '', units: 0 }
+  ]);
+  
   // Product search state for autocomplete
   const [productSearchQuery, setProductSearchQuery] = useState("");
   const [productSearchResults, setProductSearchResults] = useState<any[]>([]);
@@ -2037,6 +2043,12 @@ export default function AgentProspectWizard() {
   });
 
   const addHolding = () => {
+    // Handle SIP Mode - add multiple lots as separate holdings
+    if (sipMode) {
+      addSIPHoldings();
+      return;
+    }
+    
     if (!newHolding.productName || !newHolding.currentValue) {
       toast({ title: "Missing Fields", description: "Enter product name and value.", variant: "destructive" });
       return;
@@ -2053,6 +2065,80 @@ export default function AgentProspectWizard() {
     setProductSearchQuery("");
     setSelectedInstrumentPrice(null);
     setProductSearchResults([]);
+  };
+  
+  // SIP Mode - Add multiple purchase lots for the same fund
+  const addSIPHoldings = async () => {
+    if (!newHolding.productName) {
+      toast({ title: "Missing Fund", description: "Select a fund first.", variant: "destructive" });
+      return;
+    }
+    
+    const validLots = sipLots.filter(lot => lot.purchaseDate && lot.units > 0);
+    if (validLots.length === 0) {
+      toast({ title: "No Valid Lots", description: "Add at least one lot with date and units.", variant: "destructive" });
+      return;
+    }
+    
+    const currentNav = selectedInstrumentPrice || 0;
+    
+    // Create a holding for each SIP lot
+    const holdingsToAdd: PortfolioHolding[] = validLots.map((lot, idx) => ({
+      id: crypto.randomUUID(),
+      productType: newHolding.productType || 'mutual_fund',
+      productName: newHolding.productName || '',
+      quantity: lot.units,
+      currentValue: lot.units * currentNav,
+      purchasePrice: lot.investedAmount ? lot.investedAmount / lot.units : currentNav,
+      purchaseDate: lot.purchaseDate,
+      isin: newHolding.isin,
+      category: newHolding.category
+    }));
+    
+    if (prospectId) {
+      // Add each lot as a separate holding to backend
+      try {
+        for (const holding of holdingsToAdd) {
+          await addHoldingMutation.mutateAsync(holding);
+        }
+        toast({ 
+          title: "SIP Lots Added", 
+          description: `Added ${validLots.length} purchase lot(s) for ${newHolding.productName}` 
+        });
+      } catch (error) {
+        toast({ title: "Error", description: "Failed to add some SIP lots", variant: "destructive" });
+      }
+    } else {
+      setHoldings([...holdings, ...holdingsToAdd]);
+      toast({ 
+        title: "SIP Lots Added", 
+        description: `Added ${validLots.length} purchase lot(s) for ${newHolding.productName}` 
+      });
+    }
+    
+    // Reset form
+    setNewHolding({ productType: "mutual_fund", productName: "", quantity: 1, currentValue: 0 });
+    setProductSearchQuery("");
+    setSelectedInstrumentPrice(null);
+    setProductSearchResults([]);
+    setSipLots([{ purchaseDate: '', units: 0 }]);
+  };
+  
+  // SIP Lot management
+  const addSipLot = () => {
+    setSipLots([...sipLots, { purchaseDate: '', units: 0 }]);
+  };
+  
+  const removeSipLot = (index: number) => {
+    if (sipLots.length > 1) {
+      setSipLots(sipLots.filter((_, i) => i !== index));
+    }
+  };
+  
+  const updateSipLot = (index: number, field: 'purchaseDate' | 'units' | 'investedAmount', value: string | number) => {
+    const updated = [...sipLots];
+    updated[index] = { ...updated[index], [field]: value };
+    setSipLots(updated);
   };
 
   const removeHolding = (index: number) => {
@@ -2952,6 +3038,30 @@ export default function AgentProspectWizard() {
                   Editing holding #{editingHoldingIndex + 1}
                 </div>
               )}
+              
+              {/* SIP Mode Toggle */}
+              {editingHoldingIndex === null && (
+                <div className="flex items-center gap-3 pb-2 border-b">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={sipMode}
+                      onChange={(e) => {
+                        setSipMode(e.target.checked);
+                        if (!e.target.checked) {
+                          setSipLots([{ purchaseDate: '', units: 0 }]);
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                    <span className="text-sm font-medium">SIP Mode</span>
+                  </label>
+                  <span className="text-xs text-muted-foreground">
+                    {sipMode ? 'Add multiple purchase dates for the same fund' : 'Toggle to add SIP lots with different purchase dates'}
+                  </span>
+                </div>
+              )}
+              
               <div className="grid md:grid-cols-7 gap-3 items-end">
                 <div className="space-y-2">
                   <Label>Product Type</Label>
@@ -3011,49 +3121,66 @@ export default function AgentProspectWizard() {
                     <p className="text-xs text-muted-foreground">ISIN: {newHolding.isin}</p>
                   )}
                 </div>
-                <div className="space-y-2">
-                  <Label>Units Held</Label>
-                  <Input 
-                    type="number"
-                    placeholder="100"
-                    step="0.0001"
-                    value={newHolding.quantity || ''}
-                    onChange={(e) => handleUnitsChange(parseFloat(e.target.value) || 0)}
-                    data-testid="product-units-input"
-                  />
-                  {selectedInstrumentPrice && (
-                    <p className="text-xs text-muted-foreground">
-                      Price: ₹{selectedInstrumentPrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label>Current Value (₹)</Label>
-                  <Input 
-                    type="number"
-                    placeholder="100000"
-                    value={newHolding.currentValue || ''}
-                    onChange={(e) => setNewHolding({ ...newHolding, currentValue: parseFloat(e.target.value) || 0 })}
-                    data-testid="product-value-input"
-                    className={selectedInstrumentPrice ? "bg-muted/30" : ""}
-                  />
-                  {selectedInstrumentPrice && newHolding.quantity && (
-                    <p className="text-xs text-green-600">Auto-calculated from units × price</p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-1">
-                    Purchase Date
-                    <span className="text-xs text-muted-foreground">(for tax)</span>
-                  </Label>
-                  <Input 
-                    type="date"
-                    value={newHolding.purchaseDate || ''}
-                    onChange={(e) => setNewHolding({ ...newHolding, purchaseDate: e.target.value })}
-                    data-testid="purchase-date-input"
-                    max={new Date().toISOString().split('T')[0]}
-                  />
-                </div>
+                {/* Single Entry Mode Fields */}
+                {!sipMode && (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Units Held</Label>
+                      <Input 
+                        type="number"
+                        placeholder="100"
+                        step="0.0001"
+                        value={newHolding.quantity || ''}
+                        onChange={(e) => handleUnitsChange(parseFloat(e.target.value) || 0)}
+                        data-testid="product-units-input"
+                      />
+                      {selectedInstrumentPrice && (
+                        <p className="text-xs text-muted-foreground">
+                          Price: ₹{selectedInstrumentPrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Current Value (₹)</Label>
+                      <Input 
+                        type="number"
+                        placeholder="100000"
+                        value={newHolding.currentValue || ''}
+                        onChange={(e) => setNewHolding({ ...newHolding, currentValue: parseFloat(e.target.value) || 0 })}
+                        data-testid="product-value-input"
+                        className={selectedInstrumentPrice ? "bg-muted/30" : ""}
+                      />
+                      {selectedInstrumentPrice && newHolding.quantity && (
+                        <p className="text-xs text-green-600">Auto-calculated from units × price</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-1">
+                        Purchase Date
+                        <span className="text-xs text-muted-foreground">(for tax)</span>
+                      </Label>
+                      <Input 
+                        type="date"
+                        value={newHolding.purchaseDate || ''}
+                        onChange={(e) => setNewHolding({ ...newHolding, purchaseDate: e.target.value })}
+                        data-testid="purchase-date-input"
+                        max={new Date().toISOString().split('T')[0]}
+                      />
+                    </div>
+                  </>
+                )}
+                
+                {/* SIP Mode - Show Add button that spans remaining columns */}
+                {sipMode && (
+                  <div className="md:col-span-4 flex items-end">
+                    {selectedInstrumentPrice && (
+                      <p className="text-xs text-muted-foreground mr-4">
+                        Current NAV: ₹{selectedInstrumentPrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                      </p>
+                    )}
+                  </div>
+                )}
+                
                 {editingHoldingIndex !== null ? (
                   <div className="flex gap-2">
                     <Button onClick={saveEditHolding} size="sm" data-testid="save-holding-btn" disabled={updateHoldingMutation.isPending}>
@@ -3065,10 +3192,88 @@ export default function AgentProspectWizard() {
                   </div>
                 ) : (
                   <Button onClick={addHolding} data-testid="add-holding-btn" disabled={addHoldingMutation.isPending}>
-                    {addHoldingMutation.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />} Add
+                    {addHoldingMutation.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />} {sipMode ? 'Add All Lots' : 'Add'}
                   </Button>
                 )}
               </div>
+              
+              {/* SIP Lots Entry Section */}
+              {sipMode && newHolding.productName && (
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                      SIP Purchase Lots for {newHolding.productName}
+                    </h4>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={addSipLot}
+                      className="text-blue-600 border-blue-300 hover:bg-blue-100"
+                    >
+                      <Plus className="h-3 w-3 mr-1" /> Add Lot
+                    </Button>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    {sipLots.map((lot, idx) => (
+                      <div key={idx} className="grid grid-cols-12 gap-2 items-end">
+                        <div className="col-span-4">
+                          {idx === 0 && <Label className="text-xs">Purchase Date</Label>}
+                          <Input
+                            type="date"
+                            value={lot.purchaseDate}
+                            onChange={(e) => updateSipLot(idx, 'purchaseDate', e.target.value)}
+                            max={new Date().toISOString().split('T')[0]}
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="col-span-3">
+                          {idx === 0 && <Label className="text-xs">Units</Label>}
+                          <Input
+                            type="number"
+                            step="0.0001"
+                            placeholder="100"
+                            value={lot.units || ''}
+                            onChange={(e) => updateSipLot(idx, 'units', parseFloat(e.target.value) || 0)}
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="col-span-4">
+                          {idx === 0 && <Label className="text-xs">Invested Amount (optional)</Label>}
+                          <Input
+                            type="number"
+                            placeholder="₹5,000"
+                            value={lot.investedAmount || ''}
+                            onChange={(e) => updateSipLot(idx, 'investedAmount', parseFloat(e.target.value) || 0)}
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="col-span-1">
+                          {sipLots.length > 1 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeSipLot(idx)}
+                              className="h-9 w-9 p-0 text-red-500 hover:text-red-700"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {sipLots.filter(l => l.purchaseDate && l.units > 0).length > 0 && selectedInstrumentPrice && (
+                    <div className="text-xs text-blue-700 dark:text-blue-300 pt-2 border-t border-blue-200 dark:border-blue-700">
+                      <span className="font-medium">Summary:</span>{' '}
+                      {sipLots.filter(l => l.purchaseDate && l.units > 0).length} lots,{' '}
+                      {sipLots.filter(l => l.purchaseDate && l.units > 0).reduce((sum, l) => sum + l.units, 0).toFixed(4)} total units,{' '}
+                      ₹{(sipLots.filter(l => l.purchaseDate && l.units > 0).reduce((sum, l) => sum + l.units, 0) * selectedInstrumentPrice).toLocaleString('en-IN', { maximumFractionDigits: 0 })} current value
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             )}
 
