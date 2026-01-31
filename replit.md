@@ -1,27 +1,7 @@
 # FintekPro - Financial Services Platform
 
 ## Overview
-FintekPro is a full-stack TypeScript financial services platform designed for personal finance and investment management. It provides a secure, integrated solution for financial planning, portfolio management, and real-time market data across various asset classes including stocks, mutual funds, IPOs, bonds, and unlisted company trading. The platform includes features such as family collaboration, unified KYC compliance, an AI-powered financial assistant, and an Unlisted Marketplace. FintekPro aims to empower individual investors and financial advisors with advanced tools and insights, with the vision of becoming a leading digital financial ecosystem.
-
-## Sub-DSA Platform Statement
-**FintekPro operates as a Sub-DSA platform supporting multiple origination modes with a single loan lifecycle, commission engine, and reporting spine. Origination determines who controls the workflow, not how the loan is processed financially.**
-
-### Loan Origination Modes
-- **SELF_SERVICE**: Customer directly applies through the platform (marketplace flow)
-- **AGENT_ASSISTED**: Agent assists the customer with the application (Sub-DSA flow)
-
-### Routing Intent
-- **MARKETPLACE**: System auto-routes to eligible banks based on eligibility rules
-- **SPECIFIC_BANKS**: Agent manually selects target banks (no auto-routing)
-
-### Workflow Owner
-- **SYSTEM**: Platform-owned workflow with system SLA tracking
-- **AGENT**: Agent-owned workflow with agent accountability
-
-### Governance Files
-- `shared/loan-origination.constants.ts`: Core domain definitions (mandatory import for all loan services)
-- `server/services/loan-governance-service.ts`: Routing discipline enforcement, SLA management, lifecycle assertions
-- `shared/dsa-loan-schema.ts`: Database schema with governance fields
+FintekPro is a full-stack TypeScript financial services platform aimed at personal finance and investment management. It offers a secure, integrated solution for financial planning, portfolio management, and real-time market data across various asset classes including stocks, mutual funds, IPOs, bonds, and unlisted company trading. Key features include family collaboration, unified KYC compliance, an AI-powered financial assistant, and an Unlisted Marketplace. The platform's vision is to empower individual investors and financial advisors with advanced tools and insights, becoming a leading digital financial ecosystem with multi-origination loan lifecycle support.
 
 ## User Preferences
 I want iterative development.
@@ -33,100 +13,23 @@ Do not make changes to the file `Y`.
 ## System Architecture
 
 ### UI/UX Decisions
-The frontend is built with React 18, TypeScript, shadcn/ui (Radix UI), Tailwind CSS, and Recharts, emphasizing a mobile-first, responsive design. It features a `ScrollableTabsList`, a three-part layout (Left Sidebar Navigation, Main Content, Footer), and a collapsible, state-persisted sidebar. Reusable components like `LoadingState` and `EmptyState` ensure consistency across the application.
+The frontend is built with React 18, TypeScript, shadcn/ui (Radix UI), Tailwind CSS, and Recharts. It emphasizes a mobile-first, responsive design with a `ScrollableTabsList`, a three-part layout (Left Sidebar Navigation, Main Content, Footer), and a collapsible, state-persisted sidebar. Reusable `LoadingState` and `EmptyState` components ensure consistency.
 
 ### Technical Implementations
-The frontend uses Wouter for routing, TanStack Query for state management, and React Hook Form with Zod for validation, all powered by Vite. The backend is an Express.js application with TypeScript, utilizing PostgreSQL via Drizzle ORM, exposed through a RESTful API. Authentication includes mandatory two-factor OTP and unified login via Passport.js. Comprehensive KYC with PAN verification and an Admin portal are integrated.
+The frontend uses Wouter for routing, TanStack Query for state management, and React Hook Form with Zod for validation, powered by Vite. The backend is an Express.js application with TypeScript, utilizing PostgreSQL via Drizzle ORM, exposed through a RESTful API. Authentication includes mandatory two-factor OTP and unified login via Passport.js, alongside comprehensive KYC with PAN verification and an Admin portal.
 
-The Unlisted Marketplace is SEBI/RBI-compliant, sourcing data from internal and external databases, featuring a multi-methodology price suggestion engine and atomic transaction-based deal matching. Trading requires Enhanced/Accredited KYC.
+The Unlisted Marketplace is SEBI/RBI-compliant, featuring a multi-methodology price suggestion engine and atomic transaction-based deal matching, requiring Enhanced/Accredited KYC. A Multi-Source Financial Data Enrichment System integrates various providers with priority-based source selection, rate limit handling, and AI guardrails for cost optimization. An API cost optimization system minimizes external calls through request deduplication, AI response caching, and proactive cache warming. A Historical NAV Data Service provides 10+ year data for portfolio metrics. An ISIN-Based Instrument Search System offers comprehensive lookup across asset classes. The Corporate Treasury Management module is SEBI-compliant with a configurable Maker-Checker workflow. The Unified Tax & Compliance Module offers PAN-driven ITR filing, a Unified eSign Service, Form 15CA/15CB support, a Document Vault, and RBAC.
 
-A Multi-Source Financial Data Enrichment System integrates various providers with priority-based source selection, rate limit handling, and an AI guardrail for cost optimization. An API cost optimization system minimizes external calls through request deduplication, AI response caching, and proactive cache warming. A Historical NAV Data Service provides 10+ year historical data for portfolio metric calculations, supporting daily refreshes.
+A Centralized Portfolio Import System supports diverse import sources (PDF/HTML, CSV, Excel, URL, API, manual) with a unified type system, normalization, storage, and AI fallback for parsing. This includes a `unified-pdf-parser.ts` for parsing various financial documents, detecting document types (17+ providers), performing layout analysis, semantic data extraction, and building holding lots with confidence scoring. A specialized `cas-statement-service.ts` handles CAMS/KFintech CAS PDF parsing with a FIFO Lot Ledger for transaction normalization and lot creation, a Tax & Exit Load module for capital gains calculations, and an Agent-Safe Import UX. The CAS parsing follows a "LOT-FIRST Architecture" where holdings are derived from individual tax lots. A Tiered Fallback Parser handles incomplete CAS parsing, prioritizing incompleteness over false precision.
 
-An ISIN-Based Instrument Search System offers comprehensive ISIN lookup capabilities across all asset classes through dedicated search endpoints and UI components. The Corporate Treasury Management module is SEBI-compliant with a configurable Maker-Checker workflow. The Unified Tax & Compliance Module offers PAN-driven ITR filing, a Unified eSign Service, and Form 15CA/15CB support, with a Document Vault and RBAC.
+A Unified Portfolio Storage System consolidates portfolio data for prospects and registered users, using bifurcated storage (JSON for prospects, `comprehensiveHoldings` table for registered clients). A `unified-holdings-reader-service.ts` provides a single entry point for reading holdings. The platform includes a Capital Gains & Tax Optimization System for tax planning, grandfathering benefits, exit load lookups, tax-efficient sell advice, and indexation benefit calculations.
 
-A Centralized Portfolio Import System supports diverse import sources (PDF/HTML, CSV, Excel, URL, API, manual) with a unified type system, normalization, and storage, including AI fallback for parsing. The `unified-portfolio-import-service.ts` provides centralized import methods:
-- `importFromPDF()`: PDF broker statements and CAS statements
-- `importFromHTML()`: HTML portfolio exports
-- `importFromCSV()`: CSV files with flexible column detection (supports 10+ header variations)
-- `importFromExcel()`: Excel files (.xlsx, .xls) using the xlsx package
-- `importFromURL()`: URL-based portfolio imports (Wealthy.in, etc.)
+The platform integrates a Comprehensive Zoho Ecosystem (CRM, Books, Campaigns, Meeting, Sign) with Zoho CRM as the single source of truth. It features a Profit-Optimized AI Recommendation Engine with deterministic scoring and agent governance. A Unified AI Recommendation Engine centralizes AI-powered investment analysis. A Stock Enrichment System consolidates listed stocks into sectors, and an ISIN Intelligence Layer provides automatic instrument classification. "Pick of the Day" offers daily investment recommendations with AI-generated rationale. The Agent Knowledge Hub provides market intelligence and a Gemini-powered Daily AI Market Brief Engine.
 
-CSV/Excel import features flexible column detection supporting:
-- Names: name, scheme, fund, security, stock, scrip
-- Symbols: symbol, ticker, scrip code, nse, bse
-- Quantities: quantity, qty, units, shares
-- Prices: avg, average, cost, price, nav, buy price
-- Types: type, asset, category, product
-- Dates: date, purchase date, buy date
-
-A **Unified PDF Parser** (`unified-pdf-parser.ts`) provides a single entry point for all PDF parsing operations, combining text extraction, document profiling, semantic data extraction, and holding lots building. Features include:
-- Document type detection for 17+ providers (brokers: Zerodha, Groww, ICICI Direct, HDFC, Kotak, Upstox, Angel One, 5Paisa, Motilal Oswal, Axis Direct, IIFL, Sharekhan; aggregators: MF Central, INDmoney, Kuvera, ET Money, Paytm Money)
-- Layout analysis with page zone detection and AMC block identification
-- Semantic extraction of holdings, transactions, and investor information
-- Purchase date resolution from transaction history
-- Holding lots builder for SIP lot tracking and LTCG/STCG calculations
-- Confidence scoring with component breakdown
-- Pattern learning from successful parses
-- Parsing metrics and observability
-
-A **CAS Statement Service** (`cas-statement-service.ts`) provides specialized CAMS/KFintech CAS PDF parsing with comprehensive advisory features:
-- **Epic 1 - Parsing Core**: ISIN+Folio+Demat anchored scheme block segmentation, multi-line valuation extraction (handles pdf-parse output format), strict 0.5% reconciliation guardrail using pre-enrichment values
-- **Epic 2 - FIFO Lot Ledger** (`fifo-lot-ledger-service.ts`): Transaction normalization (ignores metadata rows), lot creation from purchases, FIFO consumption from redemptions, closing balance reconciliation
-- **Epic 3 - Tax & Exit Load** (`lot-tax-calculator-service.ts`): Asset classification (Equity/Debt/Hybrid/Gold/International), lot-level STCG/LTCG calculation with correct holding period thresholds, exit load simulation
-- **Epic 4 - Agent-Safe Import UX**: Per-holding confidence scores, warnings metadata, `/api/cas-statement/audit-view` endpoint, `/api/cas-statement/tax-analysis` endpoint (gated on reconciliation success)
-- **Epic 5 - Regression Tests** (`cas-parser-regression-test.ts`): Golden CAS fixtures, format variance tests (single-line, multi-line, demat, multi-folio), date parsing tests
-
-**Tiered Fallback Parser** - Three-tier holding classification for incomplete CAS parsing:
-- **Tier 1 (FULL)**: Complete scheme blocks with transactions, eligible for capital gains/exit load calculations
-- **Tier 2 (VALUATION_ONLY)**: Holdings recovered from dropped blocks with NAV+Market value but no transactions, excluded from tax calculations
-- **Tier 3 (SUMMARY_PLACEHOLDER)**: Conservative placeholders for AMCs completely missing from parsed holdings, excluded from tax calculations
-- Design principle: "Prefer incompleteness over false precision" - better to show warnings than create false tax calculations
-- `eligibleForTax` boolean gates tax analysis to Tier 1 holdings only
-- `holdingTier` field enables downstream logic to differentiate treatment
-
-CAS parsing architecture:
-1. Parse text from PDF using unified-pdf-parser
-2. Extract investor info, Portfolio Summary, and scheme blocks
-3. Apply Tier 1 parsing (full scheme blocks with transactions)
-4. Apply Tier 2 recovery (valuation-only blocks with NAV+Market)
-5. Apply Tier 3 injection (conservative placeholders for missing AMCs)
-6. Calculate pre-enrichment summary for strict reconciliation (0.5% threshold)
-7. Enrich holdings from database (updates NAVs with current values)
-8. Build FIFO lot ledger from transactions (Tier 1 only)
-9. Return comprehensive result with confidence scores, tier classifications, and warnings
-
-Test runner: `npx tsx server/tests/run-cas-tests.ts` or `/api/cas-statement/run-tests` (dev mode only)
-
-A Unified Portfolio Storage System consolidates portfolio data for prospects and registered users, ensuring data consistency between the AI Advisory engine and Proposal Builder. The architecture follows a bifurcated storage pattern:
-- **Prospects**: Holdings stored in `prospectClients.currentPortfolio` JSON field
-- **Registered clients (post-KYC)**: Holdings stored in `comprehensiveHoldings` table
-
-Key services:
-- `unified-holdings-reader-service.ts`: Single entry point for reading holdings - routes to correct storage based on client type
-- `kyc-portfolio-migration-service.ts`: Handles KYC completion flow - migrates prospect data to comprehensiveHoldings, clears prospect holdings, enables auto-sync
-- `aa-consent-routes.ts`: Account Aggregator consent management with RBI-compliant audit trail
-
-Auto-sync flow for registered clients: consent granted → clear existing holdings (prevents duplicates) → fetch from AA → store with ISIN+folioNumber duplicate check → update consent timestamp. Import staging UI (`ImportedHoldingsReview.tsx`) allows users to review, approve, edit, or reject individual holdings before final sync to comprehensiveHoldings.
-
-A **Capital Gains & Tax Optimization System** (`proposal-capital-gains-service.ts`, `capital-gains.ts`) provides comprehensive tax planning:
-- LTCG/STCG thresholds: Equity 365 days, pre-Apr 2023 debt 1095 days (with indexation), post-Apr 2023 debt 730 days, gold/silver 730 days
-- Grandfathering benefit using actual Jan 31, 2018 NAV (for equity purchased before Feb 2018)
-- Exit load lookup by ISIN from database with calendar view showing upcoming exit-load-free dates
-- Tax-efficient sell advice API with SELL_NOW/WAIT_FOR_LTCG/WAIT_FOR_EXIT_LOAD recommendations
-- Indexation benefit calculator for debt funds purchased before April 2023 with CII data through 2025-26
-- ITR Schedule CG export with ESTIMATE/ACTUAL modes for tax filing (sections A1, A2, B, C)
-- What-if redemption simulator for tax impact analysis
-
-The platform integrates a Comprehensive Zoho Ecosystem covering CRM, Books, Campaigns, Meeting, and Sign, with Zoho CRM as the single source of truth. A Profit-Optimized AI Recommendation Engine provides multi-mode recommendations with deterministic numeric scoring, agent governance, and A/B testing. A Unified AI Recommendation Engine centralizes AI-powered investment analysis across nine product categories.
-
-A Stock Enrichment System consolidates NSE/BSE listed stocks into broad sectors, and an ISIN Intelligence Layer provides automatic instrument classification. A "Pick of the Day" feature offers daily investment recommendations with AI-generated rationale. The Agent Knowledge Hub provides market intelligence and a Gemini-powered Daily AI Market Brief Engine.
-
-The platform implements SEBI/RBI-compliant payment handling, FEMA compliance, and international transaction management. Offline & Slow-Internet Resilience is achieved through PWA capabilities. A DSA Multi-Financier Loan Routing System enables multi-bank loan applications with RBI Digital Lending Directions 2025 compliance, featuring a credit engine and KFS generation. A DSA Bank Eligibility Matrix System provides configurable bank-specific eligibility rules.
-
-A Bank OAuth Integration Infrastructure provides secure bank API connectivity, including encrypted credential storage, token management, API rate limiting, and RBI-compliant audit logging. An MCA Integration System provides company financial data management with direct payment processing and Zoho Books auto-sync. A Database-First Data Enrichment System for unlisted shares implements a tiered data access pattern for cost optimization.
+The system supports SEBI/RBI-compliant payment handling, FEMA compliance, and international transaction management. It offers Offline & Slow-Internet Resilience via PWA capabilities. A DSA Multi-Financier Loan Routing System ensures RBI Digital Lending Directions 2025 compliance with a credit engine and KFS generation, supported by a DSA Bank Eligibility Matrix System. A Bank OAuth Integration Infrastructure provides secure bank API connectivity. An MCA Integration System manages company financial data, and a Database-First Data Enrichment System optimizes access for unlisted shares.
 
 ### System Design Choices
-The platform utilizes a subdomain-based portal architecture for Admin, Partner, and Client portals with role-based access control. A Financial Metrics Engine provides 40+ derived ratios for investment analysis. FintekPro uses a Centralized Service Registry pattern for singleton management. A Staggered Startup System prevents resource contention during server initialization, and a Fast Boot Optimization ensures the server accepts requests quickly while non-critical services initialize in the background. A Regulatory Gaps Tracker monitors compliance across SEBI, RBI, IRDAI, MCA, and ITD regulators.
+FintekPro uses a subdomain-based portal architecture for Admin, Partner, and Client portals with role-based access control. A Financial Metrics Engine provides 40+ derived ratios. It utilizes a Centralized Service Registry pattern for singleton management. A Staggered Startup System prevents resource contention, and Fast Boot Optimization ensures quick server responsiveness. A Regulatory Gaps Tracker monitors compliance across various regulators.
 
 ## External Dependencies
 
