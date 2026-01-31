@@ -1,0 +1,74 @@
+NEXT STEP (MANDATORY): TRACE THE LIVE DATA FLOW
+You must do this before writing a single line of new code.
+STEP 1 — PROVE WHICH ENDPOINT THE UI IS CALLING
+In browser DevTools → Network tab
+Re-import CAS and capture the request.
+You are looking for something like:
+POST /api/portfolio/import
+POST /api/holdings/import
+POST /api/cas/parse
+🔴 Tell-tale signs of the WRONG path
+If the response JSON contains:
+{
+  "isin": "...",
+  "quantity": ...,
+  "avgPrice": ...,
+  "purchaseDate": null
+}
+Then:
+You are still hitting the legacy holdings importer.
+STEP 2 — ADD A “POISON PILL” LOG (10 minutes)
+This is the fastest way to stop guessing.
+In the CAS parser you modified, add:
+throw new Error('CAS_PARSER_ACTIVE_CHECK');
+Right at the top of the function you edited.
+Then re-import CAS.
+Outcomes:
+Result	Meaning
+❌ UI breaks with error	✔ You found the live path
+❌ Nothing happens	❌ This parser is NOT used
+If nothing happens → stop working on this file immediately. It is dead code.
+STEP 3 — FIND THE REAL ENTRY POINT (CRITICAL)
+Search globally in Replit for:
+importHoldings
+parsePdf
+parseCas
+You will almost certainly find another service, commonly named something like:
+unified-pdf-parser.ts
+portfolio-import.service.ts
+broker-import.service.ts
+This is what Smart Portfolio Import is actually using.
+⚠️ This is why every “fix” appeared to do nothing.
+STEP 4 — TEMPORARILY DISABLE LEGACY AGGREGATION
+In the actual import service, find code like:
+groupByIsin()
+mergeHoldings()
+normalizeHoldings()
+Comment it out and return raw parsed output.
+If the UI suddenly explodes into many rows → you’ve found the choke point.
+STEP 5 — ADD A HARD ASSERT (NO MORE SILENT FAILURE)
+In the real import path:
+if (holding.purchaseDate === null) {
+  throw new Error('LEGACY_HOLDING_MODEL_STILL_USED');
+}
+This forces the system to fail instead of lying.
+🧠 WHY THIS KEEPS HAPPENING (IMPORTANT INSIGHT)
+FintekPro was originally built for:
+CSV
+Broker dumps
+Single purchase assets
+CAS is fundamentally different:
+Ledger-based
+Lot-based
+Date-sensitive
+Tax-sensitive
+You are trying to inject CAS into a non-CAS architecture.
+Until you identify and isolate the CAS-specific pipeline, every fix will be swallowed.
+✅ THE CORRECT NEXT STEP (SUMMARY)
+Do this in order — do not skip:
+Identify actual API endpoint used by UI
+Poison-pill the parser you modified
+Find the real parser being used
+Kill legacy aggregation in that path
+Force failure if purchaseDate === null
+Only after this should you reapply the lot-based diffs.

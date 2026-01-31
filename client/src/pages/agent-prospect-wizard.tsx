@@ -1723,7 +1723,7 @@ export default function AgentProspectWizard() {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('type', casUploadType || 'cas');
-      const res = await fetch(`/api/agent/portfolio/parse-cas`, {
+      const res = await fetch(`/api/agent-wizard/portfolio/parse-cas`, {
         method: 'POST',
         body: formData,
         credentials: 'include'
