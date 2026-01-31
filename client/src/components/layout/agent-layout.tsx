@@ -633,14 +633,23 @@ export function AgentLayout({ children }: AgentLayoutProps) {
         <aside
           data-testid="agent-sidebar"
           className={cn(
-            "bg-slate-900 border-r border-slate-800 transition-all duration-300 sticky top-[73px] h-[calc(100vh-73px)] flex-shrink-0",
+            "bg-slate-900 border-r border-slate-800 transition-all duration-300 flex-shrink-0",
+            "md:sticky md:top-[73px] md:h-[calc(100vh-73px)] md:relative",
+            "max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:top-[73px] max-md:z-40 max-md:h-[calc(100vh-73px)]",
             sidebarOpen ? "w-72 min-w-[288px] overflow-y-auto" : "w-0 min-w-0 overflow-hidden border-0"
           )}
         >
           {sidebarOpen && sidebarContent}
         </aside>
 
-        <main className="flex-1 p-6">
+        {sidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-black/50 z-30 md:hidden" 
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        <main className="flex-1 p-3 md:p-6 w-full">
           <div className="max-w-7xl mx-auto">
             {children}
           </div>

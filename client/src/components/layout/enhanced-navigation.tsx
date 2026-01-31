@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Menu, 
   ChevronDown, 
@@ -56,11 +57,13 @@ import {
   Scale,
   Folder,
   LayoutDashboard,
-  Sparkles
+  Sparkles,
+  X
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/use-cart";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface NavigationSubItem {
   name: string;
@@ -92,6 +95,8 @@ interface NavigationGroup {
 export function EnhancedNavigation() {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const isMobile = useIsMobile();
   const [isCollapsed, setIsCollapsed] = useState(() => {
     try {
       const saved = localStorage.getItem('navigation-collapsed');
@@ -529,6 +534,242 @@ export function EnhancedNavigation() {
     return false;
   };
 
+  const handleMobileNavClick = () => {
+    setMobileOpen(false);
+  };
+
+  const NavigationContent = ({ inSheet = false }: { inSheet?: boolean }) => (
+    <div className="flex flex-col h-full">
+      {/* User Profile Section */}
+      {isAuthenticated && user && (inSheet || !isCollapsed) && (
+        <div className="flex items-center space-x-3 p-4 border-b border-border bg-muted/50">
+          {user?.profileImageUrl && (
+            <img 
+              src={user.profileImageUrl} 
+              alt="Profile" 
+              className="w-8 h-8 rounded-full object-cover"
+            />
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-foreground truncate text-sm">UID: {user?.userId || user?.id || 'N/A'}</p>
+            <p className="text-xs text-muted-foreground truncate">
+              {user?.previousLoginAt 
+                ? `Last login: ${new Date(user.previousLoginAt).toLocaleString('en-IN', { 
+                    dateStyle: 'short', 
+                    timeStyle: 'short' 
+                  })}`
+                : 'Welcome!'}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Navigation Groups */}
+      <ScrollArea className="flex-1">
+        <div className="p-2 space-y-4">
+          {navigationGroups.map((group) => (
+            <div key={group.title} className="space-y-1">
+              <Collapsible 
+                open={openGroups.includes(group.title)}
+                onOpenChange={() => toggleGroup(group.title)}
+              >
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className={`w-full justify-between text-sm font-semibold text-muted-foreground hover:text-foreground ${inSheet || !isCollapsed ? '' : 'justify-center px-0'}`}
+                  >
+                    <span className={inSheet || !isCollapsed ? '' : 'sr-only'}>{group.title}</span>
+                    {(inSheet || !isCollapsed) && (
+                      <ChevronDown className={`h-4 w-4 transition-transform ${openGroups.includes(group.title) ? 'rotate-180' : ''}`} />
+                    )}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-1">
+                  {group.items.map((item) => (
+                    <div key={item.name}>
+                      {item.subItems ? (
+                        <Collapsible
+                          open={openSubItems.includes(item.name)}
+                          onOpenChange={() => toggleSubItem(item.name)}
+                        >
+                          <CollapsibleTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`w-full justify-between ${inSheet || !isCollapsed ? '' : 'justify-center px-0'}`}
+                            >
+                              <div className="flex items-center">
+                                <item.icon className="h-4 w-4" />
+                                {(inSheet || !isCollapsed) && <span className="ml-3">{item.name}</span>}
+                              </div>
+                              {(inSheet || !isCollapsed) && (
+                                <ChevronRight className={`h-4 w-4 transition-transform ${openSubItems.includes(item.name) ? 'rotate-90' : ''}`} />
+                              )}
+                            </Button>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent className="pl-6 space-y-1">
+                            {item.subItems.map((subItem) => (
+                              <div key={subItem.name}>
+                                {subItem.href ? (
+                                  <Link href={subItem.href} onClick={inSheet ? handleMobileNavClick : undefined}>
+                                    <Button
+                                      variant={isItemActive(subItem.href) ? "default" : "ghost"}
+                                      size="sm"
+                                      className="w-full justify-start text-xs"
+                                    >
+                                      {subItem.name}
+                                      {subItem.badge && (
+                                        <Badge variant="secondary" className="ml-auto text-xs">
+                                          {subItem.badge}
+                                        </Badge>
+                                      )}
+                                    </Button>
+                                  </Link>
+                                ) : subItem.subItems ? (
+                                  <Collapsible>
+                                    <CollapsibleTrigger asChild>
+                                      <Button variant="ghost" size="sm" className="w-full justify-between text-xs">
+                                        {subItem.name}
+                                        <ChevronRight className="h-3 w-3" />
+                                      </Button>
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent className="pl-4 space-y-1">
+                                      {subItem.subItems.map((nestedItem) => (
+                                        <Link key={nestedItem.name} href={nestedItem.href} onClick={inSheet ? handleMobileNavClick : undefined}>
+                                          <Button
+                                            variant={isItemActive(nestedItem.href) ? "default" : "ghost"}
+                                            size="sm"
+                                            className="w-full justify-start text-xs"
+                                          >
+                                            {nestedItem.name}
+                                          </Button>
+                                        </Link>
+                                      ))}
+                                    </CollapsibleContent>
+                                  </Collapsible>
+                                ) : null}
+                              </div>
+                            ))}
+                          </CollapsibleContent>
+                        </Collapsible>
+                      ) : item.href ? (
+                        <Link href={item.href} onClick={inSheet ? handleMobileNavClick : undefined}>
+                          <Button
+                            variant={isItemActive(item.href) ? "default" : "ghost"}
+                            size="sm"
+                            className={`w-full ${inSheet || !isCollapsed ? 'justify-start' : 'justify-center px-0'}`}
+                            title={isCollapsed && !inSheet ? item.name : undefined}
+                          >
+                            <item.icon className="h-4 w-4" />
+                            {(inSheet || !isCollapsed) && <span className="ml-3">{item.name}</span>}
+                            {(inSheet || !isCollapsed) && item.badge && (
+                              <Badge variant="secondary" className="ml-auto text-xs">
+                                {item.badge}
+                              </Badge>
+                            )}
+                          </Button>
+                        </Link>
+                      ) : null}
+                    </div>
+                  ))}
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
+          ))}
+        </div>
+      </ScrollArea>
+
+      {/* Bottom Actions */}
+      <div className="p-2 border-t border-border">
+        <Link href="/referral-program" onClick={inSheet ? handleMobileNavClick : undefined}>
+          <Button 
+            variant="ghost" 
+            size="sm"
+            className={`${inSheet || !isCollapsed ? 'w-full justify-start' : 'w-full justify-center px-0'} mb-1`}
+            title={isCollapsed && !inSheet ? "Refer & Earn" : undefined}
+          >
+            <Crown className="h-4 w-4 text-amber-500" />
+            {(inSheet || !isCollapsed) && <span className="ml-3">Refer & Earn</span>}
+          </Button>
+        </Link>
+        
+        <Link href="/settings" onClick={inSheet ? handleMobileNavClick : undefined}>
+          <Button 
+            variant="ghost" 
+            size="sm"
+            className={`${inSheet || !isCollapsed ? 'w-full justify-start' : 'w-full justify-center px-0'} mb-1`}
+            title={isCollapsed && !inSheet ? "Settings" : undefined}
+          >
+            <Settings2 className="h-4 w-4" />
+            {(inSheet || !isCollapsed) && <span className="ml-3">Settings</span>}
+          </Button>
+        </Link>
+        
+        {isAuthenticated ? (
+          <Button 
+            variant="ghost" 
+            size="sm"
+            className={`${inSheet || !isCollapsed ? 'w-full justify-start' : 'w-full justify-center px-0'}`}
+            onClick={() => {
+              handleLogout();
+              if (inSheet) handleMobileNavClick();
+            }}
+            title={isCollapsed && !inSheet ? "Logout" : undefined}
+          >
+            <LogOut className="h-4 w-4" />
+            {(inSheet || !isCollapsed) && <span className="ml-3">Logout</span>}
+          </Button>
+        ) : (
+          <Link href="/auth" onClick={inSheet ? handleMobileNavClick : undefined}>
+            <Button 
+              className={`${inSheet || !isCollapsed ? 'w-full justify-start' : 'w-full justify-center px-0'}`}
+              size="sm"
+              title={isCollapsed && !inSheet ? "Login" : undefined}
+            >
+              <UserIcon className="h-4 w-4" />
+              {(inSheet || !isCollapsed) && <span className="ml-3">Login</span>}
+            </Button>
+          </Link>
+        )}
+        
+        <Link href="/support" onClick={inSheet ? handleMobileNavClick : undefined}>
+          <Button 
+            variant="ghost" 
+            size="sm"
+            className={`${inSheet || !isCollapsed ? 'w-full justify-start' : 'w-full justify-center px-0'}`}
+            title={isCollapsed && !inSheet ? "Support & Help" : undefined}
+          >
+            <HelpCircle className="h-4 w-4" />
+            {(inSheet || !isCollapsed) && <span className="ml-3">Support & Help</span>}
+          </Button>
+        </Link>
+      </div>
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetTrigger asChild>
+          <Button variant="ghost" size="icon" className="shrink-0">
+            <Menu className="h-5 w-5" />
+            <span className="sr-only">Toggle navigation menu</span>
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="w-[280px] p-0">
+          <SheetHeader className="p-4 border-b">
+            <SheetTitle className="flex items-center justify-between">
+              <Link href="/" onClick={handleMobileNavClick}>
+                <span className="text-xl font-bold text-primary">FintekPro</span>
+              </Link>
+            </SheetTitle>
+          </SheetHeader>
+          <NavigationContent inSheet={true} />
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
   return (
     <>
       {/* Left Sidebar with Sticky Positioning */}
@@ -555,255 +796,10 @@ export function EnhancedNavigation() {
               {isCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
             </Button>
           </div>
-
-          {/* User Profile Section */}
-          {isAuthenticated && user && !isCollapsed && (
-            <div className="flex items-center space-x-3 p-4 border-b border-border bg-muted/50">
-              {user?.profileImageUrl && (
-                <img 
-                  src={user.profileImageUrl} 
-                  alt="Profile" 
-                  className="w-8 h-8 rounded-full object-cover"
-                />
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-foreground truncate text-sm">UID: {user?.userId || user?.id || 'N/A'}</p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {user?.previousLoginAt 
-                    ? `Last login: ${new Date(user.previousLoginAt).toLocaleString('en-IN', { 
-                        dateStyle: 'short', 
-                        timeStyle: 'short' 
-                      })}`
-                    : 'First login'}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Quick Actions */}
-          <div className="p-2 border-b border-border">
-            <div className="space-y-1">
-              {/* Cart Button */}
-              <Link href="/unified-cart">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className={`relative ${isCollapsed ? 'w-full justify-center px-0' : 'w-full justify-start'}`}
-                  data-testid="sidebar-cart-button"
-                >
-                  <ShoppingCart className="h-4 w-4" />
-                  {!isCollapsed && <span className="ml-2">Cart</span>}
-                  {cart && cart.totalItems > 0 && (
-                    <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 rounded-full p-0 text-xs flex items-center justify-center">
-                      {cart.totalItems}
-                    </Badge>
-                  )}
-                </Button>
-              </Link>
-            </div>
-          </div>
-
-          {/* Navigation Content */}
-          <div className="flex-1 overflow-y-auto p-2">
-            <div className="space-y-4">
-              {navigationGroups.map((group) => (
-                <div key={group.title} className="space-y-2">
-                  {!isCollapsed && (
-                    <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-2 py-1 bg-muted/40 dark:bg-gray-800/50 rounded">
-                      {group.title}
-                    </h3>
-                  )}
-                  {group.items.map((item) => (
-                    <div key={item.name}>
-                      {item.href ? (
-                        <Link href={item.href}>
-                          <Button
-                            variant={isItemActive(item.href) ? "default" : "ghost"}
-                            size="sm"
-                            className={`${isCollapsed ? 'w-full justify-center px-0' : 'w-full justify-start'}`}
-                            data-testid={`sidebar-nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
-                            title={isCollapsed ? item.name : undefined}
-                          >
-                            <item.icon className="h-4 w-4" />
-                            {!isCollapsed && <span className="ml-3">{item.name}</span>}
-                          </Button>
-                        </Link>
-                      ) : (
-                        <Collapsible 
-                          open={openGroups.includes(item.name)} 
-                          onOpenChange={() => toggleGroup(item.name)}
-                        >
-                          <CollapsibleTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className={`${isCollapsed ? 'w-full justify-center px-0' : 'w-full justify-between'} ${
-                                item.name === 'Store' 
-                                  ? 'bg-green-600 hover:bg-green-700 text-white hover:text-white dark:bg-green-600 dark:hover:bg-green-700' 
-                                  : ''
-                              }`}
-                              data-testid={`sidebar-nav-group-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
-                              title={isCollapsed ? item.name : undefined}
-                            >
-                              <div className="flex items-center">
-                                <item.icon className="h-4 w-4" />
-                                {!isCollapsed && <span className="ml-3">{item.name}</span>}
-                              </div>
-                              {!isCollapsed && (
-                                openGroups.includes(item.name) ? 
-                                  <ChevronDown className="h-3 w-3" /> : 
-                                  <ChevronRight className="h-3 w-3" />
-                              )}
-                            </Button>
-                          </CollapsibleTrigger>
-                          {!isCollapsed && (
-                            <CollapsibleContent className="space-y-1 ml-2 pl-2 bg-muted/20 dark:bg-gray-800/40 rounded-md py-1">
-                              {item.subItems?.map((subItem) => (
-                                <div key={subItem.name}>
-                                  {subItem.href ? (
-                                    <Link href={subItem.href}>
-                                      <Button
-                                        variant={isItemActive(subItem.href) ? "default" : "ghost"}
-                                        size="sm"
-                                        className="w-full justify-start text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-white"
-                                        data-testid={`sidebar-nav-${subItem.name.toLowerCase().replace(/\s+/g, '-')}`}
-                                      >
-                                        {subItem.name}
-                                        {subItem.badge && (
-                                          <Badge variant="secondary" className="ml-auto text-xs">
-                                            {subItem.badge}
-                                          </Badge>
-                                        )}
-                                      </Button>
-                                    </Link>
-                                  ) : (
-                                    <Collapsible 
-                                      open={openSubItems.includes(subItem.name)} 
-                                      onOpenChange={() => toggleSubItem(subItem.name)}
-                                    >
-                                      <CollapsibleTrigger asChild>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="w-full justify-between text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-white"
-                                          data-testid={`sidebar-nav-subgroup-${subItem.name.toLowerCase().replace(/\s+/g, '-')}`}
-                                        >
-                                          <span>{subItem.name}</span>
-                                          {openSubItems.includes(subItem.name) ? 
-                                            <ChevronDown className="h-3 w-3" /> : 
-                                            <ChevronRight className="h-3 w-3" />
-                                          }
-                                        </Button>
-                                      </CollapsibleTrigger>
-                                      <CollapsibleContent className="space-y-1 ml-2 pl-2 bg-muted/30 dark:bg-gray-800/60 rounded-md py-1">
-                                        {subItem.subItems?.map((nestedItem) => (
-                                          <Link key={nestedItem.name} href={nestedItem.href}>
-                                            <Button
-                                              variant={isItemActive(nestedItem.href) ? "default" : "ghost"}
-                                              size="sm"
-                                              className="w-full justify-start text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-white"
-                                              data-testid={`sidebar-nav-${nestedItem.name.toLowerCase().replace(/\s+/g, '-')}`}
-                                            >
-                                              {nestedItem.name}
-                                              {nestedItem.badge && (
-                                                <Badge variant="secondary" className="ml-auto text-xs">
-                                                  {nestedItem.badge}
-                                                </Badge>
-                                              )}
-                                            </Button>
-                                          </Link>
-                                        ))}
-                                      </CollapsibleContent>
-                                    </Collapsible>
-                                  )}
-                                </div>
-                              ))}
-                            </CollapsibleContent>
-                          )}
-                        </Collapsible>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Bottom Actions */}
-          <div className="p-2 border-t border-gray-200 dark:border-gray-700">
-            {/* Referral Program */}
-            <Link href="/referral-program">
-              <Button 
-                variant="ghost" 
-                size="sm"
-                className={`${isCollapsed ? 'w-full justify-center px-0' : 'w-full justify-start'} mb-1`}
-                data-testid="sidebar-referral-button"
-                title={isCollapsed ? "Refer & Earn" : undefined}
-              >
-                <Crown className="h-4 w-4 text-amber-500" />
-                {!isCollapsed && <span className="ml-3">Refer & Earn</span>}
-              </Button>
-            </Link>
-            
-            {/* Settings - prominently placed at top of footer */}
-            <Link href="/settings">
-              <Button 
-                variant="ghost" 
-                size="sm"
-                className={`${isCollapsed ? 'w-full justify-center px-0' : 'w-full justify-start'} mb-1`}
-                data-testid="sidebar-settings-button"
-                title={isCollapsed ? "Settings" : undefined}
-              >
-                <Settings2 className="h-4 w-4" />
-                {!isCollapsed && <span className="ml-3">Settings</span>}
-              </Button>
-            </Link>
-            
-            {isAuthenticated ? (
-              <div className="space-y-1">
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  className={`${isCollapsed ? 'w-full justify-center px-0' : 'w-full justify-start'}`}
-                  onClick={handleLogout}
-                  data-testid="sidebar-logout-button"
-                  title={isCollapsed ? "Logout" : undefined}
-                >
-                  <LogOut className="h-4 w-4" />
-                  {!isCollapsed && <span className="ml-3">Logout</span>}
-                </Button>
-              </div>
-            ) : (
-              <Link href="/auth">
-                <Button 
-                  className={`${isCollapsed ? 'w-full justify-center px-0' : 'w-full justify-start'}`}
-                  size="sm"
-                  data-testid="sidebar-login-button"
-                  title={isCollapsed ? "Login" : undefined}
-                >
-                  <UserIcon className="h-4 w-4" />
-                  {!isCollapsed && <span className="ml-3">Login</span>}
-                </Button>
-              </Link>
-            )}
-            
-            {/* Support */}
-            <Link href="/support">
-              <Button 
-                variant="ghost" 
-                size="sm"
-                className={`${isCollapsed ? 'w-full justify-center px-0' : 'w-full justify-start'}`}
-                data-testid="sidebar-support-button"
-                title={isCollapsed ? "Support & Help" : undefined}
-              >
-                <HelpCircle className="h-4 w-4" />
-                {!isCollapsed && <span className="ml-3">Support & Help</span>}
-              </Button>
-            </Link>
-          </div>
+          
+          <NavigationContent />
         </div>
       </aside>
-
     </>
   );
 }
