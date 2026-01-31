@@ -32,6 +32,7 @@ import jsPDF from "jspdf";
 import PortfolioImportPanel from "@/components/portfolio/PortfolioImportPanel";
 
 interface PortfolioHolding {
+  id?: string;
   productType: string;
   productName: string;
   quantity: number;
@@ -40,6 +41,7 @@ interface PortfolioHolding {
   purchaseDate?: string;
   isin?: string;
   category?: string;
+  symbol?: string;
 }
 
 // Map frontend productType to backend assetType (backend schema has limited enum values)
@@ -113,6 +115,16 @@ interface PortfolioAnalysis {
   underperformers: PortfolioHolding[];
 }
 
+interface TaxImplicationsObject {
+  taxType: string;
+  isSlabBased?: boolean;
+  estimatedGain: number;
+  estimatedTax?: number;
+  exitLoad?: number;
+  grandfatheringBenefit?: number;
+  alerts?: Array<{ type: string; message: string }>;
+}
+
 interface RebalanceRecommendation {
   action: 'BUY' | 'SELL' | 'HOLD' | 'SWITCH';
   productType: string;
@@ -120,10 +132,10 @@ interface RebalanceRecommendation {
   currentValue?: number;
   suggestedValue?: number;
   changeAmount: number;
-  switchAmount?: number; // For SWITCH actions - the actual value being switched
+  switchAmount?: number;
   rationale: string;
   priority: 'high' | 'medium' | 'low';
-  taxImplications?: string;
+  taxImplications?: string | TaxImplicationsObject;
   targetFund?: {
     name: string;
     amc: string;
