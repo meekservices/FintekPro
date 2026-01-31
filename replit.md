@@ -3,6 +3,26 @@
 ## Overview
 FintekPro is a full-stack TypeScript financial services platform designed for personal finance and investment management. It provides a secure, integrated solution for financial planning, portfolio management, and real-time market data across various asset classes including stocks, mutual funds, IPOs, bonds, and unlisted company trading. The platform includes features such as family collaboration, unified KYC compliance, an AI-powered financial assistant, and an Unlisted Marketplace. FintekPro aims to empower individual investors and financial advisors with advanced tools and insights, with the vision of becoming a leading digital financial ecosystem.
 
+## Sub-DSA Platform Statement
+**FintekPro operates as a Sub-DSA platform supporting multiple origination modes with a single loan lifecycle, commission engine, and reporting spine. Origination determines who controls the workflow, not how the loan is processed financially.**
+
+### Loan Origination Modes
+- **SELF_SERVICE**: Customer directly applies through the platform (marketplace flow)
+- **AGENT_ASSISTED**: Agent assists the customer with the application (Sub-DSA flow)
+
+### Routing Intent
+- **MARKETPLACE**: System auto-routes to eligible banks based on eligibility rules
+- **SPECIFIC_BANKS**: Agent manually selects target banks (no auto-routing)
+
+### Workflow Owner
+- **SYSTEM**: Platform-owned workflow with system SLA tracking
+- **AGENT**: Agent-owned workflow with agent accountability
+
+### Governance Files
+- `shared/loan-origination.constants.ts`: Core domain definitions (mandatory import for all loan services)
+- `server/services/loan-governance-service.ts`: Routing discipline enforcement, SLA management, lifecycle assertions
+- `shared/dsa-loan-schema.ts`: Database schema with governance fields
+
 ## User Preferences
 I want iterative development.
 I prefer detailed explanations.

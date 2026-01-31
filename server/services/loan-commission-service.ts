@@ -7,6 +7,11 @@ import {
 } from "@shared/schema";
 import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import {
+  OriginationMode,
+  RoutingIntent,
+  CURRENT_COMMISSION_POLICY_VERSION,
+} from "@shared/loan-origination.constants";
 
 export type LoanProductType = 
   | 'personal' 
@@ -166,6 +171,53 @@ export interface CommissionLedgerEntry {
 }
 
 class LoanCommissionService {
+  /**
+   * SUB-DSA GOVERNANCE: Unified commission calculation with origination mode
+   * This is the unified commission calculation method that accepts all required inputs
+   * for proper governance and audit trail.
+   */
+  calculateUnifiedCommission(params: {
+    originationMode: OriginationMode;
+    routingIntent: RoutingIntent;
+    agentRole?: string;
+    bankCode: string;
+    disbursementAmount: number;
+    productType: LoanProductType;
+    commissionPolicyVersion?: string;
+    customRate?: number;
+    customShares?: { fintekPro?: number; partner?: number; agent?: number };
+  }): CommissionCalculationResult & {
+    originationMode: OriginationMode;
+    routingIntent: RoutingIntent;
+    bankCode: string;
+    commissionPolicyVersion: string;
+  } {
+    const baseResult = this.calculateCommission(
+      params.disbursementAmount,
+      params.productType,
+      params.customRate,
+      params.customShares
+    );
+
+    // Agent-assisted applications may have different agent share based on agent role
+    let adjustedAgentAmount = baseResult.agentAmount;
+    if (params.originationMode === OriginationMode.AGENT_ASSISTED && params.agentRole) {
+      // Master agents get higher share
+      if (params.agentRole === "master_agent") {
+        adjustedAgentAmount = baseResult.agentAmount * 1.2; // 20% bonus
+      }
+    }
+
+    return {
+      ...baseResult,
+      agentAmount: Math.round(adjustedAgentAmount * 100) / 100,
+      originationMode: params.originationMode,
+      routingIntent: params.routingIntent,
+      bankCode: params.bankCode,
+      commissionPolicyVersion: params.commissionPolicyVersion || CURRENT_COMMISSION_POLICY_VERSION,
+    };
+  }
+
   calculateCommission(
     loanAmount: number,
     productType: LoanProductType,

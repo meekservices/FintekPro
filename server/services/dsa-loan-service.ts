@@ -18,6 +18,10 @@ import {
   BankConnector,
 } from "@shared/schema";
 import { nanoid } from "nanoid";
+import {
+  SELF_SERVICE_DEFAULTS,
+  CURRENT_COMMISSION_POLICY_VERSION,
+} from "@shared/loan-origination.constants";
 
 type DsaLoanStatus = 'draft' | 'submitted' | 'eligibility_check' | 'routed' | 
   'pending_with_banks' | 'in_review' | 'approved' | 'rejected' | 
@@ -73,6 +77,11 @@ class DsaLoanService {
         loanType: data.loanType || 'personal',
         requestedAmount: data.requestedAmount || '0',
         requestedTenure: data.requestedTenure || 12,
+        // SUB-DSA GOVERNANCE: Hard-coded for self-service flow
+        originationMode: SELF_SERVICE_DEFAULTS.originationMode,
+        routingIntent: SELF_SERVICE_DEFAULTS.routingIntent,
+        workflowOwner: SELF_SERVICE_DEFAULTS.workflowOwner,
+        commissionPolicyVersion: CURRENT_COMMISSION_POLICY_VERSION,
       } as any)
       .returning();
 

@@ -96,7 +96,7 @@ router.get("/dashboard/stats", async (req: Request, res: Response) => {
 
 router.get("/applications", async (req: Request, res: Response) => {
   try {
-    const { status, loanType, bankCode, fromDate, toDate, limit, offset, search } = req.query;
+    const { status, loanType, bankCode, fromDate, toDate, limit, offset, search, originationMode, routingIntent, agentId } = req.query;
     
     let query = db.select().from(dsaLoanApplications);
     const conditions = [];
@@ -105,6 +105,12 @@ router.get("/applications", async (req: Request, res: Response) => {
     if (loanType) conditions.push(eq(dsaLoanApplications.loanType, loanType as string));
     if (fromDate) conditions.push(gte(dsaLoanApplications.createdAt, new Date(fromDate as string)));
     if (toDate) conditions.push(lte(dsaLoanApplications.createdAt, new Date(toDate as string)));
+    
+    // SUB-DSA GOVERNANCE: Mandatory filters for audit and reporting
+    if (originationMode) conditions.push(eq((dsaLoanApplications as any).originationMode, originationMode as string));
+    if (routingIntent) conditions.push(eq((dsaLoanApplications as any).routingIntent, routingIntent as string));
+    if (agentId) conditions.push(eq(dsaLoanApplications.agentId, agentId as string));
+    if (bankCode) conditions.push(sql`${bankCode} = ANY(${dsaLoanApplications.routedBanks})`);
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 

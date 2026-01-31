@@ -12,8 +12,16 @@ import {
   agentPayoutClaims,
   agentLoanStatusHistory,
   dsaCommissionTracking,
+  bankInteractionEvents,
 } from "@shared/dsa-loan-schema";
 import { users, agentClientMappingRequests } from "@shared/schema";
+import {
+  OriginationMode,
+  RoutingIntent,
+  WorkflowOwner,
+  AGENT_ASSISTED_DEFAULTS,
+  CURRENT_COMMISSION_POLICY_VERSION,
+} from "@shared/loan-origination.constants";
 
 const router = Router();
 
@@ -245,6 +253,11 @@ router.post("/applications", async (req: Request, res: Response) => {
         targetBanks: parsed.targetBanks || [],
         dsaCode: parsed.dsaCode,
         subDsaCode: parsed.subDsaCode,
+        // SUB-DSA GOVERNANCE: Hard-coded - Do not trust frontend
+        originationMode: AGENT_ASSISTED_DEFAULTS.originationMode,
+        routingIntent: AGENT_ASSISTED_DEFAULTS.routingIntent,
+        workflowOwner: AGENT_ASSISTED_DEFAULTS.workflowOwner,
+        commissionPolicyVersion: CURRENT_COMMISSION_POLICY_VERSION,
       } as any)
       .returning();
 
@@ -445,7 +458,7 @@ router.post("/applications/:id/submit-to-bank", async (req: Request, res: Respon
       return res.status(401).json({ success: false, error: "Unauthorized" });
     }
 
-    const { bankCodes, submissionReference } = req.body;
+    const { bankCodes, submissionReference, lenderDisclaimerAccepted } = req.body;
 
     if (!bankCodes || !Array.isArray(bankCodes) || bankCodes.length === 0) {
       return res.status(400).json({ success: false, error: "bankCodes array is required" });
@@ -464,6 +477,23 @@ router.post("/applications/:id/submit-to-bank", async (req: Request, res: Respon
 
     if (!application) {
       return res.status(404).json({ success: false, error: "Application not found" });
+    }
+
+    // SUB-DSA GOVERNANCE: Enforce lender disclaimer before first bank submission
+    if (!(application as any).lenderDisclaimerAt) {
+      if (!lenderDisclaimerAccepted) {
+        return res.status(400).json({
+          success: false,
+          error: "Lender disclaimer must be accepted before first bank submission",
+          disclaimerRequired: true,
+          disclaimerText: "FintekPro acts as a Sub-DSA / facilitation platform. Final credit decision rests with the lender.",
+        });
+      }
+      // Record disclaimer acceptance
+      await db
+        .update(dsaLoanApplications)
+        .set({ lenderDisclaimerAt: new Date() } as any)
+        .where(eq(dsaLoanApplications.id, req.params.id));
     }
 
     const banks = await db
@@ -516,6 +546,19 @@ router.post("/applications/:id/submit-to-bank", async (req: Request, res: Respon
       affectedFields: ["routedBanks", "routingMode", "status"],
       req,
     });
+
+    // SUB-DSA GOVERNANCE: Log bank interaction events for audit trail
+    for (const bankCode of bankCodes) {
+      await db.insert(bankInteractionEvents).values({
+        loanId: req.params.id,
+        bankCode,
+        eventType: "RECEIVED" as any,
+        reportedBy: "AGENT" as any,
+        reportedById: agentId,
+        referenceId: submissionReference,
+        remarks: `Application submitted to ${bankCode} via agent manual routing`,
+      } as any);
+    }
 
     res.json({
       success: true,

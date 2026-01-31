@@ -90,18 +90,48 @@ const loanTypeLabels: Record<string, string> = {
   lap: "Loan Against Property",
 };
 
+// Sub-DSA Governance filter options
+const originationModeOptions = [
+  { value: "all", label: "All Origins" },
+  { value: "SELF_SERVICE", label: "Self-Service" },
+  { value: "AGENT_ASSISTED", label: "Agent-Assisted" },
+];
+
+const routingIntentOptions = [
+  { value: "all", label: "All Routing" },
+  { value: "MARKETPLACE", label: "Marketplace" },
+  { value: "SPECIFIC_BANKS", label: "Specific Banks" },
+];
+
 export default function AdminDsaLoanDashboard() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("overview");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedApplication, setSelectedApplication] = useState<string | null>(null);
+  
+  // SUB-DSA GOVERNANCE: Mandatory filters
+  const [originationModeFilter, setOriginationModeFilter] = useState<string>("all");
+  const [routingIntentFilter, setRoutingIntentFilter] = useState<string>("all");
+  const [bankCodeFilter, setBankCodeFilter] = useState<string>("all");
 
   const { data: statsData, isLoading: statsLoading, refetch: refetchStats } = useQuery<{ success: boolean; data: DashboardStats }>({
     queryKey: ["/api/admin/dsa-loans/dashboard/stats"],
   });
 
+  // SUB-DSA GOVERNANCE: Build query URL with all mandatory filters
+  const buildApplicationsQueryUrl = () => {
+    const params = new URLSearchParams();
+    if (statusFilter !== "all") params.append("status", statusFilter);
+    if (originationModeFilter !== "all") params.append("originationMode", originationModeFilter);
+    if (routingIntentFilter !== "all") params.append("routingIntent", routingIntentFilter);
+    if (bankCodeFilter !== "all") params.append("bankCode", bankCodeFilter);
+    const queryString = params.toString();
+    return queryString ? `/api/admin/dsa-loans/applications?${queryString}` : "/api/admin/dsa-loans/applications";
+  };
+
   const { data: applicationsData, isLoading: applicationsLoading, refetch: refetchApplications } = useQuery<{ success: boolean; data: LoanApplication[]; meta: { total: number } }>({
-    queryKey: [statusFilter === "all" ? "/api/admin/dsa-loans/applications" : `/api/admin/dsa-loans/applications?status=${statusFilter}`],
+    queryKey: ["/api/admin/dsa-loans/applications", statusFilter, originationModeFilter, routingIntentFilter, bankCodeFilter],
+    queryFn: () => fetch(buildApplicationsQueryUrl()).then(res => res.json()),
   });
 
   const { data: banksData } = useQuery<{ success: boolean; data: any[] }>({
@@ -313,19 +343,56 @@ export default function AdminDsaLoanDashboard() {
                 <CardTitle>Recent Applications</CardTitle>
                 <CardDescription>Latest loan applications in the system</CardDescription>
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="submitted">Submitted</SelectItem>
-                  <SelectItem value="routed">Routed</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2 flex-wrap">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="draft">Draft</SelectItem>
+                    <SelectItem value="submitted">Submitted</SelectItem>
+                    <SelectItem value="routed">Routed</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                {/* SUB-DSA GOVERNANCE: Mandatory filters */}
+                <Select value={originationModeFilter} onValueChange={setOriginationModeFilter}>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue placeholder="Origination" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {originationModeOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                <Select value={routingIntentFilter} onValueChange={setRoutingIntentFilter}>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue placeholder="Routing" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {routingIntentOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                <Select value={bankCodeFilter} onValueChange={setBankCodeFilter}>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue placeholder="Bank" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Banks</SelectItem>
+                    {banks.map((bank: any) => (
+                      <SelectItem key={bank.bankCode} value={bank.bankCode}>{bank.bankName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardHeader>
           <CardContent>

@@ -56,6 +56,36 @@ export const payoutClaimStatusEnum = pgEnum("payout_claim_status", [
   "paid"
 ]);
 
+// ============== SUB-DSA GOVERNANCE ENUMS ==============
+
+export const originationModeEnum = pgEnum("origination_mode", [
+  "SELF_SERVICE",
+  "AGENT_ASSISTED"
+]);
+
+export const routingIntentEnum = pgEnum("routing_intent", [
+  "MARKETPLACE",
+  "SPECIFIC_BANKS"
+]);
+
+export const workflowOwnerEnum = pgEnum("workflow_owner", [
+  "SYSTEM",
+  "AGENT"
+]);
+
+export const bankInteractionEventTypeEnum = pgEnum("bank_interaction_event_type", [
+  "RECEIVED",
+  "QUERY",
+  "APPROVED",
+  "DISBURSED"
+]);
+
+export const bankInteractionReporterEnum = pgEnum("bank_interaction_reporter", [
+  "AGENT",
+  "WEBHOOK",
+  "ADMIN"
+]);
+
 export const dsaLoanApplications = pgTable("dsa_loan_applications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   applicationNumber: varchar("application_number").unique(),
@@ -133,6 +163,23 @@ export const dsaLoanApplications = pgTable("dsa_loan_applications", {
   actualDisbursementDate: date("actual_disbursement_date"),
   disbursementProofUrl: varchar("disbursement_proof_url"),
   bankConfirmationNumber: varchar("bank_confirmation_number"),
+  
+  // ============== SUB-DSA GOVERNANCE FIELDS ==============
+  // Origination mode determines how the loan was initiated
+  originationMode: originationModeEnum("origination_mode").default("SELF_SERVICE").notNull(),
+  // Routing intent determines auto vs manual bank routing
+  routingIntent: routingIntentEnum("routing_intent").default("MARKETPLACE").notNull(),
+  // Workflow owner determines SLA accountability
+  workflowOwner: workflowOwnerEnum("workflow_owner").default("SYSTEM").notNull(),
+  // Lender disclaimer acceptance timestamp (required before first bank submission)
+  lenderDisclaimerAt: timestamp("lender_disclaimer_at"),
+  // Commission policy version for audit trail
+  commissionPolicyVersion: varchar("commission_policy_version").default("v1"),
+  
+  // ============== SLA TRACKING FIELDS ==============
+  slaStartAt: timestamp("sla_start_at"),
+  slaExpectedBy: timestamp("sla_expected_by"),
+  slaBreachedAt: timestamp("sla_breached_at"),
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -365,6 +412,47 @@ export const loanWebhookEvents = pgTable("loan_webhook_events", {
   
   receivedAt: timestamp("received_at").defaultNow(),
 });
+
+// ============== SUB-DSA BANK INTERACTION EVENTS ==============
+// Mandatory for Sub-DSA audit readiness - tracks all bank interactions
+export const bankInteractionEvents = pgTable("bank_interaction_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Loan reference
+  loanId: varchar("loan_id").references(() => dsaLoanApplications.id).notNull(),
+  
+  // Bank and event details
+  bankCode: varchar("bank_code").notNull(),
+  eventType: bankInteractionEventTypeEnum("event_type").notNull(),
+  
+  // Who reported this event
+  reportedBy: bankInteractionReporterEnum("reported_by").notNull(),
+  reportedById: varchar("reported_by_id").references(() => users.id),
+  
+  // Reference and remarks
+  referenceId: varchar("reference_id"),
+  remarks: text("remarks"),
+  
+  // Additional metadata
+  metadata: jsonb("metadata").$type<{
+    approvedAmount?: string;
+    disbursedAmount?: string;
+    interestRate?: string;
+    queryDetails?: string;
+    responseDeadline?: string;
+  }>(),
+  
+  // Immutable timestamp
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertBankInteractionEventSchema = createInsertSchema(bankInteractionEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type BankInteractionEvent = typeof bankInteractionEvents.$inferSelect;
+export type InsertBankInteractionEvent = z.infer<typeof insertBankInteractionEventSchema>;
 
 export const insertDsaLoanApplicationSchema = createInsertSchema(dsaLoanApplications).omit({
   id: true,
