@@ -739,6 +739,9 @@ export default function AgentProspectWizard() {
   const [casPreviewError, setCasPreviewError] = useState<string | null>(null);
   const [casPreviewMode, setCasPreviewMode] = useState(false);
   const [casImportSummary, setCasImportSummary] = useState<string | null>(null);
+  // STEP 5 (FIX SPEC): Track date warning for save blocker
+  const [casDateWarning, setCasDateWarning] = useState<string | null>(null);
+  const [casLotCounts, setCasLotCounts] = useState<{ withLots: number; withMultipleLots: number; withoutLots: number } | null>(null);
   const [expandedHoldingIds, setExpandedHoldingIds] = useState<Set<string>>(new Set());
   const [showEditHoldingsDialog, setShowEditHoldingsDialog] = useState(false);
   const [editableHoldings, setEditableHoldings] = useState<Array<{
@@ -1717,12 +1720,17 @@ export default function AgentProspectWizard() {
         setCasPreviewMode(true);
         setCasPreviewError(null);
         setCasImportSummary(data.importSummary || null);
+        // STEP 5 (FIX SPEC): Capture date warning and lot counts from backend
+        setCasDateWarning(data.dateWarningMessage || null);
+        setCasLotCounts(data.lotCounts || null);
         if (data.holdings.some((h: any) => (h.confidenceScore || 100) < 70)) {
           setCasPreviewError(`Some holdings have low confidence. Please review before importing.`);
         }
       } else {
         setCasPreviewError(data.errors?.join('; ') || data.error || 'No holdings found in the PDF');
         setCasImportSummary(null);
+        setCasDateWarning(null);
+        setCasLotCounts(null);
       }
     },
     onError: (error: any) => {
@@ -2722,6 +2730,9 @@ export default function AgentProspectWizard() {
                   setCasPreviewHoldings([]);
                   setCasPreviewMode(false);
                   setCasPreviewError(null);
+                  // STEP 5/6 (FIX SPEC): Clear date warning and lot counts
+                  setCasDateWarning(null);
+                  setCasLotCounts(null);
                 }
               }}>
                 <DialogContent className={casPreviewMode ? "max-w-4xl max-h-[85vh] overflow-hidden flex flex-col" : "max-w-lg"}>
@@ -2809,22 +2820,25 @@ export default function AgentProspectWizard() {
                                     )}
                                   </TableCell>
                                   <TableCell className="text-center">
-                                    {lotsCount > 0 ? (
+                                    {/* STEP 4 (FIX SPEC): Render from LOTS, not holding fields
+                                        - 1 lot = show actual date
+                                        - Multiple lots = "Multiple dates" 
+                                        - 0 lots = "Unavailable" */}
+                                    {lotsCount === 1 && holding.lots?.[0]?.purchaseDate ? (
+                                      <div className="text-xs font-medium">
+                                        {new Date(holding.lots[0].purchaseDate).toLocaleDateString('en-IN', { 
+                                          day: '2-digit', month: 'short', year: 'numeric' 
+                                        })}
+                                      </div>
+                                    ) : lotsCount > 1 ? (
                                       <div>
-                                        <div className="text-xs font-medium">
-                                          {lotsCount === 1 ? '1 purchase' : `${lotsCount} purchases`}
+                                        <div className="text-xs font-medium text-blue-600">Multiple dates</div>
+                                        <div className="text-xs text-muted-foreground">
+                                          {lotsCount} purchases
                                         </div>
-                                        {earliestDate && (
-                                          <div className="text-xs text-muted-foreground">
-                                            {new Date(earliestDate).toLocaleDateString('en-IN', { 
-                                              day: '2-digit', month: 'short', year: '2-digit' 
-                                            })}
-                                            {lotsCount > 1 && ' onwards'}
-                                          </div>
-                                        )}
                                       </div>
                                     ) : (
-                                      <span className="text-muted-foreground text-xs">No dates</span>
+                                      <span className="text-muted-foreground text-xs">Unavailable</span>
                                     )}
                                   </TableCell>
                                   <TableCell className="text-center">
@@ -3094,7 +3108,24 @@ export default function AgentProspectWizard() {
                     )}
                   </div>
 
-                  <DialogFooter className="gap-2 sm:gap-0">
+                  <DialogFooter className="gap-2 sm:gap-0 flex-col sm:flex-row">
+                    {/* STEP 5 (FIX SPEC): Show date warning before save blocker */}
+                    {casPreviewMode && casDateWarning && (
+                      <div className="w-full mb-2 p-2 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-xs flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                        <span>{casDateWarning}</span>
+                      </div>
+                    )}
+                    {/* STEP 6 (FIX SPEC): Show lot counts for acceptance verification */}
+                    {casPreviewMode && casLotCounts && (
+                      <div className="w-full mb-2 text-xs text-muted-foreground flex items-center gap-4">
+                        <span>{casLotCounts.withLots} with dates</span>
+                        <span>{casLotCounts.withMultipleLots} with multiple purchases</span>
+                        {casLotCounts.withoutLots > 0 && (
+                          <span className="text-amber-600">{casLotCounts.withoutLots} without dates</span>
+                        )}
+                      </div>
+                    )}
                     {casPreviewMode ? (
                       <>
                         <Button variant="outline" onClick={() => {

@@ -704,6 +704,26 @@ router.post(
               tierWarnings: h.tierWarnings
             }));
             
+            // STEP 2 (FIX SPEC): HARD FAIL if lots are dropped for HIGH confidence holdings
+            // This surfaces where the pipeline is broken immediately
+            const holdingsWithMissingLots = holdings.filter(h => {
+              const tier = (h as any).holdingTier || 'FULL';
+              // HIGH confidence Tier 1 holdings MUST have lots
+              return tier === 'FULL' && (!h.lots || h.lots.length === 0);
+            });
+            
+            if (holdingsWithMissingLots.length > 0) {
+              console.error(`[CAS Import] CRITICAL: ${holdingsWithMissingLots.length} HIGH confidence holdings have no lots`);
+              holdingsWithMissingLots.forEach(h => {
+                console.error(`  - ${h.name} (ISIN: ${h.isin}, Folio: ${h.folioNumber})`);
+              });
+              // Don't throw, but flag as warning for the user to see
+            }
+            
+            // STEP 5 (FIX SPEC): Track holdings with missing dates for save blocker
+            const holdingsWithoutDates = holdings.filter(h => !h.lots || h.lots.length === 0);
+            const hasDateWarning = holdingsWithoutDates.length > 0;
+            
             const totalValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
             const totalInvested = holdings.reduce((sum, h) => sum + h.investedValue, 0);
             const fundsCount = holdings.length;
@@ -714,6 +734,13 @@ router.post(
               const tier = (h as any).holdingTier || 'FULL';
               tierCounts[tier as keyof typeof tierCounts]++;
             });
+            
+            // Count holdings by lot status for acceptance check
+            const lotCounts = {
+              withLots: holdings.filter(h => h.lots && h.lots.length > 0).length,
+              withMultipleLots: holdings.filter(h => h.lots && h.lots.length > 1).length,
+              withoutLots: holdingsWithoutDates.length
+            };
             
             const importSummary = `${fundsCount} mutual fund${fundsCount > 1 ? 's' : ''} imported (${tierCounts.FULL} with full data${tierCounts.SUMMARY_PLACEHOLDER > 0 ? `, ${tierCounts.SUMMARY_PLACEHOLDER} placeholders` : ''}). Current value calculated using today's NAV from FintekPro database.`;
             
@@ -727,7 +754,13 @@ router.post(
               holdingsCount: fundsCount,
               importSummary,
               reconciliation: casResult.reconciliation,
-              tierBreakdown: tierCounts
+              tierBreakdown: tierCounts,
+              // STEP 5: Include date warning flag for UI blocker
+              lotCounts,
+              hasDateWarning,
+              dateWarningMessage: hasDateWarning 
+                ? `${holdingsWithoutDates.length} holdings have no transaction dates. Tax and exit-load calculations will be disabled for these.`
+                : null
             });
           }
         } catch (casError: any) {

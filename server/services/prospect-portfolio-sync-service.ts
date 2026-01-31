@@ -610,19 +610,32 @@ class ProspectPortfolioSyncService {
     return updatedHoldings;
   }
 
-  // Helper: Merge holdings, deduplicating by ISIN or name+assetType
+  /**
+   * STEP 3 (FIX SPEC): Merge holdings using ISIN + Folio Number as key
+   * DO NOT group by ISIN alone - same ISIN across different folios must remain separate
+   * DSP Healthcare must survive as: 1 holding, 2 lots
+   */
   private mergeHoldings(existing: NormalizedHolding[], incoming: NormalizedHolding[]): NormalizedHolding[] {
     const merged = [...existing];
     
     for (const newHolding of incoming) {
       const existingIndex = merged.findIndex(h => {
-        // Match by ISIN if available
+        // CAS Fix: Match by ISIN + FolioNumber for CAS imports
         if (h.isin && newHolding.isin) {
+          // If both have folioNumber, use ISIN+Folio as unique key
+          if (h.folioNumber && newHolding.folioNumber) {
+            return h.isin === newHolding.isin && h.folioNumber === newHolding.folioNumber;
+          }
+          // Fallback to ISIN-only if no folio (non-CAS imports)
           return h.isin === newHolding.isin;
         }
-        // Otherwise match by name + assetType
-        return h.name.toLowerCase() === newHolding.name.toLowerCase() && 
+        // Otherwise match by name + assetType + folioNumber
+        const nameMatch = h.name.toLowerCase() === newHolding.name.toLowerCase() && 
                h.assetType === newHolding.assetType;
+        if (nameMatch && h.folioNumber && newHolding.folioNumber) {
+          return h.folioNumber === newHolding.folioNumber;
+        }
+        return nameMatch;
       });
 
       if (existingIndex >= 0) {
