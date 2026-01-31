@@ -210,6 +210,7 @@ export interface ImportedHolding {
   quantity: string;
   avgPrice: string;
   currentValue?: string;
+  purchaseDate?: string;
   source?: ImportSource;
   folioNumber?: string;
   amcName?: string;

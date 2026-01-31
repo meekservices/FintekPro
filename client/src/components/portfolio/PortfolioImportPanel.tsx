@@ -317,11 +317,12 @@ export function PortfolioImportPanel({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[280px]">Name / Symbol</TableHead>
+                  <TableHead className="w-[250px]">Name / Symbol</TableHead>
                   <TableHead>Asset Type</TableHead>
-                  <TableHead className="w-[80px]">ISIN Status</TableHead>
+                  <TableHead className="w-[70px]">ISIN</TableHead>
                   <TableHead className="text-right">Quantity</TableHead>
                   <TableHead className="text-right">Avg Price</TableHead>
+                  <TableHead className="w-[120px]">Purchase Date</TableHead>
                   <TableHead className="text-right">Value</TableHead>
                   <TableHead className="w-[80px]">Actions</TableHead>
                 </TableRow>
@@ -410,6 +411,23 @@ export function PortfolioImportPanel({
                           />
                         ) : (
                           <span>₹{parseFloat(holding.avgPrice).toLocaleString()}</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {isEditing ? (
+                          <Input
+                            type="date"
+                            value={holding.purchaseDate || ''}
+                            onChange={(e) => updateHolding(index, { purchaseDate: e.target.value })}
+                            className="h-8 w-[110px]"
+                            max={new Date().toISOString().split('T')[0]}
+                          />
+                        ) : (
+                          <span className="text-sm">
+                            {holding.purchaseDate 
+                              ? new Date(holding.purchaseDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                              : <span className="text-muted-foreground text-xs">Not set</span>}
+                          </span>
                         )}
                       </TableCell>
                       <TableCell className="text-right font-medium">
