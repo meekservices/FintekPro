@@ -2074,6 +2074,16 @@ export default function AgentProspectWizard() {
       return;
     }
     
+    // Require ISIN for proper tax lot tracking
+    if (!newHolding.isin) {
+      toast({ 
+        title: "Select from Search", 
+        description: "Please select a fund from the search dropdown to ensure accurate tax calculations.", 
+        variant: "destructive" 
+      });
+      return;
+    }
+    
     const validLots = sipLots.filter(lot => lot.purchaseDate && lot.units > 0);
     if (validLots.length === 0) {
       toast({ title: "No Valid Lots", description: "Add at least one lot with date and units.", variant: "destructive" });
@@ -2082,8 +2092,8 @@ export default function AgentProspectWizard() {
     
     const currentNav = selectedInstrumentPrice || 0;
     
-    // Create a holding for each SIP lot
-    const holdingsToAdd: PortfolioHolding[] = validLots.map((lot, idx) => ({
+    // Create a frontend holding for each SIP lot, then transform via toBackendHolding
+    const holdingsToAdd: PortfolioHolding[] = validLots.map((lot) => ({
       id: crypto.randomUUID(),
       productType: newHolding.productType || 'mutual_fund',
       productName: newHolding.productName || '',
@@ -2096,11 +2106,15 @@ export default function AgentProspectWizard() {
     }));
     
     if (prospectId) {
-      // Add each lot as a separate holding to backend
+      // Add each lot as a separate holding to backend using proper transformation
       try {
         for (const holding of holdingsToAdd) {
+          // Transform to backend format for consistency with normal flow
+          const backendHolding = toBackendHolding(holding);
           await addHoldingMutation.mutateAsync(holding);
         }
+        // Invalidate holdings query after all lots added
+        queryClient.invalidateQueries({ queryKey: ['/api/agent-wizard/prospects', prospectId, 'holdings'] });
         toast({ 
           title: "SIP Lots Added", 
           description: `Added ${validLots.length} purchase lot(s) for ${newHolding.productName}` 
@@ -2116,7 +2130,7 @@ export default function AgentProspectWizard() {
       });
     }
     
-    // Reset form
+    // Reset form completely
     setNewHolding({ productType: "mutual_fund", productName: "", quantity: 1, currentValue: 0 });
     setProductSearchQuery("");
     setSelectedInstrumentPrice(null);
@@ -3047,8 +3061,19 @@ export default function AgentProspectWizard() {
                       type="checkbox"
                       checked={sipMode}
                       onChange={(e) => {
-                        setSipMode(e.target.checked);
-                        if (!e.target.checked) {
+                        const newSipMode = e.target.checked;
+                        setSipMode(newSipMode);
+                        // Reset relevant fields when toggling mode
+                        if (newSipMode) {
+                          // Entering SIP mode - clear single-entry fields, keep fund selection
+                          setNewHolding(prev => ({ 
+                            ...prev, 
+                            quantity: 1, 
+                            currentValue: 0, 
+                            purchaseDate: undefined 
+                          }));
+                        } else {
+                          // Exiting SIP mode - reset lots
                           setSipLots([{ purchaseDate: '', units: 0 }]);
                         }
                       }}
