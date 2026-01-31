@@ -364,6 +364,91 @@ const formatCurrencyForPdf = (amount: number) => {
   return `Rs. ${formatted}`;
 };
 
+// LOT-AWARE TAX CALCULATION (Per Fix Spec Section 4)
+// FIFO lot-wise: Equity MF < 12 months = STCG, >= 12 months = LTCG
+const calculateLotTaxStatus = (purchaseDate: string): { type: 'LTCG' | 'STCG'; holdingDays: number } => {
+  const purchaseDateObj = new Date(purchaseDate);
+  const today = new Date();
+  const holdingDays = Math.floor((today.getTime() - purchaseDateObj.getTime()) / (1000 * 60 * 60 * 24));
+  return {
+    type: holdingDays >= 365 ? 'LTCG' : 'STCG',
+    holdingDays
+  };
+};
+
+// EXIT LOAD CALCULATION (Per Fix Spec Section 5)
+// Default: 0.5% if redeemed within 1 month, nil after
+const calculateLotExitLoad = (purchaseDate: string, exitLoadDays: number = 30, exitLoadPercent: number = 0.5): 
+  { hasExitLoad: boolean; daysRemaining: number; exitLoadPercent: number } => {
+  const purchaseDateObj = new Date(purchaseDate);
+  const today = new Date();
+  const daysSincePurchase = Math.floor((today.getTime() - purchaseDateObj.getTime()) / (1000 * 60 * 60 * 24));
+  const daysRemaining = Math.max(0, exitLoadDays - daysSincePurchase);
+  return {
+    hasExitLoad: daysSincePurchase < exitLoadDays,
+    daysRemaining,
+    exitLoadPercent: daysSincePurchase < exitLoadDays ? exitLoadPercent : 0
+  };
+};
+
+// Get tax summary for holding (Section 4.2)
+const getHoldingTaxSummary = (lots: Array<{ purchaseDate: string; units: number }> | undefined): 
+  { hasLots: boolean; ltcgUnits: number; stcgUnits: number; taxStatus: 'All LTCG' | 'All STCG' | 'Mixed' | 'Unknown' } => {
+  if (!lots || lots.length === 0) {
+    return { hasLots: false, ltcgUnits: 0, stcgUnits: 0, taxStatus: 'Unknown' };
+  }
+  
+  let ltcgUnits = 0;
+  let stcgUnits = 0;
+  
+  for (const lot of lots) {
+    const { type } = calculateLotTaxStatus(lot.purchaseDate);
+    if (type === 'LTCG') {
+      ltcgUnits += lot.units;
+    } else {
+      stcgUnits += lot.units;
+    }
+  }
+  
+  let taxStatus: 'All LTCG' | 'All STCG' | 'Mixed' | 'Unknown' = 'Unknown';
+  if (ltcgUnits > 0 && stcgUnits > 0) {
+    taxStatus = 'Mixed';
+  } else if (ltcgUnits > 0) {
+    taxStatus = 'All LTCG';
+  } else if (stcgUnits > 0) {
+    taxStatus = 'All STCG';
+  }
+  
+  return { hasLots: true, ltcgUnits, stcgUnits, taxStatus };
+};
+
+// Get exit load summary for holding (Section 5.1)
+const getHoldingExitLoadSummary = (lots: Array<{ purchaseDate: string; units: number }> | undefined): 
+  { hasLots: boolean; unitsWithExitLoad: number; unitsWithoutExitLoad: number; hasExitLoadRisk: boolean } => {
+  if (!lots || lots.length === 0) {
+    return { hasLots: false, unitsWithExitLoad: 0, unitsWithoutExitLoad: 0, hasExitLoadRisk: false };
+  }
+  
+  let unitsWithExitLoad = 0;
+  let unitsWithoutExitLoad = 0;
+  
+  for (const lot of lots) {
+    const { hasExitLoad } = calculateLotExitLoad(lot.purchaseDate);
+    if (hasExitLoad) {
+      unitsWithExitLoad += lot.units;
+    } else {
+      unitsWithoutExitLoad += lot.units;
+    }
+  }
+  
+  return { 
+    hasLots: true, 
+    unitsWithExitLoad, 
+    unitsWithoutExitLoad, 
+    hasExitLoadRisk: unitsWithExitLoad > 0 
+  };
+};
+
 interface ExistingProspect {
   id: string;
   name: string;
@@ -654,6 +739,7 @@ export default function AgentProspectWizard() {
   const [casPreviewError, setCasPreviewError] = useState<string | null>(null);
   const [casPreviewMode, setCasPreviewMode] = useState(false);
   const [casImportSummary, setCasImportSummary] = useState<string | null>(null);
+  const [expandedHoldingIds, setExpandedHoldingIds] = useState<Set<string>>(new Set());
   const [showEditHoldingsDialog, setShowEditHoldingsDialog] = useState(false);
   const [editableHoldings, setEditableHoldings] = useState<Array<{
     id: string;
@@ -2665,19 +2751,21 @@ export default function AgentProspectWizard() {
                           <Table>
                             <TableHeader>
                               <TableRow className="bg-muted/50">
+                                <TableHead className="w-8"></TableHead>
                                 <TableHead>Fund Name</TableHead>
-                                <TableHead className="text-center">Purchase Date</TableHead>
+                                <TableHead className="text-center">Purchase</TableHead>
+                                <TableHead className="text-center">Tax Status</TableHead>
                                 <TableHead className="text-right">Units</TableHead>
-                                <TableHead className="text-right">Invested</TableHead>
-                                <TableHead className="text-right">NAV</TableHead>
-                                <TableHead className="text-right">Current Value</TableHead>
+                                <TableHead className="text-right">Value</TableHead>
                                 <TableHead className="text-right">Gain/Loss</TableHead>
                                 <TableHead className="text-center">Status</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
                               {casPreviewHoldings.map((holding, idx) => {
-                                // STEP 6: UI must respect dates from lots
+                                // LOT-AWARE UI (Per Fix Spec Section 3)
+                                const holdingId = holding.id || `${idx}`;
+                                const isExpanded = expandedHoldingIds.has(holdingId);
                                 const lotsCount = holding.lots?.length || 0;
                                 const earliestDate = holding.firstPurchaseDate || 
                                   (holding.lots && holding.lots.length > 0 
@@ -2686,50 +2774,79 @@ export default function AgentProspectWizard() {
                                         holding.lots[0].purchaseDate)
                                     : null);
                                 
+                                // Calculate tax status (Section 4)
+                                const taxSummary = getHoldingTaxSummary(holding.lots);
+                                const exitLoadSummary = getHoldingExitLoadSummary(holding.lots);
+                                
+                                const toggleExpanded = () => {
+                                  const newSet = new Set(expandedHoldingIds);
+                                  if (isExpanded) {
+                                    newSet.delete(holdingId);
+                                  } else {
+                                    newSet.add(holdingId);
+                                  }
+                                  setExpandedHoldingIds(newSet);
+                                };
+                                
                                 return (
-                                <TableRow key={idx}>
-                                  <TableCell className="max-w-[200px]">
+                                <>
+                                <TableRow key={idx} className={lotsCount > 0 ? 'cursor-pointer hover:bg-muted/30' : ''} onClick={lotsCount > 0 ? toggleExpanded : undefined}>
+                                  <TableCell className="w-8 text-center">
+                                    {lotsCount > 0 && (
+                                      <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="max-w-[180px]">
                                     <div className="truncate font-medium text-sm">{holding.name}</div>
                                     {holding.folioNumber && (
                                       <div className="text-xs text-muted-foreground">Folio: {holding.folioNumber}</div>
                                     )}
-                                    {holding.isin && (
-                                      <div className="text-xs text-muted-foreground/70">{holding.isin}</div>
-                                    )}
                                     {holding.holdingTier === 'VALUATION_ONLY' && (
-                                      <div className="text-xs text-amber-600">Valuation only</div>
+                                      <div className="text-xs text-amber-600">Valuation only - tax disabled</div>
+                                    )}
+                                    {exitLoadSummary.hasExitLoadRisk && (
+                                      <div className="text-xs text-orange-500">Exit load applies on some units</div>
                                     )}
                                   </TableCell>
                                   <TableCell className="text-center">
-                                    {earliestDate ? (
+                                    {lotsCount > 0 ? (
                                       <div>
-                                        <div className="text-sm">
-                                          {new Date(earliestDate).toLocaleDateString('en-IN', { 
-                                            day: '2-digit', month: 'short', year: 'numeric' 
-                                          })}
+                                        <div className="text-xs font-medium">
+                                          {lotsCount === 1 ? '1 purchase' : `${lotsCount} purchases`}
                                         </div>
-                                        {lotsCount > 1 && (
+                                        {earliestDate && (
                                           <div className="text-xs text-muted-foreground">
-                                            +{lotsCount - 1} more lots
+                                            {new Date(earliestDate).toLocaleDateString('en-IN', { 
+                                              day: '2-digit', month: 'short', year: '2-digit' 
+                                            })}
+                                            {lotsCount > 1 && ' onwards'}
                                           </div>
                                         )}
                                       </div>
                                     ) : (
-                                      <span className="text-muted-foreground text-xs">-</span>
+                                      <span className="text-muted-foreground text-xs">No dates</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    {taxSummary.hasLots ? (
+                                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                        taxSummary.taxStatus === 'All LTCG' ? 'bg-green-100 text-green-800' :
+                                        taxSummary.taxStatus === 'All STCG' ? 'bg-amber-100 text-amber-800' :
+                                        taxSummary.taxStatus === 'Mixed' ? 'bg-purple-100 text-purple-800' :
+                                        'bg-gray-100 text-gray-800'
+                                      }`}>
+                                        {taxSummary.taxStatus}
+                                      </span>
+                                    ) : (
+                                      <span className="text-muted-foreground text-xs">Disabled</span>
                                     )}
                                   </TableCell>
                                   <TableCell className="text-right">{holding.quantity.toFixed(3)}</TableCell>
-                                  <TableCell className="text-right text-muted-foreground">
-                                    {formatCurrency(holding.investedValue || holding.averagePrice * holding.quantity)}
-                                  </TableCell>
-                                  <TableCell className="text-right text-muted-foreground">
-                                    {holding.currentNav ? `₹${holding.currentNav.toFixed(2)}` : '-'}
-                                  </TableCell>
                                   <TableCell className="text-right font-medium">{formatCurrency(holding.currentValue)}</TableCell>
                                   <TableCell className="text-right">
                                     {holding.unrealizedGain !== undefined ? (
                                       <div className={holding.unrealizedGain >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                        <div className="font-medium">
+                                        <div className="font-medium text-sm">
                                           {holding.unrealizedGain >= 0 ? '+' : ''}{formatCurrency(Math.abs(holding.unrealizedGain))}
                                         </div>
                                         <div className="text-xs">
@@ -2746,6 +2863,65 @@ export default function AgentProspectWizard() {
                                     )}
                                   </TableCell>
                                 </TableRow>
+                                {/* EXPANDABLE LOT VIEW - Progressive Disclosure (Section 3.2) */}
+                                {isExpanded && holding.lots && holding.lots.length > 0 && (
+                                  <TableRow className="bg-muted/20">
+                                    <TableCell colSpan={8} className="py-3">
+                                      <div className="pl-8 pr-4">
+                                        <div className="text-xs font-medium text-muted-foreground mb-2">Purchase History (FIFO Order)</div>
+                                        <div className="space-y-1">
+                                          {holding.lots.map((lot, lotIdx) => {
+                                            const lotTax = calculateLotTaxStatus(lot.purchaseDate);
+                                            const lotExitLoad = calculateLotExitLoad(lot.purchaseDate);
+                                            return (
+                                              <div key={lotIdx} className="flex items-center justify-between text-sm bg-background rounded px-3 py-1.5 border">
+                                                <div className="flex items-center gap-4">
+                                                  <span className="font-medium w-24">
+                                                    {new Date(lot.purchaseDate).toLocaleDateString('en-IN', { 
+                                                      day: '2-digit', month: 'short', year: 'numeric' 
+                                                    })}
+                                                  </span>
+                                                  <span className="text-muted-foreground w-28">
+                                                    {lot.units.toFixed(3)} units
+                                                  </span>
+                                                  <span className="text-muted-foreground w-20">
+                                                    @ ₹{lot.nav.toFixed(2)}
+                                                  </span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
+                                                    lotTax.type === 'LTCG' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                                                  }`}>
+                                                    {lotTax.type}
+                                                  </span>
+                                                  {lotExitLoad.hasExitLoad ? (
+                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-700">
+                                                      Exit load
+                                                    </span>
+                                                  ) : (
+                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                                                      No exit load
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                        {/* Tax Summary per Fix Spec Section 4.2 */}
+                                        <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+                                          {taxSummary.ltcgUnits > 0 && (
+                                            <span>LTCG: {taxSummary.ltcgUnits.toFixed(3)} units</span>
+                                          )}
+                                          {taxSummary.stcgUnits > 0 && (
+                                            <span>STCG: {taxSummary.stcgUnits.toFixed(3)} units</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                )}
+                                </>
                               )})}
                             </TableBody>
                           </Table>
