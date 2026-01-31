@@ -43,6 +43,10 @@ import {
   RefreshCw
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { LoanProgressStepper, ProcessingTimeDisplay } from "@/components/loan/loan-progress-stepper";
+import { DraftIndicator, RestorePrompt } from "@/components/loan/draft-indicator";
+import { useFormAutosave } from "@/hooks/use-form-autosave";
+import { LoanDocumentUpload, UploadedDocument } from "@/components/loan/document-upload";
 
 const loanApplicationSchema = z.object({
   clientSource: z.enum(["existing", "new"]),
@@ -144,6 +148,7 @@ export default function AgentLoanApplyPage() {
   const [selectedApp, setSelectedApp] = useState<any>(null);
   const [selectedBanks, setSelectedBanks] = useState<string[]>([]);
   const [eligibilityResults, setEligibilityResults] = useState<EligibilityResult[]>([]);
+  const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
 
   const form = useForm<LoanApplicationForm>({
     resolver: zodResolver(loanApplicationSchema),
@@ -163,6 +168,19 @@ export default function AgentLoanApplyPage() {
       routingStrategy: "parallel",
       loanPurpose: "",
     },
+  });
+
+  const {
+    showRestorePrompt,
+    restoreDraft,
+    discardDraft,
+    clearDraft,
+    formatLastSaved,
+  } = useFormAutosave({
+    form,
+    storageKey: "fintekpro-agent-loan-draft",
+    debounceMs: 1000,
+    excludeFields: ["existingClientId"],
   });
 
   const { data: myClients, isLoading: loadingClients } = useQuery<ClientOption[]>({
@@ -277,6 +295,8 @@ export default function AgentLoanApplyPage() {
     onSuccess: () => {
       toast({ title: "Loan Lead Submitted", description: "The loan application has been submitted for processing." });
       queryClient.invalidateQueries({ queryKey: ["/api/dsa-loans/applications"] });
+      clearDraft();
+      setUploadedDocuments([]);
       form.reset();
       setActiveTab("track");
     },
@@ -403,14 +423,20 @@ export default function AgentLoanApplyPage() {
         </TabsList>
 
         <TabsContent value="apply">
+          {showRestorePrompt && (
+            <RestorePrompt onRestore={restoreDraft} onDiscard={discardDraft} />
+          )}
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="h-5 w-5" />
-                    Client Selection
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="h-5 w-5" />
+                      Client Selection
+                    </CardTitle>
+                    <DraftIndicator lastSaved={formatLastSaved()} />
+                  </div>
                   <CardDescription>Select an existing client or enter new lead details</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -645,6 +671,7 @@ export default function AgentLoanApplyPage() {
                           </SelectContent>
                         </Select>
                         <FormMessage />
+                        <ProcessingTimeDisplay loanType={field.value} className="mt-2" />
                       </FormItem>
                     )}
                   />
@@ -726,6 +753,12 @@ export default function AgentLoanApplyPage() {
                   />
                 </CardContent>
               </Card>
+
+              <LoanDocumentUpload
+                loanType={form.watch("loanType")}
+                documents={uploadedDocuments}
+                onDocumentsChange={setUploadedDocuments}
+              />
 
               <div className="flex justify-end gap-3">
                 <Button type="button" variant="outline" onClick={() => form.reset()}>
@@ -872,6 +905,10 @@ export default function AgentLoanApplyPage() {
                             </Button>
                           )}
                         </div>
+                      </div>
+                      <div className="mt-4 pt-4 border-t">
+                        <p className="text-xs text-muted-foreground mb-3">Application Progress</p>
+                        <LoanProgressStepper status={app.status} />
                       </div>
                     </div>
                   ))}

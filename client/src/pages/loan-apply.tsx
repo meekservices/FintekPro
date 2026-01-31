@@ -35,6 +35,10 @@ import {
   Loader2,
   TrendingUp
 } from "lucide-react";
+import { LoanProgressStepper, ProcessingTimeDisplay } from "@/components/loan/loan-progress-stepper";
+import { DraftIndicator, RestorePrompt } from "@/components/loan/draft-indicator";
+import { useFormAutosave } from "@/hooks/use-form-autosave";
+import { LoanDocumentUpload, UploadedDocument } from "@/components/loan/document-upload";
 
 const loanApplicationSchema = z.object({
   loanType: z.enum(["personal", "home", "car", "business"]),
@@ -81,6 +85,7 @@ export default function LoanApplyPage() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("apply");
   const [selectedApplication, setSelectedApplication] = useState<string | null>(null);
+  const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
 
   const form = useForm<LoanApplicationForm>({
     resolver: zodResolver(loanApplicationSchema),
@@ -98,6 +103,18 @@ export default function LoanApplyPage() {
       creditScore: "",
       routingStrategy: "parallel",
     },
+  });
+
+  const {
+    showRestorePrompt,
+    restoreDraft,
+    discardDraft,
+    clearDraft,
+    formatLastSaved,
+  } = useFormAutosave({
+    form,
+    storageKey: "fintekpro-loan-application-draft",
+    debounceMs: 1000,
   });
 
   const { data: myApplications, isLoading: loadingApplications } = useQuery<any[]>({
@@ -121,6 +138,8 @@ export default function LoanApplyPage() {
     onSuccess: () => {
       toast({ title: "Application Submitted", description: "Your loan application has been submitted for processing." });
       queryClient.invalidateQueries({ queryKey: ["/api/dsa-loans/my-applications"] });
+      clearDraft();
+      setUploadedDocuments([]);
       form.reset();
       setActiveTab("track");
     },
@@ -174,14 +193,20 @@ export default function LoanApplyPage() {
           </TabsList>
 
           <TabsContent value="apply">
+            {showRestorePrompt && (
+              <RestorePrompt onRestore={restoreDraft} onDiscard={discardDraft} />
+            )}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Building2 className="h-5 w-5 text-blue-600" />
-                      Loan Application Form
-                    </CardTitle>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2">
+                        <Building2 className="h-5 w-5 text-blue-600" />
+                        Loan Application Form
+                      </CardTitle>
+                      <DraftIndicator lastSaved={formatLastSaved()} />
+                    </div>
                     <CardDescription>
                       Fill in your details to check eligibility across 7+ partner banks
                     </CardDescription>
@@ -210,6 +235,7 @@ export default function LoanApplyPage() {
                                   </SelectContent>
                                 </Select>
                                 <FormMessage />
+                                <ProcessingTimeDisplay loanType={field.value} className="mt-2" />
                               </FormItem>
                             )}
                           />
@@ -430,6 +456,12 @@ export default function LoanApplyPage() {
                           />
                         </div>
 
+                        <LoanDocumentUpload
+                          loanType={form.watch("loanType")}
+                          documents={uploadedDocuments}
+                          onDocumentsChange={setUploadedDocuments}
+                        />
+
                         <Button 
                           type="submit" 
                           className="w-full" 
@@ -579,31 +611,9 @@ export default function LoanApplyPage() {
                             </div>
                           )}
 
-                          <div className="mt-3">
-                            <div className="flex justify-between text-xs text-gray-500 mb-1">
-                              <span>Application Progress</span>
-                              <span>
-                                {app.status === "disbursed" ? "100%" : 
-                                 app.status === "approved" ? "90%" :
-                                 app.status === "in_review" ? "70%" :
-                                 app.status === "pending_with_banks" ? "50%" :
-                                 app.status === "routed" ? "40%" :
-                                 app.status === "eligibility_check" ? "30%" :
-                                 app.status === "submitted" ? "20%" : "10%"}
-                              </span>
-                            </div>
-                            <Progress 
-                              value={
-                                app.status === "disbursed" ? 100 : 
-                                app.status === "approved" ? 90 :
-                                app.status === "in_review" ? 70 :
-                                app.status === "pending_with_banks" ? 50 :
-                                app.status === "routed" ? 40 :
-                                app.status === "eligibility_check" ? 30 :
-                                app.status === "submitted" ? 20 : 10
-                              } 
-                              className="h-2"
-                            />
+                          <div className="mt-4 pt-4 border-t">
+                            <p className="text-xs text-gray-500 mb-3">Application Progress</p>
+                            <LoanProgressStepper status={app.status} />
                           </div>
                         </div>
                       );
