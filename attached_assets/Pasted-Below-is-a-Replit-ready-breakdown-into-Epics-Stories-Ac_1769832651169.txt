@@ -1,0 +1,171 @@
+Below is a Replit-ready breakdown into Epics → Stories → Acceptance Criteria, derived exactly from the Agent-Assisted Loan Origination design you approved.
+This is structured so:
+Product can track progress
+Engineering can estimate & ship
+QA can validate unambiguously
+No architectural decisions are left open.
+FintekPro – Agent-Assisted Loan Origination
+Replit Epics & Stories
+EPIC 1: Agent Loan Origination Framework
+Goal:
+Enable agents to create and manage loan applications on behalf of clients without altering the user self-service flow.
+Story 1.1 – Agent Role Guard & Access Control
+As an agent, I should only access agent-specific loan APIs and screens.
+Tasks
+Add AGENT role middleware
+Restrict /api/agent/* routes
+Prevent agents from calling user loan APIs directly
+Acceptance Criteria
+Non-agents cannot access agent routes
+Agents cannot impersonate users
+All agent actions are audit-logged
+Story 1.2 – Agent Loan Application Creation
+As an agent, I can create a loan application for a client.
+Tasks
+Create POST /api/agent/loans/applications
+Support NEW and EXISTING client modes
+Persist assistedByAgent and agentId
+Acceptance Criteria
+Application appears in dsaLoanApplications
+User flow remains unchanged
+Agent is clearly linked to application
+EPIC 2: Agent Client Management & Invitation
+Goal:
+Allow agents to onboard new clients or select existing ones with explicit consent.
+Story 2.1 – Agent Invites New Client
+As an agent, I can invite a new client to apply for a loan.
+Tasks
+Create /api/agent/clients/invite
+Generate secure onboarding link
+Capture client consent
+Acceptance Criteria
+Client completes KYC via invite
+Client is linked to agent
+Duplicate client accounts are prevented
+Story 2.2 – Agent Selects Existing Client
+As an agent, I can choose from my existing clients.
+Tasks
+Create /api/agent/clients
+Implement agentClientMapping
+Acceptance Criteria
+Agent sees only their clients
+Client data is read-only for agent
+Mapping persists across sessions
+EPIC 3: Agent-Driven Document Collection
+Goal:
+Enable agents to collect, manage, and share documents with banks.
+Story 3.1 – Agent Document Upload
+As an agent, I can upload documents on behalf of a client.
+Tasks
+Extend LoanDocumentUpload with AGENT mode
+Support upload, preview, delete
+Track uploader identity
+Acceptance Criteria
+Documents tagged as uploadedBy = AGENT
+File validations enforced
+No UI duplication
+Story 3.2 – Document Visibility Control
+As an agent, I can mark documents as shareable with banks.
+Tasks
+Add visibleToBank flag
+Restrict bank access to flagged docs
+Acceptance Criteria
+Only approved docs are shareable
+Full audit trail exists
+EPIC 4: Manual Bank Submission (Agent-Led Routing)
+Goal:
+Support real-world manual submission of loans by agents to specific banks.
+Story 4.1 – Targeted Bank Selection
+As an agent, I can apply to one or multiple specific banks.
+Tasks
+Accept targetBanks[] in agent loan creation
+Skip marketplace auto-routing
+Acceptance Criteria
+No auto-routing occurs
+Selected banks are recorded
+Story 4.2 – Submit Application to Bank
+As an agent, I can submit documents and application to the bank.
+Tasks
+Create /submit-to-bank endpoint
+Mark routing as MANUAL
+Log submission event
+Acceptance Criteria
+Application status updates correctly
+Routing history shows MANUAL mode
+No eligibility engine is auto-triggered
+EPIC 5: Agent Loan Lifecycle Tracking
+Goal:
+Allow agents to track offline bank progress accurately.
+Story 5.1 – Agent Status Updates
+As an agent, I can update loan status based on banker feedback.
+Tasks
+Create status update endpoint
+Restrict allowed transitions
+Require remarks
+Acceptance Criteria
+Invalid transitions blocked
+Status visible in dashboards
+Changes are timestamped
+Story 5.2 – Loan State Machine Extension
+As the system, I enforce valid agent loan states.
+Tasks
+Extend loan state machine
+Add agent-specific states
+Acceptance Criteria
+State skipping prevented
+User flow unaffected
+Errors are descriptive
+EPIC 6: Agent Payout Claim & Commission Flow
+Goal:
+Enable agents to claim commission after loan disbursement.
+Story 6.1 – Disbursement Recording
+As an agent, I can record loan disbursement details.
+Tasks
+Capture disbursement amount & date
+Upload bank confirmation
+Acceptance Criteria
+Only DISBURSED loans accepted
+Proof is mandatory
+Story 6.2 – Agent Payout Claim
+As an agent, I can claim my payout.
+Tasks
+Create /claim-payout endpoint
+Generate ledger entry
+Acceptance Criteria
+Claim status = PENDING
+Duplicate claims blocked
+Story 6.3 – Admin Payout Approval
+As an admin, I can approve or reject agent payouts.
+Tasks
+Admin payout dashboard
+Zoho Books sync
+Acceptance Criteria
+Approved payouts are locked
+Rejected claims require reason
+Financial reports update
+EPIC 7: Audit, Compliance & Reporting
+Goal:
+Ensure full traceability for regulatory and operational audits.
+Story 7.1 – Agent Action Audit Log
+As compliance, I can view all agent actions.
+Tasks
+Create agentLoanActions table
+Log every agent mutation
+Acceptance Criteria
+Immutable logs
+Filterable by agent/loan/date
+Story 7.2 – Unified Reporting
+As management, I can see user vs agent loan performance.
+Tasks
+Segment dashboards
+Revenue & conversion metrics
+Acceptance Criteria
+Assisted vs self-service clearly visible
+No data duplication
+FINAL DELIVERY CHECKLIST (Replit)
+✅ User loan flow unchanged
+✅ Agent-assisted flow fully functional
+✅ Manual bank routing supported
+✅ Document & consent integrity preserved
+✅ Commission lifecycle enforced
+✅ Audit-ready system
