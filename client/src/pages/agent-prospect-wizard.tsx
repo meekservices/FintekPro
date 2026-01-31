@@ -2588,7 +2588,7 @@ export default function AgentProspectWizard() {
             <CardDescription>Import or manually enter existing investments for analysis</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Import Mode Selection */}
+            {/* Import Mode Selection - Simplified to 2 buttons */}
             <div className="flex gap-2 flex-wrap">
               <Button 
                 variant="default"
@@ -2607,22 +2607,7 @@ export default function AgentProspectWizard() {
               >
                 <Plus className="h-4 w-4 mr-1" /> Manual Entry
               </Button>
-              <Button 
-                variant={importMode === 'upload' ? 'default' : 'outline'} 
-                size="sm"
-                onClick={() => setImportMode('upload')}
-                data-testid="mode-upload-btn"
-              >
-                <Upload className="h-4 w-4 mr-1" /> Upload File
-              </Button>
-              <Button 
-                variant={importMode === 'url' ? 'default' : 'outline'} 
-                size="sm"
-                onClick={() => setImportMode('url')}
-                data-testid="mode-url-btn"
-              >
-                <Link className="h-4 w-4 mr-1" /> Import from URL
-              </Button>
+              {/* CAS Upload Dialog - kept but triggered from Smart Import */}
               <Dialog open={showCASUploadDialog} onOpenChange={(open) => {
                 setShowCASUploadDialog(open);
                 if (!open) {
@@ -2633,14 +2618,6 @@ export default function AgentProspectWizard() {
                   setCasPreviewError(null);
                 }
               }}>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setShowCASUploadDialog(true)}
-                  data-testid="mode-cas-btn"
-                >
-                  <FileText className="h-4 w-4 mr-1" /> Import CAS/Statement
-                </Button>
                 <DialogContent className={casPreviewMode ? "max-w-4xl max-h-[85vh] overflow-hidden flex flex-col" : "max-w-lg"}>
                   <DialogHeader>
                     <DialogTitle>
