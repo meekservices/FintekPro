@@ -742,6 +742,8 @@ export default function AgentProspectWizard() {
   // STEP 5 (FIX SPEC): Track date warning for save blocker
   const [casDateWarning, setCasDateWarning] = useState<string | null>(null);
   const [casLotCounts, setCasLotCounts] = useState<{ withLots: number; withMultipleLots: number; withoutLots: number } | null>(null);
+  // STEP 5: Confirmation state for save blocker
+  const [showDateWarningConfirm, setShowDateWarningConfirm] = useState(false);
   const [expandedHoldingIds, setExpandedHoldingIds] = useState<Set<string>>(new Set());
   const [showEditHoldingsDialog, setShowEditHoldingsDialog] = useState(false);
   const [editableHoldings, setEditableHoldings] = useState<Array<{
@@ -2733,6 +2735,7 @@ export default function AgentProspectWizard() {
                   // STEP 5/6 (FIX SPEC): Clear date warning and lot counts
                   setCasDateWarning(null);
                   setCasLotCounts(null);
+                  setShowDateWarningConfirm(false);
                 }
               }}>
                 <DialogContent className={casPreviewMode ? "max-w-4xl max-h-[85vh] overflow-hidden flex flex-col" : "max-w-lg"}>
@@ -3134,16 +3137,27 @@ export default function AgentProspectWizard() {
                         }}>
                           <ArrowLeft className="h-4 w-4 mr-2" /> Back to Upload
                         </Button>
-                        <Button 
-                          onClick={() => casImportMutation.mutate(casPreviewHoldings)}
-                          disabled={casImportMutation.isPending}
-                        >
-                          {casImportMutation.isPending ? (
-                            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Importing...</>
-                          ) : (
-                            <><CheckCircle className="h-4 w-4 mr-2" /> Import {casPreviewHoldings.length} Holdings</>
-                          )}
-                        </Button>
+                        {/* STEP 5 (FIX SPEC): Save blocker - require confirmation if date warning exists */}
+                        {casDateWarning && !showDateWarningConfirm ? (
+                          <Button 
+                            variant="destructive"
+                            onClick={() => setShowDateWarningConfirm(true)}
+                            disabled={casImportMutation.isPending}
+                          >
+                            <AlertTriangle className="h-4 w-4 mr-2" /> Proceed Despite Warning
+                          </Button>
+                        ) : (
+                          <Button 
+                            onClick={() => casImportMutation.mutate(casPreviewHoldings)}
+                            disabled={casImportMutation.isPending}
+                          >
+                            {casImportMutation.isPending ? (
+                              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Importing...</>
+                            ) : (
+                              <><CheckCircle className="h-4 w-4 mr-2" /> Import {casPreviewHoldings.length} Holdings</>
+                            )}
+                          </Button>
+                        )}
                       </>
                     ) : casUploadType ? (
                       <Button 
