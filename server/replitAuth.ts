@@ -248,7 +248,7 @@ export async function setupAuth(app: Express) {
   const replitDomains = process.env.REPLIT_DOMAINS 
     ? process.env.REPLIT_DOMAINS.split(",").map(d => d.trim())
     : [];
-  const allDomains = [...new Set([...replitDomains, ...CUSTOM_DOMAINS])];
+  const allDomains = Array.from(new Set([...replitDomains, ...CUSTOM_DOMAINS]));
   
   console.log(`[Auth] Registering strategies for domains: ${allDomains.join(', ')}`);
   
@@ -290,13 +290,13 @@ export async function setupAuth(app: Express) {
     let strategyName = `replitauth:${req.hostname}`;
     
     // If strategy doesn't exist for this hostname, try the base domain
-    if (!passport._strategy(strategyName)) {
+    if (!(passport as any)._strategy(strategyName)) {
       // Extract base domain (e.g., admin.fintekpro.com -> fintekpro.com)
       const parts = req.hostname.split('.');
       if (parts.length > 2) {
         const baseDomain = parts.slice(-2).join('.');
         const baseStrategy = `replitauth:${baseDomain}`;
-        if (passport._strategy(baseStrategy)) {
+        if ((passport as any)._strategy(baseStrategy)) {
           strategyName = baseStrategy;
         }
       }
@@ -312,12 +312,12 @@ export async function setupAuth(app: Express) {
     // Try exact hostname first, then fall back to base domain
     let strategyName = `replitauth:${req.hostname}`;
     
-    if (!passport._strategy(strategyName)) {
+    if (!(passport as any)._strategy(strategyName)) {
       const parts = req.hostname.split('.');
       if (parts.length > 2) {
         const baseDomain = parts.slice(-2).join('.');
         const baseStrategy = `replitauth:${baseDomain}`;
-        if (passport._strategy(baseStrategy)) {
+        if ((passport as any)._strategy(baseStrategy)) {
           strategyName = baseStrategy;
         }
       }
