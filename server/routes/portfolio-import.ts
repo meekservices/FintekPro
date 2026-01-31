@@ -615,15 +615,20 @@ router.post(
           const text = pdfData.text;
           
           // Detect if this is a CAS statement - expanded patterns
+          const hasFolioIsin = /Folio\s*No:\s*\d+/i.test(text) && /ISIN:\s*INF/i.test(text);
+          // More flexible pattern - allow any chars between date and Purchase
+          const hasPurchaseTxn = /\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{4}.{0,20}Purchase/i.test(text);
+          const hasNavMarket = /NAV on\s+\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{4}/i.test(text) && /Market Value on/i.test(text);
+          
+          console.log('[CAS Detection] Folio+ISIN:', hasFolioIsin, '| Purchase txn:', hasPurchaseTxn, '| NAV+Market:', hasNavMarket);
+          
           const isCAS = /Consolidated\s*Account\s*Statement/i.test(text) ||
                        /CAMS.*Statement/i.test(text) ||
                        /KFintech.*Statement/i.test(text) ||
                        // Detect by CAS-specific patterns: Folio + ISIN + Transaction format
-                       (/Folio\s*No:\s*\d+/i.test(text) && /ISIN:\s*INF/i.test(text) && 
-                        /\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{4}\s+Purchase/i.test(text)) ||
+                       (hasFolioIsin && hasPurchaseTxn) ||
                        // Detect by NAV/Market Value pattern typical in CAS
-                       (/NAV on\s+\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{4}/i.test(text) && 
-                        /Market Value on/i.test(text));
+                       hasNavMarket;
           
           if (isCAS) {
             console.log('[Portfolio Import] Using CAS Statement Service for parsing');
