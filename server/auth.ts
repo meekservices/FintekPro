@@ -54,9 +54,24 @@ export function generateOtp(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-export async function generateUniqueUserId(): Promise<string> {
-  // Generate userId in format: FTP001234
-  const prefix = "FTP";
+export async function generateUniqueUserId(email?: string): Promise<string> {
+  // Generate userId in format: XXX123456
+  // First 3 characters: first 3 alphabetic letters from email (uppercase), fallback to "FTP"
+  // Next 6 characters: system-generated random digits
+  
+  let prefix = "FTP";
+  
+  if (email) {
+    // Extract first 3 alphabetic characters from the email (before @)
+    const emailLocalPart = email.split('@')[0] || '';
+    const alphabeticChars = emailLocalPart.replace(/[^a-zA-Z]/g, '').toUpperCase();
+    
+    if (alphabeticChars.length >= 3) {
+      prefix = alphabeticChars.substring(0, 3);
+    }
+    // If less than 3 alphabetic characters found, keep "FTP" as fallback
+  }
+  
   let attempts = 0;
   const maxAttempts = 10;
   
@@ -370,8 +385,8 @@ export function setupAuth(app: Express) {
 
       const { email, mobile, hashedPassword } = metadata;
 
-      // Generate unique userId
-      const userId = await generateUniqueUserId();
+      // Generate unique userId with email-based prefix
+      const userId = await generateUniqueUserId(email);
 
       // Create user with verified status
       const user = await storage.createUser({

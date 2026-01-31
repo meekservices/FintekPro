@@ -2389,8 +2389,8 @@ export class DatabaseStorage implements IStorage {
         .limit(1);
       
       if (!agentUser) {
-        // Generate unique userId for agent
-        const agentUserId = await generateUniqueUserId();
+        // Generate unique userId for agent with email-based prefix
+        const agentUserId = await generateUniqueUserId(defaultAgent.email);
         
         // Create a user account for the agent
         [agentUser] = await db
@@ -7687,7 +7687,7 @@ export class DatabaseStorage implements IStorage {
       clientId = existingUser[0].id;
     } else {
       const newUser = await this.createUser({
-        userId: await generateUniqueUserId(),
+        userId: await generateUniqueUserId(data.email),
         email: data.email,
         mobile: data.mobile,
         firstName: data.firstName,

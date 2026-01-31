@@ -195,10 +195,11 @@ async function upsertUser(claims: any): Promise<string> {
   } else {
     // Create new user from OAuth data with minimal required fields
     // Drizzle will handle defaults for all other fields
-    const userId = await generateUniqueUserId();
+    const userEmail = claims["email"] || null;
+    const userId = await generateUniqueUserId(userEmail || undefined);
     const newUser = await storage.createUser({
       userId,
-      email: claims["email"] || null,
+      email: userEmail,
       password: await hashPassword(randomBytes(32).toString('hex')), // Random secure password for OAuth users
       firstName: claims["first_name"] || null,
       lastName: claims["last_name"] || null,
