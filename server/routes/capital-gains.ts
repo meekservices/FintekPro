@@ -1433,5 +1433,137 @@ export function registerCapitalGainsRoutes(app: Express): void {
     }
   });
 
+  /**
+   * FIX SPEC SECTION 4.4 & 5.3: Lot Validation Endpoint
+   * Validates lots before allowing tax/exit load calculations
+   * HARD BLOCKER: Returns capitalGainsEnabled=false if dates are missing
+   */
+  app.post("/api/capital-gains/validate-lots", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { lots } = req.body;
+      
+      if (!lots || !Array.isArray(lots)) {
+        return res.json({
+          success: true,
+          validation: {
+            isValid: false,
+            capitalGainsEnabled: false,
+            exitLoadEnabled: false,
+            validationErrors: ['No lots provided'],
+            disabledReason: 'Transaction lots are required for tax calculations'
+          }
+        });
+      }
+
+      const validation = capitalGainsCalculator.validateLotsForTax(lots);
+      
+      res.json({
+        success: true,
+        validation,
+        complianceNote: "Capital gains and exit load calculations are based on transaction-level data from the client's CAS statement and FIFO methodology, as per Indian tax regulations."
+      });
+    } catch (error) {
+      console.error("Error validating lots:", error);
+      res.status(500).json({ error: "Failed to validate lots" });
+    }
+  });
+
+  /**
+   * FIX SPEC SECTION 4.2: Tax Calculation Validation (DSP Healthcare Test)
+   * Returns LTCG/STCG units breakdown for validation
+   */
+  app.post("/api/capital-gains/calculate-tax-breakdown", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { lots } = req.body;
+      
+      // First validate lots (hard blocker)
+      const validation = capitalGainsCalculator.validateLotsForTax(lots || []);
+      if (!validation.isValid) {
+        return res.json({
+          success: false,
+          error: validation.disabledReason,
+          capitalGainsEnabled: false,
+          validation
+        });
+      }
+
+      const taxBreakdown = capitalGainsCalculator.validateTaxCalculation(lots);
+      
+      res.json({
+        success: true,
+        taxBreakdown,
+        summary: {
+          totalLots: lots.length,
+          ltcgUnits: taxBreakdown.ltcgUnits,
+          stcgUnits: taxBreakdown.stcgUnits,
+          taxStatus: taxBreakdown.ltcgUnits > 0 && taxBreakdown.stcgUnits > 0 ? 'Mixed' :
+                    taxBreakdown.ltcgUnits > 0 ? 'All LTCG' : 'All STCG'
+        },
+        complianceNote: "FIFO lot-wise calculation per Indian equity mutual fund tax regulations."
+      });
+    } catch (error) {
+      console.error("Error calculating tax breakdown:", error);
+      res.status(500).json({ error: "Failed to calculate tax breakdown" });
+    }
+  });
+
+  /**
+   * FIX SPEC SECTION 5.2: FIFO Partial Redemption Simulation
+   * Simulates which lots are consumed when redeeming a specific amount
+   */
+  app.post("/api/capital-gains/simulate-redemption", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { lots, redemptionAmount, currentNav } = req.body;
+      
+      if (!lots || !Array.isArray(lots) || lots.length === 0) {
+        return res.json({
+          success: false,
+          error: 'Transaction lots are required for redemption simulation',
+          exitLoadEnabled: false
+        });
+      }
+
+      if (!redemptionAmount || !currentNav) {
+        return res.status(400).json({ 
+          error: 'redemptionAmount and currentNav are required' 
+        });
+      }
+
+      // Validate lots first
+      const validation = capitalGainsCalculator.validateLotsForTax(lots);
+      if (!validation.isValid) {
+        return res.json({
+          success: false,
+          error: validation.disabledReason,
+          exitLoadEnabled: false,
+          validation
+        });
+      }
+
+      const simulation = capitalGainsCalculator.simulateFIFORedemption(
+        lots, 
+        parseFloat(redemptionAmount), 
+        parseFloat(currentNav)
+      );
+      
+      res.json({
+        success: true,
+        simulation,
+        summary: {
+          unitsToRedeem: simulation.unitsToRedeem.toFixed(3),
+          lotsConsumed: simulation.consumedLots.length,
+          totalExitLoad: simulation.totalExitLoad.toFixed(2),
+          ltcgAmount: simulation.ltcgAmount.toFixed(2),
+          stcgAmount: simulation.stcgAmount.toFixed(2),
+          lotsWithExitLoad: simulation.consumedLots.filter(l => l.hasExitLoad).length
+        },
+        complianceNote: "FIFO methodology applied. Exit load calculated per lot based on holding period."
+      });
+    } catch (error) {
+      console.error("Error simulating redemption:", error);
+      res.status(500).json({ error: "Failed to simulate redemption" });
+    }
+  });
+
   console.log("✅ Capital Gains routes registered");
 }

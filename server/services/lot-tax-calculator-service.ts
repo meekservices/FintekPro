@@ -498,6 +498,187 @@ class LotTaxCalculatorService {
     const indexedCost = purchaseCost * (saleCII / purchaseCII);
     return indexedCost;
   }
+
+  /**
+   * FIX SPEC SECTION 4.4: HARD BLOCKERS - FAIL CLOSED
+   * Validate lots before computing capital gains
+   * If lots are missing or dates are invalid, refuse to compute
+   */
+  validateLotsForTax(lots: Array<{ purchaseDate: string | Date | null; units: number }>): {
+    isValid: boolean;
+    capitalGainsEnabled: boolean;
+    exitLoadEnabled: boolean;
+    validationErrors: string[];
+    disabledReason: string | null;
+  } {
+    const errors: string[] = [];
+    
+    // Check 1: No lots at all
+    if (!lots || lots.length === 0) {
+      return {
+        isValid: false,
+        capitalGainsEnabled: false,
+        exitLoadEnabled: false,
+        validationErrors: ['No transaction lots available'],
+        disabledReason: 'No transaction-level data from CAS statement. Tax and exit load calculations disabled.'
+      };
+    }
+
+    // Check 2: Any lot has null/invalid purchase date
+    let lotsWithMissingDates = 0;
+    let lotsWithInvalidDates = 0;
+    
+    for (const lot of lots) {
+      if (!lot.purchaseDate) {
+        lotsWithMissingDates++;
+        errors.push(`Lot with ${lot.units} units has no purchase date`);
+      } else {
+        const date = new Date(lot.purchaseDate);
+        if (isNaN(date.getTime())) {
+          lotsWithInvalidDates++;
+          errors.push(`Lot with ${lot.units} units has invalid date: ${lot.purchaseDate}`);
+        }
+      }
+    }
+
+    if (lotsWithMissingDates > 0 || lotsWithInvalidDates > 0) {
+      return {
+        isValid: false,
+        capitalGainsEnabled: false,
+        exitLoadEnabled: false,
+        validationErrors: errors,
+        disabledReason: `${lotsWithMissingDates + lotsWithInvalidDates} lot(s) have missing or invalid dates. Per FintekPro policy, tax calculations require verified transaction dates.`
+      };
+    }
+
+    // All validations passed
+    return {
+      isValid: true,
+      capitalGainsEnabled: true,
+      exitLoadEnabled: true,
+      validationErrors: [],
+      disabledReason: null
+    };
+  }
+
+  /**
+   * FIX SPEC SECTION 4.2: DSP Healthcare validation
+   * Validate that engine correctly identifies mixed STCG/LTCG
+   */
+  validateTaxCalculation(lots: Array<{ purchaseDate: string; units: number }>): {
+    ltcgUnits: number;
+    stcgUnits: number;
+    lotsBreakdown: Array<{ date: string; units: number; type: 'LTCG' | 'STCG'; holdingDays: number }>;
+  } {
+    const today = new Date();
+    let ltcgUnits = 0;
+    let stcgUnits = 0;
+    const breakdown: Array<{ date: string; units: number; type: 'LTCG' | 'STCG'; holdingDays: number }> = [];
+
+    for (const lot of lots) {
+      const purchaseDate = new Date(lot.purchaseDate);
+      const holdingDays = Math.floor((today.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24));
+      const type: 'LTCG' | 'STCG' = holdingDays >= 365 ? 'LTCG' : 'STCG';
+      
+      if (type === 'LTCG') {
+        ltcgUnits += lot.units;
+      } else {
+        stcgUnits += lot.units;
+      }
+
+      breakdown.push({
+        date: lot.purchaseDate,
+        units: lot.units,
+        type,
+        holdingDays
+      });
+    }
+
+    return { ltcgUnits, stcgUnits, lotsBreakdown: breakdown };
+  }
+
+  /**
+   * FIX SPEC SECTION 5.2: Partial Redemption FIFO Logic
+   * Calculate which lots are consumed when redeeming a specific amount
+   */
+  simulateFIFORedemption(
+    lots: Array<{ purchaseDate: string; units: number; nav: number }>,
+    redemptionAmount: number,
+    currentNav: number
+  ): {
+    unitsToRedeem: number;
+    consumedLots: Array<{
+      purchaseDate: string;
+      units: number;
+      taxType: 'LTCG' | 'STCG';
+      hasExitLoad: boolean;
+      exitLoadAmount: number;
+    }>;
+    totalExitLoad: number;
+    ltcgAmount: number;
+    stcgAmount: number;
+  } {
+    const today = new Date();
+    const unitsToRedeem = redemptionAmount / currentNav;
+    let remainingUnits = unitsToRedeem;
+    
+    const consumedLots: Array<{
+      purchaseDate: string;
+      units: number;
+      taxType: 'LTCG' | 'STCG';
+      hasExitLoad: boolean;
+      exitLoadAmount: number;
+    }> = [];
+
+    let totalExitLoad = 0;
+    let ltcgAmount = 0;
+    let stcgAmount = 0;
+
+    // Sort lots by purchase date (FIFO - oldest first)
+    const sortedLots = [...lots].sort((a, b) => 
+      new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime()
+    );
+
+    for (const lot of sortedLots) {
+      if (remainingUnits <= 0) break;
+
+      const unitsFromThisLot = Math.min(remainingUnits, lot.units);
+      const purchaseDate = new Date(lot.purchaseDate);
+      const holdingDays = Math.floor((today.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24));
+      const taxType: 'LTCG' | 'STCG' = holdingDays >= 365 ? 'LTCG' : 'STCG';
+      
+      // Exit load: typically 0.5% if within 30 days
+      const hasExitLoad = holdingDays < 30;
+      const lotValue = unitsFromThisLot * currentNav;
+      const exitLoadAmount = hasExitLoad ? lotValue * 0.005 : 0;
+      
+      const gain = (currentNav - lot.nav) * unitsFromThisLot;
+      if (taxType === 'LTCG') {
+        ltcgAmount += Math.max(0, gain);
+      } else {
+        stcgAmount += Math.max(0, gain);
+      }
+
+      consumedLots.push({
+        purchaseDate: lot.purchaseDate,
+        units: unitsFromThisLot,
+        taxType,
+        hasExitLoad,
+        exitLoadAmount
+      });
+
+      totalExitLoad += exitLoadAmount;
+      remainingUnits -= unitsFromThisLot;
+    }
+
+    return {
+      unitsToRedeem,
+      consumedLots,
+      totalExitLoad,
+      ltcgAmount,
+      stcgAmount
+    };
+  }
 }
 
 export const lotTaxCalculatorService = LotTaxCalculatorService.getInstance();
