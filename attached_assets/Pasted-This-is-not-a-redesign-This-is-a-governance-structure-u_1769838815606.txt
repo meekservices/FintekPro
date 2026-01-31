@@ -1,0 +1,150 @@
+This is not a redesign.
+This is a governance + structure upgrade that banks, principal DSAs, and auditors will accept.
+FintekPro Sub-DSA Upgrade
+Replit Engineering Instruction
+Objective
+Upgrade FintekPro to formally support two origination modes while keeping:
+one loan lifecycle
+one commission engine
+one reporting spine
+Fully aligned with Indian Sub-DSA operating norms.
+NON-NEGOTIABLE CONSTRAINTS
+❌ Do not break existing user or agent flows
+❌ Do not introduce new public loan systems
+❌ Do not duplicate commission or routing logic
+✅ Only add explicit metadata, guards, and orchestration
+PHASE 0 — Definition Lock (Do This First)
+Add Global Domain Definitions
+Create file:
+shared/loan-origination.constants.ts
+export enum OriginationMode {
+  SELF_SERVICE = "SELF_SERVICE",
+  AGENT_ASSISTED = "AGENT_ASSISTED"
+}
+
+export enum RoutingIntent {
+  MARKETPLACE = "MARKETPLACE",
+  SPECIFIC_BANKS = "SPECIFIC_BANKS"
+}
+
+export enum WorkflowOwner {
+  SYSTEM = "SYSTEM",
+  AGENT = "AGENT"
+}
+This file becomes mandatory import for all loan services.
+PHASE 1 — Database Schema Upgrade (Safe, Additive)
+1.1 Extend dsa_loan_applications
+Add columns:
+origination_mode        ENUM('SELF_SERVICE','AGENT_ASSISTED') NOT NULL
+routing_intent          ENUM('MARKETPLACE','SPECIFIC_BANKS') NOT NULL
+workflow_owner          ENUM('SYSTEM','AGENT') NOT NULL
+lender_disclaimer_at    TIMESTAMP NULL
+Default Backfill Rules
+Existing user loans → SELF_SERVICE, MARKETPLACE, SYSTEM
+Existing agent loans → AGENT_ASSISTED, SPECIFIC_BANKS, AGENT
+1.2 Add Bank Interaction Events (New Table)
+bank_interaction_events (
+  id UUID PK,
+  loan_id UUID FK,
+  bank_code VARCHAR,
+  event_type ENUM('RECEIVED','QUERY','APPROVED','DISBURSED'),
+  reported_by ENUM('AGENT','WEBHOOK','ADMIN'),
+  reference_id VARCHAR,
+  remarks TEXT,
+  created_at TIMESTAMP
+)
+This is mandatory for Sub-DSA audit readiness.
+PHASE 2 — Origination Mode Enforcement (Backend)
+2.1 Loan Creation Enforcement
+User Flow
+In dsa-loan-routes.ts:
+originationMode = SELF_SERVICE
+routingIntent = MARKETPLACE
+workflowOwner = SYSTEM
+Hard-code. Do not trust frontend.
+Agent Flow
+In agent-loan-routes.ts:
+originationMode = AGENT_ASSISTED
+routingIntent = SPECIFIC_BANKS
+workflowOwner = AGENT
+Reject requests that attempt to override.
+2.2 Disclaimer Enforcement (Sub-DSA Requirement)
+Before first bank submission:
+require lender_disclaimer_at IS NOT NULL
+Store timestamp when agent/client accepts:
+“FintekPro acts as a Sub-DSA / facilitation platform.
+Final credit decision rests with the lender.”
+PHASE 3 — Routing Logic Refactor (No New APIs)
+3.1 Update loan_orchestrator.ts
+if (routingIntent === MARKETPLACE) {
+  autoRoute()
+}
+
+if (routingIntent === SPECIFIC_BANKS) {
+  require agent submission
+  skip eligibility auto-routing
+}
+3.2 Enforce Routing Discipline
+SELF_SERVICE → cannot use manual routing
+AGENT_ASSISTED → cannot trigger auto-routing
+Violations must throw hard errors, not warnings.
+PHASE 4 — Commission Engine Unification (Critical)
+4.1 Upgrade Commission Inputs
+In loan-commission-service.ts:
+calculateCommission({
+  originationMode,
+  routingIntent,
+  agentRole,
+  bankCode,
+  disbursementAmount
+})
+4.2 Add Commission Policy Versioning
+Add column:
+commission_policy_version VARCHAR
+Default: v1
+This allows:
+negotiated agent deals
+future changes without retroactive corruption
+PHASE 5 — SLA & Accountability Layer
+5.1 Add SLA Fields
+sla_start_at
+sla_expected_by
+sla_breached_at
+Rules:
+SELF_SERVICE → system SLA
+AGENT_ASSISTED → agent-owned SLA
+Used only for reporting & escalation (no blocking).
+PHASE 6 — Reporting & Dashboard Upgrade
+Mandatory Filters Everywhere
+All dashboards must support:
+originationMode
+agentId (nullable)
+routingIntent
+bankCode
+Required KPIs
+Approval rate (Self vs Agent)
+TAT by bank
+Payout delay by bank
+Agent conversion funnel
+PHASE 7 — Guardrails & Kill Switches
+7.1 Enforce Single Lifecycle
+Add assertion in loan updates:
+assert same loan_id used across flows
+No duplicate applications per origination mode.
+7.2 Legacy Protection
+Add env guard:
+DISABLE_LEGACY_LOAN_APIS=true
+Fail fast if accidentally invoked.
+ACCEPTANCE CRITERIA (Replit QA Checklist)
+✅ User self-service flow unchanged
+✅ Agent-assisted flow unchanged
+✅ Origination mode explicitly stored
+✅ Manual routing only for agents
+✅ Auto routing only for users
+✅ Commission engine unified
+✅ Bank interaction events logged
+✅ Sub-DSA disclaimer enforced
+✅ RBI / bank audit defensible
+FINAL SYSTEM STATEMENT (Add to README)
+FintekPro operates as a Sub-DSA platform supporting multiple origination modes with a single loan lifecycle, commission engine, and reporting spine.
+Origination determines who controls the workflow, not how the loan is processed financially.
