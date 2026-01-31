@@ -298,7 +298,7 @@ export function useParseCASStatement() {
       }
       
       const endpoint = options?.prospectId
-        ? '/api/agent/portfolio/parse-cas'
+        ? '/api/agent-wizard/portfolio/parse-cas'
         : '/api/portfolio/import/cas';
       
       const res = await fetch(endpoint, {

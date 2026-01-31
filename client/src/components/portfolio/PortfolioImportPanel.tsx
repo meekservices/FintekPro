@@ -101,16 +101,49 @@ export function PortfolioImportPanel({
   const handleParseSuccess = useCallback((result: ImportResult, source: ImportSource) => {
     if (result.success && result.holdings?.length > 0) {
       // Transform holdings to ensure fields are properly mapped from various backend field names
-      const transformedHoldings = result.holdings.map((h: any, i: number) => ({
-        ...h,
-        id: h.id || `temp-${i}`,
-        // Map various backend field names to avgPrice
-        avgPrice: String(h.avgPrice || h.averagePrice || h.avgCostPerUnit || h.averageCost || 0),
-        quantity: String(h.quantity || h.units || 0),
-        currentValue: String(h.currentValue || 0),
-        // Map purchaseDate from various backend field names (CAS uses firstPurchaseDate)
-        purchaseDate: h.purchaseDate || h.firstPurchaseDate || '',
-      }));
+      const transformedHoldings = result.holdings.map((h: any, i: number) => {
+        // LOT-FIRST ARCHITECTURE: Extract EARLIEST date from ALL lots
+        const lots = h.lots || [];
+        let purchaseDate = h.purchaseDate || h.firstPurchaseDate || '';
+        
+        // If we have lots with transactionDate/transactionDateStr, find the EARLIEST date
+        if (lots.length > 0) {
+          const lotDates: string[] = lots.map((lot: any) => {
+            return lot.transactionDateStr || 
+                   (lot.transactionDate instanceof Date 
+                     ? lot.transactionDate.toISOString().split('T')[0]
+                     : (typeof lot.transactionDate === 'string' 
+                         ? lot.transactionDate.split('T')[0] 
+                         : '')) ||
+                   lot.purchaseDate || '';
+          }).filter((d: string) => d && d.length > 0);
+          
+          // Sort dates and get the earliest one as the canonical purchaseDate
+          if (lotDates.length > 0) {
+            lotDates.sort();
+            purchaseDate = lotDates[0];
+          }
+        }
+        
+        // Build lot summary for display
+        const lotCount = h.lotCount || lots.length || 0;
+        const lotSummary = h.lotSummary || (lotCount > 0 ? `${lotCount} lot${lotCount !== 1 ? 's' : ''}` : '');
+        
+        return {
+          ...h,
+          id: h.id || `temp-${i}`,
+          // Map various backend field names to avgPrice
+          avgPrice: String(h.avgPrice || h.averagePrice || h.avgCostPerUnit || h.averageCost || 0),
+          quantity: String(h.quantity || h.units || 0),
+          currentValue: String(h.currentValue || 0),
+          // LOT-FIRST: Use EARLIEST purchaseDate derived from lots
+          purchaseDate,
+          // Preserve lots array for expandable view
+          lots,
+          lotCount,
+          lotSummary,
+        };
+      });
       setPreviewHoldings(transformedHoldings);
       setPreviewMode(true);
       setImportSource(source);
@@ -426,9 +459,21 @@ export function PortfolioImportPanel({
                           />
                         ) : (
                           <span className="text-sm">
-                            {holding.purchaseDate 
-                              ? new Date(holding.purchaseDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-                              : <span className="text-muted-foreground text-xs">Not set</span>}
+                            {/* LOT-FIRST: Show earliest date + lot count indicator */}
+                            {holding.purchaseDate ? (
+                              <span>
+                                {new Date(holding.purchaseDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                {holding.lots && holding.lots.length > 1 && (
+                                  <span className="text-xs text-muted-foreground ml-1">
+                                    (+{holding.lots.length - 1} more)
+                                  </span>
+                                )}
+                              </span>
+                            ) : holding.lotSummary ? (
+                              <span className="text-muted-foreground text-xs">{holding.lotSummary}</span>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">Not set</span>
+                            )}
                           </span>
                         )}
                       </TableCell>
