@@ -100,7 +100,7 @@ export function PortfolioImportPanel({
 
   const handleParseSuccess = useCallback((result: ImportResult, source: ImportSource) => {
     if (result.success && result.holdings?.length > 0) {
-      // Transform holdings to ensure avgPrice is properly mapped from various backend field names
+      // Transform holdings to ensure fields are properly mapped from various backend field names
       const transformedHoldings = result.holdings.map((h: any, i: number) => ({
         ...h,
         id: h.id || `temp-${i}`,
@@ -108,6 +108,8 @@ export function PortfolioImportPanel({
         avgPrice: String(h.avgPrice || h.averagePrice || h.avgCostPerUnit || h.averageCost || 0),
         quantity: String(h.quantity || h.units || 0),
         currentValue: String(h.currentValue || 0),
+        // Map purchaseDate from various backend field names (CAS uses firstPurchaseDate)
+        purchaseDate: h.purchaseDate || h.firstPurchaseDate || '',
       }));
       setPreviewHoldings(transformedHoldings);
       setPreviewMode(true);
