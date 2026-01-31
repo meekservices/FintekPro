@@ -1545,7 +1545,8 @@ router.post(
   upload.single('file'),
   async (req: Request, res: Response) => {
     try {
-      console.log('[Agent CAS Parse] Endpoint hit - THIS IS THE NEW ENDPOINT');
+      // POISON PILL CHECK - Remove after confirming this is the live path
+      console.log('🔴🔴🔴 [Agent CAS Parse] POISON PILL - This endpoint IS being called! 🔴🔴🔴');
       
       if (!req.file) {
         return res.status(400).json({ success: false, error: 'No file uploaded' });

@@ -1,0 +1,175 @@
+Below are exact, copy-paste Replit diffs (backend + frontend) that will force visible change by breaking the legacy aggregation path and making lots first-class. These diffs are minimal but decisive.
+Important: Apply in order. After Diff 2, if you still see “Not set”, stop—your UI is not calling this path.
+🔧 BACKEND DIFFS
+DIFF 1 — Add first-class Lot model (NEW FILE)
+server/models/portfolioLot.ts
+export interface PortfolioLot {
+  isin: string;
+  schemeName: string;
+  amc: string;
+  folio: string;
+
+  transactionDate: string; // ISO yyyy-mm-dd
+  transactionType: 'PURCHASE' | 'SIP' | 'SWITCH_IN';
+
+  units: number;
+  nav: number;
+  amount: number;
+
+  source: 'CAS';
+}
+DIFF 2 — CAS parser must OUTPUT LOTS (not holdings)
+server/services/cas-statement-service.ts
+2A. Add lot parser (paste verbatim)
+import { PortfolioLot } from '../models/portfolioLot';
+
+private parseSchemeTransactions(
+  schemeText: string,
+  meta: { isin: string; schemeName: string; amc: string; folio: string }
+): PortfolioLot[] {
+  const lots: PortfolioLot[] = [];
+
+  // Matches CAMS/KFintech rows like:
+  // 07-Oct-2024 Purchase-BSE ... 199,990.00 4,974.876 40.200 4,974.876
+  const TXN_REGEX =
+    /^(\d{2}-[A-Za-z]{3}-\d{4})\s+
+      (Purchase|Purchase-BSE|SIP Purchase|Systematic Investment Purchase|Switch In|Equity Switch In)
+      [^\d]*
+      ([\d,]+\.\d{2})\s+
+      ([\d,]+\.\d+)\s+
+      ([\d.]+)/gmx;
+
+  let m: RegExpExecArray | null;
+  while ((m = TXN_REGEX.exec(schemeText)) !== null) {
+    lots.push({
+      isin: meta.isin,
+      schemeName: meta.schemeName,
+      amc: meta.amc,
+      folio: meta.folio,
+      transactionDate: this.parseDate(m[1]).toISOString().slice(0, 10),
+      transactionType: this.normalizeTxn(m[2]),
+      amount: this.parseNumber(m[3]),
+      units: this.parseNumber(m[4]),
+      nav: this.parseNumber(m[5]),
+      source: 'CAS',
+    });
+  }
+
+  return lots;
+}
+2B. Replace scheme handling (this is the breaker)
+Find where you currently build a holding from a scheme block and replace with:
+// BEFORE (WRONG): const holding = this.parseSchemeBlock(schemeText);
+
+// AFTER (CORRECT):
+const lots = this.parseSchemeTransactions(schemeText, {
+  isin,
+  schemeName,
+  amc,
+  folio,
+});
+
+if (!lots.length) {
+  throw new Error(`CAS_LOTS_NOT_FOUND ${schemeName} ${folio}`);
+}
+
+allLots.push(...lots);
+Do not aggregate here. Do not compute avg price here.
+DIFF 3 — Derive holdings FROM LOTS (kill ISIN grouping)
+server/services/holding-transformer.ts
+Replace entire file contents with:
+import { PortfolioLot } from '../models/portfolioLot';
+
+export function deriveHoldingsFromLots(lots: PortfolioLot[]) {
+  const map = new Map<string, any>();
+
+  for (const lot of lots) {
+    const key = `${lot.isin}::${lot.folio}`;
+    if (!map.has(key)) {
+      map.set(key, {
+        isin: lot.isin,
+        schemeName: lot.schemeName,
+        amc: lot.amc,
+        folio: lot.folio,
+        lots: [] as PortfolioLot[],
+      });
+    }
+    map.get(key).lots.push(lot);
+  }
+
+  return Array.from(map.values()).map(h => {
+    const totalUnits = h.lots.reduce((s, l) => s + l.units, 0);
+    const invested = h.lots.reduce((s, l) => s + l.amount, 0);
+    return {
+      ...h,
+      totalUnits,
+      avgPrice: invested / (totalUnits || 1),
+    };
+  });
+}
+DIFF 4 — Route must return LOT-AWARE payload (hard fail if dropped)
+server/routes/cas-statement-routes.ts
+import { deriveHoldingsFromLots } from '../services/holding-transformer';
+
+// AFTER parsing:
+const holdings = deriveHoldingsFromLots(allLots);
+
+if (holdings.some(h => !h.lots || h.lots.length === 0)) {
+  return res.status(500).json({
+    error: 'CAS_LOTS_DROPPED',
+    message: 'Transactions found but lots lost before response',
+  });
+}
+
+return res.json({ holdings });
+🔧 FRONTEND DIFFS
+DIFF 5 — UI must read lots[], not purchaseDate
+agent-prospect-wizard.tsx (or the table row component)
+5A. Replace Purchase Date cell
+// BEFORE
+<td>{holding.purchaseDate ?? 'Not set'}</td>
+
+// AFTER
+<td>
+  {holding.lots?.length === 1
+    ? new Date(holding.lots[0].transactionDate).toLocaleDateString()
+    : holding.lots?.length > 1
+      ? `Multiple dates (${holding.lots.length})`
+      : 'Unavailable'}
+</td>
+5B. Ensure quantity uses derived total
+// BEFORE
+<td>{holding.quantity}</td>
+
+// AFTER
+<td>{holding.totalUnits}</td>
+DIFF 6 — Add expandable lot view (visible proof)
+components/HoldingRow.tsx (or equivalent)
+const [open, setOpen] = useState(false);
+
+<tr onClick={() => setOpen(!open)}>
+  {/* existing cells */}
+</tr>
+
+{open && holding.lots?.map((lot, i) => (
+  <tr key={`${lot.isin}-${lot.folio}-${i}`} className="bg-gray-50 text-sm">
+    <td colSpan={2}>Lot</td>
+    <td>{new Date(lot.transactionDate).toLocaleDateString()}</td>
+    <td>{lot.units}</td>
+    <td>₹{lot.nav}</td>
+    <td>₹{lot.amount}</td>
+  </tr>
+))}
+🔒 DEBUG “POISON PILL” (10-minute check)
+Add once to confirm the live path:
+cas-statement-service.ts
+throw new Error('CAS_PARSER_ACTIVE_CHECK');
+Re-import CAS:
+If UI errors → you’re on the right path.
+If nothing happens → the UI is calling a different endpoint (stop and trace Network tab).
+✅ EXPECTED IMMEDIATE CHANGES
+After deploying these diffs and re-importing the same CAS:
+DSP Healthcare → shows “Multiple dates (2)”; expanding shows 07-Oct-2024 and 29-Oct-2024
+Franklin Small Cap → shows “Multiple dates (8/12)” (SIPs)
+“Not set” disappears
+Save button count increases (23 → ~40+)
