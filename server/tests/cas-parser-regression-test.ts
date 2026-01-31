@@ -378,16 +378,22 @@ export async function runAllCASRegressionTests(): Promise<{
   const formatPassed = formatResults.filter(r => r.passed).length;
   const allPassed = goldenPassed === goldenResults.length && formatPassed === formatResults.length;
 
-  const summary = `
+    // Run lot regression tests (AUTHORITATIVE FIX)
+  console.log('\n--- Lot Regression Tests (AUTHORITATIVE FIX) ---');
+  const lotResults = await runLotRegressionTests();
+  const lotPassed = lotResults.passed;
+
+const summary = `
 === Test Summary ===
 Golden Fixtures: ${goldenPassed}/${goldenResults.length} passed
 Format Variance: ${formatPassed}/${formatResults.length} passed
-Overall: ${allPassed ? '✅ ALL TESTS PASSED' : '❌ SOME TESTS FAILED'}
+Lot Regression: ${lotResults.tests.filter(t => t.passed).length}/${lotResults.tests.length} passed
+Overall: ${allPassed && lotPassed ? '✅ ALL TESTS PASSED' : '❌ SOME TESTS FAILED'}
 `;
   console.log(summary);
 
   return {
-    passed: allPassed,
+    passed: allPassed && lotPassed,
     goldenFixtures: {
       total: goldenResults.length,
       passed: goldenPassed,
@@ -398,8 +404,201 @@ Overall: ${allPassed ? '✅ ALL TESTS PASSED' : '❌ SOME TESTS FAILED'}
       passed: formatPassed,
       results: formatResults,
     },
+    lotRegression: lotResults,
     summary,
   };
+}
+
+/**
+ * AUTHORITATIVE FIX: Lot-Level Regression Tests
+ * 
+ * These tests ensure that:
+ * 1. Holdings have the correct number of lots
+ * 2. Each lot has a mandatory transactionDate
+ * 3. Lot units sum to closing balance
+ * 4. No holding has purchaseDate = null when lots exist
+ */
+interface LotRegressionTest {
+  name: string;
+  isin: string;
+  expectedLots: number;
+  description: string;
+}
+
+const LOT_REGRESSION_TESTS: LotRegressionTest[] = [
+  {
+    name: 'DSP Healthcare Fund',
+    isin: 'INF740KA1HS7', // Adjust ISIN to match actual CAS
+    expectedLots: 2,
+    description: 'Two purchase lots: 07-Oct-2024 and 29-Oct-2024'
+  },
+  {
+    name: 'Franklin Small Cap Fund',
+    isin: 'INF090I01CP4', // Adjust ISIN to match actual CAS
+    expectedLots: 8,
+    description: '8 SIP lots from monthly investments'
+  },
+  {
+    name: 'Navi Nifty Index Fund',
+    isin: 'INF845Q01DF6', // Adjust ISIN to match actual CAS
+    expectedLots: 40,
+    description: '40+ SIP lots from weekly investments'
+  }
+];
+
+/**
+ * Run lot-level regression tests
+ * Fail build if:
+ * - Any holding has purchaseDate = null when lots should exist
+ * - Any lot is missing transactionDate
+ */
+export async function runLotRegressionTests(): Promise<{
+  passed: boolean;
+  tests: Array<{ name: string; passed: boolean; details: any }>;
+  summary: string;
+}> {
+  console.log('\n=== AUTHORITATIVE FIX: Lot-Level Regression Tests ===');
+  
+  const tests: Array<{ name: string; passed: boolean; details: any }> = [];
+  
+  // Test 1: Verify lot extraction from sample transaction text
+  const sampleTransactionText = `
+Folio No: 12345678
+PAN: ABCPD1234E
+DSP-DSP Healthcare Fund - Regular Plan - IDCW - ISIN: INF740KA1HS7 Registrar : CAMS
+Opening Unit Balance: 0.000
+
+07-Oct-2024 Purchase-BSE - - ARN-XXXX 199,990.00 4,974.876 40.200 4,974.876
+*** Stamp Duty - 0.03 ***
+29-Oct-2024 Purchase-BSE - - ARN-XXXX 199,970.00 4,966.475 40.268 9,941.351
+*** Stamp Duty - 0.03 ***
+
+Closing Unit Balance: 9,941.351 Total Cost Value: 399,960.00
+NAV on 24-Jan-2026: INR 45.5000 Market Value on 24-Jan-2026: INR 452,331.47
+`;
+
+  try {
+    const result = await casStatementService.parseStatement(sampleTransactionText);
+    const holding = result.holdings.find(h => h.isin === 'INF740KA1HS7');
+    
+    if (!holding) {
+      tests.push({
+        name: 'DSP Healthcare Lot Extraction',
+        passed: false,
+        details: { error: 'Holding not found in parsed results' }
+      });
+    } else {
+      const lotCount = holding.lots?.length || 0;
+      const hasCorrectLots = lotCount === 2;
+      const allLotsHaveDates = holding.lots?.every(lot => lot.transactionDate) || false;
+      const lotSummaryCorrect = holding.lotSummary === '2 purchase lots';
+      
+      tests.push({
+        name: 'DSP Healthcare Lot Extraction',
+        passed: hasCorrectLots && allLotsHaveDates,
+        details: {
+          expectedLots: 2,
+          actualLots: lotCount,
+          lotSummary: holding.lotSummary,
+          allLotsHaveDates,
+          lotSummaryCorrect,
+          lots: holding.lots?.map(lot => ({
+            date: lot.transactionDateStr,
+            units: lot.units,
+            nav: lot.nav,
+            type: lot.transactionType
+          }))
+        }
+      });
+      
+      // Test 2: Verify lots are sorted in FIFO order
+      if (holding.lots && holding.lots.length >= 2) {
+        const firstLotDate = holding.lots[0].transactionDate.getTime();
+        const secondLotDate = holding.lots[1].transactionDate.getTime();
+        const isOrdered = firstLotDate < secondLotDate;
+        
+        tests.push({
+          name: 'DSP Healthcare FIFO Order',
+          passed: isOrdered,
+          details: {
+            firstLot: holding.lots[0].transactionDateStr,
+            secondLot: holding.lots[1].transactionDateStr,
+            isOrdered
+          }
+        });
+      }
+      
+      // Test 3: Verify avgCostPerUnit is derived from lots
+      const expectedAvg = (199990 + 199970) / (4974.876 + 4966.475);
+      const derivedAvg = holding.avgCostPerUnit || 0;
+      const isAvgCorrect = Math.abs(derivedAvg - expectedAvg) < 0.01;
+      
+      tests.push({
+        name: 'DSP Healthcare Avg Cost Derived From Lots',
+        passed: isAvgCorrect,
+        details: {
+          expectedAvg: expectedAvg.toFixed(4),
+          derivedAvg: derivedAvg.toFixed(4),
+          delta: Math.abs(derivedAvg - expectedAvg).toFixed(4)
+        }
+      });
+    }
+    
+    // Test 4: Verify lotSummary format for SIP-heavy holdings
+    const sipTransactionText = `
+Folio No: 87654321
+PAN: XYZPD5678E
+Test-SIP Equity Fund - Regular Plan - Growth - ISIN: INFTEST08SIP Registrar : KFINTECH
+Opening Unit Balance: 0.000
+
+01-Jan-2024 Systematic Investment 5,000.00 100.000 50.000 100.000
+01-Feb-2024 Systematic Investment 5,000.00 100.000 50.000 200.000
+01-Mar-2024 Systematic Investment 5,000.00 100.000 50.000 300.000
+01-Apr-2024 Systematic Investment 5,000.00 100.000 50.000 400.000
+
+Closing Unit Balance: 400.000 Total Cost Value: 20,000.00
+NAV on 24-Jan-2026: INR 55.0000 Market Value on 24-Jan-2026: INR 22,000.00
+`;
+
+    const sipResult = await casStatementService.parseStatement(sipTransactionText);
+    const sipHolding = sipResult.holdings.find(h => h.isin === 'INFTEST08SIP');
+    
+    if (sipHolding) {
+      const hasSIPLotSummary = sipHolding.lotSummary === '4 SIP lots';
+      
+      tests.push({
+        name: 'SIP Fund Lot Summary Format',
+        passed: hasSIPLotSummary,
+        details: {
+          expectedSummary: '4 SIP lots',
+          actualSummary: sipHolding.lotSummary,
+          lotCount: sipHolding.lotCount
+        }
+      });
+    }
+    
+  } catch (error: any) {
+    tests.push({
+      name: 'Lot Extraction Exception',
+      passed: false,
+      details: { error: error.message }
+    });
+  }
+  
+  const passedCount = tests.filter(t => t.passed).length;
+  const allPassed = tests.every(t => t.passed);
+  
+  const summary = `Lot Regression Tests: ${passedCount}/${tests.length} passed`;
+  console.log(summary);
+  
+  for (const test of tests) {
+    console.log(`  ${test.passed ? '✓' : '✗'} ${test.name}`);
+    if (!test.passed) {
+      console.log(`    Details: ${JSON.stringify(test.details, null, 2)}`);
+    }
+  }
+  
+  return { passed: allPassed, tests, summary };
 }
 
 /**

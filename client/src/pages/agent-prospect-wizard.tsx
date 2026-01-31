@@ -2767,7 +2767,7 @@ export default function AgentProspectWizard() {
                               <TableRow className="bg-muted/50">
                                 <TableHead className="w-8"></TableHead>
                                 <TableHead>Fund Name</TableHead>
-                                <TableHead className="text-center">Purchase</TableHead>
+                                <TableHead className="text-center">Purchase Lots</TableHead>
                                 <TableHead className="text-center">Tax Status</TableHead>
                                 <TableHead className="text-right">Units</TableHead>
                                 <TableHead className="text-right">Value</TableHead>
@@ -2823,10 +2823,8 @@ export default function AgentProspectWizard() {
                                     )}
                                   </TableCell>
                                   <TableCell className="text-center">
-                                    {/* STEP 4 (FIX SPEC): Render from LOTS, not holding fields
-                                        - 1 lot = show actual date
-                                        - Multiple lots = "Multiple dates" 
-                                        - 0 lots = "Unavailable" */}
+                                    {/* AUTHORITATIVE FIX: Show lot count (e.g., "2 purchase lots", "14 SIP lots")
+                                        Holdings are DERIVED from lots — never the other way around */}
                                     {lotsCount === 1 && holding.lots?.[0]?.purchaseDate ? (
                                       <div className="text-xs font-medium">
                                         {new Date(holding.lots[0].purchaseDate).toLocaleDateString('en-IN', { 
@@ -2835,13 +2833,21 @@ export default function AgentProspectWizard() {
                                       </div>
                                     ) : lotsCount > 1 ? (
                                       <div>
-                                        <div className="text-xs font-medium text-blue-600">Multiple dates</div>
-                                        <div className="text-xs text-muted-foreground">
-                                          {lotsCount} purchases
+                                        <div className="text-xs font-medium text-blue-600">
+                                          {/* Use lotSummary if available, otherwise generic lot count */}
+                                          {(holding as any).lotSummary || `${lotsCount} purchase lots`}
                                         </div>
+                                        <Button 
+                                          variant="ghost" 
+                                          size="sm" 
+                                          className="h-5 text-xs text-muted-foreground hover:text-primary p-0"
+                                          onClick={() => toggleHoldingExpansion(holding.id)}
+                                        >
+                                          {isExpanded ? 'Hide lots' : 'Show lots'}
+                                        </Button>
                                       </div>
                                     ) : (
-                                      <span className="text-muted-foreground text-xs">Unavailable</span>
+                                      <span className="text-muted-foreground text-xs">No lots</span>
                                     )}
                                   </TableCell>
                                   <TableCell className="text-center">

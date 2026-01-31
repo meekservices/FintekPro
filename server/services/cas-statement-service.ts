@@ -65,6 +65,38 @@ export interface CASTransaction {
 }
 
 /**
+ * AUTHORITATIVE FIX: PortfolioLot is a FIRST-CLASS ENTITY
+ * 
+ * Golden Rule: Holdings are DERIVED from lots — never the other way around.
+ * Each purchase/SIP/switch-in = one legally distinct tax lot.
+ * 
+ * The CAS is LOT-NATIVE. Example (DSP Healthcare):
+ * - 07-Oct-2024: 4,974.876 units @ ₹40.20 = Lot 1
+ * - 29-Oct-2024: 4,966.475 units @ ₹40.27 = Lot 2
+ * 
+ * These are two legally distinct tax lots with different holding periods.
+ */
+export interface PortfolioLot {
+  id: string;
+  amc: string;
+  schemeName: string;
+  isin: string;
+  folio: string;
+  
+  transactionDate: Date;   // 🔴 MANDATORY - determines tax treatment
+  transactionDateStr: string; // Original string format (DD-Mon-YYYY)
+  transactionType: 'PURCHASE' | 'SIP' | 'SWITCH_IN' | 'BONUS' | 'REINVESTMENT';
+  
+  units: number;
+  nav: number;
+  amount: number;
+  
+  stampDuty?: number;
+  description?: string;
+  source: 'CAS';
+}
+
+/**
  * Tiered Holding Classification (Epic T1-T3)
  * - FULL: Complete holding with transactions and lot data (Tier 1)
  * - VALUATION_ONLY: NAV + Market Value but no/incomplete transactions (Tier 2)
@@ -103,6 +135,12 @@ export interface CASHolding {
   holdingTier: HoldingTier;
   eligibleForTax: boolean;
   tierWarnings?: string[];
+  
+  // AUTHORITATIVE FIX: Lots are the primary truth
+  // Holdings are DERIVED from lots — avgCostPerUnit = weighted average of lot NAVs
+  lots: PortfolioLot[];
+  lotCount: number;
+  lotSummary: string; // "2 purchase lots", "14 SIP lots", etc.
 }
 
 export interface CASPortfolioSummaryEntry {
@@ -726,7 +764,11 @@ class CASStatementService {
       transactions: [],
       holdingTier: 'VALUATION_ONLY',
       eligibleForTax: false,
-      tierWarnings: ['Recovered from valuation-only block - no transaction history available']
+      tierWarnings: ['Recovered from valuation-only block - no transaction history available'],
+      // AUTHORITATIVE FIX: Tier 2 has no lots (valuation only)
+      lots: [],
+      lotCount: 0,
+      lotSummary: 'No lots (valuation only)'
     };
   }
 
@@ -756,7 +798,11 @@ class CASStatementService {
       transactions: [],
       holdingTier: 'SUMMARY_PLACEHOLDER',
       eligibleForTax: false,
-      tierWarnings: ['Manual review required - holdings not found in parsed data']
+      tierWarnings: ['Manual review required - holdings not found in parsed data'],
+      // AUTHORITATIVE FIX: Tier 3 has no lots (placeholder)
+      lots: [],
+      lotCount: 0,
+      lotSummary: 'No lots (placeholder)'
     };
   }
 
@@ -1223,20 +1269,75 @@ class CASStatementService {
     
     const transactions = this.parseTransactionsFromBlock(blockText, isin, folioNumber, schemeName);
     
-    let firstPurchaseDate: string | undefined;
+    // ========================================================================
+    // AUTHORITATIVE FIX: Build LOTS from transactions FIRST
+    // Golden Rule: Holdings are DERIVED from lots — never the other way around.
+    // ========================================================================
+    const lots: PortfolioLot[] = [];
     const purchaseTransactions = transactions.filter(t => t.isCredit && t.units > 0);
-    if (purchaseTransactions.length > 0) {
-      const sortedDates = purchaseTransactions
-        .map(t => ({ date: t.transactionDate, parsed: parseCASDate(t.transactionDate) }))
-        .filter(d => d.parsed !== null)
-        .sort((a, b) => (a.parsed as Date).getTime() - (b.parsed as Date).getTime());
+    
+    for (let lotIdx = 0; lotIdx < purchaseTransactions.length; lotIdx++) {
+      const txn = purchaseTransactions[lotIdx];
+      const parsedDate = parseCASDate(txn.transactionDate);
       
-      if (sortedDates.length > 0) {
-        // Convert to YYYY-MM-DD format for frontend date input compatibility
-        const parsedDate = sortedDates[0].parsed as Date;
-        firstPurchaseDate = parsedDate.toISOString().split('T')[0];
+      if (!parsedDate) {
+        console.warn(`[CAS Lot Builder] Skipping lot with unparseable date: ${txn.transactionDate}`);
+        continue;
       }
+      
+      // Map transaction type to lot type
+      let lotType: PortfolioLot['transactionType'] = 'PURCHASE';
+      if (txn.transactionType === 'SIP') lotType = 'SIP';
+      else if (txn.transactionType === 'Switch In') lotType = 'SWITCH_IN';
+      else if (txn.transactionType === 'Bonus') lotType = 'BONUS';
+      else if (txn.transactionType === 'Reinvestment') lotType = 'REINVESTMENT';
+      
+      lots.push({
+        id: `lot-${isin}-${folioNumber}-${lotIdx}`,
+        amc: amcName,
+        schemeName,
+        isin,
+        folio: folioNumber,
+        transactionDate: parsedDate,
+        transactionDateStr: txn.transactionDate,
+        transactionType: lotType,
+        units: Math.abs(txn.units),
+        nav: txn.nav,
+        amount: Math.abs(txn.amount),
+        stampDuty: txn.stampDuty,
+        description: txn.description,
+        source: 'CAS'
+      });
     }
+    
+    // Sort lots by date (FIFO order)
+    lots.sort((a, b) => a.transactionDate.getTime() - b.transactionDate.getTime());
+    
+    // Generate lot summary for UI
+    const sipLots = lots.filter(l => l.transactionType === 'SIP').length;
+    const purchaseLots = lots.filter(l => l.transactionType === 'PURCHASE').length;
+    const switchLots = lots.filter(l => l.transactionType === 'SWITCH_IN').length;
+    const bonusLots = lots.filter(l => l.transactionType === 'BONUS' || l.transactionType === 'REINVESTMENT').length;
+    
+    let lotSummary = '';
+    if (sipLots > 0 && purchaseLots === 0 && switchLots === 0) {
+      lotSummary = `${sipLots} SIP lot${sipLots > 1 ? 's' : ''}`;
+    } else if (purchaseLots > 0 && sipLots === 0 && switchLots === 0) {
+      lotSummary = `${purchaseLots} purchase lot${purchaseLots > 1 ? 's' : ''}`;
+    } else if (lots.length > 0) {
+      lotSummary = `${lots.length} lot${lots.length > 1 ? 's' : ''}`;
+      if (sipLots > 0) lotSummary += ` (${sipLots} SIP)`;
+    } else {
+      lotSummary = 'No lots';
+    }
+    
+    // Derive firstPurchaseDate from lots (not transactions)
+    let firstPurchaseDate: string | undefined;
+    if (lots.length > 0) {
+      firstPurchaseDate = lots[0].transactionDate.toISOString().split('T')[0];
+    }
+    
+    console.log(`[CAS Lot Builder] ${schemeName.substring(0, 30)}... | ${lots.length} lots | ${lotSummary}`);
     
     let holderName = '';
     const lines = blockText.split('\n');
@@ -1252,11 +1353,22 @@ class CASStatementService {
       }
     }
     
-    const unrealizedGain = marketValue - costValue;
-    const unrealizedGainPercent = costValue > 0 ? (unrealizedGain / costValue) * 100 : 0;
-    const avgCostPerUnit = unitBalance > 0 ? costValue / unitBalance : 0;
+    // ========================================================================
+    // AUTHORITATIVE FIX: Derive avgCostPerUnit from LOTS (weighted average)
+    // avgCostPerUnit = sum(lot.amount) / sum(lot.units)
+    // This is the legally defensible cost basis calculation.
+    // ========================================================================
+    const lotTotalCost = lots.reduce((sum, lot) => sum + lot.amount, 0);
+    const lotTotalUnits = lots.reduce((sum, lot) => sum + lot.units, 0);
     
-    const hasPurchaseTransactions = transactions.some(t => t.isCredit && t.units > 0);
+    // Use lot-derived values if available, fallback to CAS text-extracted values
+    const derivedCostValue = lots.length > 0 ? lotTotalCost : costValue;
+    const derivedAvgCostPerUnit = lotTotalUnits > 0 ? lotTotalCost / lotTotalUnits : (unitBalance > 0 ? costValue / unitBalance : 0);
+    
+    const unrealizedGain = marketValue - derivedCostValue;
+    const unrealizedGainPercent = derivedCostValue > 0 ? (unrealizedGain / derivedCostValue) * 100 : 0;
+    
+    const hasPurchaseTransactions = lots.length > 0;
     const holdingTier: HoldingTier = hasPurchaseTransactions ? 'FULL' : 'VALUATION_ONLY';
     let eligibleForTax = holdingTier === 'FULL';
     const tierWarnings: string[] = [];
@@ -1265,20 +1377,20 @@ class CASStatementService {
       tierWarnings.push('No purchase transactions found - capital gains cannot be computed');
     }
     
-    // Step 5: Lot reconciliation - verify sum of lot units matches closing balance
-    const purchaseTxns = transactions.filter(t => t.isCredit && ['Purchase', 'SIP', 'Switch In', 'Bonus', 'Reinvestment'].includes(t.transactionType));
+    // ========================================================================
+    // AUTHORITATIVE FIX: Lot Reconciliation (using lots, not transactions)
+    // Validate that sum of lot units matches closing balance
+    // ========================================================================
     const redemptionTxns = transactions.filter(t => !t.isCredit);
-    
-    const totalPurchaseUnits = purchaseTxns.reduce((sum, t) => sum + Math.abs(t.units), 0);
     const totalRedemptionUnits = redemptionTxns.reduce((sum, t) => sum + Math.abs(t.units), 0);
-    const calculatedBalance = openingUnitBalance + totalPurchaseUnits - totalRedemptionUnits;
+    const calculatedBalance = openingUnitBalance + lotTotalUnits - totalRedemptionUnits;
     const reconciliationDelta = Math.abs(calculatedBalance - unitBalance);
     const reconciliationTolerance = 0.01; // 0.01 unit tolerance
     
     if (hasPurchaseTransactions && reconciliationDelta > reconciliationTolerance) {
       const deltaPct = unitBalance > 0 ? (reconciliationDelta / unitBalance) * 100 : 0;
       if (deltaPct > 5) {
-        tierWarnings.push(`Lot reconciliation mismatch: ${purchaseTxns.length} lots = ${calculatedBalance.toFixed(3)} units vs closing ${unitBalance.toFixed(3)} (delta: ${reconciliationDelta.toFixed(3)})`);
+        tierWarnings.push(`Lot reconciliation mismatch: ${lots.length} lots = ${calculatedBalance.toFixed(3)} units vs closing ${unitBalance.toFixed(3)} (delta: ${reconciliationDelta.toFixed(3)})`);
         console.warn(`[CAS Lot Reconciliation] MISMATCH for ${isin}: Lots=${calculatedBalance.toFixed(3)}, Closing=${unitBalance.toFixed(3)}, Delta=${reconciliationDelta.toFixed(3)} (${deltaPct.toFixed(2)}%)`);
         // Don't mark as ineligible for tax if the delta is small - could be rounding
         if (deltaPct > 20) {
@@ -1286,10 +1398,10 @@ class CASStatementService {
         }
       }
     } else if (hasPurchaseTransactions) {
-      console.log(`[CAS Lot Reconciliation] ✓ PASS for ${isin}: ${purchaseTxns.length} lots = ${totalPurchaseUnits.toFixed(3)} units, Closing = ${unitBalance.toFixed(3)}`);
+      console.log(`[CAS Lot Reconciliation] ✓ PASS for ${isin}: ${lots.length} lots = ${lotTotalUnits.toFixed(3)} units, Closing = ${unitBalance.toFixed(3)}`);
     }
     
-    console.log(`[CAS Service v4] Parsed: Folio ${folioNumber} | ${schemeName.substring(0, 35)}... | Units: ${unitBalance.toFixed(3)} | Cost: ${costValue.toFixed(2)} | Market: ${marketValue.toFixed(2)} | Txns: ${transactions.length} (${purchaseTxns.length} purchases) | Tier: ${holdingTier}`);
+    console.log(`[CAS Service v4] Parsed: Folio ${folioNumber} | ${schemeName.substring(0, 35)}... | Units: ${unitBalance.toFixed(3)} | Lots: ${lots.length} (${lotSummary}) | Cost: ${derivedCostValue.toFixed(2)} | Avg: ${derivedAvgCostPerUnit.toFixed(2)} | Market: ${marketValue.toFixed(2)} | Tier: ${holdingTier}`);
     
     return {
       id: `cas-${isin}-${folioNumber}-${index}`,
@@ -1298,7 +1410,7 @@ class CASStatementService {
       schemeCode,
       schemeName,
       amcName,
-      costValue,
+      costValue: derivedCostValue, // Use lot-derived cost
       unitBalance,
       openingUnitBalance,
       navDate,
@@ -1307,7 +1419,7 @@ class CASStatementService {
       registrar,
       unrealizedGain,
       unrealizedGainPercent,
-      avgCostPerUnit,
+      avgCostPerUnit: derivedAvgCostPerUnit, // Use lot-derived avg cost
       assetType: 'mutual_fund',
       planType,
       optionType,
@@ -1321,7 +1433,11 @@ class CASStatementService {
       holderName,
       holdingTier,
       eligibleForTax,
-      tierWarnings
+      tierWarnings,
+      // AUTHORITATIVE FIX: Lots are the primary truth
+      lots,
+      lotCount: lots.length,
+      lotSummary
     };
   }
   

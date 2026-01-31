@@ -663,24 +663,21 @@ router.post(
               broker: 'CAMS/KFintech CAS',
               // Include first purchase date from CAS parsing
               firstPurchaseDate: h.firstPurchaseDate || '',
-              // STEP 4: Lots must flow to UI - each purchase = one lot
-              lots: h.transactions?.filter(t => 
-                t.isCredit && ['Purchase', 'SIP', 'Switch In', 'Bonus', 'Reinvestment'].includes(t.transactionType)
-              ).map(t => {
-                // Convert DD-Mon-YYYY to YYYY-MM-DD for frontend date inputs
-                const casDate = parseCASDate(t.transactionDate);
-                const purchaseDateISO = casDate ? casDate.toISOString().split('T')[0] : t.transactionDate;
-                return {
-                  purchaseDate: purchaseDateISO,
-                  transactionType: t.transactionType,
-                  amount: t.amount,
-                  units: Math.abs(t.units),
-                  nav: t.nav,
-                  cost: t.amount,
-                  remainingUnits: Math.abs(t.units),
-                  description: t.description
-                };
-              }) || [],
+              // AUTHORITATIVE FIX: Lots flow directly from CAS parser (not derived from transactions)
+              // Each lot has mandatory transactionDate - the legally distinct tax lot
+              lots: h.lots?.map(lot => ({
+                purchaseDate: lot.transactionDate.toISOString().split('T')[0],
+                transactionType: lot.transactionType,
+                amount: lot.amount,
+                units: lot.units,
+                nav: lot.nav,
+                cost: lot.amount,
+                remainingUnits: lot.units,
+                description: lot.description || ''
+              })) || [],
+              // Lot summary for UI (e.g., "2 purchase lots", "14 SIP lots")
+              lotSummary: h.lotSummary || '',
+              lotCount: h.lotCount || 0,
               // All transactions for reference
               transactions: h.transactions?.map(t => ({
                 date: t.transactionDate,
