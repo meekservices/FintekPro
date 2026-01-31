@@ -650,6 +650,8 @@ router.post(
               folioNumber: h.folioNumber || '',
               confidenceScore: h.confidenceScore || 90,
               broker: 'CAMS/KFintech CAS',
+              // Include first purchase date from CAS parsing
+              firstPurchaseDate: h.firstPurchaseDate || '',
               transactionLots: h.transactions?.map(t => ({
                 purchaseDate: t.date,
                 transactionType: t.transactionType,
