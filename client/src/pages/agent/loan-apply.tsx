@@ -766,7 +766,7 @@ export default function AgentLoanApplyPage() {
             </CardHeader>
             <CardContent>
               {loadingApplications ? (
-                <LoadingState message="Loading applications..." />
+                <LoadingState variant="list" count={3} />
               ) : applications.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />

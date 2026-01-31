@@ -903,6 +903,14 @@ class DsaLoanService {
       message: `${successfulRoutings.length} additional bank(s) added for extended review`,
     };
   }
+
+  /**
+   * Get bank offers for an application (alias for getRoutingHistory)
+   * Used by KFS generation to find approved offers
+   */
+  async getBankOffers(applicationId: string): Promise<any[]> {
+    return this.getRoutingHistory(applicationId);
+  }
 }
 
 export const dsaLoanService = new DsaLoanService();
