@@ -727,6 +727,8 @@ router.post(
         folioNumber: h.folioNumber || '',
         confidenceScore: h.confidenceScore || 85,
         broker: parseResult.brokerDetected || (statementType === 'cas' ? 'CAMS/KFintech' : 'NSDL/CDSL'),
+        // Include purchase date from PDF parser
+        purchaseDate: h.purchaseDate || '',
         transactionLots: h.lots || []
       }));
       
