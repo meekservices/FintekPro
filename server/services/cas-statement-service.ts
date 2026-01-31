@@ -1232,7 +1232,9 @@ class CASStatementService {
         .sort((a, b) => (a.parsed as Date).getTime() - (b.parsed as Date).getTime());
       
       if (sortedDates.length > 0) {
-        firstPurchaseDate = sortedDates[0].date;
+        // Convert to YYYY-MM-DD format for frontend date input compatibility
+        const parsedDate = sortedDates[0].parsed as Date;
+        firstPurchaseDate = parsedDate.toISOString().split('T')[0];
       }
     }
     
