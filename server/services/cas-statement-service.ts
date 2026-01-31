@@ -303,10 +303,21 @@ class CASStatementService {
         result.reconciliation = this.performStrictReconciliation(preEnrichmentResult, result.portfolioSummary);
         
         if (!result.reconciliation.passed) {
-          // Reconciliation failed - fail the import
-          result.success = false;
-          result.errors.push(result.reconciliation.message);
+          // Reconciliation failed - but still return parsed holdings with warning
+          // Agent can review and approve manually
           console.error(`[CAS Service v4] RECONCILIATION FAILED: ${result.reconciliation.message}`);
+          result.warnings.push(`Reconciliation warning: ${result.reconciliation.message}`);
+          result.warnings.push('Holdings parsed but may be incomplete. Please review before using for tax calculations.');
+          
+          // Mark all holdings as not eligible for tax (conservative approach)
+          result.holdings.forEach(h => {
+            h.eligibleForTax = false;
+            h.tierWarnings = h.tierWarnings || [];
+            h.tierWarnings.push('Reconciliation failed - verify holdings before tax calculations');
+          });
+          
+          // Allow import to succeed if we have holdings - agent can review
+          result.success = result.holdings.length > 0;
         } else {
           result.success = result.holdings.length > 0;
           if (result.reconciliation.deltaPercent > 0.1) {
