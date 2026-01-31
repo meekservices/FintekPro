@@ -1,0 +1,129 @@
+Below is a clear, copy-paste–ready instruction you can give directly to the Replit engineering agent / team to apply the fix correctly in FintekPro.
+This is written as an implementation directive, not a concept note.
+🔧 Replit Instruction: Fix CAS Transaction Parsing (Lot-Level Accuracy)
+Context
+The current CAS parser is collapsing multiple purchase transactions within the same folio + scheme into a single investment, causing:
+Loss of date-wise transactions
+Incorrect lot creation
+Broken capital-gains, exit-load, and tax-harvesting logic
+This is visible in DSP Healthcare Fund (INF740KA1LD8), where two purchases on different dates are treated as one.
+🎯 Objective
+Update the CAS parsing logic so that each financial transaction row (Purchase / SIP / Switch-In) is captured individually, grouped by:
+AMC + ISIN + Folio Number
+and converted into date-wise lots, with reconciliation against closing balance.
+✅ Required Behaviour (Non-Negotiable)
+For each scheme + folio:
+Every valid transaction line = one transaction
+Every purchase / switch-in = one lot
+Metadata rows (stamp duty, address update, broker change) must be ignored
+Closing Unit Balance must equal sum of lot units (within tolerance)
+🧩 Files to Modify
+server/services/cas-statement-service.ts
+(if exists) server/services/transaction-extractor.ts
+Ensure Smart Portfolio Import wizard uses this same service (already wired correctly)
+🛠️ Implementation Steps
+Step 1: Introduce a Dedicated Transaction Row Parser
+Add a strict transaction-line regex (do NOT reuse valuation regex):
+const TRANSACTION_ROW_REGEX =
+/(\d{2}-[A-Za-z]{3}-\d{4})\s+
+(Purchase|Purchase-BSE|SIP Purchase|Systematic Investment Purchase|Switch In|Equity Switch In)
+.*?
+([\d,]+\.\d{2})\s+          // Amount
+([\d,]+\.\d{3})\s+          // Units
+([\d,]+\.\d{3,4})\s+        // NAV
+([\d,]+\.\d{3})/;
+This regex must be applied line-by-line, not on the full scheme block.
+Step 2: Explicitly Ignore Metadata Rows
+Before matching transactions, skip lines containing:
+if (
+  line.includes('***') ||
+  line.includes('Address Updated') ||
+  line.includes('Change of Broker') ||
+  line.includes('Registration of Nominee') ||
+  line.includes('Cancellation')
+) {
+  continue;
+}
+These lines must never create transactions or lots.
+Step 3: Parse Transactions Before Valuation
+Inside parseSchemeBlock():
+const transactions = [];
+
+for (const line of schemeLines) {
+  const match = line.match(TRANSACTION_ROW_REGEX);
+  if (match) {
+    transactions.push({
+      amc,
+      isin,
+      folio,
+      date: parseDate(match[1]),
+      type: normalizeTxnType(match[2]),
+      amount: parseNumber(match[3]),
+      units: parseNumber(match[4]),
+      nav: parseNumber(match[5]),
+    });
+  }
+}
+❗ Do not infer transactions from:
+Closing balance
+Total cost value
+Market value
+Transactions must come only from transaction rows.
+Step 4: Build Lot Ledger from Transactions (FIFO-Ready)
+const lots = transactions
+  .filter(txn => txn.type === 'PURCHASE' || txn.type === 'SWITCH_IN')
+  .map(txn => ({
+    purchaseDate: txn.date,
+    units: txn.units,
+    nav: txn.nav,
+    cost: txn.amount,
+    remainingUnits: txn.units,
+  }));
+Each transaction = one lot
+Do not merge lots with different dates.
+Step 5: Reconcile Lots with Closing Unit Balance
+After parsing valuation fields:
+const lotUnits = lots.reduce((sum, l) => sum + l.remainingUnits, 0);
+
+if (Math.abs(lotUnits - closingUnitBalance) > 0.01) {
+  addWarning('LOT_RECONCILIATION_MISMATCH');
+  confidence = 'MEDIUM';
+} else {
+  confidence = 'HIGH';
+}
+This ensures DSP-like cases always tally:
+4,974.876 + 4,966.475 = 9,941.351 ✅
+Step 6: Fallback Rule (Do NOT Guess)
+If:
+No transaction rows are found
+But NAV + Market Value exist
+Then:
+Create Tier-2 valuation-only holding
+lots = null
+eligibleForTax = false
+Do not fabricate purchase dates or units.
+🧪 Acceptance Test (Must Pass)
+Given
+DSP Healthcare Fund – Folio 9609813 / 28
+When
+CAS PDF is imported
+
+Then
+
+Transactions parsed = 2
+Lots created = 2
+Lot dates = 07-Oct-2024, 29-Oct-2024
+Units total = 9,941.351
+Market value = ₹371,299.52
+Confidence = HIGH
+Capital gains engine sees two separate lots
+🚫 Explicitly Forbidden
+❌ Grouping by ISIN only
+❌ Merging multiple purchases into one
+❌ Inferring transactions from closing balance
+❌ Applying tax logic to Tier-2 holdings
+🏁 Outcome
+After this fix:
+All DSP / SIP / multi-purchase cases are correct
+Capital gains & exit load become mathematically sound
+FintekPro becomes advisory-grade and audit-defensible

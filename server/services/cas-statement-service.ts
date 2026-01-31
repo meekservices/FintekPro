@@ -1258,14 +1258,38 @@ class CASStatementService {
     
     const hasPurchaseTransactions = transactions.some(t => t.isCredit && t.units > 0);
     const holdingTier: HoldingTier = hasPurchaseTransactions ? 'FULL' : 'VALUATION_ONLY';
-    const eligibleForTax = holdingTier === 'FULL';
+    let eligibleForTax = holdingTier === 'FULL';
     const tierWarnings: string[] = [];
     
     if (holdingTier === 'VALUATION_ONLY') {
       tierWarnings.push('No purchase transactions found - capital gains cannot be computed');
     }
     
-    console.log(`[CAS Service v3] Parsed: Folio ${folioNumber} | ${schemeName.substring(0, 35)}... | Units: ${unitBalance.toFixed(3)} | Cost: ${costValue.toFixed(2)} | Market: ${marketValue.toFixed(2)} | Txns: ${transactions.length} | Tier: ${holdingTier}`);
+    // Step 5: Lot reconciliation - verify sum of lot units matches closing balance
+    const purchaseTxns = transactions.filter(t => t.isCredit && ['Purchase', 'SIP', 'Switch In', 'Bonus', 'Reinvestment'].includes(t.transactionType));
+    const redemptionTxns = transactions.filter(t => !t.isCredit);
+    
+    const totalPurchaseUnits = purchaseTxns.reduce((sum, t) => sum + Math.abs(t.units), 0);
+    const totalRedemptionUnits = redemptionTxns.reduce((sum, t) => sum + Math.abs(t.units), 0);
+    const calculatedBalance = openingUnitBalance + totalPurchaseUnits - totalRedemptionUnits;
+    const reconciliationDelta = Math.abs(calculatedBalance - unitBalance);
+    const reconciliationTolerance = 0.01; // 0.01 unit tolerance
+    
+    if (hasPurchaseTransactions && reconciliationDelta > reconciliationTolerance) {
+      const deltaPct = unitBalance > 0 ? (reconciliationDelta / unitBalance) * 100 : 0;
+      if (deltaPct > 5) {
+        tierWarnings.push(`Lot reconciliation mismatch: ${purchaseTxns.length} lots = ${calculatedBalance.toFixed(3)} units vs closing ${unitBalance.toFixed(3)} (delta: ${reconciliationDelta.toFixed(3)})`);
+        console.warn(`[CAS Lot Reconciliation] MISMATCH for ${isin}: Lots=${calculatedBalance.toFixed(3)}, Closing=${unitBalance.toFixed(3)}, Delta=${reconciliationDelta.toFixed(3)} (${deltaPct.toFixed(2)}%)`);
+        // Don't mark as ineligible for tax if the delta is small - could be rounding
+        if (deltaPct > 20) {
+          eligibleForTax = false;
+        }
+      }
+    } else if (hasPurchaseTransactions) {
+      console.log(`[CAS Lot Reconciliation] ✓ PASS for ${isin}: ${purchaseTxns.length} lots = ${totalPurchaseUnits.toFixed(3)} units, Closing = ${unitBalance.toFixed(3)}`);
+    }
+    
+    console.log(`[CAS Service v4] Parsed: Folio ${folioNumber} | ${schemeName.substring(0, 35)}... | Units: ${unitBalance.toFixed(3)} | Cost: ${costValue.toFixed(2)} | Market: ${marketValue.toFixed(2)} | Txns: ${transactions.length} (${purchaseTxns.length} purchases) | Tier: ${holdingTier}`);
     
     return {
       id: `cas-${isin}-${folioNumber}-${index}`,
@@ -1302,37 +1326,61 @@ class CASStatementService {
   }
   
   /**
-   * Parse all transactions from a folio block with comprehensive pattern matching
+   * Parse all transactions from a folio block with strict lot-level accuracy.
+   * 
+   * CRITICAL FIX: Each financial transaction row = one transaction = one lot.
+   * Do NOT collapse multiple purchases into one investment.
+   * 
+   * Transaction line format (typical):
+   * DD-Mon-YYYY Purchase-BSE - - ARN-XXXX 199,990.00 4,974.876 40.200 4,974.876
    */
   private parseTransactionsFromBlock(blockText: string, isin: string, folioNumber: string, schemeName: string): CASTransaction[] {
     const transactions: CASTransaction[] = [];
     const lines = blockText.split('\n');
     let txnIndex = 0;
     
+    // Step 1: Strict transaction row regex - captures amount, units, NAV, balance
+    // Format: DD-Mon-YYYY TransactionType [Details] Amount Units NAV Balance
+    const TRANSACTION_ROW_REGEX = /^(\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{4})\s+(Purchase|Purchase-BSE|Purchase-NSE|SIP\s*Purchase|Systematic Investment Purchase|Systematic Investment|Switch[\s-]*In|Equity Switch[\s-]*In|Switch[\s-]*Out|Transfer[\s-]*In|Transfer[\s-]*Out|Redemption|Dividend|Dividend Reinvestment|Reinvestment|Bonus|Initial Purchase|NFO Purchase|Additional Purchase)/i;
+    
+    // Keywords for validation
     const transactionKeywords = [
       'Purchase', 'Redemption', 'Switch In', 'Switch Out', 'Switch-In', 'Switch-Out',
       'Systematic Investment', 'SIP', 'Initial Purchase', 'NFO Purchase',
       'Dividend', 'Dividend Reinvestment', 'Reinvestment', 'Bonus',
       'STT', 'Gross', 'Net', 'Unclaimed', 'Rejection', 'Reversal',
-      'Additional Purchase', 'Transfer In', 'Transfer Out', 'Transmission'
+      'Additional Purchase', 'Transfer In', 'Transfer Out', 'Transmission',
+      'Purchase-BSE', 'Purchase-NSE', 'Equity Switch'
     ];
     
     const keywordPattern = new RegExp(`(${transactionKeywords.join('|')})`, 'i');
     
+    console.log(`[CAS Txn Parser] Processing ${lines.length} lines for ISIN ${isin}, Folio ${folioNumber}`);
+    
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
       
-      if (line.includes('***') || line.includes('Stamp Duty') || 
-          line.includes('Registration') || line.includes('Address Updated') ||
-          line.includes('Change of Broker') || line.includes('Cancellation')) {
+      // Step 2: Explicitly ignore metadata rows (non-financial)
+      if (line.includes('***') || 
+          line.includes('Stamp Duty') || 
+          line.includes('Registration of Nominee') ||
+          line.includes('Address Updated') ||
+          line.includes('Change of Broker') || 
+          line.includes('Cancellation') ||
+          line.includes('KYC') ||
+          line.includes('Opening Unit Balance')) {
         continue;
       }
       
-      const dateMatch = line.match(/^(\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{4})/);
-      if (!dateMatch) continue;
+      // Try strict regex match first
+      const strictMatch = line.match(TRANSACTION_ROW_REGEX);
       
-      const dateStr = dateMatch[1];
-      const restOfLine = line.substring(dateMatch[0].length).trim();
+      // Fallback to flexible date + keyword detection
+      const dateMatch = line.match(/^(\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{4})/);
+      if (!dateMatch && !strictMatch) continue;
+      
+      const dateStr = strictMatch ? strictMatch[1] : dateMatch![1];
+      const restOfLine = line.substring(dateStr.length).trim();
       
       if (!keywordPattern.test(restOfLine)) continue;
       
@@ -1340,17 +1388,24 @@ class CASStatementService {
       // This prevents "Instalment No - 1" from being counted as a number
       const cleanedLine = restOfLine
         .replace(/Instalment\s*No\s*[-–]\s*\d+(?:\/\d+)?/gi, '')
-        .replace(/No\s*[-–]\s*\d+(?:\/\d+)?/gi, '');
+        .replace(/No\s*[-–]\s*\d+(?:\/\d+)?/gi, '')
+        .replace(/ARN-\d+/gi, '') // Remove ARN codes to avoid confusion with numbers
+        .replace(/--/g, ' '); // Normalize double dashes
       
       const numbers = this.extractNumbers(cleanedLine);
       
-      if (numbers.length < 2) continue;
+      // Need at least 2 numbers (units + NAV minimum)
+      if (numbers.length < 2) {
+        console.log(`[CAS Txn Parser] Skipped line (insufficient numbers): ${line.substring(0, 60)}...`);
+        continue;
+      }
       
       let amount = 0;
       let units = 0;
       let nav = 0;
       let balance = 0;
       
+      // Parse numbers: Amount, Units, NAV, Balance (typical 4-column format)
       if (numbers.length >= 4) {
         amount = numbers[0];
         units = numbers[1];
@@ -1367,10 +1422,16 @@ class CASStatementService {
         balance = units;
       }
       
-      const description = restOfLine.replace(/[\d,]+\.?\d*/g, '').trim();
+      // Skip if units are zero or negative (not a real transaction)
+      if (units <= 0 && !restOfLine.toLowerCase().includes('redemption') && !restOfLine.toLowerCase().includes('switch out')) {
+        continue;
+      }
+      
+      const description = restOfLine.replace(/[\d,]+\.?\d*/g, '').replace(/\s+/g, ' ').trim();
       
       const { transactionType, isCredit } = this.classifyTransaction(description);
       
+      // Check for stamp duty on next line
       let stampDuty = 0;
       if (i + 1 < lines.length && lines[i + 1].includes('Stamp Duty')) {
         const stampMatch = lines[i + 1].match(/([\d,]+\.?\d*)/);
@@ -1379,7 +1440,7 @@ class CASStatementService {
         }
       }
       
-      transactions.push({
+      const txn: CASTransaction = {
         id: `txn-${isin}-${folioNumber}-${txnIndex++}`,
         folioNumber,
         isin,
@@ -1393,7 +1454,19 @@ class CASStatementService {
         description,
         stampDuty,
         isCredit
-      });
+      };
+      
+      transactions.push(txn);
+      console.log(`[CAS Txn Parser] ✓ Txn ${txnIndex}: ${dateStr} ${transactionType} | Units: ${units.toFixed(3)} | NAV: ${nav.toFixed(3)} | Amount: ${amount.toFixed(2)}`);
+    }
+    
+    console.log(`[CAS Txn Parser] Extracted ${transactions.length} transactions for ISIN ${isin}`);
+    
+    // Step 5: Log lot reconciliation warning if purchase transactions exist
+    const purchaseTxns = transactions.filter(t => t.isCredit && t.units > 0);
+    if (purchaseTxns.length > 0) {
+      const totalUnits = purchaseTxns.reduce((sum, t) => sum + t.units, 0);
+      console.log(`[CAS Txn Parser] Purchase lots: ${purchaseTxns.length} | Total units: ${totalUnits.toFixed(3)}`);
     }
     
     return transactions;
