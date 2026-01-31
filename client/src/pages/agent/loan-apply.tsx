@@ -62,7 +62,9 @@ const loanApplicationSchema = z.object({
   employmentType: z.enum(["salaried", "self_employed", "business", "professional"]),
   monthlyIncome: z.string().min(1, "Monthly income required"),
   creditScore: z.string().optional(),
+  routingMode: z.enum(["auto", "manual"]).default("auto"),
   routingStrategy: z.enum(["parallel", "waterfall", "priority_first"]).default("parallel"),
+  targetBanks: z.array(z.string()).optional(),
   loanPurpose: z.string().optional(),
 });
 
@@ -165,7 +167,9 @@ export default function AgentLoanApplyPage() {
       employmentType: "salaried",
       monthlyIncome: "",
       creditScore: "",
+      routingMode: "auto",
       routingStrategy: "parallel",
+      targetBanks: [],
       loanPurpose: "",
     },
   });
@@ -201,7 +205,7 @@ export default function AgentLoanApplyPage() {
   });
 
   const { data: myApplications, isLoading: loadingApplications, refetch: refetchApplications } = useQuery<any>({
-    queryKey: ["/api/dsa-loans/applications"],
+    queryKey: ["/api/agent/loans/my-applications"],
   });
 
   const { data: banksData } = useQuery<{ success: boolean; data: Bank[] }>({
@@ -226,8 +230,8 @@ export default function AgentLoanApplyPage() {
     },
     onSuccess: (_data, variables) => {
       toast({ title: "Banks Assigned", description: "Application has been routed to selected banks." });
-      queryClient.invalidateQueries({ queryKey: ["/api/dsa-loans/applications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dsa-loans/applications", variables.applicationId, "routing-history"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/agent/loans/my-applications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/agent/loans/applications", variables.applicationId, "routing-history"] });
       setRouteDialogOpen(false);
       setSelectedApp(null);
       setSelectedBanks([]);
@@ -245,7 +249,7 @@ export default function AgentLoanApplyPage() {
     },
     onSuccess: () => {
       toast({ title: "Application Deleted", description: "The loan application has been deleted." });
-      queryClient.invalidateQueries({ queryKey: ["/api/dsa-loans/applications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/agent/loans/my-applications"] });
       setDeleteDialogOpen(false);
       setSelectedApp(null);
     },
@@ -263,7 +267,7 @@ export default function AgentLoanApplyPage() {
     onSuccess: (data: any) => {
       setEligibilityResults([...data.data.eligible, ...data.data.ineligible]);
       setEligibilityDialogOpen(true);
-      queryClient.invalidateQueries({ queryKey: ["/api/dsa-loans/applications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/agent/loans/my-applications"] });
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to check eligibility", variant: "destructive" });
@@ -273,6 +277,8 @@ export default function AgentLoanApplyPage() {
   const createApplicationMutation = useMutation({
     mutationFn: async (data: LoanApplicationForm) => {
       const payload = {
+        clientMode: data.clientSource,
+        clientId: data.existingClientId || undefined,
         applicantName: data.applicantName,
         applicantPhone: data.applicantPhone,
         applicantEmail: data.applicantEmail || undefined,
@@ -284,17 +290,18 @@ export default function AgentLoanApplyPage() {
         employmentType: data.employmentType,
         monthlyIncome: parseInt(data.monthlyIncome),
         creditScore: data.creditScore ? parseInt(data.creditScore) : undefined,
-        routingStrategy: data.routingStrategy,
+        routingMode: data.routingMode,
+        targetBanks: data.routingMode === "manual" ? data.targetBanks : undefined,
         loanPurpose: data.loanPurpose || undefined,
       };
-      return apiRequest("/api/dsa-loans/applications", {
+      return apiRequest("/api/agent/loans/applications", {
         method: "POST",
         body: JSON.stringify(payload),
       });
     },
     onSuccess: () => {
       toast({ title: "Loan Lead Submitted", description: "The loan application has been submitted for processing." });
-      queryClient.invalidateQueries({ queryKey: ["/api/dsa-loans/applications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/agent/loans/my-applications"] });
       clearDraft();
       setUploadedDocuments([]);
       form.reset();
@@ -718,26 +725,88 @@ export default function AgentLoanApplyPage() {
                   />
                   <FormField
                     control={form.control}
-                    name="routingStrategy"
+                    name="routingMode"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Bank Routing Strategy</FormLabel>
+                        <FormLabel>Bank Selection Mode</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select routing" />
+                              <SelectValue placeholder="Select mode" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="parallel">Parallel (All banks at once)</SelectItem>
-                            <SelectItem value="waterfall">Waterfall (One by one)</SelectItem>
-                            <SelectItem value="priority_first">Priority First</SelectItem>
+                            <SelectItem value="auto">Auto (System selects banks)</SelectItem>
+                            <SelectItem value="manual">Manual (Choose banks)</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                  {form.watch("routingMode") === "auto" && (
+                    <FormField
+                      control={form.control}
+                      name="routingStrategy"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Routing Strategy</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select routing" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="parallel">Parallel (All eligible banks)</SelectItem>
+                              <SelectItem value="waterfall">Waterfall (One by one)</SelectItem>
+                              <SelectItem value="priority_first">Priority First</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                  {form.watch("routingMode") === "manual" && (
+                    <div className="md:col-span-2">
+                      <Label className="text-sm font-medium">Select Target Banks *</Label>
+                      <div className="mt-2 grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {banks.filter(b => b.isActive && b.supportedLoanTypes?.includes(form.watch("loanType"))).map((bank) => (
+                          <label 
+                            key={bank.bankCode} 
+                            className={`flex items-center gap-2 p-3 border rounded-lg cursor-pointer transition-colors ${
+                              form.watch("targetBanks")?.includes(bank.bankCode) 
+                                ? "bg-primary/10 border-primary" 
+                                : "hover:bg-muted"
+                            }`}
+                          >
+                            <Checkbox
+                              checked={form.watch("targetBanks")?.includes(bank.bankCode)}
+                              onCheckedChange={(checked) => {
+                                const current = form.getValues("targetBanks") || [];
+                                if (checked) {
+                                  form.setValue("targetBanks", [...current, bank.bankCode]);
+                                } else {
+                                  form.setValue("targetBanks", current.filter(b => b !== bank.bankCode));
+                                }
+                              }}
+                            />
+                            <div className="flex items-center gap-2">
+                              <Building2 className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-sm font-medium">{bank.bankName}</span>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                      {banks.filter(b => b.isActive && b.supportedLoanTypes?.includes(form.watch("loanType"))).length === 0 && (
+                        <p className="text-sm text-muted-foreground mt-2">No banks available for this loan type</p>
+                      )}
+                      {form.watch("targetBanks")?.length === 0 && form.watch("routingMode") === "manual" && (
+                        <p className="text-sm text-destructive mt-2">Please select at least one bank</p>
+                      )}
+                    </div>
+                  )}
                   <FormField
                     control={form.control}
                     name="loanPurpose"

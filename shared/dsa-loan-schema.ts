@@ -32,6 +32,30 @@ export const bankConnectorTypeEnum = pgEnum("bank_connector_type", [
   "webhook"
 ]);
 
+export const clientModeEnum = pgEnum("client_mode", [
+  "new",
+  "existing"
+]);
+
+export const routingModeEnum = pgEnum("routing_mode", [
+  "auto",
+  "manual"
+]);
+
+export const documentUploaderEnum = pgEnum("document_uploader", [
+  "agent",
+  "client",
+  "system"
+]);
+
+export const payoutClaimStatusEnum = pgEnum("payout_claim_status", [
+  "pending",
+  "under_review",
+  "approved",
+  "rejected",
+  "paid"
+]);
+
 export const dsaLoanApplications = pgTable("dsa_loan_applications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   applicationNumber: varchar("application_number").unique(),
@@ -89,6 +113,26 @@ export const dsaLoanApplications = pgTable("dsa_loan_applications", {
   subDsaCode: varchar("sub_dsa_code"),
   
   userId: varchar("user_id").references(() => users.id),
+  
+  // Agent-Assisted Loan Origination fields
+  assistedByAgent: boolean("assisted_by_agent").default(false),
+  clientMode: clientModeEnum("client_mode").default("new"),
+  clientId: varchar("client_id").references(() => users.id),
+  
+  // Manual bank routing support
+  targetBanks: text("target_banks").array().default(sql`ARRAY[]::text[]`),
+  routingMode: routingModeEnum("routing_mode").default("auto"),
+  
+  // Status update remarks (for agent status updates)
+  statusRemarks: text("status_remarks"),
+  lastStatusUpdateBy: varchar("last_status_update_by").references(() => users.id),
+  lastStatusUpdateAt: timestamp("last_status_update_at"),
+  
+  // Disbursement details (for payout claims)
+  actualDisbursedAmount: decimal("actual_disbursed_amount", { precision: 15, scale: 2 }),
+  actualDisbursementDate: date("actual_disbursement_date"),
+  disbursementProofUrl: varchar("disbursement_proof_url"),
+  bankConfirmationNumber: varchar("bank_confirmation_number"),
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -171,9 +215,11 @@ export const loanRoutingHistory = pgTable("loan_routing_history", {
   
   routingStrategy: varchar("routing_strategy"),
   routingPriority: integer("routing_priority"),
+  routingMode: routingModeEnum("routing_mode").default("auto"),
   
   submittedAt: timestamp("submitted_at").defaultNow(),
   submissionMethod: varchar("submission_method"),
+  submittedByAgentId: varchar("submitted_by_agent_id").references(() => users.id),
   submissionReference: varchar("submission_reference"),
   payloadHash: varchar("payload_hash"),
   
@@ -228,6 +274,13 @@ export const dsaLoanDocuments = pgTable("dsa_loan_documents", {
   
   status: varchar("status").default("pending"),
   rejectionReason: varchar("rejection_reason"),
+  
+  // Agent-Assisted fields
+  uploadedBy: documentUploaderEnum("uploaded_by").default("client"),
+  uploadedById: varchar("uploaded_by_id").references(() => users.id),
+  visibleToBank: boolean("visible_to_bank").default(true),
+  bankVisibilityChangedBy: varchar("bank_visibility_changed_by").references(() => users.id),
+  bankVisibilityChangedAt: timestamp("bank_visibility_changed_at"),
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -454,3 +507,119 @@ export type BankOAuthToken = typeof bankOAuthTokens.$inferSelect;
 export type InsertBankOAuthToken = z.infer<typeof insertBankOAuthTokensSchema>;
 export type BankApiAuditLog = typeof bankApiAuditLogs.$inferSelect;
 export type InsertBankApiAuditLog = z.infer<typeof insertBankApiAuditLogSchema>;
+
+// ============== AGENT-ASSISTED LOAN ORIGINATION TABLES ==============
+
+// Agent Loan Actions - Dedicated audit log for all agent actions on loans
+export const agentLoanActions = pgTable("agent_loan_actions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  applicationId: varchar("application_id").references(() => dsaLoanApplications.id).notNull(),
+  
+  // Agent performing the action
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  agentName: varchar("agent_name"),
+  agentEmail: varchar("agent_email"),
+  
+  // Action details
+  actionType: varchar("action_type").notNull(), // create, update, submit, route, status_update, document_upload, disbursement_record, payout_claim
+  actionDescription: text("action_description"),
+  
+  // State changes
+  previousValue: jsonb("previous_value"),
+  newValue: jsonb("new_value"),
+  affectedFields: text("affected_fields").array().default(sql`ARRAY[]::text[]`),
+  
+  // Context
+  bankCode: varchar("bank_code"),
+  documentId: varchar("document_id"),
+  remarks: text("remarks"),
+  
+  // Audit metadata
+  ipAddress: varchar("ip_address"),
+  userAgent: varchar("user_agent"),
+  sessionId: varchar("session_id"),
+  
+  // Immutable timestamp
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Agent Payout Claims - Track agent commission claims after disbursement
+export const agentPayoutClaims = pgTable("agent_payout_claims", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  claimNumber: varchar("claim_number").unique(),
+  
+  // Loan reference
+  applicationId: varchar("application_id").references(() => dsaLoanApplications.id).notNull(),
+  routingHistoryId: varchar("routing_history_id").references(() => loanRoutingHistory.id),
+  commissionTrackingId: varchar("commission_tracking_id").references(() => dsaCommissionTracking.id),
+  
+  // Agent making the claim
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  
+  // Claim amounts
+  claimedAmount: decimal("claimed_amount", { precision: 15, scale: 2 }).notNull(),
+  approvedAmount: decimal("approved_amount", { precision: 15, scale: 2 }),
+  
+  // Disbursement proof (required for claim)
+  disbursedAmount: decimal("disbursed_amount", { precision: 15, scale: 2 }).notNull(),
+  disbursementDate: date("disbursement_date").notNull(),
+  bankConfirmationNumber: varchar("bank_confirmation_number"),
+  disbursementProofUrl: varchar("disbursement_proof_url"),
+  
+  // Claim status
+  status: payoutClaimStatusEnum("status").default("pending").notNull(),
+  
+  // Admin review
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewRemarks: text("review_remarks"),
+  rejectionReason: text("rejection_reason"),
+  
+  // Payment details (after approval)
+  paymentReference: varchar("payment_reference"),
+  paymentDate: date("payment_date"),
+  paymentMode: varchar("payment_mode"), // bank_transfer, upi, cheque
+  
+  // Zoho Books integration
+  zohoInvoiceId: varchar("zoho_invoice_id"),
+  zohoPaymentId: varchar("zoho_payment_id"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Agent Loan Status History - Track all status changes with remarks
+export const agentLoanStatusHistory = pgTable("agent_loan_status_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  applicationId: varchar("application_id").references(() => dsaLoanApplications.id).notNull(),
+  
+  // Status transition
+  previousStatus: varchar("previous_status"),
+  newStatus: varchar("new_status").notNull(),
+  
+  // Who made the change
+  changedBy: varchar("changed_by").references(() => users.id).notNull(),
+  changedByType: varchar("changed_by_type").notNull(), // agent, admin, system, bank_webhook
+  
+  // Required remarks
+  remarks: text("remarks").notNull(),
+  
+  // Bank feedback (for bank-initiated status changes)
+  bankCode: varchar("bank_code"),
+  bankReference: varchar("bank_reference"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Insert schemas
+export const insertAgentLoanActionSchema = createInsertSchema(agentLoanActions).omit({ id: true, createdAt: true });
+export const insertAgentPayoutClaimSchema = createInsertSchema(agentPayoutClaims).omit({ id: true, claimNumber: true, createdAt: true, updatedAt: true });
+export const insertAgentLoanStatusHistorySchema = createInsertSchema(agentLoanStatusHistory).omit({ id: true, createdAt: true });
+
+// Types
+export type AgentLoanAction = typeof agentLoanActions.$inferSelect;
+export type InsertAgentLoanAction = z.infer<typeof insertAgentLoanActionSchema>;
+export type AgentPayoutClaim = typeof agentPayoutClaims.$inferSelect;
+export type InsertAgentPayoutClaim = z.infer<typeof insertAgentPayoutClaimSchema>;
+export type AgentLoanStatusHistory = typeof agentLoanStatusHistory.$inferSelect;
+export type InsertAgentLoanStatusHistory = z.infer<typeof insertAgentLoanStatusHistorySchema>;

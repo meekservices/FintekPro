@@ -180,6 +180,8 @@ const AgentLoanApply = lazy(() => import("@/pages/agent/loan-apply"));
 const AgentLoanMarketplace = lazy(() => import("@/pages/agent/loan-marketplace"));
 const AgentLoanApplications = lazy(() => import("@/pages/agent/loan-applications"));
 const AgentDSAPerformance = lazy(() => import("@/pages/agent/dsa-performance"));
+const AgentPayoutClaims = lazy(() => import("@/pages/agent/payout-claims"));
+const AdminAgentPayouts = lazy(() => import("@/pages/admin/agent-payouts"));
 import OnboardingPage from "@/pages/onboarding";
 import PublicProposalPage from "@/pages/public-proposal";
 import ManualKYCPage from "@/pages/manual-kyc";
@@ -1912,6 +1914,24 @@ function AgentRoutes() {
               <AgentDSAPerformance />
             </Suspense>
           </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/payout-claims">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentPayoutClaims />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/admin/agent-payouts">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <AdminAgentPayouts />
+            </Suspense>
+          </AdminLayout>
         )}
       </Route>
       <Route path="/agent/onboard-client">
