@@ -392,7 +392,8 @@ const calculateLotExitLoad = (purchaseDate: string, exitLoadDays: number = 30, e
 };
 
 // Get tax summary for holding (Section 4.2)
-const getHoldingTaxSummary = (lots: Array<{ purchaseDate: string; units: number }> | undefined): 
+// AUTHORITATIVE FIX: Accept both purchaseDate (legacy) and transactionDate/transactionDateStr (new)
+const getHoldingTaxSummary = (lots: Array<{ purchaseDate?: string; transactionDate?: Date | string; transactionDateStr?: string; units: number }> | undefined): 
   { hasLots: boolean; ltcgUnits: number; stcgUnits: number; taxStatus: 'All LTCG' | 'All STCG' | 'Mixed' | 'Unknown' } => {
   if (!lots || lots.length === 0) {
     return { hasLots: false, ltcgUnits: 0, stcgUnits: 0, taxStatus: 'Unknown' };
@@ -402,7 +403,13 @@ const getHoldingTaxSummary = (lots: Array<{ purchaseDate: string; units: number 
   let stcgUnits = 0;
   
   for (const lot of lots) {
-    const { type } = calculateLotTaxStatus(lot.purchaseDate);
+    // AUTHORITATIVE FIX: Use transactionDateStr or transactionDate first, fallback to purchaseDate
+    const dateStr = lot.transactionDateStr || 
+      (lot.transactionDate ? (typeof lot.transactionDate === 'string' ? lot.transactionDate : lot.transactionDate.toISOString()) : null) ||
+      lot.purchaseDate;
+    if (!dateStr) continue;
+    
+    const { type } = calculateLotTaxStatus(dateStr);
     if (type === 'LTCG') {
       ltcgUnits += lot.units;
     } else {
@@ -423,7 +430,8 @@ const getHoldingTaxSummary = (lots: Array<{ purchaseDate: string; units: number 
 };
 
 // Get exit load summary for holding (Section 5.1)
-const getHoldingExitLoadSummary = (lots: Array<{ purchaseDate: string; units: number }> | undefined): 
+// AUTHORITATIVE FIX: Accept both purchaseDate (legacy) and transactionDate/transactionDateStr (new)
+const getHoldingExitLoadSummary = (lots: Array<{ purchaseDate?: string; transactionDate?: Date | string; transactionDateStr?: string; units: number }> | undefined): 
   { hasLots: boolean; unitsWithExitLoad: number; unitsWithoutExitLoad: number; hasExitLoadRisk: boolean } => {
   if (!lots || lots.length === 0) {
     return { hasLots: false, unitsWithExitLoad: 0, unitsWithoutExitLoad: 0, hasExitLoadRisk: false };
@@ -433,7 +441,13 @@ const getHoldingExitLoadSummary = (lots: Array<{ purchaseDate: string; units: nu
   let unitsWithoutExitLoad = 0;
   
   for (const lot of lots) {
-    const { hasExitLoad } = calculateLotExitLoad(lot.purchaseDate);
+    // AUTHORITATIVE FIX: Use transactionDateStr or transactionDate first, fallback to purchaseDate
+    const dateStr = lot.transactionDateStr || 
+      (lot.transactionDate ? (typeof lot.transactionDate === 'string' ? lot.transactionDate : lot.transactionDate.toISOString()) : null) ||
+      lot.purchaseDate;
+    if (!dateStr) continue;
+    
+    const { hasExitLoad } = calculateLotExitLoad(dateStr);
     if (hasExitLoad) {
       unitsWithExitLoad += lot.units;
     } else {
@@ -2825,11 +2839,12 @@ export default function AgentProspectWizard() {
                                   <TableCell className="text-center">
                                     {/* AUTHORITATIVE FIX: Show lot count (e.g., "2 purchase lots", "14 SIP lots")
                                         Holdings are DERIVED from lots — never the other way around */}
-                                    {lotsCount === 1 && holding.lots?.[0]?.purchaseDate ? (
+                                    {lotsCount === 1 && (holding.lots?.[0]?.transactionDate || holding.lots?.[0]?.transactionDateStr) ? (
                                       <div className="text-xs font-medium">
-                                        {new Date(holding.lots[0].purchaseDate).toLocaleDateString('en-IN', { 
-                                          day: '2-digit', month: 'short', year: 'numeric' 
-                                        })}
+                                        {holding.lots[0].transactionDateStr || 
+                                          new Date(holding.lots[0].transactionDate).toLocaleDateString('en-IN', { 
+                                            day: '2-digit', month: 'short', year: 'numeric' 
+                                          })}
                                       </div>
                                     ) : lotsCount > 1 ? (
                                       <div>
@@ -2894,15 +2909,19 @@ export default function AgentProspectWizard() {
                                         <div className="text-xs font-medium text-muted-foreground mb-2">Purchase History (FIFO Order)</div>
                                         <div className="space-y-1">
                                           {holding.lots.map((lot, lotIdx) => {
-                                            const lotTax = calculateLotTaxStatus(lot.purchaseDate);
-                                            const lotExitLoad = calculateLotExitLoad(lot.purchaseDate);
+                                            // AUTHORITATIVE FIX: Use transactionDateStr or transactionDate, fallback to purchaseDate
+                                            const lotDateStr = lot.transactionDateStr || 
+                                              (lot.transactionDate ? (typeof lot.transactionDate === 'string' ? lot.transactionDate : new Date(lot.transactionDate).toISOString()) : null) ||
+                                              lot.purchaseDate || '';
+                                            const lotTax = calculateLotTaxStatus(lotDateStr);
+                                            const lotExitLoad = calculateLotExitLoad(lotDateStr);
                                             return (
                                               <div key={lotIdx} className="flex items-center justify-between text-sm bg-background rounded px-3 py-1.5 border">
                                                 <div className="flex items-center gap-4">
                                                   <span className="font-medium w-24">
-                                                    {new Date(lot.purchaseDate).toLocaleDateString('en-IN', { 
+                                                    {lot.transactionDateStr || (lotDateStr ? new Date(lotDateStr).toLocaleDateString('en-IN', { 
                                                       day: '2-digit', month: 'short', year: 'numeric' 
-                                                    })}
+                                                    }) : 'N/A')}
                                                   </span>
                                                   <span className="text-muted-foreground w-28">
                                                     {lot.units.toFixed(3)} units

@@ -8,6 +8,7 @@ import { portfolioStorageService } from '../services/portfolio-storage-service';
 import { holdingNormalizationService } from '../services/holding-normalization-service';
 import { lotTaxCalculatorService } from '../services/lot-tax-calculator-service';
 import { fifoLotLedgerService } from '../services/fifo-lot-ledger-service';
+import { assertLotsNotDropped } from '../services/holding-transformer';
 import type { UnifiedHolding } from '../services/unified-portfolio-types';
 import { db } from '../db';
 import { portfolios, portfolioHoldings, prospectClients } from '@shared/schema';
@@ -49,6 +50,20 @@ router.post(
       const text = parseResult.result.text;
       
       const result = await casStatementService.parseStatement(text);
+      
+      // DIFF 5 (AUTHORITATIVE FIX): HARD FAIL if lots are dropped
+      // This ensures silent failure is impossible
+      try {
+        assertLotsNotDropped(result.holdings);
+      } catch (lotsError: any) {
+        console.error('[CAS Routes] CRITICAL:', lotsError.message);
+        return res.status(500).json({
+          success: false,
+          error: 'CAS_LOTS_DROPPED',
+          message: 'Transaction rows found in CAS but lost during processing. This is a critical parsing error.',
+          holdingsCount: result.holdings.length
+        });
+      }
       
       res.json({
         success: result.success,
