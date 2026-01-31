@@ -1471,12 +1471,17 @@ export function registerCapitalGainsRoutes(app: Express): void {
   /**
    * FIX SPEC SECTION 4.2: Tax Calculation Validation (DSP Healthcare Test)
    * Returns LTCG/STCG units breakdown for validation
+   * 
+   * DSP Healthcare Example (Fix Spec Section 4.2):
+   * - Lot 1: 07-Oct-2024, 4974.876 units
+   * - Lot 2: 29-Oct-2024, 4966.475 units
+   * - If saleDate = 2025-10-20: Lot 1 = LTCG (378 days), Lot 2 = STCG (356 days) = Mixed
    */
   app.post("/api/capital-gains/calculate-tax-breakdown", requireAuth, async (req: Request, res: Response) => {
     try {
-      const { lots } = req.body;
+      const { lots, saleDate } = req.body;
       
-      // First validate lots (hard blocker)
+      // First validate lots (hard blocker per Section 4.4)
       const validation = capitalGainsCalculator.validateLotsForTax(lots || []);
       if (!validation.isValid) {
         return res.json({
@@ -1487,7 +1492,8 @@ export function registerCapitalGainsRoutes(app: Express): void {
         });
       }
 
-      const taxBreakdown = capitalGainsCalculator.validateTaxCalculation(lots);
+      // Pass saleDate for accurate STCG/LTCG calculation at redemption time
+      const taxBreakdown = capitalGainsCalculator.validateTaxCalculation(lots, saleDate);
       
       res.json({
         success: true,
@@ -1497,7 +1503,8 @@ export function registerCapitalGainsRoutes(app: Express): void {
           ltcgUnits: taxBreakdown.ltcgUnits,
           stcgUnits: taxBreakdown.stcgUnits,
           taxStatus: taxBreakdown.ltcgUnits > 0 && taxBreakdown.stcgUnits > 0 ? 'Mixed' :
-                    taxBreakdown.ltcgUnits > 0 ? 'All LTCG' : 'All STCG'
+                    taxBreakdown.ltcgUnits > 0 ? 'All LTCG' : 'All STCG',
+          referenceDate: taxBreakdown.referenceDate
         },
         complianceNote: "FIFO lot-wise calculation per Indian equity mutual fund tax regulations."
       });

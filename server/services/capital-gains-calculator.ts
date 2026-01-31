@@ -471,20 +471,27 @@ export class CapitalGainsCalculatorService {
   /**
    * FIX SPEC SECTION 4.2: Tax Calculation Validation
    * Returns LTCG/STCG units breakdown for lot-wise validation
+   * @param lots Array of lots with purchaseDate and units
+   * @param saleDate Optional sale/redemption date (defaults to today)
    */
-  validateTaxCalculation(lots: Array<{ purchaseDate: string; units: number }>): {
+  validateTaxCalculation(
+    lots: Array<{ purchaseDate: string; units: number }>,
+    saleDate?: string | Date
+  ): {
     ltcgUnits: number;
     stcgUnits: number;
     lotsBreakdown: Array<{ date: string; units: number; type: 'LTCG' | 'STCG'; holdingDays: number }>;
+    referenceDate: string;
   } {
-    const today = new Date();
+    // Allow passing a sale date for accurate STCG/LTCG calculation at redemption time
+    const referenceDate = saleDate ? new Date(saleDate) : new Date();
     let ltcgUnits = 0;
     let stcgUnits = 0;
     const breakdown: Array<{ date: string; units: number; type: 'LTCG' | 'STCG'; holdingDays: number }> = [];
 
     for (const lot of lots) {
       const purchaseDate = new Date(lot.purchaseDate);
-      const holdingDays = Math.floor((today.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24));
+      const holdingDays = Math.floor((referenceDate.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24));
       const type: 'LTCG' | 'STCG' = holdingDays >= 365 ? 'LTCG' : 'STCG';
       
       if (type === 'LTCG') {
@@ -501,7 +508,12 @@ export class CapitalGainsCalculatorService {
       });
     }
 
-    return { ltcgUnits, stcgUnits, lotsBreakdown: breakdown };
+    return { 
+      ltcgUnits, 
+      stcgUnits, 
+      lotsBreakdown: breakdown,
+      referenceDate: referenceDate.toISOString().split('T')[0]
+    };
   }
 
   /**
