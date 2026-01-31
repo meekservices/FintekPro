@@ -637,6 +637,19 @@ export default function AgentProspectWizard() {
     folioNumber?: string;
     confidenceScore?: number;
     broker?: string;
+    // STEP 4: Lots from CAS parsing - each purchase = one lot
+    firstPurchaseDate?: string;
+    lots?: Array<{
+      purchaseDate: string;
+      transactionType: string;
+      amount: number;
+      units: number;
+      nav: number;
+      cost: number;
+    }>;
+    holdingTier?: 'FULL' | 'VALUATION_ONLY' | 'SUMMARY_PLACEHOLDER';
+    eligibleForTax?: boolean;
+    tierWarnings?: string[];
   }>>([]);
   const [casPreviewError, setCasPreviewError] = useState<string | null>(null);
   const [casPreviewMode, setCasPreviewMode] = useState(false);
@@ -1634,14 +1647,21 @@ export default function AgentProspectWizard() {
   // CAS Import Mutation (after preview confirmation)
   const casImportMutation = useMutation({
     mutationFn: async (holdings: typeof casPreviewHoldings) => {
+      // STEP 4 & 5: Include lots and dates in import payload
       const backendHoldings = holdings.map(h => ({
         name: h.name,
         assetType: h.assetType || 'mutual_fund',
         quantity: h.quantity,
         currentValue: h.currentValue,
         isin: h.isin,
+        folioNumber: h.folioNumber,
         averageCost: h.averagePrice,
-        productType: h.assetType
+        productType: h.assetType,
+        // Include date-wise lots - primary truth for capital gains
+        firstPurchaseDate: h.firstPurchaseDate,
+        lots: h.lots || [],
+        holdingTier: h.holdingTier,
+        eligibleForTax: h.eligibleForTax
       }));
       
       const res = await fetch(`/api/agent-wizard/prospects/${prospectId}/holdings/merge`, {
@@ -2646,6 +2666,7 @@ export default function AgentProspectWizard() {
                             <TableHeader>
                               <TableRow className="bg-muted/50">
                                 <TableHead>Fund Name</TableHead>
+                                <TableHead className="text-center">Purchase Date</TableHead>
                                 <TableHead className="text-right">Units</TableHead>
                                 <TableHead className="text-right">Invested</TableHead>
                                 <TableHead className="text-right">NAV</TableHead>
@@ -2655,7 +2676,17 @@ export default function AgentProspectWizard() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {casPreviewHoldings.map((holding, idx) => (
+                              {casPreviewHoldings.map((holding, idx) => {
+                                // STEP 6: UI must respect dates from lots
+                                const lotsCount = holding.lots?.length || 0;
+                                const earliestDate = holding.firstPurchaseDate || 
+                                  (holding.lots && holding.lots.length > 0 
+                                    ? holding.lots.reduce((earliest, lot) => 
+                                        !earliest || lot.purchaseDate < earliest ? lot.purchaseDate : earliest, 
+                                        holding.lots[0].purchaseDate)
+                                    : null);
+                                
+                                return (
                                 <TableRow key={idx}>
                                   <TableCell className="max-w-[200px]">
                                     <div className="truncate font-medium text-sm">{holding.name}</div>
@@ -2664,6 +2695,27 @@ export default function AgentProspectWizard() {
                                     )}
                                     {holding.isin && (
                                       <div className="text-xs text-muted-foreground/70">{holding.isin}</div>
+                                    )}
+                                    {holding.holdingTier === 'VALUATION_ONLY' && (
+                                      <div className="text-xs text-amber-600">Valuation only</div>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    {earliestDate ? (
+                                      <div>
+                                        <div className="text-sm">
+                                          {new Date(earliestDate).toLocaleDateString('en-IN', { 
+                                            day: '2-digit', month: 'short', year: 'numeric' 
+                                          })}
+                                        </div>
+                                        {lotsCount > 1 && (
+                                          <div className="text-xs text-muted-foreground">
+                                            +{lotsCount - 1} more lots
+                                          </div>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-muted-foreground text-xs">-</span>
                                     )}
                                   </TableCell>
                                   <TableCell className="text-right">{holding.quantity.toFixed(3)}</TableCell>
@@ -2694,7 +2746,7 @@ export default function AgentProspectWizard() {
                                     )}
                                   </TableCell>
                                 </TableRow>
-                              ))}
+                              )})}
                             </TableBody>
                           </Table>
                         </div>

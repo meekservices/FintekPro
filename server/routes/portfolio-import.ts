@@ -8,7 +8,7 @@ import { eq, and } from 'drizzle-orm';
 import { isAuthenticated } from '../replitAuth';
 import { parsePDFPortfolio, parseURLPortfolio, createPortfolioSnapshot, clearParseCache, TransactionLot } from '../services/portfolio-parser';
 import { holdingLotsStorageService, LotStorageInput } from '../services/holding-lots-storage-service';
-import { casStatementService } from '../services/cas-statement-service';
+import { casStatementService, parseCASDate } from '../services/cas-statement-service';
 
 // Clear parse cache on server start to ensure fresh parsing after code updates
 clearParseCache();
@@ -663,15 +663,41 @@ router.post(
               broker: 'CAMS/KFintech CAS',
               // Include first purchase date from CAS parsing
               firstPurchaseDate: h.firstPurchaseDate || '',
-              transactionLots: h.transactions?.map(t => ({
-                purchaseDate: t.date,
+              // STEP 4: Lots must flow to UI - each purchase = one lot
+              lots: h.transactions?.filter(t => 
+                t.isCredit && ['Purchase', 'SIP', 'Switch In', 'Bonus', 'Reinvestment'].includes(t.transactionType)
+              ).map(t => {
+                // Convert DD-Mon-YYYY to YYYY-MM-DD for frontend date inputs
+                const casDate = parseCASDate(t.transactionDate);
+                const purchaseDateISO = casDate ? casDate.toISOString().split('T')[0] : t.transactionDate;
+                return {
+                  purchaseDate: purchaseDateISO,
+                  transactionType: t.transactionType,
+                  amount: t.amount,
+                  units: Math.abs(t.units),
+                  nav: t.nav,
+                  cost: t.amount,
+                  remainingUnits: Math.abs(t.units),
+                  description: t.description
+                };
+              }) || [],
+              // All transactions for reference
+              transactions: h.transactions?.map(t => ({
+                date: t.transactionDate,
                 transactionType: t.transactionType,
                 amount: t.amount,
                 units: t.units,
-                navAtPurchase: t.nav,
-                runningBalance: t.runningBalance,
-                description: t.description
+                nav: t.nav,
+                balance: t.balance,
+                description: t.description,
+                isCredit: t.isCredit
               })) || [],
+              // Derived values (computed from lots, not primary truth)
+              derived: {
+                totalUnits: h.unitBalance,
+                avgPrice: h.avgCostPerUnit || 0,
+                marketValue: h.marketValue
+              },
               // Include tier information for UI display
               holdingTier: h.holdingTier,
               eligibleForTax: h.eligibleForTax,

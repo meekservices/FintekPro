@@ -1,0 +1,142 @@
+Below is a clear, enforceable, copy-paste–ready instruction you can give to Replit to fix FintekPro so that date-wise transactions are the primary truth and exit-load / capital-gains logic becomes correct and defensible.
+This instruction assumes NO negotiation on data priority.
+🔧 Replit Instruction – Enforce Date-Wise CAS Transactions (Critical Fix)
+Context (Problem Statement)
+The current Smart Portfolio Import still:
+Collapses multiple CAS purchases into a single holding
+Loses transaction dates (Purchase Date = Not set)
+Aggregates by ISIN instead of folio + transaction date
+Breaks exit-load and capital-gains computation
+This is unacceptable because:
+Exit load depends on holding days
+Capital gains depend on lot purchase date (FIFO)
+🎯 Objective (Must Be Met)
+For CAS imports:
+Transaction date is the primary truth.
+Aggregated holdings are derived views only.
+The system must:
+Parse every CAS purchase row as a dated transaction
+Create one lot per transaction
+Preserve dates end-to-end (parser → API → UI)
+Compute exit-load & capital-gains only from lots
+🧩 Scope of Change
+Files to modify
+server/services/cas-statement-service.ts
+server/services/unified-pdf-parser.ts
+server/services/holding-transformer.ts (or equivalent)
+agent-prospect-wizard.tsx (Smart Import UI)
+🛠️ Mandatory Implementation Steps
+STEP 1 — CAS Parser: Date-Wise Transaction Extraction (NON-NEGOTIABLE)
+Add a line-level transaction parser.
+const TRANSACTION_REGEX =
+/(\d{2}-[A-Za-z]{3}-\d{4})\s+
+(Purchase|Purchase-BSE|SIP Purchase|Systematic Investment Purchase|Switch In)
+.*?
+([\d,]+\.\d{2})\s+
+([\d,]+\.\d{3})\s+
+([\d,]+\.\d{3,4})/;
+For each scheme + folio:
+const transactions = [];
+
+for (const line of schemeLines) {
+  if (line.includes('***')) continue; // ignore metadata
+
+  const match = line.match(TRANSACTION_REGEX);
+  if (match) {
+    transactions.push({
+      date: parseDate(match[1]),
+      type: normalizeType(match[2]),
+      amount: parseNumber(match[3]),
+      units: parseNumber(match[4]),
+      nav: parseNumber(match[5]),
+    });
+  }
+}
+❌ Do NOT infer transactions from:
+Closing balance
+Total cost
+Market value
+STEP 2 — Build Lot Ledger (Primary Data Model)
+Each Purchase / Switch-In = one lot:
+const lots = transactions.map(txn => ({
+  purchaseDate: txn.date,
+  units: txn.units,
+  cost: txn.amount,
+  nav: txn.nav,
+  remainingUnits: txn.units
+}));
+No merging. No averaging. No guessing.
+STEP 3 — Reconcile Lots with Closing Unit Balance
+if (Math.abs(sum(lots.units) - closingUnitBalance) > 0.01) {
+  holding.confidence = 'MEDIUM';
+  holding.warnings.push('LOT_MISMATCH');
+} else {
+  holding.confidence = 'HIGH';
+}
+STEP 4 — API Contract: Lots Must Flow to UI
+Do NOT collapse lots in backend transformers.
+The API response must include lots:
+holding: {
+  isin,
+  schemeName,
+  folioNumber,
+  lots: [
+    { purchaseDate, units, nav, cost }
+  ],
+  derived: {
+    totalUnits,
+    avgPrice,
+    marketValue
+  }
+}
+❌ Never store:
+avgPrice
+purchaseDate
+as primary truth
+STEP 5 — Smart Import UI: Stop Grouping by ISIN
+In agent-prospect-wizard.tsx:
+❌ Remove:
+groupBy(isin)
+✅ Replace with:
+groupBy(isin + folioNumber)
+STEP 6 — UI Must Respect Dates
+If lots.length > 0:
+purchaseDate = earliest(lot.purchaseDate)
+displayLabel = lots.length > 1 ? 'Multiple dates' : formattedDate
+❌ Never show Not set if CAS has a date.
+STEP 7 — Exit Load & Capital Gains Guardrails
+Exit Load
+if (!lots.length) disableExitLoad();
+Capital Gains
+if (any lot.purchaseDate == null) disableCapitalGains();
+Fail closed, not open.
+🧪 Acceptance Tests (Block Deployment If Failing)
+Test: DSP Healthcare Fund
+Input
+Two purchases on:
+07-Oct-2024
+29-Oct-2024
+Assertions
+lots.length === 2
+purchase dates preserved
+exit load differs by lot
+CG classification differs by lot
+UI does NOT show “Not set”
+Test: SIP (24 months)
+24 lots
+Partial redemption
+FIFO consumption verified
+🚫 Explicitly Forbidden (Regression Protection)
+❌ ISIN-only aggregation
+❌ Averaging purchase prices
+❌ Single purchase date inference
+❌ Applying tax logic without dates
+🏁 Outcome After Fix
+✔ Date-wise transactions preserved
+✔ Exit-load computed correctly
+✔ Capital-gains defensible
+✔ Advisor-safe under SEBI scrutiny
+✔ No silent data loss
+🔒 Final Directive
+If transaction dates are missing, the system must refuse to compute tax or exit load.
+This is not optional.
