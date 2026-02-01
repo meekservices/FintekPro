@@ -19,6 +19,7 @@ import { ZohoConnectionResolver } from "../zoho/connection-resolver";
 import { casStatementService } from "../services/cas-statement-service";
 import { unifiedPDFParser } from "../services/unified-pdf-parser";
 import { assertLotsNotDropped } from "../services/holding-transformer";
+import { requireAuth, requireRole } from "../middleware/roleMiddleware";
 
 // Multer setup for CAS file upload
 const upload = multer({
@@ -1739,6 +1740,91 @@ router.post(
         success: false, 
         error: error.message || 'Failed to parse CAS statement'
       });
+    }
+  }
+);
+
+// ============================================
+// MF Returns Sync Endpoints (Admin Only - Protected)
+// ============================================
+
+router.get(
+  "/mf-returns/status",
+  requireAuth,
+  requireRole(['admin', 'agent', 'ops']),
+  async (req: Request, res: Response) => {
+    try {
+      const { mfReturnsScheduler } = await import("../services/mf-returns-scheduler");
+      const { mfReturnsSyncService } = await import("../services/mf-returns-sync-service");
+      
+      const syncStatus = mfReturnsSyncService.getStatus();
+      const schedulerStatus = mfReturnsScheduler.getStatus();
+      const counts = await mfReturnsScheduler.getSyncedFundsCount();
+      
+      res.json({
+        success: true,
+        syncService: syncStatus,
+        scheduler: schedulerStatus,
+        fundsWithReturns: counts.withReturns,
+        totalFunds: counts.total,
+        coverage: `${((counts.withReturns / counts.total) * 100).toFixed(1)}%`
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+);
+
+router.post(
+  "/mf-returns/sync",
+  requireAuth,
+  requireRole(['admin', 'ops']), // Only admin/ops can trigger sync
+  async (req: Request, res: Response) => {
+    try {
+      const { mfReturnsSyncService } = await import("../services/mf-returns-sync-service");
+      const { maxFunds = 50 } = req.body;
+      
+      // Run async to not block response
+      mfReturnsSyncService.runBatchSync(Math.min(maxFunds, 200));
+      
+      res.json({
+        success: true,
+        message: `Started sync for up to ${maxFunds} funds. Check status endpoint for progress.`
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+);
+
+router.get(
+  "/mf-returns/fund/:schemeCode",
+  requireAuth,
+  requireRole(['admin', 'agent', 'ops']),
+  async (req: Request, res: Response) => {
+    try {
+      const { mfReturnsSyncService } = await import("../services/mf-returns-sync-service");
+      const { schemeCode } = req.params;
+      
+      const returns = await mfReturnsSyncService.getReturnsForFund(schemeCode);
+      
+      if (returns) {
+        res.json({
+          success: true,
+          schemeCode,
+          returns: {
+            returns1y: returns.returns1y,
+            returns3y: returns.returns3y,
+            returns5y: returns.returns5y,
+            currentNav: returns.currentNav,
+            dataQuality: returns.dataQuality
+          }
+        });
+      } else {
+        res.status(404).json({ success: false, error: "Fund not found or no data available" });
+      }
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
     }
   }
 );

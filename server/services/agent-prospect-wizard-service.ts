@@ -17,6 +17,8 @@ import { aiResponseCacheService } from "./ai-response-cache-service";
 import { proposalCapitalGainsService } from "./proposal-capital-gains-service";
 import { historicalNavService } from "./historical-nav-service";
 import { getRecommendationsByCategory, getAllActiveRecommendations } from "./recommendation-products-service";
+import { mfReturnsSyncService } from "./mf-returns-sync-service";
+import { mutualFunds } from "@shared/schema";
 
 // Format amount in Indian currency format (₹X.XX L for lakhs, ₹X.XX Cr for crores)
 const formatAmount = (amount: number): string => {
@@ -32,348 +34,350 @@ const formatAmount = (amount: number): string => {
 
 // Real mutual fund recommendations based on risk profile - Using Regular plans for agent advisory
 // Organized by asset class for flexible category-based filtering
+// FUND_RECOMMENDATIONS_BY_CATEGORY - Fund metadata only, returns must be enriched via live data
+// CRITICAL: Returns are set to 'PENDING' to force live enrichment - no static mock values
 const FUND_RECOMMENDATIONS_BY_CATEGORY = {
   equity: {
     conservative: [
-      { name: 'Mirae Asset Large Cap Fund - Regular (G)', amc: 'Mirae Asset', category: 'Equity - Large Cap', returns1Y: '14.5', returns3Y: '15.8', returns5Y: '15.2', risk: 'Moderate' },
+      { name: 'Mirae Asset Large Cap Fund - Regular (G)', amc: 'Mirae Asset', category: 'Equity - Large Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
     ],
     moderate: [
-      { name: 'Parag Parikh Flexi Cap Fund - Regular (G)', amc: 'PPFAS', category: 'Equity - Flexi Cap', returns1Y: '17.2', returns3Y: '18.8', returns5Y: '18.5', risk: 'Moderately High' },
-      { name: 'Mirae Asset Large Cap Fund - Regular (G)', amc: 'Mirae Asset', category: 'Equity - Large Cap', returns1Y: '14.5', returns3Y: '15.8', returns5Y: '15.2', risk: 'Moderate' },
-      { name: 'Kotak Emerging Equity Fund - Regular (G)', amc: 'Kotak', category: 'Equity - Mid Cap', returns1Y: '21.2', returns3Y: '22.8', returns5Y: '20.5', risk: 'High' },
+      { name: 'Parag Parikh Flexi Cap Fund - Regular (G)', amc: 'PPFAS', category: 'Equity - Flexi Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderately High' },
+      { name: 'Mirae Asset Large Cap Fund - Regular (G)', amc: 'Mirae Asset', category: 'Equity - Large Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
+      { name: 'Kotak Emerging Equity Fund - Regular (G)', amc: 'Kotak', category: 'Equity - Mid Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High' },
     ],
     aggressive: [
-      { name: 'Quant Small Cap Fund - Regular (G)', amc: 'Quant', category: 'Equity - Small Cap', returns1Y: '27.2', returns3Y: '33.5', returns5Y: '30.8', risk: 'Very High' },
-      { name: 'Nippon India Small Cap Fund - Regular (G)', amc: 'Nippon India', category: 'Equity - Small Cap', returns1Y: '25.5', returns3Y: '31.2', returns5Y: '27.5', risk: 'Very High' },
-      { name: 'Axis Midcap Fund - Regular (G)', amc: 'Axis', category: 'Equity - Mid Cap', returns1Y: '19.2', returns3Y: '21.5', returns5Y: '20.2', risk: 'High' },
-      { name: 'HDFC Flexi Cap Fund - Regular (G)', amc: 'HDFC', category: 'Equity - Flexi Cap', returns1Y: '15.8', returns3Y: '17.2', returns5Y: '16.1', risk: 'Moderately High' },
+      { name: 'Quant Small Cap Fund - Regular (G)', amc: 'Quant', category: 'Equity - Small Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High' },
+      { name: 'Nippon India Small Cap Fund - Regular (G)', amc: 'Nippon India', category: 'Equity - Small Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High' },
+      { name: 'Axis Midcap Fund - Regular (G)', amc: 'Axis', category: 'Equity - Mid Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High' },
+      { name: 'HDFC Flexi Cap Fund - Regular (G)', amc: 'HDFC', category: 'Equity - Flexi Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderately High' },
     ],
     very_aggressive: [
-      { name: 'Quant Active Fund - Regular (G)', amc: 'Quant', category: 'Equity - Multi Cap', returns1Y: '31.2', returns3Y: '36.5', returns5Y: '34.2', risk: 'Very High' },
-      { name: 'Tata Small Cap Fund - Regular (G)', amc: 'Tata', category: 'Equity - Small Cap', returns1Y: '28.8', returns3Y: '34.8', returns5Y: '31.5', risk: 'Very High' },
-      { name: 'SBI Small Cap Fund - Regular (G)', amc: 'SBI', category: 'Equity - Small Cap', returns1Y: '27.5', returns3Y: '32.8', returns5Y: '29.2', risk: 'Very High' },
-      { name: 'Motilal Oswal Midcap Fund - Regular (G)', amc: 'Motilal Oswal', category: 'Equity - Mid Cap', returns1Y: '23.2', returns3Y: '27.5', returns5Y: '24.0', risk: 'High' },
-      { name: 'ICICI Pru Technology Fund - Regular (G)', amc: 'ICICI Prudential', category: 'Sectoral - Technology', returns1Y: '21.2', returns3Y: '24.8', returns5Y: '23.5', risk: 'Very High' },
+      { name: 'Quant Active Fund - Regular (G)', amc: 'Quant', category: 'Equity - Multi Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High' },
+      { name: 'Tata Small Cap Fund - Regular (G)', amc: 'Tata', category: 'Equity - Small Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High' },
+      { name: 'SBI Small Cap Fund - Regular (G)', amc: 'SBI', category: 'Equity - Small Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High' },
+      { name: 'Motilal Oswal Midcap Fund - Regular (G)', amc: 'Motilal Oswal', category: 'Equity - Mid Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High' },
+      { name: 'ICICI Pru Technology Fund - Regular (G)', amc: 'ICICI Prudential', category: 'Sectoral - Technology', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High' },
     ]
   },
   debt: {
     conservative: [
-      { name: 'ICICI Pru Corporate Bond Fund - Regular (G)', amc: 'ICICI Prudential', category: 'Debt - Corporate Bond', returns1Y: '7.2', returns3Y: '7.6', returns5Y: '7.9', risk: 'Low' },
-      { name: 'SBI Magnum Medium Duration Fund - Regular (G)', amc: 'SBI', category: 'Debt - Medium Duration', returns1Y: '6.8', returns3Y: '7.2', returns5Y: '7.5', risk: 'Low' },
-      { name: 'Axis Banking & PSU Debt Fund - Regular (G)', amc: 'Axis', category: 'Debt - Banking & PSU', returns1Y: '7.0', returns3Y: '7.4', returns5Y: '7.5', risk: 'Low' },
+      { name: 'ICICI Pru Corporate Bond Fund - Regular (G)', amc: 'ICICI Prudential', category: 'Debt - Corporate Bond', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Low' },
+      { name: 'SBI Magnum Medium Duration Fund - Regular (G)', amc: 'SBI', category: 'Debt - Medium Duration', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Low' },
+      { name: 'Axis Banking & PSU Debt Fund - Regular (G)', amc: 'Axis', category: 'Debt - Banking & PSU', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Low' },
     ],
     moderate: [
-      { name: 'SBI Corporate Bond Fund - Regular (G)', amc: 'SBI', category: 'Debt - Corporate Bond', returns1Y: '7.1', returns3Y: '7.5', returns5Y: '7.8', risk: 'Low' },
-      { name: 'HDFC Short Term Debt Fund - Regular (G)', amc: 'HDFC', category: 'Debt - Short Duration', returns1Y: '6.9', returns3Y: '7.3', returns5Y: '7.4', risk: 'Low' },
+      { name: 'SBI Corporate Bond Fund - Regular (G)', amc: 'SBI', category: 'Debt - Corporate Bond', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Low' },
+      { name: 'HDFC Short Term Debt Fund - Regular (G)', amc: 'HDFC', category: 'Debt - Short Duration', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Low' },
     ],
     aggressive: [
-      { name: 'ICICI Pru Credit Risk Fund - Regular (G)', amc: 'ICICI Prudential', category: 'Debt - Credit Risk', returns1Y: '7.5', returns3Y: '7.8', returns5Y: '8.0', risk: 'Moderate' },
+      { name: 'ICICI Pru Credit Risk Fund - Regular (G)', amc: 'ICICI Prudential', category: 'Debt - Credit Risk', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
     ],
     very_aggressive: [
-      { name: 'SBI Dynamic Bond Fund - Regular (G)', amc: 'SBI', category: 'Debt - Dynamic Bond', returns1Y: '7.3', returns3Y: '7.7', returns5Y: '7.9', risk: 'Moderate' },
+      { name: 'SBI Dynamic Bond Fund - Regular (G)', amc: 'SBI', category: 'Debt - Dynamic Bond', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
     ]
   },
   hybrid: {
     conservative: [
-      { name: 'HDFC Balanced Advantage Fund - Regular (G)', amc: 'HDFC', category: 'Hybrid - Balanced Advantage', returns1Y: '11.8', returns3Y: '13.5', returns5Y: '13.1', risk: 'Moderate' },
-      { name: 'ICICI Pru Equity & Debt Fund - Regular (G)', amc: 'ICICI Prudential', category: 'Hybrid - Aggressive', returns1Y: '12.5', returns3Y: '14.2', returns5Y: '13.8', risk: 'Moderate' },
+      { name: 'HDFC Balanced Advantage Fund - Regular (G)', amc: 'HDFC', category: 'Hybrid - Balanced Advantage', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
+      { name: 'ICICI Pru Equity & Debt Fund - Regular (G)', amc: 'ICICI Prudential', category: 'Hybrid - Aggressive', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
     ],
     moderate: [
-      { name: 'HDFC Hybrid Equity Fund - Regular (G)', amc: 'HDFC', category: 'Hybrid - Aggressive', returns1Y: '14.0', returns3Y: '14.8', returns5Y: '13.5', risk: 'Moderate' },
-      { name: 'Kotak Equity Hybrid Fund - Regular (G)', amc: 'Kotak', category: 'Hybrid - Aggressive', returns1Y: '13.5', returns3Y: '14.5', returns5Y: '13.2', risk: 'Moderate' },
+      { name: 'HDFC Hybrid Equity Fund - Regular (G)', amc: 'HDFC', category: 'Hybrid - Aggressive', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
+      { name: 'Kotak Equity Hybrid Fund - Regular (G)', amc: 'Kotak', category: 'Hybrid - Aggressive', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
     ],
     aggressive: [
-      { name: 'ICICI Pru Multi Asset Fund - Regular (G)', amc: 'ICICI Prudential', category: 'Hybrid - Multi Asset', returns1Y: '15.2', returns3Y: '15.8', returns5Y: '14.5', risk: 'Moderately High' },
+      { name: 'ICICI Pru Multi Asset Fund - Regular (G)', amc: 'ICICI Prudential', category: 'Hybrid - Multi Asset', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderately High' },
     ],
     very_aggressive: [
-      { name: 'Quant Multi Asset Fund - Regular (G)', amc: 'Quant', category: 'Hybrid - Multi Asset', returns1Y: '18.5', returns3Y: '19.2', returns5Y: '17.8', risk: 'Moderately High' },
+      { name: 'Quant Multi Asset Fund - Regular (G)', amc: 'Quant', category: 'Hybrid - Multi Asset', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderately High' },
     ]
   },
   gold_fof: {
     conservative: [
-      { name: 'SBI Gold Fund - Regular (G)', amc: 'SBI', category: 'FOF - Gold', returns1Y: '14.2', returns3Y: '12.8', returns5Y: '11.5', risk: 'Moderate' },
-      { name: 'HDFC Gold Fund - Regular (G)', amc: 'HDFC', category: 'FOF - Gold', returns1Y: '13.8', returns3Y: '12.5', returns5Y: '11.2', risk: 'Moderate' },
+      { name: 'SBI Gold Fund - Regular (G)', amc: 'SBI', category: 'FOF - Gold', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
+      { name: 'HDFC Gold Fund - Regular (G)', amc: 'HDFC', category: 'FOF - Gold', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
     ],
     moderate: [
-      { name: 'Nippon India Gold Savings Fund - Regular (G)', amc: 'Nippon India', category: 'FOF - Gold', returns1Y: '14.0', returns3Y: '12.6', returns5Y: '11.3', risk: 'Moderate' },
-      { name: 'Axis Gold Fund - Regular (G)', amc: 'Axis', category: 'FOF - Gold', returns1Y: '13.9', returns3Y: '12.4', returns5Y: '11.1', risk: 'Moderate' },
+      { name: 'Nippon India Gold Savings Fund - Regular (G)', amc: 'Nippon India', category: 'FOF - Gold', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
+      { name: 'Axis Gold Fund - Regular (G)', amc: 'Axis', category: 'FOF - Gold', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
     ],
     aggressive: [
-      { name: 'Kotak Gold Fund - Regular (G)', amc: 'Kotak', category: 'FOF - Gold', returns1Y: '14.1', returns3Y: '12.7', returns5Y: '11.4', risk: 'Moderate' },
+      { name: 'Kotak Gold Fund - Regular (G)', amc: 'Kotak', category: 'FOF - Gold', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
     ],
     very_aggressive: [
-      { name: 'ICICI Pru Regular Gold Savings Fund - Regular (G)', amc: 'ICICI Prudential', category: 'FOF - Gold', returns1Y: '13.7', returns3Y: '12.3', returns5Y: '11.0', risk: 'Moderate' },
+      { name: 'ICICI Pru Regular Gold Savings Fund - Regular (G)', amc: 'ICICI Prudential', category: 'FOF - Gold', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
     ]
   },
   silver_fof: {
     conservative: [
-      { name: 'ICICI Pru Silver ETF FOF - Regular (G)', amc: 'ICICI Prudential', category: 'FOF - Silver', returns1Y: '18.5', returns3Y: '15.2', returns5Y: '12.8', risk: 'High' },
+      { name: 'ICICI Pru Silver ETF FOF - Regular (G)', amc: 'ICICI Prudential', category: 'FOF - Silver', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High' },
     ],
     moderate: [
-      { name: 'Nippon India Silver ETF FOF - Regular (G)', amc: 'Nippon India', category: 'FOF - Silver', returns1Y: '18.2', returns3Y: '15.0', returns5Y: '12.5', risk: 'High' },
+      { name: 'Nippon India Silver ETF FOF - Regular (G)', amc: 'Nippon India', category: 'FOF - Silver', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High' },
     ],
     aggressive: [
-      { name: 'Aditya Birla Sun Life Silver ETF FOF - Regular (G)', amc: 'Aditya Birla', category: 'FOF - Silver', returns1Y: '18.8', returns3Y: '15.5', returns5Y: '13.0', risk: 'High' },
+      { name: 'Aditya Birla Sun Life Silver ETF FOF - Regular (G)', amc: 'Aditya Birla', category: 'FOF - Silver', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High' },
     ],
     very_aggressive: [
-      { name: 'Kotak Silver ETF FOF - Regular (G)', amc: 'Kotak', category: 'FOF - Silver', returns1Y: '19.0', returns3Y: '15.8', returns5Y: '13.2', risk: 'High' },
+      { name: 'Kotak Silver ETF FOF - Regular (G)', amc: 'Kotak', category: 'FOF - Silver', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High' },
     ]
   },
   index_fund: {
     conservative: [
-      { name: 'UTI Nifty 50 Index Fund - Regular (G)', amc: 'UTI', category: 'Index Fund - Large Cap', returns1Y: '13.5', returns3Y: '14.8', returns5Y: '13.8', risk: 'Moderate' },
+      { name: 'UTI Nifty 50 Index Fund - Regular (G)', amc: 'UTI', category: 'Index Fund - Large Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
     ],
     moderate: [
-      { name: 'HDFC Index Fund - Nifty 50 Plan - Regular (G)', amc: 'HDFC', category: 'Index Fund - Large Cap', returns1Y: '13.4', returns3Y: '14.7', returns5Y: '13.7', risk: 'Moderate' },
-      { name: 'UTI Nifty Next 50 Index Fund - Regular (G)', amc: 'UTI', category: 'Index Fund - Large & Mid Cap', returns1Y: '22.5', returns3Y: '18.2', returns5Y: '15.8', risk: 'High' },
+      { name: 'HDFC Index Fund - Nifty 50 Plan - Regular (G)', amc: 'HDFC', category: 'Index Fund - Large Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
+      { name: 'UTI Nifty Next 50 Index Fund - Regular (G)', amc: 'UTI', category: 'Index Fund - Large & Mid Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High' },
     ],
     aggressive: [
-      { name: 'Motilal Oswal Nifty Midcap 150 Index Fund - Regular (G)', amc: 'Motilal Oswal', category: 'Index Fund - Mid Cap', returns1Y: '28.5', returns3Y: '22.8', returns5Y: '18.5', risk: 'High' },
+      { name: 'Motilal Oswal Nifty Midcap 150 Index Fund - Regular (G)', amc: 'Motilal Oswal', category: 'Index Fund - Mid Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High' },
     ],
     very_aggressive: [
-      { name: 'Nippon India Nifty Smallcap 250 Index Fund - Regular (G)', amc: 'Nippon India', category: 'Index Fund - Small Cap', returns1Y: '32.5', returns3Y: '26.8', returns5Y: '21.5', risk: 'Very High' },
+      { name: 'Nippon India Nifty Smallcap 250 Index Fund - Regular (G)', amc: 'Nippon India', category: 'Index Fund - Small Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High' },
     ]
   },
   international: {
     conservative: [
-      { name: 'Motilal Oswal Nasdaq 100 FOF - Regular (G)', amc: 'Motilal Oswal', category: 'FOF - International', returns1Y: '18.5', returns3Y: '16.2', returns5Y: '18.8', risk: 'High', region: 'US' },
-      { name: 'PGIM India Global Equity Opp Fund - Regular (G)', amc: 'PGIM India', category: 'FOF - International', returns1Y: '22.5', returns3Y: '18.8', returns5Y: '20.2', risk: 'High', region: 'Global' },
+      { name: 'Motilal Oswal Nasdaq 100 FOF - Regular (G)', amc: 'Motilal Oswal', category: 'FOF - International', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', region: 'US' },
+      { name: 'PGIM India Global Equity Opp Fund - Regular (G)', amc: 'PGIM India', category: 'FOF - International', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', region: 'Global' },
     ],
     moderate: [
-      { name: 'Franklin India Feeder - Franklin US Opp Fund - Regular (G)', amc: 'Franklin', category: 'FOF - US Markets', returns1Y: '19.2', returns3Y: '17.5', returns5Y: '18.5', risk: 'High', region: 'US' },
-      { name: 'Kotak International REIT FOF - Regular (G)', amc: 'Kotak', category: 'FOF - Global REIT', returns1Y: '12.5', returns3Y: '10.8', returns5Y: '11.5', risk: 'Moderate', region: 'Global' },
-      { name: 'Nippon India Japan Equity Fund - Regular (G)', amc: 'Nippon India', category: 'FOF - Japan', returns1Y: '15.2', returns3Y: '12.8', returns5Y: '14.0', risk: 'High', region: 'Asia-Pacific' },
+      { name: 'Franklin India Feeder - Franklin US Opp Fund - Regular (G)', amc: 'Franklin', category: 'FOF - US Markets', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', region: 'US' },
+      { name: 'Kotak International REIT FOF - Regular (G)', amc: 'Kotak', category: 'FOF - Global REIT', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate', region: 'Global' },
+      { name: 'Nippon India Japan Equity Fund - Regular (G)', amc: 'Nippon India', category: 'FOF - Japan', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', region: 'Asia-Pacific' },
     ],
     aggressive: [
-      { name: 'Nippon India US Equity Opp Fund - Regular (G)', amc: 'Nippon India', category: 'FOF - US Markets', returns1Y: '24.8', returns3Y: '20.5', returns5Y: '22.0', risk: 'High', region: 'US' },
-      { name: 'Kotak Nasdaq 100 FOF - Regular (G)', amc: 'Kotak', category: 'FOF - US Tech', returns1Y: '20.2', returns3Y: '17.8', returns5Y: '19.5', risk: 'High', region: 'US' },
-      { name: 'Edelweiss Europe Dynamic Equity Fund - Regular (G)', amc: 'Edelweiss', category: 'FOF - Europe', returns1Y: '16.5', returns3Y: '14.2', returns5Y: '15.8', risk: 'High', region: 'Europe' },
+      { name: 'Nippon India US Equity Opp Fund - Regular (G)', amc: 'Nippon India', category: 'FOF - US Markets', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', region: 'US' },
+      { name: 'Kotak Nasdaq 100 FOF - Regular (G)', amc: 'Kotak', category: 'FOF - US Tech', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', region: 'US' },
+      { name: 'Edelweiss Europe Dynamic Equity Fund - Regular (G)', amc: 'Edelweiss', category: 'FOF - Europe', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', region: 'Europe' },
     ],
     very_aggressive: [
-      { name: 'Edelweiss Greater China Equity Off-shore Fund - Regular (G)', amc: 'Edelweiss', category: 'FOF - China', returns1Y: '28.5', returns3Y: '22.8', returns5Y: '24.5', risk: 'Very High', region: 'Asia-Pacific' },
-      { name: 'DSP Global Innovation FOF - Regular (G)', amc: 'DSP', category: 'FOF - Global Tech', returns1Y: '26.2', returns3Y: '21.5', returns5Y: '23.0', risk: 'Very High', region: 'Global' },
-      { name: 'ICICI Pru Global Advantage Fund - Regular (G)', amc: 'ICICI Prudential', category: 'FOF - Global Multi-Cap', returns1Y: '24.0', returns3Y: '19.5', returns5Y: '21.0', risk: 'Very High', region: 'Global' },
+      { name: 'Edelweiss Greater China Equity Off-shore Fund - Regular (G)', amc: 'Edelweiss', category: 'FOF - China', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High', region: 'Asia-Pacific' },
+      { name: 'DSP Global Innovation FOF - Regular (G)', amc: 'DSP', category: 'FOF - Global Tech', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High', region: 'Global' },
+      { name: 'ICICI Pru Global Advantage Fund - Regular (G)', amc: 'ICICI Prudential', category: 'FOF - Global Multi-Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High', region: 'Global' },
     ]
   },
   // Regional Global Market Categories for Diversification
   us_markets: {
     conservative: [
-      { name: 'Motilal Oswal S&P 500 Index Fund - Regular (G)', amc: 'Motilal Oswal', category: 'Index - S&P 500', returns1Y: '15.8', returns3Y: '14.2', returns5Y: '16.5', risk: 'Moderate', productType: 'international_etf', region: 'US', expenseRatio: '0.49%' },
-      { name: 'Franklin India Feeder - Franklin US Opp Fund - Regular (G)', amc: 'Franklin', category: 'FOF - US Equity', returns1Y: '19.2', returns3Y: '17.5', returns5Y: '18.5', risk: 'High', productType: 'international_fund', region: 'US' },
+      { name: 'Motilal Oswal S&P 500 Index Fund - Regular (G)', amc: 'Motilal Oswal', category: 'Index - S&P 500', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate', productType: 'international_etf', region: 'US', expenseRatio: '0.49%' },
+      { name: 'Franklin India Feeder - Franklin US Opp Fund - Regular (G)', amc: 'Franklin', category: 'FOF - US Equity', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'international_fund', region: 'US' },
     ],
     moderate: [
-      { name: 'Motilal Oswal Nasdaq 100 FOF - Regular (G)', amc: 'Motilal Oswal', category: 'Index - Nasdaq 100', returns1Y: '18.5', returns3Y: '16.2', returns5Y: '18.8', risk: 'High', productType: 'international_etf', region: 'US', expenseRatio: '0.50%' },
-      { name: 'Kotak Nasdaq 100 FOF - Regular (G)', amc: 'Kotak', category: 'FOF - US Tech', returns1Y: '20.2', returns3Y: '17.8', returns5Y: '19.5', risk: 'High', productType: 'international_fund', region: 'US' },
-      { name: 'Mirae Asset NYSE FANG+ ETF FOF - Regular (G)', amc: 'Mirae Asset', category: 'ETF - US Tech Giants', returns1Y: '25.5', returns3Y: '22.0', returns5Y: '24.5', risk: 'High', productType: 'international_etf', region: 'US', expenseRatio: '0.55%' },
+      { name: 'Motilal Oswal Nasdaq 100 FOF - Regular (G)', amc: 'Motilal Oswal', category: 'Index - Nasdaq 100', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'international_etf', region: 'US', expenseRatio: '0.50%' },
+      { name: 'Kotak Nasdaq 100 FOF - Regular (G)', amc: 'Kotak', category: 'FOF - US Tech', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'international_fund', region: 'US' },
+      { name: 'Mirae Asset NYSE FANG+ ETF FOF - Regular (G)', amc: 'Mirae Asset', category: 'ETF - US Tech Giants', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'international_etf', region: 'US', expenseRatio: '0.55%' },
     ],
     aggressive: [
-      { name: 'Nippon India US Equity Opp Fund - Regular (G)', amc: 'Nippon India', category: 'FOF - US Growth', returns1Y: '24.8', returns3Y: '20.5', returns5Y: '22.0', risk: 'High', productType: 'international_fund', region: 'US' },
-      { name: 'ICICI Pru US Bluechip Equity Fund - Regular (G)', amc: 'ICICI Prudential', category: 'FOF - US Blue Chip', returns1Y: '22.5', returns3Y: '19.8', returns5Y: '21.0', risk: 'High', productType: 'international_fund', region: 'US' },
-      { name: 'DSP US Flexible Equity Fund - Regular (G)', amc: 'DSP', category: 'FOF - US Multi-Cap', returns1Y: '23.2', returns3Y: '20.0', returns5Y: '21.5', risk: 'High', productType: 'international_fund', region: 'US' },
+      { name: 'Nippon India US Equity Opp Fund - Regular (G)', amc: 'Nippon India', category: 'FOF - US Growth', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'international_fund', region: 'US' },
+      { name: 'ICICI Pru US Bluechip Equity Fund - Regular (G)', amc: 'ICICI Prudential', category: 'FOF - US Blue Chip', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'international_fund', region: 'US' },
+      { name: 'DSP US Flexible Equity Fund - Regular (G)', amc: 'DSP', category: 'FOF - US Multi-Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'international_fund', region: 'US' },
     ],
     very_aggressive: [
-      { name: 'Motilal Oswal Nasdaq Q50 ETF - Regular (G)', amc: 'Motilal Oswal', category: 'ETF - US Tech Growth', returns1Y: '28.5', returns3Y: '24.2', returns5Y: '26.0', risk: 'Very High', productType: 'international_etf', region: 'US', expenseRatio: '0.58%' },
-      { name: 'Axis Global Innovation FOF - Regular (G)', amc: 'Axis', category: 'FOF - US Innovation', returns1Y: '30.2', returns3Y: '26.5', returns5Y: '28.0', risk: 'Very High', productType: 'international_fund', region: 'US' },
+      { name: 'Motilal Oswal Nasdaq Q50 ETF - Regular (G)', amc: 'Motilal Oswal', category: 'ETF - US Tech Growth', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High', productType: 'international_etf', region: 'US', expenseRatio: '0.58%' },
+      { name: 'Axis Global Innovation FOF - Regular (G)', amc: 'Axis', category: 'FOF - US Innovation', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High', productType: 'international_fund', region: 'US' },
     ]
   },
   europe_markets: {
     conservative: [
-      { name: 'ICICI Pru European Markets Fund - Regular (G)', amc: 'ICICI Prudential', category: 'FOF - Europe Diversified', returns1Y: '12.5', returns3Y: '10.8', returns5Y: '11.5', risk: 'Moderate', productType: 'international_fund', region: 'Europe' },
-      { name: 'Edelweiss Europe Fund - Regular (G)', amc: 'Edelweiss', category: 'FOF - Pan-European', returns1Y: '11.8', returns3Y: '10.2', returns5Y: '11.0', risk: 'Moderate', productType: 'international_fund', region: 'Europe' },
+      { name: 'ICICI Pru European Markets Fund - Regular (G)', amc: 'ICICI Prudential', category: 'FOF - Europe Diversified', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate', productType: 'international_fund', region: 'Europe' },
+      { name: 'Edelweiss Europe Fund - Regular (G)', amc: 'Edelweiss', category: 'FOF - Pan-European', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate', productType: 'international_fund', region: 'Europe' },
     ],
     moderate: [
-      { name: 'Franklin European Growth Fund - Regular (G)', amc: 'Franklin', category: 'FOF - Europe Growth', returns1Y: '14.5', returns3Y: '12.8', returns5Y: '13.5', risk: 'High', productType: 'international_fund', region: 'Europe' },
-      { name: 'Kotak Global Emerging Market Fund - Regular (G)', amc: 'Kotak', category: 'FOF - Europe & EM', returns1Y: '15.2', returns3Y: '13.5', returns5Y: '14.0', risk: 'High', productType: 'international_fund', region: 'Europe' },
-      { name: 'SBI European Equity Fund - Regular (G)', amc: 'SBI', category: 'FOF - Eurozone', returns1Y: '13.8', returns3Y: '11.5', returns5Y: '12.5', risk: 'Moderate', productType: 'international_fund', region: 'Europe' },
+      { name: 'Franklin European Growth Fund - Regular (G)', amc: 'Franklin', category: 'FOF - Europe Growth', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'international_fund', region: 'Europe' },
+      { name: 'Kotak Global Emerging Market Fund - Regular (G)', amc: 'Kotak', category: 'FOF - Europe & EM', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'international_fund', region: 'Europe' },
+      { name: 'SBI European Equity Fund - Regular (G)', amc: 'SBI', category: 'FOF - Eurozone', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate', productType: 'international_fund', region: 'Europe' },
     ],
     aggressive: [
-      { name: 'Edelweiss Europe Dynamic Equity Fund - Regular (G)', amc: 'Edelweiss', category: 'FOF - Europe Dynamic', returns1Y: '16.5', returns3Y: '14.2', returns5Y: '15.8', risk: 'High', productType: 'international_fund', region: 'Europe' },
-      { name: 'DSP European Opportunities Fund - Regular (G)', amc: 'DSP', category: 'FOF - European Mid-Cap', returns1Y: '18.2', returns3Y: '15.5', returns5Y: '16.8', risk: 'High', productType: 'international_fund', region: 'Europe' },
+      { name: 'Edelweiss Europe Dynamic Equity Fund - Regular (G)', amc: 'Edelweiss', category: 'FOF - Europe Dynamic', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'international_fund', region: 'Europe' },
+      { name: 'DSP European Opportunities Fund - Regular (G)', amc: 'DSP', category: 'FOF - European Mid-Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'international_fund', region: 'Europe' },
     ],
     very_aggressive: [
-      { name: 'Mirae Asset European Small Cap Fund - Regular (G)', amc: 'Mirae Asset', category: 'FOF - Europe Small Cap', returns1Y: '22.5', returns3Y: '18.8', returns5Y: '20.5', risk: 'Very High', productType: 'international_fund', region: 'Europe' },
-      { name: 'HDFC European Tech Fund - Regular (G)', amc: 'HDFC', category: 'FOF - Europe Tech', returns1Y: '24.0', returns3Y: '20.2', returns5Y: '22.0', risk: 'Very High', productType: 'international_fund', region: 'Europe' },
+      { name: 'Mirae Asset European Small Cap Fund - Regular (G)', amc: 'Mirae Asset', category: 'FOF - Europe Small Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High', productType: 'international_fund', region: 'Europe' },
+      { name: 'HDFC European Tech Fund - Regular (G)', amc: 'HDFC', category: 'FOF - Europe Tech', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High', productType: 'international_fund', region: 'Europe' },
     ]
   },
   asia_pacific_markets: {
     conservative: [
-      { name: 'Nippon India Japan Equity Fund - Regular (G)', amc: 'Nippon India', category: 'FOF - Japan', returns1Y: '15.2', returns3Y: '12.8', returns5Y: '14.0', risk: 'Moderate', productType: 'international_fund', region: 'Asia-Pacific' },
-      { name: 'ICICI Pru Asia Pacific Fund - Regular (G)', amc: 'ICICI Prudential', category: 'FOF - Asia-Pacific Diversified', returns1Y: '14.5', returns3Y: '12.2', returns5Y: '13.5', risk: 'Moderate', productType: 'international_fund', region: 'Asia-Pacific' },
+      { name: 'Nippon India Japan Equity Fund - Regular (G)', amc: 'Nippon India', category: 'FOF - Japan', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate', productType: 'international_fund', region: 'Asia-Pacific' },
+      { name: 'ICICI Pru Asia Pacific Fund - Regular (G)', amc: 'ICICI Prudential', category: 'FOF - Asia-Pacific Diversified', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate', productType: 'international_fund', region: 'Asia-Pacific' },
     ],
     moderate: [
-      { name: 'Kotak Pacific Fund - Regular (G)', amc: 'Kotak', category: 'FOF - Pacific Rim', returns1Y: '16.8', returns3Y: '14.5', returns5Y: '15.8', risk: 'High', productType: 'international_fund', region: 'Asia-Pacific' },
-      { name: 'Franklin Asian Equity Fund - Regular (G)', amc: 'Franklin', category: 'FOF - Asian Equity', returns1Y: '17.5', returns3Y: '15.2', returns5Y: '16.5', risk: 'High', productType: 'international_fund', region: 'Asia-Pacific' },
-      { name: 'Mirae Asset ASEAN Fund - Regular (G)', amc: 'Mirae Asset', category: 'FOF - ASEAN Markets', returns1Y: '15.8', returns3Y: '13.5', returns5Y: '14.8', risk: 'High', productType: 'international_fund', region: 'Asia-Pacific' },
+      { name: 'Kotak Pacific Fund - Regular (G)', amc: 'Kotak', category: 'FOF - Pacific Rim', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'international_fund', region: 'Asia-Pacific' },
+      { name: 'Franklin Asian Equity Fund - Regular (G)', amc: 'Franklin', category: 'FOF - Asian Equity', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'international_fund', region: 'Asia-Pacific' },
+      { name: 'Mirae Asset ASEAN Fund - Regular (G)', amc: 'Mirae Asset', category: 'FOF - ASEAN Markets', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'international_fund', region: 'Asia-Pacific' },
     ],
     aggressive: [
-      { name: 'Edelweiss Greater China Equity Off-shore Fund - Regular (G)', amc: 'Edelweiss', category: 'FOF - Greater China', returns1Y: '28.5', returns3Y: '22.8', returns5Y: '24.5', risk: 'High', productType: 'international_fund', region: 'Asia-Pacific' },
-      { name: 'SBI South Korea Fund - Regular (G)', amc: 'SBI', category: 'FOF - South Korea', returns1Y: '22.5', returns3Y: '18.8', returns5Y: '20.0', risk: 'High', productType: 'international_fund', region: 'Asia-Pacific' },
-      { name: 'Axis Taiwan Semiconductor Fund - Regular (G)', amc: 'Axis', category: 'FOF - Taiwan Tech', returns1Y: '25.2', returns3Y: '21.5', returns5Y: '23.0', risk: 'High', productType: 'international_fund', region: 'Asia-Pacific' },
+      { name: 'Edelweiss Greater China Equity Off-shore Fund - Regular (G)', amc: 'Edelweiss', category: 'FOF - Greater China', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'international_fund', region: 'Asia-Pacific' },
+      { name: 'SBI South Korea Fund - Regular (G)', amc: 'SBI', category: 'FOF - South Korea', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'international_fund', region: 'Asia-Pacific' },
+      { name: 'Axis Taiwan Semiconductor Fund - Regular (G)', amc: 'Axis', category: 'FOF - Taiwan Tech', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'international_fund', region: 'Asia-Pacific' },
     ],
     very_aggressive: [
-      { name: 'DSP China Growth Fund - Regular (G)', amc: 'DSP', category: 'FOF - China Growth', returns1Y: '32.5', returns3Y: '26.8', returns5Y: '28.5', risk: 'Very High', productType: 'international_fund', region: 'Asia-Pacific' },
-      { name: 'HDFC Asian Dragon Fund - Regular (G)', amc: 'HDFC', category: 'FOF - China & Hong Kong', returns1Y: '30.2', returns3Y: '24.5', returns5Y: '26.0', risk: 'Very High', productType: 'international_fund', region: 'Asia-Pacific' },
-      { name: 'Nippon India Vietnam Opp Fund - Regular (G)', amc: 'Nippon India', category: 'FOF - Vietnam', returns1Y: '28.0', returns3Y: '22.0', returns5Y: '24.5', risk: 'Very High', productType: 'international_fund', region: 'Asia-Pacific' },
+      { name: 'DSP China Growth Fund - Regular (G)', amc: 'DSP', category: 'FOF - China Growth', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High', productType: 'international_fund', region: 'Asia-Pacific' },
+      { name: 'HDFC Asian Dragon Fund - Regular (G)', amc: 'HDFC', category: 'FOF - China & Hong Kong', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High', productType: 'international_fund', region: 'Asia-Pacific' },
+      { name: 'Nippon India Vietnam Opp Fund - Regular (G)', amc: 'Nippon India', category: 'FOF - Vietnam', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High', productType: 'international_fund', region: 'Asia-Pacific' },
     ]
   },
   emerging_markets: {
     conservative: [
-      { name: 'PGIM India Emerging Markets Fund - Regular (G)', amc: 'PGIM India', category: 'FOF - EM Diversified', returns1Y: '14.8', returns3Y: '12.5', returns5Y: '13.8', risk: 'High', productType: 'international_fund', region: 'Emerging Markets' },
-      { name: 'ICICI Pru Emerging Markets Fund - Regular (G)', amc: 'ICICI Prudential', category: 'FOF - EM Index', returns1Y: '13.5', returns3Y: '11.8', returns5Y: '12.5', risk: 'Moderate', productType: 'international_fund', region: 'Emerging Markets' },
+      { name: 'PGIM India Emerging Markets Fund - Regular (G)', amc: 'PGIM India', category: 'FOF - EM Diversified', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'international_fund', region: 'Emerging Markets' },
+      { name: 'ICICI Pru Emerging Markets Fund - Regular (G)', amc: 'ICICI Prudential', category: 'FOF - EM Index', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate', productType: 'international_fund', region: 'Emerging Markets' },
     ],
     moderate: [
-      { name: 'Kotak BRICS Nations Fund - Regular (G)', amc: 'Kotak', category: 'FOF - BRICS', returns1Y: '18.5', returns3Y: '15.8', returns5Y: '17.0', risk: 'High', productType: 'international_fund', region: 'Emerging Markets' },
-      { name: 'Franklin BRIC Fund - Regular (G)', amc: 'Franklin', category: 'FOF - BRIC Markets', returns1Y: '17.2', returns3Y: '14.8', returns5Y: '16.0', risk: 'High', productType: 'international_fund', region: 'Emerging Markets' },
-      { name: 'SBI Emerging Markets Fund - Regular (G)', amc: 'SBI', category: 'FOF - EM Growth', returns1Y: '16.8', returns3Y: '14.2', returns5Y: '15.5', risk: 'High', productType: 'international_fund', region: 'Emerging Markets' },
+      { name: 'Kotak BRICS Nations Fund - Regular (G)', amc: 'Kotak', category: 'FOF - BRICS', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'international_fund', region: 'Emerging Markets' },
+      { name: 'Franklin BRIC Fund - Regular (G)', amc: 'Franklin', category: 'FOF - BRIC Markets', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'international_fund', region: 'Emerging Markets' },
+      { name: 'SBI Emerging Markets Fund - Regular (G)', amc: 'SBI', category: 'FOF - EM Growth', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'international_fund', region: 'Emerging Markets' },
     ],
     aggressive: [
-      { name: 'Edelweiss Latin America Fund - Regular (G)', amc: 'Edelweiss', category: 'FOF - Latin America', returns1Y: '22.5', returns3Y: '18.5', returns5Y: '20.0', risk: 'High', productType: 'international_fund', region: 'Emerging Markets' },
-      { name: 'DSP Africa Opportunities Fund - Regular (G)', amc: 'DSP', category: 'FOF - Africa', returns1Y: '20.8', returns3Y: '17.5', returns5Y: '19.0', risk: 'High', productType: 'international_fund', region: 'Emerging Markets' },
-      { name: 'Mirae Asset EM Consumer Fund - Regular (G)', amc: 'Mirae Asset', category: 'FOF - EM Consumer', returns1Y: '24.2', returns3Y: '20.5', returns5Y: '22.0', risk: 'High', productType: 'international_fund', region: 'Emerging Markets' },
+      { name: 'Edelweiss Latin America Fund - Regular (G)', amc: 'Edelweiss', category: 'FOF - Latin America', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'international_fund', region: 'Emerging Markets' },
+      { name: 'DSP Africa Opportunities Fund - Regular (G)', amc: 'DSP', category: 'FOF - Africa', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'international_fund', region: 'Emerging Markets' },
+      { name: 'Mirae Asset EM Consumer Fund - Regular (G)', amc: 'Mirae Asset', category: 'FOF - EM Consumer', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'international_fund', region: 'Emerging Markets' },
     ],
     very_aggressive: [
-      { name: 'HDFC Emerging Markets Alpha Fund - Regular (G)', amc: 'HDFC', category: 'FOF - EM High Growth', returns1Y: '28.5', returns3Y: '24.2', returns5Y: '26.0', risk: 'Very High', productType: 'international_fund', region: 'Emerging Markets' },
-      { name: 'Axis Frontier Markets Fund - Regular (G)', amc: 'Axis', category: 'FOF - Frontier Markets', returns1Y: '32.0', returns3Y: '26.8', returns5Y: '28.5', risk: 'Very High', productType: 'international_fund', region: 'Emerging Markets' },
-      { name: 'Nippon India EM Small Cap Fund - Regular (G)', amc: 'Nippon India', category: 'FOF - EM Small Cap', returns1Y: '35.5', returns3Y: '28.5', returns5Y: '30.0', risk: 'Very High', productType: 'international_fund', region: 'Emerging Markets' },
+      { name: 'HDFC Emerging Markets Alpha Fund - Regular (G)', amc: 'HDFC', category: 'FOF - EM High Growth', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High', productType: 'international_fund', region: 'Emerging Markets' },
+      { name: 'Axis Frontier Markets Fund - Regular (G)', amc: 'Axis', category: 'FOF - Frontier Markets', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High', productType: 'international_fund', region: 'Emerging Markets' },
+      { name: 'Nippon India EM Small Cap Fund - Regular (G)', amc: 'Nippon India', category: 'FOF - EM Small Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High', productType: 'international_fund', region: 'Emerging Markets' },
     ]
   },
   reit: {
     conservative: [
-      { name: 'Embassy Office Parks REIT', amc: 'Embassy Group', category: 'REIT - Office', returns1Y: '8.5', returns3Y: '9.2', returns5Y: '10.5', risk: 'Moderate', productType: 'reit' },
+      { name: 'Embassy Office Parks REIT', amc: 'Embassy Group', category: 'REIT - Office', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate', productType: 'reit' },
     ],
     moderate: [
-      { name: 'Mindspace Business Parks REIT', amc: 'K Raheja Corp', category: 'REIT - Office', returns1Y: '9.2', returns3Y: '10.1', returns5Y: '11.2', risk: 'Moderate', productType: 'reit' },
-      { name: 'Brookfield India Real Estate Trust', amc: 'Brookfield', category: 'REIT - Office', returns1Y: '8.8', returns3Y: '9.5', returns5Y: '10.8', risk: 'Moderate', productType: 'reit' },
+      { name: 'Mindspace Business Parks REIT', amc: 'K Raheja Corp', category: 'REIT - Office', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate', productType: 'reit' },
+      { name: 'Brookfield India Real Estate Trust', amc: 'Brookfield', category: 'REIT - Office', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate', productType: 'reit' },
     ],
     aggressive: [
-      { name: 'Nexus Select Trust REIT', amc: 'Blackstone', category: 'REIT - Retail', returns1Y: '10.5', returns3Y: '11.2', returns5Y: '12.5', risk: 'Moderately High', productType: 'reit' },
+      { name: 'Nexus Select Trust REIT', amc: 'Blackstone', category: 'REIT - Retail', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderately High', productType: 'reit' },
     ],
     very_aggressive: [
-      { name: 'Embassy Office Parks REIT', amc: 'Embassy Group', category: 'REIT - Office', returns1Y: '8.5', returns3Y: '9.2', returns5Y: '10.5', risk: 'Moderate', productType: 'reit' },
+      { name: 'Embassy Office Parks REIT', amc: 'Embassy Group', category: 'REIT - Office', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate', productType: 'reit' },
     ]
   },
   invit: {
     conservative: [
-      { name: 'IndiGrid InvIT', amc: 'IndiGrid', category: 'InvIT - Power Transmission', returns1Y: '10.2', returns3Y: '11.5', returns5Y: '12.0', risk: 'Low', productType: 'invit' },
+      { name: 'IndiGrid InvIT', amc: 'IndiGrid', category: 'InvIT - Power Transmission', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Low', productType: 'invit' },
     ],
     moderate: [
-      { name: 'PowerGrid Infrastructure Investment Trust', amc: 'PGCIL', category: 'InvIT - Power Transmission', returns1Y: '11.5', returns3Y: '12.2', returns5Y: '12.8', risk: 'Low', productType: 'invit' },
-      { name: 'India Grid Trust', amc: 'Sterlite Power', category: 'InvIT - Power Transmission', returns1Y: '10.8', returns3Y: '11.8', returns5Y: '12.3', risk: 'Low', productType: 'invit' },
+      { name: 'PowerGrid Infrastructure Investment Trust', amc: 'PGCIL', category: 'InvIT - Power Transmission', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Low', productType: 'invit' },
+      { name: 'India Grid Trust', amc: 'Sterlite Power', category: 'InvIT - Power Transmission', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Low', productType: 'invit' },
     ],
     aggressive: [
-      { name: 'IRB InvIT Fund', amc: 'IRB Infrastructure', category: 'InvIT - Roads', returns1Y: '12.5', returns3Y: '13.2', returns5Y: '14.0', risk: 'Moderate', productType: 'invit' },
+      { name: 'IRB InvIT Fund', amc: 'IRB Infrastructure', category: 'InvIT - Roads', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate', productType: 'invit' },
     ],
     very_aggressive: [
-      { name: 'National Highways Infra Trust', amc: 'NHAI', category: 'InvIT - Roads', returns1Y: '11.8', returns3Y: '12.5', returns5Y: '13.2', risk: 'Moderate', productType: 'invit' },
+      { name: 'National Highways Infra Trust', amc: 'NHAI', category: 'InvIT - Roads', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate', productType: 'invit' },
     ]
   },
   bonds: {
     conservative: [
-      { name: 'REC Limited NCD - 7.5% 2028', amc: 'REC', category: 'Corporate Bond - PSU', returns1Y: '7.5', returns3Y: '7.5', returns5Y: '7.5', risk: 'Low', productType: 'bond' },
-      { name: 'NHAI 54EC Bonds', amc: 'NHAI', category: 'Tax-Free Bond', returns1Y: '5.25', returns3Y: '5.25', returns5Y: '5.25', risk: 'Very Low', productType: 'bond' },
+      { name: 'REC Limited NCD - 7.5% 2028', amc: 'REC', category: 'Corporate Bond - PSU', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Low', productType: 'bond' },
+      { name: 'NHAI 54EC Bonds', amc: 'NHAI', category: 'Tax-Free Bond', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very Low', productType: 'bond' },
     ],
     moderate: [
-      { name: 'PFC Limited NCD - 7.75% 2029', amc: 'PFC', category: 'Corporate Bond - PSU', returns1Y: '7.75', returns3Y: '7.75', returns5Y: '7.75', risk: 'Low', productType: 'bond' },
-      { name: 'HDFC Ltd NCD - 8.0% 2027', amc: 'HDFC', category: 'Corporate Bond - NBFC', returns1Y: '8.0', returns3Y: '8.0', returns5Y: '8.0', risk: 'Low', productType: 'bond' },
+      { name: 'PFC Limited NCD - 7.75% 2029', amc: 'PFC', category: 'Corporate Bond - PSU', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Low', productType: 'bond' },
+      { name: 'HDFC Ltd NCD - 8.0% 2027', amc: 'HDFC', category: 'Corporate Bond - NBFC', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Low', productType: 'bond' },
     ],
     aggressive: [
-      { name: 'Tata Capital NCD - 8.25% 2028', amc: 'Tata Capital', category: 'Corporate Bond - NBFC', returns1Y: '8.25', returns3Y: '8.25', returns5Y: '8.25', risk: 'Moderate', productType: 'bond' },
+      { name: 'Tata Capital NCD - 8.25% 2028', amc: 'Tata Capital', category: 'Corporate Bond - NBFC', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate', productType: 'bond' },
     ],
     very_aggressive: [
-      { name: 'Shriram Transport Finance NCD - 9.0% 2027', amc: 'Shriram Transport', category: 'Corporate Bond - NBFC', returns1Y: '9.0', returns3Y: '9.0', returns5Y: '9.0', risk: 'Moderate', productType: 'bond' },
+      { name: 'Shriram Transport Finance NCD - 9.0% 2027', amc: 'Shriram Transport', category: 'Corporate Bond - NBFC', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate', productType: 'bond' },
     ]
   },
   mld: {
     conservative: [
-      { name: 'HDFC MLD - Principal Protected Nifty Linked', amc: 'HDFC', category: 'MLD - Principal Protected', returns1Y: '9.5', returns3Y: '10.2', returns5Y: '10.8', risk: 'Low', productType: 'mld' },
+      { name: 'HDFC MLD - Principal Protected Nifty Linked', amc: 'HDFC', category: 'MLD - Principal Protected', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Low', productType: 'mld' },
     ],
     moderate: [
-      { name: 'ICICI Securities MLD - Equity Linked', amc: 'ICICI Securities', category: 'MLD - Equity Linked', returns1Y: '11.2', returns3Y: '12.5', returns5Y: '13.0', risk: 'Moderate', productType: 'mld' },
-      { name: 'Kotak Mahindra MLD - Multi Asset', amc: 'Kotak', category: 'MLD - Multi Asset', returns1Y: '10.8', returns3Y: '11.8', returns5Y: '12.5', risk: 'Moderate', productType: 'mld' },
+      { name: 'ICICI Securities MLD - Equity Linked', amc: 'ICICI Securities', category: 'MLD - Equity Linked', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate', productType: 'mld' },
+      { name: 'Kotak Mahindra MLD - Multi Asset', amc: 'Kotak', category: 'MLD - Multi Asset', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate', productType: 'mld' },
     ],
     aggressive: [
-      { name: 'JM Financial MLD - Nifty Booster', amc: 'JM Financial', category: 'MLD - Nifty Linked', returns1Y: '13.5', returns3Y: '14.2', returns5Y: '14.8', risk: 'Moderately High', productType: 'mld' },
+      { name: 'JM Financial MLD - Nifty Booster', amc: 'JM Financial', category: 'MLD - Nifty Linked', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderately High', productType: 'mld' },
     ],
     very_aggressive: [
-      { name: 'Axis Securities MLD - Aggressive Growth', amc: 'Axis Securities', category: 'MLD - Equity Linked', returns1Y: '15.2', returns3Y: '16.0', returns5Y: '16.5', risk: 'High', productType: 'mld' },
+      { name: 'Axis Securities MLD - Aggressive Growth', amc: 'Axis Securities', category: 'MLD - Equity Linked', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'mld' },
     ]
   },
   pms: {
     conservative: [
-      { name: 'HDFC AMC PMS - Balanced', amc: 'HDFC AMC', category: 'PMS - Balanced', returns1Y: '12.5', returns3Y: '14.2', returns5Y: '13.8', risk: 'Moderate', productType: 'pms', minInvestment: 5000000 },
+      { name: 'HDFC AMC PMS - Balanced', amc: 'HDFC AMC', category: 'PMS - Balanced', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate', productType: 'pms', minInvestment: 5000000 },
     ],
     moderate: [
-      { name: 'Motilal Oswal PMS - Value Strategy', amc: 'Motilal Oswal', category: 'PMS - Value', returns1Y: '18.5', returns3Y: '20.2', returns5Y: '18.8', risk: 'Moderately High', productType: 'pms', minInvestment: 5000000 },
-      { name: 'Kotak PMS - Special Situations', amc: 'Kotak', category: 'PMS - Special Situations', returns1Y: '22.5', returns3Y: '24.8', returns5Y: '22.0', risk: 'High', productType: 'pms', minInvestment: 5000000 },
+      { name: 'Motilal Oswal PMS - Value Strategy', amc: 'Motilal Oswal', category: 'PMS - Value', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderately High', productType: 'pms', minInvestment: 5000000 },
+      { name: 'Kotak PMS - Special Situations', amc: 'Kotak', category: 'PMS - Special Situations', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'pms', minInvestment: 5000000 },
     ],
     aggressive: [
-      { name: 'ASK Investment PMS - Growth Portfolio', amc: 'ASK Investment', category: 'PMS - Growth', returns1Y: '25.2', returns3Y: '28.5', returns5Y: '26.0', risk: 'High', productType: 'pms', minInvestment: 5000000 },
+      { name: 'ASK Investment PMS - Growth Portfolio', amc: 'ASK Investment', category: 'PMS - Growth', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'pms', minInvestment: 5000000 },
     ],
     very_aggressive: [
-      { name: 'Marcellus PMS - Consistent Compounders', amc: 'Marcellus', category: 'PMS - Quality', returns1Y: '28.5', returns3Y: '32.0', returns5Y: '30.5', risk: 'High', productType: 'pms', minInvestment: 5000000 },
-      { name: 'Alchemy Capital PMS - High Growth', amc: 'Alchemy Capital', category: 'PMS - High Growth', returns1Y: '32.0', returns3Y: '35.5', returns5Y: '33.0', risk: 'Very High', productType: 'pms', minInvestment: 5000000 },
+      { name: 'Marcellus PMS - Consistent Compounders', amc: 'Marcellus', category: 'PMS - Quality', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'pms', minInvestment: 5000000 },
+      { name: 'Alchemy Capital PMS - High Growth', amc: 'Alchemy Capital', category: 'PMS - High Growth', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High', productType: 'pms', minInvestment: 5000000 },
     ]
   },
   aif: {
     conservative: [
-      { name: 'ICICI Prudential Credit AIF - Category II', amc: 'ICICI Prudential', category: 'AIF - Credit', returns1Y: '11.5', returns3Y: '12.8', returns5Y: '12.0', risk: 'Moderate', productType: 'aif', minInvestment: 10000000 },
+      { name: 'ICICI Prudential Credit AIF - Category II', amc: 'ICICI Prudential', category: 'AIF - Credit', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate', productType: 'aif', minInvestment: 10000000 },
     ],
     moderate: [
-      { name: 'Kotak Special Situations AIF - Category II', amc: 'Kotak', category: 'AIF - Special Situations', returns1Y: '16.5', returns3Y: '18.2', returns5Y: '17.5', risk: 'Moderately High', productType: 'aif', minInvestment: 10000000 },
-      { name: 'HDFC Ventures AIF - Category II', amc: 'HDFC', category: 'AIF - Growth', returns1Y: '18.2', returns3Y: '20.5', returns5Y: '19.0', risk: 'High', productType: 'aif', minInvestment: 10000000 },
+      { name: 'Kotak Special Situations AIF - Category II', amc: 'Kotak', category: 'AIF - Special Situations', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderately High', productType: 'aif', minInvestment: 10000000 },
+      { name: 'HDFC Ventures AIF - Category II', amc: 'HDFC', category: 'AIF - Growth', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'aif', minInvestment: 10000000 },
     ],
     aggressive: [
-      { name: 'Edelweiss Pre-IPO AIF - Category I', amc: 'Edelweiss', category: 'AIF - Pre-IPO', returns1Y: '25.5', returns3Y: '28.0', returns5Y: '26.5', risk: 'High', productType: 'aif', minInvestment: 10000000 },
+      { name: 'Edelweiss Pre-IPO AIF - Category I', amc: 'Edelweiss', category: 'AIF - Pre-IPO', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'aif', minInvestment: 10000000 },
     ],
     very_aggressive: [
-      { name: 'True North AIF - Category II', amc: 'True North', category: 'AIF - Private Equity', returns1Y: '32.0', returns3Y: '35.5', returns5Y: '34.0', risk: 'Very High', productType: 'aif', minInvestment: 10000000 },
-      { name: 'Multiples PE AIF - Category II', amc: 'Multiples', category: 'AIF - Growth Equity', returns1Y: '30.5', returns3Y: '33.8', returns5Y: '32.0', risk: 'Very High', productType: 'aif', minInvestment: 10000000 },
+      { name: 'True North AIF - Category II', amc: 'True North', category: 'AIF - Private Equity', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High', productType: 'aif', minInvestment: 10000000 },
+      { name: 'Multiples PE AIF - Category II', amc: 'Multiples', category: 'AIF - Growth Equity', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High', productType: 'aif', minInvestment: 10000000 },
     ]
   },
   listed_stocks: {
     conservative: [
-      { name: 'Reliance Industries Ltd', amc: 'NSE/BSE', category: 'Stock - Large Cap', returns1Y: '12.5', returns3Y: '18.2', returns5Y: '16.8', risk: 'Moderate', productType: 'stock', ticker: 'RELIANCE' },
-      { name: 'HDFC Bank Ltd', amc: 'NSE/BSE', category: 'Stock - Large Cap Banking', returns1Y: '8.2', returns3Y: '12.5', returns5Y: '11.8', risk: 'Moderate', productType: 'stock', ticker: 'HDFCBANK' },
-      { name: 'Tata Consultancy Services Ltd', amc: 'NSE/BSE', category: 'Stock - Large Cap IT', returns1Y: '15.5', returns3Y: '14.8', returns5Y: '18.2', risk: 'Moderate', productType: 'stock', ticker: 'TCS' },
+      { name: 'Reliance Industries Ltd', amc: 'NSE/BSE', category: 'Stock - Large Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate', productType: 'stock', ticker: 'RELIANCE' },
+      { name: 'HDFC Bank Ltd', amc: 'NSE/BSE', category: 'Stock - Large Cap Banking', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate', productType: 'stock', ticker: 'HDFCBANK' },
+      { name: 'Tata Consultancy Services Ltd', amc: 'NSE/BSE', category: 'Stock - Large Cap IT', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate', productType: 'stock', ticker: 'TCS' },
     ],
     moderate: [
-      { name: 'Infosys Ltd', amc: 'NSE/BSE', category: 'Stock - Large Cap IT', returns1Y: '14.2', returns3Y: '16.5', returns5Y: '17.8', risk: 'Moderate', productType: 'stock', ticker: 'INFY' },
-      { name: 'ICICI Bank Ltd', amc: 'NSE/BSE', category: 'Stock - Large Cap Banking', returns1Y: '18.5', returns3Y: '22.8', returns5Y: '20.5', risk: 'Moderate', productType: 'stock', ticker: 'ICICIBANK' },
-      { name: 'Bharti Airtel Ltd', amc: 'NSE/BSE', category: 'Stock - Large Cap Telecom', returns1Y: '35.2', returns3Y: '28.5', returns5Y: '22.0', risk: 'Moderately High', productType: 'stock', ticker: 'BHARTIARTL' },
-      { name: 'Larsen & Toubro Ltd', amc: 'NSE/BSE', category: 'Stock - Large Cap Infrastructure', returns1Y: '25.8', returns3Y: '32.5', returns5Y: '28.0', risk: 'Moderately High', productType: 'stock', ticker: 'LT' },
+      { name: 'Infosys Ltd', amc: 'NSE/BSE', category: 'Stock - Large Cap IT', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate', productType: 'stock', ticker: 'INFY' },
+      { name: 'ICICI Bank Ltd', amc: 'NSE/BSE', category: 'Stock - Large Cap Banking', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate', productType: 'stock', ticker: 'ICICIBANK' },
+      { name: 'Bharti Airtel Ltd', amc: 'NSE/BSE', category: 'Stock - Large Cap Telecom', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderately High', productType: 'stock', ticker: 'BHARTIARTL' },
+      { name: 'Larsen & Toubro Ltd', amc: 'NSE/BSE', category: 'Stock - Large Cap Infrastructure', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderately High', productType: 'stock', ticker: 'LT' },
     ],
     aggressive: [
-      { name: 'Bajaj Finance Ltd', amc: 'NSE/BSE', category: 'Stock - Large Cap NBFC', returns1Y: '22.5', returns3Y: '28.2', returns5Y: '32.5', risk: 'High', productType: 'stock', ticker: 'BAJFINANCE' },
-      { name: 'Tata Motors Ltd', amc: 'NSE/BSE', category: 'Stock - Large Cap Auto', returns1Y: '45.2', returns3Y: '52.8', returns5Y: '35.0', risk: 'High', productType: 'stock', ticker: 'TATAMOTORS' },
-      { name: 'SBI Cards Ltd', amc: 'NSE/BSE', category: 'Stock - Mid Cap Financial', returns1Y: '18.5', returns3Y: '22.0', returns5Y: '24.5', risk: 'High', productType: 'stock', ticker: 'SBICARD' },
-      { name: 'Persistent Systems Ltd', amc: 'NSE/BSE', category: 'Stock - Mid Cap IT', returns1Y: '38.5', returns3Y: '45.2', returns5Y: '42.0', risk: 'High', productType: 'stock', ticker: 'PERSISTENT' },
+      { name: 'Bajaj Finance Ltd', amc: 'NSE/BSE', category: 'Stock - Large Cap NBFC', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'stock', ticker: 'BAJFINANCE' },
+      { name: 'Tata Motors Ltd', amc: 'NSE/BSE', category: 'Stock - Large Cap Auto', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'stock', ticker: 'TATAMOTORS' },
+      { name: 'SBI Cards Ltd', amc: 'NSE/BSE', category: 'Stock - Mid Cap Financial', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'stock', ticker: 'SBICARD' },
+      { name: 'Persistent Systems Ltd', amc: 'NSE/BSE', category: 'Stock - Mid Cap IT', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'stock', ticker: 'PERSISTENT' },
     ],
     very_aggressive: [
-      { name: 'Zomato Ltd', amc: 'NSE/BSE', category: 'Stock - New Age Tech', returns1Y: '85.2', returns3Y: '45.0', returns5Y: 'N/A', risk: 'Very High', productType: 'stock', ticker: 'ZOMATO' },
+      { name: 'Zomato Ltd', amc: 'NSE/BSE', category: 'Stock - New Age Tech', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'N/A', risk: 'Very High', productType: 'stock', ticker: 'ZOMATO' },
       { name: 'Paytm (One97 Communications)', amc: 'NSE/BSE', category: 'Stock - Fintech', returns1Y: '-25.5', returns3Y: '-15.0', returns5Y: 'N/A', risk: 'Very High', productType: 'stock', ticker: 'PAYTM' },
-      { name: 'Tata Elxsi Ltd', amc: 'NSE/BSE', category: 'Stock - Mid Cap IT Services', returns1Y: '28.5', returns3Y: '48.2', returns5Y: '55.0', risk: 'Very High', productType: 'stock', ticker: 'TATAELXSI' },
-      { name: 'Dixon Technologies Ltd', amc: 'NSE/BSE', category: 'Stock - Mid Cap Electronics', returns1Y: '65.2', returns3Y: '72.5', returns5Y: '85.0', risk: 'Very High', productType: 'stock', ticker: 'DIXON' },
-      { name: 'Happiest Minds Technologies', amc: 'NSE/BSE', category: 'Stock - Small Cap IT', returns1Y: '32.5', returns3Y: '38.0', returns5Y: 'N/A', risk: 'Very High', productType: 'stock', ticker: 'HAPPSTMNDS' },
+      { name: 'Tata Elxsi Ltd', amc: 'NSE/BSE', category: 'Stock - Mid Cap IT Services', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High', productType: 'stock', ticker: 'TATAELXSI' },
+      { name: 'Dixon Technologies Ltd', amc: 'NSE/BSE', category: 'Stock - Mid Cap Electronics', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High', productType: 'stock', ticker: 'DIXON' },
+      { name: 'Happiest Minds Technologies', amc: 'NSE/BSE', category: 'Stock - Small Cap IT', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'N/A', risk: 'Very High', productType: 'stock', ticker: 'HAPPSTMNDS' },
     ]
   },
   unlisted_stocks: {
     conservative: [
-      { name: 'NSE India Ltd', amc: 'Unlisted', category: 'Unlisted - Exchange', returns1Y: '18.5', returns3Y: '22.0', returns5Y: '25.5', risk: 'Moderate', productType: 'unlisted_stock', requiresEnhancedKYC: true },
+      { name: 'NSE India Ltd', amc: 'Unlisted', category: 'Unlisted - Exchange', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate', productType: 'unlisted_stock', requiresEnhancedKYC: true },
     ],
     moderate: [
-      { name: 'HDB Financial Services Ltd', amc: 'Unlisted', category: 'Unlisted - NBFC', returns1Y: '15.2', returns3Y: '18.5', returns5Y: '20.0', risk: 'Moderate', productType: 'unlisted_stock', requiresEnhancedKYC: true },
-      { name: 'Tata Technologies Ltd', amc: 'Unlisted', category: 'Unlisted - Engineering', returns1Y: '25.5', returns3Y: '28.0', returns5Y: '32.5', risk: 'Moderately High', productType: 'unlisted_stock', requiresEnhancedKYC: true },
+      { name: 'HDB Financial Services Ltd', amc: 'Unlisted', category: 'Unlisted - NBFC', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate', productType: 'unlisted_stock', requiresEnhancedKYC: true },
+      { name: 'Tata Technologies Ltd', amc: 'Unlisted', category: 'Unlisted - Engineering', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderately High', productType: 'unlisted_stock', requiresEnhancedKYC: true },
     ],
     aggressive: [
-      { name: 'Swiggy (Bundl Technologies)', amc: 'Unlisted', category: 'Unlisted - Food Tech', returns1Y: '35.2', returns3Y: '42.0', returns5Y: '48.5', risk: 'High', productType: 'unlisted_stock', requiresEnhancedKYC: true },
-      { name: 'PhonePe (PhonePe Pvt Ltd)', amc: 'Unlisted', category: 'Unlisted - Fintech', returns1Y: '28.5', returns3Y: '35.0', returns5Y: '42.0', risk: 'High', productType: 'unlisted_stock', requiresEnhancedKYC: true },
-      { name: 'Lenskart Solutions Pvt Ltd', amc: 'Unlisted', category: 'Unlisted - E-commerce', returns1Y: '32.0', returns3Y: '38.5', returns5Y: '45.0', risk: 'High', productType: 'unlisted_stock', requiresEnhancedKYC: true },
+      { name: 'Swiggy (Bundl Technologies)', amc: 'Unlisted', category: 'Unlisted - Food Tech', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'unlisted_stock', requiresEnhancedKYC: true },
+      { name: 'PhonePe (PhonePe Pvt Ltd)', amc: 'Unlisted', category: 'Unlisted - Fintech', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'unlisted_stock', requiresEnhancedKYC: true },
+      { name: 'Lenskart Solutions Pvt Ltd', amc: 'Unlisted', category: 'Unlisted - E-commerce', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'unlisted_stock', requiresEnhancedKYC: true },
     ],
     very_aggressive: [
-      { name: 'OfBusiness (OFB Tech Pvt Ltd)', amc: 'Unlisted', category: 'Unlisted - B2B Commerce', returns1Y: '42.5', returns3Y: '55.0', returns5Y: '65.0', risk: 'Very High', productType: 'unlisted_stock', requiresEnhancedKYC: true },
-      { name: 'Pine Labs Pvt Ltd', amc: 'Unlisted', category: 'Unlisted - Payment Tech', returns1Y: '38.2', returns3Y: '48.5', returns5Y: '58.0', risk: 'Very High', productType: 'unlisted_stock', requiresEnhancedKYC: true },
-      { name: 'Pharmeasy (API Holdings)', amc: 'Unlisted', category: 'Unlisted - Health Tech', returns1Y: '-15.0', returns3Y: '25.0', returns5Y: '35.0', risk: 'Very High', productType: 'unlisted_stock', requiresEnhancedKYC: true },
-      { name: 'ixigo (Le Travenues Technology)', amc: 'Unlisted', category: 'Unlisted - Travel Tech', returns1Y: '45.0', returns3Y: '52.0', returns5Y: '48.5', risk: 'Very High', productType: 'unlisted_stock', requiresEnhancedKYC: true },
+      { name: 'OfBusiness (OFB Tech Pvt Ltd)', amc: 'Unlisted', category: 'Unlisted - B2B Commerce', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High', productType: 'unlisted_stock', requiresEnhancedKYC: true },
+      { name: 'Pine Labs Pvt Ltd', amc: 'Unlisted', category: 'Unlisted - Payment Tech', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High', productType: 'unlisted_stock', requiresEnhancedKYC: true },
+      { name: 'Pharmeasy (API Holdings)', amc: 'Unlisted', category: 'Unlisted - Health Tech', returns1Y: '-15.0', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High', productType: 'unlisted_stock', requiresEnhancedKYC: true },
+      { name: 'ixigo (Le Travenues Technology)', amc: 'Unlisted', category: 'Unlisted - Travel Tech', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High', productType: 'unlisted_stock', requiresEnhancedKYC: true },
     ]
   }
 };
@@ -381,37 +385,335 @@ const FUND_RECOMMENDATIONS_BY_CATEGORY = {
 // Legacy format for backward compatibility
 const REAL_FUND_RECOMMENDATIONS = {
   conservative: [
-    { name: 'HDFC Balanced Advantage Fund - Regular (G)', amc: 'HDFC', category: 'Hybrid', returns1Y: '11.8', returns3Y: '13.5', returns5Y: '13.1', risk: 'Moderate' },
-    { name: 'ICICI Pru Corporate Bond Fund - Regular (G)', amc: 'ICICI Prudential', category: 'Debt', returns1Y: '7.2', returns3Y: '7.6', returns5Y: '7.9', risk: 'Low' },
-    { name: 'SBI Magnum Medium Duration Fund - Regular (G)', amc: 'SBI', category: 'Debt', returns1Y: '6.8', returns3Y: '7.2', returns5Y: '7.5', risk: 'Low' },
-    { name: 'Axis Banking & PSU Debt Fund - Regular (G)', amc: 'Axis', category: 'Debt', returns1Y: '7.0', returns3Y: '7.4', returns5Y: '7.5', risk: 'Low' },
-    { name: 'SBI Gold Fund - Regular (G)', amc: 'SBI', category: 'FOF - Gold', returns1Y: '14.2', returns3Y: '12.8', returns5Y: '11.5', risk: 'Moderate' },
+    { name: 'HDFC Balanced Advantage Fund - Regular (G)', amc: 'HDFC', category: 'Hybrid', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
+    { name: 'ICICI Pru Corporate Bond Fund - Regular (G)', amc: 'ICICI Prudential', category: 'Debt', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Low' },
+    { name: 'SBI Magnum Medium Duration Fund - Regular (G)', amc: 'SBI', category: 'Debt', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Low' },
+    { name: 'Axis Banking & PSU Debt Fund - Regular (G)', amc: 'Axis', category: 'Debt', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Low' },
+    { name: 'SBI Gold Fund - Regular (G)', amc: 'SBI', category: 'FOF - Gold', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
   ],
   moderate: [
-    { name: 'Parag Parikh Flexi Cap Fund - Regular (G)', amc: 'PPFAS', category: 'Equity - Flexi Cap', returns1Y: '17.2', returns3Y: '18.8', returns5Y: '18.5', risk: 'Moderately High' },
-    { name: 'Mirae Asset Large Cap Fund - Regular (G)', amc: 'Mirae Asset', category: 'Equity - Large Cap', returns1Y: '14.5', returns3Y: '15.8', returns5Y: '15.2', risk: 'Moderate' },
-    { name: 'Kotak Emerging Equity Fund - Regular (G)', amc: 'Kotak', category: 'Equity - Mid Cap', returns1Y: '21.2', returns3Y: '22.8', returns5Y: '20.5', risk: 'High' },
-    { name: 'HDFC Hybrid Equity Fund - Regular (G)', amc: 'HDFC', category: 'Hybrid', returns1Y: '14.0', returns3Y: '14.8', returns5Y: '13.5', risk: 'Moderate' },
-    { name: 'SBI Corporate Bond Fund - Regular (G)', amc: 'SBI', category: 'Debt', returns1Y: '7.1', returns3Y: '7.5', returns5Y: '7.8', risk: 'Low' },
-    { name: 'Nippon India Gold Savings Fund - Regular (G)', amc: 'Nippon India', category: 'FOF - Gold', returns1Y: '14.0', returns3Y: '12.6', returns5Y: '11.3', risk: 'Moderate' },
+    { name: 'Parag Parikh Flexi Cap Fund - Regular (G)', amc: 'PPFAS', category: 'Equity - Flexi Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderately High' },
+    { name: 'Mirae Asset Large Cap Fund - Regular (G)', amc: 'Mirae Asset', category: 'Equity - Large Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
+    { name: 'Kotak Emerging Equity Fund - Regular (G)', amc: 'Kotak', category: 'Equity - Mid Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High' },
+    { name: 'HDFC Hybrid Equity Fund - Regular (G)', amc: 'HDFC', category: 'Hybrid', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
+    { name: 'SBI Corporate Bond Fund - Regular (G)', amc: 'SBI', category: 'Debt', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Low' },
+    { name: 'Nippon India Gold Savings Fund - Regular (G)', amc: 'Nippon India', category: 'FOF - Gold', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
   ],
   aggressive: [
-    { name: 'Quant Small Cap Fund - Regular (G)', amc: 'Quant', category: 'Equity - Small Cap', returns1Y: '27.2', returns3Y: '33.5', returns5Y: '30.8', risk: 'Very High' },
-    { name: 'Nippon India Small Cap Fund - Regular (G)', amc: 'Nippon India', category: 'Equity - Small Cap', returns1Y: '25.5', returns3Y: '31.2', returns5Y: '27.5', risk: 'Very High' },
-    { name: 'Axis Midcap Fund - Regular (G)', amc: 'Axis', category: 'Equity - Mid Cap', returns1Y: '19.2', returns3Y: '21.5', returns5Y: '20.2', risk: 'High' },
-    { name: 'HDFC Flexi Cap Fund - Regular (G)', amc: 'HDFC', category: 'Equity - Flexi Cap', returns1Y: '15.8', returns3Y: '17.2', returns5Y: '16.1', risk: 'Moderately High' },
-    { name: 'UTI Nifty 50 Index Fund - Regular (G)', amc: 'UTI', category: 'Index Fund', returns1Y: '13.5', returns3Y: '14.8', returns5Y: '13.8', risk: 'Moderate' },
-    { name: 'Kotak Gold Fund - Regular (G)', amc: 'Kotak', category: 'FOF - Gold', returns1Y: '14.1', returns3Y: '12.7', returns5Y: '11.4', risk: 'Moderate' },
+    { name: 'Quant Small Cap Fund - Regular (G)', amc: 'Quant', category: 'Equity - Small Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High' },
+    { name: 'Nippon India Small Cap Fund - Regular (G)', amc: 'Nippon India', category: 'Equity - Small Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High' },
+    { name: 'Axis Midcap Fund - Regular (G)', amc: 'Axis', category: 'Equity - Mid Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High' },
+    { name: 'HDFC Flexi Cap Fund - Regular (G)', amc: 'HDFC', category: 'Equity - Flexi Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderately High' },
+    { name: 'UTI Nifty 50 Index Fund - Regular (G)', amc: 'UTI', category: 'Index Fund', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
+    { name: 'Kotak Gold Fund - Regular (G)', amc: 'Kotak', category: 'FOF - Gold', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
   ],
   very_aggressive: [
-    { name: 'Quant Active Fund - Regular (G)', amc: 'Quant', category: 'Equity - Multi Cap', returns1Y: '31.2', returns3Y: '36.5', returns5Y: '34.2', risk: 'Very High' },
-    { name: 'Tata Small Cap Fund - Regular (G)', amc: 'Tata', category: 'Equity - Small Cap', returns1Y: '28.8', returns3Y: '34.8', returns5Y: '31.5', risk: 'Very High' },
-    { name: 'SBI Small Cap Fund - Regular (G)', amc: 'SBI', category: 'Equity - Small Cap', returns1Y: '27.5', returns3Y: '32.8', returns5Y: '29.2', risk: 'Very High' },
-    { name: 'Motilal Oswal Midcap Fund - Regular (G)', amc: 'Motilal Oswal', category: 'Equity - Mid Cap', returns1Y: '23.2', returns3Y: '27.5', returns5Y: '24.0', risk: 'High' },
-    { name: 'ICICI Pru Technology Fund - Regular (G)', amc: 'ICICI Prudential', category: 'Sectoral - Technology', returns1Y: '21.2', returns3Y: '24.8', returns5Y: '23.5', risk: 'Very High' },
-    { name: 'ICICI Pru Regular Gold Savings Fund - Regular (G)', amc: 'ICICI Prudential', category: 'FOF - Gold', returns1Y: '13.7', returns3Y: '12.3', returns5Y: '11.0', risk: 'Moderate' },
+    { name: 'Quant Active Fund - Regular (G)', amc: 'Quant', category: 'Equity - Multi Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High' },
+    { name: 'Tata Small Cap Fund - Regular (G)', amc: 'Tata', category: 'Equity - Small Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High' },
+    { name: 'SBI Small Cap Fund - Regular (G)', amc: 'SBI', category: 'Equity - Small Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High' },
+    { name: 'Motilal Oswal Midcap Fund - Regular (G)', amc: 'Motilal Oswal', category: 'Equity - Mid Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High' },
+    { name: 'ICICI Pru Technology Fund - Regular (G)', amc: 'ICICI Prudential', category: 'Sectoral - Technology', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High' },
+    { name: 'ICICI Pru Regular Gold Savings Fund - Regular (G)', amc: 'ICICI Prudential', category: 'FOF - Gold', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
   ]
 };
+
+/**
+ * Enrich fund recommendations with live returns from database/MFAPI
+ * Falls back to static values if live data unavailable
+ */
+async function enrichFundWithLiveReturns(fund: {
+  name: string;
+  amc: string;
+  category: string;
+  returns1Y: string;
+  returns3Y: string;
+  returns5Y: string;
+  risk: string;
+  [key: string]: any;
+}): Promise<typeof fund> {
+  try {
+    // Search for scheme by name (partial match)
+    const searchTerm = fund.name.replace(/- Regular \(G\)|- Growth|- Direct.*$/gi, '').trim();
+    
+    const matchingFunds = await db.select({
+      schemeCode: mutualFunds.schemeCode,
+      schemeName: mutualFunds.schemeName,
+      returns1y: mutualFunds.returns1y,
+      returns3y: mutualFunds.returns3y,
+      returns5y: mutualFunds.returns5y,
+      nav: mutualFunds.nav
+    })
+    .from(mutualFunds)
+    .where(sql`${mutualFunds.schemeName} ILIKE ${'%' + searchTerm + '%'}`)
+    .limit(5);
+
+    // Find best match (Regular plan preferred)
+    let bestMatch = matchingFunds.find(f => 
+      f.schemeName?.toLowerCase().includes('regular') || 
+      !f.schemeName?.toLowerCase().includes('direct')
+    ) || matchingFunds[0];
+
+    if (bestMatch && bestMatch.schemeCode) {
+      // Check if we have returns in DB
+      if (bestMatch.returns1y || bestMatch.returns3y) {
+        console.log(`[LiveReturns] Found DB returns for ${fund.name}: 1Y=${bestMatch.returns1y}, 3Y=${bestMatch.returns3y}`);
+        return {
+          ...fund,
+          returns1Y: bestMatch.returns1y ? parseFloat(bestMatch.returns1y as string).toFixed(1) : fund.returns1Y,
+          returns3Y: bestMatch.returns3y ? parseFloat(bestMatch.returns3y as string).toFixed(1) : fund.returns3Y,
+          returns5Y: bestMatch.returns5y ? parseFloat(bestMatch.returns5y as string).toFixed(1) : fund.returns5Y,
+          schemeCode: bestMatch.schemeCode,
+          dataSource: 'live'
+        };
+      }
+
+      // Try fetching live returns from MFAPI
+      const liveReturns = await mfReturnsSyncService.getReturnsForFund(bestMatch.schemeCode);
+      if (liveReturns && liveReturns.dataQuality !== 'insufficient') {
+        console.log(`[LiveReturns] Fetched MFAPI returns for ${fund.name}: 1Y=${liveReturns.returns1y?.toFixed(1)}, 3Y=${liveReturns.returns3y?.toFixed(1)}`);
+        return {
+          ...fund,
+          returns1Y: liveReturns.returns1y ? liveReturns.returns1y.toFixed(1) : fund.returns1Y,
+          returns3Y: liveReturns.returns3y ? liveReturns.returns3y.toFixed(1) : fund.returns3Y,
+          returns5Y: liveReturns.returns5y ? liveReturns.returns5y.toFixed(1) : fund.returns5Y,
+          schemeCode: bestMatch.schemeCode,
+          dataSource: 'mfapi'
+        };
+      }
+    }
+  } catch (error: any) {
+    console.warn(`[LiveReturns] Failed to enrich ${fund.name}:`, error.message);
+  }
+
+  // CRITICAL: No static fallback - mark returns as unavailable to avoid mock data
+  // Clear static returns and flag as unavailable so UI can handle appropriately
+  return { 
+    ...fund, 
+    returns1Y: 'N/A',
+    returns3Y: 'N/A', 
+    returns5Y: 'N/A',
+    dataSource: 'unavailable',
+    dataUnavailableReason: 'Live returns not available - sync pending'
+  };
+}
+
+/**
+ * Enrich all funds in a category with live returns (batch)
+ */
+async function enrichCategoryFundsWithLiveReturns(funds: Array<{
+  name: string;
+  amc: string;
+  category: string;
+  returns1Y: string;
+  returns3Y: string;
+  returns5Y: string;
+  risk: string;
+  [key: string]: any;
+}>): Promise<typeof funds> {
+  // Process in parallel with concurrency limit
+  const enrichedFunds = await Promise.all(
+    funds.map(fund => enrichFundWithLiveReturns(fund))
+  );
+  return enrichedFunds;
+}
+
+/**
+ * Get fund recommendations with live returns for a given category and risk profile
+ */
+export async function getLiveFundRecommendations(
+  assetClass: keyof typeof FUND_RECOMMENDATIONS_BY_CATEGORY,
+  riskProfile: 'conservative' | 'moderate' | 'aggressive' | 'very_aggressive'
+): Promise<typeof REAL_FUND_RECOMMENDATIONS.conservative> {
+  const categoryFunds = FUND_RECOMMENDATIONS_BY_CATEGORY[assetClass];
+  if (!categoryFunds) return [];
+  
+  const funds = categoryFunds[riskProfile] || [];
+  return enrichCategoryFundsWithLiveReturns(funds as any);
+}
+
+/**
+ * In-memory cache for live fund returns (populated by scheduler)
+ * Key: fund name (normalized), Value: { returns1Y, returns3Y, returns5Y, dataSource, syncedAt }
+ */
+const liveReturnsCache = new Map<string, {
+  returns1Y: string;
+  returns3Y: string;
+  returns5Y: string;
+  dataSource: 'live' | 'mfapi';
+  syncedAt: Date;
+}>();
+
+/**
+ * Update live returns cache (called by scheduler after sync)
+ */
+export function updateLiveReturnsCache(fundName: string, returns: {
+  returns1Y: number | null;
+  returns3Y: number | null;
+  returns5Y: number | null;
+  dataSource: 'live' | 'mfapi';
+}): void {
+  const normalizedName = fundName.toLowerCase().replace(/\s+/g, ' ').trim();
+  liveReturnsCache.set(normalizedName, {
+    returns1Y: returns.returns1Y?.toFixed(1) || 'N/A',
+    returns3Y: returns.returns3Y?.toFixed(1) || 'N/A',
+    returns5Y: returns.returns5Y?.toFixed(1) || 'N/A',
+    dataSource: returns.dataSource,
+    syncedAt: new Date()
+  });
+}
+
+/**
+ * Normalize fund name for cache lookup (handles variations in naming)
+ */
+function normalizeFundName(name: string): string[] {
+  const base = name.toLowerCase().replace(/\s+/g, ' ').trim();
+  
+  // Generate multiple variations to improve cache hit rate
+  const variations = [base];
+  
+  // Remove common suffixes
+  const withoutSuffixes = base
+    .replace(/- regular \(g\)/gi, '')
+    .replace(/- direct \(g\)/gi, '')
+    .replace(/- growth/gi, '')
+    .replace(/regular plan/gi, '')
+    .replace(/direct plan/gi, '')
+    .trim();
+  
+  if (withoutSuffixes !== base) variations.push(withoutSuffixes);
+  
+  return variations;
+}
+
+/**
+ * Get cached live returns for a fund (tries multiple name variations)
+ */
+function getCachedLiveReturns(fundName: string): {
+  returns1Y: string;
+  returns3Y: string;
+  returns5Y: string;
+  dataSource: string;
+} | null {
+  const nameVariations = normalizeFundName(fundName);
+  
+  for (const normalizedName of nameVariations) {
+    const cached = liveReturnsCache.get(normalizedName);
+    
+    if (cached) {
+      // Check if cache is fresh (less than 24 hours)
+      const hoursSinceSynced = (Date.now() - cached.syncedAt.getTime()) / (1000 * 60 * 60);
+      if (hoursSinceSynced < 24) {
+        return cached;
+      }
+    }
+    
+    // Also try partial matching for common fund names
+    for (const [cacheKey, value] of liveReturnsCache.entries()) {
+      if (cacheKey.includes(normalizedName) || normalizedName.includes(cacheKey)) {
+        const hoursSinceSynced = (Date.now() - value.syncedAt.getTime()) / (1000 * 60 * 60);
+        if (hoursSinceSynced < 24) {
+          return value;
+        }
+      }
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Sanitize fund data to ensure no 'PENDING' values leak to users
+ * First tries to get live returns from cache, then falls back to N/A
+ */
+function sanitizeFundForDisplay(fund: any): any {
+  if (!fund) return null;
+  
+  const sanitized = { ...fund };
+  
+  // First try to get cached live returns
+  const cachedReturns = getCachedLiveReturns(fund.name);
+  if (cachedReturns) {
+    sanitized.returns1Y = cachedReturns.returns1Y;
+    sanitized.returns3Y = cachedReturns.returns3Y;
+    sanitized.returns5Y = cachedReturns.returns5Y;
+    sanitized.dataSource = cachedReturns.dataSource;
+    return sanitized;
+  }
+  
+  // Fallback: Replace 'PENDING' with 'N/A' for user display
+  if (sanitized.returns1Y === 'PENDING') sanitized.returns1Y = 'N/A';
+  if (sanitized.returns3Y === 'PENDING') sanitized.returns3Y = 'N/A';
+  if (sanitized.returns5Y === 'PENDING') sanitized.returns5Y = 'N/A';
+  
+  // Add dataSource flag if returns are unavailable
+  if (sanitized.returns1Y === 'N/A' && sanitized.returns3Y === 'N/A') {
+    sanitized.dataSource = 'unavailable';
+    sanitized.returnsNote = 'Live returns sync pending';
+  }
+  
+  return sanitized;
+}
+
+/**
+ * Get funds from category with sanitization (sync access for internal use)
+ * Returns funds with PENDING values replaced with N/A
+ * NOTE: For async live enrichment, use getSafeFundRecommendations()
+ */
+function getfundsFromCategorySanitized(category: string, riskProfile: string): any[] {
+  const rawFunds = (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category]?.[riskProfile] ||
+                   (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category]?.moderate || [];
+  return rawFunds.map(sanitizeFundForDisplay);
+}
+
+/**
+ * Get funds with LIVE returns from database/MFAPI (async)
+ * This is the preferred method for user-facing proposal data
+ */
+async function getFundsWithLiveReturns(category: string, riskProfile: string): Promise<any[]> {
+  const rawFunds = (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category]?.[riskProfile] ||
+                   (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category]?.moderate || [];
+  
+  if (rawFunds.length === 0) return [];
+  
+  // Enrich with live data from DB/MFAPI
+  const enriched = await enrichCategoryFundsWithLiveReturns(rawFunds);
+  
+  return enriched;
+}
+
+/**
+ * SAFE accessor for fund recommendations - always returns enriched data or unavailable marker
+ * Use this instead of directly accessing FUND_RECOMMENDATIONS_BY_CATEGORY
+ */
+export async function getSafeFundRecommendations(
+  category: string,
+  riskProfile: string
+): Promise<Array<{
+  name: string;
+  amc: string;
+  category: string;
+  returns1Y: string;
+  returns3Y: string;
+  returns5Y: string;
+  risk: string;
+  dataSource: 'live' | 'mfapi' | 'unavailable';
+  [key: string]: any;
+}>> {
+  const rawFunds = (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category]?.[riskProfile] ||
+                   (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category]?.moderate || [];
+  
+  if (rawFunds.length === 0) return [];
+  
+  // Enrich with live data - returns will be 'N/A' if unavailable
+  const enrichedFunds = await enrichCategoryFundsWithLiveReturns(rawFunds);
+  
+  // Filter out funds with no returns data if strict mode needed
+  return enrichedFunds.map(fund => ({
+    ...fund,
+    // Ensure dataSource is always present for transparency
+    dataSource: fund.dataSource || 'unavailable'
+  }));
+}
 
 // Product categories available for agent selection
 export const PRODUCT_CATEGORIES = [
@@ -2348,9 +2650,9 @@ class AgentProspectWizardService {
             console.log(`[Rebalancing] Skipping SWITCH for ${upName} - category ${category} not in selected categories`);
             return;
           }
-          const targetFunds = (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category]?.[riskProfile.riskTolerance] || 
-                             (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category]?.moderate || [];
-          const targetFund = targetFunds[0];
+          // Use sanitized access - PENDING values will be replaced with N/A for display
+          const targetFunds = getfundsFromCategorySanitized(category, riskProfile.riskTolerance);
+          const targetFund = targetFunds[0] || null;
           
           // Calculate tax implications for switch (treated as redemption + purchase)
           const taxInfo = proposalCapitalGainsService.calculateHoldingTax({
@@ -2478,9 +2780,8 @@ class AgentProspectWizardService {
         // Lower minimum threshold to ₹2000 to ensure funds get allocated
         if (actualAmount < 2000) return;
         
-        // Get recommended fund for this category
-        const categoryFunds = (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category]?.[riskProfile.riskTolerance] ||
-                             (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category]?.moderate || [];
+        // Get recommended fund for this category (sanitized - no PENDING values)
+        const categoryFunds = getfundsFromCategorySanitized(category, riskProfile.riskTolerance);
         const fundToRecommend = categoryFunds[0];
         
         if (fundToRecommend) {
@@ -2781,8 +3082,8 @@ class AgentProspectWizardService {
     for (const { category, allocation } of filteredAllocations) {
       if (allocation === 0) continue;
       
-      const categoryFunds = (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category]?.[riskProfile.riskTolerance] || 
-                            (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category]?.moderate || [];
+      // Use sanitized access - no PENDING values leak to user
+      const categoryFunds = getfundsFromCategorySanitized(category, riskProfile.riskTolerance);
       
       if (categoryFunds.length === 0) continue;
       
@@ -2852,17 +3153,14 @@ class AgentProspectWizardService {
         const allocation = i === 0 ? equalAllocationFallback + (100 % categories.length) : equalAllocationFallback;
         const categoryAmount = Math.round((allocation / 100) * investmentAmount);
         
-        // Try to get funds from this category for any risk level
-        const categoryData = (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category];
-        if (!categoryData) continue;
-        
-        // Try current risk profile first, then fallback to any available
+        // Try to get funds from this category for any risk level (sanitized - no PENDING values)
         const riskLevels = [riskProfile.riskTolerance, 'moderate', 'conservative', 'aggressive', 'very_aggressive'];
         let fundsToUse: any[] = [];
         
         for (const risk of riskLevels) {
-          if (categoryData[risk] && categoryData[risk].length > 0) {
-            fundsToUse = categoryData[risk].slice(0, 2);
+          const categoryFunds = getfundsFromCategorySanitized(category, risk);
+          if (categoryFunds.length > 0) {
+            fundsToUse = categoryFunds.slice(0, 2);
             break;
           }
         }

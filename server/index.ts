@@ -952,6 +952,20 @@ app.use((req, res, next) => {
     }
   }, 15000); // 15 second delay (after currency exchange)
   
+  // Initialize MF Returns Scheduler (calculates live CAGR returns from historical NAV)
+  setTimeout(() => {
+    try {
+      import('./services/mf-returns-scheduler').then(({ mfReturnsScheduler }) => {
+        mfReturnsScheduler.initialize();
+        console.log('📊 [MFReturnsScheduler] Returns sync scheduler initialized');
+      }).catch(error => {
+        console.error('❌ Failed to start MF returns scheduler:', error);
+      });
+    } catch (error) {
+      console.error('❌ Error initializing MF returns scheduler:', error);
+    }
+  }, 45000); // 45 second delay (after financial data scheduler)
+  
   // Seed default store categories if not present
   storage.seedDefaultStoreCategories().catch(error => {
     console.error('❌ Failed to seed store categories:', error);
