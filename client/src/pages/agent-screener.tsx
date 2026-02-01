@@ -209,24 +209,28 @@ export default function AgentScreener() {
   return (
     <AgentLayout title="Instrument Screener" description="Filter and find instruments matching your criteria">
       <div className="space-y-6">
-        <Tabs defaultValue="builder" className="w-full">
-          <TabsList>
-            <TabsTrigger value="builder">Screener Builder</TabsTrigger>
-            <TabsTrigger value="saved">Saved Screeners</TabsTrigger>
-          </TabsList>
+        <Card>
+          <Tabs defaultValue="builder" className="w-full">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Filter className="h-5 w-5" />
+                    Investment Screener
+                  </CardTitle>
+                  <CardDescription className="mt-1">
+                    Filter and find instruments based on financial metrics
+                  </CardDescription>
+                </div>
+              </div>
+              <TabsList className="mt-4">
+                <TabsTrigger value="builder">Screener Builder</TabsTrigger>
+                <TabsTrigger value="saved">Saved Screeners</TabsTrigger>
+              </TabsList>
+            </CardHeader>
 
-          <TabsContent value="builder" className="space-y-4 mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Filter className="h-5 w-5" />
-                  Build Your Screener
-                </CardTitle>
-                <CardDescription>
-                  Define criteria to filter instruments based on financial metrics
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
+          <TabsContent value="builder" className="px-6 pb-6">
+            <div className="space-y-6">
                 <div className="flex gap-4 items-end">
                   <div className="space-y-2">
                     <Label>Instrument Type</Label>
@@ -309,20 +313,16 @@ export default function AgentScreener() {
                     Save Screener
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Screener Results</CardTitle>
-                <CardDescription>
-                  {runScreenerMutation.data?.results 
-                    ? `${runScreenerMutation.data.results.length} instruments match your criteria`
-                    : "Results will appear here after running the screener"
-                  }
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
+                <div className="pt-6 border-t">
+                  <h3 className="text-lg font-semibold mb-2">Screener Results</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {runScreenerMutation.data?.results 
+                      ? `${runScreenerMutation.data.results.length} instruments match your criteria`
+                      : "Results will appear here after running the screener"
+                    }
+                  </p>
+                <div>
                 {runScreenerMutation.isPending ? (
                   <div className="text-center py-8 text-muted-foreground">
                     Running screener...
@@ -474,45 +474,45 @@ export default function AgentScreener() {
                     }
                   </div>
                 )}
-              </CardContent>
-            </Card>
+                </div>
+                </div>
+            </div>
           </TabsContent>
 
-          <TabsContent value="saved" className="mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Saved Screeners</CardTitle>
-                <CardDescription>
+          <TabsContent value="saved" className="px-6 pb-6">
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Saved Screeners</h3>
+                <p className="text-sm text-muted-foreground mb-4">
                   Your saved screeners for quick access
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {(savedScreeners as any)?.screeners?.length > 0 ? (
-                  <div className="space-y-2">
-                    {(savedScreeners as any).screeners.map((s: any) => (
-                      <div key={s.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div>
-                          <div className="font-medium">{s.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {s.screenerType} • {s.runCount || 0} runs
-                          </div>
+                </p>
+              </div>
+              {(savedScreeners as any)?.screeners?.length > 0 ? (
+                <div className="space-y-2">
+                  {(savedScreeners as any).screeners.map((s: any) => (
+                    <div key={s.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <div className="font-medium">{s.name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {s.screenerType} • {s.runCount || 0} runs
                         </div>
-                        <Button variant="outline" size="sm">
-                          <Play className="h-4 w-4 mr-1" />
-                          Run
-                        </Button>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No saved screeners yet. Create and save a screener to see it here.
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                      <Button variant="outline" size="sm">
+                        <Play className="h-4 w-4 mr-1" />
+                        Run
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No saved screeners yet. Create and save a screener to see it here.
+                </div>
+              )}
+            </div>
           </TabsContent>
-        </Tabs>
+          </Tabs>
+        </Card>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
