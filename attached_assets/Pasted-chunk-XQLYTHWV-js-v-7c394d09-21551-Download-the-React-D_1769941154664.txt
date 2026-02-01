@@ -1,0 +1,84 @@
+chunk-XQLYTHWV.js?v=7c394d09:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+main.tsx:23 [PWA] Service Worker registered: https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/
+queryClient.ts:268  GET https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/research-lists/screeners 500 (Internal Server Error)
+(anonymous) @ queryClient.ts:268
+fetchFn @ @tanstack_react-query.js?v=7c394d09:840
+run @ @tanstack_react-query.js?v=7c394d09:494
+start @ @tanstack_react-query.js?v=7c394d09:536
+fetch @ @tanstack_react-query.js?v=7c394d09:926
+executeFetch_fn @ @tanstack_react-query.js?v=7c394d09:2211
+onSubscribe @ @tanstack_react-query.js?v=7c394d09:1898
+subscribe @ @tanstack_react-query.js?v=7c394d09:24
+(anonymous) @ @tanstack_react-query.js?v=7c394d09:3022
+subscribeToStore @ chunk-XQLYTHWV.js?v=7c394d09:11984
+commitHookEffectListMount @ chunk-XQLYTHWV.js?v=7c394d09:16915
+commitPassiveMountOnFiber @ chunk-XQLYTHWV.js?v=7c394d09:18156
+commitPassiveMountEffects_complete @ chunk-XQLYTHWV.js?v=7c394d09:18129
+commitPassiveMountEffects_begin @ chunk-XQLYTHWV.js?v=7c394d09:18119
+commitPassiveMountEffects @ chunk-XQLYTHWV.js?v=7c394d09:18109
+flushPassiveEffectsImpl @ chunk-XQLYTHWV.js?v=7c394d09:19490
+flushPassiveEffects @ chunk-XQLYTHWV.js?v=7c394d09:19447
+(anonymous) @ chunk-XQLYTHWV.js?v=7c394d09:19328
+workLoop @ chunk-XQLYTHWV.js?v=7c394d09:197
+flushWork @ chunk-XQLYTHWV.js?v=7c394d09:176
+performWorkUntilDeadline @ chunk-XQLYTHWV.js?v=7c394d09:384
+queryClient.ts:268  GET https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/research-lists/screeners 500 (Internal Server Error)
+(anonymous) @ queryClient.ts:268
+fetchFn @ @tanstack_react-query.js?v=7c394d09:840
+run @ @tanstack_react-query.js?v=7c394d09:494
+(anonymous) @ @tanstack_react-query.js?v=7c394d09:519
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=7c394d09:515
+Promise.catch
+run @ @tanstack_react-query.js?v=7c394d09:498
+start @ @tanstack_react-query.js?v=7c394d09:536
+fetch @ @tanstack_react-query.js?v=7c394d09:926
+executeFetch_fn @ @tanstack_react-query.js?v=7c394d09:2211
+onSubscribe @ @tanstack_react-query.js?v=7c394d09:1898
+subscribe @ @tanstack_react-query.js?v=7c394d09:24
+(anonymous) @ @tanstack_react-query.js?v=7c394d09:3022
+subscribeToStore @ chunk-XQLYTHWV.js?v=7c394d09:11984
+commitHookEffectListMount @ chunk-XQLYTHWV.js?v=7c394d09:16915
+commitPassiveMountOnFiber @ chunk-XQLYTHWV.js?v=7c394d09:18156
+commitPassiveMountEffects_complete @ chunk-XQLYTHWV.js?v=7c394d09:18129
+commitPassiveMountEffects_begin @ chunk-XQLYTHWV.js?v=7c394d09:18119
+commitPassiveMountEffects @ chunk-XQLYTHWV.js?v=7c394d09:18109
+flushPassiveEffectsImpl @ chunk-XQLYTHWV.js?v=7c394d09:19490
+flushPassiveEffects @ chunk-XQLYTHWV.js?v=7c394d09:19447
+(anonymous) @ chunk-XQLYTHWV.js?v=7c394d09:19328
+workLoop @ chunk-XQLYTHWV.js?v=7c394d09:197
+flushWork @ chunk-XQLYTHWV.js?v=7c394d09:176
+performWorkUntilDeadline @ chunk-XQLYTHWV.js?v=7c394d09:384
+queryClient.ts:268  GET https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/research-lists/screeners 500 (Internal Server Error)
+(anonymous) @ queryClient.ts:268
+fetchFn @ @tanstack_react-query.js?v=7c394d09:840
+run @ @tanstack_react-query.js?v=7c394d09:494
+(anonymous) @ @tanstack_react-query.js?v=7c394d09:519
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=7c394d09:515
+Promise.catch
+run @ @tanstack_react-query.js?v=7c394d09:498
+(anonymous) @ @tanstack_react-query.js?v=7c394d09:519
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=7c394d09:515
+Promise.catch
+run @ @tanstack_react-query.js?v=7c394d09:498
+start @ @tanstack_react-query.js?v=7c394d09:536
+fetch @ @tanstack_react-query.js?v=7c394d09:926
+executeFetch_fn @ @tanstack_react-query.js?v=7c394d09:2211
+onSubscribe @ @tanstack_react-query.js?v=7c394d09:1898
+subscribe @ @tanstack_react-query.js?v=7c394d09:24
+(anonymous) @ @tanstack_react-query.js?v=7c394d09:3022
+subscribeToStore @ chunk-XQLYTHWV.js?v=7c394d09:11984
+commitHookEffectListMount @ chunk-XQLYTHWV.js?v=7c394d09:16915
+commitPassiveMountOnFiber @ chunk-XQLYTHWV.js?v=7c394d09:18156
+commitPassiveMountEffects_complete @ chunk-XQLYTHWV.js?v=7c394d09:18129
+commitPassiveMountEffects_begin @ chunk-XQLYTHWV.js?v=7c394d09:18119
+commitPassiveMountEffects @ chunk-XQLYTHWV.js?v=7c394d09:18109
+flushPassiveEffectsImpl @ chunk-XQLYTHWV.js?v=7c394d09:19490
+flushPassiveEffects @ chunk-XQLYTHWV.js?v=7c394d09:19447
+(anonymous) @ chunk-XQLYTHWV.js?v=7c394d09:19328
+workLoop @ chunk-XQLYTHWV.js?v=7c394d09:197
+flushWork @ chunk-XQLYTHWV.js?v=7c394d09:176
+performWorkUntilDeadline @ chunk-XQLYTHWV.js?v=7c394d09:384
+screener:1 Unchecked runtime.lastError: The message port closed before a response was received.
