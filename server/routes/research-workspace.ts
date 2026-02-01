@@ -175,14 +175,21 @@ router.get("/", async (req, res) => {
 });
 
 // GET /api/research-lists/:id - Get single research list with items
-router.get("/:id", async (req, res) => {
+// NOTE: This route catches dynamic IDs but must skip reserved paths
+router.get("/:id", async (req, res, next) => {
   try {
+    const { id } = req.params;
+    
+    // Skip reserved paths - let them fall through to their specific handlers
+    const reservedPaths = ['screeners', 'analytics', 'instruments'];
+    if (reservedPaths.includes(id)) {
+      return next(); // Let Express continue to specific route handlers
+    }
+
     const agent = getAgentFromSession(req);
     if (!agent) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-
-    const { id } = req.params;
 
     const [list] = await db
       .select()
