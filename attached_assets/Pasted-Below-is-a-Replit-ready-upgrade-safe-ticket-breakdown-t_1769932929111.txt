@@ -1,0 +1,193 @@
+Below is a Replit-ready, upgrade-safe ticket breakdown to add Morningstar-like Research Lists & Research Workspace into the existing FintekPro Agent Portal.
+This is written so your dev team can drop it directly into Replit Issues / Linear / GitHub Projects.
+I am not redesigning from scratch — this extends current FintekPro structures (agents, instruments, proposals, permissions).
+FINTEKPRO UPGRADE: ADVISOR RESEARCH WORKSPACE
+🧱 ASSUMPTIONS (IMPORTANT)
+Existing tables: agents, sub_agents, clients, instruments
+Existing auth & RBAC middleware
+Existing proposal / plan modules
+Tech stack: Node.js + Postgres + React
+EPIC 1: Research List Core (Backend)
+Ticket 1.1 – DB Schema: Research Lists
+Type: Backend
+Priority: P0
+Task
+Add advisor research list capability without breaking existing data.
+Tables
+CREATE TABLE research_lists (
+  id UUID PRIMARY KEY,
+  name TEXT NOT NULL,
+  universe_type TEXT CHECK (universe_type IN ('MF','ETF','STOCK','BOND','FD')),
+  created_by_agent_id UUID NOT NULL,
+  visibility TEXT CHECK (visibility IN ('private','team','org')) DEFAULT 'private',
+  is_editable BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT now(),
+  updated_at TIMESTAMP DEFAULT now()
+);
+Ticket 1.2 – DB Schema: Research List Items
+Type: Backend
+Priority: P0
+CREATE TABLE research_list_items (
+  id UUID PRIMARY KEY,
+  research_list_id UUID REFERENCES research_lists(id) ON DELETE CASCADE,
+  instrument_id UUID NOT NULL,
+  instrument_type TEXT,
+  added_source TEXT CHECK (added_source IN ('manual','screener','import')),
+  added_at TIMESTAMP DEFAULT now()
+);
+Ticket 1.3 – API: Research List CRUD
+Type: Backend
+Priority: P0
+Endpoints
+POST   /api/research-lists
+GET    /api/research-lists
+GET    /api/research-lists/:id
+PUT    /api/research-lists/:id
+DELETE /api/research-lists/:id
+Rules
+Sub-agent → cannot edit org lists
+Client → read-only
+All writes logged to audit table
+Ticket 1.4 – API: List Item Management
+Type: Backend
+Priority: P0
+POST   /api/research-lists/:id/items
+DELETE /api/research-lists/:id/items/:itemId
+GET    /api/research-lists/:id/items
+EPIC 2: Instrument Universe Extension
+Ticket 2.1 – Instrument Universe Normalization
+Type: Backend
+Priority: P0
+Task
+Extend existing instruments table to support research views.
+Add fields if missing:
+category
+risk_grade
+rating
+expense_ratio
+aum
+benchmark
+last_synced_at
+Ticket 2.2 – Universe Filters API
+Type: Backend
+Priority: P1
+GET /api/instruments?universe=MF&category=Equity&minAUM=500
+Supports:
+MF / ETF / Stock / Bond / FD
+Pagination
+Column selection
+EPIC 3: Screener Engine (Advisor Grade)
+Ticket 3.1 – Screener DSL
+Type: Backend
+Priority: P1
+Example Payload
+{
+  "universe": "MF",
+  "filters": {
+    "returns_3y": { ">=": 12 },
+    "expense_ratio": { "<=": 1.2 },
+    "aum": { ">=": 1000 }
+  }
+}
+Ticket 3.2 – Save Screener as Research List
+Type: Backend
+Priority: P1
+POST /api/screeners/run
+POST /api/screeners/save-to-list
+Auto-tags list source = screener
+EPIC 4: Frontend – Research Workspace
+Ticket 4.1 – Navigation Upgrade
+Type: Frontend
+Priority: P0
+Add Menu
+Research
+ ├── Research Lists
+ ├── Screeners
+ ├── Saved Searches
+ └── Analytics
+Ticket 4.2 – Research Lists Page
+Type: Frontend
+Priority: P0
+Columns
+List Name
+Universe
+Item Count
+Editable
+Created By
+Created Date
+Last Modified
+Actions:
+Open
+Edit
+Delete
+Share
+Ticket 4.3 – Research List Detail View
+Type: Frontend
+Priority: P0
+Features
+Instrument table (sortable)
+Add / remove instruments
+Switch view:
+Basics
+Performance
+Risk
+Export (CSV / PDF)
+EPIC 5: Analytics & Graphs
+Ticket 5.1 – Metrics Engine
+Type: Backend
+Priority: P1
+Precompute:
+CAGR
+Std Dev
+Sharpe
+Max Drawdown
+Cached per list.
+Ticket 5.2 – Charts UI
+Type: Frontend
+Priority: P1
+Charts:
+Risk vs Return
+Rolling Returns
+Category Comparison
+EPIC 6: Proposal & Client Integration
+Ticket 6.1 – Attach Research List to Proposal
+Type: Backend
+Priority: P0
+POST /api/proposals/:id/attach-research-list
+Behavior
+Snapshot list at attach time
+Immutable for compliance
+Ticket 6.2 – Proposal PDF Rendering
+Type: Frontend
+Priority: P1
+Include:
+Research rationale
+Fund table
+Charts
+EPIC 7: Permissions, Audit & Compliance
+Ticket 7.1 – RBAC Enforcement
+Type: Backend
+Priority: P0
+Rules:
+Sub-DSA → no org edit
+Client → view only
+Advisor → full control
+Ticket 7.2 – Audit Logging
+Type: Backend
+Priority: P0
+Log:
+Create / edit / delete list
+Proposal attach
+Instrument changes
+DELIVERY ORDER (IMPORTANT)
+EPIC 1 + 2 (Foundation)
+EPIC 4 (UI usable)
+EPIC 3 (Screeners)
+EPIC 6 (Revenue impact)
+EPIC 5 (Differentiation)
+EPIC 7 (Compliance)
+Why This Upgrade Works for FintekPro
+Zero disruption to existing flows
+CFP-grade advisory tooling
+Morningstar parity without licensing cost
+Strong moat for agent retention
