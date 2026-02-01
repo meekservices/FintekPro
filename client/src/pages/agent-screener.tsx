@@ -72,17 +72,18 @@ export default function AgentScreener() {
 
   const runScreenerMutation = useMutation({
     mutationFn: async () => {
-      const dslCriteria: Record<string, Record<string, number>> = {};
+      const filters: Record<string, Record<string, number>> = {};
       criteria.forEach(c => {
         if (c.field && c.value) {
-          dslCriteria[c.field] = { [c.operator]: parseFloat(c.value) };
+          filters[c.field] = { [c.operator]: parseFloat(c.value) };
         }
       });
+      const universe = screenerType === "mutual_fund" ? "MF" : screenerType === "stock" ? "STOCK" : screenerType.toUpperCase();
       return apiRequest("/api/research-lists/screener/run", {
         method: "POST",
         body: JSON.stringify({
-          screenerType,
-          criteria: dslCriteria,
+          universe,
+          filters,
         }),
       });
     },

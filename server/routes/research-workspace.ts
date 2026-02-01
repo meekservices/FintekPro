@@ -578,6 +578,102 @@ router.get("/instruments/search", async (req, res) => {
 });
 
 // =====================================================
+// SAVED SCREENERS
+// =====================================================
+
+// GET /api/research-lists/screeners - Get all saved screeners
+router.get("/screeners", async (req, res) => {
+  try {
+    const agent = getAgentFromSession(req);
+    if (!agent) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const screeners = await db
+      .select()
+      .from(savedScreeners)
+      .where(
+        or(
+          eq(savedScreeners.createdByAgentId, agent.agentId),
+          eq(savedScreeners.visibility, "team"),
+          eq(savedScreeners.visibility, "org")
+        )
+      )
+      .orderBy(desc(savedScreeners.updatedAt));
+
+    res.json({ success: true, screeners });
+  } catch (error) {
+    console.error("[Screeners] Error fetching screeners:", error);
+    res.status(500).json({ error: "Failed to fetch screeners" });
+  }
+});
+
+// POST /api/research-lists/screeners - Save a new screener
+router.post("/screeners", async (req, res) => {
+  try {
+    const agent = getAgentFromSession(req);
+    if (!agent) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { name, description, screenerType, criteria, visibility = "private" } = req.body;
+
+    if (!name || !screenerType || !criteria) {
+      return res.status(400).json({ error: "Name, screenerType, and criteria are required" });
+    }
+
+    const [newScreener] = await db
+      .insert(savedScreeners)
+      .values({
+        name,
+        description,
+        screenerType,
+        criteria,
+        createdByAgentId: agent.agentId,
+        visibility,
+      })
+      .returning();
+
+    res.status(201).json({ success: true, screener: newScreener });
+  } catch (error) {
+    console.error("[Screeners] Error saving screener:", error);
+    res.status(500).json({ error: "Failed to save screener" });
+  }
+});
+
+// DELETE /api/research-lists/screeners/:id - Delete a saved screener
+router.delete("/screeners/:id", async (req, res) => {
+  try {
+    const agent = getAgentFromSession(req);
+    if (!agent) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { id } = req.params;
+
+    const [screener] = await db
+      .select()
+      .from(savedScreeners)
+      .where(eq(savedScreeners.id, id));
+
+    if (!screener) {
+      return res.status(404).json({ error: "Screener not found" });
+    }
+
+    if (screener.createdByAgentId !== agent.agentId) {
+      return res.status(403).json({ error: "Cannot delete this screener" });
+    }
+
+    await db.delete(savedScreeners).where(eq(savedScreeners.id, id));
+
+    res.json({ success: true, message: "Screener deleted" });
+  } catch (error) {
+    console.error("[Screeners] Error deleting screener:", error);
+    res.status(500).json({ error: "Failed to delete screener" });
+  }
+});
+
+// =====================================================
 // SCREENER
 // =====================================================
 
