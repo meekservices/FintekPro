@@ -31,6 +31,12 @@ The system supports SEBI/RBI-compliant payment handling, FEMA compliance, and in
 ### System Design Choices
 FintekPro uses a subdomain-based portal architecture for Admin, Partner, and Client portals with role-based access control. A Financial Metrics Engine provides 40+ derived ratios. It utilizes a Centralized Service Registry pattern for singleton management. A Staggered Startup System prevents resource contention, and Fast Boot Optimization ensures quick server responsiveness. A Regulatory Gaps Tracker monitors compliance across various regulators.
 
+### Service Consolidation Architecture
+The platform is undergoing service consolidation to reduce code duplication:
+- **UnifiedOrderNotificationService** (`server/services/unified-order-notification-service.ts`): Centralized order notification handling for all asset types (bonds, mutual funds, unlisted shares, US stocks) with asset-type routing and unified email/SMS initialization. Provides helper methods (notifyBondOrder, notifyMutualFundOrder, etc.) for type-safe calls.
+- **Unified AI Recommendation Engine** (`server/services/unified-ai-recommendation-engine.ts`): Single entry point for all AI-powered investment recommendations with Gemini (primary) and OpenAI (fallback).
+- **Navigation**: The Help pillar provides Support, FAQs, and Contact functionality - no duplicate sidebar buttons needed.
+
 ## External Dependencies
 
 ### Third-Party APIs
