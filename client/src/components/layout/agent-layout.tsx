@@ -49,7 +49,10 @@ import {
   Video,
   Send,
   Sparkles,
-  Mail
+  Mail,
+  Microscope,
+  Filter,
+  ListChecks,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { cn } from "@/lib/utils";
@@ -135,6 +138,15 @@ const agentNavCategories: NavCategory[] = [
       { title: "ITR Services", href: "/agent/tax-cases", icon: FileText, description: "ITR filing & tax services" },
       { title: "Festival Greetings", href: "/agent/festival-greetings", icon: Sparkles, description: "Send festival wishes" },
       { title: "Bulk Communication", href: "/agent/bulk-communication", icon: Mail, description: "Email/SMS campaigns" },
+    ]
+  },
+  {
+    title: "Research",
+    icon: Microscope,
+    items: [
+      { title: "Research Lists", href: "/agent/research-lists", icon: ListChecks, description: "Curated instrument lists" },
+      { title: "Screener", href: "/agent/screener", icon: Filter, description: "Filter instruments" },
+      { title: "Analytics", href: "/agent/research-analytics", icon: BarChart3, description: "Performance analysis" },
     ]
   },
   {

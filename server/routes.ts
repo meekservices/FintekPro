@@ -26,6 +26,7 @@ import knowledgeHubRoutes from './routes/knowledge-hub-routes';
 import mcaIntelligenceRoutes from './routes/mca-intelligence-routes';
 import mcaDirectPaymentRoutes from './routes/mca-direct-payment-routes';
 import mcaFinancialBackfillRoutes from './routes/mca-financial-backfill-routes';
+import researchWorkspaceRoutes from './routes/research-workspace';
 import signatureRoutes from './routes/signature-routes';
 import userSignatureESignRoutes from './routes/user-signature-esign-routes';
 import { mcaFinancialRefreshScheduler } from "./services/mca-financial-refresh-scheduler";
@@ -810,6 +811,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
 
   // Knowledge Hub Routes
   app.use("/api/knowledge-hub", knowledgeHubRoutes);
+  app.use("/api/research-lists", isAuthenticated, researchWorkspaceRoutes);
   console.log("✅ Knowledge Hub routes registered");
 
   // MCA Intelligence Routes (Query Console, Filing Tracker, Analytics)
