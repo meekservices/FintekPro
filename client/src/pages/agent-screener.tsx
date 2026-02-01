@@ -238,21 +238,101 @@ export default function AgentScreener() {
               </CardContent>
             </Card>
 
-            {runScreenerMutation.data?.results && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Screener Results</CardTitle>
-                  <CardDescription>
-                    {runScreenerMutation.data.results.length} instruments match your criteria
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-muted-foreground text-sm">
-                    Results will appear here after running the screener
+            <Card>
+              <CardHeader>
+                <CardTitle>Screener Results</CardTitle>
+                <CardDescription>
+                  {runScreenerMutation.data?.results 
+                    ? `${runScreenerMutation.data.results.length} instruments match your criteria`
+                    : "Results will appear here after running the screener"
+                  }
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {runScreenerMutation.isPending ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Running screener...
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                ) : runScreenerMutation.data?.results?.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-3 px-2 font-medium">Name</th>
+                          <th className="text-left py-3 px-2 font-medium">Symbol</th>
+                          <th className="text-left py-3 px-2 font-medium">
+                            {screenerType === "mutual_fund" ? "Category" : "Sector"}
+                          </th>
+                          <th className="text-right py-3 px-2 font-medium">
+                            {screenerType === "mutual_fund" ? "NAV" : "Price"}
+                          </th>
+                          <th className="text-right py-3 px-2 font-medium">
+                            {screenerType === "mutual_fund" ? "1Y Return" : "Change %"}
+                          </th>
+                          <th className="text-left py-3 px-2 font-medium">
+                            {screenerType === "mutual_fund" ? "AUM" : "Cap"}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {runScreenerMutation.data.results.map((item: any) => (
+                          <tr key={item.id} className="border-b hover:bg-muted/50">
+                            <td className="py-3 px-2">
+                              <div className="font-medium truncate max-w-[200px]" title={item.name}>
+                                {item.name}
+                              </div>
+                            </td>
+                            <td className="py-3 px-2">
+                              <Badge variant="outline">{item.symbol}</Badge>
+                            </td>
+                            <td className="py-3 px-2 text-muted-foreground truncate max-w-[150px]" title={item.sector || item.category}>
+                              {item.sector || item.category || "-"}
+                            </td>
+                            <td className="py-3 px-2 text-right font-mono">
+                              {screenerType === "mutual_fund" 
+                                ? `₹${parseFloat(item.nav || 0).toFixed(2)}`
+                                : `₹${parseFloat(item.currentPrice || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
+                              }
+                            </td>
+                            <td className={`py-3 px-2 text-right font-mono ${
+                              parseFloat(screenerType === "mutual_fund" ? item.returns1y || 0 : item.dayChangePercent || 0) >= 0 
+                                ? "text-green-600" : "text-red-600"
+                            }`}>
+                              {screenerType === "mutual_fund" ? (
+                                <>
+                                  {parseFloat(item.returns1y || 0) >= 0 ? "+" : ""}
+                                  {parseFloat(item.returns1y || 0).toFixed(2)}%
+                                </>
+                              ) : (
+                                <>
+                                  {parseFloat(item.dayChangePercent || 0) >= 0 ? "+" : ""}
+                                  {parseFloat(item.dayChangePercent || 0).toFixed(2)}%
+                                </>
+                              )}
+                            </td>
+                            <td className="py-3 px-2">
+                              <Badge variant="secondary" className="text-xs">
+                                {screenerType === "mutual_fund" 
+                                  ? (item.aum ? `₹${parseFloat(item.aum).toLocaleString("en-IN")} Cr` : "-")
+                                  : (item.marketCap || "-")
+                                }
+                              </Badge>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    {runScreenerMutation.data?.results?.length === 0 
+                      ? "No instruments match your criteria. Try adjusting your filters."
+                      : "Click 'Run Screener' to search for matching instruments"
+                    }
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="saved" className="mt-4">
