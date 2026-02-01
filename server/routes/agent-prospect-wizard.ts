@@ -91,6 +91,19 @@ const backendHoldingSchema = z.object({
   category: z.string().optional()
 });
 
+// Lot schema for capital gains tracking
+const holdingLotSchema = z.object({
+  purchaseDate: z.string(),
+  transactionType: z.string(),
+  units: z.coerce.number(),
+  nav: z.coerce.number(),
+  amount: z.coerce.number(),
+  stampDuty: z.coerce.number().optional(),
+  stt: z.coerce.number().optional(),
+  grandfatheredValue: z.coerce.number().optional(),
+  isGrandfathered: z.boolean().optional()
+});
+
 // Flexible schema that accepts both frontend (productName/productType) and backend (name/assetType) formats
 const flexibleHoldingSchema = z.object({
   id: z.string().optional(),
@@ -112,7 +125,13 @@ const flexibleHoldingSchema = z.object({
   folioNumber: z.string().optional(),
   broker: z.string().optional(),
   confidenceScore: z.coerce.number().optional(),
-  category: z.string().optional()
+  category: z.string().optional(),
+  // Lot-level data for capital gains tracking (from CAS parsing)
+  firstPurchaseDate: z.string().optional(),
+  lots: z.array(holdingLotSchema).optional(),
+  holdingTier: z.string().optional(),
+  eligibleForTax: z.boolean().optional(),
+  amc: z.string().optional()
 });
 
 // Helper to normalize holdings to backend format

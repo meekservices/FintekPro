@@ -958,6 +958,18 @@ const TARGET_ALLOCATIONS = {
   very_aggressive: { equity: 25, debt: 5, hybrid: 5, gold: 2, silver: 3, index: 10, international: 0, us_markets: 10, europe_markets: 5, asia_pacific_markets: 7, emerging_markets: 6, reit: 5, invit: 3, bonds: 2, mld: 0, listed_stocks: 7, unlisted_stocks: 5, pms: 0, aif: 0 }
 };
 
+export interface ProspectPortfolioHoldingLot {
+  purchaseDate: string;
+  transactionType: string;
+  units: number;
+  nav: number;
+  amount: number;
+  stampDuty?: number;
+  stt?: number;
+  grandfatheredValue?: number;
+  isGrandfathered?: boolean;
+}
+
 export interface ProspectPortfolioHolding {
   // Frontend format (deprecated, for backward compatibility)
   productType?: string;
@@ -984,6 +996,12 @@ export interface ProspectPortfolioHolding {
   id?: string;
   addedAt?: string;
   source?: string;
+  // Lot-level data for capital gains tracking
+  firstPurchaseDate?: string;
+  lots?: ProspectPortfolioHoldingLot[];
+  holdingTier?: string;
+  eligibleForTax?: boolean;
+  amc?: string;
 }
 
 export interface ProspectRiskProfile {
@@ -1080,7 +1098,13 @@ function normalizeHolding(raw: any): ProspectPortfolioHolding {
     category: raw.category,
     id: raw.id,
     addedAt: raw.addedAt,
-    source: raw.source
+    source: raw.source,
+    // Lot-level data for capital gains tracking (CRITICAL: preserve from CAS parsing)
+    firstPurchaseDate: raw.firstPurchaseDate,
+    lots: raw.lots,
+    holdingTier: raw.holdingTier,
+    eligibleForTax: raw.eligibleForTax,
+    amc: raw.amc
   };
 }
 
