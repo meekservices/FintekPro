@@ -17801,6 +17801,1436 @@ export const onboardingInvitations = pgTable("onboarding_invitations", {
   lastActivityAt: timestamp("last_activity_at"),
   
   // Expiry
+  expiresAt: timestamp("expires_at"),
+  
+  // Notes
+  notes: text("notes"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_onboarding_invitations_referral_code").on(table.referralCode),
+  index("idx_onboarding_invitations_inviter").on(table.inviterId, table.inviterType),
+  index("idx_onboarding_invitations_status").on(table.status),
+  index("idx_onboarding_invitations_client_email").on(table.clientEmail),
+]);
+
+// Onboarding invitation events for audit trail
+export const onboardingInvitationEvents = pgTable("onboarding_invitation_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  invitationId: varchar("invitation_id").references(() => onboardingInvitations.id).notNull(),
+  
+  // Event details
+  eventType: varchar("event_type").notNull(), // created, sent, resent, opened, started, step_completed, completed, expired
+  eventData: jsonb("event_data"),
+  
+  // Actor
+  actorId: varchar("actor_id"),
+  actorType: varchar("actor_type"), // system, agent, partner, client
+  
+  // Context
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  
+  // Timestamp
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+}, (table) => [
+  index("idx_invitation_events_invitation").on(table.invitationId),
+  index("idx_invitation_events_type").on(table.eventType),
+]);
+
+// Insert schemas and types for Onboarding Invitations
+export const insertOnboardingInvitationSchema = createInsertSchema(onboardingInvitations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type OnboardingInvitation = typeof onboardingInvitations.$inferSelect;
+export type InsertOnboardingInvitation = z.infer<typeof insertOnboardingInvitationSchema>;
+
+export const insertOnboardingInvitationEventSchema = createInsertSchema(onboardingInvitationEvents).omit({
+  id: true,
+  timestamp: true,
+});
+export type OnboardingInvitationEvent = typeof onboardingInvitationEvents.$inferSelect;
+export type InsertOnboardingInvitationEvent = z.infer<typeof insertOnboardingInvitationEventSchema>;
+
+// Invitation status enum for type safety
+export const OnboardingInvitationStatusEnum = z.enum([
+  'pending',
+  'sent',
+  'opened',
+  'started',
+  'in_progress',
+  'completed',
+  'expired'
+]);
+
+// Invitation event type enum
+export const OnboardingInvitationEventTypeEnum = z.enum([
+  'created',
+  'sent',
+  'resent',
+  'opened',
+  'started',
+  'step_completed',
+  'completed',
+  'expired'
+]);
+
+// ========================================
+// AI INVESTMENT ADVISORY SYSTEM
+// ========================================
+
+// AI Profit Picks - High probability profitable stock recommendations
+export const aiProfitPicks = pgTable("ai_profit_picks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  agentId: varchar("agent_id").references(() => users.id),
+  
+  // Stock identification
+  stockName: varchar("stock_name").notNull(),
+  symbol: varchar("symbol").notNull(),
+  isin: varchar("isin"),
+  exchange: varchar("exchange").default("NSE"), // NSE, BSE
+  
+  // Price analysis
+  currentPrice: decimal("current_price", { precision: 15, scale: 2 }).notNull(),
+  targetPrice: decimal("target_price", { precision: 15, scale: 2 }).notNull(),
+  stopLossPrice: decimal("stop_loss_price", { precision: 15, scale: 2 }),
+  upsidePercent: decimal("upside_percent", { precision: 8, scale: 2 }).notNull(),
+  downsidePercent: decimal("downside_percent", { precision: 8, scale: 2 }),
+  
+  // AI scoring
+  profitScore: integer("profit_score").notNull(), // 0-100 conviction score
+  confidenceLevel: varchar("confidence_level").default("medium"), // low, medium, high, very_high
+  signalType: varchar("signal_type").notNull().default("buy"), // buy, sell, hold
+  signalStrength: varchar("signal_strength").default("moderate"), // weak, moderate, strong
+  
+  // Time horizon
+  timeHorizon: varchar("time_horizon").notNull(), // ultra_short, short, medium, long
+  timeHorizonDays: integer("time_horizon_days"), // Specific days estimate
+  
+  // Risk assessment
+  riskLevel: varchar("risk_level").notNull(), // low, moderate, high, very_high
+  riskScore: integer("risk_score"), // 0-100
+  volatilityRating: varchar("volatility_rating"), // low, medium, high
+  
+  // Sector analysis
+  sector: varchar("sector"),
+  industry: varchar("industry"),
+  sectorTrend: varchar("sector_trend"), // bullish, neutral, bearish
+  sectorRank: integer("sector_rank"), // Rank within sector
+  
+  // Fundamentals
+  peRatio: decimal("pe_ratio", { precision: 10, scale: 2 }),
+  pbRatio: decimal("pb_ratio", { precision: 10, scale: 2 }),
+  eps: decimal("eps", { precision: 15, scale: 2 }),
+  roe: decimal("roe", { precision: 8, scale: 2 }),
+  debtToEquity: decimal("debt_to_equity", { precision: 10, scale: 2 }),
+  marketCap: decimal("market_cap", { precision: 20, scale: 0 }),
+  dividendYield: decimal("dividend_yield", { precision: 8, scale: 2 }),
+  
+  // Technicals
+  rsiValue: decimal("rsi_value", { precision: 8, scale: 2 }),
+  macdSignal: varchar("macd_signal"), // bullish, bearish, neutral
+  movingAverage50: decimal("moving_average_50", { precision: 15, scale: 2 }),
+  movingAverage200: decimal("moving_average_200", { precision: 15, scale: 2 }),
+  supportLevel: decimal("support_level", { precision: 15, scale: 2 }),
+  resistanceLevel: decimal("resistance_level", { precision: 15, scale: 2 }),
+  
+  // AI reasoning
+  aiReason: text("ai_reason").notNull(), // Primary reason for recommendation
+  aiAnalysis: text("ai_analysis"), // Detailed analysis
+  keyFactors: jsonb("key_factors").$type<string[]>(), // Array of key factors
+  riskFactors: jsonb("risk_factors").$type<string[]>(), // Array of risk factors
+  
+  // Agent interaction
+  agentApproved: boolean("agent_approved").default(false),
+  agentModified: boolean("agent_modified").default(false),
+  agentNotes: text("agent_notes"),
+  agentOverrideReason: text("agent_override_reason"),
+  modifiedTargetPrice: decimal("modified_target_price", { precision: 15, scale: 2 }),
+  modifiedQuantity: integer("modified_quantity"),
+  
+  // Proposal tracking
+  addedToProposal: boolean("added_to_proposal").default(false),
+  proposalId: varchar("proposal_id").references(() => investmentProposals.id),
+  proposedQuantity: integer("proposed_quantity"),
+  proposedAmount: decimal("proposed_amount", { precision: 15, scale: 2 }),
+  
+  // Status
+  status: varchar("status").default("active"), // active, expired, executed, cancelled
+  expiresAt: timestamp("expires_at"),
+  executedAt: timestamp("executed_at"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ai_profit_picks_client").on(table.clientId),
+  index("idx_ai_profit_picks_agent").on(table.agentId),
+  index("idx_ai_profit_picks_status").on(table.status),
+  index("idx_ai_profit_picks_signal").on(table.signalType),
+  index("idx_ai_profit_picks_horizon").on(table.timeHorizon),
+]);
+
+// Portfolio Alerts - Benchmark and risk trigger alerts
+export const portfolioAlerts = pgTable("portfolio_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  portfolioId: varchar("portfolio_id").references(() => portfolios.id),
+  holdingId: varchar("holding_id").references(() => portfolioHoldings.id),
+  
+  // Alert classification
+  alertType: varchar("alert_type").notNull(), // concentration, loss_trigger, profit_trigger, sector_overweight, risk_mismatch, horizon_mismatch, benchmark_breach, valuation_warning, rebalancing_needed
+  alertCategory: varchar("alert_category").notNull(), // risk, performance, compliance, rebalancing
+  severity: varchar("severity").notNull().default("medium"), // low, medium, high, critical
+  
+  // Alert details
+  alertTitle: varchar("alert_title").notNull(),
+  alertMessage: text("alert_message").notNull(),
+  alertDescription: text("alert_description"),
+  
+  // Trigger information
+  triggerMetric: varchar("trigger_metric"), // The metric that triggered the alert
+  triggerValue: decimal("trigger_value", { precision: 15, scale: 4 }), // Current value of the metric
+  triggerThreshold: decimal("trigger_threshold", { precision: 15, scale: 4 }), // Threshold that was breached
+  triggerDirection: varchar("trigger_direction"), // above, below, equals
+  
+  // Benchmark data
+  benchmarkName: varchar("benchmark_name"), // NIFTY50, SENSEX, sector index
+  benchmarkValue: decimal("benchmark_value", { precision: 15, scale: 4 }),
+  benchmarkChange: decimal("benchmark_change", { precision: 8, scale: 4 }),
+  
+  // Stock/Holding specific
+  symbol: varchar("symbol"),
+  stockName: varchar("stock_name"),
+  currentWeight: decimal("current_weight", { precision: 8, scale: 4 }),
+  recommendedWeight: decimal("recommended_weight", { precision: 8, scale: 4 }),
+  
+  // Recommended action
+  recommendedAction: varchar("recommended_action"), // buy, sell, hold, rebalance, review
+  actionUrgency: varchar("action_urgency").default("normal"), // immediate, urgent, normal, low
+  actionDescription: text("action_description"),
+  
+  // AI analysis
+  aiInsight: text("ai_insight"),
+  aiRecommendation: text("ai_recommendation"),
+  
+  // Agent interaction
+  agentViewed: boolean("agent_viewed").default(false),
+  agentViewedAt: timestamp("agent_viewed_at"),
+  agentAction: varchar("agent_action"), // acknowledged, acted, dismissed, deferred
+  agentActionAt: timestamp("agent_action_at"),
+  agentNotes: text("agent_notes"),
+  
+  // Client notification
+  clientNotified: boolean("client_notified").default(false),
+  clientNotifiedAt: timestamp("client_notified_at"),
+  clientViewed: boolean("client_viewed").default(false),
+  clientViewedAt: timestamp("client_viewed_at"),
+  
+  // Status
+  status: varchar("status").default("active"), // active, acknowledged, resolved, dismissed, expired
+  resolvedAt: timestamp("resolved_at"),
+  resolutionNotes: text("resolution_notes"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at"),
+}, (table) => [
+  index("idx_portfolio_alerts_client").on(table.clientId),
+  index("idx_portfolio_alerts_portfolio").on(table.portfolioId),
+  index("idx_portfolio_alerts_type").on(table.alertType),
+  index("idx_portfolio_alerts_severity").on(table.severity),
+  index("idx_portfolio_alerts_status").on(table.status),
+]);
+
+// AI Portfolio Analysis - Stores comprehensive portfolio analysis results
+export const aiPortfolioAnalysis = pgTable("ai_portfolio_analysis", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  portfolioId: varchar("portfolio_id").references(() => portfolios.id).notNull(),
+  agentId: varchar("agent_id").references(() => users.id),
+  
+  // Analysis timestamp
+  analysisDate: timestamp("analysis_date").defaultNow().notNull(),
+  
+  // Portfolio metrics
+  totalValue: decimal("total_value", { precision: 15, scale: 2 }),
+  totalInvested: decimal("total_invested", { precision: 15, scale: 2 }),
+  totalGainLoss: decimal("total_gain_loss", { precision: 15, scale: 2 }),
+  totalGainLossPercent: decimal("total_gain_loss_percent", { precision: 8, scale: 4 }),
+  
+  // Return metrics
+  cagr1y: decimal("cagr_1y", { precision: 8, scale: 4 }),
+  cagr3y: decimal("cagr_3y", { precision: 8, scale: 4 }),
+  cagr5y: decimal("cagr_5y", { precision: 8, scale: 4 }),
+  xirr: decimal("xirr", { precision: 8, scale: 4 }),
+  absoluteReturn: decimal("absolute_return", { precision: 8, scale: 4 }),
+  
+  // Risk metrics
+  portfolioBeta: decimal("portfolio_beta", { precision: 8, scale: 4 }),
+  sharpeRatio: decimal("sharpe_ratio", { precision: 8, scale: 4 }),
+  standardDeviation: decimal("standard_deviation", { precision: 8, scale: 4 }),
+  maxDrawdown: decimal("max_drawdown", { precision: 8, scale: 4 }),
+  riskScore: integer("risk_score"), // 0-100
+  
+  // Concentration analysis
+  topHoldingWeight: decimal("top_holding_weight", { precision: 8, scale: 4 }),
+  top5HoldingsWeight: decimal("top_5_holdings_weight", { precision: 8, scale: 4 }),
+  sectorConcentration: jsonb("sector_concentration").$type<Record<string, number>>(),
+  
+  // Allocation breakdown
+  equityAllocation: decimal("equity_allocation", { precision: 8, scale: 4 }),
+  debtAllocation: decimal("debt_allocation", { precision: 8, scale: 4 }),
+  goldAllocation: decimal("gold_allocation", { precision: 8, scale: 4 }),
+  cashAllocation: decimal("cash_allocation", { precision: 8, scale: 4 }),
+  alternativeAllocation: decimal("alternative_allocation", { precision: 8, scale: 4 }),
+  
+  // Horizon analysis
+  ultraShortTermAllocation: decimal("ultra_short_term_allocation", { precision: 8, scale: 4 }),
+  shortTermAllocation: decimal("short_term_allocation", { precision: 8, scale: 4 }),
+  mediumTermAllocation: decimal("medium_term_allocation", { precision: 8, scale: 4 }),
+  longTermAllocation: decimal("long_term_allocation", { precision: 8, scale: 4 }),
+  
+  // Client profile alignment
+  clientRiskProfile: varchar("client_risk_profile"), // conservative, moderate, aggressive
+  portfolioRiskAlignment: varchar("portfolio_risk_alignment"), // aligned, slightly_misaligned, misaligned
+  riskMismatchDetails: text("risk_mismatch_details"),
+  
+  // AI insights
+  overallHealthScore: integer("overall_health_score"), // 0-100
+  aiSummary: text("ai_summary"),
+  keyStrengths: jsonb("key_strengths").$type<string[]>(),
+  keyWeaknesses: jsonb("key_weaknesses").$type<string[]>(),
+  recommendations: jsonb("recommendations").$type<string[]>(),
+  
+  // Detailed analysis
+  sectorAnalysis: jsonb("sector_analysis"),
+  holdingsAnalysis: jsonb("holdings_analysis"),
+  benchmarkComparison: jsonb("benchmark_comparison"),
+  
+  // Status
+  status: varchar("status").default("completed"), // in_progress, completed, error
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ai_portfolio_analysis_client").on(table.clientId),
+  index("idx_ai_portfolio_analysis_portfolio").on(table.portfolioId),
+  index("idx_ai_portfolio_analysis_date").on(table.analysisDate),
+]);
+
+// AI Talking Points - Agent communication scripts for client conversations
+export const aiTalkingPoints = pgTable("ai_talking_points", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  agentId: varchar("agent_id").references(() => users.id),
+  analysisId: varchar("analysis_id").references(() => aiPortfolioAnalysis.id),
+  profitPickId: varchar("profit_pick_id").references(() => aiProfitPicks.id),
+  
+  // Talking point classification
+  pointType: varchar("point_type").notNull(), // greeting, portfolio_summary, recommendation, risk_warning, action_item, closing, objection_handler
+  category: varchar("category"), // performance, risk, allocation, recommendation, compliance
+  
+  // Content
+  title: varchar("title").notNull(),
+  agentScript: text("agent_script").notNull(), // What agent should say
+  clientFacingVersion: text("client_facing_version"), // Simplified version for client understanding
+  
+  // Supporting data
+  supportingData: jsonb("supporting_data"), // Numbers, charts, facts to reference
+  visualAid: varchar("visual_aid"), // Reference to any chart/graph to show
+  
+  // Customization
+  tone: varchar("tone").default("professional"), // professional, friendly, cautious, urgent
+  emphasis: varchar("emphasis"), // positive, neutral, cautionary
+  
+  // Ordering
+  sequenceOrder: integer("sequence_order").default(0),
+  isRequired: boolean("is_required").default(false),
+  
+  // Agent interaction
+  agentUsed: boolean("agent_used").default(false),
+  agentUsedAt: timestamp("agent_used_at"),
+  agentModified: boolean("agent_modified").default(false),
+  agentVersion: text("agent_version"), // Agent's modified version
+  
+  // Status
+  status: varchar("status").default("active"), // active, used, expired
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ai_talking_points_client").on(table.clientId),
+  index("idx_ai_talking_points_agent").on(table.agentId),
+  index("idx_ai_talking_points_type").on(table.pointType),
+  index("idx_ai_talking_points_analysis").on(table.analysisId),
+]);
+
+// Insert schemas and types for AI Investment Advisory
+export const insertAiProfitPickSchema = createInsertSchema(aiProfitPicks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type AiProfitPick = typeof aiProfitPicks.$inferSelect;
+export type InsertAiProfitPick = z.infer<typeof insertAiProfitPickSchema>;
+
+export const insertPortfolioAlertSchema = createInsertSchema(portfolioAlerts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type PortfolioAlert = typeof portfolioAlerts.$inferSelect;
+export type InsertPortfolioAlert = z.infer<typeof insertPortfolioAlertSchema>;
+
+export const insertAiPortfolioAnalysisSchema = createInsertSchema(aiPortfolioAnalysis).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type AiPortfolioAnalysis = typeof aiPortfolioAnalysis.$inferSelect;
+export type InsertAiPortfolioAnalysis = z.infer<typeof insertAiPortfolioAnalysisSchema>;
+
+export const insertAiTalkingPointSchema = createInsertSchema(aiTalkingPoints).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type AiTalkingPoint = typeof aiTalkingPoints.$inferSelect;
+export type InsertAiTalkingPoint = z.infer<typeof insertAiTalkingPointSchema>;
+
+// Agent-Assisted ITR Filing Cases
+export const agentItrCases = pgTable("agent_itr_cases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  caId: varchar("ca_id").references(() => users.id), // Assigned Chartered Accountant
+  
+  // Assessment Year
+  assessmentYear: varchar("assessment_year").notNull(), // e.g., "2024-25"
+  financialYear: varchar("financial_year").notNull(), // e.g., "2023-24"
+  
+  // ITR Details
+  itrFormType: varchar("itr_form_type"), // ITR-1, ITR-2, ITR-3, ITR-4
+  filingType: varchar("filing_type").default("original"), // original, revised, belated
+  
+  // Status Workflow
+  status: varchar("status").default("initiated").notNull(), // initiated, documents_pending, documents_received, under_review, ca_assigned, processing, filed, acknowledged, completed
+  subStatus: varchar("sub_status"), // more granular status
+  
+  // Income Details (Pre-filled from portfolio)
+  salaryIncome: decimal("salary_income", { precision: 15, scale: 2 }).default("0"),
+  interestIncome: decimal("interest_income", { precision: 15, scale: 2 }).default("0"),
+  dividendIncome: decimal("dividend_income", { precision: 15, scale: 2 }).default("0"),
+  capitalGainsStcg: decimal("capital_gains_stcg", { precision: 15, scale: 2 }).default("0"),
+  capitalGainsLtcg: decimal("capital_gains_ltcg", { precision: 15, scale: 2 }).default("0"),
+  businessIncome: decimal("business_income", { precision: 15, scale: 2 }).default("0"),
+  otherIncome: decimal("other_income", { precision: 15, scale: 2 }).default("0"),
+  totalGrossIncome: decimal("total_gross_income", { precision: 15, scale: 2 }).default("0"),
+  
+  // Deductions
+  section80c: decimal("section_80c", { precision: 15, scale: 2 }).default("0"),
+  section80d: decimal("section_80d", { precision: 15, scale: 2 }).default("0"),
+  otherDeductions: decimal("other_deductions", { precision: 15, scale: 2 }).default("0"),
+  totalDeductions: decimal("total_deductions", { precision: 15, scale: 2 }).default("0"),
+  
+  // Tax Computation
+  taxableIncome: decimal("taxable_income", { precision: 15, scale: 2 }).default("0"),
+  taxRegime: varchar("tax_regime").default("new"), // old, new
+  taxPayable: decimal("tax_payable", { precision: 15, scale: 2 }).default("0"),
+  tdsPaid: decimal("tds_paid", { precision: 15, scale: 2 }).default("0"),
+  advanceTaxPaid: decimal("advance_tax_paid", { precision: 15, scale: 2 }).default("0"),
+  selfAssessmentTax: decimal("self_assessment_tax", { precision: 15, scale: 2 }).default("0"),
+  refundOrDue: decimal("refund_or_due", { precision: 15, scale: 2 }).default("0"),
+  
+  // Documents Tracking
+  documentsRequired: jsonb("documents_required").$type<string[]>().default([]),
+  documentsReceived: jsonb("documents_received").$type<string[]>().default([]),
+  documentsMissing: jsonb("documents_missing").$type<string[]>().default([]),
+  
+  // Filing Details
+  itrAcknowledgementNo: varchar("itr_acknowledgement_no"),
+  itrFiledDate: timestamp("itr_filed_date"),
+  itrVerificationStatus: varchar("itr_verification_status"), // pending, verified
+  itrVerificationMethod: varchar("itr_verification_method"), // aadhaar_otp, net_banking, dsc, manual
+  itrVerifiedDate: timestamp("itr_verified_date"),
+  
+  // Fee Structure
+  serviceFee: decimal("service_fee", { precision: 10, scale: 2 }).default("0"),
+  caFee: decimal("ca_fee", { precision: 10, scale: 2 }).default("0"),
+  totalFee: decimal("total_fee", { precision: 10, scale: 2 }).default("0"),
+  feeStatus: varchar("fee_status").default("pending"), // pending, paid, waived
+  
+  // Communication
+  clientQueries: jsonb("client_queries").$type<{query: string; response?: string; askedAt: string; respondedAt?: string}[]>().default([]),
+  internalNotes: jsonb("internal_notes").$type<{note: string; by: string; at: string}[]>().default([]),
+  
+  // Priority & SLA
+  priority: varchar("priority").default("normal"), // low, normal, high, urgent
+  dueDate: timestamp("due_date"),
+  slaBreached: boolean("sla_breached").default(false),
+  
+  // Source tracking
+  sourceProduct: varchar("source_product"), // stocks, mutual_funds, bonds, unlisted, etc.
+  referralCode: varchar("referral_code"),
+  
+  // Zoho Books Sync
+  zohoSyncedAt: timestamp("zoho_synced_at"),
+  zohoInvoiceId: varchar("zoho_invoice_id"),
+  zohoBillId: varchar("zoho_bill_id"), // For CA payout
+  zohoSyncStatus: varchar("zoho_sync_status"), // pending, synced, failed, pass_through
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+}, (table) => [
+  index("idx_agent_itr_cases_client").on(table.clientId),
+  index("idx_agent_itr_cases_agent").on(table.agentId),
+  index("idx_agent_itr_cases_ca").on(table.caId),
+  index("idx_agent_itr_cases_status").on(table.status),
+  index("idx_agent_itr_cases_ay").on(table.assessmentYear),
+]);
+
+
+// ITR Filing Pricing Configuration
+export const itrPricingConfig = pgTable("itr_pricing_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // ITR Form Type
+  itrFormType: varchar("itr_form_type").notNull().unique(), // ITR-1, ITR-2, ITR-3, ITR-4, ITR-5, ITR-6, ITR-7
+  displayName: varchar("display_name").notNull(),
+  description: text("description"),
+  
+  // Self-File Pricing
+  selfFileFee: decimal("self_file_fee", { precision: 10, scale: 2 }).notNull().default("0"),
+  selfFileGst: decimal("self_file_gst", { precision: 10, scale: 2 }).default("0"),
+  
+  // CA-Assisted Pricing
+  caAssistedFee: decimal("ca_assisted_fee", { precision: 10, scale: 2 }).notNull().default("0"),
+  caAssistedGst: decimal("ca_assisted_gst", { precision: 10, scale: 2 }).default("0"),
+  caRevenueSharePercent: decimal("ca_revenue_share_percent", { precision: 5, scale: 2 }).default("50"), // 50-80%
+  
+  // Expert Consultation
+  expertConsultationFee: decimal("expert_consultation_fee", { precision: 10, scale: 2 }).default("0"),
+  
+  // Rush/Priority Charges
+  rushFilingFee: decimal("rush_filing_fee", { precision: 10, scale: 2 }).default("0"),
+  lateFeeMultiplier: decimal("late_fee_multiplier", { precision: 4, scale: 2 }).default("1.0"), // Multiplier for late filing
+  
+  // Complexity Factors
+  complexityLevel: varchar("complexity_level").default("standard"), // simple, standard, complex
+  estimatedProcessingDays: integer("estimated_processing_days").default(3),
+  
+  // Eligibility
+  eligibleForSelfFile: boolean("eligible_for_self_file").default(true),
+  requiresCa: boolean("requires_ca").default(false),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  effectiveFrom: timestamp("effective_from").defaultNow(),
+  effectiveTo: timestamp("effective_to"),
+  
+  // Audit
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdBy: varchar("created_by").references(() => users.id),
+  updatedBy: varchar("updated_by").references(() => users.id),
+}, (table) => [
+  index("idx_itr_pricing_form_type").on(table.itrFormType),
+  index("idx_itr_pricing_active").on(table.isActive),
+]);
+
+export const insertItrPricingConfigSchema = createInsertSchema(itrPricingConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertItrPricingConfig = z.infer<typeof insertItrPricingConfigSchema>;
+export type ItrPricingConfig = typeof itrPricingConfig.$inferSelect;
+
+// ============================================================================
+// PLATFORM FEE CONFIGURATION
+// Centralized fee management for all platform charges
+// ============================================================================
+
+export const feeCategories = [
+  "regulatory",      // STT, Stamp Duty, SEBI fees, GST
+  "platform",        // Brokerage, platform fees, account maintenance
+  "advisory",        // Portfolio review, tax planning, consultation
+  "document",        // Physical statements, certificates, reports
+  "convenience",     // Payment gateway, rush processing, after-hours
+  "value_added",     // AI recommendations, API access, premium features
+] as const;
+
+export const feeApplicability = [
+  "all",             // Applies to all transactions
+  "equity",          // Equity trades only
+  "mutual_fund",     // MF transactions
+  "bond",            // Bond purchases
+  "unlisted",        // Unlisted share deals
+  "ipo",             // IPO applications
+  "derivatives",     // F\&O trades
+  "loan",            // Loan processing
+  "tax_services",    // ITR, tax planning
+  "advisory",        // Advisory services
+] as const;
+
+export const feeChargeType = [
+  "percentage",      // % of transaction value
+  "flat",            // Fixed amount
+  "tiered",          // Based on slab
+  "per_unit",        // Per share/unit
+  "hybrid",          // Base + percentage
+] as const;
+
+export const platformFeeConfig = pgTable("platform_fee_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Fee Identification
+  feeCode: varchar("fee_code", { length: 50 }).notNull().unique(),
+  feeName: varchar("fee_name", { length: 100 }).notNull(),
+  feeDescription: text("fee_description"),
+  category: varchar("category", { length: 50 }).notNull(), // regulatory, platform, advisory, etc.
+  
+  // Charge Structure
+  chargeType: varchar("charge_type", { length: 20 }).notNull().default("percentage"),
+  rateValue: decimal("rate_value", { precision: 12, scale: 6 }).notNull(), // Rate or flat amount
+  rateUnit: varchar("rate_unit", { length: 20 }).default("percent"), // percent, bps, inr
+  minAmount: decimal("min_amount", { precision: 10, scale: 2 }).default("0"),
+  maxAmount: decimal("max_amount", { precision: 10, scale: 2 }), // Cap if applicable
+  
+  // Tiered Pricing (for tiered charge type)
+  tierSlabs: jsonb("tier_slabs"), // [{from: 0, to: 100000, rate: 0.5}, {from: 100001, to: 500000, rate: 0.3}]
+  
+  // Applicability
+  applicableTo: varchar("applicable_to", { length: 50 }).notNull().default("all"),
+  applicableProducts: text("applicable_products").array(), // Specific product codes
+  excludedProducts: text("excluded_products").array(),
+  
+  // Investor Tier Pricing
+  investorTierRates: jsonb("investor_tier_rates"), // {retail: 0.5, sHNI: 0.35, bHNI: 0.25, qib: 0.1}
+  
+  // GST Applicability
+  isGstApplicable: boolean("is_gst_applicable").default(true),
+  gstRate: decimal("gst_rate", { precision: 5, scale: 2 }).default("18"),
+  gstIncluded: boolean("gst_included").default(false), // Is GST already included in rate?
+  
+  // Payer and Collection
+  payer: varchar("payer", { length: 20 }).default("client"), // client, platform, seller, both
+  collectionPoint: varchar("collection_point", { length: 50 }).default("transaction"), // transaction, monthly, annual
+  
+  // Regulatory Reference
+  isRegulatory: boolean("is_regulatory").default(false),
+  regulatoryReference: varchar("regulatory_reference", { length: 200 }),
+  statuteSection: varchar("statute_section", { length: 200 }),
+  
+  // Waivers and Discounts
+  isWaivable: boolean("is_waivable").default(false),
+  maxWaiverPercent: decimal("max_waiver_percent", { precision: 5, scale: 2 }).default("0"),
+  
+  // Display
+  displayOrder: integer("display_order").default(100),
+  showInBreakdown: boolean("show_in_breakdown").default(true),
+  displayLabel: varchar("display_label", { length: 100 }), // User-friendly label
+  
+  // Status and Validity
+  isActive: boolean("is_active").default(true),
+  effectiveFrom: timestamp("effective_from").defaultNow(),
+  effectiveTo: timestamp("effective_to"),
+  
+  // Audit Trail
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdBy: varchar("created_by").references(() => users.id),
+  updatedBy: varchar("updated_by").references(() => users.id),
+}, (table) => [
+  index("idx_fee_config_code").on(table.feeCode),
+  index("idx_fee_config_category").on(table.category),
+  index("idx_fee_config_applicable").on(table.applicableTo),
+  index("idx_fee_config_active").on(table.isActive),
+]);
+
+export const insertPlatformFeeConfigSchema = createInsertSchema(platformFeeConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertPlatformFeeConfig = z.infer<typeof insertPlatformFeeConfigSchema>;
+export type PlatformFeeConfig = typeof platformFeeConfig.$inferSelect;
+
+// ITR Case Documents
+export const agentItrDocuments = pgTable("agent_itr_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  caseId: varchar("case_id").references(() => agentItrCases.id).notNull(),
+  
+  // Document Details
+  documentType: varchar("document_type").notNull(), // form_16, form_16a, form_26as, ais, capital_gains_statement, bank_statement, rent_receipt, investment_proof, other
+  documentName: varchar("document_name").notNull(),
+  documentUrl: text("document_url"),
+  fileSize: integer("file_size"),
+  mimeType: varchar("mime_type"),
+  
+  // Status
+  status: varchar("status").default("uploaded"), // uploaded, under_review, accepted, rejected
+  reviewNotes: text("review_notes"),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  
+  // Auto-parsed data (if applicable)
+  parsedData: jsonb("parsed_data"),
+  parsingStatus: varchar("parsing_status"), // pending, completed, failed
+  
+  // Timestamps
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_agent_itr_docs_case").on(table.caseId),
+  index("idx_agent_itr_docs_type").on(table.documentType),
+]);
+
+// ITR Case Activity Log
+export const agentItrActivityLog = pgTable("agent_itr_activity_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  caseId: varchar("case_id").references(() => agentItrCases.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Activity Details
+  activityType: varchar("activity_type").notNull(), // status_change, document_upload, ca_assigned, query_added, note_added, fee_updated, filed, verified
+  previousValue: text("previous_value"),
+  newValue: text("new_value"),
+  description: text("description"),
+  
+  // Metadata
+  metadata: jsonb("metadata"),
+  
+  // Timestamp
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_agent_itr_activity_case").on(table.caseId),
+  index("idx_agent_itr_activity_type").on(table.activityType),
+]);
+
+// CA (Chartered Accountant) Profiles for ITR Services
+export const caProfiles = pgTable("ca_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  
+  // Professional Details
+  membershipNumber: varchar("membership_number").notNull(), // ICAI membership number
+  membershipType: varchar("membership_type").notNull(), // ACA (Associate) or FCA (Fellow)
+  certificateOfPracticeNumber: varchar("cop_number"),
+  
+  // Personal Details
+  fullName: varchar("full_name").notNull(),
+  email: varchar("email").notNull(),
+  mobile: varchar("mobile"),
+  
+  // Specializations
+  specializations: jsonb("specializations").$type<string[]>().default([]), // income_tax, gst, audit, company_law
+  
+  // Capacity & Workload
+  maxCasesPerMonth: integer("max_cases_per_month").default(50),
+  currentCaseCount: integer("current_case_count").default(0),
+  isAvailable: boolean("is_available").default(true),
+  
+  // Rating
+  averageRating: decimal("average_rating", { precision: 3, scale: 2 }).default("5.00"),
+  totalReviews: integer("total_reviews").default(0),
+  
+  // Fee Structure
+  baseFeeItr1: decimal("base_fee_itr1", { precision: 10, scale: 2 }).default("500"),
+  baseFeeItr2: decimal("base_fee_itr2", { precision: 10, scale: 2 }).default("1500"),
+  baseFeeItr3: decimal("base_fee_itr3", { precision: 10, scale: 2 }).default("3000"),
+  baseFeeItr4: decimal("base_fee_itr4", { precision: 10, scale: 2 }).default("2000"),
+  
+  // Status
+  status: varchar("status").default("active"), // active, inactive, suspended
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ca_profiles_user").on(table.userId),
+  index("idx_ca_profiles_membership").on(table.membershipNumber),
+  index("idx_ca_profiles_available").on(table.isAvailable),
+]);
+
+// Insert schemas and types for Agent ITR Filing
+export const insertAgentItrCaseSchema = createInsertSchema(agentItrCases).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type AgentItrCase = typeof agentItrCases.$inferSelect;
+export type InsertAgentItrCase = z.infer<typeof insertAgentItrCaseSchema>;
+
+export const insertAgentItrDocumentSchema = createInsertSchema(agentItrDocuments).omit({
+  id: true,
+  uploadedAt: true,
+  updatedAt: true,
+});
+export type AgentItrDocument = typeof agentItrDocuments.$inferSelect;
+export type InsertAgentItrDocument = z.infer<typeof insertAgentItrDocumentSchema>;
+
+export const insertCaProfileSchema = createInsertSchema(caProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CaProfile = typeof caProfiles.$inferSelect;
+export type InsertCaProfile = z.infer<typeof insertCaProfileSchema>;
+
+// ITR Status Enum
+export const ItrStatusEnum = z.enum([
+  'initiated',
+  'documents_pending',
+  'documents_received',
+  'under_review',
+  'ca_assigned',
+  'processing',
+  'filed',
+  'acknowledged',
+  'completed'
+]);
+
+// ITR Document Type Enum
+export const ItrDocumentTypeEnum = z.enum([
+  'form_16',
+  'form_16a',
+  'form_26as',
+  'ais',
+  'capital_gains_statement',
+  'bank_statement',
+  'rent_receipt',
+  'investment_proof',
+  'other'
+]);
+
+// Enums for AI Investment Advisory
+export const TimeHorizonEnum = z.enum(['ultra_short', 'short', 'medium', 'long']);
+export const SignalTypeEnum = z.enum(['buy', 'sell', 'hold']);
+export const RiskLevelEnum = z.enum(['low', 'moderate', 'high', 'very_high']);
+export const AlertTypeEnum = z.enum([
+  'concentration',
+  'loss_trigger',
+  'profit_trigger',
+  'sector_overweight',
+  'risk_mismatch',
+  'horizon_mismatch',
+  'benchmark_breach',
+  'valuation_warning',
+  'rebalancing_needed'
+]);
+export const AlertSeverityEnum = z.enum(['low', 'medium', 'high', 'critical']);
+
+// ============================================
+// FORM 15CA / 15CB (INTERNATIONAL REMITTANCE)
+// Tax & Compliance Module
+// ============================================
+
+// Form 15CA/15CB Cases - Main case table
+export const form15Cases = pgTable("form_15_cases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  caseNumber: varchar("case_number").notNull().unique(),
+  
+  // Parties involved
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  caId: varchar("ca_id").references(() => users.id), // Assigned CA
+  agentId: varchar("agent_id").references(() => users.id), // Subordinate agent who prepared
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdByRole: varchar("created_by_role").notNull(), // client, ca_subordinate_agent, ca
+  
+  // Case status
+  status: varchar("status").default("draft").notNull(), // draft, pending_documents, pending_ca_review, ca_reviewing, approved, 15cb_signed, 15ca_filed, completed
+  subStatus: varchar("sub_status"), // detailed sub-status
+  
+  // Client Information
+  clientPan: varchar("client_pan").notNull(),
+  clientName: varchar("client_name").notNull(),
+  clientResidentialStatus: varchar("client_residential_status").notNull(), // resident, non_resident, not_ordinarily_resident
+  clientAddress: text("client_address"),
+  clientEmail: varchar("client_email"),
+  clientPhone: varchar("client_phone"),
+  
+  // Remittance Details
+  remittanceAmount: decimal("remittance_amount", { precision: 18, scale: 2 }).notNull(),
+  remittanceCurrency: varchar("remittance_currency").default("USD").notNull(),
+  remittanceAmountInr: decimal("remittance_amount_inr", { precision: 18, scale: 2 }),
+  exchangeRate: decimal("exchange_rate", { precision: 12, scale: 6 }),
+  
+  // Beneficiary Details
+  beneficiaryName: varchar("beneficiary_name").notNull(),
+  beneficiaryCountry: varchar("beneficiary_country").notNull(),
+  beneficiaryAddress: text("beneficiary_address"),
+  beneficiaryBankName: varchar("beneficiary_bank_name"),
+  beneficiaryAccountNumber: varchar("beneficiary_account_number"),
+  beneficiarySwiftCode: varchar("beneficiary_swift_code"),
+  
+  // RBI Purpose & Nature
+  rbiPurposeCode: varchar("rbi_purpose_code").notNull(),
+  rbiPurposeDescription: text("rbi_purpose_description"),
+  natureOfPayment: varchar("nature_of_payment").notNull(),
+  sectionUnderWhichTaxDeducted: varchar("section_under_which_tax_deducted"),
+  
+  // DTAA Details
+  dtaaApplicable: boolean("dtaa_applicable").default(false),
+  dtaaCountry: varchar("dtaa_country"),
+  dtaaArticle: varchar("dtaa_article"),
+  dtaaRate: decimal("dtaa_rate", { precision: 5, scale: 2 }),
+  dtaaAnalysis: text("dtaa_analysis"),
+  trcAvailable: boolean("trc_available").default(false),
+  form10fAvailable: boolean("form_10f_available").default(false),
+  noPeDeclaration: boolean("no_pe_declaration").default(false),
+  
+  // Rule 37BB Determination
+  form15caRequired: boolean("form_15ca_required").default(true),
+  form15caPart: varchar("form_15ca_part"), // A, B, C, D
+  form15cbRequired: boolean("form_15cb_required").default(false),
+  rule37bbJustification: text("rule_37bb_justification"),
+  caOverrideReason: text("ca_override_reason"), // If CA overrides auto-determination
+  
+  // Tax Computation
+  grossAmount: decimal("gross_amount", { precision: 18, scale: 2 }),
+  taxableAmount: decimal("taxable_amount", { precision: 18, scale: 2 }),
+  tdsRate: decimal("tds_rate", { precision: 5, scale: 2 }),
+  tdsAmount: decimal("tds_amount", { precision: 18, scale: 2 }),
+  surcharge: decimal("surcharge", { precision: 18, scale: 2 }),
+  cesss: decimal("cess", { precision: 18, scale: 2 }),
+  totalTaxDeducted: decimal("total_tax_deducted", { precision: 18, scale: 2 }),
+  netRemittance: decimal("net_remittance", { precision: 18, scale: 2 }),
+  
+  // Agent Preparation
+  agentRemarks: text("agent_remarks"),
+  agentPreparedAt: timestamp("agent_prepared_at"),
+  agentSubmittedForReview: boolean("agent_submitted_for_review").default(false),
+  agentSubmittedAt: timestamp("agent_submitted_at"),
+  
+  // CA Review & Approval
+  caReviewStartedAt: timestamp("ca_review_started_at"),
+  caReviewCompletedAt: timestamp("ca_review_completed_at"),
+  caRemarks: text("ca_remarks"),
+  caSentBackToAgent: boolean("ca_sent_back_to_agent").default(false),
+  caSentBackReason: text("ca_sent_back_reason"),
+  
+  // CA Approval Checklist (all must be true for approval)
+  caDocumentsReviewed: boolean("ca_documents_reviewed").default(false),
+  caDtaaVerified: boolean("ca_dtaa_verified").default(false),
+  caTaxComputationConfirmed: boolean("ca_tax_computation_confirmed").default(false),
+  caLegalResponsibilityAccepted: boolean("ca_legal_responsibility_accepted").default(false),
+  caApprovalTimestamp: timestamp("ca_approval_timestamp"),
+  
+  // Form 15CB Details (CA Only)
+  form15cbNumber: varchar("form_15cb_number"),
+  form15cbDate: timestamp("form_15cb_date"),
+  form15cbDscSerialNumber: varchar("form_15cb_dsc_serial_number"),
+  form15cbSignedAt: timestamp("form_15cb_signed_at"),
+  form15cbSignedByIcai: varchar("form_15cb_signed_by_icai"), // ICAI membership number
+  form15cbPdfUrl: text("form_15cb_pdf_url"),
+  form15cbLocked: boolean("form_15cb_locked").default(false),
+  
+  // Form 15CA Details
+  form15caPartA: jsonb("form_15ca_part_a"),
+  form15caPartB: jsonb("form_15ca_part_b"),
+  form15caPartC: jsonb("form_15ca_part_c"),
+  form15caPartD: jsonb("form_15ca_part_d"),
+  form15caAcknowledgementNumber: varchar("form_15ca_acknowledgement_number"),
+  form15caFiledAt: timestamp("form_15ca_filed_at"),
+  form15caPdfUrl: text("form_15ca_pdf_url"),
+  form15caEverified: boolean("form_15ca_everified").default(false),
+  form15caEverifiedAt: timestamp("form_15ca_everified_at"),
+  form15caEverifiedBy: varchar("form_15ca_everified_by").references(() => users.id),
+  
+  // Bank Compliance Pack
+  compliancePackGenerated: boolean("compliance_pack_generated").default(false),
+  compliancePackUrl: text("compliance_pack_url"),
+  compliancePackGeneratedAt: timestamp("compliance_pack_generated_at"),
+  compliancePackSharedLink: varchar("compliance_pack_shared_link"),
+  compliancePackSharedLinkExpiry: timestamp("compliance_pack_shared_link_expiry"),
+  
+  // Internal Notes
+  internalNotes: jsonb("internal_notes").default([]),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+}, (table) => [
+  index("idx_form15_cases_client").on(table.clientId),
+  index("idx_form15_cases_ca").on(table.caId),
+  index("idx_form15_cases_agent").on(table.agentId),
+  index("idx_form15_cases_status").on(table.status),
+  index("idx_form15_cases_case_number").on(table.caseNumber),
+]);
+
+// Form 15CA/15CB Documents
+export const form15Documents = pgTable("form_15_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  caseId: varchar("case_id").references(() => form15Cases.id).notNull(),
+  
+  documentType: varchar("document_type").notNull(), // invoice, agreement, trc, form_10f, no_pe_declaration, bank_advice, other
+  documentName: varchar("document_name").notNull(),
+  documentUrl: text("document_url"),
+  fileSize: integer("file_size"),
+  mimeType: varchar("mime_type"),
+  version: integer("version").default(1),
+  
+  isMandatory: boolean("is_mandatory").default(false),
+  status: varchar("status").default("uploaded"), // uploaded, verified, rejected
+  verifiedBy: varchar("verified_by").references(() => users.id),
+  verifiedAt: timestamp("verified_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  isLockedAfterSigning: boolean("is_locked_after_signing").default(false),
+  lockedAt: timestamp("locked_at"),
+  
+  uploadedBy: varchar("uploaded_by").references(() => users.id).notNull(),
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_form15_docs_case").on(table.caseId),
+  index("idx_form15_docs_type").on(table.documentType),
+]);
+
+// Form 15CA/15CB Audit Log (Immutable)
+export const form15AuditLog = pgTable("form_15_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  caseId: varchar("case_id").references(() => form15Cases.id).notNull(),
+  
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  userRole: varchar("user_role").notNull(), // client, ca_subordinate_agent, ca, admin
+  userEmail: varchar("user_email"),
+  
+  actionType: varchar("action_type").notNull(), // created, updated, status_change, document_upload, document_delete, ca_review_started, ca_approved, ca_sent_back, 15cb_signed, 15ca_filed, everified
+  actionDescription: text("action_description").notNull(),
+  
+  fieldChanged: varchar("field_changed"),
+  previousValue: text("previous_value"),
+  newValue: text("new_value"),
+  
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  
+  dscSerialNumber: varchar("dsc_serial_number"), // For signing actions
+  icaiMembershipNumber: varchar("icai_membership_number"), // For CA actions
+  
+  metadata: jsonb("metadata"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_form15_audit_case").on(table.caseId),
+  index("idx_form15_audit_user").on(table.userId),
+  index("idx_form15_audit_action").on(table.actionType),
+  index("idx_form15_audit_created").on(table.createdAt),
+]);
+
+// CA Verification Status for Form 15CB Signing Authority
+export const caVerificationStatus = pgTable("ca_verification_status", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  
+  // ICAI Verification
+  icaiMembershipNumber: varchar("icai_membership_number").notNull(),
+  icaiVerified: boolean("icai_verified").default(false),
+  icaiVerifiedAt: timestamp("icai_verified_at"),
+  icaiVerifiedBy: varchar("icai_verified_by").references(() => users.id),
+  
+  // COP (Certificate of Practice) Validity
+  copNumber: varchar("cop_number"),
+  copValidFrom: date("cop_valid_from"),
+  copValidTo: date("cop_valid_to"),
+  copVerified: boolean("cop_verified").default(false),
+  copVerifiedAt: timestamp("cop_verified_at"),
+  
+  // PAN Verification
+  panNumber: varchar("pan_number").notNull(),
+  panVerified: boolean("pan_verified").default(false),
+  panVerifiedAt: timestamp("pan_verified_at"),
+  
+  // DSC (Digital Signature Certificate) Availability
+  dscAvailable: boolean("dsc_available").default(false),
+  dscSerialNumber: varchar("dsc_serial_number"),
+  dscValidFrom: date("dsc_valid_from"),
+  dscValidTo: date("dsc_valid_to"),
+  dscVerifiedAt: timestamp("dsc_verified_at"),
+  
+  // Overall Status
+  overallStatus: varchar("overall_status").default("pending"), // pending, approved, rejected, suspended
+  canSignForm15cb: boolean("can_sign_form_15cb").default(false),
+  approvedAt: timestamp("approved_at"),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  rejectionReason: text("rejection_reason"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ca_verification_user").on(table.userId),
+  index("idx_ca_verification_icai").on(table.icaiMembershipNumber),
+  index("idx_ca_verification_status").on(table.overallStatus),
+]);
+
+// Insert schemas and types for Form 15CA/15CB
+export const insertForm15CaseSchema = createInsertSchema(form15Cases).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type Form15Case = typeof form15Cases.$inferSelect;
+export type InsertForm15Case = z.infer<typeof insertForm15CaseSchema>;
+
+export const insertForm15DocumentSchema = createInsertSchema(form15Documents).omit({
+  id: true,
+  uploadedAt: true,
+  updatedAt: true,
+});
+export type Form15Document = typeof form15Documents.$inferSelect;
+export type InsertForm15Document = z.infer<typeof insertForm15DocumentSchema>;
+
+export const insertForm15AuditLogSchema = createInsertSchema(form15AuditLog).omit({
+  id: true,
+  createdAt: true,
+});
+export type Form15AuditLog = typeof form15AuditLog.$inferSelect;
+export type InsertForm15AuditLog = z.infer<typeof insertForm15AuditLogSchema>;
+
+export const insertCaVerificationStatusSchema = createInsertSchema(caVerificationStatus).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CaVerificationStatus = typeof caVerificationStatus.$inferSelect;
+export type InsertCaVerificationStatus = z.infer<typeof insertCaVerificationStatusSchema>;
+
+// Form 15CA/15CB Status Enum
+export const Form15StatusEnum = z.enum([
+  'draft',
+  'pending_documents',
+  'pending_ca_review',
+  'ca_reviewing',
+  'sent_back_to_agent',
+  'approved',
+  '15cb_signed',
+  '15ca_filed',
+  'everified',
+  'completed'
+]);
+
+// Form 15CA Part Enum
+export const Form15CaPartEnum = z.enum(['A', 'B', 'C', 'D']);
+
+// Form 15 Document Type Enum
+export const Form15DocumentTypeEnum = z.enum([
+  'invoice',
+  'agreement',
+  'trc',
+  'form_10f',
+  'no_pe_declaration',
+  'bank_advice',
+  'pan_card',
+  'passport',
+  'other'
+]);
+
+// RBI Purpose Code Categories for Form 15CA
+export const RbiPurposeCodeCategories = {
+  capital_account: [
+    { code: 'S0001', description: 'Inward remittance from overseas offices of authorized dealers' },
+    { code: 'S0002', description: 'Loans extended to Non-Residents' },
+    { code: 'S0003', description: 'Investment in JV/WOS abroad' },
+  ],
+  current_account: [
+    { code: 'S0101', description: 'Trade credits for goods (suppliers credit)' },
+    { code: 'S0102', description: 'Advance payment for import of goods' },
+    { code: 'S0103', description: 'Import payments' },
+    { code: 'S0201', description: 'Export proceeds' },
+    { code: 'S0301', description: 'Royalty and technical fees' },
+    { code: 'S0302', description: 'Dividend income' },
+    { code: 'S0303', description: 'Interest income' },
+    { code: 'S0304', description: 'Commission and brokerage' },
+    { code: 'S0305', description: 'Legal services' },
+    { code: 'S0306', description: 'Accounting, auditing, bookkeeping' },
+    { code: 'S0307', description: 'Business and management consultancy' },
+  ],
+  personal_remittances: [
+    { code: 'S1301', description: 'Maintenance of close relatives abroad' },
+    { code: 'S1302', description: 'Education expenses' },
+    { code: 'S1303', description: 'Medical treatment abroad' },
+    { code: 'S1304', description: 'Gift remittances' },
+    { code: 'S1305', description: 'Donations' },
+  ],
+};
+
+// ============================================================================
+// Commission Plan Configuration Tables (Admin-Driven Role-Based Commission)
+// ============================================================================
+
+// Payout mode enum for commission role maps
+export const payoutModeEnum = pgEnum("payout_mode", [
+  "upfront",
+  "trail",
+  "revenue_share",
+  "performance"
+]);
+
+// Passthrough rule enum for hierarchy splits
+export const passthroughRuleEnum = pgEnum("passthrough_rule", [
+  "stop",
+  "roll_up"
+]);
+
+// Commission plan status enum
+export const commissionPlanStatusEnum = pgEnum("commission_plan_status", [
+  "draft",
+  "active",
+  "frozen",
+  "archived"
+]);
+
+// Commission Plans - Version-controlled commission configurations by product type
+export const commissionPlans = pgTable("commission_plans", {
+  id: serial("id").primaryKey(),
+  productType: varchar("product_type", { length: 100 }).notNull(), // mutual_fund, stocks, bonds, ipos, loans, insurance, unlisted, tax_services
+  version: integer("version").notNull().default(1),
+  status: commissionPlanStatusEnum("status").notNull().default("draft"),
+  isActive: boolean("is_active").notNull().default(false),
+  effectiveFrom: date("effective_from").notNull(),
+  effectiveTo: date("effective_to"),
+  regulatoryCap: decimal("regulatory_cap", { precision: 5, scale: 2 }), // Maximum allowed commission %
+  changeReason: text("change_reason"),
+  createdBy: integer("created_by").notNull(),
+  updatedBy: integer("updated_by"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  productTypeIdx: index("commission_plans_product_type_idx").on(table.productType),
+  isActiveIdx: index("commission_plans_is_active_idx").on(table.isActive),
+  statusIdx: index("commission_plans_status_idx").on(table.status),
+}));
+
+// Commission Role Maps - Payout percentages by role for each plan
+export const commissionRoleMaps = pgTable("commission_role_maps", {
+  id: serial("id").primaryKey(),
+  commissionPlanId: integer("commission_plan_id").notNull().references(() => commissionPlans.id, { onDelete: "cascade" }),
+  roleId: varchar("role_id", { length: 50 }).notNull(), // References role from roles.ts
+  payoutPercentage: decimal("payout_percentage", { precision: 5, scale: 2 }).notNull(),
+  payoutMode: payoutModeEnum("payout_mode").notNull().default("upfront"),
+  minCap: decimal("min_cap", { precision: 15, scale: 2 }), // Minimum commission amount
+  maxCap: decimal("max_cap", { precision: 15, scale: 2 }), // Maximum commission amount
+  validationStatus: boolean("validation_status").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  planIdIdx: index("commission_role_maps_plan_id_idx").on(table.commissionPlanId),
+  roleIdIdx: index("commission_role_maps_role_id_idx").on(table.roleId),
+}));
+
+// Commission Hierarchy Splits - Share percentages by hierarchy level
+export const commissionHierarchySplits = pgTable("commission_hierarchy_splits", {
+  id: serial("id").primaryKey(),
+  commissionPlanId: integer("commission_plan_id").notNull().references(() => commissionPlans.id, { onDelete: "cascade" }),
+  roleId: varchar("role_id", { length: 50 }).notNull(),
+  hierarchyLevel: integer("hierarchy_level").notNull(), // 1 = top, higher = lower in hierarchy
+  sharePercentage: decimal("share_percentage", { precision: 5, scale: 2 }).notNull(),
+  passthroughRule: passthroughRuleEnum("passthrough_rule").notNull().default("stop"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  planIdIdx: index("commission_hierarchy_splits_plan_id_idx").on(table.commissionPlanId),
+}));
+
+// Commission Audit Logs - Complete modification history
+export const commissionAuditLogs = pgTable("commission_audit_logs", {
+  id: serial("id").primaryKey(),
+  commissionPlanId: integer("commission_plan_id").notNull().references(() => commissionPlans.id, { onDelete: "cascade" }),
+  fieldChanged: varchar("field_changed", { length: 100 }).notNull(),
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+  changedBy: integer("changed_by").notNull(),
+  changedAt: timestamp("changed_at").defaultNow().notNull(),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  remarks: text("remarks"),
+}, (table) => ({
+  planIdIdx: index("commission_audit_logs_plan_id_idx").on(table.commissionPlanId),
+  changedAtIdx: index("commission_audit_logs_changed_at_idx").on(table.changedAt),
+}));
+
+// Commission Plan Schemas
+export const insertCommissionPlanSchema = createInsertSchema(commissionPlans).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CommissionPlan = typeof commissionPlans.$inferSelect;
+export type InsertCommissionPlan = z.infer<typeof insertCommissionPlanSchema>;
+
+export const insertCommissionRoleMapSchema = createInsertSchema(commissionRoleMaps).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CommissionRoleMap = typeof commissionRoleMaps.$inferSelect;
+export type InsertCommissionRoleMap = z.infer<typeof insertCommissionRoleMapSchema>;
+
+export const insertCommissionHierarchySplitSchema = createInsertSchema(commissionHierarchySplits).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CommissionHierarchySplit = typeof commissionHierarchySplits.$inferSelect;
+export type InsertCommissionHierarchySplit = z.infer<typeof insertCommissionHierarchySplitSchema>;
+
+export const insertCommissionAuditLogSchema = createInsertSchema(commissionAuditLogs).omit({
+  id: true,
+  changedAt: true,
+});
+export type CommissionAuditLog = typeof commissionAuditLogs.$inferSelect;
+export type InsertCommissionAuditLog = z.infer<typeof insertCommissionAuditLogSchema>;
+
+// Product types for commission configuration
+export const CommissionProductTypes = [
+  'mutual_fund',
+  'mutual_fund_direct', // Always 0% commission
+  'stocks',
+  'ipos',
+  'bonds',
+  'loans',
+  'insurance',
+  'unlisted',
+  'tax_services',
+  'pms_aif'
+] as const;
+
+export type CommissionProductType = typeof CommissionProductTypes[number];
+
+// Regulatory caps by product type (SEBI/AMFI mandated)
+export const RegulatoryCommissionCaps: Record<CommissionProductType, number> = {
+  mutual_fund: 2.25, // AMFI mandated trail cap
+  mutual_fund_direct: 0, // Direct plans have 0 commission
+  stocks: 0.5, // Brokerage cap
+  ipos: 0.5,
+  bonds: 1.0,
+  loans: 4.0, // Varies by loan type
+  insurance: 15.0, // First year commission cap
+  unlisted: 2.0,
+  tax_services: 40.0, // CA fee share
+  pms_aif: 2.5 // Performance fee structures
+};
+
+// ========================================
+// PROSPECT PORTFOLIO DEMO PROPOSALS
+// ========================================
+
+export const prospectProposals = pgTable("prospect_proposals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Unique shareable token for public access
+  shareToken: varchar("share_token").notNull().unique(),
+  
+  // Agent who created the proposal
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  agentName: varchar("agent_name"),
+  agentArnCode: varchar("agent_arn_code"),
+  agentMobile: varchar("agent_mobile"),
+  agentEmail: varchar("agent_email"),
+  
+  // Prospect details (non-registered user)
+  prospectName: varchar("prospect_name").notNull(),
+  prospectEmail: varchar("prospect_email"),
+  prospectMobile: varchar("prospect_mobile"),
+  prospectPan: varchar("prospect_pan"), // PAN for auto-detecting client type
+  
+  // Proposal type
+  proposalType: varchar("proposal_type").notNull(), // 'sample_portfolio' | 'fresh_investment'
+  
+  // Client type for AI-tailored recommendations
+  clientType: varchar("client_type").default("individual"), // individual, hni, ultra_hni, corporate, nri, trust, institutional
+  
+  // For sample portfolio type - input portfolio data
+  samplePortfolio: jsonb("sample_portfolio").$type<{
+    totalValue: number;
+    holdings: Array<{
+      name: string;
+      type: string; // mutual_fund, stock, bond, etc.
+      currentValue: number;
+      allocation: number;
+      returns1Y?: number;
+    }>;
+    assetAllocation: Record<string, number>;
+  }>(),
+  
+  // For fresh investment type - investment goals
+  investmentGoals: jsonb("investment_goals").$type<{
+    goalType: string; // retirement, child_education, wealth_creation, etc.
+    targetAmount?: number;
+    timeHorizon: string; // short_term, medium_term, long_term
+    monthlyInvestment?: number;
+    lumpsum?: number;
+    riskTolerance: string; // conservative, moderate, aggressive
+  }>(),
+  
+  // AI-generated proposal content
+  proposalTitle: varchar("proposal_title").notNull(),
+  executiveSummary: text("executive_summary"),
+  currentAnalysis: text("current_analysis"),
+  
+  // Recommendations
+  recommendations: jsonb("recommendations").$type<Array<{
+    productType: string;
+    productName: string;
+    productCode?: string;
+    amc?: string;
+    category?: string;
+    recommendedAmount: number;
+    allocationPercentage: number;
+    investmentType: string; // lumpsum, sip
+    sipAmount?: number;
+    returns1Y?: number;
+    returns3Y?: number;
+    returns5Y?: number;
+    riskRating?: string;
+    selectionReason: string;
+  }>>(),
+  
+  // Projected outcomes
+  totalInvestmentAmount: decimal("total_investment_amount", { precision: 15, scale: 2 }),
+  projectedReturns: decimal("projected_returns", { precision: 5, scale: 2 }),
+  projectedValue: decimal("projected_value", { precision: 15, scale: 2 }),
+  targetAllocation: jsonb("target_allocation").$type<Record<string, number>>(),
+  
+  // Global Advisory selections (market -> instruments mapping for LRS investments)
+  globalAdvisorySelections: jsonb("global_advisory_selections").$type<Record<string, string[]>>(),
+  
+  // Linked onboarding invitation
+  invitationId: varchar("invitation_id").references(() => onboardingInvitations.id),
+  referralCode: varchar("referral_code"),
+  
+  // Engagement tracking
+  viewCount: integer("view_count").default(0),
+  lastViewedAt: timestamp("last_viewed_at"),
+  firstViewedAt: timestamp("first_viewed_at"),
+  
+  // Sharing details
+  sharedViaEmail: boolean("shared_via_email").default(false),
+  sharedViaWhatsApp: boolean("shared_via_whatsapp").default(false),
+  emailSentAt: timestamp("email_sent_at"),
+  whatsappSentAt: timestamp("whatsapp_sent_at"),
+  
+  // Conversion tracking
+  status: varchar("status").notNull().default("draft"), // draft, shared, viewed, converted, expired
+  convertedUserId: varchar("converted_user_id").references(() => users.id),
+  convertedAt: timestamp("converted_at"),
+  
+  // Expiry
   validUntil: timestamp("valid_until"),
   
   // Agent-controlled proposal sections (which analytics to show)
@@ -17831,8 +19261,6 @@ export const onboardingInvitations = pgTable("onboarding_invitations", {
   index("idx_prospect_proposals_status").on(table.status),
   index("idx_prospect_proposals_prospect_email").on(table.prospectEmail),
 ]);
-
-// Prospect proposal view events for tracking engagement
 export const prospectProposalEvents = pgTable("prospect_proposal_events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   proposalId: varchar("proposal_id").references(() => prospectProposals.id).notNull(),
