@@ -344,6 +344,107 @@ class UnifiedOrderNotificationService {
   async notifyUsStockOrder(data: Omit<UsStockOrderNotification, 'assetType'>): Promise<NotificationResult> {
     return this.sendNotification({ ...data, assetType: 'us_stock' });
   }
+
+  // ============ BACKWARD COMPATIBILITY LAYER ============
+  // These methods match the exact signatures of existing services for drop-in replacement
+
+  /**
+   * Backward-compatible with BondOrderNotificationService.sendOrderStatusNotification
+   */
+  async sendOrderStatusNotification(data: {
+    orderId: string;
+    orderNumber: string;
+    userId: string;
+    bondName: string;
+    bondType: string;
+    quantity: number;
+    amount: string;
+    status: string;
+    previousStatus?: string;
+    settlementDate?: string;
+  }): Promise<{ email: boolean; sms: boolean }> {
+    const result = await this.notifyBondOrder(data);
+    return { email: result.emailSent, sms: result.smsSent };
+  }
+
+  /**
+   * Backward-compatible with MfOrderNotificationService.sendOrderNotification
+   */
+  async sendOrderNotification(data: {
+    orderId: string;
+    orderReference: string;
+    userId: string;
+    schemeName: string;
+    orderType: string;
+    amount: string;
+    status: string;
+    previousStatus?: string;
+    navApplied?: string;
+    unitsAllotted?: string;
+    settlementDate?: string;
+  }): Promise<{ email: boolean; sms: boolean }> {
+    const result = await this.notifyMutualFundOrder(data);
+    return { email: result.emailSent, sms: result.smsSent };
+  }
+
+  /**
+   * Backward-compatible with UnlistedOrderNotificationService
+   */
+  async sendUnlistedNotification(data: {
+    userId: string;
+    companyName: string;
+    quantity: number;
+    price: string;
+    orderId?: string;
+    dealId?: string;
+    expectedSettlement?: string;
+    counterpartyName?: string;
+    status: string;
+  }): Promise<{ email: boolean; sms: boolean }> {
+    const result = await this.notifyUnlistedOrder({
+      ...data,
+      orderId: data.orderId || data.dealId || crypto.randomUUID(),
+    });
+    return { email: result.emailSent, sms: result.smsSent };
+  }
+
+  /**
+   * Backward-compatible with UsOrderNotificationService
+   */
+  async sendUsOrderNotification(data: {
+    userId: string;
+    orderId: string;
+    symbol: string;
+    side: 'buy' | 'sell';
+    quantity: number;
+    priceUsd: number;
+    status: string;
+    filledAt?: Date;
+  }): Promise<{ email: boolean; sms: boolean }> {
+    const result = await this.notifyUsStockOrder(data);
+    return { email: result.emailSent, sms: result.smsSent };
+  }
+
+  // Convenience methods for common status updates (matching bond service)
+  async notifyOrderPlaced(data: Omit<BondOrderNotification, 'assetType' | 'status'>): Promise<{ email: boolean; sms: boolean }> {
+    return this.sendOrderStatusNotification({ ...data, status: 'placed' });
+  }
+
+  async notifyOrderConfirmed(data: Omit<BondOrderNotification, 'assetType' | 'status'>): Promise<{ email: boolean; sms: boolean }> {
+    return this.sendOrderStatusNotification({ ...data, status: 'confirmed' });
+  }
+
+  async notifyOrderSettlement(data: Omit<BondOrderNotification, 'assetType' | 'status'>): Promise<{ email: boolean; sms: boolean }> {
+    return this.sendOrderStatusNotification({ ...data, status: 'settlement' });
+  }
+
+  async notifyOrderCredited(data: Omit<BondOrderNotification, 'assetType' | 'status'>): Promise<{ email: boolean; sms: boolean }> {
+    return this.sendOrderStatusNotification({ ...data, status: 'credited' });
+  }
+
+  async notifyOrderCancelled(data: Omit<BondOrderNotification, 'assetType' | 'status'>): Promise<{ email: boolean; sms: boolean }> {
+    return this.sendOrderStatusNotification({ ...data, status: 'cancelled' });
+  }
 }
 
 export const unifiedOrderNotificationService = new UnifiedOrderNotificationService();
