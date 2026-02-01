@@ -207,54 +207,55 @@ export default function AgentScreener() {
   };
 
   return (
-    <AgentLayout title="Instrument Screener" description="Filter and find instruments matching your criteria">
+    <AgentLayout>
       <div className="space-y-6">
-        <Card>
-          <Tabs defaultValue="builder" className="w-full">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
+        <Tabs defaultValue="builder" className="w-full">
+          <Card>
+            <CardHeader className="pb-4 border-b">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Filter className="h-5 w-5" />
+                  <CardTitle className="flex items-center gap-2 text-xl">
+                    <Filter className="h-5 w-5 text-primary" />
                     Investment Screener
                   </CardTitle>
-                  <CardDescription className="mt-1">
+                  <CardDescription className="mt-1.5">
                     Filter and find instruments based on financial metrics
                   </CardDescription>
                 </div>
+                <TabsList className="w-fit">
+                  <TabsTrigger value="builder" className="px-4">Screener Builder</TabsTrigger>
+                  <TabsTrigger value="saved" className="px-4">Saved Screeners</TabsTrigger>
+                </TabsList>
               </div>
-              <TabsList className="mt-4">
-                <TabsTrigger value="builder">Screener Builder</TabsTrigger>
-                <TabsTrigger value="saved">Saved Screeners</TabsTrigger>
-              </TabsList>
             </CardHeader>
 
-          <TabsContent value="builder" className="px-6 pb-6">
-            <div className="space-y-6">
-                <div className="flex gap-4 items-end">
-                  <div className="space-y-2">
-                    <Label>Instrument Type</Label>
-                    <Select value={screenerType} onValueChange={(v) => setScreenerType(v as ScreenerType)}>
-                      <SelectTrigger className="w-48">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="mutual_fund">Mutual Funds</SelectItem>
-                        <SelectItem value="stock">Stocks</SelectItem>
-                        <SelectItem value="etf">ETFs</SelectItem>
-                        <SelectItem value="bond">Bonds</SelectItem>
-                      </SelectContent>
-                    </Select>
+            <TabsContent value="builder" className="m-0">
+              <CardContent className="pt-6">
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Instrument Type</Label>
+                      <Select value={screenerType} onValueChange={(v) => setScreenerType(v as ScreenerType)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="mutual_fund">Mutual Funds</SelectItem>
+                          <SelectItem value="stock">Stocks</SelectItem>
+                          <SelectItem value="etf">ETFs</SelectItem>
+                          <SelectItem value="bond">Bonds</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Screener Name (for saving)</Label>
+                      <Input
+                        placeholder="e.g., High Return Low Cost MFs"
+                        value={screenerName}
+                        onChange={(e) => setScreenerName(e.target.value)}
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2 flex-1">
-                    <Label>Screener Name (for saving)</Label>
-                    <Input
-                      placeholder="e.g., High Return Low Cost MFs"
-                      value={screenerName}
-                      onChange={(e) => setScreenerName(e.target.value)}
-                    />
-                  </div>
-                </div>
 
                 <div className="space-y-3">
                   <Label>Filter Criteria</Label>
@@ -474,45 +475,48 @@ export default function AgentScreener() {
                     }
                   </div>
                 )}
+                  </div>
                 </div>
-                </div>
-            </div>
+              </div>
+            </CardContent>
           </TabsContent>
 
-          <TabsContent value="saved" className="px-6 pb-6">
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold mb-2">Saved Screeners</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Your saved screeners for quick access
-                </p>
-              </div>
-              {(savedScreeners as any)?.screeners?.length > 0 ? (
-                <div className="space-y-2">
-                  {(savedScreeners as any).screeners.map((s: any) => (
-                    <div key={s.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <div className="font-medium">{s.name}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {s.screenerType} • {s.runCount || 0} runs
+          <TabsContent value="saved" className="m-0">
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Saved Screeners</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Your saved screeners for quick access
+                  </p>
+                </div>
+                {(savedScreeners as any)?.screeners?.length > 0 ? (
+                  <div className="space-y-2">
+                    {(savedScreeners as any).screeners.map((s: any) => (
+                      <div key={s.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <div className="font-medium">{s.name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {s.screenerType} • {s.runCount || 0} runs
+                          </div>
                         </div>
+                        <Button variant="outline" size="sm">
+                          <Play className="h-4 w-4 mr-1" />
+                          Run
+                        </Button>
                       </div>
-                      <Button variant="outline" size="sm">
-                        <Play className="h-4 w-4 mr-1" />
-                        Run
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  No saved screeners yet. Create and save a screener to see it here.
-                </div>
-              )}
-            </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No saved screeners yet. Create and save a screener to see it here.
+                  </div>
+                )}
+              </div>
+            </CardContent>
           </TabsContent>
-          </Tabs>
-        </Card>
+          </Card>
+        </Tabs>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
