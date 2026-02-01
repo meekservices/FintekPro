@@ -363,7 +363,7 @@ export default function AgentScreener() {
                                 <SortableHeader label="P/B" sortKey="pbRatio" align="right" />
                                 <SortableHeader label="Div Yield %" sortKey="dividendYield" align="right" />
                                 <SortableHeader label="ROE %" sortKey="roe" align="right" />
-                                <SortableHeader label="D/E" sortKey="debtEquity" align="right" />
+                                <SortableHeader label="ROCE %" sortKey="roce" align="right" />
                               </>
                             )}
                           </tr>
@@ -455,8 +455,8 @@ export default function AgentScreener() {
                                   <td className={`py-3 px-3 text-right font-mono ${parseFloat(item.roe || 0) >= 15 ? "text-green-600" : ""}`}>
                                     {item.roe ? `${parseFloat(item.roe).toFixed(2)}%` : "-"}
                                   </td>
-                                  <td className={`py-3 px-3 text-right font-mono ${parseFloat(item.debtEquity || 0) > 1 ? "text-red-600" : ""}`}>
-                                    {item.debtEquity ? parseFloat(item.debtEquity).toFixed(2) : "-"}
+                                  <td className={`py-3 px-3 text-right font-mono ${parseFloat(item.roce || 0) >= 15 ? "text-green-600" : ""}`}>
+                                    {item.roce ? `${parseFloat(item.roce).toFixed(2)}%` : "-"}
                                   </td>
                                 </>
                               )}

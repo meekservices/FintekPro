@@ -934,7 +934,7 @@ router.post("/screener/run", async (req, res) => {
           pbRatio: listedStocks.pbRatio,
           dividendYield: listedStocks.dividendYield,
           roe: listedStocks.roe,
-          debtEquity: listedStocks.debtEquity,
+          roce: listedStocks.roce,
           type: sql<string>`'stock'`.as("type"),
         })
         .from(listedStocks)
