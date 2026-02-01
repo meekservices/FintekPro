@@ -33,8 +33,10 @@ FintekPro uses a subdomain-based portal architecture for Admin, Partner, and Cli
 
 ### Service Consolidation Architecture
 The platform is undergoing service consolidation to reduce code duplication:
-- **UnifiedOrderNotificationService** (`server/services/unified-order-notification-service.ts`): Centralized order notification handling for all asset types (bonds, mutual funds, unlisted shares, US stocks) with asset-type routing and unified email/SMS initialization. Provides helper methods (notifyBondOrder, notifyMutualFundOrder, etc.) for type-safe calls.
-- **Unified AI Recommendation Engine** (`server/services/unified-ai-recommendation-engine.ts`): Single entry point for all AI-powered investment recommendations with Gemini (primary) and OpenAI (fallback).
+- **UnifiedOrderNotificationService** (`server/services/unified-order-notification-service.ts`): Centralized order notification handling for all asset types (bonds, mutual funds, unlisted shares, US stocks) with asset-type routing and unified email/SMS initialization. Provides helper methods (notifyBondOrder, notifyMutualFundOrder, etc.) for type-safe calls. Includes backward-compatible method signatures (sendOrderStatusNotification, sendOrderNotification) for drop-in replacement.
+- **Unified AI Recommendation Engine** (`server/services/unified-ai-recommendation-engine.ts`): Single entry point for all AI-powered investment recommendations with Gemini (primary) and OpenAI (fallback). Note: Asset-specific routes (stock, bond, commodity) still use individual services - future work to consolidate.
+- **Cache Services**: Three overlapping cache layers exist: `unified-data-cache-service.ts` (company/verification data), `investment-cache-service.ts` (market data/AI rationales), `investment-data-cache.ts` (product catalog with stale-while-revalidate). Future consolidation opportunity identified.
+- **KYC Orchestrators**: Three-layer architecture: CKYC Orchestrator (provider resolution), Onboarding Orchestrator (17-step state machine), Workflow Orchestrator (verification/vault operations). These are intentionally layered, not duplicates.
 - **Navigation**: The Help pillar provides Support, FAQs, and Contact functionality - no duplicate sidebar buttons needed.
 
 ## External Dependencies
