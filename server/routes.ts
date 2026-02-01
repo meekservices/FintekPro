@@ -197,6 +197,7 @@ import { historicalNavRefreshJob } from "./services/historical-nav-refresh-job";
 import { cacheCleanupScheduler } from "./services/cache-cleanup-scheduler";
 import exchangeFilingsRoutes from "./routes/exchange-filings-routes";
 import financialMetricsRoutes from './routes/financial-metrics-routes';
+import financialMetricsAdminRoutes from './routes/financial-metrics-admin';
 import aaConsentRoutes from './routes/aa-consent-routes';
 import portfolioStagingRoutes from './routes/portfolio-staging-routes';
 
@@ -829,6 +830,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   console.log("✅ Recommendation Products routes registered");
 
   app.use("/api/financial-metrics", financialMetricsRoutes);
+  app.use("/api/admin/financial-metrics", requireAdmin, financialMetricsAdminRoutes);
   app.use("/api/aa", aaConsentRoutes);
   console.log("✅ Financial Metrics routes registered");
   app.use("/api/portfolio/staging", portfolioStagingRoutes);
