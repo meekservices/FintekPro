@@ -143,8 +143,8 @@ const agentNavCategories: NavCategory[] = [
     items: [
       { title: "Knowledge Hub", href: "/agent/knowledge-hub", icon: BookOpen, description: "Market briefs & insights" },
       { title: "Training", href: "/agent/training", icon: GraduationCap, description: "Training & certification" },
-      { title: "Settings", href: "/settings", icon: Settings, description: "Your preferences" },
-      { title: "Theme & Accessibility", href: "/theme-settings", icon: Palette, description: "Visual customization" },
+      { title: "Settings", href: "/agent/settings", icon: Settings, description: "Your preferences" },
+      { title: "Theme & Accessibility", href: "/agent/theme-settings", icon: Palette, description: "Visual customization" },
     ]
   }
 ];
@@ -527,7 +527,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
               </kbd>
             </Button>
 
-            <Link href="/theme-settings">
+            <Link href="/agent/theme-settings">
               <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white" data-testid="btn-theme-settings" title="Theme & Accessibility">
                 <Palette className="h-5 w-5" />
               </Button>

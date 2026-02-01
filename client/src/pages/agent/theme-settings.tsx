@@ -1,4 +1,4 @@
-import AgentLayout from "@/components/layout/agent-layout";
+import { AgentLayout } from "@/components/layout/agent-layout";
 import { ThemeSettingsContent } from "@/components/settings/theme-settings-content";
 import { Palette } from "lucide-react";
 

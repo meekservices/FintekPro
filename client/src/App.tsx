@@ -158,6 +158,7 @@ const AgentKnowledgeCertifications = lazy(() => import("@/pages/agent-knowledge-
 const AgentInvestmentAdvisory = lazy(() => import("@/pages/agent-investment-advisory"));
 const AgentBondRecommendations = lazy(() => import("@/pages/agent-bond-recommendations"));
 const AgentStockAI = lazy(() => import("@/pages/agent-stock-ai"));
+const AgentThemeSettings = lazy(() => import("@/pages/agent/theme-settings"));
 const AgentTreasuryPage = lazy(() => import("@/pages/agent-treasury"));
 const AgentRevenueCockpit = lazy(() => import("@/pages/agent-revenue-cockpit"));
 const AgentLeadPipeline = lazy(() => import("@/pages/agent-lead-pipeline"));
@@ -1962,6 +1963,13 @@ function AgentRoutes() {
           <AgentLayout>
             <SettingsPage />
           </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/theme-settings">
+        {() => (
+          <Suspense fallback={<LoadingState />}>
+            <AgentThemeSettings />
+          </Suspense>
         )}
       </Route>
       <Route path="/agent/settings">
