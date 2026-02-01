@@ -732,17 +732,6 @@ export function EnhancedNavigation() {
           </Link>
         )}
         
-        <Link href="/support" onClick={inSheet ? handleMobileNavClick : undefined}>
-          <Button 
-            variant="ghost" 
-            size="sm"
-            className={`${inSheet || !isCollapsed ? 'w-full justify-start' : 'w-full justify-center px-0'}`}
-            title={isCollapsed && !inSheet ? "Support & Help" : undefined}
-          >
-            <HelpCircle className="h-4 w-4" />
-            {(inSheet || !isCollapsed) && <span className="ml-3">Support & Help</span>}
-          </Button>
-        </Link>
       </div>
     </div>
   );
