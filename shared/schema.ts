@@ -28589,3 +28589,167 @@ export const insertConsentAuditLogSchema = createInsertSchema(consentAuditLog).o
 });
 export type ConsentAuditLog = typeof consentAuditLog.$inferSelect;
 export type InsertConsentAuditLog = z.infer<typeof insertConsentAuditLogSchema>;
+
+// =====================================================
+// ADVISOR RESEARCH WORKSPACE - Morningstar-like Research Lists
+// =====================================================
+
+// Research Lists - Curated instrument lists created by advisors
+export const researchLists = pgTable("research_lists", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  universeType: varchar("universe_type").notNull(), // MF, ETF, STOCK, BOND, FD, MIXED
+  
+  createdByAgentId: varchar("created_by_agent_id").references(() => agents.id).notNull(),
+  organizationId: varchar("organization_id"), // For org-level lists
+  
+  visibility: varchar("visibility").default("private"), // private, team, org
+  isEditable: boolean("is_editable").default(true),
+  isArchived: boolean("is_archived").default(false),
+  
+  // Screener origin (if created from screener)
+  screenerConfig: jsonb("screener_config"), // { filters: {...}, universe: "MF" }
+  
+  // Cached metrics (updated periodically)
+  cachedMetrics: jsonb("cached_metrics"), // { avgReturn3y, avgExpenseRatio, avgSharpe, etc. }
+  metricsLastUpdated: timestamp("metrics_last_updated"),
+  
+  // Tags for organization
+  tags: text("tags").array().default([]),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_research_lists_agent").on(table.createdByAgentId),
+  index("idx_research_lists_visibility").on(table.visibility),
+  index("idx_research_lists_universe").on(table.universeType),
+  index("idx_research_lists_org").on(table.organizationId),
+]);
+
+export const insertResearchListSchema = createInsertSchema(researchLists).omit({
+  id: true, createdAt: true, updatedAt: true, metricsLastUpdated: true,
+});
+export type ResearchList = typeof researchLists.$inferSelect;
+export type InsertResearchList = z.infer<typeof insertResearchListSchema>;
+
+// Research List Items - Individual instruments in a research list
+export const researchListItems = pgTable("research_list_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  researchListId: varchar("research_list_id").references(() => researchLists.id, { onDelete: "cascade" }).notNull(),
+  
+  // Polymorphic instrument reference
+  instrumentId: varchar("instrument_id").notNull(), // ID from source table
+  instrumentType: varchar("instrument_type").notNull(), // mutual_fund, stock, bond, etf, fd
+  
+  // Denormalized for display (avoids JOINs)
+  instrumentName: text("instrument_name"),
+  instrumentSymbol: varchar("instrument_symbol"),
+  instrumentIsin: varchar("instrument_isin"),
+  
+  // How the item was added
+  addedSource: varchar("added_source").default("manual"), // manual, screener, import, ai_suggestion
+  addedByAgentId: varchar("added_by_agent_id").references(() => agents.id),
+  
+  // Advisor notes
+  notes: text("notes"),
+  rating: integer("rating"), // 1-5 advisor rating
+  
+  // Snapshot of key metrics at time of addition (for comparison)
+  snapshotMetrics: jsonb("snapshot_metrics"), // { nav, returns3y, expenseRatio, etc. }
+  
+  addedAt: timestamp("added_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_research_list_items_list").on(table.researchListId),
+  index("idx_research_list_items_instrument").on(table.instrumentId, table.instrumentType),
+  index("idx_research_list_items_added").on(table.addedAt),
+]);
+
+export const insertResearchListItemSchema = createInsertSchema(researchListItems).omit({
+  id: true, addedAt: true, updatedAt: true,
+});
+export type ResearchListItem = typeof researchListItems.$inferSelect;
+export type InsertResearchListItem = z.infer<typeof insertResearchListItemSchema>;
+
+// Saved Screeners - Reusable screener configurations
+export const savedScreeners = pgTable("saved_screeners", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  
+  universeType: varchar("universe_type").notNull(), // MF, STOCK, BOND, ETF
+  filters: jsonb("filters").notNull(), // { returns_3y: { ">=": 12 }, expense_ratio: { "<=": 1.2 } }
+  
+  createdByAgentId: varchar("created_by_agent_id").references(() => agents.id).notNull(),
+  visibility: varchar("visibility").default("private"), // private, team, org
+  
+  lastRunAt: timestamp("last_run_at"),
+  lastRunResults: integer("last_run_results"), // Count of matching instruments
+  
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_saved_screeners_agent").on(table.createdByAgentId),
+  index("idx_saved_screeners_universe").on(table.universeType),
+]);
+
+export const insertSavedScreenerSchema = createInsertSchema(savedScreeners).omit({
+  id: true, createdAt: true, updatedAt: true, lastRunAt: true, lastRunResults: true,
+});
+export type SavedScreener = typeof savedScreeners.$inferSelect;
+export type InsertSavedScreener = z.infer<typeof insertSavedScreenerSchema>;
+
+// Research List Proposal Attachments - Immutable snapshots when attached to proposals
+export const researchListProposalAttachments = pgTable("research_list_proposal_attachments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id").notNull(), // References proposals table
+  researchListId: varchar("research_list_id").references(() => researchLists.id).notNull(),
+  
+  // Immutable snapshot at attach time (compliance requirement)
+  snapshotData: jsonb("snapshot_data").notNull(), // Full list with all items and metrics
+  rationale: text("rationale"), // Advisor's reasoning for including this list
+  
+  attachedByAgentId: varchar("attached_by_agent_id").references(() => agents.id).notNull(),
+  attachedAt: timestamp("attached_at").defaultNow(),
+}, (table) => [
+  index("idx_research_list_proposal_proposal").on(table.proposalId),
+  index("idx_research_list_proposal_list").on(table.researchListId),
+]);
+
+export const insertResearchListProposalAttachmentSchema = createInsertSchema(researchListProposalAttachments).omit({
+  id: true, attachedAt: true,
+});
+export type ResearchListProposalAttachment = typeof researchListProposalAttachments.$inferSelect;
+export type InsertResearchListProposalAttachment = z.infer<typeof insertResearchListProposalAttachmentSchema>;
+
+// Research Audit Log - Compliance tracking for research list operations
+export const researchAuditLog = pgTable("research_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  entityType: varchar("entity_type").notNull(), // research_list, research_list_item, screener
+  entityId: varchar("entity_id").notNull(),
+  action: varchar("action").notNull(), // create, update, delete, attach_proposal, add_item, remove_item
+  
+  agentId: varchar("agent_id").references(() => agents.id).notNull(),
+  agentName: varchar("agent_name"),
+  
+  previousData: jsonb("previous_data"), // State before change
+  newData: jsonb("new_data"), // State after change
+  
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_research_audit_entity").on(table.entityType, table.entityId),
+  index("idx_research_audit_agent").on(table.agentId),
+  index("idx_research_audit_created").on(table.createdAt),
+]);
+
+export const insertResearchAuditLogSchema = createInsertSchema(researchAuditLog).omit({
+  id: true, createdAt: true,
+});
+export type ResearchAuditLog = typeof researchAuditLog.$inferSelect;
+export type InsertResearchAuditLog = z.infer<typeof insertResearchAuditLogSchema>;
