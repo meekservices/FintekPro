@@ -254,74 +254,140 @@ export default function AgentScreener() {
                     Running screener...
                   </div>
                 ) : runScreenerMutation.data?.results?.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-3 px-2 font-medium">Name</th>
-                          <th className="text-left py-3 px-2 font-medium">Symbol</th>
-                          <th className="text-left py-3 px-2 font-medium">
-                            {screenerType === "mutual_fund" ? "Category" : "Sector"}
-                          </th>
-                          <th className="text-right py-3 px-2 font-medium">
-                            {screenerType === "mutual_fund" ? "NAV" : "Price"}
-                          </th>
-                          <th className="text-right py-3 px-2 font-medium">
-                            {screenerType === "mutual_fund" ? "1Y Return" : "Change %"}
-                          </th>
-                          <th className="text-left py-3 px-2 font-medium">
-                            {screenerType === "mutual_fund" ? "AUM" : "Cap"}
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {runScreenerMutation.data.results.map((item: any) => (
-                          <tr key={item.id} className="border-b hover:bg-muted/50">
-                            <td className="py-3 px-2">
-                              <div className="font-medium truncate max-w-[200px]" title={item.name}>
-                                {item.name}
-                              </div>
-                            </td>
-                            <td className="py-3 px-2">
-                              <Badge variant="outline">{item.symbol}</Badge>
-                            </td>
-                            <td className="py-3 px-2 text-muted-foreground truncate max-w-[150px]" title={item.sector || item.category}>
-                              {item.sector || item.category || "-"}
-                            </td>
-                            <td className="py-3 px-2 text-right font-mono">
-                              {screenerType === "mutual_fund" 
-                                ? `₹${parseFloat(item.nav || 0).toFixed(2)}`
-                                : `₹${parseFloat(item.currentPrice || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
-                              }
-                            </td>
-                            <td className={`py-3 px-2 text-right font-mono ${
-                              parseFloat(screenerType === "mutual_fund" ? item.returns1y || 0 : item.dayChangePercent || 0) >= 0 
-                                ? "text-green-600" : "text-red-600"
-                            }`}>
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="overflow-x-auto overflow-y-auto max-h-[500px]">
+                      <table className="w-full text-sm min-w-[1200px]">
+                        <thead className="bg-muted/50 sticky top-0 z-10">
+                          <tr className="border-b">
+                            <th className="text-left py-3 px-3 font-medium whitespace-nowrap">Name</th>
+                            <th className="text-left py-3 px-3 font-medium whitespace-nowrap">Symbol</th>
+                            <th className="text-left py-3 px-3 font-medium whitespace-nowrap">ISIN</th>
+                            <th className="text-left py-3 px-3 font-medium whitespace-nowrap">
+                              {screenerType === "mutual_fund" ? "Category" : "Sector"}
+                            </th>
+                            <th className="text-left py-3 px-3 font-medium whitespace-nowrap">
+                              {screenerType === "mutual_fund" ? "Fund House" : "Industry"}
+                            </th>
+                            <th className="text-right py-3 px-3 font-medium whitespace-nowrap">
+                              {screenerType === "mutual_fund" ? "NAV" : "Price"}
+                            </th>
+                            <th className="text-right py-3 px-3 font-medium whitespace-nowrap">
+                              {screenerType === "mutual_fund" ? "1Y Return" : "Day Change"}
+                            </th>
+                            {screenerType === "mutual_fund" ? (
+                              <>
+                                <th className="text-right py-3 px-3 font-medium whitespace-nowrap">3Y Return</th>
+                                <th className="text-right py-3 px-3 font-medium whitespace-nowrap">5Y Return</th>
+                                <th className="text-right py-3 px-3 font-medium whitespace-nowrap">Expense Ratio</th>
+                                <th className="text-right py-3 px-3 font-medium whitespace-nowrap">AUM (Cr)</th>
+                                <th className="text-center py-3 px-3 font-medium whitespace-nowrap">Risk Level</th>
+                                <th className="text-center py-3 px-3 font-medium whitespace-nowrap">Rating</th>
+                              </>
+                            ) : (
+                              <>
+                                <th className="text-right py-3 px-3 font-medium whitespace-nowrap">52W High</th>
+                                <th className="text-right py-3 px-3 font-medium whitespace-nowrap">52W Low</th>
+                                <th className="text-center py-3 px-3 font-medium whitespace-nowrap">Market Cap</th>
+                              </>
+                            )}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {runScreenerMutation.data.results.map((item: any) => (
+                            <tr key={item.id} className="border-b hover:bg-muted/50">
+                              <td className="py-3 px-3">
+                                <div className="font-medium max-w-[250px] truncate" title={item.name}>
+                                  {item.name}
+                                </div>
+                              </td>
+                              <td className="py-3 px-3">
+                                <Badge variant="outline" className="font-mono text-xs">{item.symbol}</Badge>
+                              </td>
+                              <td className="py-3 px-3 font-mono text-xs text-muted-foreground">
+                                {item.isin || "-"}
+                              </td>
+                              <td className="py-3 px-3 text-muted-foreground max-w-[180px] truncate" title={item.sector || item.category}>
+                                {item.sector || item.category || "-"}
+                              </td>
+                              <td className="py-3 px-3 text-muted-foreground max-w-[180px] truncate" title={item.industry || item.fundHouse}>
+                                {item.industry || item.fundHouse || "-"}
+                              </td>
+                              <td className="py-3 px-3 text-right font-mono">
+                                {screenerType === "mutual_fund" 
+                                  ? `₹${parseFloat(item.nav || 0).toFixed(2)}`
+                                  : `₹${parseFloat(item.currentPrice || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
+                                }
+                              </td>
+                              <td className={`py-3 px-3 text-right font-mono ${
+                                parseFloat(screenerType === "mutual_fund" ? item.returns1y || 0 : item.dayChangePercent || 0) >= 0 
+                                  ? "text-green-600" : "text-red-600"
+                              }`}>
+                                {screenerType === "mutual_fund" ? (
+                                  <>
+                                    {parseFloat(item.returns1y || 0) >= 0 ? "+" : ""}
+                                    {parseFloat(item.returns1y || 0).toFixed(2)}%
+                                  </>
+                                ) : (
+                                  <>
+                                    {parseFloat(item.dayChangePercent || 0) >= 0 ? "+" : ""}
+                                    {parseFloat(item.dayChangePercent || 0).toFixed(2)}%
+                                  </>
+                                )}
+                              </td>
                               {screenerType === "mutual_fund" ? (
                                 <>
-                                  {parseFloat(item.returns1y || 0) >= 0 ? "+" : ""}
-                                  {parseFloat(item.returns1y || 0).toFixed(2)}%
+                                  <td className={`py-3 px-3 text-right font-mono ${
+                                    parseFloat(item.returns3y || 0) >= 0 ? "text-green-600" : "text-red-600"
+                                  }`}>
+                                    {parseFloat(item.returns3y || 0) >= 0 ? "+" : ""}
+                                    {parseFloat(item.returns3y || 0).toFixed(2)}%
+                                  </td>
+                                  <td className={`py-3 px-3 text-right font-mono ${
+                                    parseFloat(item.returns5y || 0) >= 0 ? "text-green-600" : "text-red-600"
+                                  }`}>
+                                    {parseFloat(item.returns5y || 0) >= 0 ? "+" : ""}
+                                    {parseFloat(item.returns5y || 0).toFixed(2)}%
+                                  </td>
+                                  <td className="py-3 px-3 text-right font-mono">
+                                    {item.expenseRatio ? `${parseFloat(item.expenseRatio).toFixed(2)}%` : "-"}
+                                  </td>
+                                  <td className="py-3 px-3 text-right font-mono">
+                                    {item.aum ? `₹${parseFloat(item.aum).toLocaleString("en-IN")}` : "-"}
+                                  </td>
+                                  <td className="py-3 px-3 text-center">
+                                    <Badge variant={
+                                      item.riskLevel === "Low" ? "default" : 
+                                      item.riskLevel === "Moderate" ? "secondary" : "destructive"
+                                    } className="text-xs">
+                                      {item.riskLevel || "-"}
+                                    </Badge>
+                                  </td>
+                                  <td className="py-3 px-3 text-center">
+                                    <Badge variant="outline" className="text-xs">
+                                      {item.rating || "-"}
+                                    </Badge>
+                                  </td>
                                 </>
                               ) : (
                                 <>
-                                  {parseFloat(item.dayChangePercent || 0) >= 0 ? "+" : ""}
-                                  {parseFloat(item.dayChangePercent || 0).toFixed(2)}%
+                                  <td className="py-3 px-3 text-right font-mono text-green-600">
+                                    {item.weekHigh52 ? `₹${parseFloat(item.weekHigh52).toLocaleString("en-IN")}` : "-"}
+                                  </td>
+                                  <td className="py-3 px-3 text-right font-mono text-red-600">
+                                    {item.weekLow52 ? `₹${parseFloat(item.weekLow52).toLocaleString("en-IN")}` : "-"}
+                                  </td>
+                                  <td className="py-3 px-3 text-center">
+                                    <Badge variant="secondary" className="text-xs">
+                                      {item.marketCap || "-"}
+                                    </Badge>
+                                  </td>
                                 </>
                               )}
-                            </td>
-                            <td className="py-3 px-2">
-                              <Badge variant="secondary" className="text-xs">
-                                {screenerType === "mutual_fund" 
-                                  ? (item.aum ? `₹${parseFloat(item.aum).toLocaleString("en-IN")} Cr` : "-")
-                                  : (item.marketCap || "-")
-                                }
-                              </Badge>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
