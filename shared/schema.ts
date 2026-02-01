@@ -19178,6 +19178,37 @@ export const prospectProposals = pgTable("prospect_proposals", {
     riskTolerance: string; // conservative, moderate, aggressive
   }>(),
   
+  // Allocation Policy (EPIC 2 - Policy-driven allocation bands)
+  allocationPolicy: jsonb("allocation_policy").$type<{
+    equity?: { target: number; lowerBand: number; upperBand: number };
+    debt?: { target: number; lowerBand: number; upperBand: number };
+    gold?: { target: number; lowerBand: number; upperBand: number };
+    cash?: { target: number; lowerBand: number; upperBand: number };
+    alternates?: { target: number; lowerBand: number; upperBand: number };
+    international?: { target: number; lowerBand: number; upperBand: number };
+  }>(),
+
+  // EPIC 4: Proposal Versioning & Immutability
+  proposalVersion: integer("proposal_version").default(1).notNull(),
+  parentProposalId: varchar("parent_proposal_id"),
+  isLatestVersion: boolean("is_latest_version").default(true),
+  lockedAt: timestamp("locked_at"),
+
+  // EPIC 5: Public Proposal Hardening  
+  isPublic: boolean("is_public").default(false),
+  expiresAt: timestamp("expires_at"),
+  watermarkAdvisorName: varchar("watermark_advisor_name"),
+  publicViewCount: integer("public_view_count").default(0),
+
+  // EPIC 6: Compliance Snapshot
+  complianceSnapshot: jsonb("compliance_snapshot").$type<{
+    riskMatchBoolean: boolean;
+    suitabilityScore: number;
+    disclosuresIncluded: boolean;
+    generatedAt: string;
+    regulatoryVersion: string;
+  }>(),
+
   // AI-generated proposal content
   proposalTitle: varchar("proposal_title").notNull(),
   executiveSummary: text("executive_summary"),
@@ -19309,6 +19340,16 @@ export const ProspectProposalStatusEnum = z.enum(['draft', 'shared', 'viewed', '
 export const ProspectStateEnum = z.enum(['prospect', 'onboarded', 'active_client']);
 export type ProspectState = z.infer<typeof ProspectStateEnum>;
 
+// Prospect Readiness Status - Gating for proposal generation
+export const ProspectReadinessStatusEnum = z.enum([
+  'INITIAL',                    // Just created, no data yet
+  'HOLDINGS_IMPORTED',          // Holdings imported (CAS/manual)
+  'RISK_PROFILE_COMPLETED',     // Risk questionnaire completed
+  'TAX_PROFILE_COMPLETED',      // Tax profile saved
+  'READY_FOR_PROPOSAL'          // All data complete, can generate proposal
+]);
+export type ProspectReadinessStatus = z.infer<typeof ProspectReadinessStatusEnum>;
+
 export const prospectClients = pgTable("prospect_clients", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
@@ -19327,6 +19368,23 @@ export const prospectClients = pgTable("prospect_clients", {
   
   // Lifecycle state machine
   state: varchar("state").notNull().default("prospect"), // prospect, onboarded, active_client
+  
+  // Proposal Readiness State Machine
+  readinessStatus: varchar("readiness_status").notNull().default("INITIAL"), // INITIAL -> HOLDINGS_IMPORTED -> RISK_PROFILE_COMPLETED -> TAX_PROFILE_COMPLETED -> READY_FOR_PROPOSAL
+  readinessStatusUpdatedAt: timestamp("readiness_status_updated_at"),
+  
+  // Investment Profile (for readiness tracking)
+  investmentHorizon: varchar("investment_horizon"), // short/medium/long/very_long
+  investmentGoals: varchar("investment_goals"), // primary goal
+  
+  // Tax Profile (for readiness tracking)
+  taxProfile: jsonb("tax_profile").$type<{
+    taxSlabCategory: string; // '0%' | '5%' | '10%' | '15%' | '20%' | '25%' | '30%'
+    residencyStatus: string; // 'resident' | 'nri' | 'rnor'
+    hasHuf: boolean;
+    hasOtherIncome: boolean;
+    completedAt: string;
+  }>(),
   
   // Consent tracking
   portfolioFetchConsent: boolean("portfolio_fetch_consent").default(false),
@@ -19426,6 +19484,7 @@ export const prospectClients = pgTable("prospect_clients", {
   index("idx_prospect_clients_agent").on(table.agentId),
   index("idx_prospect_clients_state").on(table.state),
   index("idx_prospect_clients_pan").on(table.pan),
+  index("idx_prospect_clients_readiness").on(table.readinessStatus),
 ]);
 
 export const insertProspectClientSchema = createInsertSchema(prospectClients).omit({

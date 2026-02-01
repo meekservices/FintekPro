@@ -2102,6 +2102,20 @@ export default function AgentProspectWizard() {
     staleTime: 60000
   });
 
+  // Prospect Readiness Status Query
+  interface ReadinessCheck {
+    isReady: boolean;
+    currentStatus: 'INITIAL' | 'HOLDINGS_IMPORTED' | 'RISK_PROFILE_COMPLETED' | 'TAX_PROFILE_COMPLETED' | 'READY_FOR_PROPOSAL';
+    missingSteps: string[];
+    completedSteps: string[];
+  }
+
+  const { data: readinessData, refetch: refetchReadiness } = useQuery<{ success: boolean; readiness: ReadinessCheck }>({
+    queryKey: ['/api/agent-wizard/prospects', prospectId, 'readiness'],
+    enabled: !!prospectId && currentStep >= 2,
+    staleTime: 10000
+  });
+
   const [showZohoImportDialog, setShowZohoImportDialog] = useState(false);
   const [selectedAgentForImport, setSelectedAgentForImport] = useState<string>("");
 
@@ -5577,14 +5591,49 @@ export default function AgentProspectWizard() {
               ))}
             </div>
           </CardContent>
+          
+          {/* Readiness Checklist */}
+          {readinessData?.readiness && !readinessData.readiness.isReady && (
+            <div className="px-6 pb-4">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-amber-800 dark:text-amber-200 mb-2">
+                      Complete Required Steps
+                    </h4>
+                    <p className="text-sm text-amber-700 dark:text-amber-300 mb-3">
+                      The following items must be completed before generating a proposal:
+                    </p>
+                    <div className="space-y-2">
+                      {readinessData.readiness.completedSteps.map((step, idx) => (
+                        <div key={`complete-${idx}`} className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+                          <CheckCircle className="h-4 w-4" />
+                          <span>{step}</span>
+                        </div>
+                      ))}
+                      {readinessData.readiness.missingSteps.map((step, idx) => (
+                        <div key={`missing-${idx}`} className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300">
+                          <AlertTriangle className="h-4 w-4" />
+                          <span>{step}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <CardFooter className="justify-between">
             <Button variant="outline" onClick={() => setCurrentStep(7)} data-testid="back-to-rebalance-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
               onClick={() => generateProposalMutation.mutate()}
-              disabled={generateProposalMutation.isPending}
+              disabled={generateProposalMutation.isPending || (readinessData?.readiness && !readinessData.readiness.isReady)}
               data-testid="generate-proposal-btn"
+              title={readinessData?.readiness && !readinessData.readiness.isReady ? 'Complete all steps to generate proposal' : ''}
             >
               {generateProposalMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               <Sparkles className="h-4 w-4 mr-2" /> Generate Proposal

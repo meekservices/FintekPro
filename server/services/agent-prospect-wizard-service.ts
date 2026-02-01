@@ -19,6 +19,9 @@ import { historicalNavService } from "./historical-nav-service";
 import { getRecommendationsByCategory, getAllActiveRecommendations } from "./recommendation-products-service";
 import { mfReturnsSyncService } from "./mf-returns-sync-service";
 import { mutualFunds } from "@shared/schema";
+import { prospectReadinessService } from "./prospect-readiness-service";
+import { allocationPolicyService } from "./allocation-policy-service";
+import { complianceSnapshotService } from "./compliance-snapshot-service";
 
 // Format amount in Indian currency format (₹X.XX L for lakhs, ₹X.XX Cr for crores)
 const formatAmount = (amount: number): string => {
@@ -1798,6 +1801,9 @@ class AgentProspectWizardService {
         updatedAt: new Date()
       })
       .where(eq(prospectClients.id, prospectId));
+
+    // Advance readiness status
+    await prospectReadinessService.advanceOnHoldingsImport(prospectId);
   }
 
   async updateProspectRiskProfile(prospectId: string, riskProfile: ProspectRiskProfile) {
@@ -1809,6 +1815,32 @@ class AgentProspectWizardService {
         updatedAt: new Date()
       })
       .where(eq(prospectClients.id, prospectId));
+
+    // Advance readiness status
+    await prospectReadinessService.advanceOnRiskProfileComplete(prospectId);
+  }
+
+  async updateProspectTaxProfile(prospectId: string, taxProfile: {
+    taxSlabCategory: string;
+    residencyStatus: string;
+    hasHuf: boolean;
+    hasOtherIncome: boolean;
+  }) {
+    await db.update(prospectClients)
+      .set({ 
+        taxProfile: {
+          ...taxProfile,
+          completedAt: new Date().toISOString()
+        },
+        updatedAt: new Date()
+      })
+      .where(eq(prospectClients.id, prospectId));
+
+    // Advance readiness status
+    await prospectReadinessService.advanceOnTaxProfileComplete(prospectId);
+    
+    // Evaluate if prospect is now ready for proposal
+    return prospectReadinessService.evaluateAndAdvanceToReady(prospectId);
   }
 
   analyzePortfolio(holdings: ProspectPortfolioHolding[], riskProfile: ProspectRiskProfile): PortfolioAnalysis {
@@ -3439,6 +3471,22 @@ class AgentProspectWizardService {
       }
     }
     
+    // EPIC 6: Generate compliance snapshot
+    const complianceSnapshot = complianceSnapshotService.generateSnapshot({
+      riskProfile: riskProfile.riskTolerance,
+      investmentHorizon: riskProfile.investmentHorizon,
+      investmentGoal: riskProfile.primaryGoal,
+      proposedAllocations: targetAllocation,
+      proposedProducts: freshInvestments.map(f => ({
+        name: f.productName,
+        riskRating: f.riskLevel || 'moderate',
+        category: f.category || 'mutual_fund'
+      }))
+    });
+
+    // EPIC 2: Generate allocation policy from risk profile
+    const allocationPolicy = allocationPolicyService.getDefaultPolicy(riskProfile.riskTolerance);
+
     const [proposal] = await db.insert(prospectProposals).values({
       shareToken,
       agentId,
@@ -3450,6 +3498,13 @@ class AgentProspectWizardService {
       proposalTitle: `Investment Proposal for ${prospectData.name}`,
       clientType: 'individual',
       samplePortfolio: holdings,
+      // EPIC 2: Persist allocation policy
+      allocationPolicy,
+      // EPIC 4: Versioning (v1 for new proposals)
+      proposalVersion: 1,
+      isLatestVersion: true,
+      // EPIC 6: Compliance snapshot
+      complianceSnapshot,
       currentAnalysis: JSON.stringify({ ...analysis, portfolioComparison }),
       recommendations: [...rebalancing, ...freshInvestments],
       totalInvestmentAmount: String(netInvestmentRequired),

@@ -20,6 +20,7 @@ import { casStatementService } from "../services/cas-statement-service";
 import { unifiedPDFParser } from "../services/unified-pdf-parser";
 import { assertLotsNotDropped } from "../services/holding-transformer";
 import { requireAuth, requireRole } from "../middleware/roleMiddleware";
+import { prospectReadinessService } from "../services/prospect-readiness-service";
 
 // Multer setup for CAS file upload
 const upload = multer({
@@ -385,6 +386,85 @@ router.put("/prospects/:id/portfolio", async (req: Request, res: Response) => {
   }
 });
 
+// ============ PROSPECT READINESS ENDPOINTS ============
+
+router.get("/prospects/:id/readiness", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const readiness = await prospectReadinessService.checkReadiness(req.params.id);
+    res.json({ success: true, readiness });
+  } catch (error: any) {
+    console.error("[Agent Wizard] Error checking readiness:", error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+router.post("/prospects/:id/evaluate-readiness", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const readiness = await prospectReadinessService.evaluateAndAdvanceToReady(req.params.id);
+    res.json({ success: true, readiness });
+  } catch (error: any) {
+    console.error("[Agent Wizard] Error evaluating readiness:", error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+router.get("/prospects/:id/readiness-history", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const history = prospectReadinessService.getTransitionHistory(req.params.id);
+    res.json({ success: true, history });
+  } catch (error: any) {
+    console.error("[Agent Wizard] Error getting readiness history:", error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+router.post("/prospects/:id/tax-profile", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const { taxSlabCategory, residencyStatus, hasHuf, hasOtherIncome } = req.body;
+    
+    if (!taxSlabCategory || !residencyStatus) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Tax slab category and residency status are required" 
+      });
+    }
+
+    const readiness = await agentProspectWizardService.updateProspectTaxProfile(req.params.id, {
+      taxSlabCategory,
+      residencyStatus,
+      hasHuf: !!hasHuf,
+      hasOtherIncome: !!hasOtherIncome
+    });
+
+    res.json({ success: true, readiness });
+  } catch (error: any) {
+    console.error("[Agent Wizard] Error updating tax profile:", error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+
+
 // POST endpoint to save imported holdings for prospects (used by portfolio import panel)
 router.post("/prospects/:id/portfolio/save", async (req: Request, res: Response) => {
   try {
@@ -544,6 +624,20 @@ router.post("/generate-proposal", async (req: Request, res: Response) => {
     }
 
     const data = generateProposalSchema.parse(req.body);
+    
+    // Gate proposal generation with readiness check
+    if (data.prospectId) {
+      const readinessCheck = await prospectReadinessService.canGenerateProposal(data.prospectId);
+      if (!readinessCheck.allowed) {
+        return res.status(400).json({ 
+          success: false, 
+          code: 'PROSPECT_NOT_READY',
+          message: readinessCheck.reason,
+          missingSteps: readinessCheck.missingSteps
+        });
+      }
+    }
+
     const normalizedHoldings = normalizeHoldings(data.holdings);
     
     const proposal = await agentProspectWizardService.createCombinedProposal(
@@ -594,7 +688,7 @@ router.post("/proposal-analytics", async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, message: "Authentication required" });
     }
 
-    const { holdings, riskProfile, analysis } = req.body;
+    const { holdings, riskProfile, analysis, sectionsRequested } = req.body;
     if (!holdings || !Array.isArray(holdings)) {
       return res.status(400).json({ success: false, message: "Holdings array required" });
     }
@@ -603,29 +697,88 @@ router.post("/proposal-analytics", async (req: Request, res: Response) => {
     const normalizedHoldings = normalizeHoldings(flexibleHoldings);
     const totalValue = normalizedHoldings.reduce((sum, h) => sum + (h.currentValue || 0), 0);
 
-    const capitalGainsData = calculateCapitalGains(normalizedHoldings);
-    const healthScoreData = calculatePortfolioHealthScore(normalizedHoldings, riskProfile);
-    const expenseRatioData = calculateExpenseRatioAnalysis(normalizedHoldings);
-    const dividendData = calculateDividendProjection(normalizedHoldings);
-    const riskHeatmapData = calculateRiskHeatmap(normalizedHoldings, totalValue);
-    const benchmarkData = calculateBenchmarkComparison(normalizedHoldings, analysis);
-    const whatIfScenarios = calculateWhatIfScenarios(totalValue);
-    const priorityRecommendations = generatePriorityRecommendations(normalizedHoldings, riskProfile, capitalGainsData, riskHeatmapData);
-    const sipRecommendations = generateSipRecommendations(riskProfile, analysis);
+    // EPIC 3: Lazy Section Analytics - Only compute requested sections
+    const requestedSections: string[] = sectionsRequested || [
+      'CAPITAL_GAINS', 'HEALTH_SCORE', 'EXPENSE_RATIO', 'DIVIDEND',
+      'RISK_HEATMAP', 'BENCHMARK', 'WHAT_IF', 'PRIORITY_RECOMMENDATIONS', 'SIP_RECOMMENDATIONS'
+    ];
+    
+    const analytics: Record<string, any> = {
+      version: '2.0',
+      computedAt: new Date().toISOString(),
+      sectionsComputed: requestedSections
+    };
+
+    // Compute only requested sections for efficiency
+    if (requestedSections.includes('CAPITAL_GAINS')) {
+      analytics.capitalGains = {
+        data: calculateCapitalGains(normalizedHoldings),
+        assumptions: { taxYear: '2025-26', ltcgThreshold: 365, exemptionLimit: 125000 },
+        dataSource: 'holdings_purchase_data'
+      };
+    }
+    if (requestedSections.includes('HEALTH_SCORE')) {
+      analytics.healthScore = {
+        data: calculatePortfolioHealthScore(normalizedHoldings, riskProfile),
+        assumptions: { diversificationWeight: 0.3, riskAlignmentWeight: 0.4, qualityWeight: 0.3 },
+        dataSource: 'portfolio_analysis'
+      };
+    }
+    if (requestedSections.includes('EXPENSE_RATIO')) {
+      analytics.expenseRatio = {
+        data: calculateExpenseRatioAnalysis(normalizedHoldings),
+        assumptions: { benchmarkTER: 1.0 },
+        dataSource: 'fund_metadata'
+      };
+    }
+    if (requestedSections.includes('DIVIDEND')) {
+      analytics.dividend = {
+        data: calculateDividendProjection(normalizedHoldings),
+        assumptions: { projectionYears: 5, growthRate: 0.08 },
+        dataSource: 'dividend_history'
+      };
+    }
+    if (requestedSections.includes('RISK_HEATMAP')) {
+      analytics.riskHeatmap = {
+        data: calculateRiskHeatmap(normalizedHoldings, totalValue),
+        assumptions: { concentrationThreshold: 0.15 },
+        dataSource: 'holdings_allocation'
+      };
+    }
+    if (requestedSections.includes('BENCHMARK')) {
+      analytics.benchmark = {
+        data: calculateBenchmarkComparison(normalizedHoldings, analysis),
+        assumptions: { benchmarkIndex: 'NIFTY_50', period: '3Y' },
+        dataSource: 'market_data'
+      };
+    }
+    if (requestedSections.includes('WHAT_IF')) {
+      analytics.whatIf = {
+        data: calculateWhatIfScenarios(totalValue),
+        assumptions: { scenarios: ['bull', 'bear', 'base'] },
+        dataSource: 'simulation_model'
+      };
+    }
+    if (requestedSections.includes('PRIORITY_RECOMMENDATIONS')) {
+      const cgData = analytics.capitalGains?.data || calculateCapitalGains(normalizedHoldings);
+      const rhData = analytics.riskHeatmap?.data || calculateRiskHeatmap(normalizedHoldings, totalValue);
+      analytics.priorityRecommendations = {
+        data: generatePriorityRecommendations(normalizedHoldings, riskProfile, cgData, rhData),
+        assumptions: { maxRecommendations: 5 },
+        dataSource: 'ai_analysis'
+      };
+    }
+    if (requestedSections.includes('SIP_RECOMMENDATIONS')) {
+      analytics.sipRecommendations = {
+        data: generateSipRecommendations(riskProfile, analysis),
+        assumptions: { minSipAmount: 500, maxFundsPerCategory: 3 },
+        dataSource: 'recommendation_engine'
+      };
+    }
 
     res.json({
       success: true,
-      analytics: {
-        capitalGains: capitalGainsData,
-        healthScore: healthScoreData,
-        expenseRatio: expenseRatioData,
-        dividend: dividendData,
-        riskHeatmap: riskHeatmapData,
-        benchmark: benchmarkData,
-        whatIf: whatIfScenarios,
-        priorityRecommendations,
-        sipRecommendations
-      }
+      analytics
     });
   } catch (error: any) {
     console.error("[Agent Wizard] Error calculating proposal analytics:", error);
