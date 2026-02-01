@@ -623,14 +623,14 @@ function getCachedLiveReturns(fundName: string): {
 
 /**
  * Sanitize fund data to ensure no 'PENDING' values leak to users
- * First tries to get live returns from cache, then falls back to N/A
+ * First tries cache, then queries database, then falls back to N/A
  */
-function sanitizeFundForDisplay(fund: any): any {
+async function sanitizeFundForDisplayAsync(fund: any): Promise<any> {
   if (!fund) return null;
   
   const sanitized = { ...fund };
   
-  // First try to get cached live returns
+  // 1. First try to get cached live returns (fast path)
   const cachedReturns = getCachedLiveReturns(fund.name);
   if (cachedReturns) {
     sanitized.returns1Y = cachedReturns.returns1Y;
@@ -640,7 +640,39 @@ function sanitizeFundForDisplay(fund: any): any {
     return sanitized;
   }
   
-  // Fallback: Replace 'PENDING' with 'N/A' for user display
+  // 2. Cache miss - query database directly (slower but accurate)
+  try {
+    const dbResult = await db.select({
+      schemeName: mutualFunds.schemeName,
+      returns1y: mutualFunds.returns1y,
+      returns3y: mutualFunds.returns3y,
+      returns5y: mutualFunds.returns5y
+    })
+    .from(mutualFunds)
+    .where(sql`LOWER(${mutualFunds.schemeName}) LIKE LOWER(${'%' + fund.name.split(' ').slice(0, 3).join(' ') + '%'})`)
+    .limit(1);
+    
+    if (dbResult[0] && (dbResult[0].returns1y || dbResult[0].returns3y)) {
+      sanitized.returns1Y = dbResult[0].returns1y ? parseFloat(dbResult[0].returns1y as string).toFixed(1) : 'N/A';
+      sanitized.returns3Y = dbResult[0].returns3y ? parseFloat(dbResult[0].returns3y as string).toFixed(1) : 'N/A';
+      sanitized.returns5Y = dbResult[0].returns5y ? parseFloat(dbResult[0].returns5y as string).toFixed(1) : 'N/A';
+      sanitized.dataSource = 'live';
+      
+      // Update cache for future requests
+      updateLiveReturnsCache(fund.name, {
+        returns1Y: dbResult[0].returns1y ? parseFloat(dbResult[0].returns1y as string) : null,
+        returns3Y: dbResult[0].returns3y ? parseFloat(dbResult[0].returns3y as string) : null,
+        returns5Y: dbResult[0].returns5y ? parseFloat(dbResult[0].returns5y as string) : null,
+        dataSource: 'live'
+      });
+      
+      return sanitized;
+    }
+  } catch (error) {
+    // Database query failed - continue to fallback
+  }
+  
+  // 3. Fallback: Replace 'PENDING' with 'N/A' for user display
   if (sanitized.returns1Y === 'PENDING') sanitized.returns1Y = 'N/A';
   if (sanitized.returns3Y === 'PENDING') sanitized.returns3Y = 'N/A';
   if (sanitized.returns5Y === 'PENDING') sanitized.returns5Y = 'N/A';
@@ -655,14 +687,57 @@ function sanitizeFundForDisplay(fund: any): any {
 }
 
 /**
+ * Sync version for backward compatibility (uses cache only, no DB fallback)
+ */
+function sanitizeFundForDisplay(fund: any): any {
+  if (!fund) return null;
+  
+  const sanitized = { ...fund };
+  
+  const cachedReturns = getCachedLiveReturns(fund.name);
+  if (cachedReturns) {
+    sanitized.returns1Y = cachedReturns.returns1Y;
+    sanitized.returns3Y = cachedReturns.returns3Y;
+    sanitized.returns5Y = cachedReturns.returns5Y;
+    sanitized.dataSource = cachedReturns.dataSource;
+    return sanitized;
+  }
+  
+  if (sanitized.returns1Y === 'PENDING') sanitized.returns1Y = 'N/A';
+  if (sanitized.returns3Y === 'PENDING') sanitized.returns3Y = 'N/A';
+  if (sanitized.returns5Y === 'PENDING') sanitized.returns5Y = 'N/A';
+  
+  if (sanitized.returns1Y === 'N/A' && sanitized.returns3Y === 'N/A') {
+    sanitized.dataSource = 'unavailable';
+    sanitized.returnsNote = 'Live returns sync pending';
+  }
+  
+  return sanitized;
+}
+
+/**
  * Get funds from category with sanitization (sync access for internal use)
  * Returns funds with PENDING values replaced with N/A
- * NOTE: For async live enrichment, use getSafeFundRecommendations()
+ * NOTE: For async live enrichment, use getFundsFromCategorySanitizedAsync()
  */
 function getfundsFromCategorySanitized(category: string, riskProfile: string): any[] {
   const rawFunds = (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category]?.[riskProfile] ||
                    (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category]?.moderate || [];
   return rawFunds.map(sanitizeFundForDisplay);
+}
+
+/**
+ * Get funds from category with async sanitization (queries DB on cache miss)
+ * Returns funds with live returns from database when available
+ * PREFERRED METHOD for user-facing proposal data
+ */
+async function getFundsFromCategorySanitizedAsync(category: string, riskProfile: string): Promise<any[]> {
+  const rawFunds = (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category]?.[riskProfile] ||
+                   (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category]?.moderate || [];
+  
+  // Use Promise.all for parallel database lookups
+  const sanitizedFunds = await Promise.all(rawFunds.map(sanitizeFundForDisplayAsync));
+  return sanitizedFunds;
 }
 
 /**
@@ -2297,7 +2372,7 @@ class AgentProspectWizardService {
     };
   }
 
-  generateRebalancingRecommendations(
+  async generateRebalancingRecommendations(
     holdings: ProspectPortfolioHolding[], 
     riskProfile: ProspectRiskProfile,
     analysis: PortfolioAnalysis,
@@ -2307,7 +2382,7 @@ class AgentProspectWizardService {
     },
     freshInvestmentAmount: number = 0,
     selectedCategories?: string[]
-  ): RebalanceRecommendation[] {
+  ): Promise<RebalanceRecommendation[]> {
     // Normalize holdings to canonical format at entry point
     const normalizedHoldings = normalizeHoldings(holdings);
     
@@ -2637,7 +2712,7 @@ class AgentProspectWizardService {
         console.log('[Rebalancing] Filtering SWITCH recs to categories:', Array.from(allowedSwitchCategories));
       }
       
-      normalizedUnderperformers.slice(0, 3).forEach(underperformer => {
+      for (const underperformer of normalizedUnderperformers.slice(0, 3)) {
         // Check if not already in recommendations
         const upName = underperformer.name || underperformer.productName || '';
         const existing = recommendations.find(r => r.productName === upName);
@@ -2648,10 +2723,10 @@ class AgentProspectWizardService {
           // Skip SWITCH if category is not in selectedCategories
           if (selectedCategories && selectedCategories.length > 0 && !allowedSwitchCategories.has(category)) {
             console.log(`[Rebalancing] Skipping SWITCH for ${upName} - category ${category} not in selected categories`);
-            return;
+            continue;
           }
-          // Use sanitized access - PENDING values will be replaced with N/A for display
-          const targetFunds = getfundsFromCategorySanitized(category, riskProfile.riskTolerance);
+          // Use async sanitized access with DB fallback for live returns
+          const targetFunds = await getFundsFromCategorySanitizedAsync(category, riskProfile.riskTolerance);
           const targetFund = targetFunds[0] || null;
           
           // Calculate tax implications for switch (treated as redemption + purchase)
@@ -2701,7 +2776,7 @@ class AgentProspectWizardService {
             }
           });
         }
-      });
+      }
     }
     
     // Add BUY recommendations for underweight categories using freed capital from sells
@@ -2768,20 +2843,22 @@ class AgentProspectWizardService {
       const numCategoriesToFund = Math.min(underweightCategories.length, 3);
       
       // Ensure at least one category gets funded if we have underweight categories
-      underweightCategories.slice(0, numCategoriesToFund).forEach(({ category, gap, targetPercent }, index) => {
-        if (remainingToAllocate <= 1000) return; // Lower threshold to ensure deployment
+      const categoriesToFund = underweightCategories.slice(0, numCategoriesToFund);
+      const totalGap = categoriesToFund.reduce((sum, c) => sum + c.gap, 0);
+      
+      for (const { category, gap, targetPercent } of categoriesToFund) {
+        if (remainingToAllocate <= 1000) break; // Lower threshold to ensure deployment
         
         // Allocate proportionally to gap
-        const totalGap = underweightCategories.slice(0, numCategoriesToFund).reduce((sum, c) => sum + c.gap, 0);
         const proportion = totalGap > 0 ? gap / totalGap : 1 / numCategoriesToFund;
         const buyAmount = Math.round(totalSellAmount * proportion);
         const actualAmount = Math.min(buyAmount, remainingToAllocate);
         
         // Lower minimum threshold to ₹2000 to ensure funds get allocated
-        if (actualAmount < 2000) return;
+        if (actualAmount < 2000) continue;
         
-        // Get recommended fund for this category (sanitized - no PENDING values)
-        const categoryFunds = getfundsFromCategorySanitized(category, riskProfile.riskTolerance);
+        // Get recommended fund for this category with async DB lookup
+        const categoryFunds = await getFundsFromCategorySanitizedAsync(category, riskProfile.riskTolerance);
         const fundToRecommend = categoryFunds[0];
         
         if (fundToRecommend) {
@@ -2815,7 +2892,7 @@ class AgentProspectWizardService {
           
           remainingToAllocate -= actualAmount;
         }
-      });
+      }
     }
     
     console.log('[Rebalancing] Generated', recommendations.length, 'recommendations:', 
@@ -3082,8 +3159,8 @@ class AgentProspectWizardService {
     for (const { category, allocation } of filteredAllocations) {
       if (allocation === 0) continue;
       
-      // Use sanitized access - no PENDING values leak to user
-      const categoryFunds = getfundsFromCategorySanitized(category, riskProfile.riskTolerance);
+      // Use async sanitized access with DB fallback for live returns
+      const categoryFunds = await getFundsFromCategorySanitizedAsync(category, riskProfile.riskTolerance);
       
       if (categoryFunds.length === 0) continue;
       
@@ -3158,7 +3235,7 @@ class AgentProspectWizardService {
         let fundsToUse: any[] = [];
         
         for (const risk of riskLevels) {
-          const categoryFunds = getfundsFromCategorySanitized(category, risk);
+          const categoryFunds = await getFundsFromCategorySanitizedAsync(category, risk);
           if (categoryFunds.length > 0) {
             fundsToUse = categoryFunds.slice(0, 2);
             break;
@@ -3261,7 +3338,7 @@ class AgentProspectWizardService {
     globalAdvisorySelections?: Record<string, string[]>
   ): Promise<CombinedProposal> {
     const analysis = this.analyzePortfolio(holdings, riskProfile);
-    const rebalancingResult = this.generateRebalancingRecommendations(
+    const rebalancingResult = await this.generateRebalancingRecommendations(
       holdings, 
       riskProfile, 
       analysis,
