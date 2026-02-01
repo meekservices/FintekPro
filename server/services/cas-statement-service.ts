@@ -842,34 +842,49 @@ class CASStatementService {
       }
     }
     
-    // Only inject for COMPLETELY missing AMCs
+    // Only inject for COMPLETELY missing AMCs - use enhanced matching
     let placeholderIndex = 0;
+    const parsedAMCNames = Array.from(parsedByAMC.keys());
+    
     for (const entry of summary.entries) {
-      const normalizedEntry = this.normalizeAMCName(entry.amcName);
+      // Try to find a matching parsed AMC using enhanced matching
+      let matchedKey: string | null = null;
       
-      // Try exact normalized match first
-      let parsed = parsedByAMC.get(normalizedEntry);
-      
-      // If not found, try fuzzy match (first word match)
-      if (!parsed) {
-        const firstWord = normalizedEntry.split(' ')[0];
-        for (const [key, value] of parsedByAMC) {
-          if (key.startsWith(firstWord) || key.includes(firstWord)) {
-            parsed = value;
-            break;
-          }
+      for (const parsedName of parsedAMCNames) {
+        if (this.amcNamesMatch(entry.amcName, parsedName)) {
+          matchedKey = parsedName;
+          break;
         }
       }
+      
+      // Also check against original AMC names in the variations map
+      if (!matchedKey) {
+        for (const [normalizedKey, variations] of amcNameVariations) {
+          for (const variation of variations) {
+            if (this.amcNamesMatch(entry.amcName, variation)) {
+              matchedKey = normalizedKey;
+              break;
+            }
+          }
+          if (matchedKey) break;
+        }
+      }
+      
+      const parsed = matchedKey ? parsedByAMC.get(matchedKey) : null;
       
       if (!parsed) {
         // AMC completely missing - inject placeholder with warning
         console.log(`[CAS Service Tier3] AMC "${entry.amcName}" not found in parsed holdings: Expected ₹${(entry.marketValue / 100000).toFixed(2)} L`);
+        console.log(`[CAS Service Tier3] Available AMCs: ${parsedAMCNames.join(', ')}`);
         injectedHoldings.push(this.createTier3PlaceholderHolding(
           entry.amcName,
           entry.costValue,
           entry.marketValue,
           placeholderIndex++
         ));
+      } else {
+        // AMC was found - log for debugging
+        console.log(`[CAS Service Tier3] AMC "${entry.amcName}" matched to "${matchedKey}": Parsed ₹${(parsed.marketValue / 100000).toFixed(2)} L vs Expected ₹${(entry.marketValue / 100000).toFixed(2)} L`);
       }
       // Note: We deliberately do NOT inject for under-parsed AMCs
       // This prevents double-counting and ensures conservative behavior
@@ -880,13 +895,53 @@ class CASStatementService {
 
   /**
    * Normalize AMC name for comparison
+   * Enhanced to handle various naming conventions in CAS statements
    */
   private normalizeAMCName(name: string): string {
     return name
       .toLowerCase()
       .replace(/mutual\s*fund/gi, '')
+      .replace(/\s*mf\s*/gi, ' ')           // Handle "NAVI MF" -> "navi"
+      .replace(/\s*fund\s*house/gi, '')
+      .replace(/\s*asset\s*management/gi, '')
+      .replace(/\s*amc/gi, '')
+      .replace(/\s*investments?/gi, '')
+      .replace(/\s*limited/gi, '')
+      .replace(/\s*ltd\.?/gi, '')
+      .replace(/\s*pvt\.?/gi, '')
+      .replace(/\s*private/gi, '')
       .replace(/\s+/g, ' ')
       .trim();
+  }
+  
+  /**
+   * Check if two AMC names match using multiple strategies
+   */
+  private amcNamesMatch(name1: string, name2: string): boolean {
+    const norm1 = this.normalizeAMCName(name1);
+    const norm2 = this.normalizeAMCName(name2);
+    
+    // Exact normalized match
+    if (norm1 === norm2) return true;
+    
+    // One contains the other
+    if (norm1.includes(norm2) || norm2.includes(norm1)) return true;
+    
+    // First word match (handles "360 ONE" vs "360 ONE Mutual Fund")
+    const words1 = norm1.split(' ').filter(w => w.length > 2);
+    const words2 = norm2.split(' ').filter(w => w.length > 2);
+    
+    if (words1.length > 0 && words2.length > 0) {
+      // First significant word matches
+      if (words1[0] === words2[0]) return true;
+      
+      // Special handling for numbered AMCs like "360 ONE"
+      const numericPrefix1 = norm1.match(/^\d+/)?.[0];
+      const numericPrefix2 = norm2.match(/^\d+/)?.[0];
+      if (numericPrefix1 && numericPrefix2 && numericPrefix1 === numericPrefix2) return true;
+    }
+    
+    return false;
   }
 
   /**

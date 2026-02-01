@@ -1691,12 +1691,27 @@ router.post(
         };
       });
       
-      // Summary stats
-      const totalValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
-      const totalInvested = holdings.reduce((sum, h) => sum + h.investedValue, 0);
+      // Summary stats - USE CAS PORTFOLIO SUMMARY as authoritative source
+      // Recalculated values can be inflated due to parsing issues, so trust the PDF's stated totals
+      const calculatedValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
+      const calculatedInvested = holdings.reduce((sum, h) => sum + h.investedValue, 0);
       const totalLots = holdings.reduce((sum, h) => sum + (h.lots?.length || 0), 0);
       
-      console.log(`[Agent CAS Parse] SUCCESS: ${holdings.length} holdings, ${totalLots} lots total`);
+      // Use authoritative values from CAS Portfolio Summary (the actual PDF totals)
+      const authoritativeMarketValue = casResult.portfolioSummary?.totalMarketValue || calculatedValue;
+      const authoritativeCostValue = casResult.portfolioSummary?.totalCostValue || calculatedInvested;
+      
+      // Log discrepancy for debugging
+      if (casResult.portfolioSummary) {
+        const valueDelta = Math.abs(calculatedValue - authoritativeMarketValue);
+        const deltaPercent = (valueDelta / authoritativeMarketValue) * 100;
+        if (deltaPercent > 0.5) {
+          console.log(`[Agent CAS Parse] VALUE DISCREPANCY: Calculated ₹${(calculatedValue / 100000).toFixed(2)} L vs CAS Summary ₹${(authoritativeMarketValue / 100000).toFixed(2)} L (${deltaPercent.toFixed(2)}% delta)`);
+          console.log(`[Agent CAS Parse] Using authoritative CAS Portfolio Summary value for display`);
+        }
+      }
+      
+      console.log(`[Agent CAS Parse] SUCCESS: ${holdings.length} holdings, ${totalLots} lots total, Value: ₹${(authoritativeMarketValue / 100000).toFixed(2)} L`);
       
       res.json({
         success: true,
@@ -1704,10 +1719,14 @@ router.post(
         holdings,
         summary: {
           totalHoldings: holdings.length,
-          totalValue,
-          totalInvested,
+          totalValue: authoritativeMarketValue,
+          totalInvested: authoritativeCostValue,
           totalLots,
-          unrealizedGain: totalValue - totalInvested
+          unrealizedGain: authoritativeMarketValue - authoritativeCostValue,
+          // Include both for transparency
+          calculatedValue,
+          calculatedInvested,
+          hasReconciliationDelta: Math.abs(calculatedValue - authoritativeMarketValue) > (authoritativeMarketValue * 0.005)
         },
         investor: casResult.investor,
         brokerDetected: 'CAMS/KFintech CAS',
