@@ -220,9 +220,41 @@ async function upsertUser(claims: any): Promise<string> {
 
 export async function setupAuth(app: Express) {
   app.set("trust proxy", 1);
-  app.use(getSession());
-  app.use(passport.initialize());
-  app.use(passport.session());
+  
+  // Skip session/auth middleware for Vite dev routes (HMR, source files)
+  const isViteDevRoute = (path: string) => {
+    return path.startsWith('/@') ||           // /@react-refresh, /@vite/*, /@fs/*
+           path.startsWith('/src/') ||        // /src/*.tsx, /src/*.ts
+           path.startsWith('/node_modules/') || // node_modules (Vite serves these)
+           path.endsWith('.tsx') || 
+           path.endsWith('.ts') ||
+           path.endsWith('.jsx') ||
+           path.endsWith('.js') && path.includes('/src/');
+  };
+  
+  // Wrap session middleware to skip Vite dev routes
+  app.use((req, res, next) => {
+    if (isViteDevRoute(req.path)) {
+      return next();
+    }
+    getSession()(req, res, next);
+  });
+  
+  // Wrap passport.initialize to skip Vite dev routes
+  app.use((req, res, next) => {
+    if (isViteDevRoute(req.path)) {
+      return next();
+    }
+    passport.initialize()(req, res, next);
+  });
+  
+  // Wrap passport.session to skip Vite dev routes
+  app.use((req, res, next) => {
+    if (isViteDevRoute(req.path)) {
+      return next();
+    }
+    passport.session()(req, res, next);
+  });
 
   const config = await getOidcConfig();
 
