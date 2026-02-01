@@ -345,11 +345,12 @@ export function useSaveImportedHoldings() {
         ? `/api/agent-wizard/prospects/${prospectId}/portfolio/save`
         : '/api/portfolio/import/save';
       
-      const res = await apiRequest(endpoint, {
+      // apiRequest already parses JSON responses, so return the result directly
+      const result = await apiRequest(endpoint, {
         method: 'POST',
         body: JSON.stringify({ holdings, portfolioId, source, replaceExisting }),
       });
-      return res.json();
+      return result;
     },
     onSuccess: (_, variables) => {
       if (variables.portfolioId) {
