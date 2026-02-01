@@ -26,16 +26,17 @@ export interface PortfolioMetrics {
 export interface ListPerformance {
   listId: string;
   listName: string;
-  return1m: number;
-  return3m: number;
-  return6m: number;
-  return1y: number;
-  return3y: number;
-  cagr: number;
-  volatility: number;
-  sharpeRatio: number;
-  maxDrawdown: number;
+  return1m: number | null;
+  return3m: number | null;
+  return6m: number | null;
+  return1y: number | null;
+  return3y: number | null;
+  cagr: number | null;
+  volatility: number | null;
+  sharpeRatio: number | null;
+  maxDrawdown: number | null;
   itemCount: number;
+  dataStatus?: 'calculated' | 'insufficient_data';
 }
 
 export class ResearchMetricsEngine {
@@ -217,15 +218,14 @@ export class ResearchMetricsEngine {
     };
   }
 
-  generateMockReturns(months: number = 36, avgReturn: number = 0.01, volatility: number = 0.05): number[] {
-    const returns: number[] = [];
-    for (let i = 0; i < months; i++) {
-      const randomReturn = avgReturn + (Math.random() - 0.5) * 2 * volatility;
-      returns.push(randomReturn);
-    }
-    return returns;
-  }
+  // REMOVED: generateMockReturns() - Deleted for regulatory compliance
+  // All financial metrics must use real data sources
+  // If synthetic data is needed for testing, use dedicated test utilities outside production code
 
+  /**
+   * Helper method to generate price series from returns
+   * Used internally for metrics calculation when historical prices are available
+   */
   generatePricesFromReturns(initialPrice: number, returns: number[]): number[] {
     const prices: number[] = [initialPrice];
     for (const ret of returns) {
@@ -240,51 +240,71 @@ export class ResearchMetricsEngine {
     itemCount: number,
     instrumentReturns?: { returns1m?: number; returns3m?: number; returns6m?: number; returns1y?: number; returns3y?: number }[]
   ): ListPerformance {
+    // No mock data - return null values when no real data is available
+    // This ensures regulatory compliance and data integrity
     if (!instrumentReturns || instrumentReturns.length === 0) {
-      const mockReturns = this.generateMockReturns(36);
-      const mockPrices = this.generatePricesFromReturns(100, mockReturns);
-      const metrics = this.calculateAllMetrics(mockReturns, mockPrices);
-
       return {
         listId,
         listName,
-        return1m: Math.round((Math.random() * 6 - 2) * 100) / 100,
-        return3m: Math.round((Math.random() * 15 - 3) * 100) / 100,
-        return6m: Math.round((Math.random() * 25 - 5) * 100) / 100,
-        return1y: Math.round((Math.random() * 40 - 10) * 100) / 100,
-        return3y: Math.round((Math.random() * 80 - 10) * 100) / 100,
-        cagr: metrics.cagr,
-        volatility: metrics.volatility,
-        sharpeRatio: metrics.sharpeRatio,
-        maxDrawdown: metrics.maxDrawdown,
+        return1m: null,
+        return3m: null,
+        return6m: null,
+        return1y: null,
+        return3y: null,
+        cagr: null,
+        volatility: null,
+        sharpeRatio: null,
+        maxDrawdown: null,
         itemCount,
+        dataStatus: 'insufficient_data',
       };
     }
 
-    const avgReturn1m = instrumentReturns.reduce((sum, ir) => sum + (ir.returns1m || 0), 0) / instrumentReturns.length;
-    const avgReturn3m = instrumentReturns.reduce((sum, ir) => sum + (ir.returns3m || 0), 0) / instrumentReturns.length;
-    const avgReturn6m = instrumentReturns.reduce((sum, ir) => sum + (ir.returns6m || 0), 0) / instrumentReturns.length;
-    const avgReturn1y = instrumentReturns.reduce((sum, ir) => sum + (ir.returns1y || 0), 0) / instrumentReturns.length;
-    const avgReturn3y = instrumentReturns.reduce((sum, ir) => sum + (ir.returns3y || 0), 0) / instrumentReturns.length;
-
-    // Convert 1Y return to coherent monthly returns for proper metrics calculation
-    // Use 1Y return to derive approximate monthly returns (assuming geometric compounding)
-    const annualReturnDecimal = avgReturn1y / 100;
-    const monthlyReturnDecimal = Math.pow(1 + annualReturnDecimal, 1/12) - 1;
-    
-    // Generate 36 months of synthetic monthly returns for volatility/sharpe calculation
-    const monthlyReturns = Array(36).fill(0).map(() => 
-      monthlyReturnDecimal + (Math.random() - 0.5) * 0.02 // Add realistic variance
+    // Calculate weighted averages from real instrument data
+    const validReturns = instrumentReturns.filter(ir => 
+      ir.returns1m !== undefined || ir.returns3m !== undefined || 
+      ir.returns6m !== undefined || ir.returns1y !== undefined
     );
     
-    const prices = this.generatePricesFromReturns(100, monthlyReturns);
-    // Use returns.length (not prices.length) for CAGR calculation
-    const years = monthlyReturns.length / 12;
-    const cagr = this.calculateCAGR(prices[0], prices[prices.length - 1], years);
-    const volatility = this.calculateVolatility(monthlyReturns);
-    const sharpeRatio = this.calculateSharpeRatio(monthlyReturns);
-    const maxDrawdown = this.calculateMaxDrawdown(prices);
+    if (validReturns.length === 0) {
+      // No valid return data available - return null values
+      return {
+        listId,
+        listName,
+        return1m: null,
+        return3m: null,
+        return6m: null,
+        return1y: null,
+        return3y: null,
+        cagr: null,
+        volatility: null,
+        sharpeRatio: null,
+        maxDrawdown: null,
+        itemCount,
+        dataStatus: 'insufficient_data',
+      };
+    }
 
+    const avgReturn1m = validReturns.reduce((sum, ir) => sum + (ir.returns1m || 0), 0) / validReturns.length;
+    const avgReturn3m = validReturns.reduce((sum, ir) => sum + (ir.returns3m || 0), 0) / validReturns.length;
+    const avgReturn6m = validReturns.reduce((sum, ir) => sum + (ir.returns6m || 0), 0) / validReturns.length;
+    const avgReturn1y = validReturns.reduce((sum, ir) => sum + (ir.returns1y || 0), 0) / validReturns.length;
+    const avgReturn3y = validReturns.reduce((sum, ir) => sum + (ir.returns3y || 0), 0) / validReturns.length;
+
+    // Calculate CAGR using real 3Y return if available, else 1Y
+    // Formula: CAGR = (End/Start)^(1/years) - 1
+    let cagr: number | null = null;
+    if (avgReturn3y !== 0) {
+      // Convert 3Y cumulative return to CAGR
+      cagr = Math.round(((Math.pow(1 + avgReturn3y/100, 1/3) - 1) * 100) * 100) / 100;
+    } else if (avgReturn1y !== 0) {
+      // Use 1Y return as CAGR approximation
+      cagr = Math.round(avgReturn1y * 100) / 100;
+    }
+
+    // Note: Volatility, Sharpe Ratio, and Max Drawdown require historical price series
+    // Without real time-series data, these metrics cannot be accurately calculated
+    // Return null to indicate insufficient data for these advanced metrics
     return {
       listId,
       listName,
@@ -293,59 +313,79 @@ export class ResearchMetricsEngine {
       return6m: Math.round(avgReturn6m * 100) / 100,
       return1y: Math.round(avgReturn1y * 100) / 100,
       return3y: Math.round(avgReturn3y * 100) / 100,
-      cagr: Math.round(cagr * 10000) / 100,
-      volatility: Math.round(volatility * 10000) / 100,
-      sharpeRatio: Math.round(sharpeRatio * 100) / 100,
-      maxDrawdown: Math.round(maxDrawdown * 10000) / 100,
+      cagr,
+      volatility: null, // Requires historical price series - not available from return snapshots
+      sharpeRatio: null, // Requires historical price series - not available from return snapshots
+      maxDrawdown: null, // Requires historical price series - not available from return snapshots
       itemCount,
+      dataStatus: 'calculated',
     };
   }
 
-  generateRiskReturnData(lists: { id: string; name: string; itemCount: number }[]): { name: string; risk: number; return: number; size: number }[] {
-    return lists.map((list) => ({
-      name: list.name,
-      risk: Math.round((5 + Math.random() * 20) * 100) / 100,
-      return: Math.round((2 + Math.random() * 25) * 100) / 100,
-      size: list.itemCount * 10 + 20,
-    }));
+  /**
+   * Generates risk/return data for research lists
+   * NOTE: No mock data - returns empty array when no real performance data available
+   * Real implementation would require historical price series for each list's instruments
+   */
+  generateRiskReturnData(
+    lists: { id: string; name: string; itemCount: number }[],
+    performanceData?: Map<string, { volatility?: number; cagr?: number }>
+  ): { name: string; risk: number | null; return: number | null; size: number }[] {
+    return lists.map((list) => {
+      const perf = performanceData?.get(list.id);
+      return {
+        name: list.name,
+        risk: perf?.volatility ?? null,
+        return: perf?.cagr ?? null,
+        size: list.itemCount * 10 + 20,
+      };
+    });
   }
 
-  generateRollingReturns(months: number = 12): { month: string; portfolio: number; benchmark: number }[] {
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const currentMonth = new Date().getMonth();
-    const data: { month: string; portfolio: number; benchmark: number }[] = [];
+  /**
+   * Generates rolling returns chart data
+   * NOTE: No mock data - returns empty array when no real historical data available
+   * Real implementation would require monthly return series from database
+   */
+  generateRollingReturns(
+    historicalReturns?: { month: string; portfolio: number; benchmark: number }[]
+  ): { month: string; portfolio: number; benchmark: number }[] {
+    // Return real historical data if provided, otherwise empty array
+    // No mock data generation for regulatory compliance
+    return historicalReturns || [];
+  }
 
-    for (let i = months - 1; i >= 0; i--) {
-      const monthIndex = (currentMonth - i + 12) % 12;
-      data.push({
-        month: monthNames[monthIndex],
-        portfolio: Math.round((5 + Math.random() * 15) * 100) / 100,
-        benchmark: Math.round((4 + Math.random() * 12) * 100) / 100,
-      });
+  /**
+   * Generates sector allocation breakdown
+   * NOTE: No mock data - returns empty array when no real allocation data available
+   * Real implementation would calculate from actual portfolio holdings
+   */
+  generateSectorAllocation(
+    holdings?: { sector: string; value: number }[]
+  ): { sector: string; allocation: number; color: string }[] {
+    if (!holdings || holdings.length === 0) {
+      // Return empty array - no mock data for regulatory compliance
+      return [];
     }
 
-    return data;
-  }
+    const sectorColors: Record<string, string> = {
+      'IT': '#3B82F6',
+      'Banking': '#10B981',
+      'Pharma': '#F59E0B',
+      'Auto': '#EF4444',
+      'FMCG': '#8B5CF6',
+      'Energy': '#06B6D4',
+      'Others': '#6B7280',
+    };
 
-  generateSectorAllocation(): { sector: string; allocation: number; color: string }[] {
-    const sectors = [
-      { sector: 'IT', color: '#3B82F6' },
-      { sector: 'Banking', color: '#10B981' },
-      { sector: 'Pharma', color: '#F59E0B' },
-      { sector: 'Auto', color: '#EF4444' },
-      { sector: 'FMCG', color: '#8B5CF6' },
-      { sector: 'Energy', color: '#06B6D4' },
-      { sector: 'Others', color: '#6B7280' },
-    ];
+    const totalValue = holdings.reduce((sum, h) => sum + h.value, 0);
+    if (totalValue === 0) return [];
 
-    let remaining = 100;
-    return sectors.map((s, i) => {
-      const allocation = i === sectors.length - 1 
-        ? remaining 
-        : Math.min(remaining, Math.round(10 + Math.random() * 25));
-      remaining -= allocation;
-      return { ...s, allocation: Math.max(0, allocation) };
-    }).filter(s => s.allocation > 0);
+    return holdings.map(h => ({
+      sector: h.sector,
+      allocation: Math.round((h.value / totalValue) * 100 * 100) / 100,
+      color: sectorColors[h.sector] || '#6B7280',
+    }));
   }
 }
 

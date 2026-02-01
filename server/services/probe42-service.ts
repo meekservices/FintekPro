@@ -1566,7 +1566,8 @@ export async function enrichUnlistedCompanyWithMCAData(
       .set(companyUpdateData)
       .where(eq(unlistedCompanies.id, companyId));
     
-    // Calculate and store basic ratios from financials
+    // Calculate and store comprehensive financial ratios from MCA data
+    // Uses real formulas for regulatory compliance
     const { companyRatios } = await import('@shared/schema');
     
     if (financialData.length > 0) {
@@ -1576,13 +1577,73 @@ export async function enrichUnlistedCompanyWithMCAData(
       const totalDebt = parseFloat(latestFinancial.total_debt || '0');
       const totalAssets = parseFloat(latestFinancial.total_assets || '0');
       const revenue = parseFloat(latestFinancial.revenue || '0');
+      const ebitda = parseFloat(latestFinancial.ebitda || '0');
+      const pbt = parseFloat(latestFinancial.pbt || '0');
+      const longTermDebt = parseFloat(latestFinancial.long_term_debt || '0');
+      const shareCapital = parseFloat(latestFinancial.share_capital || details.paid_up_capital || '0');
       const financialYear = latestFinancial.financial_year || 'FY2024';
       
-      // Calculate basic ratios
+      // Get current trading price and face value for P/E and P/B calculations
+      const [companyData] = await db.select()
+        .from(unlistedCompanies)
+        .where(eq(unlistedCompanies.id, companyId))
+        .limit(1);
+      
+      const currentPrice = parseFloat(companyData?.currentPrice || '0');
+      const faceValue = parseFloat(companyData?.faceValue || details.face_value || '10'); // Default ₹10 face value
+      
+      // Calculate shares outstanding from paid-up capital and face value
+      // Formula: Shares Outstanding = Paid-up Capital / Face Value
+      const sharesOutstanding = faceValue > 0 ? shareCapital / faceValue : 0;
+      
+      // ===============================
+      // PROFITABILITY RATIOS (from MCA)
+      // ===============================
+      
+      // ROE = (Net Profit / Networth) × 100
       const roe = networth > 0 ? (netProfit / networth) * 100 : null;
-      const debtEquity = networth > 0 ? totalDebt / networth : null;
+      
+      // ROA = (Net Profit / Total Assets) × 100
       const roa = totalAssets > 0 ? (netProfit / totalAssets) * 100 : null;
+      
+      // ROCE = EBIT / Capital Employed × 100
+      // Capital Employed = Networth + Long-term Debt (or Total Assets - Current Liabilities)
+      // EBIT ≈ PBT + Interest Expense, or use EBITDA as approximation
+      const capitalEmployed = networth + longTermDebt;
+      // Use EBITDA as proxy for operating profit if EBIT not available
+      const ebit = ebitda || pbt; // Approximation
+      const roce = capitalEmployed > 0 && ebit > 0 ? (ebit / capitalEmployed) * 100 : null;
+      
+      // Net Profit Margin = (Net Profit / Revenue) × 100
       const netProfitMargin = revenue > 0 ? (netProfit / revenue) * 100 : null;
+      
+      // EBITDA Margin = (EBITDA / Revenue) × 100
+      const ebitdaMargin = revenue > 0 && ebitda > 0 ? (ebitda / revenue) * 100 : null;
+      
+      // ===============================
+      // VALUATION RATIOS (require price)
+      // ===============================
+      
+      // EPS = Net Profit / Shares Outstanding
+      const eps = sharesOutstanding > 0 ? netProfit / sharesOutstanding : null;
+      
+      // P/E Ratio = Current Price / EPS
+      // Only calculate if we have current price and positive EPS
+      const peRatio = eps && eps > 0 && currentPrice > 0 ? currentPrice / eps : null;
+      
+      // Book Value Per Share = Networth / Shares Outstanding
+      const bookValuePerShare = sharesOutstanding > 0 ? networth / sharesOutstanding : null;
+      
+      // P/B Ratio = Current Price / Book Value Per Share
+      const pbRatio = bookValuePerShare && bookValuePerShare > 0 && currentPrice > 0 
+        ? currentPrice / bookValuePerShare : null;
+      
+      // ===============================
+      // LEVERAGE RATIOS
+      // ===============================
+      
+      // Debt to Equity = Total Debt / Networth
+      const debtEquity = networth > 0 ? totalDebt / networth : null;
       
       // Check if ratios exist for this company/year
       const [existingRatios] = await db.select()
@@ -1593,14 +1654,22 @@ export async function enrichUnlistedCompanyWithMCAData(
         ))
         .limit(1);
       
-      const ratiosData = {
+      const ratiosData: any = {
         companyId,
         financialYear,
-        roe: roe?.toFixed(2) || null,
-        roa: roa?.toFixed(2) || null,
-        debtEquity: debtEquity?.toFixed(2) || null,
-        netProfitMargin: netProfitMargin?.toFixed(2) || null,
-        dataSource: 'probe42',
+        // Profitability ratios
+        roe: roe !== null ? roe.toFixed(2) : null,
+        roa: roa !== null ? roa.toFixed(2) : null,
+        roce: roce !== null ? roce.toFixed(2) : null,
+        marginPat: netProfitMargin !== null ? netProfitMargin.toFixed(2) : null,
+        marginEbitda: ebitdaMargin !== null ? ebitdaMargin.toFixed(2) : null,
+        // Valuation ratios (only if current price available)
+        peRatio: peRatio !== null ? peRatio.toFixed(2) : null,
+        pbRatio: pbRatio !== null ? pbRatio.toFixed(2) : null,
+        // Leverage ratios
+        debtEquity: debtEquity !== null ? debtEquity.toFixed(2) : null,
+        // Data source attribution for audit trail
+        dataSource: 'probe42_mca',
       };
       
       if (existingRatios) {
@@ -1611,7 +1680,9 @@ export async function enrichUnlistedCompanyWithMCAData(
         await db.insert(companyRatios).values(ratiosData);
       }
       
-      console.log(`📊 Stored ratios: ROE=${roe?.toFixed(2)}%, D/E=${debtEquity?.toFixed(2)}`);
+      console.log(`📊 Stored ratios from MCA data:`);
+      console.log(`   ROE=${roe?.toFixed(2)}%, ROCE=${roce?.toFixed(2)}%, D/E=${debtEquity?.toFixed(2)}`);
+      if (peRatio) console.log(`   P/E=${peRatio.toFixed(2)}, P/B=${pbRatio?.toFixed(2)} (using price ₹${currentPrice})`);
     }
     
     console.log(`✅ Enriched ${companyId} with ${financialsStored} financial records, capital & ratios`);

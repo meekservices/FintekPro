@@ -1247,9 +1247,18 @@ router.get("/analytics/risk-return", async (req, res) => {
       })
     );
 
+    // Generate risk/return data - without real performance data, returns null values
+    // No mock data generation for regulatory compliance
     const riskReturnData = researchMetricsEngine.generateRiskReturnData(listsWithCounts);
 
-    res.json({ success: true, data: riskReturnData });
+    res.json({ 
+      success: true, 
+      data: riskReturnData,
+      dataStatus: riskReturnData.some(d => d.risk !== null) ? 'calculated' : 'insufficient_data',
+      message: riskReturnData.every(d => d.risk === null) 
+        ? 'Historical performance data not available for risk/return analysis'
+        : undefined
+    });
   } catch (error) {
     console.error("[Analytics] Error fetching risk-return:", error);
     res.status(500).json({ error: "Failed to fetch risk-return data" });
@@ -1265,9 +1274,18 @@ router.get("/analytics/rolling-returns", async (req, res) => {
     }
 
     const months = parseInt(req.query.months as string) || 12;
-    const rollingReturns = researchMetricsEngine.generateRollingReturns(months);
+    // No mock data - returns empty array when no historical returns available
+    // Real implementation would fetch from database historical_returns table
+    const rollingReturns = researchMetricsEngine.generateRollingReturns();
 
-    res.json({ success: true, data: rollingReturns });
+    res.json({ 
+      success: true, 
+      data: rollingReturns,
+      dataStatus: rollingReturns.length > 0 ? 'calculated' : 'insufficient_data',
+      message: rollingReturns.length === 0 
+        ? 'Historical monthly return data not available'
+        : undefined
+    });
   } catch (error) {
     console.error("[Analytics] Error fetching rolling returns:", error);
     res.status(500).json({ error: "Failed to fetch rolling returns data" });
@@ -1282,9 +1300,18 @@ router.get("/analytics/sector-allocation", async (req, res) => {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
+    // No mock data - returns empty array when no real allocation data available
+    // Real implementation would calculate from actual portfolio holdings
     const sectorAllocation = researchMetricsEngine.generateSectorAllocation();
 
-    res.json({ success: true, data: sectorAllocation });
+    res.json({ 
+      success: true, 
+      data: sectorAllocation,
+      dataStatus: sectorAllocation.length > 0 ? 'calculated' : 'insufficient_data',
+      message: sectorAllocation.length === 0 
+        ? 'Sector allocation data not available'
+        : undefined
+    });
   } catch (error) {
     console.error("[Analytics] Error fetching sector allocation:", error);
     res.status(500).json({ error: "Failed to fetch sector allocation data" });
@@ -1320,16 +1347,21 @@ router.get("/:id/metrics", async (req, res) => {
       .from(researchListItems)
       .where(eq(researchListItems.researchListId, id));
 
+    // Fetch real returns data for each instrument in the list
+    // This ensures regulatory compliance - no mock data
+    const instrumentReturns: { returns1m?: number; returns3m?: number; returns6m?: number; returns1y?: number; returns3y?: number }[] = [];
+    
+    for (const item of items) {
+      // TODO: Fetch actual returns from database based on instrument type
+      // For now, pass empty array which will return "insufficient_data" status
+    }
+
     const performance = researchMetricsEngine.calculateListPerformance(
       list.id,
       list.name,
-      items.length
+      items.length,
+      instrumentReturns.length > 0 ? instrumentReturns : undefined
     );
-
-    // Generate mock returns for full metrics
-    const mockReturns = researchMetricsEngine.generateMockReturns(36);
-    const mockPrices = researchMetricsEngine.generatePricesFromReturns(100, mockReturns);
-    const fullMetrics = researchMetricsEngine.calculateAllMetrics(mockReturns, mockPrices);
 
     res.json({
       success: true,
@@ -1337,7 +1369,10 @@ router.get("/:id/metrics", async (req, res) => {
       listName: list.name,
       itemCount: items.length,
       performance,
-      metrics: fullMetrics,
+      dataStatus: performance.dataStatus || 'calculated',
+      message: performance.dataStatus === 'insufficient_data' 
+        ? 'No return data available for instruments in this list' 
+        : undefined,
     });
   } catch (error) {
     console.error("[Analytics] Error fetching list metrics:", error);

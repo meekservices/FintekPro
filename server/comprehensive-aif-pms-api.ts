@@ -218,37 +218,247 @@ export class ComprehensiveAIFPMSAPI {
 
   constructor() {}
 
-  // Comprehensive AIF Data Fetching
+  // Comprehensive AIF Data Fetching - Database first, then external sources
   async getComprehensiveAIFData(aifId?: string, category?: string): Promise<ComprehensiveAIFData[]> {
     try {
-      // Fetch from multiple sources and combine
+      // First try to fetch from database (auditable, real data)
+      const dbData = await this.fetchAIFFromDatabase(aifId, category);
+      if (dbData.length > 0) {
+        console.log(`[AIF] Returning ${dbData.length} funds from database (real data)`);
+        return dbData;
+      }
+
+      // Fetch from multiple external sources and combine
       const [sebiData, pmsBazaarData, pmsWorldData] = await Promise.all([
         this.fetchSEBIAIFData(aifId, category),
         this.fetchPMSBazaarAIFData(category),
         this.fetchPMSWorldAIFData(category)
       ]);
 
-      return this.combineAIFData(sebiData, pmsBazaarData, pmsWorldData);
+      const combinedData = this.combineAIFData(sebiData, pmsBazaarData, pmsWorldData);
+      if (combinedData.length > 0) {
+        return combinedData;
+      }
+
+      // No data available - return empty array (no mock data for regulatory compliance)
+      console.log('[AIF] No AIF data available from any source');
+      return [];
     } catch (error) {
       console.error('Error fetching comprehensive AIF data:', error);
-      return this.getMockAIFData();
+      return [];
     }
   }
 
-  // Comprehensive PMS Data Fetching
+  // Comprehensive PMS Data Fetching - Database first, then external sources
   async getComprehensivePMSData(pmsId?: string, category?: string): Promise<ComprehensivePMSData[]> {
     try {
+      // First try to fetch from database (auditable, real data)
+      const dbData = await this.fetchPMSFromDatabase(pmsId, category);
+      if (dbData.length > 0) {
+        console.log(`[PMS] Returning ${dbData.length} portfolios from database (real data)`);
+        return dbData;
+      }
+
+      // Fetch from multiple external sources
       const [sebiData, pmsBazaarData, apmiData] = await Promise.all([
         this.fetchSEBIPMSData(pmsId),
         this.fetchPMSBazaarPMSData(category),
         this.fetchAPMIPMSData()
       ]);
 
-      return this.combinePMSData(sebiData, pmsBazaarData, apmiData);
+      const combinedData = this.combinePMSData(sebiData, pmsBazaarData, apmiData);
+      if (combinedData.length > 0) {
+        return combinedData;
+      }
+
+      // No data available - return empty array (no mock data for regulatory compliance)
+      console.log('[PMS] No PMS data available from any source');
+      return [];
     } catch (error) {
       console.error('Error fetching comprehensive PMS data:', error);
-      return this.getMockPMSData();
+      return [];
     }
+  }
+
+  // Fetch AIF data from database with real calculated returns
+  private async fetchAIFFromDatabase(aifId?: string, category?: string): Promise<ComprehensiveAIFData[]> {
+    try {
+      const { db } = await import('./db');
+      const { aifFunds } = await import('@shared/schema');
+      const { eq, and, isNotNull } = await import('drizzle-orm');
+
+      let query = db.select().from(aifFunds);
+      
+      // Build conditions
+      const conditions: any[] = [];
+      if (aifId) {
+        conditions.push(eq(aifFunds.id, aifId));
+      }
+      if (category) {
+        conditions.push(eq(aifFunds.category, category));
+      }
+      conditions.push(isNotNull(aifFunds.nav));
+
+      const results = await query.where(and(...conditions)).limit(50);
+
+      return results.map(fund => this.mapDatabaseAIFToComprehensive(fund));
+    } catch (error) {
+      console.error('[AIF] Database fetch error:', error);
+      return [];
+    }
+  }
+
+  // Fetch PMS data from database with real calculated returns
+  private async fetchPMSFromDatabase(pmsId?: string, category?: string): Promise<ComprehensivePMSData[]> {
+    try {
+      const { db } = await import('./db');
+      const { pmsMaster } = await import('@shared/schema');
+      const { eq, and, isNotNull } = await import('drizzle-orm');
+
+      let query = db.select().from(pmsMaster);
+      
+      const conditions: any[] = [];
+      if (pmsId) {
+        conditions.push(eq(pmsMaster.id, pmsId));
+      }
+      if (category) {
+        conditions.push(eq(pmsMaster.strategy, category));
+      }
+      conditions.push(isNotNull(pmsMaster.currentNav));
+
+      const results = await query.where(and(...conditions)).limit(50);
+
+      return results.map(pms => this.mapDatabasePMSToComprehensive(pms));
+    } catch (error) {
+      console.error('[PMS] Database fetch error:', error);
+      return [];
+    }
+  }
+
+  // Map database AIF record to ComprehensiveAIFData format
+  private mapDatabaseAIFToComprehensive(fund: any): ComprehensiveAIFData {
+    return {
+      aifId: fund.id,
+      isin: fund.isinNumber || '',
+      schemaName: fund.fundName,
+      sebiRegistrationNumber: fund.sebiRegistrationNumber,
+      category: fund.category as any,
+      subCategory: fund.subCategory || '',
+      fundType: fund.fundType || '',
+      investmentObjective: fund.investmentObjective || '',
+      fundManager: {
+        name: fund.fundManager || '',
+        experience: fund.fundManagerExperience || 0,
+        qualification: fund.fundManagerQualification || '',
+        previousPerformance: [],
+        trackRecord: '',
+      },
+      stockScreeningStrategy: {
+        screeningCriteria: [],
+        selectionProcess: fund.stockSelectionProcess || '',
+        riskParameters: {
+          maxSingleStockExposure: 10,
+          sectorConcentrationLimit: 25,
+          marketCapPreference: 'Multi Cap',
+        },
+        investmentPhilosophy: fund.investmentStrategy || '',
+        portfolioConstruction: '',
+      },
+      pastPerformance: {
+        '1M': 0,
+        '3M': 0,
+        '6M': 0,
+        '1Y': parseFloat(fund.returns1y) || 0,
+        '3Y': parseFloat(fund.returns3y) || 0,
+        '5Y': parseFloat(fund.returns5y) || 0,
+        sinceInception: parseFloat(fund.returnsSinceInception) || 0,
+        annualizedReturns: [],
+      },
+      startDate: fund.launchDate?.toISOString().split('T')[0] || '',
+      fundTenure: '',
+      lockInPeriod: fund.lockInPeriod || '',
+      minimumInvestment: parseFloat(fund.minimumInvestment) || 10000000,
+      targetCorpus: 0,
+      currentAUM: parseFloat(fund.aum) || 0,
+      managementFee: parseFloat(fund.managementFee) || 2,
+      performanceFee: parseFloat(fund.performanceFee) || 20,
+      hurdle_rate: parseFloat(fund.hurdle_rate) || 0,
+      highWaterMark: true,
+      topHoldings: fund.topHoldings || [],
+      riskMetrics: {
+        volatility: parseFloat(fund.volatility) || 0,
+        sharpeRatio: parseFloat(fund.sharpeRatio) || 0,
+        maxDrawdown: parseFloat(fund.maxDrawdown) || 0,
+        beta: parseFloat(fund.beta) || 1,
+        alpha: parseFloat(fund.alpha) || 0,
+        informationRatio: 0,
+      },
+      sebiCompliance: {
+        lastInspectionDate: '',
+        complianceRating: '',
+        penalties: [],
+      },
+    };
+  }
+
+  // Map database PMS record to ComprehensivePMSData format
+  private mapDatabasePMSToComprehensive(pms: any): ComprehensivePMSData {
+    return {
+      pmsId: pms.id,
+      isin: '',
+      schemaName: pms.portfolioName || '',
+      sebiRegistrationNumber: pms.registrationNo || '',
+      category: pms.strategy || 'Multi Cap',
+      subCategory: pms.investmentApproach || '',
+      investmentStyle: pms.investmentApproach || '',
+      fundManager: {
+        name: pms.fundManager || '',
+        experience: 0,
+        qualification: '',
+        previousFunds: [],
+        investmentPhilosophy: pms.investmentPhilosophy || '',
+      },
+      stockScreeningStrategy: {
+        methodology: pms.stockSelectionProcess || '',
+        qualitativeFactors: [],
+        quantitativeFactors: [],
+        portfolioConstruction: '',
+        rebalancingFrequency: '',
+      },
+      pastPerformance: {
+        '1M': 0,
+        '3M': 0,
+        '6M': 0,
+        '1Y': parseFloat(pms.returns1Y) || 0,
+        '3Y': parseFloat(pms.returns3Y) || 0,
+        '5Y': parseFloat(pms.returns5Y) || 0,
+        sinceInception: parseFloat(pms.returnsSinceInception) || 0,
+        calendarYearReturns: [],
+      },
+      minimumInvestment: parseFloat(pms.minimumInvestment) || 5000000,
+      currentAUM: parseFloat(pms.aum) || 0,
+      managementFee: parseFloat(pms.managementFee) || 2,
+      performanceFee: parseFloat(pms.performanceFee) || 0,
+      exitLoad: parseFloat(pms.exitLoad) || 0,
+      topHoldings: pms.topHoldings || [],
+      sectorAllocation: pms.sectorAllocation || [],
+      riskMetrics: {
+        volatility: parseFloat(pms.volatility) || 0,
+        sharpeRatio: parseFloat(pms.sharpeRatio) || 0,
+        maxDrawdown: parseFloat(pms.maxDrawdown) || 0,
+        beta: parseFloat(pms.beta) || 1,
+        alpha: parseFloat(pms.alpha) || 0,
+        standardDeviation: 0,
+        informationRatio: 0,
+        sortinoRatio: 0,
+      },
+      sebiCompliance: {
+        registrationDate: pms.launchDate?.toISOString() || '',
+        lastAuditDate: '',
+        complianceStatus: 'compliant',
+        clientGrievances: 0,
+      },
+    };
   }
 
   // Get AIF by specific filters

@@ -170,73 +170,59 @@ const sampleFinancials = [
   },
 ];
 
-const sampleRatios = [
-  {
-    companyIndex: 0, // NSE
-    financialYear: 'FY2023-24',
-    peRatio: '48.50',
-    pbRatio: '9.20',
-    roe: '18.67',
-    roce: '22.40',
-    debtEquity: '0.07',
-    currentRatio: '2.85',
-    marginPat: '44.80',
-    revenueGrowth: '15.20',
-    profitGrowth: '18.50',
-  },
-  {
-    companyIndex: 1, // Tata Technologies
-    financialYear: 'FY2023-24',
-    peRatio: '52.00',
-    pbRatio: '15.40',
-    roe: '29.57',
-    roce: '35.20',
-    debtEquity: '0.15',
-    currentRatio: '1.95',
-    marginPat: '14.02',
-    revenueGrowth: '22.50',
-    profitGrowth: '28.00',
-  },
-  {
-    companyIndex: 2, // HDB Financial
-    financialYear: 'FY2023-24',
-    peRatio: '25.00',
-    pbRatio: '4.50',
-    roe: '18.00',
-    roce: '2.82',
-    debtEquity: '6.50',
-    currentRatio: '1.15',
-    marginPat: '18.95',
-    revenueGrowth: '18.00',
-    profitGrowth: '22.00',
-  },
-  {
-    companyIndex: 3, // Swiggy
-    financialYear: 'FY2023-24',
-    peRatio: null,
-    pbRatio: '8.50',
-    roe: '-55.00',
-    roce: '-45.00',
-    debtEquity: '0.20',
-    currentRatio: '1.85',
-    marginPat: '-20.00',
-    revenueGrowth: '35.00',
-    profitGrowth: '25.00',
-  },
-  {
-    companyIndex: 4, // PhonePe
-    financialYear: 'FY2023-24',
-    peRatio: null,
-    pbRatio: '12.00',
-    roe: '-14.12',
-    roce: '-12.00',
-    debtEquity: '0.06',
-    currentRatio: '2.40',
-    marginPat: '-23.08',
-    revenueGrowth: '45.00',
-    profitGrowth: '30.00',
-  },
-];
+/**
+ * Calculate financial ratios dynamically from financial data
+ * Uses real formulas for regulatory compliance - no hardcoded values
+ * 
+ * Formulas:
+ * - ROE = (Net Profit / Networth) × 100
+ * - ROCE = (EBITDA / Capital Employed) × 100, where Capital Employed = Networth + Total Debt
+ * - Debt/Equity = Total Debt / Networth
+ * - PAT Margin = (Net Profit / Revenue) × 100
+ * - P/E and P/B require current price (calculated separately during enrichment)
+ */
+function calculateRatiosFromFinancials(
+  financial: typeof sampleFinancials[0],
+  company: typeof sampleCompanies[0]
+): {
+  companyIndex: number;
+  financialYear: string;
+  roe: string | null;
+  roce: string | null;
+  roa: string | null;
+  debtEquity: string | null;
+  marginPat: string | null;
+  marginEbitda: string | null;
+} {
+  const netProfit = parseFloat(financial.netProfit);
+  const networth = parseFloat(financial.networth);
+  const totalDebt = parseFloat(financial.totalDebt);
+  const totalAssets = parseFloat(financial.totalAssets);
+  const revenue = parseFloat(financial.revenue);
+  const ebitda = parseFloat(financial.ebitda);
+  
+  // Capital Employed = Networth + Long-term Debt (using Total Debt as approximation)
+  const capitalEmployed = networth + totalDebt;
+  
+  // Calculate ratios using proper formulas
+  const roe = networth > 0 ? (netProfit / networth) * 100 : null;
+  const roa = totalAssets > 0 ? (netProfit / totalAssets) * 100 : null;
+  const roce = capitalEmployed > 0 && ebitda !== 0 ? (ebitda / capitalEmployed) * 100 : null;
+  const debtEquity = networth > 0 ? totalDebt / networth : null;
+  const marginPat = revenue > 0 ? (netProfit / revenue) * 100 : null;
+  const marginEbitda = revenue > 0 && ebitda !== 0 ? (ebitda / revenue) * 100 : null;
+  
+  return {
+    companyIndex: financial.companyIndex,
+    financialYear: financial.financialYear,
+    roe: roe !== null ? roe.toFixed(2) : null,
+    roa: roa !== null ? roa.toFixed(2) : null,
+    roce: roce !== null ? roce.toFixed(2) : null,
+    debtEquity: debtEquity !== null ? debtEquity.toFixed(2) : null,
+    marginPat: marginPat !== null ? marginPat.toFixed(2) : null,
+    marginEbitda: marginEbitda !== null ? marginEbitda.toFixed(2) : null,
+  };
+}
 
 export async function seedUnlistedMarketplace(userId: string) {
   console.log('Seeding unlisted marketplace data...');
@@ -308,27 +294,32 @@ export async function seedUnlistedMarketplace(userId: string) {
     }
   }
   
-  // Insert ratios
-  for (const ratio of sampleRatios) {
-    const companyId = createdCompanyIds[ratio.companyIndex];
+  // Calculate and insert ratios dynamically from financial data
+  // Uses real formulas instead of hardcoded values for regulatory compliance
+  for (const financial of sampleFinancials) {
+    const companyId = createdCompanyIds[financial.companyIndex];
     if (!companyId) continue;
+    
+    const company = sampleCompanies[financial.companyIndex];
+    const calculatedRatios = calculateRatiosFromFinancials(financial, company);
     
     try {
       await db.insert(companyRatios).values({
         companyId,
-        financialYear: ratio.financialYear,
-        peRatio: ratio.peRatio,
-        pbRatio: ratio.pbRatio,
-        roe: ratio.roe,
-        roce: ratio.roce,
-        debtEquity: ratio.debtEquity,
-        currentRatio: ratio.currentRatio,
-        marginPat: ratio.marginPat,
-        revenueGrowth: ratio.revenueGrowth,
-        profitGrowth: ratio.profitGrowth,
-        dataSource: 'manual',
+        financialYear: calculatedRatios.financialYear,
+        // P/E and P/B are calculated dynamically during MCA enrichment
+        // when current price is available (see probe42-service.ts)
+        peRatio: null, // Will be calculated from: Price / (PAT / Shares Outstanding)
+        pbRatio: null, // Will be calculated from: Price / (Networth / Shares Outstanding)
+        roe: calculatedRatios.roe,
+        roa: calculatedRatios.roa,
+        roce: calculatedRatios.roce,
+        debtEquity: calculatedRatios.debtEquity,
+        marginPat: calculatedRatios.marginPat,
+        marginEbitda: calculatedRatios.marginEbitda,
+        dataSource: 'calculated_from_financials',
       });
-      console.log(`Created ratios for company index ${ratio.companyIndex}`);
+      console.log(`Created ratios for ${company.name}: ROE=${calculatedRatios.roe}%, ROCE=${calculatedRatios.roce}%, D/E=${calculatedRatios.debtEquity}`);
     } catch (error) {
       console.error(`Error creating ratios:`, error);
     }

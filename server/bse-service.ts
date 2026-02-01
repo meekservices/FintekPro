@@ -243,36 +243,56 @@ class BSEService {
 
       } catch (error) {
         console.warn(`Failed to get NAV history for ${schemeCode}:`, error);
-        return this.generateMockNavHistory(); // Fallback to mock data
+        // No mock data - try AMFI fallback or return empty for regulatory compliance
+        return this.fetchNavFromAMFIFallback(schemeCode);
       }
     });
   }
 
   /**
-   * Generate mock NAV history for fallback
+   * Fetch NAV history from AMFI as fallback (real data only, no mock)
+   * AMFI publishes official NAV data for all SEBI-registered mutual funds
    */
-  private generateMockNavHistory(): BSEHistoricalNav[] {
-    const history = [];
-    const baseNav = 100 + Math.random() * 200;
-    const today = new Date();
-    
-    for (let i = 0; i < 1800; i++) { // ~5 years of data
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      
-      // Simple random walk for mock data
-      const volatility = 0.02;
-      const drift = 0.0003;
-      const change = (Math.random() - 0.5) * volatility + drift;
-      const nav = baseNav * Math.exp(-i * 0.0001 + change);
-      
-      history.push({
-        date: date.toISOString().split('T')[0],
-        nav: Math.round(nav * 10000) / 10000
+  private async fetchNavFromAMFIFallback(schemeCode: string): Promise<BSEHistoricalNav[]> {
+    try {
+      // Use MFAPI.in which aggregates official AMFI data
+      const response = await fetch(`https://api.mfapi.in/mf/${schemeCode}`, {
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(10000),
       });
+      
+      if (!response.ok) {
+        console.log(`[BSE] No AMFI data for scheme ${schemeCode}`);
+        return []; // Return empty array instead of mock data
+      }
+      
+      const data = await response.json();
+      if (!data.data || !Array.isArray(data.data)) {
+        return [];
+      }
+      
+      // Convert AMFI format to BSE format
+      return data.data.slice(0, 1800).map((item: any) => ({
+        date: this.convertAMFIDate(item.date),
+        nav: parseFloat(item.nav) || 0,
+      })).filter((item: any) => item.nav > 0);
+      
+    } catch (error) {
+      console.warn(`[BSE] AMFI fallback failed for ${schemeCode}:`, error);
+      // Return empty array - no mock data for regulatory compliance
+      return [];
     }
-    
-    return history;
+  }
+
+  /**
+   * Convert AMFI date format (DD-MM-YYYY) to ISO format (YYYY-MM-DD)
+   */
+  private convertAMFIDate(amfiDate: string): string {
+    const parts = amfiDate.split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+    return amfiDate;
   }
 
   /**

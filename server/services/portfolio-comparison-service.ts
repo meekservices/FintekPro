@@ -225,9 +225,13 @@ export class PortfolioComparisonService {
     const informationRatio = this.calculateInformationRatio(totalGainLossPercent, benchmarkReturn, trackingError);
     const maxDrawdown = this.calculateMaxDrawdown(holdings);
     
-    // Mock returns data (in real implementation, would fetch historical data)
-    const returns = this.generateMockReturns(totalGainLossPercent, timePeriod);
+    // Get historical returns - returns null for periods without real data
+    const returns = this.getHistoricalReturns(totalGainLossPercent, timePeriod);
 
+    // Determine data availability status for regulatory compliance
+    const hasHistoricalData = Object.values(returns).some(v => v !== null);
+    const hasRiskMetrics = volatility !== null && sharpeRatio !== null;
+    
     return {
       portfolioId: portfolio.id,
       portfolioName: portfolio.name,
@@ -252,7 +256,14 @@ export class PortfolioComparisonService {
       holdingsCount: holdings.length,
       topHoldings,
       riskScore: this.calculateRiskScore(volatility, beta, diversificationScore),
-      concentrationRisk: this.calculateConcentrationRisk(holdings, totalValue)
+      concentrationRisk: this.calculateConcentrationRisk(holdings, totalValue),
+      // Data availability status for regulatory compliance
+      dataStatus: hasRiskMetrics ? 'calculated' : 'partial_data',
+      dataAvailability: {
+        historicalReturns: hasHistoricalData ? 'available' : 'insufficient_data',
+        riskMetrics: hasRiskMetrics ? 'calculated' : 'insufficient_data',
+        source: 'real_holdings_data'
+      }
     };
   }
 
@@ -420,8 +431,10 @@ export class PortfolioComparisonService {
 
     // Tracking error approximation: |1 - beta| * market volatility
     // Higher deviation from market beta = higher tracking error
+    // Formula: TE = |1 - beta| * market_volatility (deterministic calculation)
     const marketVolatility = 15; // NIFTY 50 approximate annualized volatility
-    return Math.abs(1 - beta) * marketVolatility + (Math.random() * 2); // Add small randomness for variation
+    // No random variation - return pure formula-based calculation for regulatory compliance
+    return Math.abs(1 - beta) * marketVolatility;
   }
 
   /**
@@ -499,17 +512,21 @@ export class PortfolioComparisonService {
     return hhi * 100; // Convert to percentage
   }
 
-  private generateMockReturns(currentReturn: number, timePeriod: string) {
-    // In real implementation, would fetch historical portfolio performance
-    const volatility = Math.random() * 5 + 2; // 2-7% volatility
-    
+  /**
+   * Get historical returns from real portfolio data
+   * NOTE: No mock data - returns null values when historical data unavailable
+   * Real implementation would fetch from portfolio_historical_performance table
+   */
+  private getHistoricalReturns(currentReturn: number, timePeriod: string) {
+    // No mock data - return only the current period return which is calculated from real holdings
+    // Historical returns require actual time-series data to be available
     return {
-      '1M': currentReturn + (Math.random() - 0.5) * volatility,
-      '3M': currentReturn + (Math.random() - 0.5) * volatility * 1.5,
-      '6M': currentReturn + (Math.random() - 0.5) * volatility * 2,
-      '1Y': currentReturn,
-      '3Y': currentReturn + (Math.random() - 0.5) * volatility * 3,
-      '5Y': currentReturn + (Math.random() - 0.5) * volatility * 4
+      '1M': null, // Requires historical data
+      '3M': null, // Requires historical data
+      '6M': null, // Requires historical data
+      '1Y': currentReturn, // Use current period return if 1Y selected
+      '3Y': null, // Requires historical data
+      '5Y': null  // Requires historical data
     };
   }
 
