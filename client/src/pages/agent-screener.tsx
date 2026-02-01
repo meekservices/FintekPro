@@ -6,8 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Filter, Search, Save, Play, TrendingUp, TrendingDown, Percent, IndianRupee } from "lucide-react";
-import { useState } from "react";
+import { Filter, Search, Save, Play, TrendingUp, TrendingDown, Percent, IndianRupee, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -20,6 +20,12 @@ interface ScreenerCriteria {
   value: string;
 }
 
+type SortDirection = "asc" | "desc" | null;
+interface SortConfig {
+  key: string;
+  direction: SortDirection;
+}
+
 export default function AgentScreener() {
   const { toast } = useToast();
   const [screenerType, setScreenerType] = useState<ScreenerType>("mutual_fund");
@@ -27,6 +33,7 @@ export default function AgentScreener() {
     { field: "", operator: ">=", value: "" }
   ]);
   const [screenerName, setScreenerName] = useState("");
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: "", direction: null });
 
   const mfFields = [
     { value: "returns_1y", label: "1Y Returns (%)" },
@@ -131,6 +138,73 @@ export default function AgentScreener() {
   const { data: savedScreeners } = useQuery({
     queryKey: ["/api/research-lists/screeners"],
   });
+
+  const handleSort = (key: string) => {
+    setSortConfig((prev) => {
+      if (prev.key === key) {
+        if (prev.direction === "asc") return { key, direction: "desc" };
+        if (prev.direction === "desc") return { key: "", direction: null };
+        return { key, direction: "asc" };
+      }
+      return { key, direction: "asc" };
+    });
+  };
+
+  const sortedResults = useMemo(() => {
+    const results = runScreenerMutation.data?.results || [];
+    if (!sortConfig.key || !sortConfig.direction) return results;
+    
+    return [...results].sort((a: any, b: any) => {
+      const aVal = a[sortConfig.key];
+      const bVal = b[sortConfig.key];
+      
+      const aNull = aVal === null || aVal === undefined || aVal === "";
+      const bNull = bVal === null || bVal === undefined || bVal === "";
+      
+      if (aNull && bNull) return 0;
+      if (aNull) return 1;
+      if (bNull) return -1;
+      
+      const aNum = parseFloat(aVal);
+      const bNum = parseFloat(bVal);
+      
+      if (!isNaN(aNum) && !isNaN(bNum)) {
+        return sortConfig.direction === "asc" ? aNum - bNum : bNum - aNum;
+      }
+      
+      const aStr = String(aVal).toLowerCase();
+      const bStr = String(bVal).toLowerCase();
+      
+      if (sortConfig.direction === "asc") {
+        return aStr.localeCompare(bStr);
+      }
+      return bStr.localeCompare(aStr);
+    });
+  }, [runScreenerMutation.data?.results, sortConfig]);
+
+  const SortableHeader = ({ label, sortKey, align = "left" }: { label: string; sortKey: string; align?: "left" | "right" | "center" }) => {
+    const alignClass = align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left";
+    const justifyClass = align === "right" ? "justify-end" : align === "center" ? "justify-center" : "";
+    return (
+      <th 
+        className={`${alignClass} py-3 px-3 font-medium whitespace-nowrap cursor-pointer hover:bg-slate-700 select-none transition-colors`}
+        onClick={() => handleSort(sortKey)}
+      >
+        <div className={`flex items-center gap-1 ${justifyClass}`}>
+          {label}
+          {sortConfig.key === sortKey ? (
+            sortConfig.direction === "asc" ? (
+              <ArrowUp className="h-3 w-3" />
+            ) : (
+              <ArrowDown className="h-3 w-3" />
+            )
+          ) : (
+            <ArrowUpDown className="h-3 w-3 opacity-40" />
+          )}
+        </div>
+      </th>
+    );
+  };
 
   return (
     <AgentLayout title="Instrument Screener" description="Filter and find instruments matching your criteria">
@@ -255,48 +329,50 @@ export default function AgentScreener() {
                   </div>
                 ) : runScreenerMutation.data?.results?.length > 0 ? (
                   <div className="border rounded-lg overflow-hidden">
-                    <div className="overflow-x-auto overflow-y-auto max-h-[500px]">
-                      <table className="w-full text-sm min-w-[1200px]">
-                        <thead className="bg-muted/50 sticky top-0 z-10">
-                          <tr className="border-b">
-                            <th className="text-left py-3 px-3 font-medium whitespace-nowrap">Name</th>
-                            <th className="text-left py-3 px-3 font-medium whitespace-nowrap">Symbol</th>
-                            <th className="text-left py-3 px-3 font-medium whitespace-nowrap">ISIN</th>
-                            <th className="text-left py-3 px-3 font-medium whitespace-nowrap">
-                              {screenerType === "mutual_fund" ? "Category" : "Sector"}
-                            </th>
-                            <th className="text-left py-3 px-3 font-medium whitespace-nowrap">
-                              {screenerType === "mutual_fund" ? "Fund House" : "Industry"}
-                            </th>
-                            <th className="text-right py-3 px-3 font-medium whitespace-nowrap">
-                              {screenerType === "mutual_fund" ? "NAV" : "Price"}
-                            </th>
-                            <th className="text-right py-3 px-3 font-medium whitespace-nowrap">
-                              {screenerType === "mutual_fund" ? "1Y Return" : "Day Change"}
-                            </th>
+                    <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
+                      <table className="w-full text-sm min-w-[1800px]">
+                        <thead className="bg-slate-800 dark:bg-slate-900 text-white sticky top-0 z-10">
+                          <tr>
+                            <SortableHeader label="Name" sortKey="name" />
+                            <SortableHeader label="Symbol" sortKey="symbol" />
+                            <SortableHeader label="ISIN" sortKey="isin" />
                             {screenerType === "mutual_fund" ? (
                               <>
-                                <th className="text-right py-3 px-3 font-medium whitespace-nowrap">3Y Return</th>
-                                <th className="text-right py-3 px-3 font-medium whitespace-nowrap">5Y Return</th>
-                                <th className="text-right py-3 px-3 font-medium whitespace-nowrap">Expense Ratio</th>
-                                <th className="text-right py-3 px-3 font-medium whitespace-nowrap">AUM (Cr)</th>
-                                <th className="text-center py-3 px-3 font-medium whitespace-nowrap">Risk Level</th>
-                                <th className="text-center py-3 px-3 font-medium whitespace-nowrap">Rating</th>
+                                <SortableHeader label="Category" sortKey="category" />
+                                <SortableHeader label="Fund House" sortKey="fundHouse" />
+                                <SortableHeader label="NAV" sortKey="nav" align="right" />
+                                <SortableHeader label="1Y Return" sortKey="returns1y" align="right" />
+                                <SortableHeader label="3Y Return" sortKey="returns3y" align="right" />
+                                <SortableHeader label="5Y Return" sortKey="returns5y" align="right" />
+                                <SortableHeader label="Expense %" sortKey="expenseRatio" align="right" />
+                                <SortableHeader label="AUM (Cr)" sortKey="aum" align="right" />
+                                <SortableHeader label="Risk" sortKey="riskLevel" align="center" />
+                                <SortableHeader label="Rating" sortKey="rating" align="center" />
                               </>
                             ) : (
                               <>
-                                <th className="text-right py-3 px-3 font-medium whitespace-nowrap">52W High</th>
-                                <th className="text-right py-3 px-3 font-medium whitespace-nowrap">52W Low</th>
-                                <th className="text-center py-3 px-3 font-medium whitespace-nowrap">Market Cap</th>
+                                <SortableHeader label="Sector" sortKey="sector" />
+                                <SortableHeader label="Industry" sortKey="industry" />
+                                <SortableHeader label="Price" sortKey="currentPrice" align="right" />
+                                <SortableHeader label="Change %" sortKey="dayChangePercent" align="right" />
+                                <SortableHeader label="52W High" sortKey="weekHigh52" align="right" />
+                                <SortableHeader label="52W Low" sortKey="weekLow52" align="right" />
+                                <SortableHeader label="Mkt Cap (Cr)" sortKey="marketCapValue" align="right" />
+                                <SortableHeader label="Cap Type" sortKey="marketCap" align="center" />
+                                <SortableHeader label="P/E" sortKey="peRatio" align="right" />
+                                <SortableHeader label="P/B" sortKey="pbRatio" align="right" />
+                                <SortableHeader label="Div Yield %" sortKey="dividendYield" align="right" />
+                                <SortableHeader label="ROE %" sortKey="roe" align="right" />
+                                <SortableHeader label="D/E" sortKey="debtEquity" align="right" />
                               </>
                             )}
                           </tr>
                         </thead>
                         <tbody>
-                          {runScreenerMutation.data.results.map((item: any) => (
+                          {sortedResults.map((item: any) => (
                             <tr key={item.id} className="border-b hover:bg-muted/50">
                               <td className="py-3 px-3">
-                                <div className="font-medium max-w-[250px] truncate" title={item.name}>
+                                <div className="font-medium max-w-[220px] truncate" title={item.name}>
                                   {item.name}
                                 </div>
                               </td>
@@ -306,47 +382,25 @@ export default function AgentScreener() {
                               <td className="py-3 px-3 font-mono text-xs text-muted-foreground">
                                 {item.isin || "-"}
                               </td>
-                              <td className="py-3 px-3 text-muted-foreground max-w-[180px] truncate" title={item.sector || item.category}>
-                                {item.sector || item.category || "-"}
-                              </td>
-                              <td className="py-3 px-3 text-muted-foreground max-w-[180px] truncate" title={item.industry || item.fundHouse}>
-                                {item.industry || item.fundHouse || "-"}
-                              </td>
-                              <td className="py-3 px-3 text-right font-mono">
-                                {screenerType === "mutual_fund" 
-                                  ? `₹${parseFloat(item.nav || 0).toFixed(2)}`
-                                  : `₹${parseFloat(item.currentPrice || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
-                                }
-                              </td>
-                              <td className={`py-3 px-3 text-right font-mono ${
-                                parseFloat(screenerType === "mutual_fund" ? item.returns1y || 0 : item.dayChangePercent || 0) >= 0 
-                                  ? "text-green-600" : "text-red-600"
-                              }`}>
-                                {screenerType === "mutual_fund" ? (
-                                  <>
-                                    {parseFloat(item.returns1y || 0) >= 0 ? "+" : ""}
-                                    {parseFloat(item.returns1y || 0).toFixed(2)}%
-                                  </>
-                                ) : (
-                                  <>
-                                    {parseFloat(item.dayChangePercent || 0) >= 0 ? "+" : ""}
-                                    {parseFloat(item.dayChangePercent || 0).toFixed(2)}%
-                                  </>
-                                )}
-                              </td>
                               {screenerType === "mutual_fund" ? (
                                 <>
-                                  <td className={`py-3 px-3 text-right font-mono ${
-                                    parseFloat(item.returns3y || 0) >= 0 ? "text-green-600" : "text-red-600"
-                                  }`}>
-                                    {parseFloat(item.returns3y || 0) >= 0 ? "+" : ""}
-                                    {parseFloat(item.returns3y || 0).toFixed(2)}%
+                                  <td className="py-3 px-3 text-muted-foreground max-w-[150px] truncate" title={item.category}>
+                                    {item.category || "-"}
                                   </td>
-                                  <td className={`py-3 px-3 text-right font-mono ${
-                                    parseFloat(item.returns5y || 0) >= 0 ? "text-green-600" : "text-red-600"
-                                  }`}>
-                                    {parseFloat(item.returns5y || 0) >= 0 ? "+" : ""}
-                                    {parseFloat(item.returns5y || 0).toFixed(2)}%
+                                  <td className="py-3 px-3 text-muted-foreground max-w-[150px] truncate" title={item.fundHouse}>
+                                    {item.fundHouse || "-"}
+                                  </td>
+                                  <td className="py-3 px-3 text-right font-mono">
+                                    ₹{parseFloat(item.nav || 0).toFixed(2)}
+                                  </td>
+                                  <td className={`py-3 px-3 text-right font-mono ${parseFloat(item.returns1y || 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                    {parseFloat(item.returns1y || 0) >= 0 ? "+" : ""}{parseFloat(item.returns1y || 0).toFixed(2)}%
+                                  </td>
+                                  <td className={`py-3 px-3 text-right font-mono ${parseFloat(item.returns3y || 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                    {parseFloat(item.returns3y || 0) >= 0 ? "+" : ""}{parseFloat(item.returns3y || 0).toFixed(2)}%
+                                  </td>
+                                  <td className={`py-3 px-3 text-right font-mono ${parseFloat(item.returns5y || 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                    {parseFloat(item.returns5y || 0) >= 0 ? "+" : ""}{parseFloat(item.returns5y || 0).toFixed(2)}%
                                   </td>
                                   <td className="py-3 px-3 text-right font-mono">
                                     {item.expenseRatio ? `${parseFloat(item.expenseRatio).toFixed(2)}%` : "-"}
@@ -355,31 +409,54 @@ export default function AgentScreener() {
                                     {item.aum ? `₹${parseFloat(item.aum).toLocaleString("en-IN")}` : "-"}
                                   </td>
                                   <td className="py-3 px-3 text-center">
-                                    <Badge variant={
-                                      item.riskLevel === "Low" ? "default" : 
-                                      item.riskLevel === "Moderate" ? "secondary" : "destructive"
-                                    } className="text-xs">
+                                    <Badge variant={item.riskLevel === "Low" ? "default" : item.riskLevel === "Moderate" ? "secondary" : "destructive"} className="text-xs">
                                       {item.riskLevel || "-"}
                                     </Badge>
                                   </td>
                                   <td className="py-3 px-3 text-center">
-                                    <Badge variant="outline" className="text-xs">
-                                      {item.rating || "-"}
-                                    </Badge>
+                                    <Badge variant="outline" className="text-xs">{item.rating || "-"}</Badge>
                                   </td>
                                 </>
                               ) : (
                                 <>
+                                  <td className="py-3 px-3 text-muted-foreground max-w-[150px] truncate" title={item.sector}>
+                                    {item.sector || "-"}
+                                  </td>
+                                  <td className="py-3 px-3 text-muted-foreground max-w-[150px] truncate" title={item.industry}>
+                                    {item.industry || "-"}
+                                  </td>
+                                  <td className="py-3 px-3 text-right font-mono">
+                                    ₹{parseFloat(item.currentPrice || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                                  </td>
+                                  <td className={`py-3 px-3 text-right font-mono ${parseFloat(item.dayChangePercent || 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                    {parseFloat(item.dayChangePercent || 0) >= 0 ? "+" : ""}{parseFloat(item.dayChangePercent || 0).toFixed(2)}%
+                                  </td>
                                   <td className="py-3 px-3 text-right font-mono text-green-600">
                                     {item.weekHigh52 ? `₹${parseFloat(item.weekHigh52).toLocaleString("en-IN")}` : "-"}
                                   </td>
                                   <td className="py-3 px-3 text-right font-mono text-red-600">
                                     {item.weekLow52 ? `₹${parseFloat(item.weekLow52).toLocaleString("en-IN")}` : "-"}
                                   </td>
+                                  <td className="py-3 px-3 text-right font-mono">
+                                    {item.marketCapValue ? `₹${parseFloat(item.marketCapValue).toLocaleString("en-IN")}` : "-"}
+                                  </td>
                                   <td className="py-3 px-3 text-center">
-                                    <Badge variant="secondary" className="text-xs">
-                                      {item.marketCap || "-"}
-                                    </Badge>
+                                    <Badge variant="secondary" className="text-xs">{item.marketCap || "-"}</Badge>
+                                  </td>
+                                  <td className="py-3 px-3 text-right font-mono">
+                                    {item.peRatio ? parseFloat(item.peRatio).toFixed(2) : "-"}
+                                  </td>
+                                  <td className="py-3 px-3 text-right font-mono">
+                                    {item.pbRatio ? parseFloat(item.pbRatio).toFixed(2) : "-"}
+                                  </td>
+                                  <td className="py-3 px-3 text-right font-mono text-blue-600">
+                                    {item.dividendYield ? `${parseFloat(item.dividendYield).toFixed(2)}%` : "-"}
+                                  </td>
+                                  <td className={`py-3 px-3 text-right font-mono ${parseFloat(item.roe || 0) >= 15 ? "text-green-600" : ""}`}>
+                                    {item.roe ? `${parseFloat(item.roe).toFixed(2)}%` : "-"}
+                                  </td>
+                                  <td className={`py-3 px-3 text-right font-mono ${parseFloat(item.debtEquity || 0) > 1 ? "text-red-600" : ""}`}>
+                                    {item.debtEquity ? parseFloat(item.debtEquity).toFixed(2) : "-"}
                                   </td>
                                 </>
                               )}
