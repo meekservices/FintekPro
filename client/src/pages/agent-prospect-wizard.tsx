@@ -25,7 +25,8 @@ import {
   Copy, ExternalLink, Plus, Trash2, Loader2, CheckCircle, AlertTriangle,
   IndianRupee, Percent, Clock, Shield, Zap, RefreshCw, Search, Users, Download,
   Upload, Link, FileText, AlertCircle, Settings2, Globe, ChevronUp, ChevronDown, Info,
-  Pencil, RotateCcw, Save, X, Lightbulb, Calculator, LayoutGrid, Wand2
+  Pencil, RotateCcw, Save, X, Lightbulb, Calculator, LayoutGrid, Wand2,
+  Activity, Wallet, BarChart3, ListChecks, ArrowUpCircle
 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import jsPDF from "jspdf";
@@ -791,6 +792,130 @@ export default function AgentProspectWizard() {
   } | null>(null);
   const [prospectId, setProspectId] = useState<string | null>(urlProspectId);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  
+  // Proposal Section Selection State - Agent can toggle which sections to include
+  const [proposalSections, setProposalSections] = useState({
+    exitLoadCalendar: true,
+    capitalGainsSummary: true,
+    portfolioHealthScore: true,
+    expenseRatioAnalysis: true,
+    dividendProjection: true,
+    riskHeatmap: true,
+    goalGapAnalysis: true,
+    benchmarkComparison: true,
+    priorityRecommendations: true,
+    sipRecommendations: true,
+    whatIfSimulator: true,
+    executiveSummary: true
+  });
+  
+  // Capital Gains Data State
+  const [capitalGainsData, setCapitalGainsData] = useState<{
+    stcg: { count: number; totalValue: number; taxableGain: number; estimatedTax: number };
+    ltcg: { count: number; totalValue: number; taxableGain: number; estimatedTax: number; exemptionUsed: number };
+    grandfathered: { count: number; benefit: number };
+    totalTaxLiability: number;
+    holdings: Array<{
+      name: string;
+      isin?: string;
+      holdingPeriod: number;
+      isLongTerm: boolean;
+      purchaseValue: number;
+      currentValue: number;
+      gain: number;
+      taxType: 'STCG' | 'LTCG';
+      estimatedTax: number;
+      isGrandfathered?: boolean;
+    }>;
+  } | null>(null);
+  
+  // Portfolio Health Score State
+  const [healthScoreData, setHealthScoreData] = useState<{
+    overallScore: number;
+    components: {
+      diversification: number;
+      riskAlignment: number;
+      costEfficiency: number;
+      qualityScore: number;
+      liquidityScore: number;
+    };
+    recommendations: string[];
+  } | null>(null);
+  
+  // Expense Ratio Analysis State
+  const [expenseRatioData, setExpenseRatioData] = useState<{
+    weightedAvgTER: number;
+    totalAnnualCost: number;
+    potentialSavings: number;
+    holdings: Array<{
+      name: string;
+      ter: number;
+      value: number;
+      annualCost: number;
+      suggestedAlternative?: { name: string; ter: number; savings: number };
+    }>;
+  } | null>(null);
+  
+  // Dividend Income Projection State
+  const [dividendData, setDividendData] = useState<{
+    estimatedAnnualIncome: number;
+    monthlyIncome: number;
+    yieldPercent: number;
+    holdings: Array<{
+      name: string;
+      value: number;
+      dividendYield: number;
+      estimatedAnnualDividend: number;
+    }>;
+  } | null>(null);
+  
+  // Risk Heatmap State
+  const [riskHeatmapData, setRiskHeatmapData] = useState<{
+    overallRisk: 'low' | 'medium' | 'high' | 'very_high';
+    concentrationWarnings: Array<{
+      type: 'sector' | 'asset' | 'stock' | 'amc';
+      name: string;
+      percentage: number;
+      threshold: number;
+      severity: 'warning' | 'critical';
+    }>;
+    sectorAllocation: Array<{ sector: string; percentage: number; value: number }>;
+  } | null>(null);
+  
+  // Benchmark Comparison State  
+  const [benchmarkData, setBenchmarkData] = useState<{
+    portfolioReturn: { oneYear: number; threeYear: number; fiveYear: number };
+    benchmarks: Array<{
+      name: string;
+      returns: { oneYear: number; threeYear: number; fiveYear: number };
+    }>;
+    alpha: number;
+    beta: number;
+  } | null>(null);
+  
+  // SIP Recommendations State
+  const [sipRecommendations, setSipRecommendations] = useState<Array<{
+    fundName: string;
+    category: string;
+    suggestedAmount: number;
+    expectedReturn: number;
+    riskLevel: string;
+    rationale: string;
+  }>>([]);
+  
+  // What-If Simulator State
+  const [whatIfScenarios, setWhatIfScenarios] = useState<{
+    scenarios: Array<{
+      name: string;
+      marketChange: number;
+      portfolioImpact: number;
+      newValue: number;
+    }>;
+    stressTestResult: {
+      worstCase: number;
+      recovery: string;
+    };
+  } | null>(null);
 
   const generateProposalPDF = async () => {
     if (!proposal?.shareToken) return;
@@ -1855,8 +1980,28 @@ export default function AgentProspectWizard() {
               });
             }
           }
+          
+          const analyticsRes = await fetch("/api/agent-wizard/proposal-analytics", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ holdings, riskProfile, analysis: data })
+          });
+          if (analyticsRes.ok) {
+            const analyticsData = await analyticsRes.json();
+            if (analyticsData.success && analyticsData.analytics) {
+              setCapitalGainsData(analyticsData.analytics.capitalGains);
+              setHealthScoreData(analyticsData.analytics.healthScore);
+              setExpenseRatioData(analyticsData.analytics.expenseRatio);
+              setDividendData(analyticsData.analytics.dividend);
+              setRiskHeatmapData(analyticsData.analytics.riskHeatmap);
+              setBenchmarkData(analyticsData.analytics.benchmark);
+              setWhatIfScenarios(analyticsData.analytics.whatIf);
+              setSipRecommendations(analyticsData.analytics.sipRecommendations || []);
+            }
+          }
         } catch (e) {
-          console.log("Exit load fetch skipped:", e);
+          console.log("Exit load/analytics fetch skipped:", e);
         }
       } else {
         toast({ title: "Analysis Failed", description: data.error || "Could not analyze portfolio.", variant: "destructive" });
@@ -1907,6 +2052,27 @@ export default function AgentProspectWizard() {
       if (data.success) {
         setFreshInvestments(data.suggestions);
         setCurrentStep(8);
+      }
+    }
+  });
+
+  const getProposalAnalyticsMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("/api/agent-wizard/proposal-analytics", {
+        method: "POST",
+        body: JSON.stringify({ holdings, riskProfile, analysis })
+      });
+    },
+    onSuccess: (data) => {
+      if (data.success && data.analytics) {
+        setCapitalGainsData(data.analytics.capitalGains);
+        setHealthScoreData(data.analytics.healthScore);
+        setExpenseRatioData(data.analytics.expenseRatio);
+        setDividendData(data.analytics.dividend);
+        setRiskHeatmapData(data.analytics.riskHeatmap);
+        setBenchmarkData(data.analytics.benchmark);
+        setWhatIfScenarios(data.analytics.whatIf);
+        setSipRecommendations(data.analytics.sipRecommendations || []);
       }
     }
   });
@@ -2003,7 +2169,19 @@ export default function AgentProspectWizard() {
           customAllocations,
           selectedCategories,
           globalAdvisorySelections: hasGlobalAdvisorySelections ? globalAdvisorySelections : undefined,
-          globalAdvisoryBudget: hasGlobalAdvisorySelections ? effectiveGlobalBudget : undefined
+          globalAdvisoryBudget: hasGlobalAdvisorySelections ? effectiveGlobalBudget : undefined,
+          proposalSections,
+          analyticsData: {
+            capitalGains: capitalGainsData,
+            healthScore: healthScoreData,
+            expenseRatio: expenseRatioData,
+            dividend: dividendData,
+            riskHeatmap: riskHeatmapData,
+            benchmark: benchmarkData,
+            whatIf: whatIfScenarios,
+            sipRecommendations,
+            exitLoad: exitLoadData
+          }
         })
       });
     },
@@ -3809,8 +3987,467 @@ export default function AgentProspectWizard() {
               </Card>
             </div>
 
+            {/* Section Selection Panel */}
+            <Card className="mt-4 border-indigo-200 dark:border-indigo-800">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Settings2 className="h-5 w-5 text-indigo-600" />
+                  Proposal Sections
+                </CardTitle>
+                <CardDescription>
+                  Select which analytics sections to include in the client proposal
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {[
+                    { key: 'exitLoadCalendar', label: 'Exit Load Calendar', icon: Clock },
+                    { key: 'capitalGainsSummary', label: 'Capital Gains Summary', icon: Calculator },
+                    { key: 'portfolioHealthScore', label: 'Portfolio Health Score', icon: Activity },
+                    { key: 'expenseRatioAnalysis', label: 'Expense Ratio Analysis', icon: Percent },
+                    { key: 'dividendProjection', label: 'Dividend Projection', icon: Wallet },
+                    { key: 'riskHeatmap', label: 'Risk Heatmap', icon: AlertTriangle },
+                    { key: 'goalGapAnalysis', label: 'Goal Gap Analysis', icon: Target },
+                    { key: 'benchmarkComparison', label: 'Benchmark Comparison', icon: BarChart3 },
+                    { key: 'priorityRecommendations', label: 'Priority Actions', icon: ListChecks },
+                    { key: 'sipRecommendations', label: 'SIP Recommendations', icon: ArrowUpCircle },
+                    { key: 'whatIfSimulator', label: 'What-If Simulator', icon: TrendingDown },
+                    { key: 'executiveSummary', label: 'Executive Summary', icon: FileText }
+                  ].map(({ key, label, icon: Icon }) => (
+                    <label 
+                      key={key} 
+                      className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
+                        proposalSections[key as keyof typeof proposalSections]
+                          ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700'
+                          : 'bg-muted/30 border-muted hover:bg-muted/50'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={proposalSections[key as keyof typeof proposalSections]}
+                        onChange={(e) => setProposalSections(prev => ({ ...prev, [key]: e.target.checked }))}
+                        className="sr-only"
+                      />
+                      <Icon className={`h-4 w-4 ${proposalSections[key as keyof typeof proposalSections] ? 'text-indigo-600' : 'text-muted-foreground'}`} />
+                      <span className={`text-xs font-medium ${proposalSections[key as keyof typeof proposalSections] ? 'text-indigo-700 dark:text-indigo-300' : 'text-muted-foreground'}`}>
+                        {label}
+                      </span>
+                      {proposalSections[key as keyof typeof proposalSections] && (
+                        <CheckCircle className="h-3 w-3 text-green-500 ml-auto" />
+                      )}
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-3">
+                  {Object.values(proposalSections).filter(Boolean).length} of 12 sections selected for proposal
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Executive Summary Card */}
+            {proposalSections.executiveSummary && analysis && (
+              <Card className="mt-4 border-emerald-200 dark:border-emerald-800">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-emerald-600" />
+                    Executive Summary
+                  </CardTitle>
+                  <CardDescription>One-page key highlights for {prospectData.name}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div className="p-3 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Total Portfolio Value</p>
+                      <p className="text-xl font-bold text-blue-700 dark:text-blue-300">{formatCurrency(analysis.totalValue)}</p>
+                      <p className="text-xs text-green-600 mt-1">+{((analysis.totalGainPercent || 0)).toFixed(1)}% overall gain</p>
+                    </div>
+                    <div className="p-3 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Risk Profile</p>
+                      <p className="text-xl font-bold text-purple-700 dark:text-purple-300 capitalize">{riskProfile.riskTolerance}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Score: {analysis.riskScore}/100</p>
+                    </div>
+                    <div className="p-3 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Holdings Count</p>
+                      <p className="text-xl font-bold text-amber-700 dark:text-amber-300">{holdings.length}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Across {Object.keys(analysis.assetAllocation || {}).length} asset types</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 p-3 bg-muted/30 rounded-lg">
+                    <p className="text-sm font-medium mb-2">Key Observations</p>
+                    <ul className="text-xs text-muted-foreground space-y-1">
+                      <li className="flex items-start gap-2"><CheckCircle className="h-3 w-3 text-green-500 mt-0.5" /> Portfolio aligned with {riskProfile.primaryGoal?.replace('_', ' ')} goal</li>
+                      <li className="flex items-start gap-2"><CheckCircle className="h-3 w-3 text-green-500 mt-0.5" /> Investment horizon: {riskProfile.investmentHorizon?.replace('_', ' ')}</li>
+                      {healthScoreData && <li className="flex items-start gap-2"><Activity className="h-3 w-3 text-blue-500 mt-0.5" /> Health Score: {healthScoreData.overallScore}/100</li>}
+                    </ul>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Capital Gains Summary Card */}
+            {proposalSections.capitalGainsSummary && capitalGainsData && (
+              <Card className="mt-4 border-orange-200 dark:border-orange-800">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Calculator className="h-5 w-5 text-orange-600" />
+                    Capital Gains Summary
+                  </CardTitle>
+                  <CardDescription>STCG/LTCG breakdown and estimated tax liability</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                    <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded-lg text-center">
+                      <p className="text-xs text-muted-foreground">STCG (@20%)</p>
+                      <p className="text-lg font-bold text-red-600">{formatCurrency(capitalGainsData.stcg.taxableGain)}</p>
+                      <p className="text-xs text-muted-foreground">{capitalGainsData.stcg.count} holdings</p>
+                    </div>
+                    <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-center">
+                      <p className="text-xs text-muted-foreground">LTCG (@12.5%)</p>
+                      <p className="text-lg font-bold text-amber-600">{formatCurrency(capitalGainsData.ltcg.taxableGain)}</p>
+                      <p className="text-xs text-muted-foreground">{capitalGainsData.ltcg.count} holdings</p>
+                    </div>
+                    <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
+                      <p className="text-xs text-muted-foreground">LTCG Exemption Used</p>
+                      <p className="text-lg font-bold text-green-600">{formatCurrency(capitalGainsData.ltcg.exemptionUsed)}</p>
+                      <p className="text-xs text-muted-foreground">of ₹1.25L limit</p>
+                    </div>
+                    <div className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-center">
+                      <p className="text-xs text-muted-foreground">Est. Tax Liability</p>
+                      <p className="text-lg font-bold text-purple-600">{formatCurrency(capitalGainsData.totalTaxLiability)}</p>
+                      <p className="text-xs text-muted-foreground">if sold today</p>
+                    </div>
+                  </div>
+                  {capitalGainsData.grandfathered.count > 0 && (
+                    <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm flex items-center gap-2 mb-3">
+                      <Shield className="h-4 w-4 text-blue-600" />
+                      <span className="text-blue-700 dark:text-blue-300">
+                        {capitalGainsData.grandfathered.count} holdings eligible for grandfathering benefit (savings: {formatCurrency(capitalGainsData.grandfathered.benefit)})
+                      </span>
+                    </div>
+                  )}
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {capitalGainsData.holdings.slice(0, 5).map((h, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg text-sm">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{h.name}</p>
+                          <p className="text-xs text-muted-foreground">{h.holdingPeriod} days | {h.isGrandfathered ? 'Grandfathered' : h.taxType}</p>
+                        </div>
+                        <div className="text-right ml-2">
+                          <Badge variant={h.gain >= 0 ? 'default' : 'destructive'} className="text-xs">
+                            {h.gain >= 0 ? '+' : ''}{formatCurrency(h.gain)}
+                          </Badge>
+                          <p className="text-xs text-muted-foreground mt-1">Tax: {formatCurrency(h.estimatedTax)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Portfolio Health Score Card */}
+            {proposalSections.portfolioHealthScore && healthScoreData && (
+              <Card className="mt-4 border-teal-200 dark:border-teal-800">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Activity className="h-5 w-5 text-teal-600" />
+                    Portfolio Health Score
+                  </CardTitle>
+                  <CardDescription>Overall portfolio quality assessment</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-6 mb-4">
+                    <div className="relative w-24 h-24">
+                      <svg className="w-24 h-24 transform -rotate-90">
+                        <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="none" className="text-muted/30" />
+                        <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="none" 
+                          className={healthScoreData.overallScore >= 80 ? 'text-green-500' : healthScoreData.overallScore >= 60 ? 'text-amber-500' : 'text-red-500'}
+                          strokeDasharray={`${healthScoreData.overallScore * 2.51} 251`} strokeLinecap="round" />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-2xl font-bold">{healthScoreData.overallScore}</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      {Object.entries(healthScoreData.components).map(([key, value]) => (
+                        <div key={key} className="flex items-center gap-2">
+                          <span className="text-xs capitalize w-24">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
+                          <Progress value={value} className="flex-1 h-2" />
+                          <span className="text-xs font-medium w-8 text-right">{value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {healthScoreData.recommendations.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground">Improvement Suggestions:</p>
+                      {healthScoreData.recommendations.map((rec, idx) => (
+                        <p key={idx} className="text-xs text-amber-700 dark:text-amber-300 flex items-start gap-1">
+                          <Lightbulb className="h-3 w-3 mt-0.5" /> {rec}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Expense Ratio Analysis Card */}
+            {proposalSections.expenseRatioAnalysis && expenseRatioData && (
+              <Card className="mt-4 border-pink-200 dark:border-pink-800">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Percent className="h-5 w-5 text-pink-600" />
+                    Expense Ratio Analysis
+                  </CardTitle>
+                  <CardDescription>Total expense ratios and potential savings</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-3 gap-3 mb-4">
+                    <div className="p-2 bg-pink-50 dark:bg-pink-900/20 rounded-lg text-center">
+                      <p className="text-xs text-muted-foreground">Weighted Avg TER</p>
+                      <p className="text-lg font-bold text-pink-600">{expenseRatioData.weightedAvgTER}%</p>
+                    </div>
+                    <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded-lg text-center">
+                      <p className="text-xs text-muted-foreground">Annual Cost</p>
+                      <p className="text-lg font-bold text-red-600">{formatCurrency(expenseRatioData.totalAnnualCost)}</p>
+                    </div>
+                    <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
+                      <p className="text-xs text-muted-foreground">Potential Savings</p>
+                      <p className="text-lg font-bold text-green-600">{formatCurrency(expenseRatioData.potentialSavings)}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-2 max-h-36 overflow-y-auto">
+                    {expenseRatioData.holdings.slice(0, 5).map((h, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg text-sm">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{h.name}</p>
+                          <p className="text-xs text-muted-foreground">TER: {h.ter}% | Cost: {formatCurrency(h.annualCost)}/yr</p>
+                        </div>
+                        {h.suggestedAlternative && (
+                          <Badge variant="outline" className="text-green-600 border-green-300 text-xs">
+                            Save {formatCurrency(h.suggestedAlternative.savings)}
+                          </Badge>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Risk Heatmap Card */}
+            {proposalSections.riskHeatmap && riskHeatmapData && (
+              <Card className="mt-4 border-red-200 dark:border-red-800">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-red-600" />
+                    Risk Heatmap
+                  </CardTitle>
+                  <CardDescription>Concentration risks and sector allocation</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-3 mb-4">
+                    <Badge variant={
+                      riskHeatmapData.overallRisk === 'low' ? 'default' :
+                      riskHeatmapData.overallRisk === 'medium' ? 'secondary' :
+                      riskHeatmapData.overallRisk === 'high' ? 'destructive' : 'destructive'
+                    } className="text-sm px-3 py-1">
+                      {riskHeatmapData.overallRisk.replace('_', ' ').toUpperCase()} RISK
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {riskHeatmapData.concentrationWarnings.length} concentration warning{riskHeatmapData.concentrationWarnings.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  {riskHeatmapData.concentrationWarnings.length > 0 && (
+                    <div className="space-y-2 mb-4">
+                      {riskHeatmapData.concentrationWarnings.slice(0, 4).map((w, idx) => (
+                        <div key={idx} className={`p-2 rounded-lg text-sm flex items-center justify-between ${
+                          w.severity === 'critical' ? 'bg-red-100 dark:bg-red-900/30' : 'bg-amber-100 dark:bg-amber-900/30'
+                        }`}>
+                          <span className="flex items-center gap-2">
+                            <AlertTriangle className={`h-4 w-4 ${w.severity === 'critical' ? 'text-red-600' : 'text-amber-600'}`} />
+                            <span className="capitalize">{w.type}: {w.name}</span>
+                          </span>
+                          <Badge variant="outline">{w.percentage}% (limit: {w.threshold}%)</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground mb-2">Sector Allocation</p>
+                    {riskHeatmapData.sectorAllocation.slice(0, 6).map((s, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <span className="text-xs w-28 truncate">{s.sector}</span>
+                        <Progress value={s.percentage} className="flex-1 h-2" />
+                        <span className="text-xs font-medium w-12 text-right">{s.percentage}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Benchmark Comparison Card */}
+            {proposalSections.benchmarkComparison && benchmarkData && (
+              <Card className="mt-4 border-sky-200 dark:border-sky-800">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5 text-sky-600" />
+                    Benchmark Comparison
+                  </CardTitle>
+                  <CardDescription>Portfolio returns vs market benchmarks</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-4 gap-2 mb-4 text-center text-xs">
+                    <div></div>
+                    <div className="font-medium">1Y</div>
+                    <div className="font-medium">3Y</div>
+                    <div className="font-medium">5Y</div>
+                    <div className="font-medium text-left">Your Portfolio</div>
+                    <div className="text-blue-600 font-bold">{benchmarkData.portfolioReturn.oneYear}%</div>
+                    <div className="text-blue-600 font-bold">{benchmarkData.portfolioReturn.threeYear}%</div>
+                    <div className="text-blue-600 font-bold">{benchmarkData.portfolioReturn.fiveYear}%</div>
+                    {benchmarkData.benchmarks.map((b, idx) => (
+                      <>
+                        <div key={`name-${idx}`} className="text-left text-muted-foreground">{b.name}</div>
+                        <div key={`1y-${idx}`}>{b.returns.oneYear}%</div>
+                        <div key={`3y-${idx}`}>{b.returns.threeYear}%</div>
+                        <div key={`5y-${idx}`}>{b.returns.fiveYear}%</div>
+                      </>
+                    ))}
+                  </div>
+                  <div className="flex gap-4 p-2 bg-muted/50 rounded-lg">
+                    <div className="text-center flex-1">
+                      <p className="text-xs text-muted-foreground">Alpha</p>
+                      <p className={`font-bold ${benchmarkData.alpha >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {benchmarkData.alpha >= 0 ? '+' : ''}{benchmarkData.alpha}%
+                      </p>
+                    </div>
+                    <div className="text-center flex-1">
+                      <p className="text-xs text-muted-foreground">Beta</p>
+                      <p className="font-bold">{benchmarkData.beta.toFixed(2)}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* What-If Simulator Card */}
+            {proposalSections.whatIfSimulator && whatIfScenarios && (
+              <Card className="mt-4 border-violet-200 dark:border-violet-800">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <TrendingDown className="h-5 w-5 text-violet-600" />
+                    What-If Simulator
+                  </CardTitle>
+                  <CardDescription>Market stress test scenarios</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    {whatIfScenarios.scenarios.map((s, idx) => (
+                      <div key={idx} className={`p-3 rounded-lg text-center ${
+                        s.marketChange < 0 ? 'bg-red-50 dark:bg-red-900/20' : 'bg-green-50 dark:bg-green-900/20'
+                      }`}>
+                        <p className="text-xs text-muted-foreground">{s.name}</p>
+                        <p className={`text-lg font-bold ${s.marketChange < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          {formatCurrency(s.newValue)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {s.portfolioImpact >= 0 ? '+' : ''}{s.portfolioImpact}% impact
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                    <p className="text-sm font-medium text-amber-700 dark:text-amber-300">Stress Test Result</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Worst case scenario: Portfolio could drop to {formatCurrency(whatIfScenarios.stressTestResult.worstCase)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Expected recovery: {whatIfScenarios.stressTestResult.recovery}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Dividend Projection Card */}
+            {proposalSections.dividendProjection && dividendData && (
+              <Card className="mt-4 border-lime-200 dark:border-lime-800">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Wallet className="h-5 w-5 text-lime-600" />
+                    Dividend Income Projection
+                  </CardTitle>
+                  <CardDescription>Estimated dividend income from portfolio</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-3 gap-3 mb-4">
+                    <div className="p-2 bg-lime-50 dark:bg-lime-900/20 rounded-lg text-center">
+                      <p className="text-xs text-muted-foreground">Annual Income</p>
+                      <p className="text-lg font-bold text-lime-600">{formatCurrency(dividendData.estimatedAnnualIncome)}</p>
+                    </div>
+                    <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
+                      <p className="text-xs text-muted-foreground">Monthly Income</p>
+                      <p className="text-lg font-bold text-green-600">{formatCurrency(dividendData.monthlyIncome)}</p>
+                    </div>
+                    <div className="p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg text-center">
+                      <p className="text-xs text-muted-foreground">Yield</p>
+                      <p className="text-lg font-bold text-emerald-600">{dividendData.yieldPercent}%</p>
+                    </div>
+                  </div>
+                  {dividendData.holdings.length > 0 && (
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {dividendData.holdings.slice(0, 4).map((h, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg text-sm">
+                          <span className="truncate flex-1">{h.name}</span>
+                          <span className="text-xs text-muted-foreground ml-2">{h.dividendYield}% yield</span>
+                          <Badge variant="outline" className="ml-2 text-xs">{formatCurrency(h.estimatedAnnualDividend)}/yr</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* SIP Recommendations Card */}
+            {proposalSections.sipRecommendations && sipRecommendations.length > 0 && (
+              <Card className="mt-4 border-cyan-200 dark:border-cyan-800">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <ArrowUpCircle className="h-5 w-5 text-cyan-600" />
+                    SIP Recommendations
+                  </CardTitle>
+                  <CardDescription>Suggested SIP portfolio based on {riskProfile.riskTolerance} risk profile</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {sipRecommendations.map((sip, idx) => (
+                      <div key={idx} className="p-3 bg-muted/50 rounded-lg">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium text-sm">{sip.fundName}</span>
+                          <Badge variant="outline" className="text-cyan-600">{formatCurrency(sip.suggestedAmount)}/mo</Badge>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span>{sip.category}</span>
+                          <span className="text-green-600">~{sip.expectedReturn}% returns</span>
+                          <Badge variant="secondary" className="text-xs">{sip.riskLevel}</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">{sip.rationale}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-3 text-center">
+                    Total SIP: {formatCurrency(sipRecommendations.reduce((sum, s) => sum + s.suggestedAmount, 0))}/month
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Exit Load Calendar */}
-            {exitLoadData && exitLoadData.holdings.length > 0 && (
+            {proposalSections.exitLoadCalendar && exitLoadData && exitLoadData.holdings.length > 0 && (
               <Card className="mt-4 border-blue-200 dark:border-blue-800">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
@@ -3880,8 +4517,66 @@ export default function AgentProspectWizard() {
               </Card>
             )}
 
+            {/* Priority Recommendations Card */}
+            {proposalSections.priorityRecommendations && capitalGainsData && riskHeatmapData && (
+              <Card className="mt-4 border-rose-200 dark:border-rose-800">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <ListChecks className="h-5 w-5 text-rose-600" />
+                    Priority Recommendations
+                  </CardTitle>
+                  <CardDescription>Ranked action items based on impact and urgency</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {[
+                      ...(riskHeatmapData.concentrationWarnings?.some((w: any) => w.severity === 'critical') ? [{
+                        priority: 1,
+                        action: 'Reduce concentration risk',
+                        reason: 'Portfolio has critical concentration in single sector/stock',
+                        impact: 'Reduces portfolio volatility by up to 15%'
+                      }] : []),
+                      ...(capitalGainsData.stcg.count > 0 && capitalGainsData.stcg.estimatedTax > 0 ? [{
+                        priority: 2,
+                        action: 'Consider tax-loss harvesting',
+                        reason: `${capitalGainsData.stcg.count} holdings have short-term gains`,
+                        impact: `Potential tax savings: ${formatCurrency(capitalGainsData.stcg.estimatedTax * 0.3)}`
+                      }] : []),
+                      {
+                        priority: 3,
+                        action: 'Review expense ratios',
+                        reason: 'Switch to direct plans for lower costs',
+                        impact: 'Save ₹5,000-15,000 annually in fees'
+                      },
+                      {
+                        priority: 4,
+                        action: 'Set up SIP for regular investing',
+                        reason: 'Systematic investing reduces timing risk',
+                        impact: 'Average returns improve by 2-3% over lumpsum'
+                      }
+                    ].map((rec, idx) => (
+                      <div key={idx} className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                          rec.priority === 1 ? 'bg-red-500 text-white' :
+                          rec.priority === 2 ? 'bg-amber-500 text-white' :
+                          'bg-blue-500 text-white'
+                        }`}>
+                          {rec.priority}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">{rec.action}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{rec.reason}</p>
+                          <p className="text-xs text-green-600 mt-1">{rec.impact}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Goal Projection Visualization */}
-            {analysis && analysis.totalValue > 0 && (
+            {proposalSections.goalGapAnalysis && analysis && analysis.totalValue > 0 && (
               <Card className="mt-4 border-purple-200 dark:border-purple-800">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">

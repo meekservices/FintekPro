@@ -3335,7 +3335,9 @@ class AgentProspectWizardService {
     freshInvestmentAmount: number,
     customAllocations?: { equity: number; debt: number; hybrid: number; gold: number; silver?: number; index?: number },
     selectedCategories?: string[],
-    globalAdvisorySelections?: Record<string, string[]>
+    globalAdvisorySelections?: Record<string, string[]>,
+    proposalSections?: Record<string, boolean>,
+    analyticsData?: any
   ): Promise<CombinedProposal> {
     const analysis = this.analyzePortfolio(holdings, riskProfile);
     const rebalancingResult = await this.generateRebalancingRecommendations(
@@ -3466,6 +3468,21 @@ class AgentProspectWizardService {
       agentMobile,
       referralCode,
       executiveSummary: this.generateExecutiveSummary(analysis, rebalancing, freshInvestments, riskProfile, globalAdvisorySelections),
+      proposalSections: proposalSections || {
+        exitLoadCalendar: true,
+        capitalGainsSummary: true,
+        portfolioHealthScore: true,
+        expenseRatioAnalysis: true,
+        dividendProjection: true,
+        riskHeatmap: true,
+        goalGapAnalysis: true,
+        benchmarkComparison: true,
+        priorityRecommendations: true,
+        sipRecommendations: true,
+        whatIfSimulator: true,
+        executiveSummary: true
+      },
+      analyticsData: analyticsData || null,
       status: 'draft',
       validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       viewCount: 0
