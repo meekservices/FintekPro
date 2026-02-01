@@ -3722,12 +3722,12 @@ export default function AgentProspectWizard() {
                   title: "Portfolio Imported",
                   description: `Successfully imported ${count} holdings with ISIN enrichment.`
                 });
-                // Refresh the holdings list
+                // Refresh the holdings list from correct endpoint
                 if (prospectId) {
-                  apiRequest(`/api/ai-investment/prospects/${prospectId}/portfolio`)
+                  apiRequest(`/api/agent-wizard/prospects/${prospectId}/holdings`)
                     .then((data: any) => {
-                      if (data?.portfolio?.holdings) {
-                        setHoldings(data.portfolio.holdings.map(toFrontendHolding));
+                      if (data?.holdings) {
+                        setHoldings(data.holdings.map(toFrontendHolding));
                       }
                     })
                     .catch((err: any) => console.log("Refresh holdings error:", err));
