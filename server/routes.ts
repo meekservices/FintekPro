@@ -27,6 +27,7 @@ import mcaIntelligenceRoutes from './routes/mca-intelligence-routes';
 import mcaDirectPaymentRoutes from './routes/mca-direct-payment-routes';
 import mcaFinancialBackfillRoutes from './routes/mca-financial-backfill-routes';
 import researchWorkspaceRoutes from './routes/research-workspace';
+import intrinsicValueRoutes from './routes/intrinsic-value';
 import signatureRoutes from './routes/signature-routes';
 import userSignatureESignRoutes from './routes/user-signature-esign-routes';
 import { mcaFinancialRefreshScheduler } from "./services/mca-financial-refresh-scheduler";
@@ -833,6 +834,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   app.use("/api/admin/financial-metrics", requireAdmin, financialMetricsAdminRoutes);
   app.use("/api/aa", aaConsentRoutes);
   console.log("✅ Financial Metrics routes registered");
+
+  // Intrinsic Value Calculator Routes
+  app.use("/api", intrinsicValueRoutes);
+  console.log("✅ Intrinsic Value Calculator routes registered");
   app.use("/api/portfolio/staging", portfolioStagingRoutes);
   app.post("/api/admin/seed-products", requireAdmin, async (req, res) => {
     try {
