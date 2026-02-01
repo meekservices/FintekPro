@@ -1883,7 +1883,7 @@ export default function AgentProspectWizard() {
     },
     onSuccess: (data) => {
       if (data.success) {
-        setRebalancing(data.suggestions);
+        setRebalancing(data.suggestions || []);
         setTaxSummary(data.taxSummary || null);
         setCurrentStep(7);
       }
@@ -4646,7 +4646,7 @@ export default function AgentProspectWizard() {
             <CardDescription>AI-suggested portfolio adjustments based on {riskProfile.riskTolerance} risk profile</CardDescription>
           </CardHeader>
           <CardContent>
-            {rebalancing.length === 0 ? (
+            {(!rebalancing || rebalancing.length === 0) ? (
               <div className="text-center py-8 text-muted-foreground">
                 <CheckCircle className="h-12 w-12 mx-auto mb-3 text-green-500" />
                 <p className="font-medium">Portfolio is well-balanced!</p>

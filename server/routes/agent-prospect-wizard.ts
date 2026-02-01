@@ -473,7 +473,7 @@ router.post("/rebalancing-suggestions", async (req: Request, res: Response) => {
     const parsedRiskProfile = riskProfileSchema.parse(riskProfile);
     const parsedAllocations = customAllocations ? customAllocationsSchema.parse(customAllocations) : undefined;
     
-    const result = agentProspectWizardService.generateRebalancingRecommendations(
+    const result = await agentProspectWizardService.generateRebalancingRecommendations(
       normalizedHoldings, 
       parsedRiskProfile, 
       analysis,
