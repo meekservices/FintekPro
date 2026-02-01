@@ -681,6 +681,231 @@ router.post("/proposals/:id/share", async (req: Request, res: Response) => {
   }
 });
 
+// EPIC 4: Proposal Version Timeline
+router.get("/proposal-versions/:id", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const { db } = await import('../db');
+    const { prospectProposals } = await import('@shared/schema');
+    const { desc, sql } = await import('drizzle-orm');
+
+    const proposalId = req.params.id;
+    const versions = await db.select({
+      id: prospectProposals.id,
+      proposalVersion: prospectProposals.proposalVersion,
+      parentProposalId: prospectProposals.parentProposalId,
+      isLatestVersion: prospectProposals.isLatestVersion,
+      lockedAt: prospectProposals.lockedAt,
+      createdAt: prospectProposals.createdAt,
+      status: prospectProposals.status,
+      proposalTitle: prospectProposals.proposalTitle,
+      totalInvestmentAmount: prospectProposals.totalInvestmentAmount,
+      projectedReturns: prospectProposals.projectedReturns,
+      agentName: prospectProposals.agentName
+    })
+    .from(prospectProposals)
+    .where(
+      sql`${prospectProposals.agentId} = ${agentId} AND (
+        ${prospectProposals.id} = ${proposalId} OR 
+        ${prospectProposals.parentProposalId} = ${proposalId} OR
+        ${prospectProposals.id} IN (
+          SELECT ${prospectProposals.parentProposalId} FROM ${prospectProposals} 
+          WHERE ${prospectProposals.id} = ${proposalId}
+        )
+      )`
+    )
+    .orderBy(desc(prospectProposals.proposalVersion));
+
+    res.json(versions);
+  } catch (error: any) {
+    console.error("[Agent Wizard] Error fetching proposal versions:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// EPIC 6: Advisor Override - Apply override to recommendation
+router.post("/proposals/:id/override-recommendation", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const { db } = await import('../db');
+    const { prospectProposals } = await import('@shared/schema');
+    const { eq, and } = await import('drizzle-orm');
+
+    const { 
+      recommendationId, 
+      productName,
+      originalAction, 
+      originalAmount,
+      newAction, 
+      newAmount, 
+      overrideReason, 
+      overrideCategory,
+      overriddenBy 
+    } = req.body;
+
+    if (!overrideReason?.trim()) {
+      return res.status(400).json({ success: false, message: "Override reason is required" });
+    }
+
+    const [proposal] = await db.select()
+      .from(prospectProposals)
+      .where(and(eq(prospectProposals.id, req.params.id), eq(prospectProposals.agentId, agentId)))
+      .limit(1);
+
+    if (!proposal) {
+      return res.status(404).json({ success: false, message: "Proposal not found" });
+    }
+
+    if (proposal.lockedAt) {
+      return res.status(400).json({ success: false, message: "Cannot modify locked proposal" });
+    }
+
+    const recommendations = (proposal.recommendations as any[]) || [];
+    const updatedRecs = recommendations.map(rec => {
+      if (rec.productName === productName || rec.id === recommendationId) {
+        return {
+          ...rec,
+          action: newAction || rec.action,
+          changeAmount: newAmount ?? rec.changeAmount,
+          suggestedAmount: newAmount ?? rec.suggestedAmount,
+          isOverridden: true,
+          override: {
+            originalAction,
+            originalAmount,
+            newAction,
+            newAmount,
+            overrideReason,
+            overrideCategory,
+            overriddenBy,
+            overriddenAt: new Date().toISOString()
+          }
+        };
+      }
+      return rec;
+    });
+
+    await db.update(prospectProposals)
+      .set({ recommendations: updatedRecs, updatedAt: new Date() })
+      .where(eq(prospectProposals.id, req.params.id));
+
+    const updatedRec = updatedRecs.find(r => r.productName === productName || r.id === recommendationId);
+    res.json({ success: true, recommendation: updatedRec });
+  } catch (error: any) {
+    console.error("[Agent Wizard] Error applying override:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// EPIC 6: Advisor Override - Revert override
+router.post("/proposals/:id/revert-override", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const { db } = await import('../db');
+    const { prospectProposals } = await import('@shared/schema');
+    const { eq, and } = await import('drizzle-orm');
+
+    const { recommendationId, productName } = req.body;
+
+    const [proposal] = await db.select()
+      .from(prospectProposals)
+      .where(and(eq(prospectProposals.id, req.params.id), eq(prospectProposals.agentId, agentId)))
+      .limit(1);
+
+    if (!proposal) {
+      return res.status(404).json({ success: false, message: "Proposal not found" });
+    }
+
+    if (proposal.lockedAt) {
+      return res.status(400).json({ success: false, message: "Cannot modify locked proposal" });
+    }
+
+    const recommendations = (proposal.recommendations as any[]) || [];
+    const updatedRecs = recommendations.map(rec => {
+      if ((rec.productName === productName || rec.id === recommendationId) && rec.isOverridden && rec.override) {
+        return {
+          ...rec,
+          action: rec.override.originalAction,
+          changeAmount: rec.override.originalAmount,
+          suggestedAmount: rec.override.originalAmount,
+          isOverridden: false,
+          override: undefined
+        };
+      }
+      return rec;
+    });
+
+    await db.update(prospectProposals)
+      .set({ recommendations: updatedRecs, updatedAt: new Date() })
+      .where(eq(prospectProposals.id, req.params.id));
+
+    const updatedRec = updatedRecs.find(r => r.productName === productName || r.id === recommendationId);
+    res.json({ success: true, recommendation: updatedRec });
+  } catch (error: any) {
+    console.error("[Agent Wizard] Error reverting override:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// EPIC 5: Make proposal public with expiry
+router.post("/proposals/:id/make-public", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const { db } = await import('../db');
+    const { prospectProposals } = await import('@shared/schema');
+    const { eq, and } = await import('drizzle-orm');
+
+    const { expiresInDays = 30, watermarkAdvisorName } = req.body;
+
+    const [proposal] = await db.select()
+      .from(prospectProposals)
+      .where(and(eq(prospectProposals.id, req.params.id), eq(prospectProposals.agentId, agentId)))
+      .limit(1);
+
+    if (!proposal) {
+      return res.status(404).json({ success: false, message: "Proposal not found" });
+    }
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + expiresInDays);
+
+    await db.update(prospectProposals)
+      .set({ 
+        isPublic: true, 
+        expiresAt,
+        watermarkAdvisorName: watermarkAdvisorName || proposal.agentName,
+        lockedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(prospectProposals.id, req.params.id));
+
+    res.json({ 
+      success: true, 
+      message: "Proposal is now public",
+      shareUrl: `/proposal/${proposal.shareToken}`,
+      expiresAt: expiresAt.toISOString()
+    });
+  } catch (error: any) {
+    console.error("[Agent Wizard] Error making proposal public:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 router.post("/proposal-analytics", async (req: Request, res: Response) => {
   try {
     const agentId = (req as any).user?.id;

@@ -31,6 +31,10 @@ import {
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import jsPDF from "jspdf";
 import PortfolioImportPanel from "@/components/portfolio/PortfolioImportPanel";
+import { ProposalVersionTimeline } from "@/components/proposal/ProposalVersionTimeline";
+import { AdvisorOverrideSystem, AdvisorModifiedBadge } from "@/components/proposal/AdvisorOverrideSystem";
+import { useSectionAnalytics, AnalyticsSection } from "@/hooks/use-section-analytics";
+import { SectionAnalyticsLoader } from "@/components/proposal/SectionAnalyticsLoader";
 
 interface PortfolioHolding {
   id?: string;
@@ -145,6 +149,17 @@ interface RebalanceRecommendation {
     returns3Y: string;
     risk: string;
   };
+  isOverridden?: boolean;
+  override?: {
+    originalAction: string;
+    originalAmount: number;
+    newAction?: string;
+    newAmount?: number;
+    overrideReason: string;
+    overrideCategory: string;
+    overriddenBy: string;
+    overriddenAt: string;
+  };
 }
 
 interface FreshInvestmentSuggestion {
@@ -172,6 +187,11 @@ interface CombinedProposal {
   projectedValue: number;
   projectedReturn: string;
   executiveSummary: string;
+  proposalVersion?: number;
+  parentProposalId?: string | null;
+  isLatestVersion?: boolean;
+  lockedAt?: string | null;
+  agentName?: string | null;
 }
 
 const PRODUCT_TYPES = [
@@ -5377,12 +5397,24 @@ export default function AgentProspectWizard() {
                           </Badge>
                           <span className="font-medium">{rec.productName}</span>
                           <Badge variant="outline">{rec.priority}</Badge>
+                          {rec.isOverridden && rec.override && (
+                            <AdvisorModifiedBadge override={rec.override} />
+                          )}
                         </div>
                         <span className={`font-bold ${rec.changeAmount < 0 ? 'text-red-600' : 'text-green-600'}`}>
                           {rec.changeAmount < 0 ? '-' : '+'}{formatCurrency(Math.abs(rec.changeAmount))}
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground">{rec.rationale}</p>
+                      {rec.isOverridden && rec.override && (
+                        <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-md text-xs">
+                          <div className="flex items-center gap-1 text-amber-700 dark:text-amber-300">
+                            <User className="h-3 w-3" />
+                            <span className="font-medium">Override Reason:</span>
+                            <span>{rec.override.overrideReason}</span>
+                          </div>
+                        </div>
+                      )}
                       {rec.taxImplications && typeof rec.taxImplications === 'object' && (
                         <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-md text-xs space-y-1">
                           <div className="flex items-center gap-1 text-amber-700 dark:text-amber-300 font-medium">
@@ -5440,6 +5472,27 @@ export default function AgentProspectWizard() {
                       )}
                       {rec.taxImplications && typeof rec.taxImplications === 'string' && (
                         <p className="text-xs text-amber-600 mt-1">Tax Note: {rec.taxImplications}</p>
+                      )}
+                      {proposal && !proposal.lockedAt && (
+                        <div className="mt-2 pt-2 border-t border-dashed flex justify-end group">
+                          <AdvisorOverrideSystem
+                            recommendation={{
+                              productName: rec.productName,
+                              action: rec.action,
+                              changeAmount: rec.changeAmount,
+                              category: rec.productType,
+                              isOverridden: rec.isOverridden,
+                              override: rec.override
+                            }}
+                            proposalId={proposal.proposalId}
+                            agentName={proposal.agentName || 'Advisor'}
+                            onOverrideComplete={(updated) => {
+                              const newRebalancing = [...rebalancing];
+                              newRebalancing[idx] = { ...newRebalancing[idx], ...updated };
+                              setRebalancing(newRebalancing);
+                            }}
+                          />
+                        </div>
                       )}
                     </CardContent>
                   </Card>
@@ -5677,6 +5730,16 @@ export default function AgentProspectWizard() {
                 <p className="text-muted-foreground">{proposal.executiveSummary}</p>
               </CardContent>
             </Card>
+
+            {(proposal.proposalVersion !== undefined && proposal.proposalVersion >= 1) && (
+              <ProposalVersionTimeline
+                currentProposalId={proposal.proposalId}
+                proposalVersion={proposal.proposalVersion}
+                parentProposalId={proposal.parentProposalId || null}
+                isLatestVersion={proposal.isLatestVersion ?? true}
+                lockedAt={proposal.lockedAt || null}
+              />
+            )}
 
             <div className="grid md:grid-cols-4 gap-4">
               <Card>
