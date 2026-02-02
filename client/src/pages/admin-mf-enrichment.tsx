@@ -260,6 +260,7 @@ export default function AdminMFEnrichment() {
                       <TableHead className="text-right">3Y</TableHead>
                       <TableHead className="text-right">5Y</TableHead>
                       <TableHead className="text-right">Sharpe</TableHead>
+                      <TableHead className="text-right">Sortino</TableHead>
                       <TableHead className="text-right">Std Dev</TableHead>
                       <TableHead className="text-right">Max DD</TableHead>
                     </TableRow>
@@ -305,6 +306,9 @@ export default function AdminMFEnrichment() {
                         </TableCell>
                         <TableCell className="text-right text-sm font-medium">
                           {formatRatio(fund.sharpeRatio)}
+                        </TableCell>
+                        <TableCell className="text-right text-sm font-medium">
+                          {formatRatio(fund.sortinoRatio)}
                         </TableCell>
                         <TableCell className="text-right text-sm">
                           {formatRatio(fund.standardDeviation)}

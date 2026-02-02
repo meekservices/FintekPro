@@ -158,9 +158,15 @@ class MFReturnsSyncService {
       if (drawdown > maxDrawdown) maxDrawdown = drawdown;
     }
 
-    // Note: Alpha, Beta, Treynor, Information Ratio require benchmark data
-    // These would need NIFTY 50 or other market index data to calculate properly
-    // For now, we return null for these metrics
+    // Note: Alpha, Beta, Treynor, Information Ratio require benchmark data (e.g., NIFTY 50 index)
+    // To implement these metrics, you would need to:
+    // 1. Fetch NIFTY 50 historical NAV data as the benchmark
+    // 2. Calculate correlation and covariance between fund returns and market returns
+    // 3. Beta = Covariance(Fund, Market) / Variance(Market)
+    // 4. Alpha = Fund Return - (Risk-free Rate + Beta * (Market Return - Risk-free Rate))
+    // 5. Treynor = (Fund Return - Risk-free Rate) / Beta
+    // 6. Information Ratio = (Fund Return - Benchmark Return) / Tracking Error
+    // For now, we return null until benchmark data integration is added
     
     return {
       standardDeviation: parseFloat(annualizedStdDev.toFixed(4)),

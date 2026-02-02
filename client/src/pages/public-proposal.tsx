@@ -1494,43 +1494,109 @@ export default function PublicProposalPage() {
               <div className="space-y-4">
                 {recommendations.map((rec: any, idx: number) => (
                   <div key={idx} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-semibold text-gray-900 dark:text-white">{rec.productName}</h4>
-                          {rec.riskRating && (
-                            <Badge className={RISK_COLORS[rec.riskRating] || "bg-muted text-muted-foreground"} variant="outline">
-                              {rec.riskRating}
-                            </Badge>
+                    <div className="flex flex-col gap-4">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <h4 className="font-semibold text-gray-900 dark:text-white">{rec.productName}</h4>
+                            {rec.riskRating && (
+                              <Badge className={RISK_COLORS[rec.riskRating] || "bg-muted text-muted-foreground"} variant="outline">
+                                {rec.riskRating}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-1">
+                            {rec.amc && `${rec.amc} • `}{rec.category}
+                          </p>
+                          {rec.isin && (
+                            <p className="text-xs font-mono text-muted-foreground">ISIN: {rec.isin}</p>
+                          )}
+                          <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">{rec.selectionReason}</p>
+                        </div>
+                        <div className="flex items-center gap-6">
+                          <div className="text-center">
+                            <p className="text-xs text-muted-foreground">Investment</p>
+                            <p className="font-bold text-lg">₹{rec.recommendedAmount?.toLocaleString('en-IN')}</p>
+                            <p className="text-xs text-muted-foreground">{rec.allocationPercentage}% allocation</p>
+                          </div>
+                          {rec.investmentType === 'sip' && rec.sipAmount && (
+                            <div className="text-center">
+                              <p className="text-xs text-muted-foreground">Monthly SIP</p>
+                              <p className="font-bold text-lg text-green-600">₹{rec.sipAmount?.toLocaleString('en-IN')}</p>
+                            </div>
+                          )}
+                          {(rec.returns1Y || rec.returns3Y || rec.returns5Y) && (
+                            <div className="text-center">
+                              <p className="text-xs text-muted-foreground">Returns</p>
+                              <div className="flex gap-2 text-sm">
+                                {rec.returns1Y && <span className="text-green-600">1Y: {rec.returns1Y}%</span>}
+                                {rec.returns3Y && <span className="text-green-600">3Y: {rec.returns3Y}%</span>}
+                              </div>
+                            </div>
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground mb-2">
-                          {rec.amc && `${rec.amc} • `}{rec.category}
-                        </p>
-                        <p className="text-sm text-muted-foreground dark:text-muted-foreground">{rec.selectionReason}</p>
                       </div>
-                      <div className="flex items-center gap-6">
-                        <div className="text-center">
-                          <p className="text-xs text-muted-foreground">Investment</p>
-                          <p className="font-bold text-lg">₹{rec.recommendedAmount?.toLocaleString('en-IN')}</p>
-                          <p className="text-xs text-muted-foreground">{rec.allocationPercentage}% allocation</p>
-                        </div>
-                        {rec.investmentType === 'sip' && rec.sipAmount && (
-                          <div className="text-center">
-                            <p className="text-xs text-muted-foreground">Monthly SIP</p>
-                            <p className="font-bold text-lg text-green-600">₹{rec.sipAmount?.toLocaleString('en-IN')}</p>
-                          </div>
-                        )}
-                        {(rec.returns1Y || rec.returns3Y || rec.returns5Y) && (
-                          <div className="text-center">
-                            <p className="text-xs text-muted-foreground">Returns</p>
-                            <div className="flex gap-2 text-sm">
-                              {rec.returns1Y && <span className="text-green-600">1Y: {rec.returns1Y}%</span>}
-                              {rec.returns3Y && <span className="text-green-600">3Y: {rec.returns3Y}%</span>}
+                      
+                      {(rec.ter || rec.aum || rec.sharpeRatio || rec.sortinoRatio || rec.alpha || rec.standardDeviation) && (
+                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 pt-3 border-t">
+                          {rec.ter && (
+                            <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
+                              <p className="text-xs text-muted-foreground">TER</p>
+                              <p className="font-semibold text-sm">{typeof rec.ter === 'number' ? rec.ter.toFixed(2) : rec.ter}%</p>
                             </div>
-                          </div>
-                        )}
-                      </div>
+                          )}
+                          {rec.aum && (
+                            <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
+                              <p className="text-xs text-muted-foreground">AUM</p>
+                              <p className="font-semibold text-sm">
+                                {typeof rec.aum === 'number' 
+                                  ? rec.aum >= 10000 
+                                    ? `₹${(rec.aum / 10000).toFixed(0)}Cr`
+                                    : rec.aum >= 100 
+                                      ? `₹${(rec.aum / 100).toFixed(0)}L`
+                                      : `₹${rec.aum.toFixed(0)}`
+                                  : rec.aum}
+                              </p>
+                            </div>
+                          )}
+                          {rec.sharpeRatio && (
+                            <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
+                              <p className="text-xs text-muted-foreground">Sharpe</p>
+                              <p className="font-semibold text-sm">{typeof rec.sharpeRatio === 'number' ? rec.sharpeRatio.toFixed(2) : rec.sharpeRatio}</p>
+                            </div>
+                          )}
+                          {rec.sortinoRatio && (
+                            <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
+                              <p className="text-xs text-muted-foreground">Sortino</p>
+                              <p className="font-semibold text-sm">{typeof rec.sortinoRatio === 'number' ? rec.sortinoRatio.toFixed(2) : rec.sortinoRatio}</p>
+                            </div>
+                          )}
+                          {rec.alpha && (
+                            <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
+                              <p className="text-xs text-muted-foreground">Alpha</p>
+                              <p className="font-semibold text-sm text-green-600">{typeof rec.alpha === 'number' ? rec.alpha.toFixed(2) : rec.alpha}</p>
+                            </div>
+                          )}
+                          {rec.standardDeviation && (
+                            <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
+                              <p className="text-xs text-muted-foreground">Std Dev</p>
+                              <p className="font-semibold text-sm">{typeof rec.standardDeviation === 'number' ? rec.standardDeviation.toFixed(2) : rec.standardDeviation}%</p>
+                            </div>
+                          )}
+                          {rec.beta && (
+                            <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
+                              <p className="text-xs text-muted-foreground">Beta</p>
+                              <p className="font-semibold text-sm">{typeof rec.beta === 'number' ? rec.beta.toFixed(2) : rec.beta}</p>
+                            </div>
+                          )}
+                          {rec.maxDrawdown && (
+                            <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
+                              <p className="text-xs text-muted-foreground">Max DD</p>
+                              <p className="font-semibold text-sm text-red-600">-{typeof rec.maxDrawdown === 'number' ? rec.maxDrawdown.toFixed(1) : rec.maxDrawdown}%</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
