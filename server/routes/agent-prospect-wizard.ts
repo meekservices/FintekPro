@@ -93,13 +93,16 @@ const backendHoldingSchema = z.object({
   category: z.string().optional()
 });
 
-// Lot schema for capital gains tracking
+// Lot schema for capital gains tracking - supports multiple date formats from CAS parser
+// Note: All date fields are optional for backward compatibility, but at least one should be present for tax calculations
 const holdingLotSchema = z.object({
-  purchaseDate: z.string(),
-  transactionType: z.string(),
+  purchaseDate: z.string().optional(),
+  transactionDate: z.union([z.string(), z.date()]).optional(),
+  transactionDateStr: z.string().optional(),
+  transactionType: z.string().optional(),
   units: z.coerce.number(),
   nav: z.coerce.number(),
-  amount: z.coerce.number(),
+  amount: z.coerce.number().optional(),
   stampDuty: z.coerce.number().optional(),
   stt: z.coerce.number().optional(),
   grandfatheredValue: z.coerce.number().optional(),

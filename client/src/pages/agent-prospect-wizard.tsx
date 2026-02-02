@@ -780,6 +780,7 @@ export default function AgentProspectWizard() {
   // STEP 5: Confirmation state for save blocker
   const [showDateWarningConfirm, setShowDateWarningConfirm] = useState(false);
   const [expandedHoldingIds, setExpandedHoldingIds] = useState<Set<string>>(new Set());
+  const [editingLotHoldingId, setEditingLotHoldingId] = useState<string | null>(null);
   const [showEditHoldingsDialog, setShowEditHoldingsDialog] = useState(false);
   const [editableHoldings, setEditableHoldings] = useState<Array<{
     id: string;
@@ -2993,7 +2994,8 @@ export default function AgentProspectWizard() {
                               <TableRow className="bg-muted/50">
                                 <TableHead className="w-8"></TableHead>
                                 <TableHead>Fund Name</TableHead>
-                                <TableHead className="text-center">Purchase Lots</TableHead>
+                                <TableHead className="text-center w-28">First Purchase</TableHead>
+                                <TableHead className="text-center">Lots</TableHead>
                                 <TableHead className="text-center">Tax Status</TableHead>
                                 <TableHead className="text-right">Units</TableHead>
                                 <TableHead className="text-right">Value</TableHead>
@@ -3007,11 +3009,26 @@ export default function AgentProspectWizard() {
                                 const holdingId = holding.id || `${idx}`;
                                 const isExpanded = expandedHoldingIds.has(holdingId);
                                 const lotsCount = holding.lots?.length || 0;
-                                const earliestDate = holding.firstPurchaseDate || 
+                                
+                                // Helper to get normalized date from lot (handles all date formats)
+                                const getLotDateStr = (lot: any): string | null => {
+                                  if (lot.transactionDateStr) return lot.transactionDateStr.split('T')[0];
+                                  if (lot.transactionDate) {
+                                    const d = typeof lot.transactionDate === 'string' ? lot.transactionDate : new Date(lot.transactionDate).toISOString();
+                                    return d.split('T')[0];
+                                  }
+                                  if (lot.purchaseDate) return lot.purchaseDate.split('T')[0];
+                                  return null;
+                                };
+                                
+                                const earliestDate = holding.firstPurchaseDate?.split('T')[0] || 
                                   (holding.lots && holding.lots.length > 0 
-                                    ? holding.lots.reduce((earliest, lot) => 
-                                        !earliest || lot.purchaseDate < earliest ? lot.purchaseDate : earliest, 
-                                        holding.lots[0].purchaseDate)
+                                    ? holding.lots.reduce((earliest: string | null, lot: any) => {
+                                        const lotDate = getLotDateStr(lot);
+                                        if (!lotDate) return earliest;
+                                        if (!earliest) return lotDate;
+                                        return lotDate < earliest ? lotDate : earliest;
+                                      }, null)
                                     : null);
                                 
                                 // Calculate tax status (Section 4)
@@ -3049,32 +3066,29 @@ export default function AgentProspectWizard() {
                                     )}
                                   </TableCell>
                                   <TableCell className="text-center">
-                                    {/* AUTHORITATIVE FIX: Show lot count (e.g., "2 purchase lots", "14 SIP lots")
-                                        Holdings are DERIVED from lots — never the other way around */}
-                                    {lotsCount === 1 && (holding.lots?.[0]?.transactionDate || holding.lots?.[0]?.transactionDateStr) ? (
-                                      <div className="text-xs font-medium">
-                                        {holding.lots[0].transactionDateStr || 
-                                          new Date(holding.lots[0].transactionDate).toLocaleDateString('en-IN', { 
-                                            day: '2-digit', month: 'short', year: 'numeric' 
-                                          })}
-                                      </div>
-                                    ) : lotsCount > 1 ? (
-                                      <div>
-                                        <div className="text-xs font-medium text-blue-600">
-                                          {/* Use lotSummary if available, otherwise generic lot count */}
-                                          {(holding as any).lotSummary || `${lotsCount} purchase lots`}
-                                        </div>
-                                        <Button 
-                                          variant="ghost" 
-                                          size="sm" 
-                                          className="h-5 text-xs text-muted-foreground hover:text-primary p-0"
-                                          onClick={() => toggleHoldingExpansion(holding.id)}
-                                        >
-                                          {isExpanded ? 'Hide lots' : 'Show lots'}
-                                        </Button>
+                                    {earliestDate ? (
+                                      <div className="text-xs font-medium text-blue-700 dark:text-blue-400">
+                                        {new Date(earliestDate).toLocaleDateString('en-IN', {
+                                          day: '2-digit', month: 'short', year: 'numeric'
+                                        })}
                                       </div>
                                     ) : (
-                                      <span className="text-muted-foreground text-xs">No lots</span>
+                                      <span className="text-muted-foreground text-xs">-</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    {lotsCount > 0 ? (
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        className="h-6 text-xs text-blue-600 hover:text-blue-800 p-1"
+                                        onClick={(e) => { e.stopPropagation(); toggleExpanded(); }}
+                                      >
+                                        {lotsCount} {lotsCount === 1 ? 'lot' : 'lots'}
+                                        <ChevronDown className={`h-3 w-3 ml-1 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                                      </Button>
+                                    ) : (
+                                      <span className="text-muted-foreground text-xs">-</span>
                                     )}
                                   </TableCell>
                                   <TableCell className="text-center">
@@ -3116,25 +3130,74 @@ export default function AgentProspectWizard() {
                                 {/* EXPANDABLE LOT VIEW - Progressive Disclosure (Section 3.2) */}
                                 {isExpanded && holding.lots && holding.lots.length > 0 && (
                                   <TableRow className="bg-muted/20">
-                                    <TableCell colSpan={8} className="py-3">
+                                    <TableCell colSpan={9} className="py-3">
                                       <div className="pl-8 pr-4">
-                                        <div className="text-xs font-medium text-muted-foreground mb-2">Purchase History (FIFO Order)</div>
+                                        <div className="flex items-center justify-between mb-2">
+                                          <div className="text-xs font-medium text-muted-foreground">Purchase History (FIFO Order) - Edit dates for accurate tax calculations</div>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-6 text-xs"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setEditingLotHoldingId(holdingId);
+                                            }}
+                                          >
+                                            <Pencil className="h-3 w-3 mr-1" />
+                                            Edit Lot Dates
+                                          </Button>
+                                        </div>
                                         <div className="space-y-1">
                                           {holding.lots.map((lot, lotIdx) => {
-                                            // AUTHORITATIVE FIX: Use transactionDateStr or transactionDate, fallback to purchaseDate
-                                            const lotDateStr = lot.transactionDateStr || 
-                                              (lot.transactionDate ? (typeof lot.transactionDate === 'string' ? lot.transactionDate : new Date(lot.transactionDate).toISOString()) : null) ||
-                                              lot.purchaseDate || '';
-                                            const lotTax = calculateLotTaxStatus(lotDateStr);
-                                            const lotExitLoad = calculateLotExitLoad(lotDateStr);
+                                            // Normalize date to YYYY-MM-DD format for consistent handling
+                                            const normalizedDateStr = getLotDateStr(lot) || '';
+                                            const lotTax = calculateLotTaxStatus(normalizedDateStr);
+                                            const lotExitLoad = calculateLotExitLoad(normalizedDateStr);
+                                            const isEditingThisLot = editingLotHoldingId === holdingId;
                                             return (
                                               <div key={lotIdx} className="flex items-center justify-between text-sm bg-background rounded px-3 py-1.5 border">
                                                 <div className="flex items-center gap-4">
-                                                  <span className="font-medium w-24">
-                                                    {lot.transactionDateStr || (lotDateStr ? new Date(lotDateStr).toLocaleDateString('en-IN', { 
-                                                      day: '2-digit', month: 'short', year: 'numeric' 
-                                                    }) : 'N/A')}
-                                                  </span>
+                                                  {isEditingThisLot ? (
+                                                    <Input
+                                                      type="date"
+                                                      className="h-7 w-32 text-xs"
+                                                      value={normalizedDateStr}
+                                                      onChange={(e) => {
+                                                        const newDate = e.target.value; // YYYY-MM-DD format
+                                                        const updatedHoldings = casPreviewHoldings.map((h, hIdx) => {
+                                                          if (hIdx === idx && h.lots) {
+                                                            const updatedLots = h.lots.map((l, lIdx) => {
+                                                              if (lIdx === lotIdx) {
+                                                                return {
+                                                                  ...l,
+                                                                  transactionDateStr: newDate,
+                                                                  transactionDate: newDate, // Store as string to avoid timezone issues
+                                                                  purchaseDate: newDate
+                                                                };
+                                                              }
+                                                              return l;
+                                                            });
+                                                            // Also update firstPurchaseDate if this was the earliest lot
+                                                            const newEarliestDate = updatedLots.reduce((earliest: string | null, l: any) => {
+                                                              const lotDate = getLotDateStr(l);
+                                                              if (!lotDate) return earliest;
+                                                              if (!earliest) return lotDate;
+                                                              return lotDate < earliest ? lotDate : earliest;
+                                                            }, null);
+                                                            return { ...h, lots: updatedLots, firstPurchaseDate: newEarliestDate };
+                                                          }
+                                                          return h;
+                                                        });
+                                                        setCasPreviewHoldings(updatedHoldings);
+                                                      }}
+                                                    />
+                                                  ) : (
+                                                    <span className="font-medium w-24">
+                                                      {normalizedDateStr ? new Date(normalizedDateStr + 'T00:00:00').toLocaleDateString('en-IN', { 
+                                                        day: '2-digit', month: 'short', year: 'numeric' 
+                                                      }) : 'N/A'}
+                                                    </span>
+                                                  )}
                                                   <span className="text-muted-foreground w-28">
                                                     {lot.units.toFixed(3)} units
                                                   </span>
@@ -3162,6 +3225,26 @@ export default function AgentProspectWizard() {
                                             );
                                           })}
                                         </div>
+                                        {editingLotHoldingId === holdingId && (
+                                          <div className="mt-2 flex items-center gap-2">
+                                            <Button
+                                              variant="default"
+                                              size="sm"
+                                              className="h-6 text-xs"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setEditingLotHoldingId(null);
+                                                toast({
+                                                  title: 'Lot Dates Updated',
+                                                  description: 'Tax status and exit load will be recalculated with new dates.',
+                                                });
+                                              }}
+                                            >
+                                              Done Editing
+                                            </Button>
+                                            <span className="text-xs text-muted-foreground">Changes apply to tax/exit load calculations</span>
+                                          </div>
+                                        )}
                                         {/* Tax Summary per Fix Spec Section 4.2 */}
                                         <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
                                           {taxSummary.ltcgUnits > 0 && (
