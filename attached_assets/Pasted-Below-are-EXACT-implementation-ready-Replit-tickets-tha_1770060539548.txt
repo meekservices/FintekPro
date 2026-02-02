@@ -1,0 +1,153 @@
+Below are EXACT, implementation-ready Replit tickets that fix every identified gap and fit cleanly into your existing Proposal Builder architecture.
+I’ve split them into Backend and Frontend, with clear acceptance criteria, API contracts, and data dependencies so Replit agents can execute without interpretation.
+🔧 GAP FIX 1 — Mandatory Validation Gates Between Phases
+🟦 Backend Ticket: Proposal Flow Gatekeeper
+Ticket ID: PB-BE-VAL-001
+Title: Enforce Proposal Builder Phase Validation Gates
+Scope
+Introduce a centralized validation engine that blocks progression unless mandatory prerequisites are satisfied.
+Implementation
+Create proposal_flow_state table:
+id
+proposal_id
+risk_profile_completed (boolean)
+investment_horizon_completed
+goal_completed
+portfolio_input_completed
+analysis_completed
+recommendation_completed
+rebalancing_completed
+Add middleware: validateProposalPhase(phaseName)
+Block APIs if prerequisite flags are false
+Acceptance Criteria
+Cannot analyze portfolio without holdings or fresh amount
+Cannot generate recommendations without asset allocation
+Cannot generate report without verdicts
+🟦 Frontend Ticket: Phase Lock UI
+Ticket ID: PB-FE-VAL-001
+Title: Lock Proposal Steps Until Validation Passes
+Implementation
+Stepper UI with lock icons
+Disabled CTA buttons if backend returns PHASE_LOCKED
+Acceptance Criteria
+Agent visually sees blocked steps
+Error message shows missing requirement
+🔧 GAP FIX 2 — What-If Simulator Mode Definition
+🟦 Backend Ticket: What-If Engine (Dual Mode)
+Ticket ID: PB-BE-SIM-001
+Title: Implement What-If Simulator (Static + Interactive)
+Modes
+Static (PDF mode)
++10%, −10%, −20% market scenarios
+Interactive (UI mode)
+User-adjustable return & volatility sliders
+API
+POST /proposal/what-if
+{
+  proposalId,
+  mode: "static" | "interactive",
+  assumptions: { returnDelta, volatility }
+}
+Acceptance Criteria
+Same engine powers UI & report
+Deterministic output for PDF
+🟦 Frontend Ticket: What-If Simulator UI
+Ticket ID: PB-FE-SIM-001
+Title: Interactive What-If Simulator Component
+Implementation
+Sliders for return & volatility
+Toggle: “Use in Report”
+Acceptance Criteria
+Live recalculation
+Snapshot stored for report
+🔧 GAP FIX 3 — Goal-Aware Benchmark Mapping
+🟦 Backend Ticket: Benchmark Intelligence Layer
+Ticket ID: PB-BE-BMK-001
+Title: Goal & Horizon Aware Benchmark Mapping
+Implementation
+Create benchmark_mapping table:
+goal_type
+risk_profile
+horizon_years_min
+benchmark_code
+Auto-select benchmark during analysis
+Acceptance Criteria
+Benchmark differs for income vs growth
+Same proposal can change benchmark if goal changes
+🟦 Frontend Ticket: Benchmark Transparency UI
+Ticket ID: PB-FE-BMK-001
+Title: Show Benchmark Selection Logic to Agent
+Implementation
+Tooltip: “Why this benchmark?”
+Override toggle (admin only)
+🔧 GAP FIX 4 — SIP Logic Linking (Rebalancing vs Fresh)
+🟦 Backend Ticket: SIP Attribution Engine
+Ticket ID: PB-BE-SIP-001
+Title: Explicit SIP Attribution to Rebalancing or Fresh Investment
+Implementation
+Add SIP source enum:
+sip_source: "rebalancing" | "fresh" | "hybrid"
+SIP generation logic:
+Rebalancing SIPs only from HOLD/BUY (existing)
+Fresh SIPs only from new allocation bucket
+Acceptance Criteria
+SIP origin clearly tagged
+Report shows SIP breakup
+🟦 Frontend Ticket: SIP Attribution UI
+Ticket ID: PB-FE-SIP-001
+Title: Display SIP Source & Allow Agent Override
+Implementation
+SIP table column: Source
+Toggle: convert lump-sum → SIP
+🔧 GAP FIX 5 — Verdict Engine Hard Enforcement
+🟦 Backend Ticket: Verdict Normalizer
+Ticket ID: PB-BE-VER-001
+Title: Enforce Single Verdict Per Instrument
+Implementation
+Verdict enum: BUY | HOLD | SELL
+Block proposal if any holding lacks verdict
+Acceptance Criteria
+No instrument without verdict
+Downstream summaries rely only on verdict table
+🟦 Frontend Ticket: Verdict Enforcement UI
+Ticket ID: PB-FE-VER-001
+Title: Force Agent to Resolve All Verdicts
+Implementation
+Highlight unresolved instruments
+Disable “Proceed” until resolved
+🔧 GAP FIX 6 — Report Component Dependency Engine
+🟦 Backend Ticket: Report Dependency Resolver
+Ticket ID: PB-BE-RPT-001
+Title: Auto-Enable / Disable Report Sections Based on Data
+Rules
+Section	Dependency
+Exit Load	SELL verdicts
+Capital Gains	Holding dates
+Tax Impact	Exit load OR CG
+SIP Projection	SIP exists
+Acceptance Criteria
+Invalid sections auto-disabled
+Agent override blocked if dependency missing
+🟦 Frontend Ticket: Smart Report Builder UI
+Ticket ID: PB-FE-RPT-001
+Title: Dependency-Aware Report Component Selector
+Implementation
+Greyed-out sections with tooltip reason
+Default AI selection
+🔧 GAP FIX 7 — Terminology & Label Normalization
+🟦 Backend Ticket: Report Label Registry
+Ticket ID: PB-BE-LBL-001
+Title: Centralized Report Label Dictionary
+Fixes
+expense reatio → expense ratio
+risk hit map → risk heat map
+summery → summary
+🟦 Frontend Ticket: Label Sync
+Ticket ID: PB-FE-LBL-001
+Title: Consume Central Label Registry
+📦 FINAL DELIVERY CHECKLIST (Replit Ready)
+✅ Backend APIs deterministic
+✅ Frontend flow locked & guided
+✅ No ambiguous advisory outputs
+✅ Fully CFP-grade compliant
+✅ PDF + Interactive parity
