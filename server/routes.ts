@@ -196,6 +196,7 @@ import parserAdminRoutes from "./routes/parser-admin";
 import historicalNavRoutes from "./routes/historical-nav";
 import { historicalNavRefreshJob } from "./services/historical-nav-refresh-job";
 import { cacheCleanupScheduler } from "./services/cache-cleanup-scheduler";
+import { exitLoadSyncScheduler } from "./services/exit-load-sync-scheduler";
 import exchangeFilingsRoutes from "./routes/exchange-filings-routes";
 import financialMetricsRoutes from './routes/financial-metrics-routes';
 import financialMetricsAdminRoutes from './routes/financial-metrics-admin';
@@ -1888,6 +1889,43 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       res.status(500).json({
         success: false,
         error: "Failed to send Re-KYC reminders",
+      });
+    }
+  });
+
+  // ========== Exit Load Enrichment Admin Endpoints ==========
+  
+  // Get exit load scheduler status and coverage stats
+  app.get("/api/admin/exit-load/status", requireAdmin, async (req, res) => {
+    try {
+      const status = await exitLoadSyncScheduler.getStatus();
+      res.json({
+        success: true,
+        data: status
+      });
+    } catch (error) {
+      console.error("[ExitLoad] Error getting status:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to get exit load status"
+      });
+    }
+  });
+
+  // Trigger full exit load enrichment (admin manual trigger)
+  app.post("/api/admin/exit-load/enrich", requireAdmin, async (req, res) => {
+    try {
+      const result = await exitLoadSyncScheduler.runFullEnrichment();
+      res.json({
+        success: true,
+        message: "Exit load enrichment completed",
+        data: result
+      });
+    } catch (error: any) {
+      console.error("[ExitLoad] Error running enrichment:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message || "Failed to run exit load enrichment"
       });
     }
   });
