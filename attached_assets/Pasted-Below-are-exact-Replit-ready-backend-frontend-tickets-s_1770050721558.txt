@@ -1,0 +1,215 @@
+Below are exact, Replit-ready backend + frontend tickets, structured the way an engineering team can pick up and implement without interpretation.
+This is written as a direct upgrade to your existing FintekPro mutual fund analytics stack.
+EPIC: Benchmark-Aware Mutual Fund Metrics Engine
+Goal
+Enable accurate calculation of Alpha, Beta, Treynor Ratio, and Information Ratio by introducing benchmark (NIFTY) data ingestion, mapping, computation, and UI handling.
+BACKEND TICKETS
+BE-01: Create Market Index Master Tables
+Type: Backend – Database
+Priority: P0
+Description
+Introduce tables to store benchmark indices (NIFTY, Sensex) and their daily values.
+Tasks
+Create table market_indices
+Create table market_index_nav
+Add migration scripts
+Schema
+CREATE TABLE market_indices (
+  id UUID PRIMARY KEY,
+  index_code VARCHAR(20) UNIQUE NOT NULL,
+  index_name VARCHAR(100),
+  provider VARCHAR(20),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE market_index_nav (
+  id UUID PRIMARY KEY,
+  index_id UUID REFERENCES market_indices(id),
+  nav_date DATE NOT NULL,
+  close_value NUMERIC(12,4),
+  daily_return NUMERIC(10,6),
+  UNIQUE(index_id, nav_date)
+);
+Acceptance Criteria
+Tables created successfully
+Index codes like NIFTY50, NIFTY500 supported
+Unique constraint enforced
+BE-02: Benchmark Ingestion Job (NIFTY)
+Type: Backend – Cron / Worker
+Priority: P0
+Description
+Daily ingestion of benchmark index closing values and return calculation.
+Tasks
+Create cron job syncMarketIndices()
+Fetch historical + daily close prices
+Compute daily returns
+Upsert into market_index_nav
+Notes
+Store close value only
+Calculate daily return as:
+(today_close - yesterday_close) / yesterday_close
+Acceptance Criteria
+Daily data available for last 5+ years
+No duplicate rows
+Job is idempotent
+BE-03: Mutual Fund ↔ Benchmark Mapping Table
+Type: Backend – Database
+Priority: P0
+Description
+Map mutual funds to benchmarks with confidence scoring.
+Schema
+CREATE TABLE mf_benchmark_map (
+  id UUID PRIMARY KEY,
+  mf_isin VARCHAR(20),
+  index_code VARCHAR(20),
+  confidence_score NUMERIC(3,2),
+  source VARCHAR(30),
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(mf_isin)
+);
+Default Mapping Rules
+Large Cap → NIFTY50
+Mid Cap → NIFTY MIDCAP 150
+Small Cap → NIFTY SMALLCAP 250
+Flexi / Multi → NIFTY 500
+Acceptance Criteria
+One benchmark per ISIN
+Confidence score stored
+Admin override supported
+BE-04: Rolling Time-Series Alignment Engine
+Type: Backend – Analytics
+Priority: P0
+Description
+Create utility to align MF NAV returns with benchmark returns by date.
+Tasks
+Fetch MF daily returns
+Fetch benchmark daily returns
+Intersect dates
+Return aligned arrays
+Output
+{
+  fundReturns: number[],
+  benchmarkReturns: number[],
+  dates: Date[]
+}
+Acceptance Criteria
+Only overlapping dates used
+Minimum 252 observations required (1Y)
+BE-05: Relative Metrics Calculation Engine
+Type: Backend – Analytics
+Priority: P0
+Description
+Compute Alpha, Beta, Treynor Ratio, Information Ratio.
+Metrics
+Beta
+Alpha
+Treynor Ratio
+Information Ratio
+Rules
+Use aligned time series only
+Rolling windows: 1Y / 3Y / 5Y
+Risk-free rate configurable
+Storage
+Update mutual_funds table:
+ALTER TABLE mutual_funds ADD COLUMN beta NUMERIC;
+ALTER TABLE mutual_funds ADD COLUMN alpha NUMERIC;
+ALTER TABLE mutual_funds ADD COLUMN treynor_ratio NUMERIC;
+ALTER TABLE mutual_funds ADD COLUMN information_ratio NUMERIC;
+Acceptance Criteria
+Metrics NULL if benchmark missing
+No runtime calculation during proposal generation
+BE-06: Metrics Availability Flags
+Type: Backend – Data Integrity
+Priority: P1
+Description
+Explicitly mark which metrics are valid per fund.
+Schema Update
+ALTER TABLE mutual_funds ADD COLUMN alpha_available BOOLEAN DEFAULT FALSE;
+ALTER TABLE mutual_funds ADD COLUMN beta_available BOOLEAN DEFAULT FALSE;
+ALTER TABLE mutual_funds ADD COLUMN treynor_available BOOLEAN DEFAULT FALSE;
+ALTER TABLE mutual_funds ADD COLUMN information_ratio_available BOOLEAN DEFAULT FALSE;
+Logic
+Flags TRUE only if benchmark confidence ≥ 0.7
+Flags FALSE if insufficient data window
+BE-07: Nightly Metrics Recompute Job
+Type: Backend – Cron
+Priority: P0
+Description
+Batch recomputation of all MF metrics.
+Tasks
+Iterate over all active ISINs
+Recompute absolute metrics
+Recompute relative metrics if benchmark exists
+Update availability flags
+Acceptance Criteria
+Job completes without blocking APIs
+Logs failures per ISIN
+FRONTEND TICKETS
+FE-01: Admin – Benchmark Mapping Management Screen
+Route: /admin/mf-benchmarks
+Priority: P0
+Features
+List ISIN → Benchmark mapping
+Show confidence score
+Source (Auto / AMFI / Manual)
+Edit benchmark
+Force recompute button
+Acceptance Criteria
+Admin override persists
+Recompute triggers backend job
+FE-02: Admin – Benchmark Coverage Dashboard
+Route: /admin/mf-enrichment
+Priority: P1
+Enhancements
+% funds with benchmark
+% funds with Alpha/Beta available
+Last index sync timestamp
+Acceptance Criteria
+Real-time from DB
+Visual status indicators
+FE-03: Proposal Fund Card – Conditional Metrics Rendering
+Type: Frontend – Proposal UI
+Priority: P0
+Rules
+Show Alpha, Beta, Treynor, IR only if availability flag = TRUE
+Else show — with tooltip
+Tooltip Copy
+“Metric requires benchmark index data (NIFTY).”
+Acceptance Criteria
+No zero/fake values rendered
+Clean fallback UX
+FE-04: Proposal PDF Footnotes
+Type: Frontend – PDF Engine
+Priority: P1
+Add Footnote
+“Relative performance metrics are calculated against scheme benchmark indices (NIFTY).”
+Acceptance Criteria
+Footnote appears once per proposal
+PDF remains compliance-safe
+FE-05: Metric Explanation Tooltips
+Type: Frontend – UX
+Priority: P2
+Tooltips
+Alpha
+Beta
+Treynor Ratio
+Information Ratio
+Acceptance Criteria
+Investor-readable
+Consistent across dashboard + proposal
+OPTIONAL (STRONGLY RECOMMENDED)
+BE-08: Outlier Detection & Alerts
+Rules
+Beta > 2.5
+|Alpha| > 10%
+IR > ±3
+Action
+Flag for admin review
+Do not block display
+DELIVERY CHECKLIST (WHAT “DONE” MEANS)
+✅ Benchmarks ingested
+✅ MF ↔ benchmark mapped
+✅ Relative metrics mathematically valid
+✅ UI never shows invalid values
+✅ Proposals remain compliant
+✅ Fully precomputed, zero runtime cost
