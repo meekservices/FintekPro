@@ -399,6 +399,12 @@ export function EnhancedNavigation() {
       title: "Tools",
       items: [
         {
+          name: "Documents",
+          href: "/documents",
+          icon: FileText,
+          description: "View & sign documents"
+        },
+        {
           name: "Calculators",
           icon: Calculator,
           description: "Financial calculators",
