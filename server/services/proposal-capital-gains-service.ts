@@ -3,11 +3,15 @@
  * Comprehensive capital gains tax calculation for investment proposal rebalancing
  * Includes: Date-based tax regimes, tax loss harvesting, holding period alerts,
  * grandfathering benefits, exit loads, and tax-efficient alternatives
+ * 
+ * Uses Sandbox.co.in Tax P&L API as primary source for accurate, up-to-date tax rates
+ * with automatic fallback to local calculation if API is unavailable
  */
 
 import { exitLoadService } from './exit-load-service';
 import { historicalNavService } from './historical-nav-service';
 import { holdingLotsStorageService } from './holding-lots-storage-service';
+import { sandboxCapitalGainsService, type AssetType as SandboxAssetType } from './sandbox-capital-gains-service';
 
 // Cost Inflation Index (CII) data from Income Tax Department
 // Source: https://incometaxindia.gov.in/Pages/tools/cost-inflation-index.aspx
@@ -908,6 +912,150 @@ class ProposalCapitalGainsService {
       taxRegime,
       alerts
     };
+  }
+
+  /**
+   * Calculate tax using Sandbox.co.in Tax P&L API for accurate, up-to-date rates
+   * Falls back to local calculation if API is unavailable
+   */
+  async calculateHoldingTaxWithSandboxAPI(
+    holding: {
+      name: string;
+      productType: string;
+      category?: string;
+      isin?: string;
+      schemeCode?: string;
+      currentValue: number;
+      investedAmount?: number;
+      purchaseDate?: Date | string;
+      quantity?: number;
+      sellAmount?: number;
+    },
+    transactionDate: Date = new Date()
+  ): Promise<HoldingWithTax & { taxRateSource: 'SANDBOX_API' | 'LOCAL_FALLBACK' }> {
+    const currentValue = holding.sellAmount || holding.currentValue;
+    const investedAmount = holding.investedAmount || currentValue * 0.85;
+    const holdingPeriodDays = this.calculateHoldingPeriod(holding.purchaseDate);
+    const purchaseDateStr = this.formatPurchaseDate(holding.purchaseDate);
+
+    if (sandboxCapitalGainsService.isServiceAvailable() && purchaseDateStr) {
+      try {
+        const sandboxAssetType = this.mapToSandboxAssetType(holding.productType, holding.category);
+        
+        const sandboxResult = await sandboxCapitalGainsService.calculateSingleHoldingTax({
+          productName: holding.name,
+          isin: holding.isin,
+          assetType: sandboxAssetType,
+          purchaseDate: purchaseDateStr,
+          purchaseValue: investedAmount,
+          currentValue,
+          quantity: holding.quantity || 1,
+          category: holding.category,
+        });
+
+        const exitLoadResult = await this.calculateExitLoadAsync({
+          amount: currentValue,
+          holdingPeriodDays,
+          productType: holding.productType,
+          category: holding.category,
+          isin: holding.isin,
+          schemeCode: holding.schemeCode
+        });
+
+        const estimatedTaxWithCess = sandboxResult.estimatedTax * (1 + CESS_RATE);
+        
+        console.log(`[CapitalGains] Using Sandbox API rates for ${holding.name}: ${sandboxResult.taxType} @ ${(sandboxResult.applicableTaxRate * 100).toFixed(1)}%`);
+
+        return {
+          name: holding.name,
+          productType: holding.productType,
+          category: holding.category,
+          isin: holding.isin,
+          schemeCode: holding.schemeCode,
+          currentValue,
+          investedAmount,
+          purchaseDate: holding.purchaseDate,
+          quantity: holding.quantity,
+          unrealizedGain: sandboxResult.unrealizedGain,
+          holdingPeriodDays: sandboxResult.holdingPeriodDays,
+          taxType: sandboxResult.taxType === 'SLAB' ? 'SLAB' : sandboxResult.taxType,
+          isSlabBased: sandboxResult.taxType === 'SLAB',
+          applicableTaxRate: sandboxResult.applicableTaxRate,
+          estimatedTax: sandboxResult.estimatedTax,
+          estimatedTaxWithCess,
+          exitLoad: exitLoadResult.exitLoad,
+          exitLoadSource: exitLoadResult.source,
+          daysToZeroExitLoad: exitLoadResult.daysToZeroExitLoad,
+          totalCost: estimatedTaxWithCess + exitLoadResult.exitLoad,
+          grandfatheringApplied: false,
+          grandfatheringBenefit: sandboxResult.indexationBenefit || 0,
+          taxRegime: 'POST_BUDGET_2024',
+          alerts: [],
+          taxRateSource: 'SANDBOX_API',
+        };
+      } catch (error) {
+        console.warn(`[CapitalGains] Sandbox API failed for ${holding.name}, using local fallback:`, error);
+      }
+    }
+
+    const localResult = await this.calculateHoldingTaxAsync(holding, transactionDate);
+    return {
+      ...localResult,
+      taxRateSource: 'LOCAL_FALLBACK',
+    };
+  }
+
+  /**
+   * Get current tax rates from Sandbox API or local fallback
+   */
+  async getCurrentTaxRates(): Promise<{
+    stcgEquity: number;
+    ltcgEquity: number;
+    stcgDebt: number;
+    ltcgDebt: number;
+    ltcgExemptionLimit: number;
+    effectiveDate: string;
+    source: 'SANDBOX_API' | 'LOCAL_FALLBACK';
+  }> {
+    return sandboxCapitalGainsService.getCurrentTaxRates();
+  }
+
+  private mapToSandboxAssetType(productType: string, category?: string): SandboxAssetType {
+    const type = productType.toLowerCase();
+    const cat = category?.toLowerCase() || '';
+    
+    if (type.includes('equity') || type.includes('stock')) return 'equity';
+    if (type.includes('etf')) return 'etf';
+    if (type.includes('bond')) return 'bond';
+    if (type.includes('debt') || cat.includes('debt') || cat.includes('liquid') || cat.includes('money market')) return 'debt_fund';
+    if (type.includes('derivative') || type.includes('future') || type.includes('option')) return 'derivative';
+    if (type.includes('mutual') || type.includes('mf') || type === 'fund') {
+      if (cat.includes('equity') || cat.includes('large cap') || cat.includes('mid cap') || cat.includes('small cap') || cat.includes('flexi') || cat.includes('elss')) {
+        return 'mutual_fund';
+      }
+      if (cat.includes('debt') || cat.includes('liquid') || cat.includes('gilt') || cat.includes('money')) {
+        return 'debt_fund';
+      }
+      return 'mutual_fund';
+    }
+    return 'equity';
+  }
+
+  private formatPurchaseDate(purchaseDate?: Date | string): string | null {
+    if (!purchaseDate) return null;
+    
+    if (purchaseDate instanceof Date) {
+      return purchaseDate.toISOString().split('T')[0];
+    }
+    
+    if (typeof purchaseDate === 'string') {
+      const parsed = new Date(purchaseDate);
+      if (!isNaN(parsed.getTime())) {
+        return parsed.toISOString().split('T')[0];
+      }
+    }
+    
+    return null;
   }
 
   /**
