@@ -1456,6 +1456,28 @@ function normalizeHolding(raw: any): ProspectPortfolioHolding {
   const productType = raw.productType || raw.assetType || 'other';
   const assetType = raw.assetType || serverMapToAssetType(productType);
   
+  // Derive purchase date from lots if not explicitly set
+  // Priority: purchaseDate > firstPurchaseDate > earliest lot date
+  let purchaseDate = raw.purchaseDate;
+  if (!purchaseDate && raw.firstPurchaseDate) {
+    purchaseDate = raw.firstPurchaseDate;
+  }
+  if (!purchaseDate && raw.lots && raw.lots.length > 0) {
+    // Find earliest lot date
+    const lotDates = raw.lots
+      .map((lot: any) => {
+        const dateStr = lot.transactionDateStr || lot.purchaseDate || lot.transactionDate;
+        if (!dateStr) return null;
+        const d = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
+        return isNaN(d.getTime()) ? null : d.getTime();
+      })
+      .filter((t: number | null) => t !== null) as number[];
+    if (lotDates.length > 0) {
+      const earliestTimestamp = Math.min(...lotDates);
+      purchaseDate = new Date(earliestTimestamp).toISOString().split('T')[0];
+    }
+  }
+  
   return {
     name,
     productName: name, // Also set productName for frontend compatibility
@@ -1464,7 +1486,7 @@ function normalizeHolding(raw: any): ProspectPortfolioHolding {
     quantity: raw.quantity ?? 1,
     currentValue: raw.currentValue ?? 0,
     purchasePrice: raw.purchasePrice,
-    purchaseDate: raw.purchaseDate,
+    purchaseDate,
     averageCost: raw.averageCost,
     currentNav: raw.currentNav,
     investedValue: raw.investedValue,
@@ -2627,13 +2649,14 @@ class AgentProspectWizardService {
             const isPartialSell = sellAmount < holding.currentValue;
             
             // Calculate detailed tax implications
+            // Use purchaseDate (already normalized from firstPurchaseDate/lots) as primary source
             const taxInfo = proposalCapitalGainsService.calculateHoldingTax({
               name: holding.name || holding.productName || 'Unknown',
               productType: holding.productType || holding.assetType || 'mutual_fund',
               category: holding.category,
               currentValue: sellAmount,
               investedAmount: holding.investedAmount || (sellAmount * 0.85),
-              purchaseDate: holding.purchaseDate,
+              purchaseDate: holding.purchaseDate || (holding as any).firstPurchaseDate,
               quantity: holding.quantity
             });
             
@@ -2677,13 +2700,14 @@ class AgentProspectWizardService {
         const existing = recommendations.find(r => r.productName === (h.name || h.productName));
         if (!existing && h.currentValue > 1000) {
           // Calculate tax implications
+          // Use purchaseDate (already normalized from firstPurchaseDate/lots) as primary source
           const taxInfo = proposalCapitalGainsService.calculateHoldingTax({
             name: h.name || h.productName || 'Unknown',
             productType: h.productType || h.assetType || 'other',
             category: h.category,
             currentValue: h.currentValue,
             investedAmount: h.investedAmount || (h.currentValue * 0.85),
-            purchaseDate: h.purchaseDate,
+            purchaseDate: h.purchaseDate || (h as any).firstPurchaseDate,
             quantity: h.quantity
           });
           
@@ -2762,13 +2786,14 @@ class AgentProspectWizardService {
           const targetFund = targetFunds[0] || null;
           
           // Calculate tax implications for switch (treated as redemption + purchase)
+          // Use purchaseDate (already normalized from firstPurchaseDate/lots) as primary source
           const taxInfo = proposalCapitalGainsService.calculateHoldingTax({
             name: underperformer.name || underperformer.productName || 'Unknown',
             productType: underperformer.productType || underperformer.assetType || 'mutual_fund',
             category: underperformer.category,
             currentValue: underperformer.currentValue,
             investedAmount: underperformer.investedAmount || (underperformer.currentValue * 0.85),
-            purchaseDate: underperformer.purchaseDate,
+            purchaseDate: underperformer.purchaseDate || (underperformer as any).firstPurchaseDate,
             quantity: underperformer.quantity
           });
           
