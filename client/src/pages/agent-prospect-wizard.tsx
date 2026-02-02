@@ -4379,7 +4379,7 @@ export default function AgentProspectWizard() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-3 mb-4">
-                    {whatIfScenarios.scenarios.map((s, idx) => (
+                    {(whatIfScenarios?.scenarios ?? []).map((s, idx) => (
                       <div key={idx} className={`p-3 rounded-lg text-center ${
                         s.marketChange < 0 ? 'bg-red-50 dark:bg-red-900/20' : 'bg-green-50 dark:bg-green-900/20'
                       }`}>
@@ -4396,10 +4396,10 @@ export default function AgentProspectWizard() {
                   <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
                     <p className="text-sm font-medium text-amber-700 dark:text-amber-300">Stress Test Result</p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Worst case scenario: Portfolio could drop to {formatCurrency(whatIfScenarios.stressTestResult.worstCase)}
+                      Worst case scenario: Portfolio could drop to {formatCurrency(whatIfScenarios?.stressTestResult?.worstCase ?? 0)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Expected recovery: {whatIfScenarios.stressTestResult.recovery}
+                      Expected recovery: {whatIfScenarios?.stressTestResult?.recovery ?? 'N/A'}
                     </p>
                   </div>
                 </CardContent>
