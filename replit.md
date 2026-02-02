@@ -51,6 +51,14 @@ The platform is undergoing service consolidation to reduce code duplication:
   - `benchmark-sync-service.ts`: Daily ingestion of index data from Yahoo Finance
   - `mf-benchmark-mapping-service.ts`: Auto-mapping based on fund category (Large Cap → NIFTY50, Mid Cap → NIFTY Midcap 150, etc.)
   - `mf-relative-metrics-engine.ts`: Rolling time-series alignment and Alpha/Beta/Treynor/IR calculation
+- **AMFI Benchmark Auto-Parser**: Automatic scheme-level benchmark extraction from AMFI data:
+  - `amfi_scheme_benchmarks` table: Stores raw AMFI benchmark strings and normalized index codes
+  - `mf_benchmark_history` table: Tracks all benchmark mapping changes for drift monitoring
+  - `amfi-benchmark-ingestion-service.ts`: Normalization engine with 35+ regex patterns mapping AMFI strings to canonical codes (NIFTY50, SENSEX, etc.)
+  - Confidence scoring hierarchy: Manual overrides (1.00) > AMFI explicit (0.95) > Category-based (0.70-0.85)
+  - Admin conflict resolution UI: Shows funds where AMFI differs from category mapping with Accept/Keep options
+  - Nightly scheduler order: syncAmfiBenchmarks → autoMapFromAmfi → category autoMap → recomputeAllMetrics
+  - isOverridden flag prevents AMFI auto-updates from overwriting admin decisions
 - **KYC Orchestrators**: Three-layer architecture: CKYC Orchestrator (provider resolution), Onboarding Orchestrator (17-step state machine), Workflow Orchestrator (verification/vault operations). These are intentionally layered, not duplicates.
 - **Navigation**: The Help pillar provides Support, FAQs, and Contact functionality - no duplicate sidebar buttons needed.
 
