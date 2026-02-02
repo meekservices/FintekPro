@@ -190,15 +190,19 @@ export class ProspectReadinessService {
     missingSteps?: string[] 
   }> {
     const readiness = await this.checkReadiness(prospectId);
+    const statusOrder = this.getStatusOrder();
+    const currentOrder = statusOrder[readiness.currentStatus];
     
-    if (readiness.isReady) {
+    // Allow proposal generation once holdings are imported (status >= HOLDINGS_IMPORTED)
+    // Risk profile and tax profile are optional - client can complete later
+    if (currentOrder >= 1) {
       return { allowed: true };
     }
 
     return {
       allowed: false,
       reason: `Prospect is not ready for proposal generation. Current status: ${this.getStatusLabel(readiness.currentStatus)}`,
-      missingSteps: readiness.missingSteps
+      missingSteps: ['Import holdings (CAS statement or manual entry)']
     };
   }
 
