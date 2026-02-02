@@ -3776,7 +3776,7 @@ System Security Data:`;
       console.log(`[MF Enrichment] Admin-initiated sync started for ${clampedLimit} funds by ${req.user?.email || 'admin'}`);
       
       // Start async sync (don't await - return immediately)
-      const syncPromise = mfReturnsSyncService.syncFundsNeedingUpdate(clampedLimit);
+      const syncPromise = mfReturnsSyncService.runBatchSync(clampedLimit);
       
       // Return immediately, the sync runs in background
       res.json({
