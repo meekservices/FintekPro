@@ -71,7 +71,7 @@ export function initializeCronJobs(): void {
   
   staggeredStart('Exit Load sync', () => {
     exitLoadSyncScheduler.start();
-    console.log('📊 [ExitLoad Sync] Exit load sync scheduler started (weekly refresh)');
+    console.log('📊 [ExitLoad Sync] Exit load sync scheduler started (monthly refresh on 1st at 3 AM IST)');
   }, delay);
   delay += STAGGER_DELAY_MS;
   
