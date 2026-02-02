@@ -3969,6 +3969,109 @@ System Security Data:`;
     }
   });
 
+
+  // AMFI Benchmark Ingestion Routes
+  app.post("/api/admin/amfi-benchmark/sync", requireAdmin, async (req: any, res) => {
+    try {
+      const { amfiBenchmarkIngestionService } = await import("../../services/amfi-benchmark-ingestion-service");
+      
+      console.log(`[AMFI Admin] Sync triggered by ${req.user?.email || 'admin'}`);
+      const result = await amfiBenchmarkIngestionService.syncAmfiSchemeBenchmarks();
+      
+      res.json({
+        success: true,
+        ...result,
+        message: `Synced ${result.parsed} schemes, ${result.normalized} normalized successfully`
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.post("/api/admin/amfi-benchmark/auto-map", requireAdmin, async (req: any, res) => {
+    try {
+      const { amfiBenchmarkIngestionService } = await import("../../services/amfi-benchmark-ingestion-service");
+      
+      console.log(`[AMFI Admin] Auto-map from AMFI triggered by ${req.user?.email || 'admin'}`);
+      const result = await amfiBenchmarkIngestionService.autoMapFromAmfi();
+      
+      // Trigger metrics recompute for updated mappings
+      if (result.recompute.length > 0) {
+        const { mfRelativeMetricsEngine } = await import("../../services/mf-relative-metrics-engine");
+        mfRelativeMetricsEngine.recomputeAllMetrics(50).catch(err => {
+          console.error(`[AMFI Admin] Metrics recompute failed:`, err.message);
+        });
+      }
+      
+      res.json({
+        success: true,
+        ...result,
+        message: `Mapped ${result.mapped} new, updated ${result.updated}, ${result.recompute.length} queued for metrics recompute`
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/admin/amfi-benchmark/stats", requireAdmin, async (req, res) => {
+    try {
+      const { amfiBenchmarkIngestionService } = await import("../../services/amfi-benchmark-ingestion-service");
+      const stats = await amfiBenchmarkIngestionService.getAmfiStats();
+      res.json({ success: true, ...stats });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/admin/amfi-benchmark/conflicts", requireAdmin, async (req, res) => {
+    try {
+      const { amfiBenchmarkIngestionService } = await import("../../services/amfi-benchmark-ingestion-service");
+      const conflicts = await amfiBenchmarkIngestionService.getConflicts();
+      res.json({ success: true, conflicts, count: conflicts.length });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.post("/api/admin/amfi-benchmark/resolve-conflict", requireAdmin, async (req: any, res) => {
+    try {
+      const { amfiBenchmarkIngestionService } = await import("../../services/amfi-benchmark-ingestion-service");
+      
+      const { isin, resolution, manualIndexCode } = req.body;
+      if (!isin || !resolution) {
+        return res.status(400).json({ success: false, error: "Missing isin or resolution" });
+      }
+      
+      const adminId = req.user?.email || req.user?.id || 'admin';
+      const result = await amfiBenchmarkIngestionService.resolveConflict(isin, resolution, manualIndexCode, adminId);
+      
+      if (result) {
+        // Trigger metrics recompute for this fund
+        const { mfRelativeMetricsEngine } = await import("../../services/mf-relative-metrics-engine");
+        mfRelativeMetricsEngine.recomputeAllMetrics(1).catch(err => {
+          console.error(`[AMFI Admin] Metrics recompute failed:`, err.message);
+        });
+      }
+      
+      res.json({ success: result, message: result ? 'Conflict resolved' : 'Resolution failed' });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/admin/amfi-benchmark/history", requireAdmin, async (req, res) => {
+    try {
+      const { amfiBenchmarkIngestionService } = await import("../../services/amfi-benchmark-ingestion-service");
+      const isin = req.query.isin as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const history = await amfiBenchmarkIngestionService.getBenchmarkHistory(isin, limit);
+      res.json({ success: true, history, count: history.length });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  console.log("✅ AMFI Benchmark Auto-Parser routes registered");
   console.log("✅ Benchmark Mapping Admin routes registered");
 
   console.log("✅ Admin Panel routes registered");

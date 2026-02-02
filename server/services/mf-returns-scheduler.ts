@@ -237,7 +237,10 @@ class MFReturnsScheduler {
   async computeRelativeMetrics(): Promise<void> {
     console.log('[MFReturnsScheduler] Computing relative metrics...');
     try {
-      // First auto-map any unmapped funds
+      // First sync AMFI benchmark data and auto-map from AMFI
+      await this.syncAmfiBenchmarks();
+      
+      // Then auto-map any remaining unmapped funds using category rules
       await mfBenchmarkMappingService.autoMapUnmappedFunds(500);
       
       // Then compute relative metrics for mapped funds
@@ -245,6 +248,23 @@ class MFReturnsScheduler {
       console.log(`[MFReturnsScheduler] Relative metrics: ${result.success}/${result.processed} computed`);
     } catch (error: any) {
       console.error('[MFReturnsScheduler] Relative metrics error:', error.message);
+    }
+  }
+
+  async syncAmfiBenchmarks(): Promise<void> {
+    console.log('[MFReturnsScheduler] Syncing AMFI benchmark data...');
+    try {
+      const { amfiBenchmarkIngestionService } = await import('./amfi-benchmark-ingestion-service');
+      
+      // Parse AMFI benchmark strings from mutual_funds table
+      const syncResult = await amfiBenchmarkIngestionService.syncAmfiSchemeBenchmarks();
+      console.log(`[MFReturnsScheduler] AMFI sync: ${syncResult.normalized}/${syncResult.total} normalized`);
+      
+      // Auto-map funds using AMFI data (higher confidence than category-based)
+      const mapResult = await amfiBenchmarkIngestionService.autoMapFromAmfi();
+      console.log(`[MFReturnsScheduler] AMFI mapping: ${mapResult.mapped} new, ${mapResult.updated} updated`);
+    } catch (error: any) {
+      console.error('[MFReturnsScheduler] AMFI sync error:', error.message);
     }
   }
 

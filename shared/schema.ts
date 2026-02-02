@@ -28916,3 +28916,48 @@ export const insertMfBenchmarkMapSchema = createInsertSchema(mfBenchmarkMap).omi
 });
 export type MfBenchmarkMap = typeof mfBenchmarkMap.$inferSelect;
 export type InsertMfBenchmarkMap = z.infer<typeof insertMfBenchmarkMapSchema>;
+
+// AMFI Scheme Benchmarks - Raw benchmark data from AMFI scheme master
+export const amfiSchemeBenchmarks = pgTable("amfi_scheme_benchmarks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  mfIsin: varchar("mf_isin", { length: 20 }).unique(),
+  schemeCode: varchar("scheme_code", { length: 20 }),
+  schemeName: text("scheme_name"),
+  schemeCategory: varchar("scheme_category", { length: 100 }),
+  rawBenchmark: text("raw_benchmark"),
+  normalizedBenchmark: varchar("normalized_benchmark", { length: 30 }),
+  normalizationStatus: varchar("normalization_status", { length: 20 }).default("pending"), // pending, success, failed, ambiguous
+  parsedAt: timestamp("parsed_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_amfi_scheme_benchmarks_isin").on(table.mfIsin),
+  index("idx_amfi_scheme_benchmarks_code").on(table.schemeCode),
+  index("idx_amfi_scheme_benchmarks_normalized").on(table.normalizedBenchmark),
+]);
+
+export const insertAmfiSchemeBenchmarkSchema = createInsertSchema(amfiSchemeBenchmarks).omit({
+  id: true, parsedAt: true, updatedAt: true,
+});
+export type AmfiSchemeBenchmark = typeof amfiSchemeBenchmarks.$inferSelect;
+export type InsertAmfiSchemeBenchmark = z.infer<typeof insertAmfiSchemeBenchmarkSchema>;
+
+// MF Benchmark History - Tracks changes when AMFI updates scheme benchmarks
+export const mfBenchmarkHistory = pgTable("mf_benchmark_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  mfIsin: varchar("mf_isin", { length: 20 }).notNull(),
+  oldIndexCode: varchar("old_index_code", { length: 30 }),
+  newIndexCode: varchar("new_index_code", { length: 30 }),
+  oldRawBenchmark: text("old_raw_benchmark"),
+  newRawBenchmark: text("new_raw_benchmark"),
+  changeSource: varchar("change_source", { length: 30 }), // 'amfi_update', 'admin_override', 'auto_remap'
+  changedAt: timestamp("changed_at").defaultNow(),
+}, (table) => [
+  index("idx_mf_benchmark_history_isin").on(table.mfIsin),
+  index("idx_mf_benchmark_history_changed").on(table.changedAt),
+]);
+
+export const insertMfBenchmarkHistorySchema = createInsertSchema(mfBenchmarkHistory).omit({
+  id: true, changedAt: true,
+});
+export type MfBenchmarkHistory = typeof mfBenchmarkHistory.$inferSelect;
+export type InsertMfBenchmarkHistory = z.infer<typeof insertMfBenchmarkHistorySchema>;

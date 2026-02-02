@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, RefreshCw, Database, TrendingUp, AlertCircle, CheckCircle, ArrowUpDown } from "lucide-react";
+import { Loader2, RefreshCw, Database, TrendingUp, AlertCircle, CheckCircle, ArrowUpDown, FileText, AlertTriangle, History } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -15,6 +15,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface MarketIndex {
   id: string;
@@ -53,6 +60,32 @@ interface MappingStats {
   byIndexCode: Record<string, number>;
 }
 
+interface AmfiStats {
+  total: number;
+  normalized: number;
+  failed: number;
+  ambiguous: number;
+  byIndex: Record<string, number>;
+}
+
+interface AmfiConflict {
+  isin: string;
+  schemeName: string | null;
+  amfiBenchmark: string | null;
+  amfiNormalized: string | null;
+  currentMapping: string | null;
+  currentSource: string | null;
+  currentConfidence: string | null;
+}
+
+interface BenchmarkHistoryItem {
+  mfIsin: string;
+  oldIndexCode: string | null;
+  newIndexCode: string | null;
+  changeSource: string | null;
+  changedAt: string | null;
+}
+
 export default function AdminMfBenchmarks() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("indices");
@@ -71,6 +104,28 @@ export default function AdminMfBenchmarks() {
     stats: MappingStats;
   }>({
     queryKey: ["/api/admin/mf-benchmark-mappings"],
+  });
+
+  const { data: amfiStatsData, isLoading: amfiStatsLoading } = useQuery<{
+    success: boolean;
+  } & AmfiStats>({
+    queryKey: ["/api/admin/amfi-benchmark/stats"],
+  });
+
+  const { data: conflictsData, isLoading: conflictsLoading, refetch: refetchConflicts } = useQuery<{
+    success: boolean;
+    conflicts: AmfiConflict[];
+    count: number;
+  }>({
+    queryKey: ["/api/admin/amfi-benchmark/conflicts"],
+  });
+
+  const { data: historyData, isLoading: historyLoading } = useQuery<{
+    success: boolean;
+    history: BenchmarkHistoryItem[];
+    count: number;
+  }>({
+    queryKey: ["/api/admin/amfi-benchmark/history"],
   });
 
   const syncBenchmarksMutation = useMutation({
@@ -111,6 +166,53 @@ export default function AdminMfBenchmarks() {
     },
   });
 
+  const syncAmfiMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("/api/admin/amfi-benchmark/sync", { method: "POST" });
+    },
+    onSuccess: (data: any) => {
+      toast({ title: "AMFI sync complete", description: data.message });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/amfi-benchmark/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/amfi-benchmark/conflicts"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "AMFI sync failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const autoMapAmfiMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("/api/admin/amfi-benchmark/auto-map", { method: "POST" });
+    },
+    onSuccess: (data: any) => {
+      toast({ title: "AMFI auto-map complete", description: data.message });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/mf-benchmark-mappings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/amfi-benchmark/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/amfi-benchmark/conflicts"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "AMFI auto-map failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const resolveConflictMutation = useMutation({
+    mutationFn: async ({ isin, resolution, manualIndexCode }: { isin: string; resolution: string; manualIndexCode?: string }) => {
+      return apiRequest("/api/admin/amfi-benchmark/resolve-conflict", { 
+        method: "POST", 
+        body: JSON.stringify({ isin, resolution, manualIndexCode }) 
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Conflict resolved", description: "Benchmark mapping updated successfully." });
+      refetchConflicts();
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/mf-benchmark-mappings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/amfi-benchmark/history"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Resolution failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "—";
     return new Date(dateStr).toLocaleDateString();
@@ -123,13 +225,19 @@ export default function AdminMfBenchmarks() {
     return <Badge variant="destructive">Low ({(numScore * 100).toFixed(0)}%)</Badge>;
   };
 
+  const getSourceBadge = (source: string | null) => {
+    if (source === 'amfi') return <Badge className="bg-blue-500">AMFI</Badge>;
+    if (source === 'manual') return <Badge className="bg-purple-500">Manual</Badge>;
+    return <Badge variant="secondary">{source || 'Auto'}</Badge>;
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Benchmark Management</h1>
           <p className="text-muted-foreground">
-            Manage market index data and mutual fund benchmark mappings for relative metrics calculation
+            Manage market index data, AMFI benchmarks, and mutual fund mappings for relative metrics
           </p>
         </div>
         <div className="flex gap-2">
@@ -146,18 +254,6 @@ export default function AdminMfBenchmarks() {
             Sync Index Data
           </Button>
           <Button
-            onClick={() => autoMapMutation.mutate()}
-            disabled={autoMapMutation.isPending}
-            variant="outline"
-          >
-            {autoMapMutation.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : (
-              <ArrowUpDown className="h-4 w-4 mr-2" />
-            )}
-            Auto-Map Funds
-          </Button>
-          <Button
             onClick={() => recomputeMetricsMutation.mutate()}
             disabled={recomputeMetricsMutation.isPending}
           >
@@ -172,13 +268,21 @@ export default function AdminMfBenchmarks() {
       </div>
 
       {mappingsData?.stats && (
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Mappings</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{mappingsData.stats.totalMappings.toLocaleString()}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">AMFI Normalized</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">{amfiStatsData?.normalized?.toLocaleString() || 0}</div>
             </CardContent>
           </Card>
           <Card>
@@ -191,15 +295,15 @@ export default function AdminMfBenchmarks() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Manual Overrides</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Conflicts</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{mappingsData.stats.manualOverrides}</div>
+              <div className="text-2xl font-bold text-orange-600">{conflictsData?.count || 0}</div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">High Confidence (≥70%)</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">High Confidence</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">{mappingsData.stats.highConfidence.toLocaleString()}</div>
@@ -211,8 +315,12 @@ export default function AdminMfBenchmarks() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="indices">Market Indices</TabsTrigger>
+          <TabsTrigger value="amfi">AMFI Data</TabsTrigger>
+          <TabsTrigger value="conflicts">
+            Conflicts {conflictsData?.count ? <Badge variant="destructive" className="ml-1">{conflictsData.count}</Badge> : null}
+          </TabsTrigger>
           <TabsTrigger value="mappings">Fund Mappings</TabsTrigger>
-          <TabsTrigger value="coverage">Data Coverage</TabsTrigger>
+          <TabsTrigger value="history">Change History</TabsTrigger>
         </TabsList>
 
         <TabsContent value="indices" className="space-y-4">
@@ -233,27 +341,199 @@ export default function AdminMfBenchmarks() {
                       <TableHead>Index Code</TableHead>
                       <TableHead>Index Name</TableHead>
                       <TableHead>Provider</TableHead>
-                      <TableHead>Description</TableHead>
+                      <TableHead>Data Points</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {benchmarkData?.indices?.map((index) => (
-                      <TableRow key={index.id}>
-                        <TableCell className="font-mono font-medium">{index.indexCode}</TableCell>
-                        <TableCell>{index.indexName}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{index.provider}</Badge>
+                    {benchmarkData?.indices?.map((index) => {
+                      const coverage = benchmarkData.coverage?.find(c => c.indexCode === index.indexCode);
+                      return (
+                        <TableRow key={index.id}>
+                          <TableCell className="font-mono font-medium">{index.indexCode}</TableCell>
+                          <TableCell>{index.indexName}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{index.provider}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            {coverage?.dataPoints?.toLocaleString() || 0} points
+                          </TableCell>
+                          <TableCell>
+                            {index.isActive ? (
+                              <Badge className="bg-green-500">Active</Badge>
+                            ) : (
+                              <Badge variant="secondary">Inactive</Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="amfi" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>AMFI Benchmark Data</CardTitle>
+                <CardDescription>Raw benchmark data from AMFI scheme master with normalization status</CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => syncAmfiMutation.mutate()}
+                  disabled={syncAmfiMutation.isPending}
+                  variant="outline"
+                >
+                  {syncAmfiMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <FileText className="h-4 w-4 mr-2" />
+                  )}
+                  Sync AMFI Data
+                </Button>
+                <Button
+                  onClick={() => autoMapAmfiMutation.mutate()}
+                  disabled={autoMapAmfiMutation.isPending}
+                >
+                  {autoMapAmfiMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <ArrowUpDown className="h-4 w-4 mr-2" />
+                  )}
+                  Apply AMFI Mappings
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {amfiStatsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-4 gap-4">
+                    <div className="p-4 border rounded-lg text-center">
+                      <div className="text-3xl font-bold">{amfiStatsData?.total?.toLocaleString() || 0}</div>
+                      <div className="text-sm text-muted-foreground">Total Schemes</div>
+                    </div>
+                    <div className="p-4 border rounded-lg text-center bg-green-50 dark:bg-green-900/20">
+                      <div className="text-3xl font-bold text-green-600">{amfiStatsData?.normalized?.toLocaleString() || 0}</div>
+                      <div className="text-sm text-muted-foreground">Normalized (95% conf)</div>
+                    </div>
+                    <div className="p-4 border rounded-lg text-center bg-red-50 dark:bg-red-900/20">
+                      <div className="text-3xl font-bold text-red-600">{amfiStatsData?.failed?.toLocaleString() || 0}</div>
+                      <div className="text-sm text-muted-foreground">Failed to Normalize</div>
+                    </div>
+                    <div className="p-4 border rounded-lg text-center bg-yellow-50 dark:bg-yellow-900/20">
+                      <div className="text-3xl font-bold text-yellow-600">{amfiStatsData?.ambiguous?.toLocaleString() || 0}</div>
+                      <div className="text-sm text-muted-foreground">Ambiguous</div>
+                    </div>
+                  </div>
+
+                  {amfiStatsData?.byIndex && Object.keys(amfiStatsData.byIndex).length > 0 && (
+                    <div>
+                      <h4 className="font-medium mb-3">Normalized Benchmarks Distribution</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                        {Object.entries(amfiStatsData.byIndex)
+                          .sort((a, b) => b[1] - a[1])
+                          .map(([indexCode, count]) => (
+                            <div key={indexCode} className="p-3 border rounded-lg">
+                              <div className="font-mono text-sm text-muted-foreground">{indexCode}</div>
+                              <div className="text-lg font-bold">{count}</div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="text-sm text-muted-foreground">
+                    <p>AMFI benchmark data is parsed from the scheme master file and normalized to canonical index codes.</p>
+                    <p>Schemes with normalized benchmarks receive a 95% confidence score for mapping.</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="conflicts" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-orange-500" />
+                <CardTitle>Benchmark Conflicts</CardTitle>
+              </div>
+              <CardDescription>
+                Funds where AMFI benchmark differs from current category-based mapping. Resolve to improve accuracy.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {conflictsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+              ) : conflictsData?.conflicts?.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
+                  <p>No conflicts found. All AMFI benchmarks match current mappings.</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ISIN</TableHead>
+                      <TableHead>Scheme Name</TableHead>
+                      <TableHead>AMFI Benchmark</TableHead>
+                      <TableHead>Current Mapping</TableHead>
+                      <TableHead>Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {conflictsData?.conflicts?.map((conflict) => (
+                      <TableRow key={conflict.isin}>
+                        <TableCell className="font-mono text-sm">{conflict.isin}</TableCell>
+                        <TableCell className="max-w-xs truncate" title={conflict.schemeName || ''}>
+                          {conflict.schemeName || '—'}
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
-                          {index.description}
+                        <TableCell>
+                          <div className="space-y-1">
+                            <Badge className="bg-blue-500">{conflict.amfiNormalized}</Badge>
+                            <div className="text-xs text-muted-foreground truncate max-w-xs" title={conflict.amfiBenchmark || ''}>
+                              {conflict.amfiBenchmark}
+                            </div>
+                          </div>
                         </TableCell>
                         <TableCell>
-                          {index.isActive ? (
-                            <Badge className="bg-green-500">Active</Badge>
-                          ) : (
-                            <Badge variant="secondary">Inactive</Badge>
-                          )}
+                          <div className="space-y-1">
+                            <Badge variant="outline">{conflict.currentMapping}</Badge>
+                            <div className="text-xs text-muted-foreground">
+                              {getSourceBadge(conflict.currentSource)} {conflict.currentConfidence ? `(${(parseFloat(conflict.currentConfidence) * 100).toFixed(0)}%)` : ''}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => resolveConflictMutation.mutate({ isin: conflict.isin, resolution: 'accept_amfi' })}
+                              disabled={resolveConflictMutation.isPending}
+                            >
+                              Accept AMFI
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => resolveConflictMutation.mutate({ isin: conflict.isin, resolution: 'keep_current' })}
+                              disabled={resolveConflictMutation.isPending}
+                            >
+                              Keep Current
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -266,11 +546,25 @@ export default function AdminMfBenchmarks() {
 
         <TabsContent value="mappings" className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Fund → Benchmark Mappings</CardTitle>
-              <CardDescription>
-                Mutual fund to benchmark index mappings with confidence scores
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Fund Benchmark Mappings</CardTitle>
+                <CardDescription>
+                  Mutual fund to benchmark index mappings with confidence scores
+                </CardDescription>
+              </div>
+              <Button
+                onClick={() => autoMapMutation.mutate()}
+                disabled={autoMapMutation.isPending}
+                variant="outline"
+              >
+                {autoMapMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <ArrowUpDown className="h-4 w-4 mr-2" />
+                )}
+                Category Auto-Map
+              </Button>
             </CardHeader>
             <CardContent>
               {mappingsLoading ? (
@@ -280,14 +574,13 @@ export default function AdminMfBenchmarks() {
               ) : mappingsData?.mappings?.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Database className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No mappings found. Click "Auto-Map Funds" to create mappings.</p>
+                  <p>No mappings found. Click "Apply AMFI Mappings" or "Category Auto-Map" to create mappings.</p>
                 </div>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>ISIN</TableHead>
-                      <TableHead>Scheme Code</TableHead>
                       <TableHead>Benchmark</TableHead>
                       <TableHead>Confidence</TableHead>
                       <TableHead>Source</TableHead>
@@ -298,16 +591,11 @@ export default function AdminMfBenchmarks() {
                     {mappingsData?.mappings?.slice(0, 50).map((mapping) => (
                       <TableRow key={mapping.id}>
                         <TableCell className="font-mono text-sm">{mapping.mfIsin}</TableCell>
-                        <TableCell className="font-mono text-sm">{mapping.mfSchemeCode || "—"}</TableCell>
                         <TableCell>
                           <Badge variant="outline">{mapping.indexCode}</Badge>
                         </TableCell>
                         <TableCell>{getConfidenceBadge(mapping.confidenceScore)}</TableCell>
-                        <TableCell>
-                          <Badge variant={mapping.isOverridden ? "default" : "secondary"}>
-                            {mapping.isOverridden ? "Manual" : mapping.source}
-                          </Badge>
-                        </TableCell>
+                        <TableCell>{getSourceBadge(mapping.source)}</TableCell>
                         <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
                           {mapping.mappingReason || "—"}
                         </TableCell>
@@ -320,85 +608,61 @@ export default function AdminMfBenchmarks() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="coverage" className="space-y-4">
+        <TabsContent value="history" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Data Coverage</CardTitle>
-              <CardDescription>Historical data availability for each benchmark index</CardDescription>
+              <div className="flex items-center gap-2">
+                <History className="h-5 w-5" />
+                <CardTitle>Benchmark Change History</CardTitle>
+              </div>
+              <CardDescription>
+                Track changes when benchmarks are updated or overridden
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              {benchmarksLoading ? (
+              {historyLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin" />
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {benchmarkData?.coverage?.map((cov) => {
-                    const hasData = cov.dataPoints > 0;
-                    const yearsOfData = cov.dataPoints / 252;
-                    const progress = Math.min((yearsOfData / 5) * 100, 100);
-
-                    return (
-                      <div key={cov.indexCode} className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{cov.indexName}</span>
-                            <Badge variant="outline" className="font-mono">{cov.indexCode}</Badge>
-                          </div>
-                          <div className="flex items-center gap-4 text-sm">
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger>
-                                  <span className="text-muted-foreground">
-                                    {cov.dataPoints.toLocaleString()} points
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>~{yearsOfData.toFixed(1)} years of daily data</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                            {hasData ? (
-                              <span className="text-muted-foreground">
-                                {formatDate(cov.earliestDate)} → {formatDate(cov.latestDate)}
-                              </span>
-                            ) : (
-                              <span className="text-destructive">No data</span>
-                            )}
-                            {hasData ? (
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                            ) : (
-                              <AlertCircle className="h-4 w-4 text-destructive" />
-                            )}
-                          </div>
-                        </div>
-                        <Progress value={progress} className="h-2" />
-                      </div>
-                    );
-                  })}
+              ) : historyData?.history?.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <History className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No benchmark changes recorded yet.</p>
                 </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ISIN</TableHead>
+                      <TableHead>Old Benchmark</TableHead>
+                      <TableHead>New Benchmark</TableHead>
+                      <TableHead>Source</TableHead>
+                      <TableHead>Changed At</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {historyData?.history?.map((item, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell className="font-mono text-sm">{item.mfIsin}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="bg-red-50">{item.oldIndexCode || '—'}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="bg-green-50">{item.newIndexCode || '—'}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{item.changeSource || '—'}</Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatDate(item.changedAt)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
           </Card>
-
-          {mappingsData?.stats?.byIndexCode && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Mappings by Benchmark</CardTitle>
-                <CardDescription>Distribution of fund mappings across benchmark indices</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {Object.entries(mappingsData.stats.byIndexCode).map(([indexCode, count]) => (
-                    <div key={indexCode} className="p-3 border rounded-lg">
-                      <div className="font-mono text-sm text-muted-foreground">{indexCode}</div>
-                      <div className="text-xl font-bold">{count}</div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </TabsContent>
       </Tabs>
     </div>
