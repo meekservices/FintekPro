@@ -4132,35 +4132,35 @@ export default function AgentProspectWizard() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                     <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded-lg text-center">
                       <p className="text-xs text-muted-foreground">STCG (@20%)</p>
-                      <p className="text-lg font-bold text-red-600">{formatCurrency(capitalGainsData.stcg.taxableGain)}</p>
-                      <p className="text-xs text-muted-foreground">{capitalGainsData.stcg.count} holdings</p>
+                      <p className="text-lg font-bold text-red-600">{formatCurrency(capitalGainsData?.stcg?.taxableGain ?? 0)}</p>
+                      <p className="text-xs text-muted-foreground">{capitalGainsData?.stcg?.count ?? 0} holdings</p>
                     </div>
                     <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-center">
                       <p className="text-xs text-muted-foreground">LTCG (@12.5%)</p>
-                      <p className="text-lg font-bold text-amber-600">{formatCurrency(capitalGainsData.ltcg.taxableGain)}</p>
-                      <p className="text-xs text-muted-foreground">{capitalGainsData.ltcg.count} holdings</p>
+                      <p className="text-lg font-bold text-amber-600">{formatCurrency(capitalGainsData?.ltcg?.taxableGain ?? 0)}</p>
+                      <p className="text-xs text-muted-foreground">{capitalGainsData?.ltcg?.count ?? 0} holdings</p>
                     </div>
                     <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
                       <p className="text-xs text-muted-foreground">LTCG Exemption Used</p>
-                      <p className="text-lg font-bold text-green-600">{formatCurrency(capitalGainsData.ltcg.exemptionUsed)}</p>
+                      <p className="text-lg font-bold text-green-600">{formatCurrency(capitalGainsData?.ltcg?.exemptionUsed ?? 0)}</p>
                       <p className="text-xs text-muted-foreground">of ₹1.25L limit</p>
                     </div>
                     <div className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-center">
                       <p className="text-xs text-muted-foreground">Est. Tax Liability</p>
-                      <p className="text-lg font-bold text-purple-600">{formatCurrency(capitalGainsData.totalTaxLiability)}</p>
+                      <p className="text-lg font-bold text-purple-600">{formatCurrency(capitalGainsData?.totalTaxLiability ?? 0)}</p>
                       <p className="text-xs text-muted-foreground">if sold today</p>
                     </div>
                   </div>
-                  {capitalGainsData.grandfathered.count > 0 && (
+                  {(capitalGainsData?.grandfathered?.count ?? 0) > 0 && (
                     <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm flex items-center gap-2 mb-3">
                       <Shield className="h-4 w-4 text-blue-600" />
                       <span className="text-blue-700 dark:text-blue-300">
-                        {capitalGainsData.grandfathered.count} holdings eligible for grandfathering benefit (savings: {formatCurrency(capitalGainsData.grandfathered.benefit)})
+                        {capitalGainsData?.grandfathered?.count ?? 0} holdings eligible for grandfathering benefit (savings: {formatCurrency(capitalGainsData?.grandfathered?.benefit ?? 0)})
                       </span>
                     </div>
                   )}
                   <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {capitalGainsData.holdings.slice(0, 5).map((h, idx) => (
+                    {(capitalGainsData?.holdings ?? []).slice(0, 5).map((h, idx) => (
                       <div key={idx} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg text-sm">
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate">{h.name}</p>
@@ -4570,11 +4570,11 @@ export default function AgentProspectWizard() {
                         reason: 'Portfolio has critical concentration in single sector/stock',
                         impact: 'Reduces portfolio volatility by up to 15%'
                       }] : []),
-                      ...(capitalGainsData.stcg.count > 0 && capitalGainsData.stcg.estimatedTax > 0 ? [{
+                      ...((capitalGainsData?.stcg?.count ?? 0) > 0 && (capitalGainsData?.stcg?.estimatedTax ?? 0) > 0 ? [{
                         priority: 2,
                         action: 'Consider tax-loss harvesting',
-                        reason: `${capitalGainsData.stcg.count} holdings have short-term gains`,
-                        impact: `Potential tax savings: ${formatCurrency(capitalGainsData.stcg.estimatedTax * 0.3)}`
+                        reason: `${capitalGainsData?.stcg?.count ?? 0} holdings have short-term gains`,
+                        impact: `Potential tax savings: ${formatCurrency((capitalGainsData?.stcg?.estimatedTax ?? 0) * 0.3)}`
                       }] : []),
                       {
                         priority: 3,
