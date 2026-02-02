@@ -28,6 +28,21 @@ interface CalculatedReturns {
   dataQuality: 'full' | 'partial' | 'insufficient';
 }
 
+interface FinancialRatios {
+  standardDeviation: number | null;
+  sharpeRatio: number | null;
+  sortinoRatio: number | null;
+  maxDrawdown: number | null;
+  alpha: number | null;
+  beta: number | null;
+  treynorRatio: number | null;
+  informationRatio: number | null;
+}
+
+interface EnrichedFundData extends CalculatedReturns {
+  ratios: FinancialRatios;
+}
+
 const MFAPI_BASE_URL = 'https://api.mfapi.in/mf';
 const REQUEST_TIMEOUT = 30000;
 const BATCH_SIZE = 50;
@@ -63,6 +78,100 @@ class MFReturnsSyncService {
   private calculateCAGR(currentNav: number, oldNav: number, years: number): number {
     if (oldNav <= 0 || years <= 0 || currentNav <= 0) return 0;
     return (Math.pow(currentNav / oldNav, 1 / years) - 1) * 100;
+  }
+
+  /**
+   * Calculate financial ratios from NAV data
+   * Assumes 6% risk-free rate (India 10-year G-Sec benchmark)
+   */
+  calculateFinancialRatios(navData: NavDataPoint[]): FinancialRatios {
+    const RISK_FREE_RATE = 6.0; // Annual risk-free rate as percentage
+
+    if (!navData || navData.length < 30) {
+      return {
+        standardDeviation: null,
+        sharpeRatio: null,
+        sortinoRatio: null,
+        maxDrawdown: null,
+        alpha: null,
+        beta: null,
+        treynorRatio: null,
+        informationRatio: null
+      };
+    }
+
+    // Sort NAV data by date (oldest first)
+    const sortedNav = [...navData].sort((a, b) => 
+      this.parseDate(a.date).getTime() - this.parseDate(b.date).getTime()
+    );
+
+    // Calculate daily returns
+    const dailyReturns: number[] = [];
+    for (let i = 1; i < sortedNav.length; i++) {
+      const prevNav = parseFloat(sortedNav[i - 1].nav);
+      const currNav = parseFloat(sortedNav[i].nav);
+      if (prevNav > 0) {
+        dailyReturns.push(((currNav - prevNav) / prevNav) * 100);
+      }
+    }
+
+    if (dailyReturns.length < 20) {
+      return {
+        standardDeviation: null,
+        sharpeRatio: null,
+        sortinoRatio: null,
+        maxDrawdown: null,
+        alpha: null,
+        beta: null,
+        treynorRatio: null,
+        informationRatio: null
+      };
+    }
+
+    // Calculate mean daily return
+    const meanReturn = dailyReturns.reduce((a, b) => a + b, 0) / dailyReturns.length;
+
+    // Calculate Standard Deviation (annualized)
+    const variance = dailyReturns.reduce((sum, ret) => sum + Math.pow(ret - meanReturn, 2), 0) / (dailyReturns.length - 1);
+    const dailyStdDev = Math.sqrt(variance);
+    const annualizedStdDev = dailyStdDev * Math.sqrt(252); // 252 trading days
+
+    // Calculate Sharpe Ratio (annualized)
+    const annualizedReturn = meanReturn * 252;
+    const sharpeRatio = annualizedStdDev > 0 ? (annualizedReturn - RISK_FREE_RATE) / annualizedStdDev : null;
+
+    // Calculate Sortino Ratio (uses downside deviation)
+    const negativeReturns = dailyReturns.filter(r => r < 0);
+    const downsideVariance = negativeReturns.length > 0
+      ? negativeReturns.reduce((sum, ret) => sum + Math.pow(ret, 2), 0) / negativeReturns.length
+      : 0;
+    const downsideDeviation = Math.sqrt(downsideVariance) * Math.sqrt(252);
+    const sortinoRatio = downsideDeviation > 0 ? (annualizedReturn - RISK_FREE_RATE) / downsideDeviation : null;
+
+    // Calculate Maximum Drawdown
+    let maxDrawdown = 0;
+    let peak = parseFloat(sortedNav[0].nav);
+    for (const point of sortedNav) {
+      const nav = parseFloat(point.nav);
+      if (nav > peak) peak = nav;
+      const drawdown = (peak - nav) / peak * 100;
+      if (drawdown > maxDrawdown) maxDrawdown = drawdown;
+    }
+
+    // Note: Alpha, Beta, Treynor, Information Ratio require benchmark data
+    // These would need NIFTY 50 or other market index data to calculate properly
+    // For now, we return null for these metrics
+    
+    return {
+      standardDeviation: parseFloat(annualizedStdDev.toFixed(4)),
+      sharpeRatio: sharpeRatio !== null ? parseFloat(sharpeRatio.toFixed(4)) : null,
+      sortinoRatio: sortinoRatio !== null ? parseFloat(sortinoRatio.toFixed(4)) : null,
+      maxDrawdown: parseFloat(maxDrawdown.toFixed(4)),
+      alpha: null, // Requires benchmark data
+      beta: null, // Requires benchmark data
+      treynorRatio: null, // Requires benchmark data
+      informationRatio: null // Requires benchmark data
+    };
   }
 
   /**
@@ -265,20 +374,35 @@ class MFReturnsSyncService {
   }
 
   /**
-   * Update mutual_funds table with calculated returns
+   * Update mutual_funds table with calculated returns and financial ratios
    */
   async updateFundReturns(
     schemeCode: string, 
-    returns: CalculatedReturns
+    returns: CalculatedReturns,
+    ratios?: FinancialRatios
   ): Promise<boolean> {
     try {
+      const updateData: Record<string, any> = {
+        returns1y: returns.returns1y?.toFixed(4) || null,
+        returns3y: returns.returns3y?.toFixed(4) || null,
+        returns5y: returns.returns5y?.toFixed(4) || null,
+        lastUpdated: new Date()
+      };
+
+      // Add financial ratios if provided
+      if (ratios) {
+        updateData.standardDeviation = ratios.standardDeviation?.toString() || null;
+        updateData.sharpeRatio = ratios.sharpeRatio?.toString() || null;
+        updateData.sortinoRatio = ratios.sortinoRatio?.toString() || null;
+        updateData.maxDrawdown = ratios.maxDrawdown?.toString() || null;
+        updateData.alpha = ratios.alpha?.toString() || null;
+        updateData.beta = ratios.beta?.toString() || null;
+        updateData.treynorRatio = ratios.treynorRatio?.toString() || null;
+        updateData.informationRatio = ratios.informationRatio?.toString() || null;
+      }
+
       await db.update(mutualFunds)
-        .set({
-          returns1y: returns.returns1y?.toFixed(4) || null,
-          returns3y: returns.returns3y?.toFixed(4) || null,
-          returns5y: returns.returns5y?.toFixed(4) || null,
-          lastUpdated: new Date()
-        })
+        .set(updateData)
         .where(eq(mutualFunds.schemeCode, schemeCode));
       
       return true;
@@ -289,21 +413,22 @@ class MFReturnsSyncService {
   }
 
   /**
-   * Sync returns for a single fund
+   * Sync returns and financial ratios for a single fund
    */
-  async syncSingleFund(schemeCode: string): Promise<CalculatedReturns | null> {
+  async syncSingleFund(schemeCode: string): Promise<EnrichedFundData | null> {
     const navData = await this.fetchHistoricalNAV(schemeCode);
     if (!navData) return null;
 
     const returns = this.calculateReturnsFromHistory(navData);
+    const ratios = this.calculateFinancialRatios(navData);
     
     if (returns.dataQuality !== 'insufficient') {
-      await this.updateFundReturns(schemeCode, returns);
+      await this.updateFundReturns(schemeCode, returns, ratios);
       // Store historical data for future use
       await this.storeHistoricalData(schemeCode, navData);
     }
     
-    return returns;
+    return { ...returns, ratios };
   }
 
   /**

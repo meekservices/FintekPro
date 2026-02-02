@@ -3941,6 +3941,16 @@ export const mutualFunds = pgTable("mutual_funds", {
   exitLoadDays: integer("exit_load_days"), // Exit load applicable days
   schemeSubCategory: varchar("scheme_sub_category"), // AMFI scheme sub-category
   
+  // Financial ratios (calculated from NAV data)
+  alpha: decimal("alpha", { precision: 8, scale: 4 }), // Jensen's Alpha - excess returns vs benchmark
+  beta: decimal("beta", { precision: 8, scale: 4 }), // Beta - volatility relative to market
+  sharpeRatio: decimal("sharpe_ratio", { precision: 8, scale: 4 }), // Sharpe Ratio - risk-adjusted returns
+  sortinoRatio: decimal("sortino_ratio", { precision: 8, scale: 4 }), // Sortino Ratio - downside risk-adjusted returns
+  standardDeviation: decimal("standard_deviation", { precision: 8, scale: 4 }), // Standard Deviation - volatility measure
+  treynorRatio: decimal("treynor_ratio", { precision: 8, scale: 4 }), // Treynor Ratio - return per unit of market risk
+  informationRatio: decimal("information_ratio", { precision: 8, scale: 4 }), // Information Ratio - consistency vs benchmark
+  maxDrawdown: decimal("max_drawdown", { precision: 8, scale: 4 }), // Maximum Drawdown - worst peak-to-trough decline
+  
   lastUpdated: timestamp("last_updated").defaultNow(),
 });
 
