@@ -37,6 +37,12 @@ The platform is undergoing service consolidation to reduce code duplication:
 - **Unified AI Recommendation Engine** (`server/services/unified-ai-recommendation-engine.ts`): Single entry point for all AI-powered investment recommendations with Gemini (primary) and OpenAI (fallback). Note: Asset-specific routes (stock, bond, commodity) still use individual services - future work to consolidate.
 - **Cache Services**: Three overlapping cache layers exist: `unified-data-cache-service.ts` (company/verification data), `investment-cache-service.ts` (market data/AI rationales), `investment-data-cache.ts` (product catalog with stale-while-revalidate). Future consolidation opportunity identified.
 - **MF Live Returns System** (`server/services/mf-returns-sync-service.ts`, `mf-returns-scheduler.ts`): Replaces static curated MF returns with live CAGR calculations from MFAPI historical NAV data. Features async database fallback (sanitizeFundForDisplayAsync), in-memory cache with fuzzy name matching, daily 7 AM IST refresh scheduler, and exponential backoff for rate limiting. Proposal paths (generateRebalancingRecommendations, generateFreshInvestmentSuggestions) now use await getFundsFromCategorySanitizedAsync() for DB-backed returns lookup.
+- **MF Financial Ratios Engine**: The mf-returns-sync-service calculates risk-adjusted return metrics from historical NAV data:
+  - **Calculated from NAV data**: Sharpe Ratio, Sortino Ratio, Standard Deviation, Max Drawdown (uses 6% risk-free rate based on India 10-year G-Sec, 252 trading days for annualization)
+  - **Requires benchmark data**: Alpha, Beta, Treynor Ratio, Information Ratio (need NIFTY 50 index NAV data for correlation/covariance calculations - documented for future enhancement)
+  - Database columns: `alpha`, `beta`, `sharpe_ratio`, `sortino_ratio`, `standard_deviation`, `treynor_ratio`, `information_ratio`, `max_drawdown` in mutual_funds table
+  - Admin dashboard (`/admin/mf-enrichment`) displays all available metrics
+  - Investment proposal cards show comprehensive fund metrics including ISIN, TER, AUM, and all calculated ratios
 - **KYC Orchestrators**: Three-layer architecture: CKYC Orchestrator (provider resolution), Onboarding Orchestrator (17-step state machine), Workflow Orchestrator (verification/vault operations). These are intentionally layered, not duplicates.
 - **Navigation**: The Help pillar provides Support, FAQs, and Contact functionality - no duplicate sidebar buttons needed.
 
