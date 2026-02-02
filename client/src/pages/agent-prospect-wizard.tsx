@@ -5646,18 +5646,32 @@ export default function AgentProspectWizard() {
           </CardContent>
           
           {/* Readiness Checklist */}
-          {readinessData?.readiness && !readinessData.readiness.isReady && (
+          {readinessData?.readiness && (
             <div className="px-6 pb-4">
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950">
+              <div className={`rounded-lg border p-4 ${
+                readinessData.readiness.isReady 
+                  ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950'
+                  : 'border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950'
+              }`}>
                 <div className="flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
+                  {readinessData.readiness.isReady ? (
+                    <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  ) : (
+                    <AlertCircle className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                  )}
                   <div className="flex-1">
-                    <h4 className="font-semibold text-amber-800 dark:text-amber-200 mb-2">
-                      Complete Required Steps
+                    <h4 className={`font-semibold mb-2 ${
+                      readinessData.readiness.isReady 
+                        ? 'text-green-800 dark:text-green-200' 
+                        : 'text-blue-800 dark:text-blue-200'
+                    }`}>
+                      {readinessData.readiness.isReady ? 'Ready to Generate Proposal' : 'Proposal Status'}
                     </h4>
-                    <p className="text-sm text-amber-700 dark:text-amber-300 mb-3">
-                      The following items must be completed before generating a proposal:
-                    </p>
+                    {!readinessData.readiness.isReady && (
+                      <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
+                        Holdings imported - you can generate a proposal now. Missing details can be completed by the client later.
+                      </p>
+                    )}
                     <div className="space-y-2">
                       {readinessData.readiness.completedSteps.map((step, idx) => (
                         <div key={`complete-${idx}`} className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
@@ -5666,9 +5680,9 @@ export default function AgentProspectWizard() {
                         </div>
                       ))}
                       {readinessData.readiness.missingSteps.map((step, idx) => (
-                        <div key={`missing-${idx}`} className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300">
-                          <AlertTriangle className="h-4 w-4" />
-                          <span>{step}</span>
+                        <div key={`missing-${idx}`} className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Clock className="h-4 w-4" />
+                          <span>{step} <span className="text-xs italic">(client can complete later)</span></span>
                         </div>
                       ))}
                     </div>
@@ -5684,9 +5698,9 @@ export default function AgentProspectWizard() {
             </Button>
             <Button 
               onClick={() => generateProposalMutation.mutate()}
-              disabled={generateProposalMutation.isPending || (readinessData?.readiness && !readinessData.readiness.isReady)}
+              disabled={generateProposalMutation.isPending || !readinessData?.readiness?.completedSteps?.includes('Holdings Imported')}
               data-testid="generate-proposal-btn"
-              title={readinessData?.readiness && !readinessData.readiness.isReady ? 'Complete all steps to generate proposal' : ''}
+              title={!readinessData?.readiness?.completedSteps?.includes('Holdings Imported') ? 'Import holdings to generate proposal' : ''}
             >
               {generateProposalMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               <Sparkles className="h-4 w-4 mr-2" /> Generate Proposal
