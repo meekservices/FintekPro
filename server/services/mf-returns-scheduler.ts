@@ -1,4 +1,7 @@
 import { mfReturnsSyncService } from "./mf-returns-sync-service";
+import { benchmarkSyncService } from "./benchmark-sync-service";
+import { mfBenchmarkMappingService } from "./mf-benchmark-mapping-service";
+import { mfRelativeMetricsEngine } from "./mf-relative-metrics-engine";
 import { updateLiveReturnsCache } from "./agent-prospect-wizard-service";
 import { db } from "../db";
 import { mutualFunds } from "@shared/schema";
@@ -210,8 +213,38 @@ class MFReturnsScheduler {
       const result = await mfReturnsSyncService.runBatchSync(100);
       
       console.log(`[MFReturnsScheduler] Daily sync complete: ${result.successful}/${result.processed} successful`);
+      
+      // Sync benchmark index data
+      await this.syncBenchmarkData();
+      
+      // Compute relative metrics for funds with benchmark mappings
+      await this.computeRelativeMetrics();
     } catch (error: any) {
       console.error('[MFReturnsScheduler] Daily sync error:', error.message);
+    }
+  }
+  
+  async syncBenchmarkData(): Promise<void> {
+    console.log('[MFReturnsScheduler] Syncing benchmark index data...');
+    try {
+      const result = await benchmarkSyncService.syncAllBenchmarks();
+      console.log(`[MFReturnsScheduler] Benchmark sync: ${result.synced} indices synced`);
+    } catch (error: any) {
+      console.error('[MFReturnsScheduler] Benchmark sync error:', error.message);
+    }
+  }
+  
+  async computeRelativeMetrics(): Promise<void> {
+    console.log('[MFReturnsScheduler] Computing relative metrics...');
+    try {
+      // First auto-map any unmapped funds
+      await mfBenchmarkMappingService.autoMapUnmappedFunds(500);
+      
+      // Then compute relative metrics for mapped funds
+      const result = await mfRelativeMetricsEngine.recomputeAllMetrics(100);
+      console.log(`[MFReturnsScheduler] Relative metrics: ${result.success}/${result.processed} computed`);
+    } catch (error: any) {
+      console.error('[MFReturnsScheduler] Relative metrics error:', error.message);
     }
   }
 

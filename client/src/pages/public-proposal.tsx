@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import { 
@@ -1537,65 +1538,108 @@ export default function PublicProposalPage() {
                         </div>
                       </div>
                       
-                      {(rec.ter || rec.aum || rec.sharpeRatio || rec.sortinoRatio || rec.alpha || rec.standardDeviation) && (
-                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 pt-3 border-t">
-                          {rec.ter && (
-                            <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                              <p className="text-xs text-muted-foreground">TER</p>
-                              <p className="font-semibold text-sm">{typeof rec.ter === 'number' ? rec.ter.toFixed(2) : rec.ter}%</p>
-                            </div>
-                          )}
-                          {rec.aum && (
-                            <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                              <p className="text-xs text-muted-foreground">AUM</p>
-                              <p className="font-semibold text-sm">
-                                {typeof rec.aum === 'number' 
-                                  ? rec.aum >= 10000 
-                                    ? `₹${(rec.aum / 10000).toFixed(0)}Cr`
-                                    : rec.aum >= 100 
-                                      ? `₹${(rec.aum / 100).toFixed(0)}L`
-                                      : `₹${rec.aum.toFixed(0)}`
-                                  : rec.aum}
-                              </p>
-                            </div>
-                          )}
-                          {rec.sharpeRatio && (
-                            <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                              <p className="text-xs text-muted-foreground">Sharpe</p>
-                              <p className="font-semibold text-sm">{typeof rec.sharpeRatio === 'number' ? rec.sharpeRatio.toFixed(2) : rec.sharpeRatio}</p>
-                            </div>
-                          )}
-                          {rec.sortinoRatio && (
-                            <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                              <p className="text-xs text-muted-foreground">Sortino</p>
-                              <p className="font-semibold text-sm">{typeof rec.sortinoRatio === 'number' ? rec.sortinoRatio.toFixed(2) : rec.sortinoRatio}</p>
-                            </div>
-                          )}
-                          {rec.alpha && (
-                            <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                              <p className="text-xs text-muted-foreground">Alpha</p>
-                              <p className="font-semibold text-sm text-green-600">{typeof rec.alpha === 'number' ? rec.alpha.toFixed(2) : rec.alpha}</p>
-                            </div>
-                          )}
-                          {rec.standardDeviation && (
-                            <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                              <p className="text-xs text-muted-foreground">Std Dev</p>
-                              <p className="font-semibold text-sm">{typeof rec.standardDeviation === 'number' ? rec.standardDeviation.toFixed(2) : rec.standardDeviation}%</p>
-                            </div>
-                          )}
-                          {rec.beta && (
-                            <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                              <p className="text-xs text-muted-foreground">Beta</p>
-                              <p className="font-semibold text-sm">{typeof rec.beta === 'number' ? rec.beta.toFixed(2) : rec.beta}</p>
-                            </div>
-                          )}
-                          {rec.maxDrawdown && (
-                            <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                              <p className="text-xs text-muted-foreground">Max DD</p>
-                              <p className="font-semibold text-sm text-red-600">-{typeof rec.maxDrawdown === 'number' ? rec.maxDrawdown.toFixed(1) : rec.maxDrawdown}%</p>
-                            </div>
-                          )}
-                        </div>
+                      {(rec.ter || rec.aum || rec.sharpeRatio || rec.sortinoRatio || rec.alpha || rec.beta || rec.treynorRatio || rec.informationRatio || rec.standardDeviation) && (
+                        <TooltipProvider>
+                          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 pt-3 border-t">
+                            {rec.ter && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded cursor-help">
+                                    <p className="text-xs text-muted-foreground">TER</p>
+                                    <p className="font-semibold text-sm">{typeof rec.ter === 'number' ? rec.ter.toFixed(2) : rec.ter}%</p>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent><p className="max-w-xs">Total Expense Ratio - Annual cost of managing the fund, deducted from returns</p></TooltipContent>
+                              </Tooltip>
+                            )}
+                            {rec.aum && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded cursor-help">
+                                    <p className="text-xs text-muted-foreground">AUM</p>
+                                    <p className="font-semibold text-sm">
+                                      {typeof rec.aum === 'number' 
+                                        ? rec.aum >= 10000 
+                                          ? `₹${(rec.aum / 10000).toFixed(0)}Cr`
+                                          : rec.aum >= 100 
+                                            ? `₹${(rec.aum / 100).toFixed(0)}L`
+                                            : `₹${rec.aum.toFixed(0)}`
+                                        : rec.aum}
+                                    </p>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent><p className="max-w-xs">Assets Under Management - Total value of investments in this fund</p></TooltipContent>
+                              </Tooltip>
+                            )}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded cursor-help">
+                                  <p className="text-xs text-muted-foreground">Sharpe</p>
+                                  <p className="font-semibold text-sm">{rec.sharpeRatio != null ? (typeof rec.sharpeRatio === 'number' ? rec.sharpeRatio.toFixed(2) : rec.sharpeRatio) : '—'}</p>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent><p className="max-w-xs">Sharpe Ratio - Risk-adjusted return. Higher is better. Measures excess return per unit of total risk.</p></TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded cursor-help">
+                                  <p className="text-xs text-muted-foreground">Alpha</p>
+                                  <p className={`font-semibold text-sm ${rec.alpha != null && rec.alpha > 0 ? 'text-green-600' : rec.alpha != null ? 'text-red-600' : 'text-muted-foreground'}`}>
+                                    {rec.alpha != null ? (typeof rec.alpha === 'number' ? rec.alpha.toFixed(2) : rec.alpha) : '—'}
+                                  </p>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent><p className="max-w-xs">{rec.alpha != null ? "Alpha - Excess return vs benchmark. Positive means outperforming the market." : "Requires benchmark index data (NIFTY) for calculation."}</p></TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded cursor-help">
+                                  <p className="text-xs text-muted-foreground">Beta</p>
+                                  <p className="font-semibold text-sm">{rec.beta != null ? (typeof rec.beta === 'number' ? rec.beta.toFixed(2) : rec.beta) : '—'}</p>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent><p className="max-w-xs">{rec.beta != null ? "Beta - Market sensitivity. 1.0 = moves with market, >1 = more volatile, <1 = less volatile." : "Requires benchmark index data (NIFTY) for calculation."}</p></TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded cursor-help">
+                                  <p className="text-xs text-muted-foreground">Treynor</p>
+                                  <p className="font-semibold text-sm">{rec.treynorRatio != null ? (typeof rec.treynorRatio === 'number' ? rec.treynorRatio.toFixed(2) : rec.treynorRatio) : '—'}</p>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent><p className="max-w-xs">{rec.treynorRatio != null ? "Treynor Ratio - Reward per unit of systematic risk. Higher is better for diversified portfolios." : "Requires benchmark index data (NIFTY) for calculation."}</p></TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded cursor-help">
+                                  <p className="text-xs text-muted-foreground">Info Ratio</p>
+                                  <p className="font-semibold text-sm">{rec.informationRatio != null ? (typeof rec.informationRatio === 'number' ? rec.informationRatio.toFixed(2) : rec.informationRatio) : '—'}</p>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent><p className="max-w-xs">{rec.informationRatio != null ? "Information Ratio - Consistency of outperformance vs benchmark. Higher = more consistent alpha generation." : "Requires benchmark index data (NIFTY) for calculation."}</p></TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded cursor-help">
+                                  <p className="text-xs text-muted-foreground">Std Dev</p>
+                                  <p className="font-semibold text-sm">{rec.standardDeviation != null ? (typeof rec.standardDeviation === 'number' ? rec.standardDeviation.toFixed(2) : rec.standardDeviation) + '%' : '—'}</p>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent><p className="max-w-xs">Standard Deviation - Volatility measure. Lower indicates more stable returns.</p></TooltipContent>
+                            </Tooltip>
+                            {rec.maxDrawdown && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded cursor-help">
+                                    <p className="text-xs text-muted-foreground">Max DD</p>
+                                    <p className="font-semibold text-sm text-red-600">-{typeof rec.maxDrawdown === 'number' ? rec.maxDrawdown.toFixed(1) : rec.maxDrawdown}%</p>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent><p className="max-w-xs">Maximum Drawdown - Largest peak-to-trough decline. Shows worst-case loss scenario.</p></TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
+                        </TooltipProvider>
                       )}
                     </div>
                   </div>

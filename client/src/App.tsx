@@ -319,6 +319,7 @@ import AdminAadhaarConfig from "@/pages/admin-aadhaar-config";
 import ExchangeFilingsAdmin from "@/pages/admin/exchange-filings";
 import AdminApiUsage from "@/pages/admin-api-usage";
 import AdminMFEnrichment from "@/pages/admin-mf-enrichment";
+import AdminMfBenchmarks from "@/pages/admin-mf-benchmarks";
 import AdminAiRecommendationTracking from "@/pages/admin-ai-recommendation-tracking";
 import AdminReportsHub from "@/pages/admin/reports-hub";
 import AdminAIInsights from "@/pages/admin/ai-insights";
@@ -1385,6 +1386,9 @@ function AdminRoutes() {
       </Route>
       <Route path="/admin/api-usage">
         {() => <AdminApiUsage />}
+      </Route>
+      <Route path="/admin/mf-benchmarks">
+        <AdminMfBenchmarks />
       </Route>
       <Route path="/admin/mf-enrichment">
         {() => <AdminMFEnrichment />}

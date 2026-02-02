@@ -39,10 +39,18 @@ The platform is undergoing service consolidation to reduce code duplication:
 - **MF Live Returns System** (`server/services/mf-returns-sync-service.ts`, `mf-returns-scheduler.ts`): Replaces static curated MF returns with live CAGR calculations from MFAPI historical NAV data. Features async database fallback (sanitizeFundForDisplayAsync), in-memory cache with fuzzy name matching, daily 7 AM IST refresh scheduler, and exponential backoff for rate limiting. Proposal paths (generateRebalancingRecommendations, generateFreshInvestmentSuggestions) now use await getFundsFromCategorySanitizedAsync() for DB-backed returns lookup.
 - **MF Financial Ratios Engine**: The mf-returns-sync-service calculates risk-adjusted return metrics from historical NAV data:
   - **Calculated from NAV data**: Sharpe Ratio, Sortino Ratio, Standard Deviation, Max Drawdown (uses 6% risk-free rate based on India 10-year G-Sec, 252 trading days for annualization)
-  - **Requires benchmark data**: Alpha, Beta, Treynor Ratio, Information Ratio (need NIFTY 50 index NAV data for correlation/covariance calculations - documented for future enhancement)
-  - Database columns: `alpha`, `beta`, `sharpe_ratio`, `sortino_ratio`, `standard_deviation`, `treynor_ratio`, `information_ratio`, `max_drawdown` in mutual_funds table
-  - Admin dashboard (`/admin/mf-enrichment`) displays all available metrics
-  - Investment proposal cards show comprehensive fund metrics including ISIN, TER, AUM, and all calculated ratios
+  - **Benchmark-relative metrics**: Alpha, Beta, Treynor Ratio, Information Ratio (calculated from aligned NAV/index time series)
+  - Database columns: `alpha`, `beta`, `sharpe_ratio`, `sortino_ratio`, `standard_deviation`, `treynor_ratio`, `information_ratio`, `max_drawdown`, `alpha_available`, `beta_available`, `treynor_available`, `information_ratio_available` in mutual_funds table
+  - Admin dashboard (`/admin/mf-enrichment`) displays all available metrics with benchmark coverage stats
+  - Admin benchmark management (`/admin/mf-benchmarks`) for index data sync, fund-benchmark mapping, and metrics recompute
+  - Investment proposal cards show comprehensive fund metrics including ISIN, TER, AUM, and all calculated ratios with explanatory tooltips
+- **Benchmark Data Infrastructure**: Market index historical data for relative metrics calculation:
+  - `market_indices` table: Stores benchmark index metadata (NIFTY 50, NIFTY Midcap 150, NIFTY Bank, etc.)
+  - `market_index_nav` table: Daily close values and returns for each index from Yahoo Finance
+  - `mf_benchmark_map` table: Fund-to-benchmark mapping with confidence scoring (0-1.0, min 0.70 for calculation)
+  - `benchmark-sync-service.ts`: Daily ingestion of index data from Yahoo Finance
+  - `mf-benchmark-mapping-service.ts`: Auto-mapping based on fund category (Large Cap → NIFTY50, Mid Cap → NIFTY Midcap 150, etc.)
+  - `mf-relative-metrics-engine.ts`: Rolling time-series alignment and Alpha/Beta/Treynor/IR calculation
 - **KYC Orchestrators**: Three-layer architecture: CKYC Orchestrator (provider resolution), Onboarding Orchestrator (17-step state machine), Workflow Orchestrator (verification/vault operations). These are intentionally layered, not duplicates.
 - **Navigation**: The Help pillar provides Support, FAQs, and Contact functionality - no duplicate sidebar buttons needed.
 

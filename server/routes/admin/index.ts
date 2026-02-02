@@ -3817,5 +3817,159 @@ System Security Data:`;
 
   console.log("✅ MF Enrichment Admin routes registered");
 
+  // ============================================================================
+  // BENCHMARK MAPPING MANAGEMENT ROUTES
+  // ============================================================================
+
+  app.get("/api/admin/benchmarks", requireAdmin, async (req, res) => {
+    try {
+      const { benchmarkSyncService } = await import("../../services/benchmark-sync-service");
+      const { db } = await import("../../db");
+      const { marketIndices } = await import("@shared/schema");
+      
+      const indices = await db.select().from(marketIndices);
+      const coverage = await benchmarkSyncService.getBenchmarkDataCoverage();
+      
+      res.json({
+        success: true,
+        indices,
+        coverage
+      });
+    } catch (error: any) {
+      console.error("[Benchmark Admin] Error fetching benchmarks:", error.message);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.post("/api/admin/benchmarks/sync", requireAdmin, async (req: any, res) => {
+    try {
+      const { benchmarkSyncService } = await import("../../services/benchmark-sync-service");
+      
+      console.log(`[Benchmark Admin] Manual sync triggered by ${req.user?.email || 'admin'}`);
+      
+      // Start async sync
+      const syncPromise = benchmarkSyncService.syncAllBenchmarks();
+      
+      res.json({
+        success: true,
+        message: "Benchmark sync started. Check status for progress."
+      });
+      
+      syncPromise.then((result) => {
+        console.log(`[Benchmark Admin] Sync completed: ${result.synced} synced, ${result.failed.length} failed`);
+      }).catch((err) => {
+        console.error(`[Benchmark Admin] Sync failed:`, err.message);
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/admin/mf-benchmark-mappings", requireAdmin, async (req, res) => {
+    try {
+      const { db } = await import("../../db");
+      const { mfBenchmarkMap, mutualFunds } = await import("@shared/schema");
+      const { eq, desc, sql } = await import("drizzle-orm");
+      const { mfBenchmarkMappingService } = await import("../../services/mf-benchmark-mapping-service");
+      
+      const limit = parseInt(req.query.limit as string) || 100;
+      const offset = parseInt(req.query.offset as string) || 0;
+      
+      const mappings = await db.select({
+        id: mfBenchmarkMap.id,
+        mfIsin: mfBenchmarkMap.mfIsin,
+        mfSchemeCode: mfBenchmarkMap.mfSchemeCode,
+        indexCode: mfBenchmarkMap.indexCode,
+        confidenceScore: mfBenchmarkMap.confidenceScore,
+        source: mfBenchmarkMap.source,
+        mappingReason: mfBenchmarkMap.mappingReason,
+        isOverridden: mfBenchmarkMap.isOverridden,
+        createdAt: mfBenchmarkMap.createdAt,
+      })
+      .from(mfBenchmarkMap)
+      .orderBy(desc(mfBenchmarkMap.createdAt))
+      .limit(limit)
+      .offset(offset);
+      
+      const stats = await mfBenchmarkMappingService.getMappingStats();
+      
+      res.json({
+        success: true,
+        mappings,
+        stats,
+        pagination: { limit, offset }
+      });
+    } catch (error: any) {
+      console.error("[Benchmark Admin] Error fetching mappings:", error.message);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.post("/api/admin/mf-benchmark-mappings/auto-map", requireAdmin, async (req: any, res) => {
+    try {
+      const { mfBenchmarkMappingService } = await import("../../services/mf-benchmark-mapping-service");
+      
+      const limit = parseInt(req.body?.limit) || 500;
+      console.log(`[Benchmark Admin] Auto-mapping triggered by ${req.user?.email || 'admin'}`);
+      
+      const result = await mfBenchmarkMappingService.autoMapUnmappedFunds(limit);
+      
+      res.json({
+        success: true,
+        result,
+        message: `Mapped ${result.mapped} funds, skipped ${result.skipped}`
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.post("/api/admin/mf-benchmark-mappings/override", requireAdmin, async (req: any, res) => {
+    try {
+      const { mfBenchmarkMappingService } = await import("../../services/mf-benchmark-mapping-service");
+      
+      const { isin, indexCode } = req.body;
+      if (!isin || !indexCode) {
+        return res.status(400).json({ success: false, error: "Missing isin or indexCode" });
+      }
+      
+      await mfBenchmarkMappingService.overrideBenchmark(isin, indexCode, req.user?.email || 'admin');
+      
+      res.json({
+        success: true,
+        message: `Benchmark override applied for ${isin}`
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.post("/api/admin/mf-relative-metrics/recompute", requireAdmin, async (req: any, res) => {
+    try {
+      const { mfRelativeMetricsEngine } = await import("../../services/mf-relative-metrics-engine");
+      
+      const batchSize = parseInt(req.body?.batchSize) || 50;
+      console.log(`[Metrics Admin] Recompute triggered by ${req.user?.email || 'admin'}`);
+      
+      // Start async recompute
+      const recomputePromise = mfRelativeMetricsEngine.recomputeAllMetrics(batchSize);
+      
+      res.json({
+        success: true,
+        message: `Metrics recomputation started for up to ${batchSize} funds`
+      });
+      
+      recomputePromise.then((result) => {
+        console.log(`[Metrics Admin] Recompute completed: ${result.success}/${result.processed} success`);
+      }).catch((err) => {
+        console.error(`[Metrics Admin] Recompute failed:`, err.message);
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  console.log("✅ Benchmark Mapping Admin routes registered");
+
   console.log("✅ Admin Panel routes registered");
 }

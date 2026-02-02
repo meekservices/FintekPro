@@ -3951,6 +3951,16 @@ export const mutualFunds = pgTable("mutual_funds", {
   informationRatio: decimal("information_ratio", { precision: 8, scale: 4 }), // Information Ratio - consistency vs benchmark
   maxDrawdown: decimal("max_drawdown", { precision: 8, scale: 4 }), // Maximum Drawdown - worst peak-to-trough decline
   
+  // Metric availability flags (TRUE only if benchmark confidence >= 0.7 and sufficient data)
+  alphaAvailable: boolean("alpha_available").default(false),
+  betaAvailable: boolean("beta_available").default(false),
+  treynorAvailable: boolean("treynor_available").default(false),
+  informationRatioAvailable: boolean("information_ratio_available").default(false),
+  
+  // Benchmark mapping reference
+  benchmarkIndexCode: varchar("benchmark_index_code"), // e.g., NIFTY50, NIFTY_MIDCAP_150
+  benchmarkConfidenceScore: decimal("benchmark_confidence_score", { precision: 3, scale: 2 }), // 0.00-1.00
+  
   lastUpdated: timestamp("last_updated").defaultNow(),
 });
 
@@ -28839,3 +28849,70 @@ export const insertResearchAuditLogSchema = createInsertSchema(researchAuditLog)
 });
 export type ResearchAuditLog = typeof researchAuditLog.$inferSelect;
 export type InsertResearchAuditLog = z.infer<typeof insertResearchAuditLogSchema>;
+
+// ============================================================================
+// BENCHMARK DATA TABLES - For Mutual Fund Relative Metrics (Alpha, Beta, etc.)
+// ============================================================================
+
+// Market Indices Master Table - stores benchmark indices like NIFTY 50, Sensex
+export const marketIndices = pgTable("market_indices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  indexCode: varchar("index_code", { length: 30 }).notNull().unique(), // e.g., NIFTY50, NIFTY_MIDCAP_150, SENSEX
+  indexName: varchar("index_name", { length: 100 }).notNull(), // e.g., NIFTY 50, NIFTY Midcap 150
+  provider: varchar("provider", { length: 30 }), // e.g., NSE, BSE
+  description: text("description"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertMarketIndexSchema = createInsertSchema(marketIndices).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+export type MarketIndex = typeof marketIndices.$inferSelect;
+export type InsertMarketIndex = z.infer<typeof insertMarketIndexSchema>;
+
+// Market Index NAV History - daily closing values and returns for benchmark indices
+export const marketIndexNav = pgTable("market_index_nav", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  indexId: varchar("index_id").references(() => marketIndices.id).notNull(),
+  navDate: date("nav_date").notNull(),
+  closeValue: decimal("close_value", { precision: 12, scale: 4 }).notNull(),
+  dailyReturn: decimal("daily_return", { precision: 10, scale: 6 }), // (today - yesterday) / yesterday
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_market_index_nav_index_id").on(table.indexId),
+  index("idx_market_index_nav_date").on(table.navDate),
+  // Unique constraint on index_id + nav_date
+]);
+
+export const insertMarketIndexNavSchema = createInsertSchema(marketIndexNav).omit({
+  id: true, createdAt: true,
+});
+export type MarketIndexNav = typeof marketIndexNav.$inferSelect;
+export type InsertMarketIndexNav = z.infer<typeof insertMarketIndexNavSchema>;
+
+// MF Benchmark Mapping - maps mutual funds to their benchmark indices
+export const mfBenchmarkMap = pgTable("mf_benchmark_map", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  mfIsin: varchar("mf_isin", { length: 20 }).notNull().unique(), // Mutual fund ISIN
+  mfSchemeCode: varchar("mf_scheme_code", { length: 20 }), // Optional scheme code reference
+  indexCode: varchar("index_code", { length: 30 }).notNull(), // Benchmark index code
+  confidenceScore: decimal("confidence_score", { precision: 3, scale: 2 }).notNull().default("0.80"), // 0.00-1.00
+  source: varchar("source", { length: 30 }).default("auto"), // 'auto', 'amfi', 'manual'
+  mappingReason: text("mapping_reason"), // e.g., "Large Cap → NIFTY50"
+  isOverridden: boolean("is_overridden").default(false), // Admin override flag
+  overriddenBy: varchar("overridden_by"), // Admin who made override
+  overriddenAt: timestamp("overridden_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_mf_benchmark_map_index_code").on(table.indexCode),
+  index("idx_mf_benchmark_map_scheme_code").on(table.mfSchemeCode),
+]);
+
+export const insertMfBenchmarkMapSchema = createInsertSchema(mfBenchmarkMap).omit({
+  id: true, createdAt: true, updatedAt: true, overriddenAt: true,
+});
+export type MfBenchmarkMap = typeof mfBenchmarkMap.$inferSelect;
+export type InsertMfBenchmarkMap = z.infer<typeof insertMfBenchmarkMapSchema>;

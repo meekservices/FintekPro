@@ -71,6 +71,14 @@ export default function AdminMFEnrichment() {
     refetchInterval: 5000,
   });
 
+  const { data: benchmarkData } = useQuery<{
+    success: boolean;
+    stats: { totalMappings: number; highConfidence: number };
+  }>({
+    queryKey: ['/api/admin/mf-benchmark-mappings'],
+    refetchInterval: 30000,
+  });
+
   const syncMutation = useMutation({
     mutationFn: async () => {
       return apiRequest('/api/admin/mf-enrichment-sync', {
@@ -210,35 +218,59 @@ export default function AdminMFEnrichment() {
           </Card>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Sync Status</CardTitle>
-            <CardDescription>Current synchronization status and last sync time</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">Status:</span>
-                {syncStatus?.isRunning ? (
-                  <Badge variant="default" className="bg-blue-500">
-                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                    Running
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="text-green-600 border-green-600">
-                    Idle
-                  </Badge>
-                )}
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Sync Status</CardTitle>
+              <CardDescription>Current synchronization status and last sync time</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">Status:</span>
+                  {syncStatus?.isRunning ? (
+                    <Badge variant="default" className="bg-blue-500">
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      Running
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-green-600 border-green-600">
+                      Idle
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">Last Sync:</span>
+                  <span className="text-sm text-muted-foreground">
+                    {syncStatus?.lastSyncTime ? formatDate(syncStatus.lastSyncTime) : 'Never'}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">Last Sync:</span>
-                <span className="text-sm text-muted-foreground">
-                  {syncStatus?.lastSyncTime ? formatDate(syncStatus.lastSyncTime) : 'Never'}
-                </span>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Benchmark Coverage</CardTitle>
+              <CardDescription>Funds mapped to benchmark indices for Alpha/Beta calculation</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-6">
+                <div>
+                  <div className="text-2xl font-bold">{benchmarkData?.stats?.totalMappings?.toLocaleString() || 0}</div>
+                  <p className="text-xs text-muted-foreground">Total Mappings</p>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-green-600">{benchmarkData?.stats?.highConfidence?.toLocaleString() || 0}</div>
+                  <p className="text-xs text-muted-foreground">High Confidence (≥70%)</p>
+                </div>
+                <a href="/admin/mf-benchmarks" className="text-sm text-blue-600 hover:underline">
+                  Manage Benchmarks →
+                </a>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
 
         <Card>
           <CardHeader>
