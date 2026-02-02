@@ -3912,17 +3912,158 @@ export default function AgentProspectWizard() {
                       <TableHead>Product</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead className="text-right">Value</TableHead>
+                      <TableHead className="w-28">Purchase Date</TableHead>
                       <TableHead className="w-24 text-center">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {holdings.map((holding, idx) => (
+                    {holdings.map((holding, idx) => {
+                      // Parse date from any format to Date object
+                      const parseAnyDateFormat = (dateInput: string | Date | null | undefined): Date | null => {
+                        if (!dateInput) return null;
+                        
+                        // If already a Date object, return it
+                        if (dateInput instanceof Date) {
+                          return isNaN(dateInput.getTime()) ? null : dateInput;
+                        }
+                        
+                        const str = String(dateInput).trim();
+                        if (!str) return null;
+                        
+                        // Try ISO format first (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
+                        if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+                          const d = new Date(str.split('T')[0] + 'T00:00:00');
+                          return isNaN(d.getTime()) ? null : d;
+                        }
+                        
+                        // Try DD-MMM-YYYY or DD/MMM/YYYY (e.g., "18-Mar-2024")
+                        const ddMmmYyyyMatch = str.match(/^(\d{1,2})[-\/]([A-Za-z]{3})[-\/](\d{4})$/);
+                        if (ddMmmYyyyMatch) {
+                          const months: Record<string, number> = { 
+                            jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, 
+                            jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 
+                          };
+                          const day = parseInt(ddMmmYyyyMatch[1], 10);
+                          const monthIdx = months[ddMmmYyyyMatch[2].toLowerCase()];
+                          const year = parseInt(ddMmmYyyyMatch[3], 10);
+                          if (monthIdx !== undefined) {
+                            return new Date(year, monthIdx, day);
+                          }
+                        }
+                        
+                        // Try DD/MM/YYYY or DD-MM-YYYY
+                        const ddMmYyyyMatch = str.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+                        if (ddMmYyyyMatch) {
+                          const day = parseInt(ddMmYyyyMatch[1], 10);
+                          const month = parseInt(ddMmYyyyMatch[2], 10) - 1;
+                          const year = parseInt(ddMmYyyyMatch[3], 10);
+                          return new Date(year, month, day);
+                        }
+                        
+                        // Fallback to native Date parsing
+                        const d = new Date(str);
+                        return isNaN(d.getTime()) ? null : d;
+                      };
+                      
+                      // Convert Date to YYYY-MM-DD string
+                      const toISODateString = (d: Date): string => {
+                        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                      };
+                      
+                      // Get earliest purchase date from lots or holding's purchaseDate
+                      const getHoldingPurchaseDate = (): string | null => {
+                        // Check lots first (most accurate for CAS imports)
+                        if (holding.lots && holding.lots.length > 0) {
+                          let earliestDate: Date | null = null;
+                          for (const lot of holding.lots) {
+                            const parsed = parseAnyDateFormat(lot.transactionDateStr) || 
+                                           parseAnyDateFormat(lot.transactionDate) ||
+                                           parseAnyDateFormat(lot.purchaseDate);
+                            if (parsed) {
+                              if (!earliestDate || parsed.getTime() < earliestDate.getTime()) {
+                                earliestDate = parsed;
+                              }
+                            }
+                          }
+                          if (earliestDate) return toISODateString(earliestDate);
+                        }
+                        // Fallback to holding's purchaseDate
+                        const holdingDate = parseAnyDateFormat(holding.purchaseDate);
+                        return holdingDate ? toISODateString(holdingDate) : null;
+                      };
+                      
+                      const purchaseDateStr = getHoldingPurchaseDate();
+                      const formattedPurchaseDate = purchaseDateStr 
+                        ? new Date(purchaseDateStr + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                        : null;
+                      
+                      return (
                       <TableRow key={idx} className={editingHoldingIndex === idx ? 'bg-amber-50 dark:bg-amber-900/20' : ''}>
                         <TableCell className="font-medium">{holding.productName}</TableCell>
                         <TableCell>
                           <Badge variant="outline">{PRODUCT_TYPES.find(t => t.value === holding.productType)?.label}</Badge>
                         </TableCell>
                         <TableCell className="text-right">{formatCurrency(holding.currentValue)}</TableCell>
+                        <TableCell>
+                          {editingHoldingIndex === idx ? (
+                            <Input
+                              type="date"
+                              className="h-8 w-28 text-xs"
+                              value={purchaseDateStr || ''}
+                              onChange={(e) => {
+                                const newDate = e.target.value;
+                                // Guard against empty/invalid date input - purchase date is required for tax calculations
+                                if (!newDate) {
+                                  toast({
+                                    title: "Purchase Date Required",
+                                    description: "Purchase date is required for accurate capital gains and exit load calculations.",
+                                    variant: "destructive"
+                                  });
+                                  return;
+                                }
+                                if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
+                                  // Don't update if date format is invalid (shouldn't happen with date input)
+                                  return;
+                                }
+                                
+                                const updatedHoldings = [...holdings];
+                                // Normalize to YYYY-MM-DD string format for storage
+                                const normalizedDateStr = newDate; // Already YYYY-MM-DD from date input
+                                // Create a proper Date object for transactionDate
+                                const normalizedDateObj = new Date(normalizedDateStr + 'T00:00:00');
+                                
+                                // Validate the Date object is valid
+                                if (isNaN(normalizedDateObj.getTime())) {
+                                  // Don't update if date parsing failed
+                                  return;
+                                }
+                                
+                                updatedHoldings[idx] = {
+                                  ...updatedHoldings[idx],
+                                  purchaseDate: normalizedDateStr
+                                };
+                                // Update all lot date fields to keep them in sync
+                                // - purchaseDate: string YYYY-MM-DD (for backward compat)
+                                // - transactionDateStr: string YYYY-MM-DD (canonical string format)
+                                // - transactionDate: Date object (for code that expects Date)
+                                if (updatedHoldings[idx].lots && updatedHoldings[idx].lots.length > 0) {
+                                  updatedHoldings[idx].lots = updatedHoldings[idx].lots.map(lot => ({
+                                    ...lot,
+                                    purchaseDate: normalizedDateStr,
+                                    transactionDateStr: normalizedDateStr,
+                                    transactionDate: normalizedDateObj
+                                  }));
+                                }
+                                setHoldings(updatedHoldings);
+                              }}
+                              data-testid={`edit-date-${idx}`}
+                            />
+                          ) : (
+                            <span className="text-sm text-muted-foreground">
+                              {formattedPurchaseDate || <span className="italic text-xs">Not set</span>}
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-1">
                             <Button 
@@ -3946,10 +4087,11 @@ export default function AgentProspectWizard() {
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    )})}
                     <TableRow className="bg-muted/50">
                       <TableCell colSpan={2} className="font-semibold">Total Portfolio Value</TableCell>
                       <TableCell className="text-right font-bold text-lg">{formatCurrency(totalPortfolioValue)}</TableCell>
+                      <TableCell></TableCell>
                       <TableCell></TableCell>
                     </TableRow>
                   </TableBody>
