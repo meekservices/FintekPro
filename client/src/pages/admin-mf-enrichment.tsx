@@ -39,9 +39,19 @@ interface SyncStatus {
 interface RecentlyEnrichedFund {
   schemeCode: string;
   schemeName: string;
+  isin: string | null;
+  ter: number | null;
+  aum: number | null;
+  riskLevel: string | null;
   returns1y: number | null;
   returns3y: number | null;
   returns5y: number | null;
+  sharpeRatio: number | null;
+  sortinoRatio: number | null;
+  standardDeviation: number | null;
+  maxDrawdown: number | null;
+  alpha: number | null;
+  beta: number | null;
   lastUpdated: string;
 }
 
@@ -96,6 +106,18 @@ export default function AdminMFEnrichment() {
   const formatReturns = (value: number | null) => {
     if (value === null) return "N/A";
     return `${value.toFixed(2)}%`;
+  };
+
+  const formatRatio = (value: number | null) => {
+    if (value === null) return "-";
+    return value.toFixed(2);
+  };
+
+  const formatAUM = (value: number | null) => {
+    if (value === null) return "-";
+    if (value >= 10000) return `₹${(value / 10000).toFixed(0)}Cr`;
+    if (value >= 100) return `₹${(value / 100).toFixed(0)}L`;
+    return `₹${value.toFixed(0)}`;
   };
 
   const formatDate = (dateStr: string) => {
@@ -221,50 +243,80 @@ export default function AdminMFEnrichment() {
         <Card>
           <CardHeader>
             <CardTitle>Recently Enriched Funds</CardTitle>
-            <CardDescription>Last 5 funds updated with returns data</CardDescription>
+            <CardDescription>Last 5 funds updated with returns and financial ratios</CardDescription>
           </CardHeader>
           <CardContent>
             {recentlyEnriched.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Scheme Code</TableHead>
-                    <TableHead>Fund Name</TableHead>
-                    <TableHead className="text-right">1Y Returns</TableHead>
-                    <TableHead className="text-right">3Y Returns</TableHead>
-                    <TableHead className="text-right">5Y Returns</TableHead>
-                    <TableHead className="text-right">Last Updated</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recentlyEnriched.map((fund) => (
-                    <TableRow key={fund.schemeCode}>
-                      <TableCell className="font-mono text-sm">{fund.schemeCode}</TableCell>
-                      <TableCell className="max-w-[300px] truncate" title={fund.schemeName}>
-                        {fund.schemeName}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Badge variant={fund.returns1y && fund.returns1y > 0 ? "default" : "secondary"}>
-                          {formatReturns(fund.returns1y)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Badge variant={fund.returns3y && fund.returns3y > 0 ? "default" : "secondary"}>
-                          {formatReturns(fund.returns3y)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Badge variant={fund.returns5y && fund.returns5y > 0 ? "default" : "secondary"}>
-                          {formatReturns(fund.returns5y)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right text-sm text-muted-foreground">
-                        {formatDate(fund.lastUpdated)}
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Fund Name</TableHead>
+                      <TableHead>ISIN</TableHead>
+                      <TableHead className="text-right">TER</TableHead>
+                      <TableHead className="text-right">AUM</TableHead>
+                      <TableHead>Risk</TableHead>
+                      <TableHead className="text-right">1Y</TableHead>
+                      <TableHead className="text-right">3Y</TableHead>
+                      <TableHead className="text-right">5Y</TableHead>
+                      <TableHead className="text-right">Sharpe</TableHead>
+                      <TableHead className="text-right">Std Dev</TableHead>
+                      <TableHead className="text-right">Max DD</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {recentlyEnriched.map((fund) => (
+                      <TableRow key={fund.schemeCode}>
+                        <TableCell className="max-w-[200px] truncate" title={fund.schemeName}>
+                          <div className="font-medium text-sm">{fund.schemeName}</div>
+                          <div className="text-xs text-muted-foreground font-mono">{fund.schemeCode}</div>
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {fund.isin || <span className="text-muted-foreground">-</span>}
+                        </TableCell>
+                        <TableCell className="text-right text-sm">
+                          {fund.ter ? `${fund.ter.toFixed(2)}%` : '-'}
+                        </TableCell>
+                        <TableCell className="text-right text-sm">
+                          {formatAUM(fund.aum)}
+                        </TableCell>
+                        <TableCell>
+                          {fund.riskLevel ? (
+                            <Badge variant={fund.riskLevel.toLowerCase().includes('high') ? "destructive" : 
+                                           fund.riskLevel.toLowerCase().includes('low') ? "secondary" : "default"}>
+                              {fund.riskLevel}
+                            </Badge>
+                          ) : '-'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant={fund.returns1y && fund.returns1y > 0 ? "default" : "secondary"}>
+                            {formatReturns(fund.returns1y)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant={fund.returns3y && fund.returns3y > 0 ? "default" : "secondary"}>
+                            {formatReturns(fund.returns3y)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant={fund.returns5y && fund.returns5y > 0 ? "default" : "secondary"}>
+                            {formatReturns(fund.returns5y)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right text-sm font-medium">
+                          {formatRatio(fund.sharpeRatio)}
+                        </TableCell>
+                        <TableCell className="text-right text-sm">
+                          {formatRatio(fund.standardDeviation)}
+                        </TableCell>
+                        <TableCell className="text-right text-sm text-red-600">
+                          {fund.maxDrawdown ? `-${fund.maxDrawdown.toFixed(1)}%` : '-'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 No funds enriched yet. Click "Sync Now" to start enriching fund data.

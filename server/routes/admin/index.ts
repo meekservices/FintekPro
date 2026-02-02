@@ -3717,9 +3717,12 @@ System Security Data:`;
       // Get sync service status
       const syncStatus = mfReturnsSyncService.getStatus();
       
-      // Get last synced fund info
+      // Get last synced fund info with financial ratios
       const lastSyncedResult = await db.execute(sql`
-        SELECT scheme_code, scheme_name, returns_1y, returns_3y, returns_5y, last_updated 
+        SELECT scheme_code, scheme_name, isin, expense_ratio, aum, risk_level,
+               returns_1y, returns_3y, returns_5y, 
+               sharpe_ratio, sortino_ratio, standard_deviation, max_drawdown,
+               alpha, beta, last_updated 
         FROM mutual_funds 
         WHERE returns_1y IS NOT NULL 
         ORDER BY last_updated DESC NULLS LAST
@@ -3741,9 +3744,19 @@ System Security Data:`;
         recentlyEnriched: lastSyncedResult.rows.map((row: any) => ({
           schemeCode: row.scheme_code,
           schemeName: row.scheme_name,
+          isin: row.isin || null,
+          ter: row.expense_ratio ? parseFloat(row.expense_ratio) : null,
+          aum: row.aum ? parseFloat(row.aum) : null,
+          riskLevel: row.risk_level || null,
           returns1y: row.returns_1y ? parseFloat(row.returns_1y) : null,
           returns3y: row.returns_3y ? parseFloat(row.returns_3y) : null,
           returns5y: row.returns_5y ? parseFloat(row.returns_5y) : null,
+          sharpeRatio: row.sharpe_ratio ? parseFloat(row.sharpe_ratio) : null,
+          sortinoRatio: row.sortino_ratio ? parseFloat(row.sortino_ratio) : null,
+          standardDeviation: row.standard_deviation ? parseFloat(row.standard_deviation) : null,
+          maxDrawdown: row.max_drawdown ? parseFloat(row.max_drawdown) : null,
+          alpha: row.alpha ? parseFloat(row.alpha) : null,
+          beta: row.beta ? parseFloat(row.beta) : null,
           lastUpdated: row.last_updated
         }))
       });
