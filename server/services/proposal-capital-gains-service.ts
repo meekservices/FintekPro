@@ -566,6 +566,16 @@ class ProposalCapitalGainsService {
     } else {
       const stcgThreshold = rules.stcg.thresholdDays;
       
+      // LTCG Exemption info alert (only for equity/equity-hybrid with LTCG gains)
+      if (holdingPeriodDays >= stcgThreshold && unrealizedGain > 0 && 
+          (assetCategory === 'equity' || assetCategory === 'hybrid_equity')) {
+        alerts.push({
+          type: 'EXEMPTION_INFO' as any,
+          severity: 'info',
+          message: '₹1.25L LTCG exemption applies at portfolio level (shared across all equity sales in FY)'
+        });
+      }
+      
       // Holding Period Alert - close to LTCG threshold (only for non-slab-based)
       if (holdingPeriodDays >= stcgThreshold - 90 && holdingPeriodDays < stcgThreshold) {
         const daysToWait = stcgThreshold - holdingPeriodDays;
@@ -745,10 +755,10 @@ class ProposalCapitalGainsService {
       // Get applicable rate
       applicableTaxRate = isSTCG ? rules?.stcg?.rate || 0.20 : rules?.ltcg?.rate || 0.125;
       
-      // Calculate taxable gain after exemption (only for LTCG)
-      if (!isSTCG && rules?.ltcg?.exemption) {
-        taxableGain = Math.max(0, unrealizedGain - rules.ltcg.exemption);
-      }
+      // NOTE: LTCG exemption (₹1.25L) is applied at PORTFOLIO level, not per-holding
+      // Per-holding tax shows the full liability before exemption
+      // The exemption is shared across all equity LTCG in a financial year
+      // taxableGain remains as unrealizedGain (exemption applied in portfolio summary)
     }
     
     // Calculate base tax
@@ -848,9 +858,9 @@ class ProposalCapitalGainsService {
       taxType = isSTCG ? 'STCG' : 'LTCG';
       applicableTaxRate = isSTCG ? rules?.stcg?.rate || 0.20 : rules?.ltcg?.rate || 0.125;
       
-      if (!isSTCG && rules?.ltcg?.exemption) {
-        taxableGain = Math.max(0, unrealizedGain - rules.ltcg.exemption);
-      }
+      // NOTE: LTCG exemption (₹1.25L) is applied at PORTFOLIO level, not per-holding
+      // Per-holding tax shows the full liability before exemption
+      // The exemption is shared across all equity LTCG in a financial year
     }
     
     let estimatedTax = Math.max(0, taxableGain * applicableTaxRate);
