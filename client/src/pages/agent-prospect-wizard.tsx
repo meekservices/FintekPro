@@ -4195,15 +4195,15 @@ export default function AgentProspectWizard() {
                       <svg className="w-24 h-24 transform -rotate-90">
                         <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="none" className="text-muted/30" />
                         <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="none" 
-                          className={healthScoreData.overallScore >= 80 ? 'text-green-500' : healthScoreData.overallScore >= 60 ? 'text-amber-500' : 'text-red-500'}
-                          strokeDasharray={`${healthScoreData.overallScore * 2.51} 251`} strokeLinecap="round" />
+                          className={(healthScoreData?.overallScore ?? 0) >= 80 ? 'text-green-500' : (healthScoreData?.overallScore ?? 0) >= 60 ? 'text-amber-500' : 'text-red-500'}
+                          strokeDasharray={`${(healthScoreData?.overallScore ?? 0) * 2.51} 251`} strokeLinecap="round" />
                       </svg>
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-2xl font-bold">{healthScoreData.overallScore}</span>
+                        <span className="text-2xl font-bold">{healthScoreData?.overallScore ?? 0}</span>
                       </div>
                     </div>
                     <div className="flex-1 space-y-2">
-                      {Object.entries(healthScoreData.components).map(([key, value]) => (
+                      {Object.entries(healthScoreData?.components ?? {}).map(([key, value]) => (
                         <div key={key} className="flex items-center gap-2">
                           <span className="text-xs capitalize w-24">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
                           <Progress value={value} className="flex-1 h-2" />
@@ -4212,10 +4212,10 @@ export default function AgentProspectWizard() {
                       ))}
                     </div>
                   </div>
-                  {healthScoreData.recommendations.length > 0 && (
+                  {(healthScoreData?.recommendations?.length ?? 0) > 0 && (
                     <div className="space-y-1">
                       <p className="text-xs font-medium text-muted-foreground">Improvement Suggestions:</p>
-                      {healthScoreData.recommendations.map((rec, idx) => (
+                      {(healthScoreData?.recommendations ?? []).map((rec, idx) => (
                         <p key={idx} className="text-xs text-amber-700 dark:text-amber-300 flex items-start gap-1">
                           <Lightbulb className="h-3 w-3 mt-0.5" /> {rec}
                         </p>
