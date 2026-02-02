@@ -28961,3 +28961,235 @@ export const insertMfBenchmarkHistorySchema = createInsertSchema(mfBenchmarkHist
 });
 export type MfBenchmarkHistory = typeof mfBenchmarkHistory.$inferSelect;
 export type InsertMfBenchmarkHistory = z.infer<typeof insertMfBenchmarkHistorySchema>;
+
+
+// ==================== PROPOSAL BUILDER GAP FIXES ====================
+
+// Proposal Flow State - Tracks phase completion for validation gates
+export const proposalFlowState = pgTable("proposal_flow_state", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id").references(() => investmentProposals.id).notNull().unique(),
+  
+  // Phase completion flags
+  riskProfileCompleted: boolean("risk_profile_completed").default(false),
+  investmentHorizonCompleted: boolean("investment_horizon_completed").default(false),
+  goalCompleted: boolean("goal_completed").default(false),
+  portfolioInputCompleted: boolean("portfolio_input_completed").default(false),
+  analysisCompleted: boolean("analysis_completed").default(false),
+  recommendationCompleted: boolean("recommendation_completed").default(false),
+  rebalancingCompleted: boolean("rebalancing_completed").default(false),
+  verdictCompleted: boolean("verdict_completed").default(false),
+  reportCompleted: boolean("report_completed").default(false),
+  
+  // Phase timestamps
+  riskProfileCompletedAt: timestamp("risk_profile_completed_at"),
+  investmentHorizonCompletedAt: timestamp("investment_horizon_completed_at"),
+  goalCompletedAt: timestamp("goal_completed_at"),
+  portfolioInputCompletedAt: timestamp("portfolio_input_completed_at"),
+  analysisCompletedAt: timestamp("analysis_completed_at"),
+  recommendationCompletedAt: timestamp("recommendation_completed_at"),
+  rebalancingCompletedAt: timestamp("rebalancing_completed_at"),
+  verdictCompletedAt: timestamp("verdict_completed_at"),
+  reportCompletedAt: timestamp("report_completed_at"),
+  
+  // Current phase tracking
+  currentPhase: varchar("current_phase").default("risk_profile"),
+  lockedPhases: jsonb("locked_phases").default([]),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_proposal_flow_state_proposal").on(table.proposalId),
+]);
+
+export const insertProposalFlowStateSchema = createInsertSchema(proposalFlowState).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+export type ProposalFlowState = typeof proposalFlowState.$inferSelect;
+export type InsertProposalFlowState = z.infer<typeof insertProposalFlowStateSchema>;
+
+// Goal-Aware Benchmark Mapping - Maps goals/risk/horizon to benchmarks
+export const goalBenchmarkMapping = pgTable("goal_benchmark_mapping", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Mapping criteria
+  goalType: varchar("goal_type").notNull(), // retirement, wealth_creation, income_generation, capital_preservation, education, home_purchase
+  riskProfile: varchar("risk_profile").notNull(), // conservative, moderate, aggressive, very_aggressive
+  horizonYearsMin: integer("horizon_years_min").notNull(),
+  horizonYearsMax: integer("horizon_years_max"),
+  
+  // Benchmark assignment
+  benchmarkCode: varchar("benchmark_code", { length: 30 }).notNull(), // NIFTY50, SENSEX, NIFTYMIDCAP150, etc.
+  benchmarkName: varchar("benchmark_name").notNull(),
+  benchmarkRationale: text("benchmark_rationale"),
+  
+  // Override tracking
+  isDefault: boolean("is_default").default(true),
+  overriddenBy: varchar("overridden_by").references(() => users.id),
+  overriddenAt: timestamp("overridden_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_goal_benchmark_goal").on(table.goalType),
+  index("idx_goal_benchmark_risk").on(table.riskProfile),
+]);
+
+export const insertGoalBenchmarkMappingSchema = createInsertSchema(goalBenchmarkMapping).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+export type GoalBenchmarkMapping = typeof goalBenchmarkMapping.$inferSelect;
+export type InsertGoalBenchmarkMapping = z.infer<typeof insertGoalBenchmarkMappingSchema>;
+
+// Proposal Verdicts - Single verdict per instrument
+export const proposalVerdicts = pgTable("proposal_verdicts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id").references(() => investmentProposals.id).notNull(),
+  
+  // Instrument identification
+  instrumentType: varchar("instrument_type").notNull(), // mutual_fund, stock, bond, etf
+  instrumentIsin: varchar("instrument_isin", { length: 20 }),
+  instrumentCode: varchar("instrument_code"),
+  instrumentName: varchar("instrument_name").notNull(),
+  
+  // Verdict (only BUY/HOLD/SELL allowed)
+  verdict: varchar("verdict", { length: 10 }).notNull(), // BUY, HOLD, SELL
+  verdictRationale: text("verdict_rationale"),
+  aiGenerated: boolean("ai_generated").default(true),
+  agentOverridden: boolean("agent_overridden").default(false),
+  
+  // Quantitative details
+  currentValue: decimal("current_value", { precision: 15, scale: 2 }),
+  targetValue: decimal("target_value", { precision: 15, scale: 2 }),
+  changeAmount: decimal("change_amount", { precision: 15, scale: 2 }),
+  changePercent: decimal("change_percent", { precision: 8, scale: 4 }),
+  
+  // Exit load & capital gains (for SELL verdicts)
+  exitLoadApplicable: boolean("exit_load_applicable").default(false),
+  exitLoadPercent: decimal("exit_load_percent", { precision: 5, scale: 2 }),
+  capitalGainsType: varchar("capital_gains_type"), // STCG, LTCG, nil
+  estimatedTax: decimal("estimated_tax", { precision: 15, scale: 2 }),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_proposal_verdicts_proposal").on(table.proposalId),
+  index("idx_proposal_verdicts_isin").on(table.instrumentIsin),
+]);
+
+export const insertProposalVerdictSchema = createInsertSchema(proposalVerdicts).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+export type ProposalVerdict = typeof proposalVerdicts.$inferSelect;
+export type InsertProposalVerdict = z.infer<typeof insertProposalVerdictSchema>;
+
+// Proposal SIP Recommendations - With source attribution
+export const proposalSipRecommendations = pgTable("proposal_sip_recommendations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id").references(() => investmentProposals.id).notNull(),
+  verdictId: varchar("verdict_id").references(() => proposalVerdicts.id),
+  
+  // Instrument details
+  instrumentType: varchar("instrument_type").notNull(),
+  instrumentIsin: varchar("instrument_isin", { length: 20 }),
+  instrumentName: varchar("instrument_name").notNull(),
+  
+  // SIP details
+  sipAmount: decimal("sip_amount", { precision: 15, scale: 2 }).notNull(),
+  sipFrequency: varchar("sip_frequency").default("monthly"), // monthly, quarterly, weekly
+  sipStartDate: date("sip_start_date"),
+  sipDurationMonths: integer("sip_duration_months"),
+  
+  // Source attribution (key field for GAP 4)
+  sipSource: varchar("sip_source").notNull(), // rebalancing, fresh, hybrid
+  sourceRationale: text("source_rationale"),
+  
+  // Original lumpsum conversion tracking
+  convertedFromLumpsum: boolean("converted_from_lumpsum").default(false),
+  originalLumpsumAmount: decimal("original_lumpsum_amount", { precision: 15, scale: 2 }),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_proposal_sip_proposal").on(table.proposalId),
+  index("idx_proposal_sip_source").on(table.sipSource),
+]);
+
+export const insertProposalSipRecommendationSchema = createInsertSchema(proposalSipRecommendations).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+export type ProposalSipRecommendation = typeof proposalSipRecommendations.$inferSelect;
+export type InsertProposalSipRecommendation = z.infer<typeof insertProposalSipRecommendationSchema>;
+
+// What-If Scenarios - Supports both static (PDF) and interactive modes
+export const proposalWhatIfScenarios = pgTable("proposal_what_if_scenarios", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id").references(() => investmentProposals.id).notNull(),
+  
+  // Mode and configuration
+  mode: varchar("mode").notNull(), // static, interactive
+  scenarioName: varchar("scenario_name").notNull(), // base, bull_10, bear_10, bear_20, custom
+  
+  // Assumptions
+  returnDelta: decimal("return_delta", { precision: 5, scale: 2 }).default('0'), // +10%, -10%, -20%
+  volatilityMultiplier: decimal("volatility_multiplier", { precision: 5, scale: 2 }).default('1'),
+  inflationRate: decimal("inflation_rate", { precision: 5, scale: 2 }).default('6'),
+  
+  // Projected outcomes
+  projectedValue1Y: decimal("projected_value_1y", { precision: 15, scale: 2 }),
+  projectedValue3Y: decimal("projected_value_3y", { precision: 15, scale: 2 }),
+  projectedValue5Y: decimal("projected_value_5y", { precision: 15, scale: 2 }),
+  projectedValue10Y: decimal("projected_value_10y", { precision: 15, scale: 2 }),
+  
+  // Risk metrics
+  maxDrawdown: decimal("max_drawdown", { precision: 5, scale: 2 }),
+  probabilityOfLoss: decimal("probability_of_loss", { precision: 5, scale: 2 }),
+  valueAtRisk95: decimal("value_at_risk_95", { precision: 15, scale: 2 }),
+  
+  // Include in report
+  includeInReport: boolean("include_in_report").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_what_if_proposal").on(table.proposalId),
+  index("idx_what_if_mode").on(table.mode),
+]);
+
+export const insertProposalWhatIfScenarioSchema = createInsertSchema(proposalWhatIfScenarios).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+export type ProposalWhatIfScenario = typeof proposalWhatIfScenarios.$inferSelect;
+export type InsertProposalWhatIfScenario = z.infer<typeof insertProposalWhatIfScenarioSchema>;
+
+// Report Section Dependencies - Tracks which sections can be enabled based on data
+export const proposalReportSections = pgTable("proposal_report_sections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id").references(() => investmentProposals.id).notNull(),
+  
+  // Section identification
+  sectionCode: varchar("section_code").notNull(), // exit_load, capital_gains, tax_impact, sip_projection, etc.
+  sectionName: varchar("section_name").notNull(),
+  sectionOrder: integer("section_order").default(0),
+  
+  // Dependency status
+  dependencyMet: boolean("dependency_met").default(false),
+  dependencyReason: text("dependency_reason"),
+  missingDependencies: jsonb("missing_dependencies").default([]),
+  
+  // Enablement
+  isEnabled: boolean("is_enabled").default(false),
+  enabledByAgent: boolean("enabled_by_agent").default(false),
+  enabledByAi: boolean("enabled_by_ai").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_report_sections_proposal").on(table.proposalId),
+]);
+
+export const insertProposalReportSectionSchema = createInsertSchema(proposalReportSections).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+export type ProposalReportSection = typeof proposalReportSections.$inferSelect;
+export type InsertProposalReportSection = z.infer<typeof insertProposalReportSectionSchema>;

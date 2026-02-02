@@ -189,6 +189,7 @@ import { registerAppointmentManagementRoutes } from "./routes/appointment-manage
 import unifiedPortfolioRoutes from "./routes/unified-portfolio-routes";
 import aiRebalancingRoutes from "./routes/ai-rebalancing-routes";
 import unifiedProposalsRoutes from "./routes/unified-proposals-routes";
+import proposalBuilderRoutes from "./routes/proposal-builder-routes";
 import globalAdvisoryRoutes from "./routes/global-advisory";
 import feeModeRoutes from "./routes/fee-mode";
 import cacheAdminRoutes from "./routes/cache-admin";
@@ -769,6 +770,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   app.use(unifiedPortfolioRoutes);
   app.use(aiRebalancingRoutes);
   app.use("/api/unified-proposals", unifiedProposalsRoutes);
+  app.use("/api/proposal-builder", proposalBuilderRoutes);
+  console.log("✅ Proposal Builder routes registered");
   console.log("✅ US Trading routes registered");
   console.log("✅ Unified Portfolio routes registered");
   console.log("✅ AI Rebalancing routes registered");
