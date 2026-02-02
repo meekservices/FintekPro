@@ -133,6 +133,7 @@ export interface CapitalGainsTaxOutput {
 
 const taxResultCache = new Map<string, { result: TaxPnLResult; timestamp: number }>();
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const MAX_CACHE_SIZE = 1000;
 
 class SandboxCapitalGainsService {
   private accessToken: string | null = null;
@@ -184,14 +185,15 @@ class SandboxCapitalGainsService {
         }
       );
 
-      if (response.data.code !== 200 && !response.data.data?.job_id) {
-        throw new Error(response.data.message || 'Failed to submit Tax P&L job');
+      const data = response.data.data;
+      if (!data?.job_id || !data?.upload_url) {
+        throw new Error(response.data.message || 'Invalid response: missing job_id or upload_url');
       }
 
       return {
         success: true,
-        jobId: response.data.data.job_id,
-        uploadUrl: response.data.data.upload_url,
+        jobId: data.job_id,
+        uploadUrl: data.upload_url,
       };
     } catch (error: any) {
       console.error('[SandboxCapitalGains] Job submit failed:', error?.response?.data || error.message);
@@ -296,9 +298,47 @@ class SandboxCapitalGainsService {
     await this.uploadTransactionPayload(jobResponse.uploadUrl, request.transactions);
     const result = await this.pollForResult(jobResponse.jobId);
 
-    taxResultCache.set(cacheKey, { result, timestamp: Date.now() });
+    this.setCacheWithEviction(cacheKey, result);
 
     return result;
+  }
+
+  private setCacheWithEviction(key: string, result: TaxPnLResult): void {
+    if (taxResultCache.size >= MAX_CACHE_SIZE) {
+      const oldestKey = taxResultCache.keys().next().value;
+      if (oldestKey) {
+        taxResultCache.delete(oldestKey);
+      }
+    }
+    taxResultCache.set(key, { result, timestamp: Date.now() });
+  }
+
+  private findMatchingScripResult(
+    scripWise: TaxPnLResult['scripWise'],
+    isin?: string,
+    productName?: string
+  ): TaxPnLResult['scripWise'][0] | undefined {
+    if (!scripWise || scripWise.length === 0) return undefined;
+    
+    if (isin) {
+      const byIsin = scripWise.find(s => s.isin === isin);
+      if (byIsin) return byIsin;
+    }
+    
+    if (productName) {
+      const byName = scripWise.find(s => 
+        s.scripName.toLowerCase() === productName.toLowerCase()
+      );
+      if (byName) return byName;
+      
+      const byPartialName = scripWise.find(s => 
+        s.scripName.toLowerCase().includes(productName.toLowerCase()) ||
+        productName.toLowerCase().includes(s.scripName.toLowerCase())
+      );
+      if (byPartialName) return byPartialName;
+    }
+    
+    return scripWise[0];
   }
 
   async calculateSingleHoldingTax(holding: CapitalGainsTaxInput): Promise<CapitalGainsTaxOutput> {
@@ -338,7 +378,7 @@ class SandboxCapitalGainsService {
         transactions,
       });
 
-      const scripResult = result.scripWise[0];
+      const scripResult = this.findMatchingScripResult(result.scripWise, holding.isin, holding.productName);
       const taxRates = result.taxRates;
 
       return {

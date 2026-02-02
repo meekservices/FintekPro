@@ -13,6 +13,9 @@ import { historicalNavService } from './historical-nav-service';
 import { holdingLotsStorageService } from './holding-lots-storage-service';
 import { sandboxCapitalGainsService, type AssetType as SandboxAssetType } from './sandbox-capital-gains-service';
 
+const USE_SANDBOX_API_FOR_TAX = process.env.USE_SANDBOX_TAX_API === 'true';
+const SANDBOX_TAX_API_AVAILABLE = sandboxCapitalGainsService.isServiceAvailable();
+
 // Cost Inflation Index (CII) data from Income Tax Department
 // Source: https://incometaxindia.gov.in/Pages/tools/cost-inflation-index.aspx
 const COST_INFLATION_INDEX: Record<string, number> = {
@@ -822,6 +825,16 @@ class ProposalCapitalGainsService {
     },
     transactionDate: Date = new Date()
   ): Promise<HoldingWithTax> {
+    if (USE_SANDBOX_API_FOR_TAX && SANDBOX_TAX_API_AVAILABLE) {
+      try {
+        const result = await this.calculateHoldingTaxWithSandboxAPI(holding, transactionDate);
+        console.log(`[CapitalGains] Using Sandbox API for ${holding.name}`);
+        return result;
+      } catch (error) {
+        console.warn(`[CapitalGains] Sandbox API failed for ${holding.name}, using local calculation:`, error);
+      }
+    }
+
     const taxRegime = this.getTaxRegime(transactionDate);
     const regime = TAX_REGIMES[taxRegime];
     const assetCategory = this.getAssetCategory(holding.productType, holding.category);

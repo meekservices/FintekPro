@@ -2620,7 +2620,7 @@ class AgentProspectWizardService {
     // Calculate target values and compare with current (expanded categories including stocks)
     const categories = ['equity', 'debt', 'hybrid', 'gold', 'silver', 'index', 'international', 'reit', 'invit', 'bonds', 'mld', 'listed_stocks', 'unlisted_stocks', 'pms', 'aif'];
     
-    categories.forEach(category => {
+    for (const category of categories) {
       const targetPercent = targetAllocations[category as keyof typeof targetAllocations] || 0;
       const targetValue = (targetPercent / 100) * totalPortfolioValue;
       const currentValue = currentByCategory[category]?.value || 0;
@@ -2638,8 +2638,8 @@ class AgentProspectWizardService {
         
         let remainingToSell = difference;
         
-        holdingsToSell.forEach(holding => {
-          if (remainingToSell <= 0) return;
+        for (const holding of holdingsToSell) {
+          if (remainingToSell <= 0) continue;
           
           // Don't sell more than the holding value or what we need
           const sellAmount = Math.min(holding.currentValue, remainingToSell);
@@ -2648,12 +2648,14 @@ class AgentProspectWizardService {
           if (sellAmount > 1000) {
             const isPartialSell = sellAmount < holding.currentValue;
             
-            // Calculate detailed tax implications
-            // Use purchaseDate (already normalized from firstPurchaseDate/lots) as primary source
-            const taxInfo = proposalCapitalGainsService.calculateHoldingTax({
+            // Calculate detailed tax implications using async method with Sandbox API
+            // Uses purchaseDate (already normalized from firstPurchaseDate/lots) as primary source
+            const taxInfo = await proposalCapitalGainsService.calculateHoldingTaxAsync({
               name: holding.name || holding.productName || 'Unknown',
               productType: holding.productType || holding.assetType || 'mutual_fund',
               category: holding.category,
+              isin: holding.isin,
+              schemeCode: holding.schemeCode,
               currentValue: sellAmount,
               investedAmount: holding.investedAmount || (sellAmount * 0.85),
               purchaseDate: holding.purchaseDate || (holding as any).firstPurchaseDate,
@@ -2688,23 +2690,25 @@ class AgentProspectWizardService {
             
             remainingToSell -= sellAmount;
           }
-        });
+        }
       }
-    });
+    }
     
     // Handle non-standard/illiquid assets
-    normalizedHoldings.forEach(h => {
+    for (const h of normalizedHoldings) {
       const type = (h.productType || h.assetType || '').toLowerCase();
       if (!['equity', 'mutual_fund', 'mf', 'bond', 'fd', 'gold', 'etf', 'stock', 'debt'].includes(type)) {
         // Check if we already have a recommendation for this holding
         const existing = recommendations.find(r => r.productName === (h.name || h.productName));
         if (!existing && h.currentValue > 1000) {
-          // Calculate tax implications
-          // Use purchaseDate (already normalized from firstPurchaseDate/lots) as primary source
-          const taxInfo = proposalCapitalGainsService.calculateHoldingTax({
+          // Calculate tax implications using async method with Sandbox API
+          // Uses purchaseDate (already normalized from firstPurchaseDate/lots) as primary source
+          const taxInfo = await proposalCapitalGainsService.calculateHoldingTaxAsync({
             name: h.name || h.productName || 'Unknown',
             productType: h.productType || h.assetType || 'other',
             category: h.category,
+            isin: h.isin,
+            schemeCode: h.schemeCode,
             currentValue: h.currentValue,
             investedAmount: h.investedAmount || (h.currentValue * 0.85),
             purchaseDate: h.purchaseDate || (h as any).firstPurchaseDate,
@@ -2733,7 +2737,7 @@ class AgentProspectWizardService {
           });
         }
       }
-    });
+    }
     
     // Add SWITCH recommendations for underperformers (if analysis has them)
     if (analysis.underperformers && analysis.underperformers.length > 0) {
@@ -2786,11 +2790,14 @@ class AgentProspectWizardService {
           const targetFund = targetFunds[0] || null;
           
           // Calculate tax implications for switch (treated as redemption + purchase)
-          // Use purchaseDate (already normalized from firstPurchaseDate/lots) as primary source
-          const taxInfo = proposalCapitalGainsService.calculateHoldingTax({
+          // Uses async method with Sandbox API for accurate rates
+          // Uses purchaseDate (already normalized from firstPurchaseDate/lots) as primary source
+          const taxInfo = await proposalCapitalGainsService.calculateHoldingTaxAsync({
             name: underperformer.name || underperformer.productName || 'Unknown',
             productType: underperformer.productType || underperformer.assetType || 'mutual_fund',
             category: underperformer.category,
+            isin: underperformer.isin,
+            schemeCode: underperformer.schemeCode,
             currentValue: underperformer.currentValue,
             investedAmount: underperformer.investedAmount || (underperformer.currentValue * 0.85),
             purchaseDate: underperformer.purchaseDate || (underperformer as any).firstPurchaseDate,
