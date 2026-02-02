@@ -29193,3 +29193,126 @@ export const insertProposalReportSectionSchema = createInsertSchema(proposalRepo
 });
 export type ProposalReportSection = typeof proposalReportSections.$inferSelect;
 export type InsertProposalReportSection = z.infer<typeof insertProposalReportSectionSchema>;
+
+// Proposal PDF Metadata - Version tracking and tamper protection
+export const proposalPdfMetadata = pgTable("proposal_pdf_metadata", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id").references(() => investmentProposals.id).notNull(),
+  
+  // Version control
+  version: varchar("version", { length: 20 }).notNull(), // v1.0, v1.1, v2.0
+  majorVersion: integer("major_version").default(1),
+  minorVersion: integer("minor_version").default(0),
+  
+  // Generation metadata
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+  generatedBy: varchar("generated_by"), // agent_id or user_id
+  generatedByRole: varchar("generated_by_role"), // agent, admin, system
+  engineVersion: varchar("engine_version", { length: 20 }).default("PB_ENGINE_2.5"),
+  
+  // Tamper protection
+  pdfHash: varchar("pdf_hash", { length: 64 }).notNull(), // SHA256
+  previousHash: varchar("previous_hash", { length: 64 }), // Chain link to previous version
+  
+  // Content metadata
+  clientPan: varchar("client_pan", { length: 64 }), // Hashed PAN
+  riskProfileVersion: varchar("risk_profile_version", { length: 20 }),
+  benchmarkVersion: varchar("benchmark_version", { length: 20 }),
+  
+  // Sections included
+  sectionsIncluded: jsonb("sections_included").default([]), // Array of section codes
+  totalPages: integer("total_pages").default(0),
+  fileSizeBytes: integer("file_size_bytes").default(0),
+  
+  // Storage
+  storageKey: varchar("storage_key"), // Object storage key
+  downloadCount: integer("download_count").default(0),
+  lastDownloadedAt: timestamp("last_downloaded_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_pdf_metadata_proposal").on(table.proposalId),
+  index("idx_pdf_metadata_hash").on(table.pdfHash),
+]);
+
+export const insertProposalPdfMetadataSchema = createInsertSchema(proposalPdfMetadata).omit({
+  id: true, createdAt: true,
+});
+export type ProposalPdfMetadata = typeof proposalPdfMetadata.$inferSelect;
+export type InsertProposalPdfMetadata = z.infer<typeof insertProposalPdfMetadataSchema>;
+
+// Proposal Audit Events - Regulator-grade logging
+export const proposalAuditEvents = pgTable("proposal_audit_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id").references(() => investmentProposals.id).notNull(),
+  proposalVersion: varchar("proposal_version", { length: 20 }),
+  
+  // Event identification
+  eventType: varchar("event_type", { length: 50 }).notNull(), // PROSPECT_SELECTED, VERDICT_FINALIZED, PDF_GENERATED, etc.
+  eventAction: varchar("event_action", { length: 50 }), // CREATED, UPDATED, DELETED, OVERRIDDEN
+  
+  // Actor information
+  actorId: varchar("actor_id"),
+  actorRole: varchar("actor_role", { length: 30 }), // agent, admin, compliance, system
+  actorName: varchar("actor_name"),
+  
+  // Payload snapshots (immutable)
+  payloadBefore: jsonb("payload_before"), // State before change
+  payloadAfter: jsonb("payload_after"), // State after change
+  payloadDiff: jsonb("payload_diff"), // Computed difference
+  
+  // Override tracking
+  isOverride: boolean("is_override").default(false),
+  overrideReason: text("override_reason"),
+  overrideApprovedBy: varchar("override_approved_by"),
+  
+  // PDF-specific fields
+  pdfVersion: varchar("pdf_version", { length: 20 }),
+  pdfHash: varchar("pdf_hash", { length: 64 }),
+  
+  // Request context
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  sessionId: varchar("session_id"),
+  requestPath: varchar("request_path"),
+  
+  // Chain integrity
+  checksum: varchar("checksum", { length: 64 }).notNull(), // SHA256 of this event
+  previousChecksum: varchar("previous_checksum", { length: 64 }), // Link to previous event
+  
+  // Retention
+  retentionYears: integer("retention_years").default(8),
+  retentionExpiresAt: timestamp("retention_expires_at"),
+  isArchived: boolean("is_archived").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_proposal_audit_proposal").on(table.proposalId),
+  index("idx_proposal_audit_event_type").on(table.eventType),
+  index("idx_proposal_audit_actor").on(table.actorId),
+  index("idx_proposal_audit_checksum").on(table.checksum),
+  index("idx_proposal_audit_created").on(table.createdAt),
+]);
+
+export const insertProposalAuditEventSchema = createInsertSchema(proposalAuditEvents).omit({
+  id: true, createdAt: true,
+});
+export type ProposalAuditEvent = typeof proposalAuditEvents.$inferSelect;
+export type InsertProposalAuditEvent = z.infer<typeof insertProposalAuditEventSchema>;
+
+// Proposal Audit Event Types (constants for type safety)
+export const PROPOSAL_AUDIT_EVENT_TYPES = {
+  PROSPECT_SELECTED: 'PROSPECT_SELECTED',
+  RISK_PROFILE_SET: 'RISK_PROFILE_SET',
+  HOLDINGS_IMPORTED: 'HOLDINGS_IMPORTED',
+  ANALYSIS_RUN: 'ANALYSIS_RUN',
+  VERDICT_FINALIZED: 'VERDICT_FINALIZED',
+  SIP_GENERATED: 'SIP_GENERATED',
+  REPORT_SECTION_TOGGLED: 'REPORT_SECTION_TOGGLED',
+  BENCHMARK_OVERRIDDEN: 'BENCHMARK_OVERRIDDEN',
+  PDF_GENERATED: 'PDF_GENERATED',
+  PDF_DOWNLOADED: 'PDF_DOWNLOADED',
+  PROPOSAL_APPROVED: 'PROPOSAL_APPROVED',
+  PROPOSAL_REJECTED: 'PROPOSAL_REJECTED',
+  CLIENT_ACKNOWLEDGED: 'CLIENT_ACKNOWLEDGED',
+} as const;
