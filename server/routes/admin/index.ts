@@ -10,6 +10,7 @@ import { riaValidationService } from '../../services/ria-validation-service';
 import { insuranceSuitabilityService } from '../../services/insurance-suitability-service';
 import { beneficialOwnershipService } from '../../services/beneficial-ownership-service';
 import { sebiScoresService } from '../../services/sebi-scores-service';
+import { mfReturnsSyncService } from '../../services/mf-returns-sync-service';
 
 const requireAdmin = async (req: any, res: Response, next: any) => {
   if (!req.user) {
@@ -3692,6 +3693,116 @@ System Security Data:`;
   // CKYC Deferred Cases Management Routes
   app.use("/api/admin/ckyc-deferred", requireAdmin, ckycDeferredRoutes);
   console.log("✅ CKYC Deferred Cases routes registered");
+
+  // MF Returns Enrichment Status and Manual Sync
+  app.get("/api/admin/mf-enrichment-status", requireAdmin, async (req, res) => {
+    try {
+      // Get total funds count
+      const totalResult = await db.execute(sql`SELECT COUNT(*) as count FROM mutual_funds`);
+      const totalFunds = parseInt(totalResult.rows[0]?.count as string) || 0;
+      
+      // Get funds with returns populated
+      const enrichedResult = await db.execute(sql`
+        SELECT COUNT(*) as count FROM mutual_funds 
+        WHERE returns_1y IS NOT NULL
+      `);
+      const enrichedFunds = parseInt(enrichedResult.rows[0]?.count as string) || 0;
+      
+      // Get pending funds (no returns)
+      const pendingFunds = totalFunds - enrichedFunds;
+      
+      // Calculate progress percentage
+      const progressPercentage = totalFunds > 0 ? Math.round((enrichedFunds / totalFunds) * 100 * 100) / 100 : 0;
+      
+      // Get sync service status
+      const syncStatus = mfReturnsSyncService.getStatus();
+      
+      // Get last synced fund info
+      const lastSyncedResult = await db.execute(sql`
+        SELECT scheme_code, scheme_name, returns_1y, returns_3y, returns_5y, last_updated 
+        FROM mutual_funds 
+        WHERE returns_1y IS NOT NULL 
+        ORDER BY last_updated DESC NULLS LAST
+        LIMIT 5
+      `);
+      
+      res.json({
+        success: true,
+        stats: {
+          totalFunds,
+          enrichedFunds,
+          pendingFunds,
+          progressPercentage
+        },
+        syncStatus: {
+          isRunning: syncStatus.isRunning,
+          lastSyncTime: syncStatus.lastSyncTime?.toISOString() || null
+        },
+        recentlyEnriched: lastSyncedResult.rows.map((row: any) => ({
+          schemeCode: row.scheme_code,
+          schemeName: row.scheme_name,
+          returns1y: row.returns_1y ? parseFloat(row.returns_1y) : null,
+          returns3y: row.returns_3y ? parseFloat(row.returns_3y) : null,
+          returns5y: row.returns_5y ? parseFloat(row.returns_5y) : null,
+          lastUpdated: row.last_updated
+        }))
+      });
+    } catch (error: any) {
+      console.error("[MF Enrichment] Status fetch failed:", error.message);
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to fetch enrichment status",
+        message: error.message 
+      });
+    }
+  });
+
+  app.post("/api/admin/mf-enrichment-sync", requireAdmin, async (req: any, res) => {
+    try {
+      const syncStatus = mfReturnsSyncService.getStatus();
+      
+      if (syncStatus.isRunning) {
+        return res.status(409).json({
+          success: false,
+          error: "Sync already in progress",
+          message: "A sync operation is currently running. Please wait for it to complete."
+        });
+      }
+      
+      // Get batch limit from request body, default to 20 funds
+      const batchLimit = parseInt(req.body?.batchLimit) || 20;
+      const clampedLimit = Math.min(Math.max(batchLimit, 1), 100); // Clamp between 1-100
+      
+      console.log(`[MF Enrichment] Admin-initiated sync started for ${clampedLimit} funds by ${req.user?.email || 'admin'}`);
+      
+      // Start async sync (don't await - return immediately)
+      const syncPromise = mfReturnsSyncService.syncFundsNeedingUpdate(clampedLimit);
+      
+      // Return immediately, the sync runs in background
+      res.json({
+        success: true,
+        message: `Sync started for up to ${clampedLimit} funds. Check status endpoint for progress.`,
+        syncStartedAt: new Date().toISOString()
+      });
+      
+      // Log completion when done
+      syncPromise.then((result) => {
+        console.log(`[MF Enrichment] Admin sync completed: ${result.successful}/${result.processed} successful, ${result.failed} failed`);
+      }).catch((err) => {
+        console.error(`[MF Enrichment] Admin sync failed:`, err.message);
+      });
+      
+    } catch (error: any) {
+      console.error("[MF Enrichment] Manual sync trigger failed:", error.message);
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to trigger sync",
+        message: error.message 
+      });
+    }
+  });
+
+  console.log("✅ MF Enrichment Admin routes registered");
 
   console.log("✅ Admin Panel routes registered");
 }
