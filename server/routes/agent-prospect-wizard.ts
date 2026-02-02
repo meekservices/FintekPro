@@ -1688,18 +1688,58 @@ router.post("/prospects/:id/holdings/merge", async (req: Request, res: Response)
     const newHoldings = normalizeHoldings(flexibleHoldings);
     const currentHoldings = (prospect.currentPortfolio as any[]) || [];
     
-    // Merge: add new holdings with timestamp
-    const mergedHoldings = [
-      ...currentHoldings,
-      ...newHoldings.map(h => ({ ...h, addedAt: new Date().toISOString(), source: 'upload' }))
-    ];
+    // Helper to generate a unique key for deduplication
+    // Priority: ISIN > normalized (name + type)
+    const getHoldingKey = (h: any): string => {
+      if (h.isin && h.isin.trim()) {
+        return `isin:${h.isin.trim().toUpperCase()}`;
+      }
+      const name = (h.productName || h.name || '').trim().toLowerCase();
+      const type = (h.productType || h.assetType || 'mutual_fund').trim().toLowerCase();
+      return `name:${name}|type:${type}`;
+    };
+    
+    // Create a map of existing holdings by key for O(1) lookup
+    const existingMap = new Map<string, any>();
+    for (const h of currentHoldings) {
+      const key = getHoldingKey(h);
+      existingMap.set(key, h);
+    }
+    
+    // Merge: update existing or add new holdings (no duplicates)
+    let addedCount = 0;
+    let updatedCount = 0;
+    
+    for (const newH of newHoldings) {
+      const key = getHoldingKey(newH);
+      const enrichedHolding = { ...newH, addedAt: new Date().toISOString(), source: 'upload' };
+      
+      if (existingMap.has(key)) {
+        // Update existing holding with new values (preserve id if present)
+        const existing = existingMap.get(key);
+        existingMap.set(key, { 
+          ...existing, 
+          ...enrichedHolding,
+          id: existing.id || enrichedHolding.id,
+          updatedAt: new Date().toISOString()
+        });
+        updatedCount++;
+      } else {
+        // Add new holding
+        existingMap.set(key, enrichedHolding);
+        addedCount++;
+      }
+    }
+    
+    const mergedHoldings = Array.from(existingMap.values());
 
     await agentProspectWizardService.updateProspectPortfolio(req.params.id, mergedHoldings);
     res.json({ 
       success: true, 
       holdings: mergedHoldings, 
-      message: `${newHoldings.length} holdings merged successfully`,
-      addedCount: newHoldings.length,
+      message: `${addedCount} new holdings added, ${updatedCount} existing holdings updated`,
+      addedCount,
+      updatedCount,
       totalCount: mergedHoldings.length
     });
   } catch (error: any) {
