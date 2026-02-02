@@ -4225,6 +4225,43 @@ System Security Data:`;
     }
   });
   
+  // Extended Data Extraction endpoints
+  app.get("/api/admin/enrichment/extraction/stats", requireAdmin, async (req, res) => {
+    try {
+      const { mfExtendedDataExtractor } = await import("../../services/mf-extended-data-extractor");
+      const stats = await mfExtendedDataExtractor.getExtractionStats();
+      res.json({ success: true, stats });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  
+  app.get("/api/admin/enrichment/extraction/progress", requireAdmin, async (req, res) => {
+    try {
+      const { mfExtendedDataExtractor } = await import("../../services/mf-extended-data-extractor");
+      const progress = mfExtendedDataExtractor.getProgress();
+      res.json({ success: true, progress });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  
+  app.post("/api/admin/enrichment/extraction/run", requireAdmin, async (req, res) => {
+    try {
+      const { mfExtendedDataExtractor } = await import("../../services/mf-extended-data-extractor");
+      const { forceRefresh = false } = req.body;
+      
+      // Start extraction async
+      mfExtendedDataExtractor.extractAllFunds({ forceRefresh }).catch(err => {
+        console.error('[Extraction] Failed:', err.message);
+      });
+      
+      res.json({ success: true, message: 'Extended data extraction started' });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  
   // Scheduler status and control
   app.get("/api/admin/enrichment/scheduler/status", requireAdmin, async (req, res) => {
     try {

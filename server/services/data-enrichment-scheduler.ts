@@ -149,6 +149,15 @@ class DataEnrichmentScheduler {
         console.error('[DataEnrichmentScheduler] NAV metrics failed:', error.message);
       }
       
+      // Run extended data extraction
+      try {
+        const { mfExtendedDataExtractor } = await import('./mf-extended-data-extractor');
+        const extractionResult = await mfExtendedDataExtractor.extractAllFunds({ forceRefresh: false });
+        console.log(`[DataEnrichmentScheduler] Extraction: ${extractionResult.exitLoadUpdated} exit loads, ${extractionResult.minAmountsUpdated} min amounts`);
+      } catch (error: any) {
+        console.error('[DataEnrichmentScheduler] Extraction failed:', error.message);
+      }
+      
       stats.duration = Date.now() - startTime;
       this.lastRunStats = stats;
       this.lastRunTime = new Date();
