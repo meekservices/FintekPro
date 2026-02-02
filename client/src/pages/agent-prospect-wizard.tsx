@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useSearch } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -4339,28 +4339,28 @@ export default function AgentProspectWizard() {
                     <div className="font-medium">3Y</div>
                     <div className="font-medium">5Y</div>
                     <div className="font-medium text-left">Your Portfolio</div>
-                    <div className="text-blue-600 font-bold">{benchmarkData.portfolioReturn.oneYear}%</div>
-                    <div className="text-blue-600 font-bold">{benchmarkData.portfolioReturn.threeYear}%</div>
-                    <div className="text-blue-600 font-bold">{benchmarkData.portfolioReturn.fiveYear}%</div>
-                    {benchmarkData.benchmarks.map((b, idx) => (
-                      <>
-                        <div key={`name-${idx}`} className="text-left text-muted-foreground">{b.name}</div>
-                        <div key={`1y-${idx}`}>{b.returns.oneYear}%</div>
-                        <div key={`3y-${idx}`}>{b.returns.threeYear}%</div>
-                        <div key={`5y-${idx}`}>{b.returns.fiveYear}%</div>
-                      </>
+                    <div className="text-blue-600 font-bold">{benchmarkData?.portfolioReturn?.oneYear ?? 0}%</div>
+                    <div className="text-blue-600 font-bold">{benchmarkData?.portfolioReturn?.threeYear ?? 0}%</div>
+                    <div className="text-blue-600 font-bold">{benchmarkData?.portfolioReturn?.fiveYear ?? 0}%</div>
+                    {(benchmarkData?.benchmarks ?? []).map((b, idx) => (
+                      <React.Fragment key={idx}>
+                        <div className="text-left text-muted-foreground">{b.name}</div>
+                        <div>{b.returns?.oneYear ?? 0}%</div>
+                        <div>{b.returns?.threeYear ?? 0}%</div>
+                        <div>{b.returns?.fiveYear ?? 0}%</div>
+                      </React.Fragment>
                     ))}
                   </div>
                   <div className="flex gap-4 p-2 bg-muted/50 rounded-lg">
                     <div className="text-center flex-1">
                       <p className="text-xs text-muted-foreground">Alpha</p>
-                      <p className={`font-bold ${benchmarkData.alpha >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {benchmarkData.alpha >= 0 ? '+' : ''}{benchmarkData.alpha}%
+                      <p className={`font-bold ${(benchmarkData?.alpha ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {(benchmarkData?.alpha ?? 0) >= 0 ? '+' : ''}{benchmarkData?.alpha ?? 0}%
                       </p>
                     </div>
                     <div className="text-center flex-1">
                       <p className="text-xs text-muted-foreground">Beta</p>
-                      <p className="font-bold">{benchmarkData.beta.toFixed(2)}</p>
+                      <p className="font-bold">{(benchmarkData?.beta ?? 0).toFixed(2)}</p>
                     </div>
                   </div>
                 </CardContent>
