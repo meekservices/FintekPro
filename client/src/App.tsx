@@ -320,6 +320,7 @@ import ExchangeFilingsAdmin from "@/pages/admin/exchange-filings";
 import AdminApiUsage from "@/pages/admin-api-usage";
 import AdminMFEnrichment from "@/pages/admin-mf-enrichment";
 import AdminMfBenchmarks from "@/pages/admin-mf-benchmarks";
+import AdminDataEnrichment from "@/pages/admin-data-enrichment";
 import AdminAiRecommendationTracking from "@/pages/admin-ai-recommendation-tracking";
 import AdminReportsHub from "@/pages/admin/reports-hub";
 import AdminAIInsights from "@/pages/admin/ai-insights";
@@ -1392,6 +1393,9 @@ function AdminRoutes() {
       </Route>
       <Route path="/admin/mf-enrichment">
         {() => <AdminMFEnrichment />}
+      </Route>
+      <Route path="/admin/data-enrichment">
+        {() => <AdminDataEnrichment />}
       </Route>
       <Route path="/admin/ai-recommendation-tracking">
         {() => (

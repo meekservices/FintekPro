@@ -4074,5 +4074,187 @@ System Security Data:`;
   console.log("✅ AMFI Benchmark Auto-Parser routes registered");
   console.log("✅ Benchmark Mapping Admin routes registered");
 
+  // ============ DATA ENRICHMENT ROUTES ============
+  
+  // MF Extended Enrichment - get stats
+  app.get("/api/admin/enrichment/mf/stats", requireAdmin, async (req, res) => {
+    try {
+      const { mfExtendedEnrichmentService } = await import("../../services/mf-extended-enrichment-service");
+      const stats = await mfExtendedEnrichmentService.getEnrichmentStats();
+      res.json({ success: true, stats });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  
+  // MF Extended Enrichment - get progress
+  app.get("/api/admin/enrichment/mf/progress", requireAdmin, async (req, res) => {
+    try {
+      const { mfExtendedEnrichmentService } = await import("../../services/mf-extended-enrichment-service");
+      const progress = mfExtendedEnrichmentService.getProgress();
+      res.json({ success: true, progress });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  
+  // MF Extended Enrichment - run enrichment
+  app.post("/api/admin/enrichment/mf/run", requireAdmin, async (req, res) => {
+    try {
+      const { mfExtendedEnrichmentService } = await import("../../services/mf-extended-enrichment-service");
+      const { forceRefresh = false, batchSize = 500 } = req.body;
+      
+      // Start async enrichment
+      mfExtendedEnrichmentService.enrichAllFunds({ forceRefresh, batchSize }).catch(err => {
+        console.error('[MF Enrichment Admin] Enrichment failed:', err.message);
+      });
+      
+      res.json({ success: true, message: 'Enrichment started', status: 'running' });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  
+  // Stock Financial Enrichment - get stats
+  app.get("/api/admin/enrichment/stocks/stats", requireAdmin, async (req, res) => {
+    try {
+      const { stockFinancialEnrichmentService } = await import("../../services/stock-financial-enrichment-service");
+      const stats = await stockFinancialEnrichmentService.getEnrichmentStats();
+      res.json({ success: true, stats });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  
+  // Stock Financial Enrichment - get progress
+  app.get("/api/admin/enrichment/stocks/progress", requireAdmin, async (req, res) => {
+    try {
+      const { stockFinancialEnrichmentService } = await import("../../services/stock-financial-enrichment-service");
+      const progress = stockFinancialEnrichmentService.getProgress();
+      res.json({ success: true, progress });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  
+  // Stock Financial Enrichment - run enrichment
+  app.post("/api/admin/enrichment/stocks/run", requireAdmin, async (req, res) => {
+    try {
+      const { stockFinancialEnrichmentService } = await import("../../services/stock-financial-enrichment-service");
+      const { useYahoo = false, batchSize = 100, maxYahooRequests = 50 } = req.body;
+      
+      // Start async enrichment
+      stockFinancialEnrichmentService.enrichAllStocks({ useYahoo, batchSize, maxYahooRequests }).catch(err => {
+        console.error('[Stock Enrichment Admin] Enrichment failed:', err.message);
+      });
+      
+      res.json({ success: true, message: 'Enrichment started', status: 'running' });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  
+  // Combined enrichment stats
+  app.get("/api/admin/enrichment/stats", requireAdmin, async (req, res) => {
+    try {
+      const { mfExtendedEnrichmentService } = await import("../../services/mf-extended-enrichment-service");
+      const { stockFinancialEnrichmentService } = await import("../../services/stock-financial-enrichment-service");
+      
+      const [mfStats, stockStats] = await Promise.all([
+        mfExtendedEnrichmentService.getEnrichmentStats(),
+        stockFinancialEnrichmentService.getEnrichmentStats(),
+      ]);
+      
+      res.json({ 
+        success: true, 
+        mutualFunds: mfStats,
+        stocks: stockStats,
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  
+  // NAV-based metrics enrichment - trigger batch sync
+  app.post("/api/admin/enrichment/nav-metrics/run", requireAdmin, async (req, res) => {
+    try {
+      const { mfReturnsSyncService } = await import("../../services/mf-returns-sync-service");
+      const { maxFunds = 100 } = req.body;
+      
+      // Start async batch sync
+      mfReturnsSyncService.runBatchSync(maxFunds).catch(err => {
+        console.error('[NAV Metrics Enrichment] Batch sync failed:', err.message);
+      });
+      
+      res.json({ success: true, message: 'NAV metrics sync started', status: 'running' });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  
+  // NAV-based metrics enrichment - get status
+  app.get("/api/admin/enrichment/nav-metrics/status", requireAdmin, async (req, res) => {
+    try {
+      const { mfReturnsSyncService } = await import("../../services/mf-returns-sync-service");
+      const status = mfReturnsSyncService.getStatus();
+      res.json({ success: true, status });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  
+  // Run all enrichment jobs
+  app.post("/api/admin/enrichment/run-all", requireAdmin, async (req, res) => {
+    try {
+      const { mfExtendedEnrichmentService } = await import("../../services/mf-extended-enrichment-service");
+      const { stockFinancialEnrichmentService } = await import("../../services/stock-financial-enrichment-service");
+      const { mfReturnsSyncService } = await import("../../services/mf-returns-sync-service");
+      
+      // Start all enrichment jobs async
+      Promise.all([
+        mfExtendedEnrichmentService.enrichAllFunds({ forceRefresh: false }),
+        stockFinancialEnrichmentService.enrichAllStocks({ useYahoo: false }),
+        mfReturnsSyncService.runBatchSync(200),
+      ]).catch(err => {
+        console.error('[Enrichment All] Failed:', err.message);
+      });
+      
+      res.json({ success: true, message: 'All enrichment jobs started' });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  
+  // Scheduler status and control
+  app.get("/api/admin/enrichment/scheduler/status", requireAdmin, async (req, res) => {
+    try {
+      const { dataEnrichmentScheduler } = await import("../../services/data-enrichment-scheduler");
+      const status = dataEnrichmentScheduler.getStatus();
+      res.json({ success: true, status });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  
+  app.post("/api/admin/enrichment/scheduler/initialize", requireAdmin, async (req, res) => {
+    try {
+      const { dataEnrichmentScheduler } = await import("../../services/data-enrichment-scheduler");
+      dataEnrichmentScheduler.initialize();
+      res.json({ success: true, message: 'Scheduler initialized' });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  
+  // Initialize the scheduler on startup
+  import("../../services/data-enrichment-scheduler").then(({ dataEnrichmentScheduler }) => {
+    dataEnrichmentScheduler.initialize();
+    console.log("✅ Data Enrichment Scheduler initialized");
+  }).catch(err => {
+    console.warn("⚠️ Failed to initialize Data Enrichment Scheduler:", err.message);
+  });
+  
+  console.log("✅ Data Enrichment Admin routes registered");
+
   console.log("✅ Admin Panel routes registered");
 }
