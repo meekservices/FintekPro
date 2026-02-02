@@ -3,7 +3,7 @@ import { emailService } from "../email-service";
 import { aiService } from "./ai-service";
 import { db } from "../db";
 import { users } from "../../shared/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 interface ErrorDigest {
   period: string;
@@ -243,10 +243,7 @@ Total: ${errors.length} errors, ${criticalErrors.length} critical, ${resolvedErr
 
       const adminUsers = await db.select()
         .from(users)
-        .where(and(
-          eq(users.role, 'admin'),
-          eq(users.isActive, true)
-        ))
+        .where(sql`${users.roles} @> ARRAY['admin']::varchar[] AND ${users.isActive} = true`)
         .limit(5);
 
       let aiAnalysis = "AI analysis unavailable";
