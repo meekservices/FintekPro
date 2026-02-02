@@ -4240,19 +4240,19 @@ export default function AgentProspectWizard() {
                   <div className="grid grid-cols-3 gap-3 mb-4">
                     <div className="p-2 bg-pink-50 dark:bg-pink-900/20 rounded-lg text-center">
                       <p className="text-xs text-muted-foreground">Weighted Avg TER</p>
-                      <p className="text-lg font-bold text-pink-600">{expenseRatioData.weightedAvgTER}%</p>
+                      <p className="text-lg font-bold text-pink-600">{expenseRatioData?.weightedAvgTER ?? 0}%</p>
                     </div>
                     <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded-lg text-center">
                       <p className="text-xs text-muted-foreground">Annual Cost</p>
-                      <p className="text-lg font-bold text-red-600">{formatCurrency(expenseRatioData.totalAnnualCost)}</p>
+                      <p className="text-lg font-bold text-red-600">{formatCurrency(expenseRatioData?.totalAnnualCost ?? 0)}</p>
                     </div>
                     <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
                       <p className="text-xs text-muted-foreground">Potential Savings</p>
-                      <p className="text-lg font-bold text-green-600">{formatCurrency(expenseRatioData.potentialSavings)}</p>
+                      <p className="text-lg font-bold text-green-600">{formatCurrency(expenseRatioData?.potentialSavings ?? 0)}</p>
                     </div>
                   </div>
                   <div className="space-y-2 max-h-36 overflow-y-auto">
-                    {expenseRatioData.holdings.slice(0, 5).map((h, idx) => (
+                    {(expenseRatioData?.holdings ?? []).slice(0, 5).map((h, idx) => (
                       <div key={idx} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg text-sm">
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate">{h.name}</p>
@@ -4283,19 +4283,19 @@ export default function AgentProspectWizard() {
                 <CardContent>
                   <div className="flex items-center gap-3 mb-4">
                     <Badge variant={
-                      riskHeatmapData.overallRisk === 'low' ? 'default' :
-                      riskHeatmapData.overallRisk === 'medium' ? 'secondary' :
-                      riskHeatmapData.overallRisk === 'high' ? 'destructive' : 'destructive'
+                      (riskHeatmapData?.overallRisk ?? 'medium') === 'low' ? 'default' :
+                      (riskHeatmapData?.overallRisk ?? 'medium') === 'medium' ? 'secondary' :
+                      (riskHeatmapData?.overallRisk ?? 'medium') === 'high' ? 'destructive' : 'destructive'
                     } className="text-sm px-3 py-1">
-                      {riskHeatmapData.overallRisk.replace('_', ' ').toUpperCase()} RISK
+                      {(riskHeatmapData?.overallRisk ?? 'medium').replace('_', ' ').toUpperCase()} RISK
                     </Badge>
                     <span className="text-xs text-muted-foreground">
-                      {riskHeatmapData.concentrationWarnings.length} concentration warning{riskHeatmapData.concentrationWarnings.length !== 1 ? 's' : ''}
+                      {(riskHeatmapData?.concentrationWarnings ?? []).length} concentration warning{(riskHeatmapData?.concentrationWarnings ?? []).length !== 1 ? 's' : ''}
                     </span>
                   </div>
-                  {riskHeatmapData.concentrationWarnings.length > 0 && (
+                  {(riskHeatmapData?.concentrationWarnings ?? []).length > 0 && (
                     <div className="space-y-2 mb-4">
-                      {riskHeatmapData.concentrationWarnings.slice(0, 4).map((w, idx) => (
+                      {(riskHeatmapData?.concentrationWarnings ?? []).slice(0, 4).map((w, idx) => (
                         <div key={idx} className={`p-2 rounded-lg text-sm flex items-center justify-between ${
                           w.severity === 'critical' ? 'bg-red-100 dark:bg-red-900/30' : 'bg-amber-100 dark:bg-amber-900/30'
                         }`}>
@@ -4310,7 +4310,7 @@ export default function AgentProspectWizard() {
                   )}
                   <div className="space-y-1">
                     <p className="text-xs font-medium text-muted-foreground mb-2">Sector Allocation</p>
-                    {riskHeatmapData.sectorAllocation.slice(0, 6).map((s, idx) => (
+                    {(riskHeatmapData?.sectorAllocation ?? []).slice(0, 6).map((s, idx) => (
                       <div key={idx} className="flex items-center gap-2">
                         <span className="text-xs w-28 truncate">{s.sector}</span>
                         <Progress value={s.percentage} className="flex-1 h-2" />
@@ -4420,20 +4420,20 @@ export default function AgentProspectWizard() {
                   <div className="grid grid-cols-3 gap-3 mb-4">
                     <div className="p-2 bg-lime-50 dark:bg-lime-900/20 rounded-lg text-center">
                       <p className="text-xs text-muted-foreground">Annual Income</p>
-                      <p className="text-lg font-bold text-lime-600">{formatCurrency(dividendData.estimatedAnnualIncome)}</p>
+                      <p className="text-lg font-bold text-lime-600">{formatCurrency(dividendData?.estimatedAnnualIncome ?? 0)}</p>
                     </div>
                     <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
                       <p className="text-xs text-muted-foreground">Monthly Income</p>
-                      <p className="text-lg font-bold text-green-600">{formatCurrency(dividendData.monthlyIncome)}</p>
+                      <p className="text-lg font-bold text-green-600">{formatCurrency(dividendData?.monthlyIncome ?? 0)}</p>
                     </div>
                     <div className="p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg text-center">
                       <p className="text-xs text-muted-foreground">Yield</p>
-                      <p className="text-lg font-bold text-emerald-600">{dividendData.yieldPercent}%</p>
+                      <p className="text-lg font-bold text-emerald-600">{dividendData?.yieldPercent ?? 0}%</p>
                     </div>
                   </div>
-                  {dividendData.holdings.length > 0 && (
+                  {(dividendData?.holdings ?? []).length > 0 && (
                     <div className="space-y-2 max-h-32 overflow-y-auto">
-                      {dividendData.holdings.slice(0, 4).map((h, idx) => (
+                      {(dividendData?.holdings ?? []).slice(0, 4).map((h, idx) => (
                         <div key={idx} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg text-sm">
                           <span className="truncate flex-1">{h.name}</span>
                           <span className="text-xs text-muted-foreground ml-2">{h.dividendYield}% yield</span>
