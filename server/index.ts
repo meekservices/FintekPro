@@ -664,6 +664,9 @@ app.use((req, res, next) => {
   const bondSeedAdminRoutes = await import('./routes/bond-seed-admin');
   app.use('/api/admin/bond-seed', bondSeedAdminRoutes.default);
   
+  // Register Migration routes (for one-time data sync between environments)
+  app.use('/api/migration', bondSeedAdminRoutes.migrationRouter);
+  
   // Register Gold/SGB Admin routes
   const goldAdminRoutes = await import('./routes/gold-admin');
   app.use('/api/admin/gold', goldAdminRoutes.default);
