@@ -96,6 +96,7 @@ class BseBenchmarkService {
   }
 
   async resolveBenchmark(mfIsin: string): Promise<BenchmarkResolution> {
+    // Step 1: Check for manual override (highest priority)
     const existingMapping = await db.select()
       .from(mfBenchmarkMap)
       .where(eq(mfBenchmarkMap.mfIsin, mfIsin))
@@ -113,38 +114,55 @@ class BseBenchmarkService {
       }
     }
 
-    const amfiData = await db.select()
+    // Step 2: Get ALL AMFI data (regardless of normalization status) to access raw benchmark
+    const allAmfiData = await db.select()
       .from(amfiSchemeBenchmarks)
-      .where(and(
-        eq(amfiSchemeBenchmarks.mfIsin, mfIsin),
-        eq(amfiSchemeBenchmarks.normalizationStatus, 'success'),
-        isNotNull(amfiSchemeBenchmarks.normalizedBenchmark)
-      ))
+      .where(eq(amfiSchemeBenchmarks.mfIsin, mfIsin))
       .limit(1);
 
-    if (amfiData.length > 0 && amfiData[0].normalizedBenchmark) {
+    const rawBenchmark = allAmfiData[0]?.rawBenchmark;
+
+    // Step 3: Check if AMFI normalization succeeded (second priority)
+    if (allAmfiData.length > 0 && 
+        allAmfiData[0].normalizationStatus === 'success' && 
+        allAmfiData[0].normalizedBenchmark) {
       return {
-        indexCode: amfiData[0].normalizedBenchmark,
+        indexCode: allAmfiData[0].normalizedBenchmark,
         source: 'amfi',
         confidence: CONFIDENCE_MATRIX.amfi,
-        reason: `AMFI explicit benchmark: ${amfiData[0].rawBenchmark?.substring(0, 60) || 'N/A'}`,
+        reason: `AMFI explicit benchmark: ${rawBenchmark?.substring(0, 60) || 'N/A'}`,
       };
     }
 
-    const bseNormResult = this.checkBseExplicitBenchmark(amfiData[0]?.rawBenchmark);
+    // Step 4: Try BSE explicit benchmark parsing (third priority)
+    // This runs EVEN IF AMFI normalization failed - check raw benchmark text for BSE patterns
+    const bseNormResult = this.checkBseExplicitBenchmark(rawBenchmark);
     if (bseNormResult) {
       return {
         indexCode: bseNormResult,
         source: 'bse',
         confidence: CONFIDENCE_MATRIX.bse,
-        reason: `BSE explicit benchmark: ${amfiData[0]?.rawBenchmark?.substring(0, 60) || 'N/A'}`,
+        reason: `BSE explicit benchmark: ${rawBenchmark?.substring(0, 60) || 'N/A'}`,
       };
     }
 
+    // Step 5: Also check mutualFunds.benchmarkIndex for BSE patterns (fallback source)
     const fund = await db.select()
       .from(mutualFunds)
       .where(eq(mutualFunds.isin, mfIsin))
       .limit(1);
+
+    if (fund.length > 0 && fund[0].benchmarkIndex) {
+      const bseFromFund = this.checkBseExplicitBenchmark(fund[0].benchmarkIndex);
+      if (bseFromFund) {
+        return {
+          indexCode: bseFromFund,
+          source: 'bse',
+          confidence: CONFIDENCE_MATRIX.bse,
+          reason: `BSE from MF data: ${fund[0].benchmarkIndex?.substring(0, 60) || 'N/A'}`,
+        };
+      }
+    }
 
     if (fund.length > 0 && fund[0].category) {
       const categoryBenchmark = this.getCategoryDefault(fund[0].category);

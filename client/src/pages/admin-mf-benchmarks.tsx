@@ -213,6 +213,95 @@ export default function AdminMfBenchmarks() {
     },
   });
 
+  // BSE Benchmark mutations and queries
+  const { data: bseStatsData } = useQuery<{
+    success: boolean;
+    total: number;
+    bySource: Record<string, number>;
+    avgConfidence: Record<string, number>;
+  }>({
+    queryKey: ["/api/admin/bse-benchmark/stats"],
+  });
+
+  const { data: bseConflictsData, refetch: refetchBseConflicts } = useQuery<{
+    success: boolean;
+    conflicts: Array<{
+      isin: string;
+      schemeName: string | null;
+      rawBenchmark: string | null;
+      amfiIndex: string | null;
+      bseIndex: string | null;
+      currentMapping: string | null;
+      currentSource: string | null;
+    }>;
+    count: number;
+  }>({
+    queryKey: ["/api/admin/bse-benchmark/conflicts"],
+  });
+
+  const { data: bseLineageData } = useQuery<{
+    success: boolean;
+    lineage: Array<{
+      mfIsin: string;
+      previousSource: string | null;
+      newSource: string;
+      previousIndex: string | null;
+      newIndex: string;
+      reason: string | null;
+      changedAt: string;
+    }>;
+    count: number;
+  }>({
+    queryKey: ["/api/admin/bse-benchmark/lineage"],
+  });
+
+  const seedBseIndicesMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("/api/admin/bse-benchmark/seed-indices", { method: "POST" });
+    },
+    onSuccess: (data: any) => {
+      toast({ title: "BSE indices seeded", description: data.message });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/benchmarks"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "BSE seed failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const bseAutoMapMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("/api/admin/bse-benchmark/auto-map", { method: "POST" });
+    },
+    onSuccess: (data: any) => {
+      toast({ title: "BSE auto-map complete", description: data.message });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/mf-benchmark-mappings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/bse-benchmark/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/bse-benchmark/conflicts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/bse-benchmark/lineage"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "BSE auto-map failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const resolveBseConflictMutation = useMutation({
+    mutationFn: async ({ isin, resolution, manualIndexCode, reason }: { isin: string; resolution: string; manualIndexCode?: string; reason?: string }) => {
+      return apiRequest("/api/admin/bse-benchmark/resolve-conflict", { 
+        method: "POST", 
+        body: JSON.stringify({ isin, resolution, manualIndexCode, reason }) 
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "BSE conflict resolved", description: "Benchmark mapping updated." });
+      refetchBseConflicts();
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/mf-benchmark-mappings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/bse-benchmark/lineage"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Resolution failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "—";
     return new Date(dateStr).toLocaleDateString();
@@ -226,8 +315,10 @@ export default function AdminMfBenchmarks() {
   };
 
   const getSourceBadge = (source: string | null) => {
-    if (source === 'amfi') return <Badge className="bg-blue-500">AMFI</Badge>;
-    if (source === 'manual') return <Badge className="bg-purple-500">Manual</Badge>;
+    if (source === 'manual') return <Badge className="bg-red-500" title="Manually overridden by admin">🔴 Manual</Badge>;
+    if (source === 'amfi') return <Badge className="bg-green-500" title="AMFI explicit benchmark">🟢 AMFI</Badge>;
+    if (source === 'bse') return <Badge className="bg-blue-500" title="BSE explicit benchmark">🔵 BSE</Badge>;
+    if (source === 'category') return <Badge className="bg-yellow-500 text-black" title="Category default fallback">🟡 Category</Badge>;
     return <Badge variant="secondary">{source || 'Auto'}</Badge>;
   };
 
@@ -321,6 +412,10 @@ export default function AdminMfBenchmarks() {
           </TabsTrigger>
           <TabsTrigger value="mappings">Fund Mappings</TabsTrigger>
           <TabsTrigger value="history">Change History</TabsTrigger>
+          <TabsTrigger value="bse">
+            BSE {bseConflictsData?.count ? <Badge className="bg-blue-500 ml-1">{bseConflictsData.count}</Badge> : null}
+          </TabsTrigger>
+          <TabsTrigger value="lineage">Audit Trail</TabsTrigger>
         </TabsList>
 
         <TabsContent value="indices" className="space-y-4">
@@ -652,6 +747,201 @@ export default function AdminMfBenchmarks() {
                         </TableCell>
                         <TableCell>
                           <Badge variant="secondary">{item.changeSource || '—'}</Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatDate(item.changedAt)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="bse" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Badge className="bg-blue-500">BSE</Badge>
+                  BSE Benchmark Management
+                </CardTitle>
+                <CardDescription>
+                  BSE index seeding, precedence-based auto-mapping, and AMFI vs BSE conflict resolution
+                </CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => seedBseIndicesMutation.mutate()}
+                  disabled={seedBseIndicesMutation.isPending}
+                  variant="outline"
+                  size="sm"
+                >
+                  {seedBseIndicesMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Database className="h-4 w-4 mr-2" />
+                  )}
+                  Seed BSE Indices
+                </Button>
+                <Button
+                  onClick={() => bseAutoMapMutation.mutate()}
+                  disabled={bseAutoMapMutation.isPending}
+                  size="sm"
+                >
+                  {bseAutoMapMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <ArrowUpDown className="h-4 w-4 mr-2" />
+                  )}
+                  BSE Auto-Map (Precedence)
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {bseStatsData && (
+                <div className="grid grid-cols-4 gap-4 mb-6">
+                  <div className="p-3 bg-muted/50 rounded-lg text-center">
+                    <p className="text-xs text-muted-foreground">Total Mappings</p>
+                    <p className="text-xl font-bold">{bseStatsData.total}</p>
+                  </div>
+                  <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
+                    <p className="text-xs text-muted-foreground">🟢 AMFI</p>
+                    <p className="text-xl font-bold text-green-600">{bseStatsData.bySource?.amfi || 0}</p>
+                  </div>
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-center">
+                    <p className="text-xs text-muted-foreground">🔵 BSE</p>
+                    <p className="text-xl font-bold text-blue-600">{bseStatsData.bySource?.bse || 0}</p>
+                  </div>
+                  <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg text-center">
+                    <p className="text-xs text-muted-foreground">🟡 Category</p>
+                    <p className="text-xl font-bold text-yellow-600">{bseStatsData.bySource?.category || 0}</p>
+                  </div>
+                </div>
+              )}
+
+              <h4 className="font-medium mb-3">AMFI vs BSE Conflicts</h4>
+              {bseConflictsData?.conflicts?.length === 0 ? (
+                <div className="text-center py-6 text-muted-foreground">
+                  <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-500" />
+                  <p>No AMFI vs BSE conflicts found.</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ISIN</TableHead>
+                      <TableHead>Scheme Name</TableHead>
+                      <TableHead>AMFI Index</TableHead>
+                      <TableHead>BSE Index</TableHead>
+                      <TableHead>Current</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {bseConflictsData?.conflicts?.slice(0, 20).map((conflict) => (
+                      <TableRow key={conflict.isin}>
+                        <TableCell className="font-mono text-sm">{conflict.isin}</TableCell>
+                        <TableCell className="max-w-[200px] truncate" title={conflict.schemeName || ''}>
+                          {conflict.schemeName?.substring(0, 40) || '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className="bg-green-500">{conflict.amfiIndex}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className="bg-blue-500">{conflict.bseIndex}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          {getSourceBadge(conflict.currentSource)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs"
+                              onClick={() => resolveBseConflictMutation.mutate({ 
+                                isin: conflict.isin, 
+                                resolution: 'accept_amfi',
+                                reason: 'Admin accepted AMFI benchmark'
+                              })}
+                              disabled={resolveBseConflictMutation.isPending}
+                            >
+                              Accept AMFI
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs"
+                              onClick={() => resolveBseConflictMutation.mutate({ 
+                                isin: conflict.isin, 
+                                resolution: 'accept_bse',
+                                reason: 'Admin accepted BSE benchmark'
+                              })}
+                              disabled={resolveBseConflictMutation.isPending}
+                            >
+                              Accept BSE
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="lineage" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <History className="h-5 w-5" />
+                <CardTitle>Benchmark Lineage Audit Trail</CardTitle>
+              </div>
+              <CardDescription>
+                SEBI-compliant audit trail tracking source transitions (AMFI ↔ BSE ↔ Manual) with immutable history
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {bseLineageData?.lineage?.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <History className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No benchmark lineage records yet.</p>
+                  <p className="text-sm">Run BSE Auto-Map to create lineage records.</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ISIN</TableHead>
+                      <TableHead>Previous Source</TableHead>
+                      <TableHead>New Source</TableHead>
+                      <TableHead>Previous Index</TableHead>
+                      <TableHead>New Index</TableHead>
+                      <TableHead>Reason</TableHead>
+                      <TableHead>Changed At</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {bseLineageData?.lineage?.map((item, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell className="font-mono text-sm">{item.mfIsin}</TableCell>
+                        <TableCell>
+                          {item.previousSource ? getSourceBadge(item.previousSource) : <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+                        <TableCell>{getSourceBadge(item.newSource)}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="bg-red-50">{item.previousIndex || '—'}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="bg-green-50">{item.newIndex}</Badge>
+                        </TableCell>
+                        <TableCell className="max-w-[200px] truncate text-sm" title={item.reason || ''}>
+                          {item.reason?.substring(0, 40) || '—'}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {formatDate(item.changedAt)}
