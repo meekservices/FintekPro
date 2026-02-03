@@ -3,6 +3,8 @@ import { db } from "../db";
 import { investmentProposals, users, prospectProposals } from "@shared/schema";
 import { eq, and, desc, sql, count, sum, isNotNull } from "drizzle-orm";
 import { generateProposalPDF } from "../services/reports/proposal-pdf-renderer";
+import { generateRegulatorGradePdf, ProposalPdfConfig } from "../services/reports/regulator-grade-pdf-renderer";
+import { proposalAuditService } from "../services/proposal-audit-service";
 import { z } from "zod";
 import { nanoid } from "nanoid";
 
@@ -18,10 +20,27 @@ const proposalConfigSchema = z.object({
     equity: z.coerce.number().min(0).max(100),
     debt: z.coerce.number().min(0).max(100),
     gold: z.coerce.number().min(0).max(100),
-    realestate: z.coerce.number().min(0).max(100),
+    realestate: z.coerce.number().min(0).max(100).optional().default(0),
     cash: z.coerce.number().min(0).max(100),
+    hybrid: z.coerce.number().min(0).max(100).optional().default(0),
+    index: z.coerce.number().min(0).max(100).optional().default(0),
+    international: z.coerce.number().min(0).max(100).optional().default(0),
+    us_markets: z.coerce.number().min(0).max(100).optional().default(0),
+    europe_markets: z.coerce.number().min(0).max(100).optional().default(0),
+    asia_pacific_markets: z.coerce.number().min(0).max(100).optional().default(0),
+    emerging_markets: z.coerce.number().min(0).max(100).optional().default(0),
+    reit: z.coerce.number().min(0).max(100).optional().default(0),
+    invit: z.coerce.number().min(0).max(100).optional().default(0),
+    bonds: z.coerce.number().min(0).max(100).optional().default(0),
+    listed_stocks: z.coerce.number().min(0).max(100).optional().default(0),
+    unlisted_stocks: z.coerce.number().min(0).max(100).optional().default(0),
   }).refine(data => {
-    const total = data.equity + data.debt + data.gold + data.realestate + data.cash;
+    const total = (data.equity || 0) + (data.debt || 0) + (data.gold || 0) + 
+                  (data.realestate || 0) + (data.cash || 0) + (data.hybrid || 0) +
+                  (data.index || 0) + (data.international || 0) + (data.us_markets || 0) +
+                  (data.europe_markets || 0) + (data.asia_pacific_markets || 0) + 
+                  (data.emerging_markets || 0) + (data.reit || 0) + (data.invit || 0) +
+                  (data.bonds || 0) + (data.listed_stocks || 0) + (data.unlisted_stocks || 0);
     return total === 100;
   }, { message: "Asset allocation must total 100%" }),
   riskProfile: z.object({
@@ -30,14 +49,32 @@ const proposalConfigSchema = z.object({
     tolerance: z.string(),
   }),
   sections: z.object({
-    executiveSummary: z.boolean(),
-    investmentRecommendations: z.boolean(),
-    assetAllocationChart: z.boolean(),
-    riskAssessment: z.boolean(),
-    projectedReturns: z.boolean(),
-    feeDisclosure: z.boolean(),
-    termsConditions: z.boolean(),
+    coverPage: z.boolean().optional().default(true),
+    tableOfContents: z.boolean().optional().default(true),
+    executiveSummary: z.boolean().optional().default(true),
+    portfolioOverview: z.boolean().optional().default(false),
+    productRecommendations: z.boolean().optional().default(true),
+    capitalGainsSummary: z.boolean().optional().default(false),
+    exitLoadSummary: z.boolean().optional().default(false),
+    taxImpactSummary: z.boolean().optional().default(false),
+    rebalancingSipRecommendations: z.boolean().optional().default(false),
+    portfolioHealthScore: z.boolean().optional().default(false),
+    expenseRatioAnalysis: z.boolean().optional().default(false),
+    riskHeatMap: z.boolean().optional().default(false),
+    benchmarkComparison: z.boolean().optional().default(false),
+    whatIfScenarios: z.boolean().optional().default(false),
+    dividendProjection: z.boolean().optional().default(false),
+    priorityRecommendations: z.boolean().optional().default(false),
+    portfolioGrowthProjection: z.boolean().optional().default(false),
+    mandatoryDisclaimers: z.boolean().optional().default(true),
+    advisorDeclaration: z.boolean().optional().default(true),
   }),
+  sectionCustomizations: z.record(z.object({
+    customNotes: z.string().optional(),
+    overrideTitle: z.string().optional(),
+    showInToc: z.boolean().optional(),
+    customData: z.record(z.any()).optional(),
+  })).optional().default({}),
   coverPage: z.object({
     enabled: z.boolean(),
     title: z.string(),
@@ -503,15 +540,59 @@ agentDemoRouter.post("/generate-pdf", async (req: Request, res: Response) => {
       }
     }
 
-    // Merge additional data into config for PDF generation
-    const pdfConfig = {
-      ...config,
-      fundingSummary,
-      detailedRecommendations
+    // Build regulator-grade PDF config
+    const regulatorPdfConfig: Partial<ProposalPdfConfig> = {
+      proposalId: nanoid(12),
+      version: 'v1.0',
+      client: {
+        name: clientData.fullName,
+        email: clientData.email,
+      },
+      advisor: {
+        name: config.coverPage.preparedBy,
+      },
+      investmentGoals: config.investmentGoals,
+      riskProfile: config.riskProfile,
+      proposedAllocation: {
+        equity: config.assetAllocation.equity,
+        debt: config.assetAllocation.debt,
+        gold: config.assetAllocation.gold,
+        realestate: config.assetAllocation.realestate || 0,
+        cash: config.assetAllocation.cash,
+        totalValue: config.investmentGoals.targetAmount,
+      },
+      sections: config.sections as ProposalPdfConfig['sections'],
+      sectionCustomizations: config.sectionCustomizations,
+      settings: {
+        orientation: config.settings.orientation,
+      },
     };
 
-    // Generate PDF
-    const pdfBuffer = await generateProposalPDF(pdfConfig, clientData);
+    // Generate regulator-grade PDF with customizations
+    const pdfResult = await generateRegulatorGradePdf(regulatorPdfConfig as ProposalPdfConfig);
+    const pdfBuffer = pdfResult.pdfBuffer;
+    
+    // Log audit event for PDF generation with customizations
+    try {
+      await proposalAuditService.logEvent({
+        proposalId: regulatorPdfConfig.proposalId!,
+        eventType: 'PDF_GENERATED',
+        eventAction: 'CREATED',
+        actorId: agentId,
+        actorRole: 'agent',
+        payloadAfter: {
+          version: pdfResult.version,
+          hash: pdfResult.hash,
+          sectionsIncluded: pdfResult.sectionsIncluded,
+          totalPages: pdfResult.totalPages,
+          sectionCustomizations: Object.keys(config.sectionCustomizations || {}).length > 0 
+            ? config.sectionCustomizations 
+            : undefined,
+        },
+      });
+    } catch (auditError) {
+      console.error('Failed to log audit event:', auditError);
+    }
     
     // Convert to base64 data URL
     const base64 = pdfBuffer.toString('base64');

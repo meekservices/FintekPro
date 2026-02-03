@@ -315,122 +315,173 @@ export class RegulatorGradePdfRenderer {
       this.sectionsIncluded.push('table_of_contents');
     }
     
-    // Phase 3: Render all content sections
+    // Phase 3: Render all content sections with custom titles
     if (config.sections.executiveSummary) {
       this.addNewPage();
-      this.tocEntries.push({ title: 'Executive Summary', page: this.pageNumber });
+      const title = this.getSectionTitle('executiveSummary', 'Executive Summary', config);
+      if (config.sectionCustomizations?.executiveSummary?.showInToc !== false) {
+        this.tocEntries.push({ title, page: this.pageNumber });
+      }
       this.renderExecutiveSummary(config);
       this.sectionsIncluded.push('executive_summary');
     }
     
     if (config.sections.portfolioOverview && config.existingHoldings?.length) {
       this.addNewPage();
-      this.tocEntries.push({ title: 'Portfolio Overview (Existing)', page: this.pageNumber });
+      const title = this.getSectionTitle('portfolioOverview', 'Portfolio Overview (Existing)', config);
+      if (config.sectionCustomizations?.portfolioOverview?.showInToc !== false) {
+        this.tocEntries.push({ title, page: this.pageNumber });
+      }
       this.renderPortfolioOverview(config);
       this.sectionsIncluded.push('portfolio_overview');
     }
     
     if (config.sections.productRecommendations && config.verdicts?.length) {
       this.addNewPage();
-      this.tocEntries.push({ title: 'Product-Level Recommendations', page: this.pageNumber });
+      const title = this.getSectionTitle('productRecommendations', 'Product-Level Recommendations', config);
+      if (config.sectionCustomizations?.productRecommendations?.showInToc !== false) {
+        this.tocEntries.push({ title, page: this.pageNumber });
+      }
       this.renderProductRecommendations(config);
       this.sectionsIncluded.push('product_recommendations');
     }
     
     if (config.sections.capitalGainsSummary && this.hasSellVerdicts(config)) {
       this.addNewPage();
-      this.tocEntries.push({ title: 'Capital Gains Summary', page: this.pageNumber });
+      const title = this.getSectionTitle('capitalGainsSummary', 'Capital Gains Summary', config);
+      if (config.sectionCustomizations?.capitalGainsSummary?.showInToc !== false) {
+        this.tocEntries.push({ title, page: this.pageNumber });
+      }
       this.renderCapitalGainsSummary(config);
       this.sectionsIncluded.push('capital_gains_summary');
     }
     
     if (config.sections.exitLoadSummary && config.exitLoads?.length) {
       this.addNewPage();
-      this.tocEntries.push({ title: 'Exit Load Summary', page: this.pageNumber });
+      const title = this.getSectionTitle('exitLoadSummary', 'Exit Load Summary', config);
+      if (config.sectionCustomizations?.exitLoadSummary?.showInToc !== false) {
+        this.tocEntries.push({ title, page: this.pageNumber });
+      }
       this.renderExitLoadSummary(config);
       this.sectionsIncluded.push('exit_load_summary');
     }
     
     if (config.sections.taxImpactSummary && config.taxImpact) {
       this.addNewPage();
-      this.tocEntries.push({ title: 'Tax Impact Summary', page: this.pageNumber });
+      const title = this.getSectionTitle('taxImpactSummary', 'Tax Impact Summary', config);
+      if (config.sectionCustomizations?.taxImpactSummary?.showInToc !== false) {
+        this.tocEntries.push({ title, page: this.pageNumber });
+      }
       this.renderTaxImpactSummary(config);
       this.sectionsIncluded.push('tax_impact_summary');
     }
     
     if (config.sections.rebalancingSipRecommendations && config.sipRecommendations?.length) {
       this.addNewPage();
-      this.tocEntries.push({ title: 'Rebalancing & SIP Recommendations', page: this.pageNumber });
+      const title = this.getSectionTitle('rebalancingSipRecommendations', 'Rebalancing & SIP Recommendations', config);
+      if (config.sectionCustomizations?.rebalancingSipRecommendations?.showInToc !== false) {
+        this.tocEntries.push({ title, page: this.pageNumber });
+      }
       this.renderRebalancingSipRecommendations(config);
       this.sectionsIncluded.push('rebalancing_sip_recommendations');
     }
     
     if (config.sections.portfolioHealthScore && config.portfolioHealth) {
       this.addNewPage();
-      this.tocEntries.push({ title: 'Portfolio Health Score', page: this.pageNumber });
+      const title = this.getSectionTitle('portfolioHealthScore', 'Portfolio Health Score', config);
+      if (config.sectionCustomizations?.portfolioHealthScore?.showInToc !== false) {
+        this.tocEntries.push({ title, page: this.pageNumber });
+      }
       this.renderPortfolioHealthScore(config);
       this.sectionsIncluded.push('portfolio_health_score');
     }
     
     if (config.sections.expenseRatioAnalysis && config.expenseAnalysis) {
       this.addNewPage();
-      this.tocEntries.push({ title: 'Expense Ratio Analysis', page: this.pageNumber });
+      const title = this.getSectionTitle('expenseRatioAnalysis', 'Expense Ratio Analysis', config);
+      if (config.sectionCustomizations?.expenseRatioAnalysis?.showInToc !== false) {
+        this.tocEntries.push({ title, page: this.pageNumber });
+      }
       this.renderExpenseRatioAnalysis(config);
       this.sectionsIncluded.push('expense_ratio_analysis');
     }
     
     if (config.sections.riskHeatMap && config.riskHeatMap) {
       this.addNewPage();
-      this.tocEntries.push({ title: 'Risk Heat Map', page: this.pageNumber });
+      const title = this.getSectionTitle('riskHeatMap', 'Risk Heat Map', config);
+      if (config.sectionCustomizations?.riskHeatMap?.showInToc !== false) {
+        this.tocEntries.push({ title, page: this.pageNumber });
+      }
       this.renderRiskHeatMap(config);
       this.sectionsIncluded.push('risk_heat_map');
     }
     
     if (config.sections.benchmarkComparison && config.benchmarkComparison) {
       this.addNewPage();
-      this.tocEntries.push({ title: 'Benchmark Comparison', page: this.pageNumber });
+      const title = this.getSectionTitle('benchmarkComparison', 'Benchmark Comparison', config);
+      if (config.sectionCustomizations?.benchmarkComparison?.showInToc !== false) {
+        this.tocEntries.push({ title, page: this.pageNumber });
+      }
       this.renderBenchmarkComparison(config);
       this.sectionsIncluded.push('benchmark_comparison');
     }
     
     if (config.sections.whatIfScenarios && config.whatIfScenarios?.length) {
       this.addNewPage();
-      this.tocEntries.push({ title: 'What-If Scenario Analysis', page: this.pageNumber });
+      const title = this.getSectionTitle('whatIfScenarios', 'What-If Scenario Analysis', config);
+      if (config.sectionCustomizations?.whatIfScenarios?.showInToc !== false) {
+        this.tocEntries.push({ title, page: this.pageNumber });
+      }
       this.renderWhatIfScenarios(config);
       this.sectionsIncluded.push('what_if_scenarios');
     }
     
     if (config.sections.dividendProjection && config.dividendProjection) {
       this.addNewPage();
-      this.tocEntries.push({ title: 'Dividend Income Projection', page: this.pageNumber });
+      const title = this.getSectionTitle('dividendProjection', 'Dividend Income Projection', config);
+      if (config.sectionCustomizations?.dividendProjection?.showInToc !== false) {
+        this.tocEntries.push({ title, page: this.pageNumber });
+      }
       this.renderDividendProjection(config);
       this.sectionsIncluded.push('dividend_projection');
     }
     
     if (config.sections.priorityRecommendations && config.priorityRecommendations?.length) {
       this.addNewPage();
-      this.tocEntries.push({ title: 'Priority Recommendations', page: this.pageNumber });
+      const title = this.getSectionTitle('priorityRecommendations', 'Priority Recommendations', config);
+      if (config.sectionCustomizations?.priorityRecommendations?.showInToc !== false) {
+        this.tocEntries.push({ title, page: this.pageNumber });
+      }
       this.renderPriorityRecommendations(config);
       this.sectionsIncluded.push('priority_recommendations');
     }
     
     if (config.sections.portfolioGrowthProjection && config.growthProjection) {
       this.addNewPage();
-      this.tocEntries.push({ title: 'Portfolio Growth Projection', page: this.pageNumber });
+      const title = this.getSectionTitle('portfolioGrowthProjection', 'Portfolio Growth Projection', config);
+      if (config.sectionCustomizations?.portfolioGrowthProjection?.showInToc !== false) {
+        this.tocEntries.push({ title, page: this.pageNumber });
+      }
       this.renderPortfolioGrowthProjection(config);
       this.sectionsIncluded.push('portfolio_growth_projection');
     }
     
     if (config.sections.mandatoryDisclaimers) {
       this.addNewPage();
-      this.tocEntries.push({ title: 'Mandatory Disclaimers', page: this.pageNumber });
+      const title = this.getSectionTitle('mandatoryDisclaimers', 'Mandatory Disclaimers', config);
+      if (config.sectionCustomizations?.mandatoryDisclaimers?.showInToc !== false) {
+        this.tocEntries.push({ title, page: this.pageNumber });
+      }
       this.renderMandatoryDisclaimers();
       this.sectionsIncluded.push('mandatory_disclaimers');
     }
     
     if (config.sections.advisorDeclaration) {
       this.addNewPage();
-      this.tocEntries.push({ title: 'Advisor Declaration & Client Acknowledgement', page: this.pageNumber });
+      const title = this.getSectionTitle('advisorDeclaration', 'Advisor Declaration & Client Acknowledgement', config);
+      if (config.sectionCustomizations?.advisorDeclaration?.showInToc !== false) {
+        this.tocEntries.push({ title, page: this.pageNumber });
+      }
       this.renderAdvisorDeclaration(config);
       this.sectionsIncluded.push('advisor_declaration');
     }

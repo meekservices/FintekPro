@@ -416,6 +416,23 @@ export default function AgentDemoProposalBuilder() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   
+  const [dataAvailability, setDataAvailability] = useState({
+    hasHoldings: true,
+    hasSellVerdicts: true,
+    hasExitLoads: true,
+    hasVerdicts: true,
+    hasTaxImpact: true,
+    hasSipRecommendations: true,
+    hasPortfolioHealth: true,
+    hasExpenseAnalysis: true,
+    hasRiskHeatMap: true,
+    hasBenchmarkComparison: true,
+    hasWhatIfScenarios: true,
+    hasDividendProjection: true,
+    hasPriorityRecommendations: true,
+    hasGrowthProjection: true
+  });
+  
   // Portfolio comparison state
   interface PortfolioHolding {
     name: string;
@@ -611,6 +628,53 @@ export default function AgentDemoProposalBuilder() {
       setProspectPortfolio(null);
     }
   }, [selectedClient]);
+
+  useEffect(() => {
+    const hasClientOrPortfolio = Boolean(prospectPortfolio?.holdings?.length || selectedClient?.type === 'client');
+    
+    const newAvailability = {
+      hasHoldings: hasClientOrPortfolio,
+      hasSellVerdicts: hasClientOrPortfolio,
+      hasExitLoads: hasClientOrPortfolio,
+      hasVerdicts: hasClientOrPortfolio,
+      hasTaxImpact: hasClientOrPortfolio,
+      hasSipRecommendations: hasClientOrPortfolio,
+      hasPortfolioHealth: hasClientOrPortfolio,
+      hasExpenseAnalysis: hasClientOrPortfolio,
+      hasRiskHeatMap: hasClientOrPortfolio,
+      hasBenchmarkComparison: hasClientOrPortfolio,
+      hasWhatIfScenarios: true,
+      hasDividendProjection: hasClientOrPortfolio,
+      hasPriorityRecommendations: true,
+      hasGrowthProjection: true
+    };
+
+    setDataAvailability(newAvailability);
+
+    const sectionToAvailabilityMap: Record<string, boolean> = {
+      portfolioOverview: newAvailability.hasHoldings,
+      productRecommendations: newAvailability.hasVerdicts,
+      capitalGainsSummary: newAvailability.hasSellVerdicts,
+      exitLoadSummary: newAvailability.hasExitLoads,
+      taxImpactSummary: newAvailability.hasTaxImpact,
+      rebalancingSipRecommendations: newAvailability.hasSipRecommendations,
+      portfolioHealthScore: newAvailability.hasPortfolioHealth,
+      expenseRatioAnalysis: newAvailability.hasExpenseAnalysis,
+      riskHeatMap: newAvailability.hasRiskHeatMap,
+      benchmarkComparison: newAvailability.hasBenchmarkComparison,
+      dividendProjection: newAvailability.hasDividendProjection,
+    };
+
+    setConfig(prev => {
+      const updatedSections = { ...prev.sections };
+      Object.entries(sectionToAvailabilityMap).forEach(([sectionId, isAvailable]) => {
+        if (!isAvailable && updatedSections[sectionId as keyof typeof updatedSections]) {
+          (updatedSections as any)[sectionId] = false;
+        }
+      });
+      return { ...prev, sections: updatedSections };
+    });
+  }, [selectedClient, prospectPortfolio]);
 
   const handleNext = () => {
     if (currentStep < 7) {
@@ -1451,39 +1515,122 @@ export default function AgentDemoProposalBuilder() {
                 {currentStep === 5 && (
                   <div className="space-y-6">
                     <h2 className="text-xl font-semibold">Select Proposal Sections</h2>
+                    <p className="text-muted-foreground">Choose which sections to include in the proposal report. Some sections require specific data.</p>
                     
-                    <div className="grid md:grid-cols-2 gap-4">
-                      {PROPOSAL_SECTIONS.map(section => {
-                        const SectionIcon = section.icon;
-                        const isSelected = config.sections[section.id as keyof typeof config.sections];
-                        return (
-                          <Card 
-                            key={section.id}
-                            className={`cursor-pointer transition-all ${
-                              isSelected ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20' : 'hover:border-border'
-                            }`}
-                            onClick={() => setConfig(prev => ({
-                              ...prev,
-                              sections: { ...prev.sections, [section.id]: !isSelected }
-                            }))}
-                          >
-                            <CardContent className="p-4 flex items-start gap-3">
-                              <Checkbox 
-                                checked={isSelected}
-                                className="mt-1"
-                              />
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <SectionIcon className="h-4 w-4" />
-                                  <span className="font-medium">{section.name}</span>
-                                </div>
-                                <p className="text-sm text-muted-foreground mt-1">{section.description}</p>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                    </div>
+                    {['header', 'overview', 'recommendations', 'analysis', 'tax', 'projections', 'compliance'].map(category => {
+                      const categoryLabels: Record<string, string> = {
+                        header: 'Header Sections',
+                        overview: 'Overview',
+                        recommendations: 'Recommendations',
+                        analysis: 'Analysis & Metrics',
+                        tax: 'Tax & Exit Load',
+                        projections: 'Projections',
+                        compliance: 'Compliance'
+                      };
+                      const categorySections = PROPOSAL_SECTIONS.filter(s => 'category' in s && s.category === category);
+                      if (categorySections.length === 0) return null;
+                      
+                      const dataAvailabilityMap: Record<string, boolean> = {
+                        holdings: dataAvailability.hasHoldings,
+                        sellVerdicts: dataAvailability.hasSellVerdicts,
+                        exitLoads: dataAvailability.hasExitLoads,
+                        verdicts: dataAvailability.hasVerdicts,
+                        taxImpact: dataAvailability.hasTaxImpact,
+                        sipRecommendations: dataAvailability.hasSipRecommendations,
+                        portfolioHealth: dataAvailability.hasPortfolioHealth,
+                        expenseAnalysis: dataAvailability.hasExpenseAnalysis,
+                        riskHeatMap: dataAvailability.hasRiskHeatMap,
+                        benchmarkComparison: dataAvailability.hasBenchmarkComparison,
+                        whatIfScenarios: dataAvailability.hasWhatIfScenarios,
+                        dividendProjection: dataAvailability.hasDividendProjection,
+                        priorityRecommendations: dataAvailability.hasPriorityRecommendations,
+                        growthProjection: dataAvailability.hasGrowthProjection
+                      };
+                      
+                      return (
+                        <div key={category} className="space-y-3">
+                          <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">{categoryLabels[category]}</h3>
+                          <div className="grid md:grid-cols-2 gap-4">
+                            {categorySections.map(section => {
+                              const SectionIcon = section.icon;
+                              const isSelected = config.sections[section.id as keyof typeof config.sections];
+                              const isRequired = 'required' in section && section.required;
+                              const requiresData = 'requiresData' in section ? section.requiresData : null;
+                              const isDataAvailable = requiresData ? dataAvailabilityMap[requiresData] !== false : true;
+                              const isDisabled = isRequired || !isDataAvailable;
+                              
+                              const dependencyMessages: Record<string, string> = {
+                                holdings: 'Requires portfolio holdings data',
+                                sellVerdicts: 'Only shown when SELL recommendations exist',
+                                exitLoads: 'Only shown when exit loads apply'
+                              };
+                              
+                              return (
+                                <Card 
+                                  key={section.id}
+                                  className={`transition-all ${
+                                    !isDataAvailable
+                                      ? 'border-gray-300 bg-gray-50/50 dark:bg-gray-900/10 cursor-not-allowed opacity-60'
+                                      : isRequired 
+                                        ? 'border-amber-400 bg-amber-50/50 dark:bg-amber-900/10 cursor-not-allowed' 
+                                        : isSelected 
+                                          ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 cursor-pointer' 
+                                          : 'hover:border-border cursor-pointer'
+                                  }`}
+                                  onClick={() => {
+                                    if (isDisabled) return;
+                                    setConfig(prev => ({
+                                      ...prev,
+                                      sections: { ...prev.sections, [section.id]: !isSelected }
+                                    }));
+                                  }}
+                                >
+                                  <CardContent className="p-4 flex items-start gap-3">
+                                    <Checkbox 
+                                      checked={isSelected && isDataAvailable}
+                                      disabled={isDisabled}
+                                      className="mt-1"
+                                    />
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <SectionIcon className="h-4 w-4" />
+                                        <span className="font-medium">{section.name}</span>
+                                        {isRequired && (
+                                          <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700">Required</Badge>
+                                        )}
+                                        {!isDataAvailable && (
+                                          <Badge variant="secondary" className="text-xs bg-gray-200 text-gray-600">Unavailable</Badge>
+                                        )}
+                                      </div>
+                                      <p className="text-sm text-muted-foreground mt-1">{section.description}</p>
+                                      {requiresData && !isDataAvailable && (
+                                        <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                                          <AlertTriangle className="h-3 w-3" />
+                                          Data not available - section will be skipped
+                                        </p>
+                                      )}
+                                      {requiresData && isDataAvailable && (
+                                        <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+                                          <AlertTriangle className="h-3 w-3" />
+                                          {dependencyMessages[requiresData] || `Requires: ${requiresData}`}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    
+                    <Alert className="mt-4">
+                      <AlertDescription className="text-sm">
+                        <strong>{Object.values(config.sections).filter(Boolean).length}</strong> sections selected. 
+                        Required sections (Cover Page, TOC, Disclaimers, Declaration) cannot be disabled.
+                      </AlertDescription>
+                    </Alert>
 
                     <Separator />
 
