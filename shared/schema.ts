@@ -297,7 +297,11 @@ export const userProfiles = pgTable("user_profiles", {
 // User Bank Accounts table - Multiple bank accounts per user (max 5)
 export const userBankAccounts = pgTable("user_bank_accounts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Bank Details
   bankName: varchar("bank_name").notNull(),
@@ -335,7 +339,11 @@ export const userBankAccounts = pgTable("user_bank_accounts", {
 // User Demat Accounts table - Separate demat accounts per user (max 3)
 export const userDematAccounts = pgTable("user_demat_accounts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Demat Account Details
   dematAccountNumber: varchar("demat_account_number").notNull(),
@@ -433,7 +441,11 @@ export type SebiDepositoryParticipant = typeof sebiDepositoryParticipants.$infer
 // Product-specific account preferences - which bank/demat account to use for each product type
 export const productAccountPreferences = pgTable("product_account_preferences", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Product type this preference applies to
   productType: varchar("product_type").notNull(), // 'mutual_fund', 'ipo', 'bond', 'equity', 'aif', 'pms', 'unlisted_share', 'fd', 'loan'
@@ -628,7 +640,11 @@ export const users = pgTable("users", {
 // KYC Verification Sessions table for tracking step-by-step Smart KYC wizard flow
 export const kycVerificationSessions = pgTable("kyc_verification_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Session Type and Flow
   sessionType: varchar("session_type").default("smart_kyc_wizard"), // smart_kyc_wizard
@@ -666,7 +682,11 @@ export const kycVerificationSessions = pgTable("kyc_verification_sessions", {
 // Compliance Documents table for storing regulatory documents
 export const complianceDocuments = pgTable("compliance_documents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   documentType: varchar("document_type").notNull(), // fatca_w8ben/fatca_w9/pep_declaration/aml_docs/source_of_funds
   documentNumber: varchar("document_number"),
   documentUrl: varchar("document_url"), // stored in object storage
@@ -688,7 +708,11 @@ export const complianceDocuments = pgTable("compliance_documents", {
 // Compliance Audit Trail table for tracking all compliance-related changes
 export const complianceAuditTrail = pgTable("compliance_audit_trail", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   action: varchar("action").notNull(), // status_change/document_upload/review_completed/risk_assessment
   fieldChanged: varchar("field_changed"), // specific field that was modified
   oldValue: text("old_value"),
@@ -719,7 +743,11 @@ export const otpVerifications = pgTable("otp_verifications", {
 // Password reset tokens table
 export const passwordResetTokens = pgTable("password_reset_tokens", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   identifier: varchar("identifier").notNull(), // email or mobile used for reset
   token: varchar("token", { length: 6 }).notNull(), // 6-digit OTP
   expiresAt: timestamp("expires_at").notNull(), // 10 minute expiry
@@ -907,7 +935,11 @@ export const nriKycProgress = pgTable("nri_kyc_progress", {
 // CKYC (Central KYC Registry) records table
 export const ckycRecords = pgTable("ckyc_records", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   ckycNumber: varchar("ckyc_number").unique(), // CKYC identifier from registry
   applicationNumber: varchar("application_number"),
   
@@ -1014,7 +1046,11 @@ export const ckycStatusHistory = pgTable("ckyc_status_history", {
 // KYC Upgrade Reminders - Track reminders sent to users with incomplete KYC
 export const kycUpgradeReminders = pgTable("kyc_upgrade_reminders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   reminderType: varchar("reminder_type").notNull(), // 'email', 'in_app', 'sms'
   reminderSequence: integer("reminder_sequence").notNull(), // 1, 2, 3, 4... (Day 1, 3, 7, 14)
   currentKycTier: varchar("current_kyc_tier").notNull(), // 'basic', 'enhanced'
@@ -1053,7 +1089,11 @@ export const familyGroups = pgTable("family_groups", {
 export const familyMembers = pgTable("family_members", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   familyId: varchar("family_id").references(() => familyGroups.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   role: varchar("role").default("member"), // owner, admin, member, view_only
   displayName: varchar("display_name"), // How they want to be called in family
   invitationStatus: varchar("invitation_status").default("pending"), // pending, accepted, declined
@@ -1116,7 +1156,11 @@ export const portfolioHoldings = pgTable("portfolio_holdings", {
 
 export const externalHoldings = pgTable("external_holdings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   symbol: text("symbol").notNull(),
   name: text("name"),
   isin: text("isin"),
@@ -1143,7 +1187,11 @@ export const externalHoldings = pgTable("external_holdings", {
 
 export const watchlists = pgTable("watchlists", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   name: text("name").notNull(),
   symbols: text("symbols").array(),
   createdAt: timestamp("created_at").defaultNow(),
@@ -1181,7 +1229,11 @@ export const assetAllocation = pgTable("asset_allocation", {
 export const portfolioSnapshots = pgTable("portfolio_snapshots", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   portfolioId: varchar("portfolio_id").references(() => portfolios.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   snapshotDate: date("snapshot_date").notNull(),
   totalValue: decimal("total_value", { precision: 15, scale: 2 }),
   totalEquityValue: decimal("total_equity_value", { precision: 15, scale: 2 }),
@@ -1209,7 +1261,11 @@ export const comprehensiveHoldings = pgTable("comprehensive_holdings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   portfolioId: varchar("portfolio_id").references(() => portfolios.id).notNull(),
   snapshotId: varchar("snapshot_id").references(() => portfolioSnapshots.id),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   holdingDate: date("holding_date").notNull(),
   
   // Asset Identification
@@ -1268,7 +1324,11 @@ export const comprehensiveHoldings = pgTable("comprehensive_holdings", {
 // EPF Holdings table for tracking Employee Provident Fund data
 export const epfHoldings = pgTable("epf_holdings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   epfAccountNumber: varchar("epf_account_number").notNull(),
   employerName: text("employer_name").notNull(),
   memberName: text("member_name").notNull(),
@@ -1294,7 +1354,11 @@ export const epfHoldings = pgTable("epf_holdings", {
 // PPF Holdings table for tracking Public Provident Fund data
 export const ppfHoldings = pgTable("ppf_holdings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   ppfAccountNumber: varchar("ppf_account_number").notNull(),
   bankName: text("bank_name").notNull(),
   branchName: text("branch_name"),
@@ -1339,7 +1403,11 @@ export const ppfHoldings = pgTable("ppf_holdings", {
 // EPS (Employee Pension Scheme) Holdings Schema
 export const epsHoldings = pgTable("eps_holdings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   epfAccountNumber: varchar("epf_account_number").notNull(), // Linked to EPF account
   pensionAccountNumber: varchar("pension_account_number").notNull(),
   employerCode: varchar("employer_code").notNull(),
@@ -1387,7 +1455,11 @@ export const epsHoldings = pgTable("eps_holdings", {
 // NPS (National Pension System) Holdings table
 export const npsAccounts = pgTable("nps_accounts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   pran: varchar("pran").notNull().unique(), // Permanent Retirement Account Number (12 digits)
   accountHolderName: text("account_holder_name").notNull(),
   dateOfBirth: date("date_of_birth").notNull(),
@@ -1433,7 +1505,11 @@ export const npsAccounts = pgTable("nps_accounts", {
 // APY (Atal Pension Yojana) Accounts table
 export const apyAccounts = pgTable("apy_accounts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   pran: varchar("pran").notNull().unique(), // PRAN number (12 digits) - same format as NPS
   accountHolderName: text("account_holder_name").notNull(),
   dateOfBirth: date("date_of_birth").notNull(),
@@ -1560,7 +1636,11 @@ export const userNotifications = pgTable("user_notifications", {
 // IB Account Configurations
 export const ibAccounts = pgTable("ib_accounts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   accountName: varchar("account_name").notNull(),
   accountNumber: varchar("account_number").notNull(),
   isPaperTrading: boolean("is_paper_trading").default(true),
@@ -1577,7 +1657,11 @@ export const ibAccounts = pgTable("ib_accounts", {
 // IB Orders tracking
 export const ibOrders = pgTable("ib_orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   ibAccountId: varchar("ib_account_id").references(() => ibAccounts.id).notNull(),
   orderId: integer("order_id").notNull(), // IB order ID
   clientId: integer("client_id").notNull(),
@@ -1601,7 +1685,11 @@ export const ibOrders = pgTable("ib_orders", {
 // IB Positions tracking
 export const ibPositions = pgTable("ib_positions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   ibAccountId: varchar("ib_account_id").references(() => ibAccounts.id).notNull(),
   account: varchar("account").notNull(),
   symbol: varchar("symbol").notNull(),
@@ -1619,7 +1707,11 @@ export const ibPositions = pgTable("ib_positions", {
 // IB Account Summary data
 export const ibAccountSummary = pgTable("ib_account_summary", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   ibAccountId: varchar("ib_account_id").references(() => ibAccounts.id).notNull(),
   account: varchar("account").notNull(),
   tag: varchar("tag").notNull(), // NetLiquidation, TotalCashValue, etc.
@@ -1632,7 +1724,11 @@ export const ibAccountSummary = pgTable("ib_account_summary", {
 // IB Market Data subscriptions
 export const ibMarketDataSubscriptions = pgTable("ib_market_data_subscriptions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   ibAccountId: varchar("ib_account_id").references(() => ibAccounts.id).notNull(),
   symbol: varchar("symbol").notNull(),
   tickerId: integer("ticker_id").notNull(),
@@ -1649,7 +1745,11 @@ export const ibMarketDataSubscriptions = pgTable("ib_market_data_subscriptions",
 // IB Trading Sessions log
 export const ibTradingSessions = pgTable("ib_trading_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   ibAccountId: varchar("ib_account_id").references(() => ibAccounts.id).notNull(),
   sessionStart: timestamp("session_start").notNull(),
   sessionEnd: timestamp("session_end"),
@@ -2527,7 +2627,11 @@ export const supportStepComments = pgTable("support_step_comments", {
 // Client tasks for tracking user action items and deadlines
 export const clientTasks = pgTable("client_tasks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   // Task details
   title: varchar("title").notNull(),
   description: text("description"),
@@ -2554,7 +2658,11 @@ export type ClientTask = typeof clientTasks.$inferSelect;
 export const productApplications = pgTable("product_applications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   productId: varchar("product_id").references(() => products.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   partnerId: varchar("partner_id").references(() => partners.id).notNull(),
   // Application details
   applicationData: jsonb("application_data").notNull(), // Form data submitted by user
@@ -2695,7 +2803,11 @@ export const investmentProposalItems = pgTable("investment_proposal_items", {
 // Financial Goals table for goal-based investment planning
 export const financialGoals = pgTable("financial_goals", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Goal details
   name: varchar("name").notNull(),
@@ -2788,7 +2900,11 @@ export const goalMilestones = pgTable("goal_milestones", {
 export const goalInvestmentLinks = pgTable("goal_investment_links", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   goalId: varchar("goal_id").references(() => financialGoals.id, { onDelete: "cascade" }).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Investment reference (can be various types)
   investmentType: varchar("investment_type").notNull(), // mutual_fund_sip, mutual_fund_lumpsum, fd, ppf, nps, stocks, bonds, gold
@@ -2854,7 +2970,11 @@ export const goalProgressSnapshots = pgTable("goal_progress_snapshots", {
 // Income Streams - All sources of income for surplus calculation
 export const incomeStreams = pgTable("income_streams", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Income type classification
   incomeType: varchar("income_type").notNull(), // salary/business/rental/interest/dividend/capital_gains/pension/other
@@ -2891,7 +3011,11 @@ export const incomeStreams = pgTable("income_streams", {
 // Financial Obligations - EMIs, loans, CIBIL obligations
 export const financialObligations = pgTable("financial_obligations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Obligation type
   obligationType: varchar("obligation_type").notNull(), // home_loan/car_loan/personal_loan/credit_card/education_loan/other_emi/insurance_premium/rent/utility/maintenance
@@ -2960,7 +3084,11 @@ export const emergencyFunds = pgTable("emergency_funds", {
 // Investable Surplus Calculations - Core engine output
 export const investableSurplus = pgTable("investable_surplus", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Calculation period
   calculationDate: timestamp("calculation_date").defaultNow(),
@@ -3071,7 +3199,11 @@ export const clientSegments = pgTable("client_segments", {
 // Treasury Mandates - Corporate treasury policy configuration
 export const treasuryMandates = pgTable("treasury_mandates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(), // Corporate user
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id), // Corporate user
   entityName: varchar("entity_name").notNull(),
   
   // Treasury objectives (checkbox-based as per wireframe)
@@ -3219,7 +3351,11 @@ export const treasuryProposals = pgTable("treasury_proposals", {
 // Rebalancing Recommendations with Reason Codes
 export const rebalancingRecommendations = pgTable("rebalancing_recommendations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Recommendation type
   recommendationType: varchar("recommendation_type").notNull(), // buy/sell/hold/switch
@@ -4903,7 +5039,11 @@ export const learningQuizzes = pgTable("learning_quizzes", {
 // User Progress and Achievements
 export const userProgress = pgTable("user_progress", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   moduleId: varchar("module_id").references(() => learningModules.id),
   lessonId: varchar("lesson_id").references(() => learningLessons.id),
   status: varchar("status").notNull(), // 'not_started', 'in_progress', 'completed'
@@ -4987,7 +5127,11 @@ export const marketStories = pgTable("market_stories", {
 // Capital Gains Reports
 export const capitalGainsReports = pgTable("capital_gains_reports", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   financialYear: varchar("financial_year").notNull(), // e.g., "2023-24"
   reportType: varchar("report_type").notNull(), // 'capital_gains', 'transaction_summary'
   source: varchar("source").notNull(), // 'mf_central', 'nsdl', 'cdsl', 'kfintech', 'cams'
@@ -5007,7 +5151,11 @@ export const capitalGainsReports = pgTable("capital_gains_reports", {
 // Transaction Reports from various registrars
 export const transactionReports = pgTable("transaction_reports", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   financialYear: varchar("financial_year").notNull(),
   source: varchar("source").notNull(), // 'mf_central', 'nsdl', 'cdsl', 'kfintech', 'cams'
   assetType: varchar("asset_type").notNull(), // 'mutual_fund', 'equity', 'bond', 'etf'
@@ -5031,7 +5179,11 @@ export const transactionReports = pgTable("transaction_reports", {
 export const transactionRecords = pgTable("transaction_records", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   reportId: varchar("report_id").references(() => transactionReports.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   transactionDate: date("transaction_date").notNull(),
   transactionType: varchar("transaction_type").notNull(), // 'purchase', 'redemption', 'switch_in', 'switch_out', 'dividend'
   fundName: text("fund_name").notNull(),
@@ -5080,7 +5232,11 @@ export const externalDataSources = pgTable("external_data_sources", {
 // NOTE: Schema matches actual database structure. See tech-debt: original expanded schema preserved below as comment.
 export const clientEnrichmentData = pgTable("client_enrichment_data", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   dataType: varchar("data_type"), // Type of enrichment data
   enrichmentSource: varchar("enrichment_source"), // Source of the enrichment
   rawData: jsonb("raw_data"), // Original API response
@@ -5102,7 +5258,11 @@ export const clientEnrichmentData = pgTable("client_enrichment_data", {
 // AI Transaction Tracking - comprehensive transaction monitoring both on-site and external
 export const aiTransactionTracking = pgTable("ai_transaction_tracking", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Transaction identification
   transactionId: varchar("transaction_id").notNull(), // Unique transaction identifier
@@ -5174,7 +5334,11 @@ export const aiTransactionTracking = pgTable("ai_transaction_tracking", {
 // NOTE: Schema matches actual database structure. See tech-debt: original expanded schema preserved below as comment.
 export const transactionEnrichmentAnalysis = pgTable("transaction_enrichment_analysis", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   transactionId: varchar("transaction_id"), // Reference to transaction
   analysisType: varchar("analysis_type"), // Type of analysis performed
   category: varchar("category"), // Category of the analysis
@@ -5198,7 +5362,11 @@ export const transactionEnrichmentAnalysis = pgTable("transaction_enrichment_ana
 // Real-time Transaction Alerts for monitoring and compliance
 export const transactionAlerts = pgTable("transaction_alerts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   transactionId: varchar("transaction_id").references(() => aiTransactionTracking.id),
   
   // Alert classification
@@ -5362,7 +5530,11 @@ export type InsertMarketStory = z.infer<typeof insertMarketStorySchema>;
 // Government Scheme Consent Tracking
 export const governmentSchemeConsents = pgTable("government_scheme_consents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   panNumber: varchar("pan_number").notNull(),
   schemeType: varchar("scheme_type").notNull(), // 'epf', 'ppf', 'eps', 'all'
   consentGranted: boolean("consent_granted").default(false),
@@ -5513,7 +5685,11 @@ export const preIpoCompanies = pgTable("pre_ipo_companies", {
 // Pre-IPO Investments table - tracks user investments in pre-IPO companies
 export const preIpoInvestments = pgTable("pre_ipo_investments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   companyId: varchar("company_id").references(() => preIpoCompanies.id).notNull(),
   portfolioId: varchar("portfolio_id").references(() => portfolios.id),
   
@@ -5551,7 +5727,11 @@ export const preIpoInvestments = pgTable("pre_ipo_investments", {
 // Pre-IPO Investment Analytics table - tracks performance and insights
 export const preIpoAnalytics = pgTable("pre_ipo_analytics", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   portfolioId: varchar("portfolio_id").references(() => portfolios.id),
   
   // Portfolio Analytics
@@ -5692,7 +5872,11 @@ export const ipoCompanies = pgTable("ipo_companies", {
 // IPO Applications table - tracks user applications
 export const ipoApplications = pgTable("ipo_applications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   ipoId: varchar("ipo_id").references(() => ipoCompanies.id).notNull(),
   
   // Application Details
@@ -5877,7 +6061,11 @@ export const insertKycFormProgressSchema = createInsertSchema(kycFormProgress).o
 // Manual KYC Submissions - Comprehensive offline/manual KYC submission system
 export const manualKycSubmissions = pgTable("manual_kyc_submissions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Application Type
   applicantType: varchar("applicant_type").notNull(), // 'individual', 'corporate', 'nri'
@@ -6058,7 +6246,11 @@ export const advisorySubscriptions = pgTable("advisory_subscriptions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   // Client information
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Plan details
   planName: varchar("plan_name").notNull(), // 'basic', 'premium', 'elite', 'family'
@@ -6186,7 +6378,11 @@ export const storeProductTagMappings = pgTable("store_product_tag_mappings", {
 
 export const userWishlist = pgTable("user_wishlist", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   productId: varchar("product_id").references(() => storeProducts.id).notNull(),
   addedAt: timestamp("added_at").defaultNow(),
 });
@@ -6194,7 +6390,11 @@ export const userWishlist = pgTable("user_wishlist", {
 // User Cart Tables
 export const userCart = pgTable("user_cart", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -6342,7 +6542,11 @@ export const insertProductPerformanceSchema = createInsertSchema(productPerforma
 // Loan Against Securities (LAS) table
 export const loanApplications = pgTable("loan_applications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   portfolioId: varchar("portfolio_id").references(() => portfolios.id).notNull(),
   
   // Loan Details
@@ -6465,7 +6669,11 @@ export type InsertProductPerformance = z.infer<typeof insertProductPerformanceSc
 // Insurance Holdings table for NSDL/CDSL insurance policy data
 export const insuranceHoldings = pgTable("insurance_holdings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Policy Information
   policyNumber: varchar("policy_number").notNull(),
@@ -6682,7 +6890,11 @@ export const creditProfiles = pgTable("credit_profiles", {
 // Loan Requests table - Client loan requirements
 export const loanRequests = pgTable("loan_requests", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   loanType: varchar("loan_type"),
   requestedAmount: decimal("requested_amount", { precision: 15, scale: 2 }),
   tenureMonths: integer("tenure_months"),
@@ -6742,7 +6954,11 @@ export const loanOffers = pgTable("loan_offers", {
 // Loan Applications Marketplace - Application workflow management
 export const loanApplicationsMarketplace = pgTable("loan_applications_marketplace", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   loanRequestId: varchar("loan_request_id").references(() => loanRequests.id),
   productKey: varchar("product_key"),
   providerKey: varchar("provider_key"),
@@ -6896,7 +7112,11 @@ export const insertApplicationDocumentSchema = createInsertSchema(applicationDoc
 // Loan Comparison Sessions table - Store comparison sessions
 export const loanComparisons = pgTable("loan_comparisons", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Comparison Details
   comparisonName: varchar("comparison_name").notNull(),
@@ -6935,7 +7155,11 @@ export const loanComparisons = pgTable("loan_comparisons", {
 export const loanComparisonAnalytics = pgTable("loan_comparison_analytics", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   comparisonId: varchar("comparison_id").references(() => loanComparisons.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // User Interaction
   action: varchar("action").notNull(), // view, filter, sort, share, export
@@ -7733,7 +7957,11 @@ export type GoalCategory = keyof typeof GOAL_CATEGORIES;
 // Zoho Commerce Integration Tables
 export const zohoCommerceConfig = pgTable("zoho_commerce_config", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   clientId: varchar("client_id").notNull(),
   clientSecret: varchar("client_secret").notNull(),
   redirectUri: varchar("redirect_uri").notNull(),
@@ -7749,7 +7977,11 @@ export const zohoCommerceConfig = pgTable("zoho_commerce_config", {
 
 export const zohoCategories = pgTable("zoho_categories", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   zohoCategoryId: varchar("zoho_category_id"), // ID from Zoho Commerce
   localCategoryId: varchar("local_category_id").references(() => storeCategories.id),
   name: varchar("name").notNull(),
@@ -7768,7 +8000,11 @@ export const zohoCategories = pgTable("zoho_categories", {
 
 export const zohoProducts = pgTable("zoho_products", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   zohoProductId: varchar("zoho_product_id"), // ID from Zoho Commerce
   localProductId: varchar("local_product_id").references(() => storeProducts.id),
   name: varchar("name").notNull(),
@@ -7796,7 +8032,11 @@ export const zohoProducts = pgTable("zoho_products", {
 
 export const zohoOrders = pgTable("zoho_orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   zohoOrderId: varchar("zoho_order_id"), // ID from Zoho Commerce
   orderNumber: varchar("order_number"),
   customerId: varchar("customer_id"),
@@ -7820,7 +8060,11 @@ export const zohoOrders = pgTable("zoho_orders", {
 
 export const zohoCustomers = pgTable("zoho_customers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   zohoCustomerId: varchar("zoho_customer_id"), // ID from Zoho Commerce
   localUserId: varchar("local_user_id").references(() => users.id),
   email: varchar("email").notNull(),
@@ -7840,7 +8084,11 @@ export const zohoCustomers = pgTable("zoho_customers", {
 
 export const zohoInventory = pgTable("zoho_inventory", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   productId: varchar("product_id").references(() => zohoProducts.id).notNull(),
   variantId: varchar("variant_id"), // Zoho variant ID
   sku: varchar("sku"),
@@ -7859,7 +8107,11 @@ export const zohoInventory = pgTable("zoho_inventory", {
 
 export const zohoCommerceWebhooks = pgTable("zoho_commerce_webhooks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   zohoWebhookId: varchar("zoho_webhook_id"), // ID from Zoho Commerce
   eventType: varchar("event_type").notNull(), // order.created, product.updated, etc.
   targetUrl: varchar("target_url").notNull(),
@@ -7874,7 +8126,11 @@ export const zohoCommerceWebhooks = pgTable("zoho_commerce_webhooks", {
 
 export const zohoCommerceSyncLogs = pgTable("zoho_commerce_sync_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   syncType: varchar("sync_type").notNull(), // products, orders, customers, inventory
   status: varchar("status").notNull(), // success, error, warning
   recordsProcessed: integer("records_processed").default(0),
@@ -7981,7 +8237,11 @@ export const bbpsBillers = pgTable("bbps_billers", {
 
 export const bbpsCustomerBills = pgTable("bbps_customer_bills", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   billerId: varchar("biller_id").references(() => bbpsBillers.id).notNull(),
   customerParam: varchar("customer_param").notNull(), // Consumer number, account number, etc.
   billAmount: varchar("bill_amount"), // Bill amount in paise
@@ -7997,7 +8257,11 @@ export const bbpsCustomerBills = pgTable("bbps_customer_bills", {
 
 export const bbpsTransactions = pgTable("bbps_transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   billId: varchar("bill_id").references(() => bbpsCustomerBills.id),
   billerCode: varchar("biller_code").notNull(),
   customerParam: varchar("customer_param").notNull(),
@@ -8071,7 +8335,11 @@ export const digilockerApps = pgTable("digilocker_apps", {
 
 export const digilockerSharedDocuments = pgTable("digilocker_shared_documents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   appId: varchar("app_id").references(() => digilockerApps.id).notNull(),
   documentUri: varchar("document_uri").notNull(),
   documentType: varchar("document_type").notNull(),
@@ -8091,7 +8359,11 @@ export const digilockerSharedDocuments = pgTable("digilocker_shared_documents", 
 
 export const digilockerUserSessions = pgTable("digilocker_user_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   appId: varchar("app_id").references(() => digilockerApps.id).notNull(),
   sessionToken: varchar("session_token").notNull(),
   loginTimestamp: timestamp("login_timestamp").notNull(),
@@ -8105,7 +8377,11 @@ export const digilockerUserSessions = pgTable("digilocker_user_sessions", {
 
 export const digilockerKycMappings = pgTable("digilocker_kyc_mappings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   documentType: varchar("document_type").notNull(),
   digilockerDocId: varchar("digilocker_doc_id").references(() => digilockerSharedDocuments.id),
   kycFieldName: varchar("kyc_field_name").notNull(),
@@ -8366,7 +8642,11 @@ export interface MultiSourceStatus {
 // ICICI Loan Applications table
 export const iciciBankLoanApplications = pgTable("icici_bank_loan_applications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Application Details
   applicationId: varchar("application_id").unique(), // ICICI application ID
@@ -8415,7 +8695,11 @@ export const iciciBankLoanApplications = pgTable("icici_bank_loan_applications",
 // ICICI Credit Score Requests table
 export const iciciBankCreditScores = pgTable("icici_bank_credit_scores", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Credit Score Details
   cibilScore: integer("cibil_score"),
@@ -8521,7 +8805,11 @@ export const portfolioComparisons = pgTable("portfolio_comparisons", {
 // Comparison History table for tracking user's comparison activities
 export const comparisonHistory = pgTable("comparison_history", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Comparison Details
   comparisonType: varchar("comparison_type").notNull(), // fund/portfolio
@@ -8594,7 +8882,11 @@ export type InsertComparisonHistory = z.infer<typeof insertComparisonHistorySche
 // Tax Documents table for storing uploaded Form 26AS and AIS files
 export const taxDocuments = pgTable("tax_documents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Document Information
   documentType: varchar("document_type").notNull(), // '26AS' | 'AIS'
@@ -8645,7 +8937,11 @@ export const taxDocuments = pgTable("tax_documents", {
 export const structuredTaxData = pgTable("structured_tax_data", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   documentId: varchar("document_id").references(() => taxDocuments.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Data Classification
   dataType: varchar("data_type").notNull(), // 'TDS' | 'TCS' | 'advance_tax' | 'salary' | 'interest' | 'dividend' | 'capital_gains' | 'other_income'
@@ -8698,7 +8994,11 @@ export const structuredTaxData = pgTable("structured_tax_data", {
 // Tax Calculations table for computed tax liabilities and savings
 export const taxCalculations = pgTable("tax_calculations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   financialYear: varchar("financial_year").notNull(),
   
   // Calculation Type and Status
@@ -8764,7 +9064,11 @@ export const taxCalculations = pgTable("tax_calculations", {
 export const taxDocumentAccessLog = pgTable("tax_document_access_log", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   documentId: varchar("document_id").references(() => taxDocuments.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Access Details
   actionType: varchar("action_type").notNull(), // 'view' | 'download' | 'process' | 'delete' | 'share'
@@ -8818,7 +9122,11 @@ export type TaxDocumentAccessLog = typeof taxDocumentAccessLog.$inferSelect;
 // ITR Pre-filled Forms table for intelligent tax return preparation
 export const itrPrefilledForms = pgTable("itr_prefilled_forms", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   assessmentYear: varchar("assessment_year").notNull(), // '2025-26'
   financialYear: varchar("financial_year").notNull(), // '2024-25'
   
@@ -8892,7 +9200,11 @@ export const itrPrefilledForms = pgTable("itr_prefilled_forms", {
 export const itrDataSourcesSync = pgTable("itr_data_sources_sync", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   itrFormId: varchar("itr_form_id").references(() => itrPrefilledForms.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Source Information
   dataSource: varchar("data_source").notNull(), // 'cams' | 'kfintech' | 'nsdl' | 'cdsl' | 'form26as' | 'ais' | 'form16'
@@ -8948,7 +9260,11 @@ export type InsertTaxDocumentAccessLog = z.infer<typeof insertTaxDocumentAccessL
 // Tax Session for workflow orchestration and state management
 export const taxSessions = pgTable("tax_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   panNumber: varchar("pan_number").notNull(),
   assessmentYear: varchar("assessment_year").notNull(), // 2024-25, 2025-26
   financialYear: varchar("financial_year").notNull(), // 2023-24, 2024-25
@@ -9133,7 +9449,11 @@ export type InsertAiOptimizationSuggestion = z.infer<typeof insertAiOptimization
 // PAN Consent Management Table
 export const panConsents = pgTable("pan_consents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Encrypted PAN Storage
   encryptedPan: text("encrypted_pan").notNull(), // AES-256 encrypted PAN
@@ -9174,7 +9494,11 @@ export const panConsents = pgTable("pan_consents", {
 export const panConsentAuditLog = pgTable("pan_consent_audit_log", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   consentId: varchar("consent_id").references(() => panConsents.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Audit Details
   action: varchar("action").notNull(), // created/accessed/updated/revoked/verified
@@ -9220,7 +9544,11 @@ export type InsertPanConsentAuditLog = z.infer<typeof insertPanConsentAuditLogSc
 // Smart Market Research & Investment Idea Tracking Tables
 export const investmentIdeas = pgTable("investment_ideas", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   symbol: varchar("symbol").notNull(),
   companyName: varchar("company_name").notNull(),
   ideaTitle: varchar("idea_title").notNull(),
@@ -9275,7 +9603,11 @@ export const investmentIdeas = pgTable("investment_ideas", {
 export const investmentIdeaTracking = pgTable("investment_idea_tracking", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   ideaId: varchar("idea_id").references(() => investmentIdeas.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Daily Tracking Data
   trackingDate: timestamp("tracking_date").notNull(),
@@ -9313,7 +9645,11 @@ export const investmentIdeaTracking = pgTable("investment_idea_tracking", {
 export const investmentIdeaAlerts = pgTable("investment_idea_alerts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   ideaId: varchar("idea_id").references(() => investmentIdeas.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   alertType: varchar("alert_type").notNull(), // target_reached, stop_loss_triggered, technical_signal, news_alert
   alertMessage: text("alert_message").notNull(),
@@ -9330,7 +9666,11 @@ export const investmentIdeaAlerts = pgTable("investment_idea_alerts", {
 
 export const yieldTracker = pgTable("yield_tracker", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   ideaId: varchar("idea_id").references(() => investmentIdeas.id),
   
   // Portfolio/Strategy Details
@@ -9375,7 +9715,11 @@ export const yieldTracker = pgTable("yield_tracker", {
 // Partner Application table for loan applications across lenders
 export const partnerApplications = pgTable("partner_applications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Lender and Loan Details
   lender: varchar("lender").notNull(), // bajaj_finance, tata_capital, hdfc_bank, icici_bank
@@ -9438,7 +9782,11 @@ export const partnerApplications = pgTable("partner_applications", {
 export const partnerApplicationDocuments = pgTable("partner_application_documents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   applicationId: varchar("application_id").references(() => partnerApplications.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Document Details
   documentType: varchar("document_type").notNull(), // panCard, aadharCard, salarySlips, bankStatements, employmentLetter
@@ -9516,7 +9864,11 @@ export type InsertPartnerApplicationDocument = z.infer<typeof insertPartnerAppli
 // Cashfree Payment Transactions table
 export const cashfreeTransactions = pgTable("cashfree_transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Transaction Identification
   orderId: varchar("order_id").notNull().unique(), // Our generated order ID
@@ -9582,7 +9934,11 @@ export type InsertCashfreeTransaction = z.infer<typeof insertCashfreeTransaction
 // PhonePe Payment Transactions table
 export const phonePeTransactions = pgTable("phonepe_transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Transaction Identification
   orderId: varchar("order_id").notNull().unique(), // Our generated order ID
@@ -9675,7 +10031,11 @@ export const taxReminderSubscriptions = pgTable(
   "tax_reminder_subscriptions",
   {
     id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-    userId: varchar("user_id").references(() => users.id).notNull(),
+    userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
     itrFormType: varchar("itr_form_type").notNull(), // 'ITR-1', 'ITR-2', 'ITR-3', etc.
     subscriptionStatus: varchar("subscription_status").default("active").notNull(), // 'active', 'inactive', 'free_expert_tier'
     pricingTier: varchar("pricing_tier").notNull(), // 'basic', 'standard', 'premium'
@@ -9699,7 +10059,11 @@ export const capitalGainsTaxReminders = pgTable(
   "capital_gains_tax_reminders",
   {
     id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-    userId: varchar("user_id").references(() => users.id).notNull(),
+    userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
     subscriptionId: varchar("subscription_id").references(() => taxReminderSubscriptions.id),
     quarter: varchar("quarter").notNull(), // 'Q1', 'Q2', 'Q3', 'Q4'
     financialYear: varchar("financial_year").notNull(), // '2024-25'
@@ -9753,7 +10117,11 @@ export const generatedReports = pgTable(
   "generated_reports",
   {
     id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-    userId: varchar("user_id").references(() => users.id).notNull(),
+    userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
     reportType: varchar("report_type").notNull(), // 'transaction_history', 'account_statement', 'tax_report', 'capital_gains', 'dividend_income'
     reportFormat: varchar("report_format").notNull(), // 'pdf', 'excel', 'csv'
     reportStatus: varchar("report_status").default("pending").notNull(), // 'pending', 'generating', 'completed', 'failed'
@@ -9795,7 +10163,11 @@ export const reportAccessLogs = pgTable(
   {
     id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
     reportId: varchar("report_id").references(() => generatedReports.id),
-    userId: varchar("user_id").references(() => users.id).notNull(),
+    userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
     accessType: varchar("access_type").notNull(), // 'view', 'download', 'generate', 'share'
     
     // Access details
@@ -9822,7 +10194,11 @@ export const clientStatements = pgTable(
   "client_statements",
   {
     id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-    userId: varchar("user_id").references(() => users.id).notNull(),
+    userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
     statementType: varchar("statement_type").notNull(), // 'monthly', 'quarterly', 'annual', 'custom'
     statementPeriod: varchar("statement_period").notNull(), // 'Jan 2025', 'Q4 2024', '2024-25'
     
@@ -10164,7 +10540,11 @@ export const bondOrders = pgTable("bond_orders", {
   
   // Order identification
   orderNumber: varchar("order_number").notNull().unique(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   clientCode: varchar("client_code"),
   
   // Bond details
@@ -10249,7 +10629,11 @@ export const bondHoldings = pgTable("bond_holdings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   // User and portfolio
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   portfolioId: varchar("portfolio_id").references(() => portfolios.id),
   
   // Bond details
@@ -10307,7 +10691,11 @@ export const familyPortfolioPermissions = pgTable("family_portfolio_permissions"
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   portfolioId: varchar("portfolio_id").references(() => portfolios.id).notNull(),
   familyId: varchar("family_id").references(() => familyGroups.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   permissionLevel: varchar("permission_level").default("view"), // view, contribute, manage, owner
   canViewTransactions: boolean("can_view_transactions").default(true),
   canAddFunds: boolean("can_add_funds").default(false),
@@ -10345,7 +10733,11 @@ export const familyGoals = pgTable("family_goals", {
 export const familyGoalContributions = pgTable("family_goal_contributions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   goalId: varchar("goal_id").references(() => familyGoals.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
   contributionDate: timestamp("contribution_date").defaultNow(),
   note: text("note"),
@@ -10359,7 +10751,11 @@ export const familyGoalContributions = pgTable("family_goal_contributions", {
 export const familyActivityLogs = pgTable("family_activity_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   familyId: varchar("family_id").references(() => familyGroups.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   activityType: varchar("activity_type").notNull(), // portfolio_created, goal_added, contribution_made, member_invited, permission_changed, discussion_posted
   entityType: varchar("entity_type"), // portfolio, goal, member, permission, discussion
   entityId: varchar("entity_id"),
@@ -10680,7 +11076,11 @@ export type InsertFamilyBudget = z.infer<typeof insertFamilyBudgetSchema>;
 // User Alerts - Customizable alerts for market changes and spending habits
 export const userAlerts = pgTable("user_alerts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Alert configuration
   alertName: text("alert_name").notNull(),
@@ -10733,7 +11133,11 @@ export const userAlerts = pgTable("user_alerts", {
 export const alertHistory = pgTable("alert_history", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   alertId: varchar("alert_id").references(() => userAlerts.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Trigger details
   triggeredAt: timestamp("triggered_at").defaultNow(),
@@ -10826,7 +11230,11 @@ export type InsertAlertTemplate = z.infer<typeof insertAlertTemplateSchema>;
 // Chat Sessions - Conversation threads with AI financial advisor
 export const chatSessions = pgTable("chat_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Session metadata
   title: text("title"), // Auto-generated or user-set title
@@ -10959,7 +11367,11 @@ export const chatActions = pgTable("chat_actions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   sessionId: varchar("session_id").references(() => chatSessions.id).notNull(),
   messageId: varchar("message_id").references(() => chatMessages.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Action details
   actionType: varchar("action_type").notNull(), // 'transaction', 'rebalance', 'schedule_call', 'update_profile'
@@ -11004,7 +11416,11 @@ export type InsertChatAction = z.infer<typeof insertChatActionSchema>;
 export const unifiedOrders = pgTable("unified_orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   orderNumber: varchar("order_number").notNull().unique(), // User-friendly order number: ORD-20250112-XXXX
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Product and order type
   productType: varchar("product_type").notNull(), // 'mutual_fund', 'aif', 'pms', 'bond', 'equity', 'ipo', 'fd', 'loan'
@@ -11209,7 +11625,11 @@ export type InsertCurrencyRate = z.infer<typeof insertCurrencyRateSchema>;
 // User Expenses - Individual expense transactions with AI categorization
 export const userExpenses = pgTable("user_expenses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Transaction details
   amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
@@ -11260,7 +11680,11 @@ export const userExpenses = pgTable("user_expenses", {
 // User Budgets - Category-wise budget limits
 export const userBudgets = pgTable("user_budgets", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Budget details
   budgetName: text("budget_name").notNull(),
@@ -11302,7 +11726,11 @@ export const userBudgets = pgTable("user_budgets", {
 // Expense Insights - AI-generated spending insights and recommendations
 export const expenseInsights = pgTable("expense_insights", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Insight details
   insightType: varchar("insight_type").notNull(), // spending_pattern, anomaly, budget_suggestion, saving_opportunity, trend_analysis
@@ -11371,7 +11799,11 @@ export type InsertExpenseInsight = z.infer<typeof insertExpenseInsightSchema>;
 // Pre-Approved Loan Offers - Personalized loan offers shown in client portfolio
 export const preApprovedLoanOffers = pgTable("pre_approved_loan_offers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Lender details
   lenderName: varchar("lender_name").notNull(), // Bajaj Finance, Tata Capital, HDFC, ICICI, etc.
@@ -11663,7 +12095,11 @@ export const kycTokenMap = pgTable("kyc_token_map", {
   fieldType: varchar("field_type").notNull(), // pan/aadhaar/ckyc_kin
   
   // Metadata
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   expiresAt: timestamp("expires_at"), // Optional expiry for tokens
 }, (table) => [
@@ -11676,7 +12112,11 @@ export const kycConsentLogs = pgTable("kyc_consent_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   // User information
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Consent details
   consentType: varchar("consent_type").notNull(), // kyc_reuse/data_sharing/third_party_access
@@ -11707,7 +12147,11 @@ export const kycAuditLogs = pgTable("kyc_audit_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   // Target user
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Access details
   accessedBy: varchar("accessed_by"), // User ID or system identifier who accessed
@@ -11747,7 +12191,11 @@ export const kycReuseTokens = pgTable("kyc_reuse_tokens", {
   
   // Token details
   tokenId: varchar("token_id").notNull().unique(), // Format: KYC_REUSE_{nanoid}
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // JWT payload (encrypted at rest)
   encryptedJwtPayload: text("encrypted_jwt_payload").notNull(), // Encrypted JWT claims
@@ -11783,7 +12231,11 @@ export const dataSourceConsents = pgTable("data_source_consents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   // User information
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Data source details
   dataSource: varchar("data_source").notNull(), // mutual_funds/demat/bank/loans/insurance
@@ -11825,7 +12277,11 @@ export const autoPopulationStatus = pgTable("auto_population_status", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   // User information
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Workflow details
   workflowId: varchar("workflow_id").notNull().unique(), // Unique ID for this auto-population run
@@ -11866,7 +12322,11 @@ export const autoPopulationStatus = pgTable("auto_population_status", {
 export const aaConsentSessions = pgTable("aa_consent_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   panNumber: varchar("pan_number").notNull(),
   
   aaProvider: varchar("aa_provider").notNull().default("finvu"),
@@ -11910,7 +12370,11 @@ export const aaRawPayloads = pgTable("aa_raw_payloads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   consentSessionId: varchar("consent_session_id").references(() => aaConsentSessions.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   fetchSessionId: varchar("fetch_session_id").notNull(),
   fiuName: varchar("fiu_name"),
@@ -11950,7 +12414,11 @@ export const aaDataFetchLogs = pgTable("aa_data_fetch_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   consentSessionId: varchar("consent_session_id").references(() => aaConsentSessions.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   fiuName: varchar("fiu_name").notNull(),
   dataType: varchar("data_type").notNull(),
@@ -12456,7 +12924,11 @@ export type InsertClientIntelligence = z.infer<typeof insertClientIntelligenceSc
 // Portfolio performance predictions
 export const portfolioPredictions = pgTable("portfolio_predictions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   portfolioId: varchar("portfolio_id").references(() => portfolios.id),
   
   // Prediction period
@@ -12506,7 +12978,11 @@ export const portfolioPredictions = pgTable("portfolio_predictions", {
 // Asset-level performance forecasts
 export const assetForecasts = pgTable("asset_forecasts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   holdingId: varchar("holding_id").references(() => portfolioHoldings.id),
   
   // Asset identification
@@ -12554,7 +13030,11 @@ export const assetForecasts = pgTable("asset_forecasts", {
 // Risk analysis and scenarios
 export const riskAnalysis = pgTable("risk_analysis", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   portfolioId: varchar("portfolio_id").references(() => portfolios.id),
   
   // Analysis metadata
@@ -13182,7 +13662,11 @@ export const unlistedInvestorTracking = pgTable("unlisted_investor_tracking", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   companyId: varchar("company_id").references(() => unlistedCompanies.id).notNull(),
   financialYear: varchar("financial_year", { length: 10 }).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   userPan: varchar("user_pan", { length: 10 }),
   firstTransactionDate: timestamp("first_transaction_date").notNull(),
   lastTransactionDate: timestamp("last_transaction_date"),
@@ -13204,7 +13688,11 @@ export const unlistedInvestorTracking = pgTable("unlisted_investor_tracking", {
 export const unlistedShareLockIn = pgTable("unlisted_share_lockin", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   companyId: varchar("company_id").references(() => unlistedCompanies.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   acquisitionDate: timestamp("acquisition_date").notNull(),
   lockInEndDate: timestamp("lockin_end_date").notNull(),
   sharesLocked: integer("shares_locked").notNull(),
@@ -13375,7 +13863,11 @@ export type InsertBuyRequest = z.infer<typeof insertBuyRequestSchema>;
 // Unlisted Cart table - for batching multiple buy requests
 export const unlistedCart = pgTable("unlisted_cart", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   companyId: varchar("company_id").references(() => unlistedCompanies.id).notNull(),
   
   // Cart Item Details
@@ -13403,7 +13895,11 @@ export type InsertUnlistedCartItem = z.infer<typeof insertUnlistedCartSchema>;
 // Unlisted Risk Disclosure Acknowledgments - SEBI compliance for unlisted securities trading
 export const unlistedRiskDisclosureAcknowledgments = pgTable("unlisted_risk_disclosure_acknowledgments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   companyId: varchar("company_id").references(() => unlistedCompanies.id),
   
   // Trade context
@@ -13643,7 +14139,11 @@ export type InsertUnlistedRegulatoryAuditLog = z.infer<typeof insertUnlistedRegu
 
 export const schemeConsents = pgTable("scheme_consents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   schemeType: varchar("scheme_type").notNull(),
   purpose: text("purpose").notNull(),
   scope: text("scope").array().notNull(),
@@ -13675,7 +14175,11 @@ export type InsertSchemeConsent = typeof schemeConsents.$inferInsert;
 
 export const governmentSchemeAudit = pgTable("government_scheme_audit", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   schemeType: varchar("scheme_type").notNull(),
   eventType: varchar("event_type").notNull(),
   requestId: varchar("request_id").notNull(),
@@ -13793,7 +14297,11 @@ export const bondCouponPayments = pgTable("bond_coupon_payments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   // User and holding
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   holdingId: varchar("holding_id").references(() => bondHoldings.id),
   
   // Bond details
@@ -13846,7 +14354,11 @@ export const bondSuitabilityChecks = pgTable("bond_suitability_checks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   // User
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Check details
   checkType: varchar("check_type").notNull(), // 'pre_purchase', 'periodic_review', 'kyc_update'
@@ -13915,7 +14427,11 @@ export const fixedIncomeAuditLog = pgTable("fixed_income_audit_log", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   // User and session
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   sessionId: varchar("session_id"),
   
   // Event details
@@ -13984,7 +14500,11 @@ export const bondWatchlist = pgTable("bond_watchlist", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   // User
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Bond details
   bondId: varchar("bond_id"),
@@ -14132,7 +14652,11 @@ export const bondNcdApplications = pgTable("bond_ncd_applications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   // User
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Issue details
   issueId: varchar("issue_id").references(() => ncdPublicIssues.id).notNull(),
@@ -14314,7 +14838,11 @@ export const fixedIncomeOrderPayments = pgTable("fixed_income_order_payments", {
   
   // Order reference
   orderId: varchar("order_id").references(() => bondOrders.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Payment details
   paymentType: varchar("payment_type").notNull(), // 'full_payment', 'margin', 'asba_block', 'refund'
@@ -14402,7 +14930,11 @@ export const fixedIncomeSettlements = pgTable("fixed_income_settlements", {
   
   // Order reference
   orderId: varchar("order_id").references(() => bondOrders.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Settlement type
   settlementType: varchar("settlement_type").notNull(), // 'regular', 'trade_date', 'spot', 'auction'
@@ -14563,7 +15095,11 @@ export const fixedIncomeReports = pgTable("fixed_income_reports", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   // User
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Report type
   reportType: varchar("report_type").notNull(),
@@ -15209,7 +15745,11 @@ export const insertBondMarketplaceAuditLogSchema = createInsertSchema(bondMarket
 // SEBI NCS Risk Disclosure Acknowledgments for Bonds
 export const bondRiskDisclosureAcknowledgments = pgTable("bond_risk_disclosure_acknowledgments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Disclosure Category (per SEBI NCS Regulations)
   disclosureCategory: varchar("disclosure_category").notNull(), // credit_risk, interest_rate_risk, liquidity_risk, default_risk, call_risk, reinvestment_risk, regulatory_risk, issuer_risk
@@ -15692,7 +16232,11 @@ export type InsertInvestorClassificationRule = z.infer<typeof insertInvestorClas
 // User Investor Classification (recorded in profile)
 export const userInvestorClassifications = pgTable("user_investor_classifications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Current Classification
   classificationType: varchar("classification_type").notNull(), // retail, sHNI, bHNI, qib, anchor
@@ -15884,7 +16428,11 @@ export const investmentLimitOverrideProposals = pgTable("investment_limit_overri
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   // Target User
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Product/Category
   productCategory: varchar("product_category").notNull(),
@@ -15978,7 +16526,11 @@ export const activeInvestmentLimitOverrides = pgTable("active_investment_limit_o
   
   // Link to Proposal
   proposalId: varchar("proposal_id").references(() => investmentLimitOverrideProposals.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Override Details
   productCategory: varchar("product_category").notNull(),
@@ -16699,7 +17251,11 @@ export type InsertMfContractNote = z.infer<typeof insertMfContractNoteSchema>;
 
 export const unifiedCartItems = pgTable("unified_cart_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Product Category
   productCategory: varchar("product_category").notNull(), // 'store' | 'unlisted' | 'mutual_fund' | 'bond' | 'ncd' | 'ipo'
@@ -17554,7 +18110,11 @@ export const holdingLotsV2 = pgTable("holding_lots_v2", {
   // Relationships
   portfolioId: varchar("portfolio_id").references(() => portfolios.id).notNull(),
   holdingId: varchar("holding_id").references(() => portfolioHoldings.id),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Security Identification
   isin: varchar("isin", { length: 12 }).notNull(),
@@ -18523,7 +19083,11 @@ export const agentItrDocuments = pgTable("agent_itr_documents", {
 export const agentItrActivityLog = pgTable("agent_itr_activity_log", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   caseId: varchar("case_id").references(() => agentItrCases.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Activity Details
   activityType: varchar("activity_type").notNull(), // status_change, document_upload, ca_assigned, query_added, note_added, fee_updated, filed, verified
@@ -18827,7 +19391,11 @@ export const form15AuditLog = pgTable("form_15_audit_log", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   caseId: varchar("case_id").references(() => form15Cases.id).notNull(),
   
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   userRole: varchar("user_role").notNull(), // client, ca_subordinate_agent, ca, admin
   userEmail: varchar("user_email"),
   
@@ -20731,7 +21299,11 @@ export const sebiQuestionnaireOptions = pgTable("sebi_questionnaire_options", {
 // Client Risk Assessments
 export const sebiClientRiskAssessments = pgTable("sebi_client_risk_assessments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   pan: varchar("pan").notNull(), // Risk profile stored at PAN level
   
   // Questionnaire Version Used
@@ -20831,7 +21403,11 @@ export const sebiProductSuitabilityMatrix = pgTable("sebi_product_suitability_ma
 // AI Risk Recommendations (Dynamic Engine)
 export const sebiAiRiskRecommendations = pgTable("sebi_ai_risk_recommendations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   currentAssessmentId: varchar("current_assessment_id").references(() => sebiClientRiskAssessments.id),
   
   // Trigger
@@ -20922,7 +21498,11 @@ export const sebiRiskAuditLogs = pgTable("sebi_risk_audit_logs", {
 // Goal-specific Risk Profile Overrides
 export const sebiGoalRiskProfiles = pgTable("sebi_goal_risk_profiles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   goalId: varchar("goal_id").notNull(), // Reference to financial goals
   goalName: varchar("goal_name").notNull(),
   
@@ -21256,7 +21836,11 @@ export const SebiAiTriggerTypeEnum = z.enum(['large_inflow', 'large_outflow', 'l
 // eSign Requests - Track all eSign initiation requests
 export const esignRequests = pgTable("esign_requests", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   transactionId: varchar("transaction_id").notNull().unique(),
   
   // Document Details
@@ -21304,7 +21888,11 @@ export const esignRequests = pgTable("esign_requests", {
 // eSign Certificates - Store signed document certificates
 export const esignCertificates = pgTable("esign_certificates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   transactionId: varchar("transaction_id").notNull(),
   
   // Document Details
@@ -21393,7 +21981,11 @@ export type InsertEsignCertificate = z.infer<typeof insertEsignCertificateSchema
 // ========================================
 export const userSignatures = pgTable("user_signatures", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   name: varchar("name").notNull(),
   signatureType: varchar("signature_type").notNull(), // upload, draw, type
@@ -21612,7 +22204,11 @@ export const invits = pgTable("invits", {
 // REIT/InvIT Orders
 export const reitInvitOrders = pgTable("reit_invit_orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Asset Details
   assetType: varchar("asset_type").notNull(), // reit, invit
@@ -21651,7 +22247,11 @@ export const reitInvitOrders = pgTable("reit_invit_orders", {
 // REIT/InvIT Holdings (Portfolio)
 export const reitInvitHoldings = pgTable("reit_invit_holdings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Asset Details
   assetType: varchar("asset_type").notNull(), // reit, invit
@@ -21770,7 +22370,11 @@ export const portfolioReportAuditLogs = pgTable("portfolio_report_audit_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   reportId: varchar("report_id").references(() => portfolioGeneratedReports.id).notNull(),
   action: varchar("action").notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   ipAddress: varchar("ip_address"),
   userAgent: text("user_agent"),
   metadata: jsonb("metadata"),
@@ -22645,7 +23249,11 @@ export const UserAppointmentStatus = {
 // Appointment Audit Logs - Immutable logs for SEBI compliance
 export const appointmentAuditLogs = pgTable("appointment_audit_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Appointment Details
   role: varchar("role").notNull(), // partner, master_agent, agent, sub_agent, support_staff, ca
@@ -22684,7 +23292,11 @@ export const appointmentAuditLogs = pgTable("appointment_audit_logs", {
 // Pending Appointments Queue - For Admin Dashboard
 export const pendingAppointments = pgTable("pending_appointments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Appointment Details
   requestedRole: varchar("requested_role").notNull(),
@@ -23924,7 +24536,11 @@ export const ckycVerificationRequests = pgTable("ckyc_verification_requests", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   // Request Context
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   panNumber: varchar("pan_number", { length: 10 }).notNull(),
   requestType: varchar("request_type", { length: 50 }).default("verification"), // verification, status_check, fetch
   
@@ -23969,7 +24585,11 @@ export const ckycDeferredCases = pgTable("ckyc_deferred_cases", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   // Case Context
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   panNumber: varchar("pan_number", { length: 10 }).notNull(),
   
   // Deferral Status
@@ -24340,7 +24960,11 @@ export const portfolioMetricsDaily = pgTable("portfolio_metrics_daily", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   // Portfolio Reference
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   portfolioId: varchar("portfolio_id").references(() => portfolios.id),
   
   // Snapshot Date
@@ -24413,7 +25037,11 @@ export const rebalanceSummaries = pgTable("rebalance_summaries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   // Portfolio Reference
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   portfolioId: varchar("portfolio_id").references(() => portfolios.id),
   
   // Target Allocation
@@ -24988,7 +25616,11 @@ export type InsertOrderFeeConsentLog = z.infer<typeof insertOrderFeeConsentLogSc
 // Dashboard Widget Preferences
 export const dashboardWidgetPreferences = pgTable("dashboard_widget_preferences", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Widget Configuration
   widgets: jsonb("widgets").default([
@@ -25054,7 +25686,11 @@ export type UserReferral = typeof userReferrals.$inferSelect;
 // Scheduled Reports
 export const scheduledReports = pgTable("scheduled_reports", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Report Configuration
   reportType: varchar("report_type", { length: 50 }).notNull(), // portfolio_summary, tax_summary, transaction_history, goal_progress
@@ -25086,7 +25722,11 @@ export type ScheduledReport = typeof scheduledReports.$inferSelect;
 // Compound Alerts (Multi-Condition)
 export const compoundAlerts = pgTable("compound_alerts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   
   // Alert Configuration
   name: varchar("name", { length: 100 }).notNull(),
@@ -25368,7 +26008,11 @@ export const knowledgeAuditLogs = pgTable("knowledge_audit_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   // Actor
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   userRole: varchar("user_role", { length: 30 }).notNull(),
   
   // Event Type
@@ -26027,7 +26671,11 @@ export type InsertGlobalInstrument = z.infer<typeof insertGlobalInstrumentSchema
 // Global Portfolio Positions - User holdings in global instruments
 export const globalPortfolioPositions = pgTable("global_portfolio_positions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   instrumentId: varchar("instrument_id").references(() => globalInstruments.id),
   symbol: varchar("symbol", { length: 20 }).notNull(),
   assetClass: varchar("asset_class", { length: 30 }).notNull(),
@@ -26067,7 +26715,11 @@ export type InsertGlobalPortfolioPosition = z.infer<typeof insertGlobalPortfolio
 // Rebalancing Snapshots - Point-in-time portfolio analysis
 export const rebalancingSnapshots = pgTable("rebalancing_snapshots", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   snapshotType: varchar("snapshot_type", { length: 30 }).notNull(), // manual, scheduled, drift_triggered
   portfolioScope: varchar("portfolio_scope", { length: 30 }).notNull(), // global_only, india_only, unified
   totalValueInr: numeric("total_value_inr").notNull(),
@@ -26104,7 +26756,11 @@ export type InsertRebalancingSnapshot = z.infer<typeof insertRebalancingSnapshot
 export const rebalancingActions = pgTable("rebalancing_actions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   snapshotId: varchar("snapshot_id").references(() => rebalancingSnapshots.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   instrumentId: varchar("instrument_id").references(() => globalInstruments.id),
   symbol: varchar("symbol", { length: 20 }).notNull(),
   instrumentName: varchar("instrument_name", { length: 255 }),
@@ -26156,7 +26812,11 @@ export type InsertRebalancingAction = z.infer<typeof insertRebalancingActionSche
 // LRS Compliance Tracking - Track $250k annual limit for Indian investors
 export const lrsComplianceTracking = pgTable("lrs_compliance_tracking", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   financialYear: varchar("financial_year", { length: 7 }).notNull(), // 2024-25
   totalRemittedUsd: numeric("total_remitted_usd").default("0"),
   totalRemittedInr: numeric("total_remitted_inr").default("0"),
@@ -26192,7 +26852,11 @@ export type InsertLrsComplianceTracking = z.infer<typeof insertLrsComplianceTrac
 // LRS Transactions - Individual remittance records
 export const lrsTransactions = pgTable("lrs_transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   trackingId: varchar("tracking_id").references(() => lrsComplianceTracking.id).notNull(),
   transactionDate: date("transaction_date").notNull(),
   amountUsd: numeric("amount_usd").notNull(),
@@ -27040,7 +27704,11 @@ export type InsertAdCertificate = z.infer<typeof insertAdCertificateSchema>;
 
 export const lrsLimitAlerts = pgTable("lrs_limit_alerts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   financialYear: varchar("financial_year", { length: 10 }).notNull(),
   
   alertType: varchar("alert_type", { length: 30 }).notNull(),
@@ -28057,7 +28725,11 @@ export type {
 // Picks Watchlist for agents to track favorite picks
 export const pickWatchlist = pgTable("pick_watchlist", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   pickId: integer("pick_id").references(() => dailyPicks.id).notNull(),
   addedAt: timestamp("added_at").defaultNow().notNull(),
   notes: text("notes"),

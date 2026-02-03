@@ -2749,4 +2749,197 @@ router.get(
   }
 );
 
+// Save prospect goals - matches by email/mobile/PAN to link with existing users
+const prospectGoalSchema = z.object({
+  goalType: z.string(),
+  goalName: z.string(),
+  targetAmount: z.number(),
+  timelineYears: z.number(),
+  priority: z.enum(['low', 'medium', 'high']),
+  currentProgress: z.number().optional().default(0),
+  monthlyContribution: z.number().optional().default(0)
+});
+
+router.post(
+  "/prospects/:id/goals",
+  requireAuth,
+  requireRole(['admin', 'agent']),
+  async (req: Request, res: Response) => {
+    try {
+      const { id: prospectId } = req.params;
+      const { goals } = req.body;
+      const agentId = (req as any).user?.id;
+      
+      if (!goals || !Array.isArray(goals)) {
+        return res.status(400).json({ success: false, error: "Goals array is required" });
+      }
+      
+      // Get prospect details
+      const prospect = await agentProspectWizardService.getProspect(prospectId);
+      if (!prospect) {
+        return res.status(404).json({ success: false, error: "Prospect not found" });
+      }
+      
+      // Try to find matching user by email, mobile, or PAN
+      const { db } = await import("../db");
+      const { users, financialGoals } = await import("@shared/schema");
+      const { eq, or, and, isNotNull } = await import("drizzle-orm");
+      
+      let matchedUserId: string | null = null;
+      
+      // Build conditions for matching
+      const conditions = [];
+      if (prospect.email) conditions.push(eq(users.email, prospect.email));
+      if (prospect.mobile) conditions.push(eq(users.mobile, prospect.mobile));
+      if (prospect.pan) conditions.push(eq(users.pan, prospect.pan));
+      
+      if (conditions.length > 0) {
+        const matchedUser = await db.select({ id: users.id })
+          .from(users)
+          .where(or(...conditions))
+          .limit(1);
+        
+        if (matchedUser.length > 0) {
+          matchedUserId = matchedUser[0].id;
+        }
+      }
+      
+      // Map goal types to database categories
+      const goalCategoryMap: Record<string, string> = {
+        'retirement': 'retirement',
+        'child_education': 'education',
+        'house_purchase': 'home_purchase',
+        'wealth_creation': 'wealth_building',
+        'emergency_fund': 'emergency',
+        'car_purchase': 'car',
+        'vacation': 'travel',
+        'wedding': 'wedding',
+        'business': 'wealth_building',
+        'other': 'custom'
+      };
+      
+      // Delete existing goals for this prospect (to avoid duplicates on re-save)
+      await db.delete(financialGoals)
+        .where(eq(financialGoals.prospectId, prospectId));
+      
+      // Save goals
+      const savedGoals = [];
+      for (const goal of goals) {
+        const validated = prospectGoalSchema.parse(goal);
+        
+        // Calculate target date from years
+        const targetDate = new Date();
+        targetDate.setFullYear(targetDate.getFullYear() + validated.timelineYears);
+        
+        // Map risk profile from priority
+        const riskProfileMap: Record<string, string> = {
+          'high': 'aggressive',
+          'medium': 'moderate',
+          'low': 'conservative'
+        };
+        
+        const savedGoal = await db.insert(financialGoals).values({
+          userId: matchedUserId,
+          prospectId: matchedUserId ? null : prospectId,
+          createdByAgentId: agentId,
+          name: validated.goalName,
+          goalType: validated.timelineYears <= 3 ? 'short_term' : validated.timelineYears <= 7 ? 'medium_term' : 'long_term',
+          category: goalCategoryMap[validated.goalType] || 'custom',
+          targetAmount: validated.targetAmount.toString(),
+          currentAmount: validated.currentProgress.toString(),
+          monthlyContribution: validated.monthlyContribution.toString(),
+          targetDate,
+          riskProfile: riskProfileMap[validated.priority] || 'moderate',
+          priority: validated.priority,
+        }).returning();
+        
+        savedGoals.push(savedGoal[0]);
+      }
+      
+      res.json({
+        success: true,
+        message: matchedUserId 
+          ? `Saved ${savedGoals.length} goals linked to existing client account` 
+          : `Saved ${savedGoals.length} goals for prospect (will link when they register)`,
+        matchedToUser: !!matchedUserId,
+        goalIds: savedGoals.map(g => g.id)
+      });
+    } catch (error: any) {
+      console.error("[Save Prospect Goals] Error:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+);
+
+// Get prospect goals
+router.get(
+  "/prospects/:id/goals",
+  requireAuth,
+  requireRole(['admin', 'agent']),
+  async (req: Request, res: Response) => {
+    try {
+      const { id: prospectId } = req.params;
+      
+      const { db } = await import("../db");
+      const { financialGoals } = await import("@shared/schema");
+      const { eq, or } = await import("drizzle-orm");
+      
+      // Get prospect to check for matched user
+      const prospect = await agentProspectWizardService.getProspect(prospectId);
+      if (!prospect) {
+        return res.status(404).json({ success: false, error: "Prospect not found" });
+      }
+      
+      // Fetch goals by prospectId or matched userId
+      const { users } = await import("@shared/schema");
+      let matchedUserId: string | null = null;
+      
+      const conditions = [];
+      if (prospect.email) conditions.push(eq(users.email, prospect.email));
+      if (prospect.mobile) conditions.push(eq(users.mobile, prospect.mobile));
+      if (prospect.pan) conditions.push(eq(users.pan, prospect.pan));
+      
+      if (conditions.length > 0) {
+        const matchedUser = await db.select({ id: users.id })
+          .from(users)
+          .where(or(...conditions))
+          .limit(1);
+        
+        if (matchedUser.length > 0) {
+          matchedUserId = matchedUser[0].id;
+        }
+      }
+      
+      // Build query conditions
+      const goalConditions = [eq(financialGoals.prospectId, prospectId)];
+      if (matchedUserId) {
+        goalConditions.push(eq(financialGoals.userId, matchedUserId));
+      }
+      
+      const goals = await db.select()
+        .from(financialGoals)
+        .where(or(...goalConditions));
+      
+      res.json({
+        success: true,
+        goals: goals.map(g => ({
+          id: g.id,
+          goalType: g.category,
+          goalName: g.name,
+          targetAmount: parseFloat(g.targetAmount || '0'),
+          timelineYears: Math.ceil((new Date(g.targetDate!).getTime() - Date.now()) / (365.25 * 24 * 60 * 60 * 1000)),
+          priority: g.priority || 'medium',
+          currentProgress: parseFloat(g.currentAmount || '0'),
+          monthlyContribution: parseFloat(g.monthlyContribution || '0'),
+          linkedToUser: !!g.userId
+        })),
+        matchedToUser: !!matchedUserId
+      });
+    } catch (error: any) {
+      console.error("[Get Prospect Goals] Error:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+);
+
 export default router;

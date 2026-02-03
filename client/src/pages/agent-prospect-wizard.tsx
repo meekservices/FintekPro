@@ -2060,6 +2060,31 @@ export default function AgentProspectWizard() {
     }
   });
 
+  const saveGoalsMutation = useMutation({
+    mutationFn: async () => {
+      if (!prospectId || investmentGoals.length === 0) return { success: true, skipped: true };
+      return await apiRequest(`/api/agent-wizard/prospects/${prospectId}/goals`, {
+        method: "POST",
+        body: JSON.stringify({ goals: investmentGoals })
+      });
+    },
+    onSuccess: (data) => {
+      if (data.success && !data.skipped) {
+        toast({ 
+          title: "Goals Saved", 
+          description: data.matchedToUser 
+            ? "Goals linked to client's account" 
+            : "Goals saved for prospect" 
+        });
+      }
+      setCurrentStep(4);
+    },
+    onError: () => {
+      toast({ title: "Note", description: "Goals will be saved when proposal is generated", variant: "default" });
+      setCurrentStep(4);
+    }
+  });
+
   const getRebalancingMutation = useMutation({
     mutationFn: async () => {
       return await apiRequest("/api/agent-wizard/rebalancing-suggestions", {
@@ -3160,7 +3185,12 @@ export default function AgentProspectWizard() {
             <Button variant="outline" onClick={() => setCurrentStep(2)} data-testid="back-to-risk-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
-            <Button onClick={() => setCurrentStep(4)} data-testid="continue-to-portfolio-btn">
+            <Button 
+              onClick={() => saveGoalsMutation.mutate()} 
+              disabled={saveGoalsMutation.isPending}
+              data-testid="continue-to-portfolio-btn"
+            >
+              {saveGoalsMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Continue to Portfolio <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           </CardFooter>
