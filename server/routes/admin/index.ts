@@ -4074,6 +4074,123 @@ System Security Data:`;
   console.log("✅ AMFI Benchmark Auto-Parser routes registered");
   console.log("✅ Benchmark Mapping Admin routes registered");
 
+  // ============ BSE BENCHMARK ROUTES ============
+  
+  // Seed BSE indices to market_indices table
+  app.post("/api/admin/bse-benchmark/seed-indices", requireAdmin, async (req: any, res) => {
+    try {
+      const { bseBenchmarkService } = await import("../../services/bse-benchmark-service");
+      console.log(`[BSE Admin] Seed indices triggered by ${req.user?.email || 'admin'}`);
+      const result = await bseBenchmarkService.seedBseIndices();
+      res.json({
+        success: true,
+        ...result,
+        message: `Seeded ${result.seeded} new BSE indices, ${result.existing} already exist`
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Get BSE-aware benchmark resolution for a specific fund
+  app.get("/api/admin/bse-benchmark/resolve/:isin", requireAdmin, async (req, res) => {
+    try {
+      const { bseBenchmarkService } = await import("../../services/bse-benchmark-service");
+      const { isin } = req.params;
+      const resolution = await bseBenchmarkService.resolveBenchmark(isin);
+      res.json({ success: true, resolution });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Run BSE-aware auto-mapping with precedence rules
+  app.post("/api/admin/bse-benchmark/auto-map", requireAdmin, async (req: any, res) => {
+    try {
+      const { bseBenchmarkService } = await import("../../services/bse-benchmark-service");
+      console.log(`[BSE Admin] Auto-map with precedence triggered by ${req.user?.email || 'admin'}`);
+      const result = await bseBenchmarkService.autoMapWithBsePrecedence();
+      
+      if (result.mapped > 0 || result.updated > 0) {
+        const { mfRelativeMetricsEngine } = await import("../../services/mf-relative-metrics-engine");
+        mfRelativeMetricsEngine.recomputeAllMetrics(50).catch(err => {
+          console.error(`[BSE Admin] Metrics recompute failed:`, err.message);
+        });
+      }
+      
+      res.json({
+        success: true,
+        ...result,
+        message: `Mapped ${result.mapped} new, updated ${result.updated}, ${result.lineageRecords} lineage records created`
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Get source statistics
+  app.get("/api/admin/bse-benchmark/stats", requireAdmin, async (req, res) => {
+    try {
+      const { bseBenchmarkService } = await import("../../services/bse-benchmark-service");
+      const stats = await bseBenchmarkService.getSourceStats();
+      res.json({ success: true, ...stats });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Get AMFI vs BSE conflicts
+  app.get("/api/admin/bse-benchmark/conflicts", requireAdmin, async (req, res) => {
+    try {
+      const { bseBenchmarkService } = await import("../../services/bse-benchmark-service");
+      const conflicts = await bseBenchmarkService.getAmfiBseConflicts();
+      res.json({ success: true, conflicts, count: conflicts.length });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Resolve AMFI vs BSE conflict
+  app.post("/api/admin/bse-benchmark/resolve-conflict", requireAdmin, async (req: any, res) => {
+    try {
+      const { bseBenchmarkService } = await import("../../services/bse-benchmark-service");
+      const { isin, resolution, manualIndexCode, reason } = req.body;
+      
+      if (!isin || !resolution) {
+        return res.status(400).json({ success: false, error: "Missing isin or resolution" });
+      }
+      
+      const adminId = req.user?.email || req.user?.id || 'admin';
+      const result = await bseBenchmarkService.resolveConflict(isin, resolution, manualIndexCode, adminId, reason);
+      
+      if (result) {
+        const { mfRelativeMetricsEngine } = await import("../../services/mf-relative-metrics-engine");
+        mfRelativeMetricsEngine.recomputeAllMetrics(1).catch(err => {
+          console.error(`[BSE Admin] Metrics recompute failed:`, err.message);
+        });
+      }
+      
+      res.json({ success: result, message: result ? 'Conflict resolved' : 'Resolution failed' });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Get benchmark lineage audit trail
+  app.get("/api/admin/bse-benchmark/lineage", requireAdmin, async (req, res) => {
+    try {
+      const { bseBenchmarkService } = await import("../../services/bse-benchmark-service");
+      const isin = req.query.isin as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const lineage = await bseBenchmarkService.getBenchmarkLineage(isin, limit);
+      res.json({ success: true, lineage, count: lineage.length });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  console.log("✅ BSE Benchmark routes registered");
+
   // ============ DATA ENRICHMENT ROUTES ============
   
   // MF Extended Enrichment - get stats

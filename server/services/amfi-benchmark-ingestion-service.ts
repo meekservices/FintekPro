@@ -39,11 +39,12 @@ const BENCHMARK_NORMALIZATION_RULES: Array<{ pattern: RegExp; indexCode: string;
   { pattern: /\bNIFTY\s*Large\s*Midcap\s*250\b/i, indexCode: 'NIFTY_LARGEMIDCAP_250', priority: 90 },
   { pattern: /\bNIFTY\s*Midcap\s*Select\b/i, indexCode: 'NIFTY_MIDCAP_SELECT', priority: 85 },
   { pattern: /\bBSE\s*Sensex\b|\bS&P\s*BSE\s*Sensex\b|\bSENSEX\b/i, indexCode: 'SENSEX', priority: 100 },
-  { pattern: /\bBSE\s*100\b/i, indexCode: 'BSE100', priority: 90 },
-  { pattern: /\bBSE\s*200\b/i, indexCode: 'BSE200', priority: 85 },
-  { pattern: /\bBSE\s*500\b/i, indexCode: 'BSE500', priority: 80 },
-  { pattern: /\bBSE\s*Midcap\b/i, indexCode: 'BSE_MIDCAP', priority: 85 },
-  { pattern: /\bBSE\s*Smallcap\b/i, indexCode: 'BSE_SMALLCAP', priority: 85 },
+  { pattern: /\bS&P\s*BSE\s*100\b|\bBSE\s*100\b/i, indexCode: 'BSE100', priority: 90 },
+  { pattern: /\bS&P\s*BSE\s*200\b|\bBSE\s*200\b/i, indexCode: 'BSE200', priority: 85 },
+  { pattern: /\bS&P\s*BSE\s*500\b|\bBSE\s*500\b/i, indexCode: 'BSE500', priority: 80 },
+  { pattern: /\bBSE\s*LargeMidcap\b|\bS&P\s*BSE\s*LargeMidcap\b|\bBSE\s*Large\s*Mid\s*Cap\b/i, indexCode: 'BSE_LARGEMID', priority: 85 },
+  { pattern: /\bBSE\s*Midcap\b|\bS&P\s*BSE\s*Midcap\b/i, indexCode: 'BSE_MIDCAP', priority: 85 },
+  { pattern: /\bBSE\s*Smallcap\b|\bS&P\s*BSE\s*Smallcap\b/i, indexCode: 'BSE_SMALLCAP', priority: 85 },
 ];
 
 const TRI_PATTERNS = [

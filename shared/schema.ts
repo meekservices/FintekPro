@@ -29988,3 +29988,25 @@ export const PROPOSAL_AUDIT_EVENT_TYPES = {
   PROPOSAL_REJECTED: 'PROPOSAL_REJECTED',
   CLIENT_ACKNOWLEDGED: 'CLIENT_ACKNOWLEDGED',
 } as const;
+
+// MF Benchmark Lineage - Tracks source transitions for compliance audit trail (AMFI ↔ BSE ↔ Manual)
+export const mfBenchmarkLineage = pgTable("mf_benchmark_lineage", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  mfIsin: varchar("mf_isin", { length: 20 }).notNull(),
+  previousSource: varchar("previous_source", { length: 20 }), // 'amfi', 'bse', 'category', 'manual'
+  newSource: varchar("new_source", { length: 20 }).notNull(),
+  previousIndex: varchar("previous_index", { length: 30 }),
+  newIndex: varchar("new_index", { length: 30 }).notNull(),
+  reason: text("reason"), // mandatory reason for admin overrides
+  changedBy: varchar("changed_by"), // user ID for admin changes
+  changedAt: timestamp("changed_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_mf_benchmark_lineage_isin").on(table.mfIsin),
+  index("idx_mf_benchmark_lineage_changed_at").on(table.changedAt),
+]);
+
+export const insertMfBenchmarkLineageSchema = createInsertSchema(mfBenchmarkLineage).omit({
+  id: true, changedAt: true,
+});
+export type MfBenchmarkLineage = typeof mfBenchmarkLineage.$inferSelect;
+export type InsertMfBenchmarkLineage = z.infer<typeof insertMfBenchmarkLineageSchema>;
