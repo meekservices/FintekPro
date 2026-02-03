@@ -228,7 +228,7 @@ class StockFinancialEnrichmentService {
       const stocks = await db.select({
         id: listedStocks.id,
         symbol: listedStocks.symbol,
-        name: listedStocks.name,
+        companyName: listedStocks.companyName,
         sector: listedStocks.sector,
         currentPrice: listedStocks.currentPrice,
         peRatio: listedStocks.peRatio,

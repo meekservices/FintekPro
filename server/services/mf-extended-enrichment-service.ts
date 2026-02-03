@@ -302,7 +302,7 @@ class MFExtendedEnrichmentService {
       let fundsQuery = db.select({
         id: mutualFunds.id,
         schemeCode: mutualFunds.schemeCode,
-        name: mutualFunds.name,
+        schemeName: mutualFunds.schemeName,
         category: mutualFunds.category,
         planType: mutualFunds.planType,
         expenseRatio: mutualFunds.expenseRatio,
@@ -413,7 +413,7 @@ class MFExtendedEnrichmentService {
       const [fund] = await db.select({
         id: mutualFunds.id,
         schemeCode: mutualFunds.schemeCode,
-        name: mutualFunds.name,
+        schemeName: mutualFunds.schemeName,
         category: mutualFunds.category,
         planType: mutualFunds.planType,
         expenseRatio: mutualFunds.expenseRatio,

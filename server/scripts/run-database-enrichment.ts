@@ -201,6 +201,17 @@ async function runMutualFundEnrichment(maxFunds: number = 100) {
   return result;
 }
 
+async function runMFExtendedEnrichment(forceRefresh: boolean = false) {
+  console.log(`\n🔄 Starting MF Extended Enrichment (TER/AUM/Category)...`);
+  
+  const { mfExtendedEnrichmentService } = await import('../services/mf-extended-enrichment-service');
+  
+  const result = await mfExtendedEnrichmentService.enrichAllFunds({ forceRefresh });
+  console.log(`✅ MF Extended Enrichment Complete: ${result.terUpdated} TER, ${result.aumUpdated} AUM updated`);
+  
+  return result;
+}
+
 async function runStockEnrichment() {
   console.log('\n🔄 Starting Stock Financial Enrichment...');
   
@@ -226,12 +237,16 @@ switch (command) {
   case 'mf':
     runMutualFundEnrichment(maxFunds).then(() => process.exit(0));
     break;
+  case 'mf-extended':
+    runMFExtendedEnrichment(args.includes('--force')).then(() => process.exit(0));
+    break;
   case 'stocks':
     runStockEnrichment().then(() => process.exit(0));
     break;
   case 'all':
     Promise.all([
       runMutualFundEnrichment(maxFunds),
+      runMFExtendedEnrichment(false),
       runStockEnrichment()
     ]).then(() => {
       console.log('\n✅ All enrichment jobs complete');
@@ -243,10 +258,11 @@ switch (command) {
 Usage: npx tsx server/scripts/run-database-enrichment.ts <command> [options]
 
 Commands:
-  report              - Show database enrichment status report
-  mf [maxFunds]       - Run mutual fund returns enrichment (default: 100 funds)
-  stocks              - Run stock financial metrics enrichment
-  all [maxFunds]      - Run all enrichment jobs
+  report                - Show database enrichment status report
+  mf [maxFunds]         - Run mutual fund returns enrichment (default: 100 funds)
+  mf-extended [--force] - Run MF extended enrichment (TER/AUM/Category)
+  stocks                - Run stock financial metrics enrichment
+  all [maxFunds]        - Run all enrichment jobs
     `);
     process.exit(0);
 }
