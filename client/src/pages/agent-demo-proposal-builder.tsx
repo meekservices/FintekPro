@@ -116,13 +116,33 @@ interface ProposalConfig {
     tolerance: string;
   };
   sections: {
+    coverPage: boolean;
+    tableOfContents: boolean;
     executiveSummary: boolean;
-    investmentRecommendations: boolean;
-    assetAllocationChart: boolean;
-    riskAssessment: boolean;
-    projectedReturns: boolean;
-    feeDisclosure: boolean;
-    termsConditions: boolean;
+    portfolioOverview: boolean;
+    productRecommendations: boolean;
+    capitalGainsSummary: boolean;
+    exitLoadSummary: boolean;
+    taxImpactSummary: boolean;
+    rebalancingSipRecommendations: boolean;
+    portfolioHealthScore: boolean;
+    expenseRatioAnalysis: boolean;
+    riskHeatMap: boolean;
+    benchmarkComparison: boolean;
+    whatIfScenarios: boolean;
+    dividendProjection: boolean;
+    priorityRecommendations: boolean;
+    portfolioGrowthProjection: boolean;
+    mandatoryDisclaimers: boolean;
+    advisorDeclaration: boolean;
+  };
+  sectionCustomizations: {
+    [sectionId: string]: {
+      customNotes?: string;
+      overrideTitle?: string;
+      showInToc?: boolean;
+      customData?: Record<string, any>;
+    };
   };
   coverPage: {
     enabled: boolean;
@@ -189,7 +209,8 @@ const WIZARD_STEPS = [
   { id: 3, title: 'Asset Allocation', icon: PieChart, description: 'Configure portfolio mix' },
   { id: 4, title: 'Risk Profile', icon: Scale, description: 'Assess risk tolerance' },
   { id: 5, title: 'Proposal Sections', icon: FileText, description: 'Select content modules' },
-  { id: 6, title: 'Generate', icon: Download, description: 'Create proposal PDF' },
+  { id: 6, title: 'Customize Content', icon: Settings, description: 'Add notes & customize sections' },
+  { id: 7, title: 'Generate', icon: Download, description: 'Create proposal PDF' },
 ];
 
 const INVESTMENT_GOALS = [
@@ -202,13 +223,25 @@ const INVESTMENT_GOALS = [
 ];
 
 const PROPOSAL_SECTIONS = [
-  { id: 'executiveSummary', name: 'Executive Summary', description: 'High-level overview of the proposal', icon: FileText },
-  { id: 'investmentRecommendations', name: 'Investment Recommendations', description: 'Specific fund/stock suggestions with rationale', icon: TrendingUp },
-  { id: 'assetAllocationChart', name: 'Asset Allocation', description: 'Visual breakdown of portfolio allocation', icon: PieChart },
-  { id: 'riskAssessment', name: 'Risk Assessment', description: 'Risk profile analysis and suitability', icon: Scale },
-  { id: 'projectedReturns', name: 'Projected Returns', description: 'Expected returns based on historical data', icon: BarChart3 },
-  { id: 'feeDisclosure', name: 'Fee Disclosure', description: 'Transparent fee and commission breakdown', icon: Percent },
-  { id: 'termsConditions', name: 'Terms & Conditions', description: 'Legal terms and regulatory disclosures', icon: Shield },
+  { id: 'coverPage', name: 'Cover Page', description: 'Professional cover with client details and branding', icon: FileText, category: 'header', required: true },
+  { id: 'tableOfContents', name: 'Table of Contents', description: 'Dynamic navigation with page numbers', icon: FileText, category: 'header', required: true },
+  { id: 'executiveSummary', name: 'Executive Summary', description: 'High-level proposal overview with key highlights', icon: FileText, category: 'overview' },
+  { id: 'portfolioOverview', name: 'Portfolio Overview', description: 'Current holdings snapshot with asset breakdown', icon: Briefcase, category: 'analysis', requiresData: 'holdings' },
+  { id: 'productRecommendations', name: 'Product Recommendations', description: 'AI-powered fund/stock recommendations with verdicts', icon: TrendingUp, category: 'recommendations' },
+  { id: 'capitalGainsSummary', name: 'Capital Gains Summary', description: 'LTCG/STCG breakdown for sell recommendations', icon: IndianRupee, category: 'tax', requiresData: 'sellVerdicts' },
+  { id: 'exitLoadSummary', name: 'Exit Load Summary', description: 'Lock-in periods and exit charges analysis', icon: Clock, category: 'tax', requiresData: 'exitLoads' },
+  { id: 'taxImpactSummary', name: 'Tax Impact Summary', description: 'Overall tax implications with optimization tips', icon: Percent, category: 'tax' },
+  { id: 'rebalancingSipRecommendations', name: 'Rebalancing & SIP Recommendations', description: 'Monthly SIP plan with source attribution', icon: RefreshCw, category: 'recommendations' },
+  { id: 'portfolioHealthScore', name: 'Portfolio Health Score', description: 'Diversification and risk-adjusted metrics', icon: Shield, category: 'analysis' },
+  { id: 'expenseRatioAnalysis', name: 'Expense Ratio Analysis', description: 'Fund cost comparison and optimization', icon: Percent, category: 'analysis' },
+  { id: 'riskHeatMap', name: 'Risk Heat Map', description: 'Visual risk distribution across holdings', icon: AlertTriangle, category: 'analysis' },
+  { id: 'benchmarkComparison', name: 'Benchmark Comparison', description: 'Performance vs goal-appropriate benchmarks', icon: BarChart3, category: 'analysis' },
+  { id: 'whatIfScenarios', name: 'What-If Scenarios', description: 'Market scenario analysis with projections', icon: Sparkles, category: 'projections' },
+  { id: 'dividendProjection', name: 'Dividend Projection', description: 'Expected dividend income over time', icon: IndianRupee, category: 'projections' },
+  { id: 'priorityRecommendations', name: 'Priority Recommendations', description: 'Top 5 actionable items for immediate focus', icon: Target, category: 'recommendations' },
+  { id: 'portfolioGrowthProjection', name: 'Portfolio Growth Projection', description: 'Future value projections with confidence bands', icon: TrendingUp, category: 'projections' },
+  { id: 'mandatoryDisclaimers', name: 'Mandatory Disclaimers', description: 'SEBI/AMFI regulatory disclaimers', icon: Shield, category: 'compliance', required: true },
+  { id: 'advisorDeclaration', name: 'Advisor Declaration', description: 'ARN holder declaration and signature', icon: CheckCircle, category: 'compliance', required: true },
 ];
 
 const ASSET_CATEGORIES = [
@@ -331,14 +364,27 @@ const defaultConfig: ProposalConfig = {
     tolerance: 'Can tolerate moderate market fluctuations',
   },
   sections: {
+    coverPage: true,
+    tableOfContents: true,
     executiveSummary: true,
-    investmentRecommendations: true,
-    assetAllocationChart: true,
-    riskAssessment: true,
-    projectedReturns: true,
-    feeDisclosure: true,
-    termsConditions: true,
+    portfolioOverview: true,
+    productRecommendations: true,
+    capitalGainsSummary: false,
+    exitLoadSummary: false,
+    taxImpactSummary: true,
+    rebalancingSipRecommendations: true,
+    portfolioHealthScore: true,
+    expenseRatioAnalysis: true,
+    riskHeatMap: false,
+    benchmarkComparison: true,
+    whatIfScenarios: false,
+    dividendProjection: false,
+    priorityRecommendations: true,
+    portfolioGrowthProjection: true,
+    mandatoryDisclaimers: true,
+    advisorDeclaration: true,
   },
+  sectionCustomizations: {},
   coverPage: {
     enabled: true,
     title: 'Investment Proposal',
@@ -567,7 +613,7 @@ export default function AgentDemoProposalBuilder() {
   }, [selectedClient]);
 
   const handleNext = () => {
-    if (currentStep < 6) {
+    if (currentStep < 7) {
       setCurrentStep(prev => prev + 1);
     }
   };
@@ -774,6 +820,8 @@ export default function AgentDemoProposalBuilder() {
       case 4:
         return config.riskProfile.score >= 0;
       case 5:
+        return Object.values(config.sections).some(v => v);
+      case 6:
         return Object.values(config.sections).some(v => v);
       default:
         return true;
@@ -1519,6 +1567,114 @@ export default function AgentDemoProposalBuilder() {
 
                 {currentStep === 6 && (
                   <div className="space-y-6">
+                    <h2 className="text-xl font-semibold">Customize Report Content</h2>
+                    <p className="text-muted-foreground">Add custom notes and personalize each section of the proposal</p>
+                    
+                    <div className="space-y-4">
+                      {PROPOSAL_SECTIONS.filter(section => 
+                        config.sections[section.id as keyof typeof config.sections]
+                      ).map(section => {
+                        const SectionIcon = section.icon;
+                        const customization = config.sectionCustomizations[section.id] || {};
+                        const isRequired = 'required' in section && section.required;
+                        const requiresData = 'requiresData' in section ? section.requiresData : null;
+                        
+                        return (
+                          <Card key={section.id} className="border-l-4 border-l-purple-500">
+                            <CardHeader className="pb-2">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <SectionIcon className="h-4 w-4 text-purple-600" />
+                                  <CardTitle className="text-base">{section.name}</CardTitle>
+                                  {isRequired && (
+                                    <Badge variant="secondary" className="text-xs">Required</Badge>
+                                  )}
+                                  {requiresData && (
+                                    <Badge variant="outline" className="text-xs text-amber-600">
+                                      Requires: {requiresData}
+                                    </Badge>
+                                  )}
+                                </div>
+                                {'category' in section && (
+                                  <Badge variant="outline" className="capitalize">{section.category}</Badge>
+                                )}
+                              </div>
+                              <CardDescription>{section.description}</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                              <div>
+                                <Label className="mb-2 block text-sm">Custom Title (optional)</Label>
+                                <Input
+                                  placeholder={section.name}
+                                  value={customization.overrideTitle || ''}
+                                  onChange={(e) => setConfig(prev => ({
+                                    ...prev,
+                                    sectionCustomizations: {
+                                      ...prev.sectionCustomizations,
+                                      [section.id]: {
+                                        ...prev.sectionCustomizations[section.id],
+                                        overrideTitle: e.target.value
+                                      }
+                                    }
+                                  }))}
+                                />
+                              </div>
+                              <div>
+                                <Label className="mb-2 block text-sm">Advisor Notes</Label>
+                                <Textarea
+                                  placeholder="Add personalized notes, context, or recommendations for this section..."
+                                  value={customization.customNotes || ''}
+                                  onChange={(e) => setConfig(prev => ({
+                                    ...prev,
+                                    sectionCustomizations: {
+                                      ...prev.sectionCustomizations,
+                                      [section.id]: {
+                                        ...prev.sectionCustomizations[section.id],
+                                        customNotes: e.target.value
+                                      }
+                                    }
+                                  }))}
+                                  className="min-h-[80px]"
+                                />
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  id={`toc-${section.id}`}
+                                  checked={customization.showInToc !== false}
+                                  onCheckedChange={(checked) => setConfig(prev => ({
+                                    ...prev,
+                                    sectionCustomizations: {
+                                      ...prev.sectionCustomizations,
+                                      [section.id]: {
+                                        ...prev.sectionCustomizations[section.id],
+                                        showInToc: !!checked
+                                      }
+                                    }
+                                  }))}
+                                />
+                                <Label htmlFor={`toc-${section.id}`} className="text-sm">
+                                  Show in Table of Contents
+                                </Label>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                    
+                    {Object.values(config.sections).filter(Boolean).length === 0 && (
+                      <Alert>
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertDescription>
+                          No sections selected. Go back to Step 5 to select at least one section.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </div>
+                )}
+
+                {currentStep === 7 && (
+                  <div className="space-y-6">
                     <h2 className="text-xl font-semibold">Generate Proposal</h2>
                     
                     <div className="space-y-4">
@@ -1681,7 +1837,7 @@ export default function AgentDemoProposalBuilder() {
                   Previous
                 </Button>
                 
-                {currentStep < 6 && (
+                {currentStep < 7 && (
                   <Button
                     onClick={handleNext}
                     disabled={!canProceed()}
