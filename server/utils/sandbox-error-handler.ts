@@ -2,6 +2,7 @@
  * Sandbox.co.in API Error Handler
  * Based on: https://developer.sandbox.co.in/guides/developer-resources/errors
  * Rate limits: https://developer.sandbox.co.in/guides/developer-resources/rate-limits
+ * Caching: https://developer.sandbox.co.in/guides/developer-resources/response-caching
  */
 
 // Rate limits per environment (requests per minute)
@@ -15,6 +16,24 @@ export const RATE_LIMITS = {
     requestsPerMinute: 500,
   },
 } as const;
+
+/**
+ * Cache control for Sandbox API requests
+ * Cached responses are stored for 24 hours and don't incur wallet charges
+ */
+export type CacheStatus = 'Hit from Cloudfront' | 'Miss from Cloudfront' | 'Error from Cloudfront';
+
+export interface CacheHeaders {
+  'X-Accept-Cache'?: 'true' | 'false';
+}
+
+export function buildCacheHeaders(useCache: boolean): CacheHeaders {
+  return { 'X-Accept-Cache': useCache ? 'true' : 'false' };
+}
+
+export function isCacheHit(responseHeaders: Record<string, string>): boolean {
+  return responseHeaders['x-cache'] === 'Hit from Cloudfront';
+}
 
 export interface SandboxErrorResponse {
   code: number;
