@@ -120,3 +120,50 @@ export async function withRetry<T>(
   
   throw lastError;
 }
+
+/**
+ * Pagination helpers for Sandbox list endpoints
+ * Based on: https://developer.sandbox.co.in/guides/developer-resources/pagination
+ */
+
+export interface PaginatedRequest {
+  page_size?: number; // Max 50
+  last_evaluated_key?: string;
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  last_evaluated_key?: string; // Present only when more pages exist
+}
+
+export function hasMorePages<T>(response: PaginatedResponse<T>): boolean {
+  return !!response.last_evaluated_key;
+}
+
+export async function fetchAllPages<T>(
+  fetchPage: (cursor?: string) => Promise<PaginatedResponse<T>>,
+  pageSize: number = 50
+): Promise<T[]> {
+  const allItems: T[] = [];
+  let cursor: string | undefined;
+  
+  do {
+    const response = await fetchPage(cursor);
+    allItems.push(...response.items);
+    cursor = response.last_evaluated_key;
+  } while (cursor);
+  
+  return allItems;
+}
+
+export function buildPaginatedRequest<T extends object>(
+  baseRequest: T,
+  pageSize: number = 50,
+  cursor?: string
+): T & PaginatedRequest {
+  return {
+    ...baseRequest,
+    page_size: Math.min(pageSize, 50), // Max 50 per docs
+    ...(cursor && { last_evaluated_key: cursor }),
+  };
+}
