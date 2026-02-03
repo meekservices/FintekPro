@@ -1,7 +1,20 @@
 /**
  * Sandbox.co.in API Error Handler
  * Based on: https://developer.sandbox.co.in/guides/developer-resources/errors
+ * Rate limits: https://developer.sandbox.co.in/guides/developer-resources/rate-limits
  */
+
+// Rate limits per environment (requests per minute)
+export const RATE_LIMITS = {
+  test: {
+    host: 'https://test-api.sandbox.co.in',
+    requestsPerMinute: 25,
+  },
+  production: {
+    host: 'https://api.sandbox.co.in',
+    requestsPerMinute: 500,
+  },
+} as const;
 
 export interface SandboxErrorResponse {
   code: number;
