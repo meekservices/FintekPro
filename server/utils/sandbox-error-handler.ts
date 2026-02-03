@@ -167,3 +167,90 @@ export function buildPaginatedRequest<T extends object>(
     ...(cursor && { last_evaluated_key: cursor }),
   };
 }
+
+/**
+ * Job-based async workflow helpers
+ * Based on: https://developer.sandbox.co.in/guides/developer-resources/job-based-api-workflow
+ */
+
+export type JobStatus = 'created' | 'queued' | 'in_progress' | 'succeeded' | 'failed';
+
+export interface JobResponse {
+  job_id: string;
+  status: JobStatus;
+  url?: string; // Pre-signed S3 URL for upload/download
+  created_at: number;
+  updated_at: number;
+  '@entity': string;
+}
+
+export function isJobComplete(status: JobStatus): boolean {
+  return status === 'succeeded' || status === 'failed';
+}
+
+export function isJobSucceeded(status: JobStatus): boolean {
+  return status === 'succeeded';
+}
+
+export async function uploadToPresignedUrl(
+  presignedUrl: string,
+  payload: any,
+  contentType: string = 'application/json'
+): Promise<void> {
+  const response = await fetch(presignedUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': contentType },
+    body: typeof payload === 'string' ? payload : JSON.stringify(payload),
+  });
+  
+  if (!response.ok) {
+    throw new Error(`S3 upload failed: ${response.status} ${response.statusText}`);
+  }
+}
+
+export async function downloadFromPresignedUrl<T = any>(
+  presignedUrl: string
+): Promise<T> {
+  const response = await fetch(presignedUrl);
+  
+  if (!response.ok) {
+    throw new Error(`S3 download failed: ${response.status} ${response.statusText}`);
+  }
+  
+  return response.json() as Promise<T>;
+}
+
+export async function pollJobUntilComplete(
+  pollFn: () => Promise<JobResponse>,
+  options: {
+    initialDelayMs?: number;
+    maxDelayMs?: number;
+    maxAttempts?: number;
+    onProgress?: (status: JobStatus, attempt: number) => void;
+  } = {}
+): Promise<JobResponse> {
+  const {
+    initialDelayMs = 2000,
+    maxDelayMs = 30000,
+    maxAttempts = 60,
+    onProgress,
+  } = options;
+  
+  let attempt = 0;
+  let delay = initialDelayMs;
+  
+  while (attempt < maxAttempts) {
+    const job = await pollFn();
+    onProgress?.(job.status, attempt);
+    
+    if (isJobComplete(job.status)) {
+      return job;
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, delay));
+    delay = Math.min(delay * 1.5, maxDelayMs); // Exponential backoff
+    attempt++;
+  }
+  
+  throw new Error(`Job polling timeout after ${maxAttempts} attempts`);
+}
