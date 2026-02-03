@@ -2125,7 +2125,7 @@ export default function AgentProspectWizard() {
               setExpenseRatioData(analyticsData.analytics.expenseRatio);
               setDividendData(analyticsData.analytics.dividend);
               setRiskHeatmapData(analyticsData.analytics.riskHeatmap);
-              setBenchmarkData(analyticsData.analytics.benchmark);
+              setBenchmarkData(analyticsData.analytics.benchmark?.data);
               setWhatIfScenarios(analyticsData.analytics.whatIf);
               setSipRecommendations(analyticsData.analytics.sipRecommendations || []);
             }
@@ -2225,7 +2225,7 @@ export default function AgentProspectWizard() {
         setExpenseRatioData(data.analytics.expenseRatio);
         setDividendData(data.analytics.dividend);
         setRiskHeatmapData(data.analytics.riskHeatmap);
-        setBenchmarkData(data.analytics.benchmark);
+        setBenchmarkData(data.analytics.benchmark?.data);
         setWhatIfScenarios(data.analytics.whatIf);
         setSipRecommendations(data.analytics.sipRecommendations || []);
       }
