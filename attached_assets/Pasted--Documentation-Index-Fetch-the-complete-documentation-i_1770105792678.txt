@@ -1,0 +1,120 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://developer.sandbox.co.in/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Request & response structure
+
+> Learn about request formats, response structures, and HTTP headers used in Sandbox APIs.
+
+Sandbox APIs accept JSON payloads, query parameters, and path parameters, and return standard JSON responses.
+
+## Request methods
+
+* **GET**: Retrieve data using path or query parameters
+* **POST**: Create or submit data with JSON body
+* **PUT**: Update existing data with JSON body
+* **DELETE**: Remove data using path or query parameters
+
+<Note>
+  Some endpoints may have exceptions to these patterns—check the specific API reference documentation.
+</Note>
+
+## Headers
+
+All API requests to Sandbox require specific http headers for authentication and configuration:
+
+<ParamField header="x-api-key" type="string" required>
+  Your API key from the Sandbox Console
+
+  **Example**: `key_live_SIethxxxxxxxx`
+</ParamField>
+
+<ParamField header="authorization" type="string" required>
+  Your JWT access token (without "Bearer" prefix)
+
+  **Example**: `eyJhbGcxxxxx.eyJhdJxxxx.Si29xxxxx`
+</ParamField>
+
+<ParamField header="x-api-secret" type="string">
+  Your API secret. Required only for the Authenticate API to generate access tokens
+
+  **Example**: `secret_live_xxxxxxxxxxx`
+</ParamField>
+
+<ParamField header="x-api-version" type="string">
+  API version. Uses latest stable version if omitted
+
+  **Example**: `1.0`
+</ParamField>
+
+<ParamField header="x-source" type="string">
+  Specify the data source. Defaults to `primary` if not specified
+
+  **Example**: `secondary`
+</ParamField>
+
+<ParamField header="Cache-Control" type="string">
+  Set to `no-cache` to bypass cache and get latest data
+
+  **Example**: `no-cache`
+</ParamField>
+
+<ParamField header="Content-Type" type="string">
+  The Content-Type of the request body
+
+  **Example**: `application/json`
+</ParamField>
+
+## Request example
+
+Here's a complete example showing how to make an API request with all required headers:
+
+<CodeGroup>
+  ```bash cURL theme={null}
+  curl -X POST 'https://api.sandbox.co.in/gst/compliance/public/gstin/search' \
+       -H 'x-api-key: key_live_SIethxxxxxxxx' \
+       -H 'authorization: eyJhbGcxxxxx.eyJhdJxxxx.Si29xxxxx' \
+       -H 'x-api-version: 1.0' \
+       -H 'Content-Type: application/json' \
+       -d '{
+         "gstin": "05ABNTY3290P8ZB"
+       }'
+  ```
+</CodeGroup>
+
+## Response structure
+
+All Sandbox API responses follow a consistent JSON structure with these fields:
+
+```json  theme={null}
+{
+  "code": 200,
+  "data": {
+    // Response data
+  },
+  "timestamp": 1750687659809,
+  "transaction_id": "3a31716a-6a4d-4670-83fe-sc9d8209e35a"
+}
+```
+
+<ParamField path="code" type="number">
+  http status code indicating success or error
+</ParamField>
+
+<ParamField path="data" type="object">
+  Response payload containing the requested data or error details
+</ParamField>
+
+<ParamField path="timestamp" type="number">
+  Unix timestamp (in milliseconds) indicating when the server generated the response
+</ParamField>
+
+<ParamField path="transaction_id" type="string">
+  Unique identifier for tracking the request across systems
+</ParamField>
+
+## Special formats
+
+### Sheet structure
+
+Some APIs accept data in a sheet structure format for bulk operations. The JSON body represents tabular data similar to a spreadsheet. See [Sheet JSON format](/guides/developer-resources/sheet_json) for details.
