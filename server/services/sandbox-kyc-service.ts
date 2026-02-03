@@ -1009,6 +1009,55 @@ export class SandboxKYCService {
   }
 
   /**
+   * Get DigiLocker session status and consented documents
+   * @param sessionId - Session ID from initiation
+   */
+  async getDigiLockerSessionStatus(sessionId: string): Promise<{
+    sessionId: string;
+    status: 'created' | 'succeeded' | 'expired' | 'failed';
+    documentsConsented: Array<'aadhaar' | 'pan' | 'driving_license'>;
+    createdAt: number;
+    updatedAt?: number;
+    transactionId: string;
+  }> {
+    if (!sessionId || sessionId.trim().length === 0) {
+      throw new Error('Session ID is required');
+    }
+
+    const token = await this.authenticate();
+
+    try {
+      const response = await axios.get(
+        `${SANDBOX_BASE_URL}/kyc/digilocker/sessions/${sessionId}/status`,
+        {
+          headers: {
+            'x-api-key': SANDBOX_API_KEY,
+            'authorization': token,
+            'x-api-version': '1.0',
+          },
+        }
+      );
+
+      if (response.data.code !== 200) {
+        throw new Error(response.data.message || 'Failed to get DigiLocker session status');
+      }
+
+      const data = response.data.data;
+      return {
+        sessionId: data.id,
+        status: data.status,
+        documentsConsented: data.documents_consented || [],
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+        transactionId: response.data.transaction_id,
+      };
+    } catch (error: any) {
+      console.error('DigiLocker status error:', error.response?.data || error.message);
+      throw new Error(`Failed to get session status: ${error.response?.data?.message || error.message}`);
+    }
+  }
+
+  /**
    * Fetch documents from DigiLocker after user consent
    * @param sessionId - Session ID from initiation
    * @param documentType - Type of document to fetch (aadhaar, pan, driving_license, etc.)
