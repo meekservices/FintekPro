@@ -2763,7 +2763,7 @@ const prospectGoalSchema = z.object({
 router.post(
   "/prospects/:id/goals",
   requireAuth,
-  requireRole(['admin', 'agent']),
+  requireRole(['admin', 'agent', 'ops']),
   async (req: Request, res: Response) => {
     try {
       const { id: prospectId } = req.params;
@@ -2875,7 +2875,7 @@ router.post(
 router.get(
   "/prospects/:id/goals",
   requireAuth,
-  requireRole(['admin', 'agent']),
+  requireRole(['admin', 'agent', 'ops']),
   async (req: Request, res: Response) => {
     try {
       const { id: prospectId } = req.params;
