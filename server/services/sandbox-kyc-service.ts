@@ -500,6 +500,422 @@ export class SandboxKYCService {
 
     return matches / longer.length;
   }
+
+  // ============================================
+  // AADHAAR VERIFICATION
+  // ============================================
+
+  /**
+   * Generate OTP for Aadhaar verification
+   * @param aadhaarNumber - 12-digit Aadhaar number
+   */
+  async generateAadhaarOTP(aadhaarNumber: string): Promise<{
+    referenceId: string;
+    message: string;
+    validFor: number;
+  }> {
+    if (!/^\d{12}$/.test(aadhaarNumber)) {
+      throw new Error('Invalid Aadhaar number format. Must be 12 digits.');
+    }
+
+    const token = await this.authenticate();
+
+    try {
+      const response = await axios.post(
+        `${SANDBOX_BASE_URL}/kyc/aadhaar/otp/generate`,
+        { aadhaar_number: aadhaarNumber },
+        {
+          headers: {
+            'x-api-key': SANDBOX_API_KEY,
+            'authorization': token,
+            'x-api-version': '1.0',
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.data.code !== 200) {
+        throw new Error(response.data.message || 'Failed to generate Aadhaar OTP');
+      }
+
+      return {
+        referenceId: response.data.data.reference_id,
+        message: response.data.message || 'OTP sent successfully',
+        validFor: 300, // 5 minutes
+      };
+    } catch (error: any) {
+      console.error('Aadhaar OTP generation error:', error.response?.data || error.message);
+      throw new Error(`Aadhaar OTP generation failed: ${error.response?.data?.message || error.message}`);
+    }
+  }
+
+  /**
+   * Verify Aadhaar OTP and get eKYC data
+   * @param referenceId - Reference ID from OTP generation
+   * @param otp - 6-digit OTP received on registered mobile
+   */
+  async verifyAadhaarOTP(referenceId: string, otp: string): Promise<{
+    aadhaarNumber: string;
+    fullName: string;
+    dateOfBirth: string;
+    gender: string;
+    address: {
+      house: string;
+      street: string;
+      landmark: string;
+      locality: string;
+      district: string;
+      state: string;
+      pincode: string;
+      country: string;
+    };
+    photo?: string;
+    verified: boolean;
+  }> {
+    if (!referenceId || referenceId.trim().length === 0) {
+      throw new Error('Reference ID is required');
+    }
+    if (!/^\d{6}$/.test(otp)) {
+      throw new Error('Invalid OTP format. Must be 6 digits.');
+    }
+
+    const token = await this.authenticate();
+
+    try {
+      const response = await axios.post(
+        `${SANDBOX_BASE_URL}/kyc/aadhaar/otp/verify`,
+        { reference_id: referenceId, otp },
+        {
+          headers: {
+            'x-api-key': SANDBOX_API_KEY,
+            'authorization': token,
+            'x-api-version': '1.0',
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.data.code !== 200) {
+        throw new Error(response.data.message || 'Aadhaar OTP verification failed');
+      }
+
+      const data = response.data.data;
+      return {
+        aadhaarNumber: data.aadhaar_number || data.masked_aadhaar,
+        fullName: data.full_name || data.name,
+        dateOfBirth: data.date_of_birth || data.dob,
+        gender: data.gender,
+        address: {
+          house: data.address?.house || '',
+          street: data.address?.street || '',
+          landmark: data.address?.landmark || '',
+          locality: data.address?.locality || data.address?.vtc || '',
+          district: data.address?.district || '',
+          state: data.address?.state || '',
+          pincode: data.address?.pincode || data.address?.zip || '',
+          country: data.address?.country || 'India',
+        },
+        photo: data.photo,
+        verified: true,
+      };
+    } catch (error: any) {
+      console.error('Aadhaar OTP verification error:', error.response?.data || error.message);
+      throw new Error(`Aadhaar verification failed: ${error.response?.data?.message || error.message}`);
+    }
+  }
+
+  // ============================================
+  // PENNY DROP BANK VERIFICATION
+  // ============================================
+
+  /**
+   * Verify bank account via Penny Drop (small amount transfer)
+   * @param accountNumber - Bank account number
+   * @param ifsc - IFSC code
+   */
+  async verifyBankAccountPennyDrop(accountNumber: string, ifsc: string): Promise<{
+    accountNumber: string;
+    ifsc: string;
+    accountHolderName: string;
+    bankName: string;
+    branchName: string;
+    verified: boolean;
+    transactionId: string;
+    utr?: string;
+  }> {
+    if (!accountNumber || !/^\d{9,18}$/.test(accountNumber)) {
+      throw new Error('Invalid account number. Must be 9-18 numeric digits.');
+    }
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) {
+      throw new Error('Invalid IFSC format');
+    }
+
+    const token = await this.authenticate();
+
+    try {
+      const response = await axios.post(
+        `${SANDBOX_BASE_URL}/kyc/bank/penny-drop`,
+        { 
+          account_number: accountNumber,
+          ifsc: ifsc,
+        },
+        {
+          headers: {
+            'x-api-key': SANDBOX_API_KEY,
+            'authorization': token,
+            'x-api-version': '1.0',
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.data.code !== 200) {
+        throw new Error(response.data.message || 'Penny drop verification failed');
+      }
+
+      const data = response.data.data;
+      return {
+        accountNumber: data.account_number,
+        ifsc: data.ifsc,
+        accountHolderName: data.account_holder_name || data.name_at_bank,
+        bankName: data.bank_name,
+        branchName: data.branch_name || data.branch,
+        verified: data.verified || data.account_exists === true,
+        transactionId: response.data.transaction_id,
+        utr: data.utr,
+      };
+    } catch (error: any) {
+      console.error('Penny drop verification error:', error.response?.data || error.message);
+      throw new Error(`Bank verification failed: ${error.response?.data?.message || error.message}`);
+    }
+  }
+
+  // ============================================
+  // DIGILOCKER INTEGRATION
+  // ============================================
+
+  /**
+   * Initiate DigiLocker session for consent-based document access
+   * @param redirectUrl - URL to redirect after DigiLocker authentication
+   */
+  async initiateDigiLockerSession(redirectUrl: string): Promise<{
+    sessionId: string;
+    authorizationUrl: string;
+    expiresAt: string;
+  }> {
+    if (!redirectUrl || !/^https?:\/\/.+/.test(redirectUrl)) {
+      throw new Error('Valid redirect URL is required (must start with http:// or https://)');
+    }
+
+    const token = await this.authenticate();
+
+    try {
+      const response = await axios.post(
+        `${SANDBOX_BASE_URL}/kyc/digilocker/initiate`,
+        { redirect_url: redirectUrl },
+        {
+          headers: {
+            'x-api-key': SANDBOX_API_KEY,
+            'authorization': token,
+            'x-api-version': '1.0',
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.data.code !== 200) {
+        throw new Error(response.data.message || 'DigiLocker session initiation failed');
+      }
+
+      const data = response.data.data;
+      return {
+        sessionId: data.session_id || data.request_id,
+        authorizationUrl: data.authorization_url || data.url,
+        expiresAt: data.expires_at || new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      };
+    } catch (error: any) {
+      console.error('DigiLocker initiation error:', error.response?.data || error.message);
+      throw new Error(`DigiLocker initiation failed: ${error.response?.data?.message || error.message}`);
+    }
+  }
+
+  /**
+   * Fetch documents from DigiLocker after user consent
+   * @param sessionId - Session ID from initiation
+   * @param documentType - Type of document to fetch (aadhaar, pan, driving_license, etc.)
+   */
+  async fetchDigiLockerDocument(sessionId: string, documentType: string): Promise<{
+    documentType: string;
+    documentId: string;
+    issuedBy: string;
+    issuedOn?: string;
+    validUntil?: string;
+    documentData: Record<string, any>;
+    xmlData?: string;
+    pdfUrl?: string;
+  }> {
+    if (!sessionId || sessionId.trim().length === 0) {
+      throw new Error('Session ID is required');
+    }
+    if (!documentType || documentType.trim().length === 0) {
+      throw new Error('Document type is required');
+    }
+
+    const token = await this.authenticate();
+
+    try {
+      const response = await axios.post(
+        `${SANDBOX_BASE_URL}/kyc/digilocker/fetch`,
+        { 
+          session_id: sessionId,
+          document_type: documentType,
+        },
+        {
+          headers: {
+            'x-api-key': SANDBOX_API_KEY,
+            'authorization': token,
+            'x-api-version': '1.0',
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.data.code !== 200) {
+        throw new Error(response.data.message || 'DigiLocker document fetch failed');
+      }
+
+      const data = response.data.data;
+      return {
+        documentType: data.document_type || documentType,
+        documentId: data.document_id || data.doc_id,
+        issuedBy: data.issued_by || data.issuer,
+        issuedOn: data.issued_on || data.issue_date,
+        validUntil: data.valid_until || data.expiry_date,
+        documentData: data.document_data || data.details || {},
+        xmlData: data.xml_data,
+        pdfUrl: data.pdf_url,
+      };
+    } catch (error: any) {
+      console.error('DigiLocker fetch error:', error.response?.data || error.message);
+      throw new Error(`DigiLocker fetch failed: ${error.response?.data?.message || error.message}`);
+    }
+  }
+
+  // ============================================
+  // ENTITYLOCKER (Business Document Verification)
+  // ============================================
+
+  /**
+   * Initiate EntityLocker session for business document verification
+   * @param gstin - GSTIN of the business
+   * @param redirectUrl - URL to redirect after authentication
+   */
+  async initiateEntityLockerSession(gstin: string, redirectUrl: string): Promise<{
+    sessionId: string;
+    authorizationUrl: string;
+    expiresAt: string;
+  }> {
+    if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(gstin)) {
+      throw new Error('Invalid GSTIN format');
+    }
+    if (!redirectUrl || !/^https?:\/\/.+/.test(redirectUrl)) {
+      throw new Error('Valid redirect URL is required (must start with http:// or https://)');
+    }
+
+    const token = await this.authenticate();
+
+    try {
+      const response = await axios.post(
+        `${SANDBOX_BASE_URL}/kyc/entitylocker/initiate`,
+        { 
+          gstin,
+          redirect_url: redirectUrl,
+        },
+        {
+          headers: {
+            'x-api-key': SANDBOX_API_KEY,
+            'authorization': token,
+            'x-api-version': '1.0',
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.data.code !== 200) {
+        throw new Error(response.data.message || 'EntityLocker session initiation failed');
+      }
+
+      const data = response.data.data;
+      return {
+        sessionId: data.session_id || data.request_id,
+        authorizationUrl: data.authorization_url || data.url,
+        expiresAt: data.expires_at || new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      };
+    } catch (error: any) {
+      console.error('EntityLocker initiation error:', error.response?.data || error.message);
+      throw new Error(`EntityLocker initiation failed: ${error.response?.data?.message || error.message}`);
+    }
+  }
+
+  /**
+   * Fetch verified business documents from EntityLocker
+   * @param sessionId - Session ID from initiation
+   * @param documentType - Type of document (gst_certificate, incorporation_certificate, etc.)
+   */
+  async fetchEntityLockerDocument(sessionId: string, documentType: string): Promise<{
+    documentType: string;
+    gstin: string;
+    legalName: string;
+    tradeName?: string;
+    documentData: Record<string, any>;
+    pdfUrl?: string;
+    verifiedAt: string;
+  }> {
+    if (!sessionId || sessionId.trim().length === 0) {
+      throw new Error('Session ID is required');
+    }
+    if (!documentType || documentType.trim().length === 0) {
+      throw new Error('Document type is required');
+    }
+
+    const token = await this.authenticate();
+
+    try {
+      const response = await axios.post(
+        `${SANDBOX_BASE_URL}/kyc/entitylocker/fetch`,
+        { 
+          session_id: sessionId,
+          document_type: documentType,
+        },
+        {
+          headers: {
+            'x-api-key': SANDBOX_API_KEY,
+            'authorization': token,
+            'x-api-version': '1.0',
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.data.code !== 200) {
+        throw new Error(response.data.message || 'EntityLocker document fetch failed');
+      }
+
+      const data = response.data.data;
+      return {
+        documentType: data.document_type || documentType,
+        gstin: data.gstin,
+        legalName: data.legal_name || data.business_name,
+        tradeName: data.trade_name,
+        documentData: data.document_data || data.details || {},
+        pdfUrl: data.pdf_url,
+        verifiedAt: data.verified_at || new Date().toISOString(),
+      };
+    } catch (error: any) {
+      console.error('EntityLocker fetch error:', error.response?.data || error.message);
+      throw new Error(`EntityLocker fetch failed: ${error.response?.data?.message || error.message}`);
+    }
+  }
 }
 
 export const sandboxKYCService = new SandboxKYCService();
