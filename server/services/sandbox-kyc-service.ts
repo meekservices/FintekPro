@@ -502,6 +502,92 @@ export class SandboxKYCService {
   }
 
   // ============================================
+  // PAN VERIFICATION
+  // ============================================
+
+  /**
+   * Verify PAN details and holder information
+   * @param pan - PAN number to verify
+   * @param nameAsPerPan - Name on the PAN card
+   * @param dateOfBirth - Date of Birth/Incorporation in DD/MM/YYYY format
+   * @param reason - Purpose for verification
+   */
+  async verifyPAN(
+    pan: string,
+    nameAsPerPan: string,
+    dateOfBirth: string,
+    reason: string = 'KYC verification'
+  ): Promise<{
+    pan: string;
+    category: string;
+    status: 'valid' | 'invalid';
+    remarks: string | null;
+    nameMatch: boolean;
+    dobMatch: boolean;
+    aadhaarSeeded: 'y' | 'n' | 'na';
+    transactionId: string;
+  }> {
+    // PAN format: 3 letters + 1 letter (category) + 1 letter + 4 digits + 1 letter
+    if (!/^[A-Z]{3}[PCFTGHLABJ]{1}[A-Z]{1}[0-9]{4}[A-Z]{1}$/.test(pan)) {
+      throw new Error('Invalid PAN format');
+    }
+    if (!nameAsPerPan || nameAsPerPan.trim().length === 0) {
+      throw new Error('Name as per PAN is required');
+    }
+    // Date format DD/MM/YYYY
+    if (!/^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/[0-9]{4}$/.test(dateOfBirth)) {
+      throw new Error('Invalid date format. Use DD/MM/YYYY');
+    }
+    if (!reason || reason.trim().length === 0) {
+      throw new Error('Reason for verification is required');
+    }
+
+    const token = await this.authenticate();
+
+    try {
+      const response = await axios.post(
+        `${SANDBOX_BASE_URL}/kyc/pan/verify`,
+        {
+          '@entity': 'in.co.sandbox.kyc.pan_verification.request',
+          pan: pan,
+          name_as_per_pan: nameAsPerPan,
+          date_of_birth: dateOfBirth,
+          consent: 'Y',
+          reason: reason,
+        },
+        {
+          headers: {
+            'x-api-key': SANDBOX_API_KEY,
+            'authorization': token,
+            'x-api-version': '1.0',
+            'Content-Type': 'application/json',
+            'X-Accept-Cache': 'true',
+          },
+        }
+      );
+
+      if (response.data.code !== 200) {
+        throw new Error(response.data.message || 'PAN verification failed');
+      }
+
+      const data = response.data.data;
+      return {
+        pan: data.pan,
+        category: data.category,
+        status: data.status,
+        remarks: data.remarks,
+        nameMatch: data.name_as_per_pan_match === true,
+        dobMatch: data.date_of_birth_match === true,
+        aadhaarSeeded: data.aadhaar_seeding_status,
+        transactionId: response.data.transaction_id,
+      };
+    } catch (error: any) {
+      console.error('PAN verification error:', error.response?.data || error.message);
+      throw new Error(`PAN verification failed: ${error.response?.data?.message || error.message}`);
+    }
+  }
+
+  // ============================================
   // AADHAAR VERIFICATION
   // ============================================
 

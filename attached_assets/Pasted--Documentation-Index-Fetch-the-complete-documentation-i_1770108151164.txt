@@ -1,0 +1,355 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://developer.sandbox.co.in/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Verify PAN Details
+
+> API verifies the PAN number and the information of the holder.
+
+<Card title="Run in Postman" icon="https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=bf60d58751a51f6e80a8f2cdae74c9fc" horizontal arrow="true" href="https://www.postman.com/in-co-sandbox/sandbox-api/request/78kr566/verify-pan-details" data-og-width="2030" width="2030" data-og-height="2031" height="2031" data-path="static/svg/Postman.svg" data-optimize="true" data-opv="3" srcset="https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=280&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=a8161d9ab4b0cbfbfe9ce7d86a953ab4 280w, https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=560&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=692bb76a5da8bde417a42bc8e3fb3d12 560w, https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=840&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=22185eb59762467866dfd7ae89f04c61 840w, https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=1100&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=3dfce096efd8f3686e007202e961864f 1100w, https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=1650&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=d763125fec4e71e4017b4c47d2815420 1650w, https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=2500&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=1a03ffbeed1528dff8f272382c72a0d0 2500w" />
+
+
+## OpenAPI
+
+````yaml api-reference/kyc/openapi.json post /kyc/pan/verify
+openapi: 3.1.0
+info:
+  title: KYC
+  version: 1.0.0
+  description: ''
+servers:
+  - url: https://api.sandbox.co.in
+  - url: https://test-api.sandbox.co.in
+security: []
+paths:
+  /kyc/pan/verify:
+    post:
+      tags:
+        - PAN
+      summary: Verify PAN Details
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          description: JWT access token
+          schema:
+            deprecated: false
+            type: string
+        - name: x-api-key
+          in: header
+          required: true
+          description: API key for identification
+          schema:
+            deprecated: false
+            type: string
+        - name: x-accept-cache
+          in: header
+          required: false
+          description: >-
+            Pass true to accept the cached response. If the header is not
+            passed, or if false is sent as the value, the request will hit the
+            origin.
+          schema:
+            type: boolean
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                '@entity':
+                  type: string
+                  const: in.co.sandbox.kyc.pan_verification.request
+                pan:
+                  description: PAN to be verified.
+                  type: string
+                  pattern: ^[A-Z]{3}[PCFTGHLABJ]{1}[A-Z]{1}[0-9]{4}[A-Z]{1}$
+                name_as_per_pan:
+                  description: Name of the holder on their PAN card
+                  type: string
+                date_of_birth:
+                  description: Date of Birth/Incorporation. Format in DD/MM/YYYY
+                  type: string
+                  pattern: ^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/[0-9]{4}$
+                consent:
+                  description: >-
+                    Consent of the end-user to get their information for
+                    verification purposes.
+                  type: string
+                  enum:
+                    - 'Y'
+                    - 'y'
+                reason:
+                  description: Indicate the purpose for verification.
+                  type: string
+              required:
+                - '@entity'
+                - pan
+                - name_as_per_pan
+                - date_of_birth
+                - consent
+                - reason
+      responses:
+        '200':
+          description: 200 - OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  timestamp:
+                    type: integer
+                  transaction_id:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      '@entity':
+                        type: string
+                        const: in.co.sandbox.kyc.pan_verification.response
+                      pan:
+                        type: string
+                      category:
+                        type: string
+                      status:
+                        type: string
+                        enum:
+                          - valid
+                          - invalid
+                      remarks:
+                        type:
+                          - string
+                          - 'null'
+                      name_as_per_pan_match:
+                        type: boolean
+                      date_of_birth_match:
+                        type: boolean
+                      aadhaar_seeding_status:
+                        type: string
+                        enum:
+                          - 'y'
+                          - 'n'
+                          - na
+              examples:
+                200 - Sucess Individual:
+                  value:
+                    code: 200
+                    timestamp: 1765889766000
+                    transaction_id: 22b497f0-25ac-40c3-84b8-5ec0e5d86f9f
+                    data:
+                      '@entity': in.co.sandbox.kyc.pan_verification.response
+                      pan: XXXPX1234A
+                      category: individual
+                      status: valid
+                      remarks: null
+                      name_as_per_pan_match: true
+                      date_of_birth_match: true
+                      aadhaar_seeding_status: 'y'
+                Success Individual 2:
+                  value:
+                    code: 200
+                    timestamp: 1763725205000
+                    transaction_id: e4e653a2-3126-4f9e-afbf-ef077d7e7e01
+                    data:
+                      '@entity': in.co.sandbox.kyc.pan_verification.response
+                      pan: XXXPX1234H
+                      category: individual
+                      status: valid
+                      remarks: Holder is Deceased
+                      name_as_per_pan_match: true
+                      date_of_birth_match: true
+                      aadhaar_seeding_status: 'n'
+                Success Individual 3:
+                  value:
+                    code: 200
+                    timestamp: 1763725205000
+                    transaction_id: c4c939f2-1a70-4251-b142-e42520d20629
+                    data:
+                      '@entity': in.co.sandbox.kyc.pan_verification.response
+                      pan: XXXPX1234O
+                      category: individual
+                      status: valid
+                      remarks: null
+                      name_as_per_pan_match: true
+                      date_of_birth_match: false
+                      aadhaar_seeding_status: 'n'
+                Success Individual 4:
+                  value:
+                    code: 200
+                    timestamp: 1763725205000
+                    transaction_id: 99008d23-cf66-4d89-9058-66a76781d09b
+                    data:
+                      '@entity': in.co.sandbox.kyc.pan_verification.response
+                      pan: XXXPX1234L
+                      category: individual
+                      status: valid
+                      remarks: null
+                      name_as_per_pan_match: false
+                      date_of_birth_match: false
+                      aadhaar_seeding_status: 'n'
+                200 - Success PAN Trust:
+                  value:
+                    code: 200
+                    timestamp: 1765889766000
+                    transaction_id: 49851ab3-a51a-49ae-953d-9a56e83def57
+                    data:
+                      '@entity': in.co.sandbox.kyc.pan_verification.response
+                      pan: XXXTX1234P
+                      category: trust
+                      status: valid
+                      remarks: Liquidated
+                      name_as_per_pan_match: true
+                      date_of_birth_match: false
+                      aadhaar_seeding_status: na
+                200 - Success PAN Company:
+                  value:
+                    code: 200
+                    timestamp: 1765889766000
+                    transaction_id: 4ad1ca5f-5654-4a6a-8549-f2a2f11a76bf
+                    data:
+                      '@entity': in.co.sandbox.kyc.pan_verification.response
+                      pan: XXXCX1234B
+                      category: company
+                      status: valid
+                      remarks: Merger
+                      name_as_per_pan_match: true
+                      date_of_birth_match: true
+                      aadhaar_seeding_status: na
+                200 - Success PAN AOP:
+                  value:
+                    code: 200
+                    timestamp: 1765889766000
+                    transaction_id: 2fcc0dae-738d-41b7-884c-bb0f930af9d9
+                    data:
+                      '@entity': in.co.sandbox.kyc.pan_verification.response
+                      pan: XXXAX2345A
+                      category: association_of_persons
+                      status: valid
+                      remarks: null
+                      name_as_per_pan_match: false
+                      date_of_birth_match: false
+                      aadhaar_seeding_status: na
+                200 - Success PAN BOI:
+                  value:
+                    code: 200
+                    timestamp: 1765889766000
+                    transaction_id: 55ef9e57-762e-4ab2-bb0f-43ac7edcc8a5
+                    data:
+                      '@entity': in.co.sandbox.kyc.pan_verification.response
+                      pan: XXXBX3456B
+                      category: body_of_individuals
+                      status: valid
+                      remarks: null
+                      name_as_per_pan_match: false
+                      date_of_birth_match: true
+                      aadhaar_seeding_status: na
+                200 - Invalid PAN:
+                  value:
+                    code: 200
+                    timestamp: 1763725205000
+                    transaction_id: c0c604e5-0ed2-4956-9200-9ff84d4e0d87
+                    data:
+                      '@entity': in.co.sandbox.kyc.pan_verification.response
+                      pan: XXXFX1234J
+                      category: firm
+                      status: invalid
+                      remarks: Deleted
+                      name_as_per_pan_match: false
+                      date_of_birth_match: false
+                      aadhaar_seeding_status: na
+                200 - Success Individual 2:
+                  value:
+                    code: 200
+                    timestamp: 1765889766000
+                    transaction_id: 66fe1399-f6cd-4f4a-b2f6-94a26dbcd5ea
+                    data:
+                      '@entity': in.co.sandbox.kyc.pan_verification.response
+                      pan: XXXPX1234H
+                      category: individual
+                      status: valid
+                      remarks: Holder is Deceased
+                      name_as_per_pan_match: true
+                      date_of_birth_match: true
+                      aadhaar_seeding_status: 'n'
+                200 - Success Individual 3:
+                  value:
+                    code: 200
+                    timestamp: 1765889766000
+                    transaction_id: 96c8eabe-4086-45fb-90f1-1f6d1fe1dcec
+                    data:
+                      '@entity': in.co.sandbox.kyc.pan_verification.response
+                      pan: XXXPX1234O
+                      category: individual
+                      status: valid
+                      remarks: null
+                      name_as_per_pan_match: true
+                      date_of_birth_match: false
+                      aadhaar_seeding_status: 'n'
+                200 - Success Individual 4:
+                  value:
+                    code: 200
+                    timestamp: 1765889766000
+                    transaction_id: a189c729-da89-4022-8b79-6dc5fd1d3e1b
+                    data:
+                      '@entity': in.co.sandbox.kyc.pan_verification.response
+                      pan: XXXPX1234L
+                      category: individual
+                      status: valid
+                      remarks: null
+                      name_as_per_pan_match: false
+                      date_of_birth_match: false
+                      aadhaar_seeding_status: 'n'
+        '422':
+          description: 422 - Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  timestamp:
+                    type: integer
+                  transaction_id:
+                    type: string
+                  message:
+                    type: string
+              examples:
+                422 - Invalid PAN Pattern:
+                  value:
+                    code: 422
+                    timestamp: 1765889766000
+                    transaction_id: bdea6488-9d3d-4d2d-a65d-d264894160da
+                    message: Invalid Pan pattern
+                422 - Consent Required:
+                  value:
+                    code: 422
+                    timestamp: 1763725205000
+                    transaction_id: 10b612a9-af40-4c6b-a42b-0d9074a74edc
+                    message: 'Invalid parameter: Consent is required.'
+        '503':
+          description: 503 - Source Unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  timestamp:
+                    type: integer
+                  transaction_id:
+                    type: string
+                  message:
+                    type: string
+              examples:
+                503 - Source Unavailable:
+                  value:
+                    code: 503
+                    timestamp: 1763725205000
+                    transaction_id: fea7fc6e-fd43-45e2-83fe-3f461e4434e9
+                    message: Source Unavailable
+
+````
