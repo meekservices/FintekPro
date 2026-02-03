@@ -1,0 +1,203 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://developer.sandbox.co.in/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Get Document
+
+> Description of your new file.
+
+<Card title="Run in Postman" icon="https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=bf60d58751a51f6e80a8f2cdae74c9fc" horizontal arrow="true" href="https://www.postman.com/in-co-sandbox/sandbox-api/request/hfrm2iu/get-document" data-og-width="2030" width="2030" data-og-height="2031" height="2031" data-path="static/svg/Postman.svg" data-optimize="true" data-opv="3" srcset="https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=280&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=a8161d9ab4b0cbfbfe9ce7d86a953ab4 280w, https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=560&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=692bb76a5da8bde417a42bc8e3fb3d12 560w, https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=840&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=22185eb59762467866dfd7ae89f04c61 840w, https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=1100&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=3dfce096efd8f3686e007202e961864f 1100w, https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=1650&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=d763125fec4e71e4017b4c47d2815420 1650w, https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=2500&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=1a03ffbeed1528dff8f272382c72a0d0 2500w" />
+
+<Info>
+  A document can only be fetched if the user has provided consent for it.
+</Info>
+
+
+## OpenAPI
+
+````yaml api-reference/kyc/openapi.json get /kyc/digilocker-sdk/sessions/{session_id}/documents/{doc_type}
+openapi: 3.1.0
+info:
+  title: KYC
+  version: 1.0.0
+  description: ''
+servers:
+  - url: https://api.sandbox.co.in
+  - url: https://test-api.sandbox.co.in
+security: []
+paths:
+  /kyc/digilocker-sdk/sessions/{session_id}/documents/{doc_type}:
+    parameters:
+      - name: session_id
+        in: path
+        required: true
+        description: SDK session created in Create Session API
+        schema:
+          deprecated: false
+          type: string
+          format: uuid
+      - name: doc_type
+        in: path
+        required: true
+        description: Document you want to fetch
+        schema:
+          deprecated: false
+          type: string
+          enum:
+            - aadhaar
+            - driving_license
+            - pan
+    get:
+      tags:
+        - DigiLocker
+        - DigiLocker SDK
+      summary: Get Document
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          description: JWT access token
+          schema:
+            deprecated: false
+            type: string
+        - name: x-api-key
+          in: header
+          required: true
+          description: API key for identification
+          schema:
+            deprecated: false
+            type: string
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 200 - OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  timestamp:
+                    type: integer
+                  data:
+                    type: object
+                    properties:
+                      files:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            '@entity':
+                              type: string
+                              const: org.quicko.drive.file
+                            url:
+                              type: string
+                              format: uri
+                            size:
+                              type: integer
+                            metadata:
+                              type: object
+                              properties:
+                                ContentType:
+                                  type: string
+                                issuer_id:
+                                  type: string
+                                issuer:
+                                  type: string
+                                LastModified:
+                                  type: string
+                                description:
+                                  type: string
+                  transaction_id:
+                    type: string
+              examples:
+                200 - OK:
+                  value:
+                    code: 200
+                    timestamp: 1751975529441
+                    data:
+                      files:
+                        - '@entity': org.quicko.drive.file
+                          url: >-
+                            https://in-co-sandbox-kyc-digilocker-dev.s3.ap-south-1.amazonaws.com/non-persistent/e385432b-575c-4b6f-8928-79136dbc0d4f/4b4bf7aa-f4da-47a8-9b32-895edfc03630/in.gov.uidai-ADHAR-0d5fe4d692c73e23c59a694eaaabc75a.xml?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=null%2F20250708%2Fap-south-1%2Fs3%2Faws4_request&X-Amz-Date=20250708T115214Z&X-Amz-Expires=3600&X-Amz-Signature=8cc4b0e8eb3794601c7fdb7e85f3a6bb3a8e1842403c8aeae5c05b7af03bdadb&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject
+                          size: 16598
+                          metadata:
+                            ContentType: application/xml
+                            issuer_id: in.gov.uidai
+                            issuer: Unique Identification Authority of India (UIDAI)
+                            LastModified: 09/05/2025
+                            description: Aadhaar Card
+                    transaction_id: a4d43b74-0f9c-480c-9300-f011100b674b
+        '400':
+          description: 400 - Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  timestamp:
+                    type: integer
+                  transaction_id:
+                    type: string
+                  message:
+                    type: string
+              examples:
+                400 - Consent not provided:
+                  value:
+                    code: 400
+                    timestamp: 1760432035872
+                    message: Consent for pan not provided
+                    transaction_id: 3d1d2d37-3179-4a3c-8397-2287084d1de1
+        '521':
+          description: 521 - Data Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  timestamp:
+                    type: integer
+                  transaction_id:
+                    type: string
+                  message:
+                    type: string
+              examples:
+                521 - Data Not Found:
+                  value:
+                    code: 521
+                    timestamp: 1760428752393
+                    message: 'Data not found for: 839fd8a0-d645-42e1-a904-bb43353b0139'
+                    transaction_id: 8be099b1-8d19-457e-b907-5b825740d9cc
+        '523':
+          description: 523 - Invalid Lifecycle
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  timestamp:
+                    type: integer
+                  transaction_id:
+                    type: string
+                  message:
+                    type: string
+              examples:
+                523 - Invalid Session Lifecycle:
+                  value:
+                    code: 523
+                    timestamp: 1760431743347
+                    message: Cannot get document due to invalid session lifecycle
+                    transaction_id: 031c9d24-99c4-49cb-b4ba-11e8c3630f9f
+
+````

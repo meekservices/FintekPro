@@ -1119,7 +1119,81 @@ export class SandboxKYCService {
   }
 
   /**
-   * Fetch documents from DigiLocker after user consent
+   * Get document from DigiLocker SDK session
+   * Use this for SDK flow to fetch consented documents
+   * @param sessionId - SDK Session ID from createDigiLockerSDKSession
+   * @param docType - Document type to fetch (aadhaar, pan, driving_license)
+   */
+  async getDigiLockerSDKDocument(
+    sessionId: string, 
+    docType: 'aadhaar' | 'pan' | 'driving_license'
+  ): Promise<{
+    files: Array<{
+      url: string;
+      size: number;
+      contentType: string;
+      issuerId: string;
+      issuer: string;
+      lastModified: string;
+      description: string;
+    }>;
+    transactionId: string;
+  }> {
+    if (!sessionId || sessionId.trim().length === 0) {
+      throw new Error('Session ID is required');
+    }
+    if (!docType) {
+      throw new Error('Document type is required');
+    }
+
+    const token = await this.authenticate();
+
+    try {
+      const response = await axios.get(
+        `${SANDBOX_BASE_URL}/kyc/digilocker-sdk/sessions/${sessionId}/documents/${docType}`,
+        {
+          headers: {
+            'x-api-key': SANDBOX_API_KEY,
+            'authorization': token,
+            'x-api-version': '1.0',
+          },
+        }
+      );
+
+      if (response.data.code !== 200) {
+        throw new Error(response.data.message || 'Failed to get DigiLocker document');
+      }
+
+      const data = response.data.data;
+      return {
+        files: (data.files || []).map((file: any) => ({
+          url: file.url,
+          size: file.size,
+          contentType: file.metadata?.ContentType || '',
+          issuerId: file.metadata?.issuer_id || '',
+          issuer: file.metadata?.issuer || '',
+          lastModified: file.metadata?.LastModified || '',
+          description: file.metadata?.description || '',
+        })),
+        transactionId: response.data.transaction_id,
+      };
+    } catch (error: any) {
+      console.error('DigiLocker SDK document error:', error.response?.data || error.message);
+      if (error.response?.data?.code === 400) {
+        throw new Error(`Consent not provided for ${docType}`);
+      }
+      if (error.response?.data?.code === 521) {
+        throw new Error('Session data not found');
+      }
+      if (error.response?.data?.code === 523) {
+        throw new Error('Invalid session lifecycle - cannot get document');
+      }
+      throw new Error(`Failed to get document: ${error.response?.data?.message || error.message}`);
+    }
+  }
+
+  /**
+   * Fetch documents from DigiLocker after user consent (API flow)
    * @param sessionId - Session ID from initiation
    * @param documentType - Type of document to fetch (aadhaar, pan, driving_license, etc.)
    */
