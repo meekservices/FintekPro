@@ -946,11 +946,12 @@ export class SandboxKYCService {
   }
 
   // ============================================
-  // DIGILOCKER INTEGRATION
+  // DIGILOCKER INTEGRATION (API)
   // ============================================
 
   /**
-   * Initiate DigiLocker session for consent-based document access
+   * Initiate DigiLocker session for consent-based document access (API flow)
+   * Use this for backend-controlled flows with redirect URL
    * @param redirectUrl - URL to redirect after DigiLocker authentication
    * @param docTypes - Document types to request consent for (aadhaar, pan, driving_license)
    * @param flow - Whether user is signing in or signing up on DigiLocker
@@ -1054,6 +1055,66 @@ export class SandboxKYCService {
     } catch (error: any) {
       console.error('DigiLocker status error:', error.response?.data || error.message);
       throw new Error(`Failed to get session status: ${error.response?.data?.message || error.message}`);
+    }
+  }
+
+  // ============================================
+  // DIGILOCKER SDK INTEGRATION
+  // ============================================
+
+  /**
+   * Create DigiLocker SDK session for client-side SDK integration
+   * Use this when integrating with DigiLocker Web/iOS/Android/Flutter SDKs
+   * @param docTypes - Document types to request consent for
+   * @param flow - Whether user is signing in or signing up on DigiLocker
+   */
+  async createDigiLockerSDKSession(
+    docTypes: Array<'aadhaar' | 'pan' | 'driving_license'> = ['aadhaar'],
+    flow: 'signin' | 'signup' = 'signin'
+  ): Promise<{
+    sessionId: string;
+    status: 'created';
+    createdAt: number;
+    transactionId: string;
+  }> {
+    if (!docTypes || docTypes.length === 0) {
+      throw new Error('At least one document type is required');
+    }
+
+    const token = await this.authenticate();
+
+    try {
+      const response = await axios.post(
+        `${SANDBOX_BASE_URL}/kyc/digilocker-sdk/sessions/create`,
+        { 
+          '@entity': 'in.co.sandbox.kyc.digilocker.sdk.session.request',
+          flow: flow,
+          doc_types: docTypes,
+        },
+        {
+          headers: {
+            'x-api-key': SANDBOX_API_KEY,
+            'authorization': token,
+            'x-api-version': '1.0',
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.data.code !== 200) {
+        throw new Error(response.data.message || 'DigiLocker SDK session creation failed');
+      }
+
+      const data = response.data.data;
+      return {
+        sessionId: data.id,
+        status: data.status,
+        createdAt: data.created_at,
+        transactionId: response.data.transaction_id,
+      };
+    } catch (error: any) {
+      console.error('DigiLocker SDK session error:', error.response?.data || error.message);
+      throw new Error(`DigiLocker SDK session failed: ${error.response?.data?.message || error.message}`);
     }
   }
 
