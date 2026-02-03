@@ -45,8 +45,12 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 /**
  * Middleware: Require specific role(s)
  * @param requiredRoles - Array of roles, user must have at least one
+ * Supports both: requireRole('admin', 'agent') and requireRole(['admin', 'agent'])
  */
-export function requireRole(...requiredRoles: RoleId[]) {
+export function requireRole(...requiredRoles: (RoleId | RoleId[])[]) {
+  // Flatten in case array was passed: requireRole(['admin', 'agent']) becomes [['admin', 'agent']]
+  const flatRoles: RoleId[] = requiredRoles.flat() as RoleId[];
+  
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ 
@@ -57,14 +61,14 @@ export function requireRole(...requiredRoles: RoleId[]) {
     }
 
     const userRoles = getUserRoles(req.user);
-    const result = roleService.checkRoleAccess(userRoles, requiredRoles);
+    const result = roleService.checkRoleAccess(userRoles, flatRoles);
 
     if (!result.allowed) {
       return res.status(403).json({ 
         success: false,
         message: 'Insufficient privileges',
         code: 'FORBIDDEN',
-        required: requiredRoles,
+        required: flatRoles,
         userRoles: userRoles
       });
     }
