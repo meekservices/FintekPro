@@ -6540,7 +6540,7 @@ export default function AgentProspectWizard() {
                     <div className="space-y-2">
                       {investmentGoals.slice(0, 3).map((goal, idx) => (
                         <div key={idx} className="flex justify-between">
-                          <span className="text-muted-foreground">{goal.type}</span>
+                          <span className="text-muted-foreground">{goal.goalName}</span>
                           <span>{formatCurrency(goal.targetAmount)}</span>
                         </div>
                       ))}
