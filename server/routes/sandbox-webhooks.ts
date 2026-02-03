@@ -268,9 +268,9 @@ export function registerSandboxWebhookRoutes(app: Express): void {
   // Additional Sandbox API Routes
   // ============================================
 
-  // 1. GST Verification
-  app.get('/api/gst/verify/:gstin', async (req: Request, res: Response) => {
-    const { gstin } = req.params;
+  // 1. GST Verification (POST for security - sensitive identifiers in body, not URL)
+  app.post('/api/gst/verify', async (req: Request, res: Response) => {
+    const { gstin } = req.body;
     
     if (!gstin || gstin.length !== 15) {
       return res.status(400).json({

@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 // Sandbox API Configuration
-const SANDBOX_API_URL = 'https://api.sandbox.co.in/bank';
+const SANDBOX_BASE_URL = process.env.SANDBOX_BASE_URL || 'https://api.sandbox.co.in';
+const SANDBOX_API_URL = `${SANDBOX_BASE_URL}/bank`;
 const SANDBOX_API_KEY = process.env.SANDBOX_API_KEY;
 const SANDBOX_API_SECRET = process.env.SANDBOX_API_SECRET;
 

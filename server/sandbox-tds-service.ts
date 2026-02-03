@@ -1,9 +1,7 @@
 import { z } from 'zod';
 
-// Sandbox.co.in TDS API Configuration
-const SANDBOX_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://api.sandbox.co.in' 
-  : 'https://test-api.sandbox.co.in';
+// Sandbox.co.in TDS API Configuration (uses SANDBOX_BASE_URL env var or defaults to production)
+const SANDBOX_BASE_URL = process.env.SANDBOX_BASE_URL || 'https://api.sandbox.co.in';
 
 // ============ TDS CALCULATOR SCHEMAS ============
 

@@ -9,9 +9,8 @@
 
 import axios from 'axios';
 
-const SANDBOX_BASE_URL = process.env.NODE_ENV === 'production'
-  ? 'https://api.sandbox.co.in'
-  : 'https://api.sandbox.co.in';
+// Uses SANDBOX_BASE_URL env var or defaults to production
+const SANDBOX_BASE_URL = process.env.SANDBOX_BASE_URL || 'https://api.sandbox.co.in';
 
 const SANDBOX_API_KEY = process.env.SANDBOX_API_KEY;
 const SANDBOX_API_SECRET = process.env.SANDBOX_API_SECRET;
