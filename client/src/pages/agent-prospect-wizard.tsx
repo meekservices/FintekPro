@@ -26,7 +26,8 @@ import {
   IndianRupee, Percent, Clock, Shield, Zap, RefreshCw, Search, Users, Download,
   Upload, Link, FileText, AlertCircle, Settings2, Globe, ChevronUp, ChevronDown, Info,
   Pencil, RotateCcw, Save, X, Lightbulb, Calculator, LayoutGrid, Wand2,
-  Activity, Wallet, BarChart3, ListChecks, ArrowUpCircle, FileCheck
+  Activity, Wallet, BarChart3, ListChecks, ArrowUpCircle, FileCheck,
+  CalendarDays, ClipboardCheck, UserCheck, RefreshCcw
 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import jsPDF from "jspdf";
@@ -524,6 +525,31 @@ export default function AgentProspectWizard() {
     liquidityNeeds: 'medium'
   });
 
+  // Goal Mapping State (Step 3)
+  const [investmentGoals, setInvestmentGoals] = useState<Array<{
+    id: string;
+    goalType: string;
+    goalName: string;
+    targetAmount: number;
+    timelineYears: number;
+    priority: 'high' | 'medium' | 'low';
+    currentProgress: number;
+    monthlyContribution: number;
+  }>>([]);
+  
+  const GOAL_TYPES = [
+    { value: 'retirement', label: 'Retirement', icon: '🏖️' },
+    { value: 'child_education', label: "Child's Education", icon: '🎓' },
+    { value: 'house_purchase', label: 'House Purchase', icon: '🏠' },
+    { value: 'wealth_creation', label: 'Wealth Creation', icon: '📈' },
+    { value: 'emergency_fund', label: 'Emergency Fund', icon: '🛡️' },
+    { value: 'car_purchase', label: 'Car Purchase', icon: '🚗' },
+    { value: 'vacation', label: 'Vacation', icon: '✈️' },
+    { value: 'wedding', label: 'Wedding', icon: '💍' },
+    { value: 'business', label: 'Start Business', icon: '💼' },
+    { value: 'other', label: 'Other', icon: '🎯' }
+  ];
+
   const [holdings, setHoldings] = useState<PortfolioHolding[]>([]);
   const [newHolding, setNewHolding] = useState<Partial<PortfolioHolding>>({
     productType: "mutual_fund",
@@ -709,9 +735,9 @@ export default function AgentProspectWizard() {
     });
   }, [totalPortfolioValue]);
   
-  // Apply AI defaults when entering Step 6 (Categories) in AI mode or when risk profile changes
+  // Apply AI defaults when entering Step 7 (Categories) in AI mode or when risk profile changes
   useEffect(() => {
-    if (currentStep === 6 && categorySelectionMode === 'ai_default') {
+    if (currentStep === 7 && categorySelectionMode === 'ai_default') {
       // Apply AI defaults based on current risk profile
       const aiCategories = getAIDefaultCategories(riskProfile.riskTolerance);
       setSelectedCategories(aiCategories);
@@ -2051,7 +2077,7 @@ export default function AgentProspectWizard() {
       if (data.success) {
         setRebalancing(data.suggestions || []);
         setTaxSummary(data.taxSummary || null);
-        setCurrentStep(8);
+        setCurrentStep(11);
       }
     }
   });
@@ -2072,7 +2098,7 @@ export default function AgentProspectWizard() {
     onSuccess: (data) => {
       if (data.success) {
         setFreshInvestments(data.suggestions);
-        setCurrentStep(9);
+        setCurrentStep(12);
       }
     }
   });
@@ -2224,7 +2250,7 @@ export default function AgentProspectWizard() {
       if (data.success) {
         setProposal(data.proposal);
         toast({ title: "Proposal Generated", description: "Investment proposal ready to share!" });
-        setCurrentStep(10);
+        setCurrentStep(15);
         
         if (zohoLeadId && zohoSource === 'zoho') {
           const products = selectedCategories.filter(c => customAllocations[c as keyof typeof customAllocations] > 0);
@@ -2553,16 +2579,21 @@ export default function AgentProspectWizard() {
   };
 
   const steps = [
-    { num: 1, title: "Add Prospect", icon: User },
-    { num: 2, title: "Risk Profile", icon: Target },
-    { num: 3, title: "Portfolio", icon: PieChart },
-    { num: 4, title: "Analysis", icon: Sparkles },
-    { num: 5, title: "Sections", icon: FileCheck },
-    { num: 6, title: "Categories", icon: LayoutGrid },
-    { num: 7, title: "Allocation", icon: Settings2 },
-    { num: 8, title: "Rebalance", icon: Scale },
-    { num: 9, title: "Fresh Invest", icon: TrendingUp },
-    { num: 10, title: "Share", icon: Share2 }
+    { num: 1, title: "Prospect", icon: User },
+    { num: 2, title: "Risk", icon: Target },
+    { num: 3, title: "Goals", icon: Lightbulb },
+    { num: 4, title: "Portfolio", icon: PieChart },
+    { num: 5, title: "Analysis", icon: Sparkles },
+    { num: 6, title: "Sections", icon: FileCheck },
+    { num: 7, title: "Categories", icon: LayoutGrid },
+    { num: 8, title: "Allocation", icon: Settings2 },
+    { num: 9, title: "What-If", icon: TrendingDown },
+    { num: 10, title: "Tax", icon: Calculator },
+    { num: 11, title: "Rebalance", icon: Scale },
+    { num: 12, title: "Fresh", icon: TrendingUp },
+    { num: 13, title: "SIP", icon: ArrowUpCircle },
+    { num: 14, title: "Review", icon: FileText },
+    { num: 15, title: "Share", icon: Share2 }
   ];
 
   return (
@@ -2918,14 +2949,226 @@ export default function AgentProspectWizard() {
             <Button variant="outline" onClick={() => setCurrentStep(1)} data-testid="back-to-prospect-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
-            <Button onClick={() => setCurrentStep(3)} data-testid="continue-to-portfolio-btn">
+            <Button onClick={() => setCurrentStep(3)} data-testid="continue-to-goals-btn">
+              Continue to Goals <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
+
+      {/* Step 3: Goal Mapping */}
+      {currentStep === 3 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Lightbulb className="h-5 w-5 text-amber-500" /> Investment Goals</CardTitle>
+            <CardDescription>Define financial goals to create a personalized investment strategy for {prospectData.name}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {investmentGoals.length === 0 ? (
+              <div className="text-center py-8 border-2 border-dashed rounded-lg">
+                <Lightbulb className="h-12 w-12 mx-auto mb-3 text-amber-500/50" />
+                <p className="text-muted-foreground mb-4">No goals added yet. Add financial goals to personalize recommendations.</p>
+                <Button onClick={() => setInvestmentGoals([{
+                  id: crypto.randomUUID(),
+                  goalType: 'wealth_creation',
+                  goalName: 'Wealth Building',
+                  targetAmount: 1000000,
+                  timelineYears: 10,
+                  priority: 'high',
+                  currentProgress: 0,
+                  monthlyContribution: 10000
+                }])}>
+                  <Plus className="h-4 w-4 mr-2" /> Add First Goal
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {investmentGoals.map((goal, idx) => (
+                  <Card key={goal.id} className="border-l-4 border-l-amber-500">
+                    <CardContent className="pt-4">
+                      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Goal Type</Label>
+                          <Select 
+                            value={goal.goalType} 
+                            onValueChange={(v) => {
+                              const updated = [...investmentGoals];
+                              updated[idx].goalType = v;
+                              updated[idx].goalName = GOAL_TYPES.find(g => g.value === v)?.label || v;
+                              setInvestmentGoals(updated);
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {GOAL_TYPES.map(g => (
+                                <SelectItem key={g.value} value={g.value}>
+                                  {g.icon} {g.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Target Amount</Label>
+                          <div className="relative">
+                            <IndianRupee className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              type="number"
+                              className="pl-9"
+                              value={goal.targetAmount}
+                              onChange={(e) => {
+                                const updated = [...investmentGoals];
+                                updated[idx].targetAmount = parseFloat(e.target.value) || 0;
+                                setInvestmentGoals(updated);
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Timeline (Years)</Label>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={40}
+                            value={goal.timelineYears}
+                            onChange={(e) => {
+                              const updated = [...investmentGoals];
+                              updated[idx].timelineYears = parseInt(e.target.value) || 1;
+                              setInvestmentGoals(updated);
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Priority</Label>
+                          <Select 
+                            value={goal.priority} 
+                            onValueChange={(v: 'high' | 'medium' | 'low') => {
+                              const updated = [...investmentGoals];
+                              updated[idx].priority = v;
+                              setInvestmentGoals(updated);
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="high">🔴 High</SelectItem>
+                              <SelectItem value="medium">🟡 Medium</SelectItem>
+                              <SelectItem value="low">🟢 Low</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="grid md:grid-cols-2 gap-4 mt-4">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Monthly SIP Contribution</Label>
+                          <div className="relative">
+                            <IndianRupee className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              type="number"
+                              className="pl-9"
+                              value={goal.monthlyContribution}
+                              onChange={(e) => {
+                                const updated = [...investmentGoals];
+                                updated[idx].monthlyContribution = parseFloat(e.target.value) || 0;
+                                setInvestmentGoals(updated);
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Current Progress</Label>
+                          <div className="relative">
+                            <IndianRupee className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              type="number"
+                              className="pl-9"
+                              value={goal.currentProgress}
+                              onChange={(e) => {
+                                const updated = [...investmentGoals];
+                                updated[idx].currentProgress = parseFloat(e.target.value) || 0;
+                                setInvestmentGoals(updated);
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Gap to goal: </span>
+                          <span className="font-semibold text-amber-600">
+                            ₹{((goal.targetAmount - goal.currentProgress) / 100000).toFixed(1)}L
+                          </span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-600"
+                          onClick={() => setInvestmentGoals(investmentGoals.filter((_, i) => i !== idx))}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" /> Remove
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                <Button
+                  variant="outline"
+                  onClick={() => setInvestmentGoals([...investmentGoals, {
+                    id: crypto.randomUUID(),
+                    goalType: 'wealth_creation',
+                    goalName: 'Wealth Building',
+                    targetAmount: 500000,
+                    timelineYears: 5,
+                    priority: 'medium',
+                    currentProgress: 0,
+                    monthlyContribution: 5000
+                  }])}
+                >
+                  <Plus className="h-4 w-4 mr-2" /> Add Another Goal
+                </Button>
+              </div>
+            )}
+            
+            {investmentGoals.length > 0 && (
+              <div className="p-4 bg-muted/30 rounded-lg">
+                <h4 className="font-medium mb-2">Goals Summary</h4>
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <p className="text-2xl font-bold text-amber-600">{investmentGoals.length}</p>
+                    <p className="text-xs text-muted-foreground">Total Goals</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-blue-600">
+                      ₹{(investmentGoals.reduce((sum, g) => sum + g.targetAmount, 0) / 100000).toFixed(1)}L
+                    </p>
+                    <p className="text-xs text-muted-foreground">Total Target</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-green-600">
+                      ₹{(investmentGoals.reduce((sum, g) => sum + g.monthlyContribution, 0)).toLocaleString()}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Monthly SIP</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+          <CardFooter className="justify-between">
+            <Button variant="outline" onClick={() => setCurrentStep(2)} data-testid="back-to-risk-btn">
+              <ArrowLeft className="h-4 w-4 mr-2" /> Back
+            </Button>
+            <Button onClick={() => setCurrentStep(4)} data-testid="continue-to-portfolio-btn">
               Continue to Portfolio <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           </CardFooter>
         </Card>
       )}
 
-      {currentStep === 3 && (
+      {/* Step 4: Current Portfolio */}
+      {currentStep === 4 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><PieChart className="h-5 w-5" /> Current Portfolio</CardTitle>
@@ -4124,7 +4367,7 @@ export default function AgentProspectWizard() {
             </div>
           </CardContent>
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(2)} data-testid="back-to-risk-btn">
+            <Button variant="outline" onClick={() => setCurrentStep(3)} data-testid="back-to-goals-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
@@ -4176,7 +4419,8 @@ export default function AgentProspectWizard() {
         </DialogContent>
       </Dialog>
 
-      {currentStep === 4 && analysis && (
+      {/* Step 5: Portfolio Analysis */}
+      {currentStep === 5 && analysis && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5" /> Portfolio Analysis</CardTitle>
@@ -4889,11 +5133,11 @@ export default function AgentProspectWizard() {
             )}
           </CardContent>
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(3)} data-testid="back-to-portfolio-btn">
+            <Button variant="outline" onClick={() => setCurrentStep(4)} data-testid="back-to-portfolio-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
-              onClick={() => setCurrentStep(5)}
+              onClick={() => setCurrentStep(6)}
               data-testid="to-sections-btn"
             >
               <FileCheck className="h-4 w-4 mr-2" /> Select Proposal Sections
@@ -4903,8 +5147,8 @@ export default function AgentProspectWizard() {
         </Card>
       )}
 
-      {/* Step 5: Proposal Section Selection */}
-      {currentStep === 5 && (
+      {/* Step 6: Proposal Section Selection */}
+      {currentStep === 6 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -4989,11 +5233,11 @@ export default function AgentProspectWizard() {
             </div>
           </CardContent>
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(4)} data-testid="back-to-analysis-btn">
+            <Button variant="outline" onClick={() => setCurrentStep(5)} data-testid="back-to-analysis-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back to Analysis
             </Button>
             <Button 
-              onClick={() => setCurrentStep(6)}
+              onClick={() => setCurrentStep(7)}
               data-testid="to-categories-btn"
             >
               <LayoutGrid className="h-4 w-4 mr-2" /> Select Categories
@@ -5003,8 +5247,8 @@ export default function AgentProspectWizard() {
         </Card>
       )}
 
-      {/* Step 6: Product Category Selection */}
-      {currentStep === 6 && (
+      {/* Step 7: Product Category Selection */}
+      {currentStep === 7 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><LayoutGrid className="h-5 w-5" /> Product Category Selection</CardTitle>
@@ -5205,11 +5449,11 @@ export default function AgentProspectWizard() {
             )}
           </CardContent>
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(5)} data-testid="back-to-sections-btn">
+            <Button variant="outline" onClick={() => setCurrentStep(6)} data-testid="back-to-sections-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
-              onClick={() => setCurrentStep(7)}
+              onClick={() => setCurrentStep(8)}
               disabled={categorySelectionMode === 'manual' && selectedCategories.length === 0}
               data-testid="to-allocation-btn"
             >
@@ -5228,8 +5472,8 @@ export default function AgentProspectWizard() {
         </Card>
       )}
 
-      {/* Step 7: Asset Allocation */}
-      {currentStep === 7 && (
+      {/* Step 8: Asset Allocation */}
+      {currentStep === 8 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Settings2 className="h-5 w-5" /> Asset Allocation</CardTitle>
@@ -5619,7 +5863,164 @@ export default function AgentProspectWizard() {
             </div>
           </CardContent>
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(6)} data-testid="back-to-categories-btn">
+            <Button variant="outline" onClick={() => setCurrentStep(7)} data-testid="back-to-categories-btn">
+              <ArrowLeft className="h-4 w-4 mr-2" /> Back
+            </Button>
+            <Button 
+              onClick={() => setCurrentStep(9)}
+              data-testid="to-whatif-btn"
+            >
+              <TrendingDown className="h-4 w-4 mr-2" /> What-If Analysis
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
+
+      {/* Step 9: What-If Analysis */}
+      {currentStep === 9 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><TrendingDown className="h-5 w-5 text-violet-600" /> What-If Analysis</CardTitle>
+            <CardDescription>Simulate different market scenarios to understand portfolio impact</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid md:grid-cols-3 gap-4">
+              <Card className="border-red-200 dark:border-red-800">
+                <CardContent className="pt-4">
+                  <h4 className="font-medium text-red-600 mb-2">Market Crash (-20%)</h4>
+                  <p className="text-sm text-muted-foreground mb-3">Simulates a significant market downturn</p>
+                  <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                    <p className="text-sm text-muted-foreground">Portfolio Impact</p>
+                    <p className="text-xl font-bold text-red-600">
+                      -{formatCurrency((analysis?.totalValue || 0) * 0.20)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">New Value: {formatCurrency((analysis?.totalValue || 0) * 0.80)}</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-amber-200 dark:border-amber-800">
+                <CardContent className="pt-4">
+                  <h4 className="font-medium text-amber-600 mb-2">Interest Rate +2%</h4>
+                  <p className="text-sm text-muted-foreground mb-3">Impact on debt instruments</p>
+                  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                    <p className="text-sm text-muted-foreground">Bond Portfolio Impact</p>
+                    <p className="text-xl font-bold text-amber-600">
+                      -{((analysis?.assetAllocation?.debt?.percentage || 0) * 0.05).toFixed(1)}%
+                    </p>
+                    <p className="text-xs text-muted-foreground">Duration-adjusted decline</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-green-200 dark:border-green-800">
+                <CardContent className="pt-4">
+                  <h4 className="font-medium text-green-600 mb-2">Bull Market (+30%)</h4>
+                  <p className="text-sm text-muted-foreground mb-3">Strong equity market performance</p>
+                  <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                    <p className="text-sm text-muted-foreground">Portfolio Impact</p>
+                    <p className="text-xl font-bold text-green-600">
+                      +{formatCurrency((analysis?.totalValue || 0) * 0.30 * ((analysis?.assetAllocation?.equity?.percentage || 50) / 100))}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Based on equity allocation</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            
+            <div className="p-4 bg-violet-50 dark:bg-violet-900/20 rounded-lg">
+              <h4 className="font-medium mb-2 flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-violet-600" />
+                Risk Assessment
+              </h4>
+              <div className="grid md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Maximum Drawdown Potential</p>
+                  <p className="font-semibold">{formatCurrency((analysis?.totalValue || 0) * 0.25)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Recovery Time (Historical)</p>
+                  <p className="font-semibold">18-24 months</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter className="justify-between">
+            <Button variant="outline" onClick={() => setCurrentStep(8)} data-testid="back-to-allocation-btn">
+              <ArrowLeft className="h-4 w-4 mr-2" /> Back
+            </Button>
+            <Button onClick={() => setCurrentStep(10)} data-testid="to-tax-btn">
+              <Calculator className="h-4 w-4 mr-2" /> Tax Optimization
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
+
+      {/* Step 10: Tax Optimization */}
+      {currentStep === 10 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Calculator className="h-5 w-5 text-orange-600" /> Tax Optimization</CardTitle>
+            <CardDescription>Capital gains analysis and tax-saving strategies</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid md:grid-cols-4 gap-4">
+              <Card className="border-red-200">
+                <CardContent className="pt-4 text-center">
+                  <p className="text-xs text-muted-foreground">STCG (@20%)</p>
+                  <p className="text-xl font-bold text-red-600">{formatCurrency(capitalGainsData?.stcg?.taxableGain ?? 0)}</p>
+                  <p className="text-xs text-muted-foreground">{capitalGainsData?.stcg?.count ?? 0} holdings</p>
+                </CardContent>
+              </Card>
+              <Card className="border-amber-200">
+                <CardContent className="pt-4 text-center">
+                  <p className="text-xs text-muted-foreground">LTCG (@12.5%)</p>
+                  <p className="text-xl font-bold text-amber-600">{formatCurrency(capitalGainsData?.ltcg?.taxableGain ?? 0)}</p>
+                  <p className="text-xs text-muted-foreground">{capitalGainsData?.ltcg?.count ?? 0} holdings</p>
+                </CardContent>
+              </Card>
+              <Card className="border-green-200">
+                <CardContent className="pt-4 text-center">
+                  <p className="text-xs text-muted-foreground">LTCG Exemption</p>
+                  <p className="text-xl font-bold text-green-600">{formatCurrency(capitalGainsData?.ltcg?.exemptionUsed ?? 0)}</p>
+                  <p className="text-xs text-muted-foreground">of ₹1.25L limit</p>
+                </CardContent>
+              </Card>
+              <Card className="border-purple-200">
+                <CardContent className="pt-4 text-center">
+                  <p className="text-xs text-muted-foreground">Est. Tax Liability</p>
+                  <p className="text-xl font-bold text-purple-600">{formatCurrency(capitalGainsData?.totalTaxLiability ?? 0)}</p>
+                  <p className="text-xs text-muted-foreground">if sold today</p>
+                </CardContent>
+              </Card>
+            </div>
+            
+            {(capitalGainsData?.grandfathered?.count ?? 0) > 0 && (
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center gap-2">
+                <Shield className="h-5 w-5 text-blue-600" />
+                <span className="text-sm text-blue-700 dark:text-blue-300">
+                  {capitalGainsData?.grandfathered?.count ?? 0} holdings eligible for grandfathering benefit 
+                  (savings: {formatCurrency(capitalGainsData?.grandfathered?.benefit ?? 0)})
+                </span>
+              </div>
+            )}
+            
+            <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+              <h4 className="font-medium mb-3 flex items-center gap-2">
+                <Lightbulb className="h-4 w-4 text-orange-600" />
+                Tax-Loss Harvesting Opportunities
+              </h4>
+              <div className="text-sm text-muted-foreground">
+                {holdings.filter(h => (h.currentValue - (h.purchasePrice || 0) * h.quantity) < 0).length > 0 ? (
+                  <p>Found {holdings.filter(h => (h.currentValue - (h.purchasePrice || 0) * h.quantity) < 0).length} holdings with unrealized losses that can be used to offset gains.</p>
+                ) : (
+                  <p>No significant tax-loss harvesting opportunities identified in current holdings.</p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter className="justify-between">
+            <Button variant="outline" onClick={() => setCurrentStep(9)} data-testid="back-to-whatif-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
@@ -5632,14 +6033,14 @@ export default function AgentProspectWizard() {
               data-testid="get-rebalancing-btn"
             >
               {getRebalancingMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              <Scale className="h-4 w-4 mr-2" /> Get Rebalancing Suggestions
+              <Scale className="h-4 w-4 mr-2" /> Get Rebalancing
             </Button>
           </CardFooter>
         </Card>
       )}
 
-      {/* Step 8: Rebalancing Recommendations */}
-      {currentStep === 8 && (
+      {/* Step 11: Rebalancing Recommendations */}
+      {currentStep === 11 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Scale className="h-5 w-5" /> Rebalancing Recommendations</CardTitle>
@@ -5863,7 +6264,7 @@ export default function AgentProspectWizard() {
             )}
           </CardContent>
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(7)} data-testid="back-to-allocation-btn">
+            <Button variant="outline" onClick={() => setCurrentStep(10)} data-testid="back-to-tax-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
@@ -5878,8 +6279,8 @@ export default function AgentProspectWizard() {
         </Card>
       )}
 
-      {/* Step 9: Fresh Investment Suggestions */}
-      {currentStep === 9 && (
+      {/* Step 12: Fresh Investment Suggestions */}
+      {currentStep === 12 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5" /> Fresh Investment Suggestions</CardTitle>
@@ -5965,7 +6366,229 @@ export default function AgentProspectWizard() {
           )}
 
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(8)} data-testid="back-to-rebalance-btn">
+            <Button variant="outline" onClick={() => setCurrentStep(11)} data-testid="back-to-rebalance-btn">
+              <ArrowLeft className="h-4 w-4 mr-2" /> Back
+            </Button>
+            <Button 
+              onClick={() => setCurrentStep(13)}
+              data-testid="to-sip-btn"
+            >
+              <RefreshCcw className="h-4 w-4 mr-2" /> SIP Planning
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
+
+      {/* Step 13: SIP Planning */}
+      {currentStep === 13 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><RefreshCcw className="h-5 w-5 text-blue-600" /> SIP Planning</CardTitle>
+            <CardDescription>Configure systematic investment plan based on goals and risk profile</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <h4 className="font-medium">Recommended Monthly SIP</h4>
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <p className="text-3xl font-bold text-blue-600">{formatCurrency(investmentGoals.reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000)}</p>
+                  <p className="text-sm text-muted-foreground">Based on goals & timeline</p>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                    <span className="text-sm">Equity Funds SIP</span>
+                    <span className="font-semibold">{formatCurrency((investmentGoals.reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000) * 0.6)}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                    <span className="text-sm">Debt Funds SIP</span>
+                    <span className="font-semibold">{formatCurrency((investmentGoals.reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000) * 0.3)}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                    <span className="text-sm">Gold/Hybrid SIP</span>
+                    <span className="font-semibold">{formatCurrency((investmentGoals.reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000) * 0.1)}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <h4 className="font-medium">SIP Schedule</h4>
+                <div className="space-y-2">
+                  <div className="p-3 border rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium">Preferred SIP Date</span>
+                    </div>
+                    <select className="w-full p-2 border rounded-md bg-background">
+                      <option value="1">1st of every month</option>
+                      <option value="5">5th of every month</option>
+                      <option value="10">10th of every month</option>
+                      <option value="15">15th of every month</option>
+                    </select>
+                  </div>
+                  
+                  <div className="p-3 border rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium">Step-Up SIP</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-2">Increase SIP by 10% annually</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">Enable Step-Up</span>
+                      <input type="checkbox" className="toggle" defaultChecked />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <h5 className="font-medium text-green-700 dark:text-green-300 mb-2">Projected Growth</h5>
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div>
+                      <p className="text-xs text-muted-foreground">5 Years</p>
+                      <p className="font-semibold">{formatCurrency((investmentGoals.reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000) * 60 * 1.5)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">10 Years</p>
+                      <p className="font-semibold">{formatCurrency((investmentGoals.reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000) * 120 * 2.2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">15 Years</p>
+                      <p className="font-semibold">{formatCurrency((investmentGoals.reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000) * 180 * 3.5)}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter className="justify-between">
+            <Button variant="outline" onClick={() => setCurrentStep(12)} data-testid="back-to-fresh-invest-btn">
+              <ArrowLeft className="h-4 w-4 mr-2" /> Back
+            </Button>
+            <Button onClick={() => setCurrentStep(14)} data-testid="to-review-btn">
+              <ClipboardCheck className="h-4 w-4 mr-2" /> Review Summary
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
+
+      {/* Step 14: Review Summary */}
+      {currentStep === 14 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><ClipboardCheck className="h-5 w-5 text-green-600" /> Review Summary</CardTitle>
+            <CardDescription>Review all recommendations before generating proposal</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Client Overview */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <UserCheck className="h-4 w-4" /> Client Profile
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Name</span>
+                    <span className="font-medium">{prospectData.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Risk Profile</span>
+                    <Badge variant="outline">{riskProfile.riskTolerance || 'Moderate'}</Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Investment Horizon</span>
+                    <span>{riskProfile.investmentHorizon || '5-10 years'}</span>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              {/* Portfolio Overview */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Wallet className="h-4 w-4" /> Portfolio Overview
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Current Value</span>
+                    <span className="font-bold">{formatCurrency(analysis?.totalValue || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Holdings</span>
+                    <span>{holdings.length} instruments</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Asset Classes</span>
+                    <span>{Object.keys(analysis?.assetAllocation || {}).length}</span>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              {/* Goals Summary */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Target className="h-4 w-4" /> Goals
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm">
+                  {investmentGoals.length > 0 ? (
+                    <div className="space-y-2">
+                      {investmentGoals.slice(0, 3).map((goal, idx) => (
+                        <div key={idx} className="flex justify-between">
+                          <span className="text-muted-foreground">{goal.type}</span>
+                          <span>{formatCurrency(goal.targetAmount)}</span>
+                        </div>
+                      ))}
+                      {investmentGoals.length > 3 && (
+                        <p className="text-xs text-muted-foreground">+{investmentGoals.length - 3} more goals</p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">No goals configured</p>
+                  )}
+                </CardContent>
+              </Card>
+              
+              {/* Recommendations Summary */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" /> Recommendations
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Rebalancing Actions</span>
+                    <span>{rebalancing.length} changes</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Fresh Investments</span>
+                    <span>{freshInvestments.length} suggestions</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Est. Tax Liability</span>
+                    <span>{formatCurrency(capitalGainsData?.totalTaxLiability || 0)}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            
+            <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+              <h4 className="font-medium text-green-700 dark:text-green-300 mb-2 flex items-center gap-2">
+                <CheckCircle className="h-4 w-4" /> Ready to Generate Proposal
+              </h4>
+              <p className="text-sm text-green-600 dark:text-green-400">
+                All required information has been collected. Click "Generate Proposal" to create a comprehensive investment proposal PDF.
+              </p>
+            </div>
+          </CardContent>
+          <CardFooter className="justify-between">
+            <Button variant="outline" onClick={() => setCurrentStep(13)} data-testid="back-to-sip-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
@@ -5981,8 +6604,8 @@ export default function AgentProspectWizard() {
         </Card>
       )}
 
-      {/* Step 10: Proposal Ready / Share */}
-      {currentStep === 10 && proposal && (
+      {/* Step 15: Proposal Ready / Share */}
+      {currentStep === 15 && proposal && (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
