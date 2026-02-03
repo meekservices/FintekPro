@@ -109,11 +109,16 @@ export class SandboxKYCService {
     }
 
     try {
+      // Sandbox API expects x-api-key and x-api-secret in headers, not body
       const response = await axios.post<SandboxAuthResponse>(
         `${SANDBOX_BASE_URL}/authenticate`,
+        {},
         {
-          x_api_key: SANDBOX_API_KEY,
-          x_api_secret: SANDBOX_API_SECRET,
+          headers: {
+            'x-api-key': SANDBOX_API_KEY,
+            'x-api-secret': SANDBOX_API_SECRET,
+            'Content-Type': 'application/json',
+          },
         }
       );
 
@@ -122,8 +127,8 @@ export class SandboxKYCService {
       this.tokenExpiry = Date.now() + (response.data.expires_in - 300) * 1000;
 
       return this.accessToken;
-    } catch (error) {
-      console.error('Sandbox authentication failed:', error);
+    } catch (error: any) {
+      console.error('Sandbox authentication failed:', error.response?.data || error.message);
       throw new Error('Failed to authenticate with Sandbox API');
     }
   }
