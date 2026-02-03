@@ -1,0 +1,109 @@
+/**
+ * Sandbox.co.in API Error Handler
+ * Based on: https://developer.sandbox.co.in/guides/developer-resources/errors
+ */
+
+export interface SandboxErrorResponse {
+  code: number;
+  message: string;
+  timestamp: number;
+  transaction_id: string;
+}
+
+export class SandboxAPIError extends Error {
+  public readonly statusCode: number;
+  public readonly transactionId?: string;
+  public readonly timestamp?: number;
+  public readonly isRetryable: boolean;
+  public readonly resolution: string;
+
+  constructor(
+    message: string,
+    statusCode: number,
+    transactionId?: string,
+    timestamp?: number
+  ) {
+    super(message);
+    this.name = 'SandboxAPIError';
+    this.statusCode = statusCode;
+    this.transactionId = transactionId;
+    this.timestamp = timestamp;
+    this.isRetryable = [429, 500, 503, 504].includes(statusCode);
+    this.resolution = getResolution(statusCode);
+  }
+}
+
+function getResolution(statusCode: number): string {
+  const resolutions: Record<number, string> = {
+    400: 'Check request body against API documentation',
+    401: 'Verify your API credentials (SANDBOX_API_KEY and SANDBOX_API_SECRET)',
+    403: 'Check token validity, permissions, credits, or quota',
+    404: 'Verify the API endpoint path',
+    422: 'Validate field values against schema',
+    429: 'Reduce request frequency or wait before retrying',
+    500: 'Retry the request; contact support if persistent',
+    503: 'Source system unavailable - retry later',
+    504: 'Request timed out - retry the request',
+  };
+  return resolutions[statusCode] || 'Unknown error - contact support';
+}
+
+export function handleSandboxError(error: any): never {
+  const statusCode = error.response?.status || 500;
+  const data = error.response?.data as Partial<SandboxErrorResponse> | undefined;
+  
+  const message = data?.message || error.message || 'Unknown Sandbox API error';
+  const transactionId = data?.transaction_id;
+  const timestamp = data?.timestamp;
+
+  // Log with transaction_id for support reference
+  console.error(`[Sandbox API Error] Status: ${statusCode}, Message: ${message}${transactionId ? `, Transaction ID: ${transactionId}` : ''}`);
+
+  throw new SandboxAPIError(message, statusCode, transactionId, timestamp);
+}
+
+export function is403InsufficientPrivilege(error: any): boolean {
+  return error.response?.status === 403 || 
+         error.response?.data?.message?.toLowerCase()?.includes('insufficient privilege');
+}
+
+export function is401InvalidCredentials(error: any): boolean {
+  return error.response?.status === 401 ||
+         error.response?.data?.message?.toLowerCase()?.includes('invalid api key');
+}
+
+export function isRateLimited(error: any): boolean {
+  return error.response?.status === 429;
+}
+
+export function isRetryable(error: any): boolean {
+  const status = error.response?.status;
+  return [429, 500, 503, 504].includes(status);
+}
+
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelayMs: number = 1000
+): Promise<T> {
+  let lastError: any;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      
+      if (!isRetryable(error) || attempt === maxRetries - 1) {
+        throw error;
+      }
+      
+      // Exponential backoff with jitter
+      const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 1000;
+      console.log(`[Sandbox API] Retry ${attempt + 1}/${maxRetries} after ${Math.round(delay)}ms`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError;
+}
