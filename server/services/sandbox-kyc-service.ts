@@ -691,6 +691,177 @@ export class SandboxKYCService {
   }
 
   // ============================================
+  // PENNYLESS BANK VERIFICATION
+  // ============================================
+
+  // Supported banks for Pennyless verification (IFSC prefixes)
+  private static PENNYLESS_SUPPORTED_BANKS: Record<string, string> = {
+    'IDIB': 'Indian Bank',
+    'HDFC': 'HDFC Bank',
+    'PUNB': 'Punjab National Bank',
+    'ICIC': 'ICICI Bank',
+    'CNRB': 'Canara Bank',
+    'BKID': 'Bank of India',
+    'UTIB': 'Axis Bank',
+    'FDRL': 'Federal Bank',
+    'MAHB': 'Bank of Maharashtra',
+    'PYTM': 'PAYTM Payments Bank',
+    'AIRP': 'Airtel Payments Bank',
+    'YESB': 'Yes Bank',
+    'BARB': 'Bank of Baroda',
+    'BDBL': 'Bandhan Bank',
+    'UJVN': 'Ujjivan Small Finance Bank',
+    'TMBL': 'Tamilnad Mercantile Bank',
+    'DBSS': 'DBS Bank',
+    'IBKL': 'IDBI Bank',
+    'INDB': 'IndusInd Bank',
+    'ESFB': 'Equitas/ESAF Small Finance Bank',
+    'FINO': 'Fino Payments Bank',
+    'SRCB': 'Saraswat Co-operative Bank',
+    'CITI': 'Citibank',
+    'AUBL': 'AU Small Finance Bank',
+    'JAKA': 'Jammu and Kashmir Bank',
+    'JIOP': 'Jio Payments Bank',
+    'CIUB': 'City Union Bank',
+    'COSB': 'Cosmos Bank',
+    'SVCB': 'Shamrao Vithal Cooperative Bank',
+    'DLXB': 'Dhanalakshmi Bank',
+    'IOBA': 'Indian Overseas Bank',
+    'KCCB': 'Kalupur Commercial Co-Op Bank',
+    'FSCB': 'Fincare Small Finance Bank',
+    'DNSB': 'Dombivli Nagarik Sahakari Bank',
+    'VARA': 'Varachha Co-op Bank',
+    'SURY': 'Suryoday Small Finance Bank',
+    'JSFB': 'Jana Small Finance Bank',
+    'NKGS': 'NKGSB Co-operative Bank',
+    'NTBL': 'Nainital Bank',
+    'NESF': 'North East Small Finance Bank',
+    'LAVB': 'Lakshmi Vilas Bank',
+    'PMEC': 'Prime Cooperative Bank',
+    'KSBK': 'Kerala State Co-Operative Bank',
+    'AMCB': 'Ahmedabad Mercantile Co-op Bank',
+    'STBP': 'SBM Bank India',
+    'CCBL': 'Citizen Credit Co Operative Bank',
+    'TNSC': 'Tamil Nadu State Apex Cooperative Bank',
+    'AJHC': 'Ambarnath Jai Hind Coop Bank',
+    'SUNB': 'Surat National Co-Operative Bank',
+    'BACB': 'Bassein Catholic Co-operative Bank',
+    'DMCB': 'Dattatraya Maharaj Kalambe Jaloli Sahakari Bank',
+    'SARX': 'Saraspur Nagrik Co Operative Bank',
+    'KKBK': 'Kotak Mahindra Bank',
+    'SBIN': 'State Bank of India',
+    'GSCB': 'Gujarat State Co-op Bank',
+    'VIJB': 'Vijay Cooperative Bank',
+    'IPOB': 'India Post Payments Bank',
+    'SDCB': 'Surat District Cooperative Bank',
+    'NLCB': 'Nilambur Cooperative Urban Bank',
+    'UCBA': 'UCO Bank',
+    'JJSA': 'Jalgaon Janata Sahakari Bank',
+    'CSBK': 'Catholic Syrian Bank',
+    'DSPB': 'Durgapur Steel Peoples Coop Bank',
+    'KARB': 'Karnataka Bank',
+    'KNSB': 'Shree Kadi Nagarik Sahakari Bank',
+    'BOFA': 'Bank of America',
+    'UNIV': 'Unity Small Finance Bank',
+    'BNSB': 'Bhagini Nivedita Sahakari Bank',
+    'BNPA': 'BNP Paribas',
+    'TSCB': 'Telangana State Cooperative Apex Bank',
+    'KACE': 'Kangra Central Coop Bank',
+    'NAVN': 'Navnirman Cooperative Bank',
+    'ARSB': 'Arvind Sahakari Bank',
+    'AUCB': 'Akola Urban Co Operative Bank',
+  };
+
+  /**
+   * Check if a bank supports Pennyless verification
+   * @param ifsc - IFSC code to check
+   * @returns Bank name if supported, null if not
+   */
+  isPennylessSupported(ifsc: string): string | null {
+    const prefix = ifsc.substring(0, 4).toUpperCase();
+    return SandboxKYCService.PENNYLESS_SUPPORTED_BANKS[prefix] || null;
+  }
+
+  /**
+   * Get list of all Pennyless-supported banks
+   */
+  getPennylessSupportedBanks(): Array<{ ifscPrefix: string; bankName: string }> {
+    return Object.entries(SandboxKYCService.PENNYLESS_SUPPORTED_BANKS).map(([ifscPrefix, bankName]) => ({
+      ifscPrefix,
+      bankName,
+    }));
+  }
+
+  /**
+   * Verify bank account via Pennyless (instant verification without deposit)
+   * Only works with supported banks - use isPennylessSupported() to check first
+   * @param accountNumber - Bank account number
+   * @param ifsc - IFSC code (must be from a supported bank)
+   */
+  async verifyBankAccountPennyless(accountNumber: string, ifsc: string): Promise<{
+    accountNumber: string;
+    ifsc: string;
+    accountHolderName: string;
+    bankName: string;
+    branchName: string;
+    verified: boolean;
+    transactionId: string;
+    verificationMethod: 'pennyless';
+  }> {
+    if (!accountNumber || !/^\d{9,18}$/.test(accountNumber)) {
+      throw new Error('Invalid account number. Must be 9-18 numeric digits.');
+    }
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) {
+      throw new Error('Invalid IFSC format');
+    }
+
+    const supportedBank = this.isPennylessSupported(ifsc);
+    if (!supportedBank) {
+      throw new Error(`Bank with IFSC prefix ${ifsc.substring(0, 4)} does not support Pennyless verification. Use Penny Drop instead.`);
+    }
+
+    const token = await this.authenticate();
+
+    try {
+      const response = await axios.post(
+        `${SANDBOX_BASE_URL}/bank/account/verify`,
+        { 
+          account_number: accountNumber,
+          ifsc: ifsc,
+        },
+        {
+          headers: {
+            'x-api-key': SANDBOX_API_KEY,
+            'authorization': token,
+            'x-api-version': '1.0',
+            'Content-Type': 'application/json',
+            'X-Accept-Cache': 'true',
+          },
+        }
+      );
+
+      if (response.data.code !== 200) {
+        throw new Error(response.data.message || 'Pennyless verification failed');
+      }
+
+      const data = response.data.data;
+      return {
+        accountNumber: data.account_number,
+        ifsc: data.ifsc,
+        accountHolderName: data.account_holder_name || data.name_at_bank,
+        bankName: data.bank_name || supportedBank,
+        branchName: data.branch_name || data.branch || '',
+        verified: data.account_exists === true || data.verified === true,
+        transactionId: response.data.transaction_id,
+        verificationMethod: 'pennyless',
+      };
+    } catch (error: any) {
+      console.error('Pennyless verification error:', error.response?.data || error.message);
+      throw new Error(`Bank verification failed: ${error.response?.data?.message || error.message}`);
+    }
+  }
+
+  // ============================================
   // DIGILOCKER INTEGRATION
   // ============================================
 
