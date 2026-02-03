@@ -506,24 +506,34 @@ export class SandboxKYCService {
   // ============================================
 
   /**
-   * Generate OTP for Aadhaar verification
+   * Generate OTP for Aadhaar Offline e-KYC verification
    * @param aadhaarNumber - 12-digit Aadhaar number
+   * @param reason - Purpose for verification (e.g., 'KYC verification for account opening')
    */
-  async generateAadhaarOTP(aadhaarNumber: string): Promise<{
+  async generateAadhaarOTP(aadhaarNumber: string, reason: string = 'KYC verification'): Promise<{
     referenceId: string;
     message: string;
     validFor: number;
+    transactionId: string;
   }> {
     if (!/^\d{12}$/.test(aadhaarNumber)) {
       throw new Error('Invalid Aadhaar number format. Must be 12 digits.');
+    }
+    if (!reason || reason.trim().length === 0) {
+      throw new Error('Reason for verification is required');
     }
 
     const token = await this.authenticate();
 
     try {
       const response = await axios.post(
-        `${SANDBOX_BASE_URL}/kyc/aadhaar/otp/generate`,
-        { aadhaar_number: aadhaarNumber },
+        `${SANDBOX_BASE_URL}/kyc/aadhaar/okyc/otp`,
+        { 
+          '@entity': 'in.co.sandbox.kyc.aadhaar.okyc.otp.request',
+          aadhaar_number: aadhaarNumber,
+          consent: 'Y',
+          reason: reason,
+        },
         {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
@@ -539,9 +549,10 @@ export class SandboxKYCService {
       }
 
       return {
-        referenceId: response.data.data.reference_id,
-        message: response.data.message || 'OTP sent successfully',
-        validFor: 300, // 5 minutes
+        referenceId: String(response.data.data.reference_id),
+        message: response.data.data?.message || response.data.message || 'OTP sent successfully',
+        validFor: 300, // 5 minutes (OTP expires after ~45 seconds for rate limiting)
+        transactionId: response.data.transaction_id,
       };
     } catch (error: any) {
       console.error('Aadhaar OTP generation error:', error.response?.data || error.message);
