@@ -6019,7 +6019,7 @@ export default function AgentProspectWizard() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       {/* Tax Breakdown */}
-                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                         <div className="p-2 bg-white dark:bg-gray-800 rounded-lg">
                           <p className="text-xs text-muted-foreground">Short-Term Gains</p>
                           <p className="font-semibold text-amber-700 dark:text-amber-300">{formatCurrency(taxSummary.totalSTCG)}</p>
@@ -6038,13 +6038,17 @@ export default function AgentProspectWizard() {
                           </div>
                         )}
                         <div className="p-2 bg-white dark:bg-gray-800 rounded-lg">
+                          <p className="text-xs text-muted-foreground">H&E Cess (4%)</p>
+                          <p className="font-semibold text-purple-600 dark:text-purple-400">{formatCurrency(taxSummary.cess || 0)}</p>
+                        </div>
+                        <div className="p-2 bg-white dark:bg-gray-800 rounded-lg">
                           <p className="text-xs text-muted-foreground">Exit Loads</p>
                           <p className="font-semibold text-red-600">{formatCurrency(taxSummary.totalExitLoad)}</p>
                         </div>
                         <div className="p-2 bg-white dark:bg-gray-800 rounded-lg border-2 border-amber-300">
                           <p className="text-xs text-muted-foreground">Net Rebalancing Cost</p>
                           <p className="font-bold text-lg text-amber-800 dark:text-amber-200">{formatCurrency(taxSummary.netRebalancingCost)}</p>
-                          <p className="text-xs text-muted-foreground">(Tax + Exit Load)</p>
+                          <p className="text-xs text-muted-foreground">(Tax + Cess + Exit Load)</p>
                         </div>
                       </div>
 
