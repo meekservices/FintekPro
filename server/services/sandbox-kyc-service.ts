@@ -952,22 +952,36 @@ export class SandboxKYCService {
   /**
    * Initiate DigiLocker session for consent-based document access
    * @param redirectUrl - URL to redirect after DigiLocker authentication
+   * @param docTypes - Document types to request consent for (aadhaar, pan, driving_license)
+   * @param flow - Whether user is signing in or signing up on DigiLocker
    */
-  async initiateDigiLockerSession(redirectUrl: string): Promise<{
+  async initiateDigiLockerSession(
+    redirectUrl: string, 
+    docTypes: Array<'aadhaar' | 'pan' | 'driving_license'> = ['aadhaar'],
+    flow: 'signin' | 'signup' = 'signin'
+  ): Promise<{
     sessionId: string;
     authorizationUrl: string;
-    expiresAt: string;
+    transactionId: string;
   }> {
     if (!redirectUrl || !/^https?:\/\/.+/.test(redirectUrl)) {
       throw new Error('Valid redirect URL is required (must start with http:// or https://)');
+    }
+    if (!docTypes || docTypes.length === 0) {
+      throw new Error('At least one document type is required');
     }
 
     const token = await this.authenticate();
 
     try {
       const response = await axios.post(
-        `${SANDBOX_BASE_URL}/kyc/digilocker/initiate`,
-        { redirect_url: redirectUrl },
+        `${SANDBOX_BASE_URL}/kyc/digilocker/sessions/init`,
+        { 
+          '@entity': 'in.co.sandbox.kyc.digilocker.session.request',
+          flow: flow,
+          doc_types: docTypes,
+          redirect_url: redirectUrl,
+        },
         {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
@@ -984,9 +998,9 @@ export class SandboxKYCService {
 
       const data = response.data.data;
       return {
-        sessionId: data.session_id || data.request_id,
-        authorizationUrl: data.authorization_url || data.url,
-        expiresAt: data.expires_at || new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+        sessionId: data.session_id,
+        authorizationUrl: data.authorization_url,
+        transactionId: response.data.transaction_id,
       };
     } catch (error: any) {
       console.error('DigiLocker initiation error:', error.response?.data || error.message);

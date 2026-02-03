@@ -1,0 +1,133 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://developer.sandbox.co.in/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Initiate Session
+
+> The Initiate Session API returns a DigiLocker link that the user is redirected to, where they can provide consent for the requested documents.
+
+<Card title="Run in Postman" icon="https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=bf60d58751a51f6e80a8f2cdae74c9fc" horizontal arrow="true" href="https://www.postman.com/in-co-sandbox/sandbox-api/request/uvvxtcp/initiate-session" data-og-width="2030" width="2030" data-og-height="2031" height="2031" data-path="static/svg/Postman.svg" data-optimize="true" data-opv="3" srcset="https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=280&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=a8161d9ab4b0cbfbfe9ce7d86a953ab4 280w, https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=560&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=692bb76a5da8bde417a42bc8e3fb3d12 560w, https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=840&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=22185eb59762467866dfd7ae89f04c61 840w, https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=1100&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=3dfce096efd8f3686e007202e961864f 1100w, https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=1650&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=d763125fec4e71e4017b4c47d2815420 1650w, https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=2500&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=1a03ffbeed1528dff8f272382c72a0d0 2500w" />
+
+
+## OpenAPI
+
+````yaml api-reference/kyc/openapi.json post /kyc/digilocker/sessions/init
+openapi: 3.1.0
+info:
+  title: KYC
+  version: 1.0.0
+  description: ''
+servers:
+  - url: https://api.sandbox.co.in
+  - url: https://test-api.sandbox.co.in
+security: []
+paths:
+  /kyc/digilocker/sessions/init:
+    post:
+      tags:
+        - DigiLocker
+        - DigiLocker API
+      summary: Initiate session
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          description: JWT access token
+          schema:
+            deprecated: false
+            type: string
+        - name: x-api-key
+          in: header
+          required: true
+          description: API key for identification
+          schema:
+            deprecated: false
+            type: string
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                '@entity':
+                  type: string
+                  const: in.co.sandbox.kyc.digilocker.session.request
+                flow:
+                  description: >-
+                    Indicates whether the user is signing in or signing up on
+                    DigiLocker
+                  type: string
+                  enum:
+                    - signin
+                    - signup
+                doc_types:
+                  description: Documents you need consent for.
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - aadhaar
+                      - pan
+                      - driving_license
+                redirect_url:
+                  description: The URL to redirect the user post consent is received
+                  type: string
+                  format: uri
+              required:
+                - '@entity'
+                - flow
+                - doc_types
+                - redirect_url
+            examples:
+              200 Example:
+                value:
+                  '@entity': in.co.sandbox.kyc.digilocker.session.request
+                  flow: signin
+                  doc_types:
+                    - aadhaar
+                    - pan
+                  redirect_url: https://sandbox.co.in
+      responses:
+        '200':
+          description: 200 - OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  timestamp:
+                    type: integer
+                  data:
+                    type: object
+                    properties:
+                      '@entity':
+                        type: string
+                        const: in.co.sandbox.kyc.digilocker.session.response
+                      authorization_url:
+                        type: string
+                        format: uri
+                      session_id:
+                        type: string
+                        format: uuid
+                  transaction_id:
+                    type: string
+              examples:
+                200 - OK:
+                  value:
+                    code: 200
+                    timestamp: 1751975600361
+                    data:
+                      '@entity': in.co.sandbox.kyc.digilocker.session.response
+                      authorization_url: >-
+                        https://digilocker.meripehchaan.gov.in/public/oauth2/1/authorize?response_type=code&client_id=IW55C7A3B0&state=e385432b-575c-4b6f-8928-79136dbc0d4f%7Cf1bd0342-cc1d-4051-8301-e8ee17e3a3c3%7Chttps%3A%2F%2Fdeveloper.sandbox.co.in%2F&code_verifier=ADlMHKsr~L8YIwLoIOGgwwRQoouE-m~Z9yu0KWstrsKrdAtUY2IkmOoDWZNn80_G&code_challenge=pnowXsaM5mBqNR3NfSfsaLBC2JYjoy2eRLOwKNVjFY8&code_challenge_method=S256&scope=files.issueddocs&redirect_uri=https%3A%2F%2Fdeveloper.sandbox.co.in%2F&pla=Y&dl_flow=signup&plsignup=Y&amr=driving_license%2Baadhaar%2Bpan%2Bemail%2Busername%2Bmobile%2Bother&verified_mobile=9004813042&req_doctype=PANCR%2CADHAR%2CDRVLC&consent_valid_till=1752061999
+                      session_id: f1bd0342-cc1d-4051-8301-e8ee17e3a3c3
+                    transaction_id: a11c4e00-fae1-4092-a55f-b4f0be92ffeb
+
+````
