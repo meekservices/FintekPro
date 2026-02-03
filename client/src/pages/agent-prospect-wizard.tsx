@@ -735,9 +735,9 @@ export default function AgentProspectWizard() {
     });
   }, [totalPortfolioValue]);
   
-  // Apply AI defaults when entering Step 7 (Categories) in AI mode or when risk profile changes
+  // Apply AI defaults when entering Step 6 (Categories) in AI mode or when risk profile changes
   useEffect(() => {
-    if (currentStep === 7 && categorySelectionMode === 'ai_default') {
+    if (currentStep === 6 && categorySelectionMode === 'ai_default') {
       // Apply AI defaults based on current risk profile
       const aiCategories = getAIDefaultCategories(riskProfile.riskTolerance);
       setSelectedCategories(aiCategories);
@@ -2185,7 +2185,7 @@ export default function AgentProspectWizard() {
       if (data.success) {
         setRebalancing(data.suggestions || []);
         setTaxSummary(data.taxSummary || null);
-        setCurrentStep(11);
+        setCurrentStep(9);
       }
     }
   });
@@ -2206,7 +2206,7 @@ export default function AgentProspectWizard() {
     onSuccess: (data) => {
       if (data.success) {
         setFreshInvestments(data.suggestions);
-        setCurrentStep(12);
+        setCurrentStep(11);
       }
     }
   });
@@ -2358,7 +2358,7 @@ export default function AgentProspectWizard() {
       if (data.success) {
         setProposal(data.proposal);
         toast({ title: "Proposal Generated", description: "Investment proposal ready to share!" });
-        setCurrentStep(15);
+        setCurrentStep(16);
         
         if (zohoLeadId && zohoSource === 'zoho') {
           const products = selectedCategories.filter(c => customAllocations[c as keyof typeof customAllocations] > 0);
@@ -4644,67 +4644,6 @@ export default function AgentProspectWizard() {
               </Card>
             )}
 
-            {/* Capital Gains Summary Card */}
-            {proposalSections.capitalGainsSummary && capitalGainsData && (
-              <Card className="mt-4 border-orange-200 dark:border-orange-800">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Calculator className="h-5 w-5 text-orange-600" />
-                    Capital Gains Summary
-                  </CardTitle>
-                  <CardDescription>STCG/LTCG breakdown and estimated tax liability</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                    <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded-lg text-center">
-                      <p className="text-xs text-muted-foreground">STCG (@20%)</p>
-                      <p className="text-lg font-bold text-red-600">{formatCurrency(capitalGainsData?.stcg?.taxableGain ?? 0)}</p>
-                      <p className="text-xs text-muted-foreground">{capitalGainsData?.stcg?.count ?? 0} holdings</p>
-                    </div>
-                    <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-center">
-                      <p className="text-xs text-muted-foreground">LTCG (@12.5%)</p>
-                      <p className="text-lg font-bold text-amber-600">{formatCurrency(capitalGainsData?.ltcg?.taxableGain ?? 0)}</p>
-                      <p className="text-xs text-muted-foreground">{capitalGainsData?.ltcg?.count ?? 0} holdings</p>
-                    </div>
-                    <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
-                      <p className="text-xs text-muted-foreground">LTCG Exemption Used</p>
-                      <p className="text-lg font-bold text-green-600">{formatCurrency(capitalGainsData?.ltcg?.exemptionUsed ?? 0)}</p>
-                      <p className="text-xs text-muted-foreground">of ₹1.25L limit</p>
-                    </div>
-                    <div className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-center">
-                      <p className="text-xs text-muted-foreground">Est. Tax Liability</p>
-                      <p className="text-lg font-bold text-purple-600">{formatCurrency(capitalGainsData?.totalTaxLiability ?? 0)}</p>
-                      <p className="text-xs text-muted-foreground">if sold today</p>
-                    </div>
-                  </div>
-                  {(capitalGainsData?.grandfathered?.count ?? 0) > 0 && (
-                    <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm flex items-center gap-2 mb-3">
-                      <Shield className="h-4 w-4 text-blue-600" />
-                      <span className="text-blue-700 dark:text-blue-300">
-                        {capitalGainsData?.grandfathered?.count ?? 0} holdings eligible for grandfathering benefit (savings: {formatCurrency(capitalGainsData?.grandfathered?.benefit ?? 0)})
-                      </span>
-                    </div>
-                  )}
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {(capitalGainsData?.holdings ?? []).slice(0, 5).map((h, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg text-sm">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{h.name}</p>
-                          <p className="text-xs text-muted-foreground">{h.holdingPeriod} days | {h.isGrandfathered ? 'Grandfathered' : h.taxType}</p>
-                        </div>
-                        <div className="text-right ml-2">
-                          <Badge variant={h.gain >= 0 ? 'default' : 'destructive'} className="text-xs">
-                            {h.gain >= 0 ? '+' : ''}{formatCurrency(h.gain)}
-                          </Badge>
-                          <p className="text-xs text-muted-foreground mt-1">Tax: {formatCurrency(h.estimatedTax)}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
             {/* Portfolio Health Score Card */}
             {proposalSections.portfolioHealthScore && healthScoreData && (
               <Card className="mt-4 border-teal-200 dark:border-teal-800">
@@ -4888,45 +4827,6 @@ export default function AgentProspectWizard() {
                       <p className="text-xs text-muted-foreground">Beta</p>
                       <p className="font-bold">{(benchmarkData?.beta ?? 0).toFixed(2)}</p>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* What-If Simulator Card */}
-            {proposalSections.whatIfSimulator && whatIfScenarios && (
-              <Card className="mt-4 border-violet-200 dark:border-violet-800">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <TrendingDown className="h-5 w-5 text-violet-600" />
-                    What-If Simulator
-                  </CardTitle>
-                  <CardDescription>Market stress test scenarios</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-3 mb-4">
-                    {(whatIfScenarios?.scenarios ?? []).map((s, idx) => (
-                      <div key={idx} className={`p-3 rounded-lg text-center ${
-                        s.marketChange < 0 ? 'bg-red-50 dark:bg-red-900/20' : 'bg-green-50 dark:bg-green-900/20'
-                      }`}>
-                        <p className="text-xs text-muted-foreground">{s.name}</p>
-                        <p className={`text-lg font-bold ${s.marketChange < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          {formatCurrency(s.newValue)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {s.portfolioImpact >= 0 ? '+' : ''}{s.portfolioImpact}% impact
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-                    <p className="text-sm font-medium text-amber-700 dark:text-amber-300">Stress Test Result</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Worst case scenario: Portfolio could drop to {formatCurrency(whatIfScenarios?.stressTestResult?.worstCase ?? 0)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Expected recovery: {whatIfScenarios?.stressTestResult?.recovery ?? 'N/A'}
-                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -5251,117 +5151,17 @@ export default function AgentProspectWizard() {
             </Button>
             <Button 
               onClick={() => setCurrentStep(6)}
-              data-testid="to-sections-btn"
-            >
-              <FileCheck className="h-4 w-4 mr-2" /> Select Proposal Sections
-              <ArrowRight className="h-4 w-4 ml-2" />
-            </Button>
-          </CardFooter>
-        </Card>
-      )}
-
-      {/* Step 6: Proposal Section Selection */}
-      {currentStep === 6 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileCheck className="h-5 w-5 text-indigo-600" />
-              Proposal Sections
-            </CardTitle>
-            <CardDescription>
-              Select which analytics sections to include in {prospectData.name}'s proposal report
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {[
-                { key: 'exitLoadCalendar', label: 'Exit Load Calendar', icon: Clock },
-                { key: 'capitalGainsSummary', label: 'Capital Gains Summary', icon: Calculator },
-                { key: 'portfolioHealthScore', label: 'Portfolio Health Score', icon: Activity },
-                { key: 'expenseRatioAnalysis', label: 'Expense Ratio Analysis', icon: Percent },
-                { key: 'dividendProjection', label: 'Dividend Projection', icon: Wallet },
-                { key: 'riskHeatmap', label: 'Risk Heatmap', icon: AlertTriangle },
-                { key: 'goalGapAnalysis', label: 'Goal Gap Analysis', icon: Target },
-                { key: 'benchmarkComparison', label: 'Benchmark Comparison', icon: BarChart3 },
-                { key: 'priorityRecommendations', label: 'Priority Actions', icon: ListChecks },
-                { key: 'sipRecommendations', label: 'SIP Recommendations', icon: ArrowUpCircle },
-                { key: 'whatIfSimulator', label: 'What-If Simulator', icon: TrendingDown },
-                { key: 'executiveSummary', label: 'Executive Summary', icon: FileText }
-              ].map(({ key, label, icon: Icon }) => (
-                <label 
-                  key={key} 
-                  className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${
-                    proposalSections[key as keyof typeof proposalSections]
-                      ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700'
-                      : 'bg-muted/30 border-muted hover:bg-muted/50'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={proposalSections[key as keyof typeof proposalSections]}
-                    onChange={(e) => setProposalSections(prev => ({ ...prev, [key]: e.target.checked }))}
-                    className="sr-only"
-                  />
-                  <Icon className={`h-4 w-4 ${proposalSections[key as keyof typeof proposalSections] ? 'text-indigo-600' : 'text-muted-foreground'}`} />
-                  <span className={`text-sm font-medium ${proposalSections[key as keyof typeof proposalSections] ? 'text-indigo-700 dark:text-indigo-300' : 'text-muted-foreground'}`}>
-                    {label}
-                  </span>
-                  {proposalSections[key as keyof typeof proposalSections] && (
-                    <CheckCircle className="h-4 w-4 text-green-500 ml-auto" />
-                  )}
-                </label>
-              ))}
-            </div>
-            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="h-5 w-5 text-indigo-600" />
-                <span className="font-medium">{Object.values(proposalSections).filter(Boolean).length} of 12 sections selected</span>
-              </div>
-              <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setProposalSections({
-                    exitLoadCalendar: true, capitalGainsSummary: true, portfolioHealthScore: true,
-                    expenseRatioAnalysis: true, dividendProjection: true, riskHeatmap: true,
-                    goalGapAnalysis: true, benchmarkComparison: true, priorityRecommendations: true,
-                    sipRecommendations: true, whatIfSimulator: true, executiveSummary: true
-                  })}
-                >
-                  Select All
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setProposalSections({
-                    exitLoadCalendar: false, capitalGainsSummary: false, portfolioHealthScore: false,
-                    expenseRatioAnalysis: false, dividendProjection: false, riskHeatmap: false,
-                    goalGapAnalysis: false, benchmarkComparison: false, priorityRecommendations: false,
-                    sipRecommendations: false, whatIfSimulator: false, executiveSummary: false
-                  })}
-                >
-                  Clear All
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-          <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(5)} data-testid="back-to-analysis-btn">
-              <ArrowLeft className="h-4 w-4 mr-2" /> Back to Analysis
-            </Button>
-            <Button 
-              onClick={() => setCurrentStep(7)}
               data-testid="to-categories-btn"
             >
-              <LayoutGrid className="h-4 w-4 mr-2" /> Select Categories
+              <PieChart className="h-4 w-4 mr-2" /> Product Categories
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           </CardFooter>
         </Card>
       )}
 
-      {/* Step 7: Product Category Selection */}
-      {currentStep === 7 && (
+      {/* Step 6: Product Category Selection */}
+      {currentStep === 6 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><LayoutGrid className="h-5 w-5" /> Product Category Selection</CardTitle>
@@ -5562,11 +5362,11 @@ export default function AgentProspectWizard() {
             )}
           </CardContent>
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(6)} data-testid="back-to-sections-btn">
+            <Button variant="outline" onClick={() => setCurrentStep(5)} data-testid="back-to-analysis-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
-              onClick={() => setCurrentStep(8)}
+              onClick={() => setCurrentStep(7)}
               disabled={categorySelectionMode === 'manual' && selectedCategories.length === 0}
               data-testid="to-allocation-btn"
             >
@@ -5585,8 +5385,8 @@ export default function AgentProspectWizard() {
         </Card>
       )}
 
-      {/* Step 8: Asset Allocation */}
-      {currentStep === 8 && (
+      {/* Step 7: Asset Allocation */}
+      {currentStep === 7 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Settings2 className="h-5 w-5" /> Asset Allocation</CardTitle>
@@ -5976,11 +5776,11 @@ export default function AgentProspectWizard() {
             </div>
           </CardContent>
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(7)} data-testid="back-to-categories-btn">
+            <Button variant="outline" onClick={() => setCurrentStep(6)} data-testid="back-to-categories-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
-              onClick={() => setCurrentStep(9)}
+              onClick={() => setCurrentStep(8)}
               data-testid="to-whatif-btn"
             >
               <TrendingDown className="h-4 w-4 mr-2" /> What-If Analysis
@@ -5990,8 +5790,8 @@ export default function AgentProspectWizard() {
         </Card>
       )}
 
-      {/* Step 9: What-If Analysis */}
-      {currentStep === 9 && (
+      {/* Step 8: What-If Analysis */}
+      {currentStep === 8 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><TrendingDown className="h-5 w-5 text-violet-600" /> What-If Analysis</CardTitle>
@@ -6058,82 +5858,7 @@ export default function AgentProspectWizard() {
             </div>
           </CardContent>
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(8)} data-testid="back-to-allocation-btn">
-              <ArrowLeft className="h-4 w-4 mr-2" /> Back
-            </Button>
-            <Button onClick={() => setCurrentStep(10)} data-testid="to-tax-btn">
-              <Calculator className="h-4 w-4 mr-2" /> Tax Optimization
-              <ArrowRight className="h-4 w-4 ml-2" />
-            </Button>
-          </CardFooter>
-        </Card>
-      )}
-
-      {/* Step 10: Tax Optimization */}
-      {currentStep === 10 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Calculator className="h-5 w-5 text-orange-600" /> Tax Optimization</CardTitle>
-            <CardDescription>Capital gains analysis and tax-saving strategies</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid md:grid-cols-4 gap-4">
-              <Card className="border-red-200">
-                <CardContent className="pt-4 text-center">
-                  <p className="text-xs text-muted-foreground">STCG (@20%)</p>
-                  <p className="text-xl font-bold text-red-600">{formatCurrency(capitalGainsData?.stcg?.taxableGain ?? 0)}</p>
-                  <p className="text-xs text-muted-foreground">{capitalGainsData?.stcg?.count ?? 0} holdings</p>
-                </CardContent>
-              </Card>
-              <Card className="border-amber-200">
-                <CardContent className="pt-4 text-center">
-                  <p className="text-xs text-muted-foreground">LTCG (@12.5%)</p>
-                  <p className="text-xl font-bold text-amber-600">{formatCurrency(capitalGainsData?.ltcg?.taxableGain ?? 0)}</p>
-                  <p className="text-xs text-muted-foreground">{capitalGainsData?.ltcg?.count ?? 0} holdings</p>
-                </CardContent>
-              </Card>
-              <Card className="border-green-200">
-                <CardContent className="pt-4 text-center">
-                  <p className="text-xs text-muted-foreground">LTCG Exemption</p>
-                  <p className="text-xl font-bold text-green-600">{formatCurrency(capitalGainsData?.ltcg?.exemptionUsed ?? 0)}</p>
-                  <p className="text-xs text-muted-foreground">of ₹1.25L limit</p>
-                </CardContent>
-              </Card>
-              <Card className="border-purple-200">
-                <CardContent className="pt-4 text-center">
-                  <p className="text-xs text-muted-foreground">Est. Tax Liability</p>
-                  <p className="text-xl font-bold text-purple-600">{formatCurrency(capitalGainsData?.totalTaxLiability ?? 0)}</p>
-                  <p className="text-xs text-muted-foreground">if sold today</p>
-                </CardContent>
-              </Card>
-            </div>
-            
-            {(capitalGainsData?.grandfathered?.count ?? 0) > 0 && (
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center gap-2">
-                <Shield className="h-5 w-5 text-blue-600" />
-                <span className="text-sm text-blue-700 dark:text-blue-300">
-                  {capitalGainsData?.grandfathered?.count ?? 0} holdings eligible for grandfathering benefit 
-                  (savings: {formatCurrency(capitalGainsData?.grandfathered?.benefit ?? 0)})
-                </span>
-              </div>
-            )}
-            
-            <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-              <h4 className="font-medium mb-3 flex items-center gap-2">
-                <Lightbulb className="h-4 w-4 text-orange-600" />
-                Tax-Loss Harvesting Opportunities
-              </h4>
-              <div className="text-sm text-muted-foreground">
-                {holdings.filter(h => (h.currentValue - (h.purchasePrice || 0) * h.quantity) < 0).length > 0 ? (
-                  <p>Found {holdings.filter(h => (h.currentValue - (h.purchasePrice || 0) * h.quantity) < 0).length} holdings with unrealized losses that can be used to offset gains.</p>
-                ) : (
-                  <p>No significant tax-loss harvesting opportunities identified in current holdings.</p>
-                )}
-              </div>
-            </div>
-          </CardContent>
-          <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(9)} data-testid="back-to-whatif-btn">
+            <Button variant="outline" onClick={() => setCurrentStep(7)} data-testid="back-to-allocation-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
@@ -6152,8 +5877,8 @@ export default function AgentProspectWizard() {
         </Card>
       )}
 
-      {/* Step 11: Rebalancing Recommendations */}
-      {currentStep === 11 && (
+      {/* Step 9: Rebalancing Recommendations */}
+      {currentStep === 9 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Scale className="h-5 w-5" /> Rebalancing Recommendations</CardTitle>
@@ -6377,7 +6102,132 @@ export default function AgentProspectWizard() {
             )}
           </CardContent>
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(10)} data-testid="back-to-tax-btn">
+            <Button variant="outline" onClick={() => setCurrentStep(8)} data-testid="back-to-whatif-btn">
+              <ArrowLeft className="h-4 w-4 mr-2" /> Back
+            </Button>
+            <Button 
+              onClick={() => setCurrentStep(10)}
+              data-testid="to-rebalancing-cost-btn"
+            >
+              <Calculator className="h-4 w-4 mr-2" /> Rebalancing Cost
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
+
+      {/* Step 10: Rebalancing Cost */}
+      {currentStep === 10 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Calculator className="h-5 w-5 text-orange-600" /> Rebalancing Cost</CardTitle>
+            <CardDescription>Capital gains tax and exit load charges for recommended rebalancing</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid md:grid-cols-4 gap-4">
+              <Card className="border-red-200">
+                <CardContent className="pt-4 text-center">
+                  <p className="text-xs text-muted-foreground">STCG (@20%)</p>
+                  <p className="text-xl font-bold text-red-600">{formatCurrency(capitalGainsData?.stcg?.taxableGain ?? 0)}</p>
+                  <p className="text-xs text-muted-foreground">{capitalGainsData?.stcg?.count ?? 0} holdings</p>
+                </CardContent>
+              </Card>
+              <Card className="border-amber-200">
+                <CardContent className="pt-4 text-center">
+                  <p className="text-xs text-muted-foreground">LTCG (@12.5%)</p>
+                  <p className="text-xl font-bold text-amber-600">{formatCurrency(capitalGainsData?.ltcg?.taxableGain ?? 0)}</p>
+                  <p className="text-xs text-muted-foreground">{capitalGainsData?.ltcg?.count ?? 0} holdings</p>
+                </CardContent>
+              </Card>
+              <Card className="border-green-200">
+                <CardContent className="pt-4 text-center">
+                  <p className="text-xs text-muted-foreground">LTCG Exemption</p>
+                  <p className="text-xl font-bold text-green-600">{formatCurrency(capitalGainsData?.ltcg?.exemptionUsed ?? 0)}</p>
+                  <p className="text-xs text-muted-foreground">of ₹1.25L limit</p>
+                </CardContent>
+              </Card>
+              <Card className="border-purple-200">
+                <CardContent className="pt-4 text-center">
+                  <p className="text-xs text-muted-foreground">Est. Tax Liability</p>
+                  <p className="text-xl font-bold text-purple-600">{formatCurrency(capitalGainsData?.totalTaxLiability ?? 0)}</p>
+                  <p className="text-xs text-muted-foreground">if sold today</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Exit Load Summary */}
+            {exitLoadData && exitLoadData.holdings.length > 0 && (
+              <Card className="border-blue-200 dark:border-blue-800">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-blue-600" />
+                    Exit Load Charges
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                    <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
+                      <p className="text-xs text-muted-foreground">Exit Load Free</p>
+                      <p className="text-lg font-bold text-green-600">{exitLoadData.summary.exitLoadFree}</p>
+                    </div>
+                    <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-center">
+                      <p className="text-xs text-muted-foreground">Within Exit Period</p>
+                      <p className="text-lg font-bold text-amber-600">{exitLoadData.summary.withinExitLoadPeriod}</p>
+                    </div>
+                    <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded-lg text-center">
+                      <p className="text-xs text-muted-foreground">Exit Load Exposure</p>
+                      <p className="text-lg font-bold text-red-600">{formatCurrency(exitLoadData.summary.totalExitLoadExposure)}</p>
+                    </div>
+                    <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-center">
+                      <p className="text-xs text-muted-foreground">Total Holdings</p>
+                      <p className="text-lg font-bold text-blue-600">{exitLoadData.summary.totalHoldings}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            {(capitalGainsData?.grandfathered?.count ?? 0) > 0 && (
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center gap-2">
+                <Shield className="h-5 w-5 text-blue-600" />
+                <span className="text-sm text-blue-700 dark:text-blue-300">
+                  {capitalGainsData?.grandfathered?.count ?? 0} holdings eligible for grandfathering benefit 
+                  (savings: {formatCurrency(capitalGainsData?.grandfathered?.benefit ?? 0)})
+                </span>
+              </div>
+            )}
+            
+            <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+              <h4 className="font-medium mb-3 flex items-center gap-2">
+                <Lightbulb className="h-4 w-4 text-orange-600" />
+                Tax-Loss Harvesting Opportunities
+              </h4>
+              <div className="text-sm text-muted-foreground">
+                {holdings.filter(h => (h.currentValue - (h.purchasePrice || 0) * h.quantity) < 0).length > 0 ? (
+                  <p>Found {holdings.filter(h => (h.currentValue - (h.purchasePrice || 0) * h.quantity) < 0).length} holdings with unrealized losses that can be used to offset gains.</p>
+                ) : (
+                  <p>No significant tax-loss harvesting opportunities identified in current holdings.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Total Rebalancing Cost Summary */}
+            <Card className="border-2 border-amber-300 dark:border-amber-600">
+              <CardContent className="pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Total Rebalancing Cost</p>
+                    <p className="text-xs text-muted-foreground">(Capital Gains Tax + Exit Load)</p>
+                  </div>
+                  <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">
+                    {formatCurrency((capitalGainsData?.totalTaxLiability ?? 0) + (exitLoadData?.summary?.totalExitLoadExposure ?? 0))}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </CardContent>
+          <CardFooter className="justify-between">
+            <Button variant="outline" onClick={() => setCurrentStep(9)} data-testid="back-to-rebalancing-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
@@ -6392,8 +6242,8 @@ export default function AgentProspectWizard() {
         </Card>
       )}
 
-      {/* Step 12: Fresh Investment Suggestions */}
-      {currentStep === 12 && (
+      {/* Step 11: Fresh Investment Suggestions */}
+      {currentStep === 11 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5" /> Fresh Investment Suggestions</CardTitle>
@@ -6479,11 +6329,11 @@ export default function AgentProspectWizard() {
           )}
 
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(11)} data-testid="back-to-rebalance-btn">
+            <Button variant="outline" onClick={() => setCurrentStep(10)} data-testid="back-to-rebalancing-cost-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
-              onClick={() => setCurrentStep(13)}
+              onClick={() => setCurrentStep(12)}
               data-testid="to-sip-btn"
             >
               <RefreshCcw className="h-4 w-4 mr-2" /> SIP Planning
@@ -6493,8 +6343,8 @@ export default function AgentProspectWizard() {
         </Card>
       )}
 
-      {/* Step 13: SIP Planning */}
-      {currentStep === 13 && (
+      {/* Step 12: SIP Planning */}
+      {currentStep === 12 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><RefreshCcw className="h-5 w-5 text-blue-600" /> SIP Planning</CardTitle>
@@ -6575,10 +6425,246 @@ export default function AgentProspectWizard() {
             </div>
           </CardContent>
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(12)} data-testid="back-to-fresh-invest-btn">
+            <Button variant="outline" onClick={() => setCurrentStep(11)} data-testid="back-to-fresh-invest-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
-            <Button onClick={() => setCurrentStep(14)} data-testid="to-review-btn">
+            <Button onClick={() => setCurrentStep(13)} data-testid="to-recommended-whatif-btn">
+              <TrendingUp className="h-4 w-4 mr-2" /> Recommended Portfolio Analysis
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
+
+      {/* Step 13: What-If Analysis (Recommended Portfolio) */}
+      {currentStep === 13 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-emerald-600" /> Recommended Portfolio Projection</CardTitle>
+            <CardDescription>What-if analysis of the recommended portfolio (rebalancing + SIP + existing holdings)</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid md:grid-cols-3 gap-4">
+              <Card className="border-emerald-200 dark:border-emerald-800 bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20">
+                <CardContent className="pt-4">
+                  <p className="text-sm text-muted-foreground">Current Portfolio</p>
+                  <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{formatCurrency(analysis?.totalValue || 0)}</p>
+                </CardContent>
+              </Card>
+              <Card className="border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
+                <CardContent className="pt-4">
+                  <p className="text-sm text-muted-foreground">After Rebalancing</p>
+                  <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                    {formatCurrency((analysis?.totalValue || 0) - (rebalancing?.filter(r => r.action === 'SELL').reduce((sum, r) => sum + Math.abs(r.changeAmount), 0) || 0) + (rebalancing?.filter(r => r.action === 'BUY').reduce((sum, r) => sum + r.changeAmount, 0) || 0))}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="border-purple-200 dark:border-purple-800 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20">
+                <CardContent className="pt-4">
+                  <p className="text-sm text-muted-foreground">Monthly SIP Addition</p>
+                  <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">
+                    {formatCurrency(sipRecommendations?.reduce((sum, s) => sum + s.suggestedAmount, 0) || 0)}
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card className="border-amber-200 dark:border-amber-800">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-amber-600" />
+                  5-Year Projection
+                </CardTitle>
+                <CardDescription>Projected portfolio value based on expected returns</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-center">
+                    <p className="text-xs text-muted-foreground">1 Year</p>
+                    <p className="text-lg font-bold text-amber-700 dark:text-amber-300">
+                      {formatCurrency(((analysis?.totalValue || 0) * 1.12) + ((sipRecommendations?.reduce((sum, s) => sum + s.suggestedAmount, 0) || 0) * 12))}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-center">
+                    <p className="text-xs text-muted-foreground">3 Years</p>
+                    <p className="text-lg font-bold text-amber-700 dark:text-amber-300">
+                      {formatCurrency(((analysis?.totalValue || 0) * 1.4) + ((sipRecommendations?.reduce((sum, s) => sum + s.suggestedAmount, 0) || 0) * 36 * 1.15))}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-center">
+                    <p className="text-xs text-muted-foreground">5 Years</p>
+                    <p className="text-lg font-bold text-amber-700 dark:text-amber-300">
+                      {formatCurrency(((analysis?.totalValue || 0) * 1.76) + ((sipRecommendations?.reduce((sum, s) => sum + s.suggestedAmount, 0) || 0) * 60 * 1.25))}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
+                    <p className="text-xs text-muted-foreground">10 Years</p>
+                    <p className="text-lg font-bold text-green-700 dark:text-green-300">
+                      {formatCurrency(((analysis?.totalValue || 0) * 3.1) + ((sipRecommendations?.reduce((sum, s) => sum + s.suggestedAmount, 0) || 0) * 120 * 1.65))}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground text-center mt-3">*Based on assumed 12% annual returns for equity-oriented portfolio</p>
+              </CardContent>
+            </Card>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <Card className="border-green-200 dark:border-green-800">
+                <CardContent className="pt-4">
+                  <h4 className="font-medium text-green-600 mb-3 flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4" />
+                    Bull Scenario (+30%)
+                  </h4>
+                  <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                    <p className="text-sm text-muted-foreground">5-Year Value</p>
+                    <p className="text-xl font-bold text-green-600">
+                      {formatCurrency(((analysis?.totalValue || 0) * 2.3) + ((sipRecommendations?.reduce((sum, s) => sum + s.suggestedAmount, 0) || 0) * 60 * 1.6))}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-red-200 dark:border-red-800">
+                <CardContent className="pt-4">
+                  <h4 className="font-medium text-red-600 mb-3 flex items-center gap-2">
+                    <TrendingDown className="h-4 w-4" />
+                    Bear Scenario (-15%)
+                  </h4>
+                  <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                    <p className="text-sm text-muted-foreground">5-Year Value</p>
+                    <p className="text-xl font-bold text-red-600">
+                      {formatCurrency(((analysis?.totalValue || 0) * 1.3) + ((sipRecommendations?.reduce((sum, s) => sum + s.suggestedAmount, 0) || 0) * 60 * 0.95))}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <h4 className="font-medium mb-2 flex items-center gap-2">
+                <Info className="h-4 w-4 text-blue-600" />
+                Portfolio Composition After Implementation
+              </h4>
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Holdings to Keep (HOLD)</p>
+                  <p className="font-semibold">{rebalancing?.filter(r => r.action === 'HOLD').length || holdings.length} instruments</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Holdings to Sell</p>
+                  <p className="font-semibold text-red-600">{rebalancing?.filter(r => r.action === 'SELL').length || 0} instruments</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">New Investments</p>
+                  <p className="font-semibold text-green-600">{(rebalancing?.filter(r => r.action === 'BUY').length || 0) + (sipRecommendations?.length || 0)} instruments</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter className="justify-between">
+            <Button variant="outline" onClick={() => setCurrentStep(12)} data-testid="back-to-sip-btn">
+              <ArrowLeft className="h-4 w-4 mr-2" /> Back
+            </Button>
+            <Button onClick={() => setCurrentStep(14)} data-testid="to-proposal-sections-btn">
+              <FileCheck className="h-4 w-4 mr-2" /> Proposal Sections
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
+
+      {/* Step 14: Proposal Section Selection */}
+      {currentStep === 14 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileCheck className="h-5 w-5 text-indigo-600" />
+              Proposal Sections
+            </CardTitle>
+            <CardDescription>
+              Select which analytics sections to include in {prospectData.name}'s proposal report
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {[
+                { key: 'exitLoadCalendar', label: 'Exit Load Calendar', icon: Clock },
+                { key: 'capitalGainsSummary', label: 'Capital Gains Summary', icon: Calculator },
+                { key: 'portfolioHealthScore', label: 'Portfolio Health Score', icon: Activity },
+                { key: 'expenseRatioAnalysis', label: 'Expense Ratio Analysis', icon: Percent },
+                { key: 'dividendProjection', label: 'Dividend Projection', icon: Wallet },
+                { key: 'riskHeatmap', label: 'Risk Heatmap', icon: AlertTriangle },
+                { key: 'goalGapAnalysis', label: 'Goal Gap Analysis', icon: Target },
+                { key: 'benchmarkComparison', label: 'Benchmark Comparison', icon: BarChart3 },
+                { key: 'priorityRecommendations', label: 'Priority Actions', icon: ListChecks },
+                { key: 'sipRecommendations', label: 'SIP Recommendations', icon: ArrowUpCircle },
+                { key: 'whatIfSimulator', label: 'What-If Simulator', icon: TrendingDown },
+                { key: 'executiveSummary', label: 'Executive Summary', icon: FileText }
+              ].map(({ key, label, icon: Icon }) => (
+                <label 
+                  key={key} 
+                  className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${
+                    proposalSections[key as keyof typeof proposalSections]
+                      ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700'
+                      : 'bg-muted/30 border-muted hover:bg-muted/50'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={proposalSections[key as keyof typeof proposalSections]}
+                    onChange={(e) => setProposalSections(prev => ({ ...prev, [key]: e.target.checked }))}
+                    className="sr-only"
+                  />
+                  <Icon className={`h-4 w-4 ${proposalSections[key as keyof typeof proposalSections] ? 'text-indigo-600' : 'text-muted-foreground'}`} />
+                  <span className={`text-sm font-medium ${proposalSections[key as keyof typeof proposalSections] ? 'text-indigo-700 dark:text-indigo-300' : 'text-muted-foreground'}`}>
+                    {label}
+                  </span>
+                  {proposalSections[key as keyof typeof proposalSections] && (
+                    <CheckCircle className="h-4 w-4 text-green-500 ml-auto" />
+                  )}
+                </label>
+              ))}
+            </div>
+            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-indigo-600" />
+                <span className="font-medium">{Object.values(proposalSections).filter(Boolean).length} of 12 sections selected</span>
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setProposalSections({
+                    exitLoadCalendar: true, capitalGainsSummary: true, portfolioHealthScore: true,
+                    expenseRatioAnalysis: true, dividendProjection: true, riskHeatmap: true,
+                    goalGapAnalysis: true, benchmarkComparison: true, priorityRecommendations: true,
+                    sipRecommendations: true, whatIfSimulator: true, executiveSummary: true
+                  })}
+                >
+                  Select All
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setProposalSections({
+                    exitLoadCalendar: false, capitalGainsSummary: false, portfolioHealthScore: false,
+                    expenseRatioAnalysis: false, dividendProjection: false, riskHeatmap: false,
+                    goalGapAnalysis: false, benchmarkComparison: false, priorityRecommendations: false,
+                    sipRecommendations: false, whatIfSimulator: false, executiveSummary: false
+                  })}
+                >
+                  Clear All
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter className="justify-between">
+            <Button variant="outline" onClick={() => setCurrentStep(13)} data-testid="back-to-recommended-whatif-btn">
+              <ArrowLeft className="h-4 w-4 mr-2" /> Back
+            </Button>
+            <Button 
+              onClick={() => setCurrentStep(15)}
+              data-testid="to-review-btn"
+            >
               <ClipboardCheck className="h-4 w-4 mr-2" /> Review Summary
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
@@ -6586,8 +6672,8 @@ export default function AgentProspectWizard() {
         </Card>
       )}
 
-      {/* Step 14: Review Summary */}
-      {currentStep === 14 && (
+      {/* Step 15: Review Summary */}
+      {currentStep === 15 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><ClipboardCheck className="h-5 w-5 text-green-600" /> Review Summary</CardTitle>
@@ -6701,7 +6787,7 @@ export default function AgentProspectWizard() {
             </div>
           </CardContent>
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(13)} data-testid="back-to-sip-btn">
+            <Button variant="outline" onClick={() => setCurrentStep(14)} data-testid="back-to-sections-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
@@ -6717,8 +6803,8 @@ export default function AgentProspectWizard() {
         </Card>
       )}
 
-      {/* Step 15: Proposal Ready / Share */}
-      {currentStep === 15 && proposal && (
+      {/* Step 16: Proposal Ready / Share */}
+      {currentStep === 16 && proposal && (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -6811,7 +6897,7 @@ export default function AgentProspectWizard() {
             </div>
           </CardContent>
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(9)} data-testid="back-to-fresh-invest-btn">
+            <Button variant="outline" onClick={() => setCurrentStep(15)} data-testid="back-to-review-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button variant="outline" onClick={() => window.open(`/proposal/${proposal.shareToken}`, '_blank')} data-testid="preview-proposal-btn">
