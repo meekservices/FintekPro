@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useSearch } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -1533,6 +1533,89 @@ export default function AgentProspectWizard() {
   useEffect(() => {
     setSavedHoldingsLoaded(false);
   }, [prospectId]);
+
+  // Load saved goals when prospect is selected
+  const [savedGoalsLoaded, setSavedGoalsLoaded] = useState(false);
+  useEffect(() => {
+    const loadSavedGoals = async () => {
+      if (prospectId && !savedGoalsLoaded) {
+        try {
+          const response = await fetch(`/api/agent-wizard/prospects/${prospectId}/goals`, {
+            credentials: 'include'
+          });
+          if (response.ok) {
+            const payload = await response.json();
+            const backendGoals = payload.goals ?? [];
+            console.log('[Goals] Loaded saved goals:', backendGoals.length);
+            if (backendGoals.length > 0) {
+              setInvestmentGoals(backendGoals.map((g: any) => ({
+                id: g.id || `goal-${Date.now()}-${Math.random()}`,
+                goalType: g.goalType || 'wealth_creation',
+                goalName: g.goalName || '',
+                targetAmount: g.targetAmount || 0,
+                timelineYears: g.timelineYears || 5,
+                priority: g.priority || 'medium',
+                currentProgress: g.currentProgress || 0,
+                monthlyContribution: g.monthlyContribution || 0
+              })));
+              toast({ 
+                title: "Goals Loaded", 
+                description: `${backendGoals.length} saved goals loaded from previous session` 
+              });
+            }
+          }
+          setSavedGoalsLoaded(true);
+        } catch (error) {
+          console.error("Error loading saved goals:", error);
+          setSavedGoalsLoaded(true);
+        }
+      }
+    };
+    loadSavedGoals();
+  }, [prospectId, savedGoalsLoaded]);
+
+  // Reset savedGoalsLoaded when prospect changes
+  useEffect(() => {
+    setSavedGoalsLoaded(false);
+  }, [prospectId]);
+
+  // Auto-save goals when modified (debounced) - includes empty array to clear goals
+  const goalsAutoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const previousGoalsRef = useRef<string>('');
+  useEffect(() => {
+    if (!prospectId || !savedGoalsLoaded) return;
+    
+    // Serialize goals to detect actual changes
+    const goalsJson = JSON.stringify(investmentGoals);
+    if (goalsJson === previousGoalsRef.current) return;
+    previousGoalsRef.current = goalsJson;
+    
+    if (goalsAutoSaveTimeoutRef.current) {
+      clearTimeout(goalsAutoSaveTimeoutRef.current);
+    }
+    
+    goalsAutoSaveTimeoutRef.current = setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/agent-wizard/prospects/${prospectId}/goals`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ goals: investmentGoals })
+        });
+        if (response.ok) {
+          console.log('[Goals] Auto-saved', investmentGoals.length, 'goals');
+        }
+      } catch (error) {
+        console.error('[Goals] Auto-save error:', error);
+      }
+    }, 1500); // Debounce: wait 1.5s after last change
+    
+    return () => {
+      if (goalsAutoSaveTimeoutRef.current) {
+        clearTimeout(goalsAutoSaveTimeoutRef.current);
+      }
+    };
+  }, [prospectId, investmentGoals, savedGoalsLoaded]);
 
   // Product search for autocomplete - debounced search
   useEffect(() => {
