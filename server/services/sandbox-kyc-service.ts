@@ -141,7 +141,9 @@ export class SandboxKYCService {
         { cin },
         {
           headers: {
-            Authorization: `Bearer ${token}`,
+            'x-api-key': SANDBOX_API_KEY,
+            'authorization': token,
+            'x-api-version': '1.0',
             'Content-Type': 'application/json',
           },
         }
@@ -193,7 +195,9 @@ export class SandboxKYCService {
         { gstin },
         {
           headers: {
-            Authorization: `Bearer ${token}`,
+            'x-api-key': SANDBOX_API_KEY,
+            'authorization': token,
+            'x-api-version': '1.0',
             'Content-Type': 'application/json',
           },
         }
@@ -242,7 +246,9 @@ export class SandboxKYCService {
         { pan, name },
         {
           headers: {
-            Authorization: `Bearer ${token}`,
+            'x-api-key': SANDBOX_API_KEY,
+            'authorization': token,
+            'x-api-version': '1.0',
             'Content-Type': 'application/json',
           },
         }
@@ -297,7 +303,9 @@ export class SandboxKYCService {
         },
         {
           headers: {
-            Authorization: `Bearer ${token}`,
+            'x-api-key': SANDBOX_API_KEY,
+            'authorization': token,
+            'x-api-version': '1.0',
             'Content-Type': 'application/json',
           },
         }
@@ -363,7 +371,9 @@ export class SandboxKYCService {
         { tan },
         {
           headers: {
-            Authorization: `Bearer ${token}`,
+            'x-api-key': SANDBOX_API_KEY,
+            'authorization': token,
+            'x-api-version': '1.0',
             'Content-Type': 'application/json',
           },
         }

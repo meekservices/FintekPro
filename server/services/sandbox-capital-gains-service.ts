@@ -182,7 +182,9 @@ class SandboxCapitalGainsService {
         },
         {
           headers: {
-            Authorization: `Bearer ${token}`,
+            'x-api-key': SANDBOX_API_KEY,
+            'authorization': token,
+            'x-api-version': '1.0',
             'Content-Type': 'application/json',
           },
         }
@@ -244,7 +246,9 @@ class SandboxCapitalGainsService {
         `${SANDBOX_BASE_URL}/it/v1/calculator/tax-pnl/securities/domestic/job/${jobId}`,
         {
           headers: {
-            Authorization: `Bearer ${token}`,
+            'x-api-key': SANDBOX_API_KEY,
+            'authorization': token,
+            'x-api-version': '1.0',
           },
         }
       );
