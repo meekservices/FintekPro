@@ -2001,7 +2001,7 @@ export default function AgentProspectWizard() {
       if (data.success) {
         setAnalysis(data.analysis);
         toast({ title: "Analysis Complete", description: "Portfolio analyzed successfully." });
-        setCurrentStep(4);
+        setCurrentStep(5);
         
         // Fetch exit load calendar data
         try {
