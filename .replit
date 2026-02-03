@@ -51,7 +51,9 @@ TWILIO_CALL_FORWARD_NUMBER = "+919686854321"
 MCA_SYSTEM_ACCESS_TOKEN = "mca-ingest-system-access-2024"
 TWILIO_PRIMARY_PHONE = "+17623851291"
 USE_SANDBOX_TAX_API = "true"
-SANDBOX_BASE_URL = "https://api.sandbox.co.in"
+SANDBOX_BASE_URL = "https://test-api.sandbox.co.in"
+SANDBOX_API_KEY = "key_test_0126a18d3c8946f19dc2d905041e755d"
+SANDBOX_API_SECRET = "secret_test_6d7c3bf350974741a5067b1e0fcbf5ad"
 
 [userenv.production]
 CASHFREE_ENVIRONMENT = "PRODUCTION"

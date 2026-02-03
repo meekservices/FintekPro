@@ -969,4 +969,230 @@ class SandboxTDSService {
   }
 }
 
+// ============ SHEET JSON FORMAT HELPERS ============
+// Sandbox.co.in uses Sheet JSON format for bulk TDS operations (Form 24Q, 26Q, 27Q, 27EQ)
+
+interface SheetBlock {
+  name: string;
+  '@entity': 'list' | 'table';
+  items?: Array<[string, any]>;  // For list entity
+  header?: string[];              // For table entity
+  rows?: any[][];                 // For table entity
+}
+
+interface Sheet {
+  name: string;
+  blocks: SheetBlock[];
+}
+
+interface SheetJSON {
+  name: string;
+  sheets: Sheet[];
+}
+
+export function buildTDSSheetJSON(formType: '24Q' | '26Q' | '27Q' | '27EQ', data: {
+  payer: {
+    name: string;
+    tan: string;
+    pan: string;
+    branch?: string;
+    gstin?: string;
+    street: string;
+    area?: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    email: string;
+    mobile: string;
+  };
+  responsiblePerson: {
+    designation: string;
+    name: string;
+    pan: string;
+    street: string;
+    area?: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    email: string;
+    mobile: string;
+  };
+  payees: Array<{
+    srNo: number;
+    pan: string;
+    name: string;
+  }>;
+  challans: Array<{
+    challanSerial: string;
+    bsrCode: string;
+    paidDate: number; // Unix timestamp in ms
+    minorHead: string;
+    tdsAmount: number;
+    surcharge: number;
+    healthAndEducationCess: number;
+    interest: number;
+    lateFilingFees: number;
+    otherPenalty: number;
+  }>;
+  payments: Array<{
+    payeeSrNo: number;
+    challanSerial: string;
+    bsrCode: string;
+    section: string;
+    creditAmount: number;
+    creditDate: number; // Unix timestamp in ms
+    tdsAmount: number;
+    surcharge: number;
+    healthAndEducationCess: number;
+    deductionDate: number; // Unix timestamp in ms
+    reasonForLowerDeduction?: string;
+    certificateNumber?: string;
+  }>;
+}): SheetJSON {
+  return {
+    name: `Form ${formType}`,
+    sheets: [
+      {
+        name: 'Payer',
+        blocks: [
+          {
+            name: 'Payer',
+            '@entity': 'list',
+            items: [
+              ['name', data.payer.name],
+              ['tan', data.payer.tan],
+              ['pan', data.payer.pan],
+              ['branch', data.payer.branch || 'HQ'],
+              ['gstin', data.payer.gstin || ''],
+              ['street', data.payer.street],
+              ['area', data.payer.area || ''],
+              ['city', data.payer.city],
+              ['state', data.payer.state],
+              ['postal_code', data.payer.postalCode],
+              ['email', data.payer.email],
+              ['mobile', data.payer.mobile],
+            ],
+          },
+          {
+            name: 'Responsible Person',
+            '@entity': 'list',
+            items: [
+              ['designation', data.responsiblePerson.designation],
+              ['name', data.responsiblePerson.name],
+              ['pan', data.responsiblePerson.pan],
+              ['street', data.responsiblePerson.street],
+              ['area', data.responsiblePerson.area || ''],
+              ['city', data.responsiblePerson.city],
+              ['state', data.responsiblePerson.state],
+              ['postal_code', data.responsiblePerson.postalCode],
+              ['email', data.responsiblePerson.email],
+              ['mobile', data.responsiblePerson.mobile],
+            ],
+          },
+        ],
+      },
+      {
+        name: 'Payee',
+        blocks: [
+          {
+            name: 'Payee',
+            '@entity': 'table',
+            header: ['sr_no', 'pan', 'name'],
+            rows: data.payees.map(p => [p.srNo, p.pan, p.name]),
+          },
+        ],
+      },
+      {
+        name: 'Challan',
+        blocks: [
+          {
+            name: 'Challan',
+            '@entity': 'table',
+            header: [
+              'challan_serial', 'bsr_code', 'paid_date', 'minor_head',
+              'tds_amount', 'surcharge', 'health_and_education_cess',
+              'interest', 'late_filing_fees', 'other_penalty',
+            ],
+            rows: data.challans.map(c => [
+              c.challanSerial, c.bsrCode, c.paidDate, c.minorHead,
+              c.tdsAmount, c.surcharge, c.healthAndEducationCess,
+              c.interest, c.lateFilingFees, c.otherPenalty,
+            ]),
+          },
+        ],
+      },
+      {
+        name: 'Payment',
+        blocks: [
+          {
+            name: 'Payment',
+            '@entity': 'table',
+            header: [
+              'payee_sr_no', 'challan_serial', 'bsr_code', 'section',
+              'credit_amount', 'credit_date', 'tds_amount', 'surcharge',
+              'health_and_education_cess', 'deduction_date',
+              'reason_for_lower_deduction', 'certificate_number',
+            ],
+            rows: data.payments.map(p => [
+              p.payeeSrNo, p.challanSerial, p.bsrCode, p.section,
+              p.creditAmount, p.creditDate, p.tdsAmount, p.surcharge,
+              p.healthAndEducationCess, p.deductionDate,
+              p.reasonForLowerDeduction || '', p.certificateNumber || '',
+            ]),
+          },
+        ],
+      },
+    ],
+  };
+}
+
+export function parseSheetJSON(sheetJson: SheetJSON): {
+  payer?: Record<string, any>;
+  responsiblePerson?: Record<string, any>;
+  payees: Array<Record<string, any>>;
+  challans: Array<Record<string, any>>;
+  payments: Array<Record<string, any>>;
+} {
+  const result: {
+    payer?: Record<string, any>;
+    responsiblePerson?: Record<string, any>;
+    payees: Array<Record<string, any>>;
+    challans: Array<Record<string, any>>;
+    payments: Array<Record<string, any>>;
+  } = { payees: [], challans: [], payments: [] };
+
+  for (const sheet of sheetJson.sheets) {
+    for (const block of sheet.blocks) {
+      if (block['@entity'] === 'list' && block.items) {
+        const obj: Record<string, any> = {};
+        for (const [key, value] of block.items) {
+          obj[key] = value;
+        }
+        if (block.name === 'Payer') {
+          result.payer = obj;
+        } else if (block.name === 'Responsible Person') {
+          result.responsiblePerson = obj;
+        }
+      } else if (block['@entity'] === 'table' && block.header && block.rows) {
+        const rows = block.rows.map(row => {
+          const obj: Record<string, any> = {};
+          block.header!.forEach((key, i) => {
+            obj[key] = row[i];
+          });
+          return obj;
+        });
+        if (block.name === 'Payee') {
+          result.payees = rows;
+        } else if (block.name === 'Challan') {
+          result.challans = rows;
+        } else if (block.name === 'Payment') {
+          result.payments = rows;
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
 export const sandboxTDSService = new SandboxTDSService();
