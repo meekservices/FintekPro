@@ -225,6 +225,16 @@ export interface ProposalPdfConfig {
     advisorDeclaration: boolean;
   };
   
+  // Section customizations from agent
+  sectionCustomizations?: {
+    [sectionId: string]: {
+      customNotes?: string;
+      overrideTitle?: string;
+      showInToc?: boolean;
+      customData?: Record<string, any>;
+    };
+  };
+  
   settings: {
     orientation: 'portrait' | 'landscape';
   };
@@ -491,6 +501,36 @@ export class RegulatorGradePdfRenderer {
     this.currentY += 15;
   }
 
+  private getSectionTitle(sectionId: string, defaultTitle: string, config: ProposalPdfConfig): string {
+    return config.sectionCustomizations?.[sectionId]?.overrideTitle || defaultTitle;
+  }
+
+  private renderAdvisorNotes(sectionId: string, config: ProposalPdfConfig): void {
+    const notes = config.sectionCustomizations?.[sectionId]?.customNotes;
+    if (!notes) return;
+    
+    if (this.currentY > this.pageHeight - 60) {
+      this.addNewPage();
+    }
+    
+    this.pdf.setFillColor(255, 251, 235);
+    this.pdf.setDrawColor(217, 119, 6);
+    const notesHeight = Math.min(60, 20 + notes.length / 3);
+    this.pdf.roundedRect(this.margin, this.currentY - 3, this.pageWidth - 2 * this.margin, notesHeight, 3, 3, 'FD');
+    
+    this.pdf.setFontSize(9);
+    this.pdf.setFont('helvetica', 'bold');
+    this.pdf.setTextColor(217, 119, 6);
+    this.pdf.text('Advisor Notes:', this.margin + 5, this.currentY + 5);
+    
+    this.pdf.setFont('helvetica', 'italic');
+    this.pdf.setTextColor(...COLORS.text);
+    const splitNotes = this.pdf.splitTextToSize(notes, this.pageWidth - 2 * this.margin - 10);
+    this.pdf.text(splitNotes.slice(0, 3), this.margin + 5, this.currentY + 15);
+    
+    this.currentY += notesHeight + 10;
+  }
+
   private formatCurrency(value: number): string {
     if (Math.abs(value) >= 10000000) {
       return `₹${(value / 10000000).toFixed(2)} Cr`;
@@ -591,7 +631,10 @@ export class RegulatorGradePdfRenderer {
   }
 
   private renderExecutiveSummary(config: ProposalPdfConfig): void {
-    this.renderSectionHeader('Executive Summary');
+    const title = this.getSectionTitle('executiveSummary', 'Executive Summary', config);
+    this.renderSectionHeader(title);
+    
+    this.renderAdvisorNotes('executiveSummary', config);
 
     this.pdf.setFontSize(10);
     this.pdf.setTextColor(...COLORS.text);
@@ -636,7 +679,10 @@ export class RegulatorGradePdfRenderer {
   }
 
   private renderPortfolioOverview(config: ProposalPdfConfig): void {
-    this.renderSectionHeader('Portfolio Overview (Existing)');
+    const title = this.getSectionTitle('portfolioOverview', 'Portfolio Overview (Existing)', config);
+    this.renderSectionHeader(title);
+    
+    this.renderAdvisorNotes('portfolioOverview', config);
 
     if (!config.existingHoldings?.length) {
       this.pdf.text('No existing holdings data available.', this.margin, this.currentY);
@@ -674,7 +720,10 @@ export class RegulatorGradePdfRenderer {
   }
 
   private renderProductRecommendations(config: ProposalPdfConfig): void {
-    this.renderSectionHeader('Product-Level Recommendation Summary');
+    const title = this.getSectionTitle('productRecommendations', 'Product-Level Recommendation Summary', config);
+    this.renderSectionHeader(title);
+    
+    this.renderAdvisorNotes('productRecommendations', config);
 
     if (!config.verdicts?.length) {
       this.pdf.text('No verdicts available.', this.margin, this.currentY);
@@ -725,7 +774,10 @@ export class RegulatorGradePdfRenderer {
   }
 
   private renderCapitalGainsSummary(config: ProposalPdfConfig): void {
-    this.renderSectionHeader('Capital Gains Summary');
+    const title = this.getSectionTitle('capitalGainsSummary', 'Capital Gains Summary', config);
+    this.renderSectionHeader(title);
+    
+    this.renderAdvisorNotes('capitalGainsSummary', config);
 
     if (!config.capitalGains) {
       this.pdf.text('No capital gains data available.', this.margin, this.currentY);
@@ -788,7 +840,10 @@ export class RegulatorGradePdfRenderer {
   }
 
   private renderTaxImpactSummary(config: ProposalPdfConfig): void {
-    this.renderSectionHeader('Tax Impact Summary (Net Rebalancing Cost)');
+    const title = this.getSectionTitle('taxImpactSummary', 'Tax Impact Summary (Net Rebalancing Cost)', config);
+    this.renderSectionHeader(title);
+    
+    this.renderAdvisorNotes('taxImpactSummary', config);
 
     if (!config.taxImpact) {
       this.pdf.text('No tax impact data available.', this.margin, this.currentY);
@@ -821,7 +876,10 @@ export class RegulatorGradePdfRenderer {
   }
 
   private renderRebalancingSipRecommendations(config: ProposalPdfConfig): void {
-    this.renderSectionHeader('Rebalancing & SIP Recommendations');
+    const title = this.getSectionTitle('rebalancingSipRecommendations', 'Rebalancing & SIP Recommendations', config);
+    this.renderSectionHeader(title);
+    
+    this.renderAdvisorNotes('rebalancingSipRecommendations', config);
 
     if (!config.sipRecommendations?.length) {
       this.pdf.text('No SIP recommendations available.', this.margin, this.currentY);
@@ -1045,7 +1103,10 @@ export class RegulatorGradePdfRenderer {
   }
 
   private renderPriorityRecommendations(config: ProposalPdfConfig): void {
-    this.renderSectionHeader('Priority Recommendations');
+    const title = this.getSectionTitle('priorityRecommendations', 'Priority Recommendations', config);
+    this.renderSectionHeader(title);
+    
+    this.renderAdvisorNotes('priorityRecommendations', config);
 
     if (!config.priorityRecommendations?.length) {
       this.pdf.text('No priority recommendations available.', this.margin, this.currentY);
