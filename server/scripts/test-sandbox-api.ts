@@ -33,11 +33,13 @@ async function testAuthentication(): Promise<string | null> {
   try {
     const response = await axios.post(
       `${SANDBOX_BASE_URL}/authenticate`,
+      {},
       {
-        x_api_key: SANDBOX_API_KEY,
-        x_api_secret: SANDBOX_API_SECRET,
-      },
-      {
+        headers: {
+          'x-api-key': SANDBOX_API_KEY,
+          'x-api-secret': SANDBOX_API_SECRET,
+          'Content-Type': 'application/json'
+        },
         timeout: 15000
       }
     );
