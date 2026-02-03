@@ -26,7 +26,7 @@ import {
   IndianRupee, Percent, Clock, Shield, Zap, RefreshCw, Search, Users, Download,
   Upload, Link, FileText, AlertCircle, Settings2, Globe, ChevronUp, ChevronDown, Info,
   Pencil, RotateCcw, Save, X, Lightbulb, Calculator, LayoutGrid, Wand2,
-  Activity, Wallet, BarChart3, ListChecks, ArrowUpCircle
+  Activity, Wallet, BarChart3, ListChecks, ArrowUpCircle, FileCheck
 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import jsPDF from "jspdf";
@@ -709,9 +709,9 @@ export default function AgentProspectWizard() {
     });
   }, [totalPortfolioValue]);
   
-  // Apply AI defaults when entering Step 5 in AI mode or when risk profile changes
+  // Apply AI defaults when entering Step 6 (Categories) in AI mode or when risk profile changes
   useEffect(() => {
-    if (currentStep === 5 && categorySelectionMode === 'ai_default') {
+    if (currentStep === 6 && categorySelectionMode === 'ai_default') {
       // Apply AI defaults based on current risk profile
       const aiCategories = getAIDefaultCategories(riskProfile.riskTolerance);
       setSelectedCategories(aiCategories);
@@ -2051,7 +2051,7 @@ export default function AgentProspectWizard() {
       if (data.success) {
         setRebalancing(data.suggestions || []);
         setTaxSummary(data.taxSummary || null);
-        setCurrentStep(7);
+        setCurrentStep(8);
       }
     }
   });
@@ -2072,7 +2072,7 @@ export default function AgentProspectWizard() {
     onSuccess: (data) => {
       if (data.success) {
         setFreshInvestments(data.suggestions);
-        setCurrentStep(8);
+        setCurrentStep(9);
       }
     }
   });
@@ -2224,7 +2224,7 @@ export default function AgentProspectWizard() {
       if (data.success) {
         setProposal(data.proposal);
         toast({ title: "Proposal Generated", description: "Investment proposal ready to share!" });
-        setCurrentStep(9);
+        setCurrentStep(10);
         
         if (zohoLeadId && zohoSource === 'zoho') {
           const products = selectedCategories.filter(c => customAllocations[c as keyof typeof customAllocations] > 0);
@@ -2557,11 +2557,12 @@ export default function AgentProspectWizard() {
     { num: 2, title: "Risk Profile", icon: Target },
     { num: 3, title: "Portfolio", icon: PieChart },
     { num: 4, title: "Analysis", icon: Sparkles },
-    { num: 5, title: "Categories", icon: LayoutGrid },
-    { num: 6, title: "Allocation", icon: Settings2 },
-    { num: 7, title: "Rebalance", icon: Scale },
-    { num: 8, title: "Fresh Invest", icon: TrendingUp },
-    { num: 9, title: "Share", icon: Share2 }
+    { num: 5, title: "Sections", icon: FileCheck },
+    { num: 6, title: "Categories", icon: LayoutGrid },
+    { num: 7, title: "Allocation", icon: Settings2 },
+    { num: 8, title: "Rebalance", icon: Scale },
+    { num: 9, title: "Fresh Invest", icon: TrendingUp },
+    { num: 10, title: "Share", icon: Share2 }
   ];
 
   return (
@@ -4246,63 +4247,6 @@ export default function AgentProspectWizard() {
               </Card>
             </div>
 
-            {/* Section Selection Panel */}
-            <Card className="mt-4 border-indigo-200 dark:border-indigo-800">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Settings2 className="h-5 w-5 text-indigo-600" />
-                  Proposal Sections
-                </CardTitle>
-                <CardDescription>
-                  Select which analytics sections to include in the client proposal
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {[
-                    { key: 'exitLoadCalendar', label: 'Exit Load Calendar', icon: Clock },
-                    { key: 'capitalGainsSummary', label: 'Capital Gains Summary', icon: Calculator },
-                    { key: 'portfolioHealthScore', label: 'Portfolio Health Score', icon: Activity },
-                    { key: 'expenseRatioAnalysis', label: 'Expense Ratio Analysis', icon: Percent },
-                    { key: 'dividendProjection', label: 'Dividend Projection', icon: Wallet },
-                    { key: 'riskHeatmap', label: 'Risk Heatmap', icon: AlertTriangle },
-                    { key: 'goalGapAnalysis', label: 'Goal Gap Analysis', icon: Target },
-                    { key: 'benchmarkComparison', label: 'Benchmark Comparison', icon: BarChart3 },
-                    { key: 'priorityRecommendations', label: 'Priority Actions', icon: ListChecks },
-                    { key: 'sipRecommendations', label: 'SIP Recommendations', icon: ArrowUpCircle },
-                    { key: 'whatIfSimulator', label: 'What-If Simulator', icon: TrendingDown },
-                    { key: 'executiveSummary', label: 'Executive Summary', icon: FileText }
-                  ].map(({ key, label, icon: Icon }) => (
-                    <label 
-                      key={key} 
-                      className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
-                        proposalSections[key as keyof typeof proposalSections]
-                          ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700'
-                          : 'bg-muted/30 border-muted hover:bg-muted/50'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={proposalSections[key as keyof typeof proposalSections]}
-                        onChange={(e) => setProposalSections(prev => ({ ...prev, [key]: e.target.checked }))}
-                        className="sr-only"
-                      />
-                      <Icon className={`h-4 w-4 ${proposalSections[key as keyof typeof proposalSections] ? 'text-indigo-600' : 'text-muted-foreground'}`} />
-                      <span className={`text-xs font-medium ${proposalSections[key as keyof typeof proposalSections] ? 'text-indigo-700 dark:text-indigo-300' : 'text-muted-foreground'}`}>
-                        {label}
-                      </span>
-                      {proposalSections[key as keyof typeof proposalSections] && (
-                        <CheckCircle className="h-3 w-3 text-green-500 ml-auto" />
-                      )}
-                    </label>
-                  ))}
-                </div>
-                <p className="text-xs text-muted-foreground mt-3">
-                  {Object.values(proposalSections).filter(Boolean).length} of 12 sections selected for proposal
-                </p>
-              </CardContent>
-            </Card>
-
             {/* Executive Summary Card */}
             {proposalSections.executiveSummary && analysis && (
               <Card className="mt-4 border-emerald-200 dark:border-emerald-800">
@@ -4950,6 +4894,106 @@ export default function AgentProspectWizard() {
             </Button>
             <Button 
               onClick={() => setCurrentStep(5)}
+              data-testid="to-sections-btn"
+            >
+              <FileCheck className="h-4 w-4 mr-2" /> Select Proposal Sections
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
+
+      {/* Step 5: Proposal Section Selection */}
+      {currentStep === 5 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileCheck className="h-5 w-5 text-indigo-600" />
+              Proposal Sections
+            </CardTitle>
+            <CardDescription>
+              Select which analytics sections to include in {prospectData.name}'s proposal report
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {[
+                { key: 'exitLoadCalendar', label: 'Exit Load Calendar', icon: Clock },
+                { key: 'capitalGainsSummary', label: 'Capital Gains Summary', icon: Calculator },
+                { key: 'portfolioHealthScore', label: 'Portfolio Health Score', icon: Activity },
+                { key: 'expenseRatioAnalysis', label: 'Expense Ratio Analysis', icon: Percent },
+                { key: 'dividendProjection', label: 'Dividend Projection', icon: Wallet },
+                { key: 'riskHeatmap', label: 'Risk Heatmap', icon: AlertTriangle },
+                { key: 'goalGapAnalysis', label: 'Goal Gap Analysis', icon: Target },
+                { key: 'benchmarkComparison', label: 'Benchmark Comparison', icon: BarChart3 },
+                { key: 'priorityRecommendations', label: 'Priority Actions', icon: ListChecks },
+                { key: 'sipRecommendations', label: 'SIP Recommendations', icon: ArrowUpCircle },
+                { key: 'whatIfSimulator', label: 'What-If Simulator', icon: TrendingDown },
+                { key: 'executiveSummary', label: 'Executive Summary', icon: FileText }
+              ].map(({ key, label, icon: Icon }) => (
+                <label 
+                  key={key} 
+                  className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${
+                    proposalSections[key as keyof typeof proposalSections]
+                      ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700'
+                      : 'bg-muted/30 border-muted hover:bg-muted/50'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={proposalSections[key as keyof typeof proposalSections]}
+                    onChange={(e) => setProposalSections(prev => ({ ...prev, [key]: e.target.checked }))}
+                    className="sr-only"
+                  />
+                  <Icon className={`h-4 w-4 ${proposalSections[key as keyof typeof proposalSections] ? 'text-indigo-600' : 'text-muted-foreground'}`} />
+                  <span className={`text-sm font-medium ${proposalSections[key as keyof typeof proposalSections] ? 'text-indigo-700 dark:text-indigo-300' : 'text-muted-foreground'}`}>
+                    {label}
+                  </span>
+                  {proposalSections[key as keyof typeof proposalSections] && (
+                    <CheckCircle className="h-4 w-4 text-green-500 ml-auto" />
+                  )}
+                </label>
+              ))}
+            </div>
+            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-indigo-600" />
+                <span className="font-medium">{Object.values(proposalSections).filter(Boolean).length} of 12 sections selected</span>
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setProposalSections({
+                    exitLoadCalendar: true, capitalGainsSummary: true, portfolioHealthScore: true,
+                    expenseRatioAnalysis: true, dividendProjection: true, riskHeatmap: true,
+                    goalGapAnalysis: true, benchmarkComparison: true, priorityRecommendations: true,
+                    sipRecommendations: true, whatIfSimulator: true, executiveSummary: true
+                  })}
+                >
+                  Select All
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setProposalSections({
+                    exitLoadCalendar: false, capitalGainsSummary: false, portfolioHealthScore: false,
+                    expenseRatioAnalysis: false, dividendProjection: false, riskHeatmap: false,
+                    goalGapAnalysis: false, benchmarkComparison: false, priorityRecommendations: false,
+                    sipRecommendations: false, whatIfSimulator: false, executiveSummary: false
+                  })}
+                >
+                  Clear All
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter className="justify-between">
+            <Button variant="outline" onClick={() => setCurrentStep(4)} data-testid="back-to-analysis-btn">
+              <ArrowLeft className="h-4 w-4 mr-2" /> Back to Analysis
+            </Button>
+            <Button 
+              onClick={() => setCurrentStep(6)}
               data-testid="to-categories-btn"
             >
               <LayoutGrid className="h-4 w-4 mr-2" /> Select Categories
@@ -4959,8 +5003,8 @@ export default function AgentProspectWizard() {
         </Card>
       )}
 
-      {/* Step 5: Product Category Selection */}
-      {currentStep === 5 && (
+      {/* Step 6: Product Category Selection */}
+      {currentStep === 6 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><LayoutGrid className="h-5 w-5" /> Product Category Selection</CardTitle>
@@ -5161,11 +5205,11 @@ export default function AgentProspectWizard() {
             )}
           </CardContent>
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(4)} data-testid="back-to-analysis-btn">
+            <Button variant="outline" onClick={() => setCurrentStep(5)} data-testid="back-to-sections-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
-              onClick={() => setCurrentStep(6)}
+              onClick={() => setCurrentStep(7)}
               disabled={categorySelectionMode === 'manual' && selectedCategories.length === 0}
               data-testid="to-allocation-btn"
             >
@@ -5184,7 +5228,8 @@ export default function AgentProspectWizard() {
         </Card>
       )}
 
-      {currentStep === 6 && (
+      {/* Step 7: Asset Allocation */}
+      {currentStep === 7 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Settings2 className="h-5 w-5" /> Asset Allocation</CardTitle>
@@ -5574,7 +5619,7 @@ export default function AgentProspectWizard() {
             </div>
           </CardContent>
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(5)} data-testid="back-to-categories-btn">
+            <Button variant="outline" onClick={() => setCurrentStep(6)} data-testid="back-to-categories-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
@@ -5593,7 +5638,8 @@ export default function AgentProspectWizard() {
         </Card>
       )}
 
-      {currentStep === 7 && (
+      {/* Step 8: Rebalancing Recommendations */}
+      {currentStep === 8 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Scale className="h-5 w-5" /> Rebalancing Recommendations</CardTitle>
@@ -5817,7 +5863,7 @@ export default function AgentProspectWizard() {
             )}
           </CardContent>
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(6)} data-testid="back-to-allocation-btn">
+            <Button variant="outline" onClick={() => setCurrentStep(7)} data-testid="back-to-allocation-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
@@ -5832,7 +5878,8 @@ export default function AgentProspectWizard() {
         </Card>
       )}
 
-      {currentStep === 8 && (
+      {/* Step 9: Fresh Investment Suggestions */}
+      {currentStep === 9 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5" /> Fresh Investment Suggestions</CardTitle>
@@ -5918,7 +5965,7 @@ export default function AgentProspectWizard() {
           )}
 
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(7)} data-testid="back-to-rebalance-btn">
+            <Button variant="outline" onClick={() => setCurrentStep(8)} data-testid="back-to-rebalance-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
@@ -5934,7 +5981,8 @@ export default function AgentProspectWizard() {
         </Card>
       )}
 
-      {currentStep === 9 && proposal && (
+      {/* Step 10: Proposal Ready / Share */}
+      {currentStep === 10 && proposal && (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -6027,7 +6075,7 @@ export default function AgentProspectWizard() {
             </div>
           </CardContent>
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(8)} data-testid="back-to-fresh-invest-btn">
+            <Button variant="outline" onClick={() => setCurrentStep(9)} data-testid="back-to-fresh-invest-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button variant="outline" onClick={() => window.open(`/proposal/${proposal.shareToken}`, '_blank')} data-testid="preview-proposal-btn">
