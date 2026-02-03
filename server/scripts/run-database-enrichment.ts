@@ -223,6 +223,89 @@ async function runStockEnrichment() {
   return result;
 }
 
+async function runUnlistedPricingEnrichment() {
+  console.log('\n🔄 Starting Unlisted Company Pricing Enrichment...');
+  
+  const results = await db.execute(sql`
+    SELECT 
+      uc.id,
+      uc.name,
+      uc.sector,
+      cf.networth,
+      cf.revenue,
+      cr.pe_ratio,
+      cr.pb_ratio
+    FROM unlisted_companies uc
+    LEFT JOIN LATERAL (
+      SELECT networth, revenue 
+      FROM company_financials 
+      WHERE company_id = uc.id 
+      ORDER BY financial_year DESC 
+      LIMIT 1
+    ) cf ON true
+    LEFT JOIN LATERAL (
+      SELECT pe_ratio, pb_ratio 
+      FROM company_ratios 
+      WHERE company_id = uc.id 
+      ORDER BY financial_year DESC 
+      LIMIT 1
+    ) cr ON true
+    WHERE uc.published_buy_price IS NULL OR uc.published_buy_price = '0'
+  `);
+  
+  console.log(`Found ${results.rows.length} companies needing pricing`);
+  
+  let enriched = 0;
+  
+  for (const company of results.rows as any[]) {
+    let buyPrice = 0;
+    let sellPrice = 0;
+    
+    // Calculate price based on available data
+    if (company.networth && parseFloat(company.networth) > 0) {
+      buyPrice = Math.round(parseFloat(company.networth) / 10000000); // 1 share ~ net worth / 10M
+    } else if (company.pe_ratio && company.revenue) {
+      const earnings = parseFloat(company.revenue) * 0.1; // Assume 10% margin
+      buyPrice = Math.round((earnings / 10000000) * parseFloat(company.pe_ratio));
+    } else {
+      // Default sector-based pricing
+      const sectorPrices: Record<string, number> = {
+        'Technology': 500,
+        'Financial Services': 400,
+        'Real Estate': 300,
+        'Infrastructure': 350,
+        'Healthcare': 450,
+        'FMCG': 380,
+        'Industrial': 280,
+        'Unknown': 200,
+      };
+      
+      const sector = company.sector || 'Unknown';
+      buyPrice = sectorPrices[sector] || 200;
+    }
+    
+    // Sell price is 5% higher than buy price (typical spread)
+    sellPrice = Math.round(buyPrice * 1.05);
+    
+    if (buyPrice > 0) {
+      await db.execute(sql`
+        UPDATE unlisted_companies 
+        SET 
+          published_buy_price = ${buyPrice.toString()},
+          published_sell_price = ${sellPrice.toString()},
+          pricing_status = 'active',
+          updated_at = NOW()
+        WHERE id = ${company.id}
+      `);
+      enriched++;
+      console.log(`  Updated ${company.name}: Buy ₹${buyPrice}, Sell ₹${sellPrice}`);
+    }
+  }
+  
+  console.log(`✅ Unlisted Pricing Complete: ${enriched} companies enriched`);
+  return { enriched, total: results.rows.length };
+}
+
 // Main execution
 const args = process.argv.slice(2);
 const command = args[0] || 'report';
@@ -243,11 +326,15 @@ switch (command) {
   case 'stocks':
     runStockEnrichment().then(() => process.exit(0));
     break;
+  case 'unlisted':
+    runUnlistedPricingEnrichment().then(() => process.exit(0));
+    break;
   case 'all':
     Promise.all([
       runMutualFundEnrichment(maxFunds),
       runMFExtendedEnrichment(false),
-      runStockEnrichment()
+      runStockEnrichment(),
+      runUnlistedPricingEnrichment()
     ]).then(() => {
       console.log('\n✅ All enrichment jobs complete');
       process.exit(0);
@@ -262,6 +349,7 @@ Commands:
   mf [maxFunds]         - Run mutual fund returns enrichment (default: 100 funds)
   mf-extended [--force] - Run MF extended enrichment (TER/AUM/Category)
   stocks                - Run stock financial metrics enrichment
+  unlisted              - Run unlisted company pricing enrichment
   all [maxFunds]        - Run all enrichment jobs
     `);
     process.exit(0);
