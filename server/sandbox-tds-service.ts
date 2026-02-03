@@ -1047,6 +1047,13 @@ export function buildTDSSheetJSON(formType: '24Q' | '26Q' | '27Q' | '27EQ', data
     deductionDate: number; // Unix timestamp in ms
     reasonForLowerDeduction?: string;
     certificateNumber?: string;
+    // 194N cash withdrawal fields
+    cashWithdrawalMoreThan1Crore?: number;
+    cashWithdrawal20LTo1CrNonFilers?: number;
+    cashWithdrawalMoreThan1CrNonFilers?: number;
+    cashWithdrawalMoreThan3CrCoopSocieties?: number;
+    cashWithdrawal20LTo3CrNonFilers?: number;
+    cashWithdrawalMoreThan3CrNonFilers?: number;
   }>;
 }): SheetJSON {
   return {
@@ -1132,12 +1139,24 @@ export function buildTDSSheetJSON(formType: '24Q' | '26Q' | '27Q' | '27EQ', data
               'credit_amount', 'credit_date', 'tds_amount', 'surcharge',
               'health_and_education_cess', 'deduction_date',
               'reason_for_lower_deduction', 'certificate_number',
+              'amount_of_cash_withdrawal_more_than_1_crore_us_194N',
+              'amount_of_cash_withdrawal_between_20_lakhs_and_1_crore_us_194N_for_non_filers',
+              'amount_of_cash_withdrawal_more_than_1_crore_us_194N_for_non_filers',
+              'amount_of_cash_withdrawal_more_than_3_crore_us_194N_for_co-operative_societies',
+              'amount_of_cash_withdrawal_between_20_lakhs_and_3_crore_us_194N_for_non_filers',
+              'amount_of_cash_withdrawal_more_than_3_crore_us_194N_for_non_filers',
             ],
             rows: data.payments.map(p => [
               p.payeeSrNo, p.challanSerial, p.bsrCode, p.section,
               p.creditAmount, p.creditDate, p.tdsAmount, p.surcharge,
               p.healthAndEducationCess, p.deductionDate,
               p.reasonForLowerDeduction || '', p.certificateNumber || '',
+              p.cashWithdrawalMoreThan1Crore || 0,
+              p.cashWithdrawal20LTo1CrNonFilers || 0,
+              p.cashWithdrawalMoreThan1CrNonFilers || 0,
+              p.cashWithdrawalMoreThan3CrCoopSocieties || 0,
+              p.cashWithdrawal20LTo3CrNonFilers || 0,
+              p.cashWithdrawalMoreThan3CrNonFilers || 0,
             ]),
           },
         ],
