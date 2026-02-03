@@ -6128,107 +6128,99 @@ export default function AgentProspectWizard() {
             <CardDescription>Capital gains tax and exit load charges for recommended rebalancing</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid md:grid-cols-4 gap-4">
-              <Card className="border-red-200">
-                <CardContent className="pt-4 text-center">
-                  <p className="text-xs text-muted-foreground">STCG (@20%)</p>
-                  <p className="text-xl font-bold text-red-600">{formatCurrency(capitalGainsData?.stcg?.taxableGain ?? 0)}</p>
-                  <p className="text-xs text-muted-foreground">{capitalGainsData?.stcg?.count ?? 0} holdings</p>
-                </CardContent>
-              </Card>
-              <Card className="border-amber-200">
-                <CardContent className="pt-4 text-center">
-                  <p className="text-xs text-muted-foreground">LTCG (@12.5%)</p>
-                  <p className="text-xl font-bold text-amber-600">{formatCurrency(capitalGainsData?.ltcg?.taxableGain ?? 0)}</p>
-                  <p className="text-xs text-muted-foreground">{capitalGainsData?.ltcg?.count ?? 0} holdings</p>
-                </CardContent>
-              </Card>
-              <Card className="border-green-200">
-                <CardContent className="pt-4 text-center">
-                  <p className="text-xs text-muted-foreground">LTCG Exemption</p>
-                  <p className="text-xl font-bold text-green-600">{formatCurrency(capitalGainsData?.ltcg?.exemptionUsed ?? 0)}</p>
-                  <p className="text-xs text-muted-foreground">of ₹1.25L limit</p>
-                </CardContent>
-              </Card>
-              <Card className="border-purple-200">
-                <CardContent className="pt-4 text-center">
-                  <p className="text-xs text-muted-foreground">Est. Tax Liability</p>
-                  <p className="text-xl font-bold text-purple-600">{formatCurrency(capitalGainsData?.totalTaxLiability ?? 0)}</p>
-                  <p className="text-xs text-muted-foreground">if sold today</p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Exit Load Summary */}
-            {exitLoadData && exitLoadData.holdings.length > 0 && (
-              <Card className="border-blue-200 dark:border-blue-800">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Clock className="h-5 w-5 text-blue-600" />
-                    Exit Load Charges
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                    <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
-                      <p className="text-xs text-muted-foreground">Exit Load Free</p>
-                      <p className="text-lg font-bold text-green-600">{exitLoadData.summary.exitLoadFree}</p>
-                    </div>
-                    <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-center">
-                      <p className="text-xs text-muted-foreground">Within Exit Period</p>
-                      <p className="text-lg font-bold text-amber-600">{exitLoadData.summary.withinExitLoadPeriod}</p>
-                    </div>
-                    <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded-lg text-center">
-                      <p className="text-xs text-muted-foreground">Exit Load Exposure</p>
-                      <p className="text-lg font-bold text-red-600">{formatCurrency(exitLoadData.summary.totalExitLoadExposure)}</p>
-                    </div>
-                    <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-center">
-                      <p className="text-xs text-muted-foreground">Total Holdings</p>
-                      <p className="text-lg font-bold text-blue-600">{exitLoadData.summary.totalHoldings}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            
-            {(capitalGainsData?.grandfathered?.count ?? 0) > 0 && (
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center gap-2">
-                <Shield className="h-5 w-5 text-blue-600" />
-                <span className="text-sm text-blue-700 dark:text-blue-300">
-                  {capitalGainsData?.grandfathered?.count ?? 0} holdings eligible for grandfathering benefit 
-                  (savings: {formatCurrency(capitalGainsData?.grandfathered?.benefit ?? 0)})
-                </span>
-              </div>
-            )}
-            
-            <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-              <h4 className="font-medium mb-3 flex items-center gap-2">
-                <Lightbulb className="h-4 w-4 text-orange-600" />
-                Tax-Loss Harvesting Opportunities
-              </h4>
-              <div className="text-sm text-muted-foreground">
-                {holdings.filter(h => (h.currentValue - (h.purchasePrice || 0) * h.quantity) < 0).length > 0 ? (
-                  <p>Found {holdings.filter(h => (h.currentValue - (h.purchasePrice || 0) * h.quantity) < 0).length} holdings with unrealized losses that can be used to offset gains.</p>
-                ) : (
-                  <p>No significant tax-loss harvesting opportunities identified in current holdings.</p>
-                )}
-              </div>
-            </div>
-
-            {/* Total Rebalancing Cost Summary */}
-            <Card className="border-2 border-amber-300 dark:border-amber-600">
-              <CardContent className="pt-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Total Rebalancing Cost</p>
-                    <p className="text-xs text-muted-foreground">(Capital Gains Tax + Exit Load)</p>
-                  </div>
-                  <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">
-                    {formatCurrency((capitalGainsData?.totalTaxLiability ?? 0) + (exitLoadData?.summary?.totalExitLoadExposure ?? 0))}
-                  </p>
+            {taxSummary ? (
+              <>
+                <div className="grid md:grid-cols-5 gap-4">
+                  <Card className="border-red-200">
+                    <CardContent className="pt-4 text-center">
+                      <p className="text-xs text-muted-foreground">Short-Term Gains</p>
+                      <p className="text-xl font-bold text-red-600">{formatCurrency(taxSummary.totalSTCG ?? 0)}</p>
+                      <p className="text-xs text-muted-foreground">Tax (@20%): {formatCurrency(taxSummary.stcgTax ?? 0)}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-amber-200">
+                    <CardContent className="pt-4 text-center">
+                      <p className="text-xs text-muted-foreground">Long-Term Gains</p>
+                      <p className="text-xl font-bold text-amber-600">{formatCurrency(taxSummary.totalLTCG ?? 0)}</p>
+                      <p className="text-xs text-muted-foreground">Tax (@12.5%): {formatCurrency(taxSummary.ltcgTax ?? 0)}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-purple-200">
+                    <CardContent className="pt-4 text-center">
+                      <p className="text-xs text-muted-foreground">H&E Cess (4%)</p>
+                      <p className="text-xl font-bold text-purple-600">{formatCurrency(taxSummary.cess ?? 0)}</p>
+                      <p className="text-xs text-muted-foreground">on total tax</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-blue-200">
+                    <CardContent className="pt-4 text-center">
+                      <p className="text-xs text-muted-foreground">Exit Loads</p>
+                      <p className="text-xl font-bold text-blue-600">{formatCurrency(taxSummary.totalExitLoad ?? 0)}</p>
+                      <p className="text-xs text-muted-foreground">if sold today</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-2 border-amber-300">
+                    <CardContent className="pt-4 text-center">
+                      <p className="text-xs text-muted-foreground">Net Rebalancing Cost</p>
+                      <p className="text-xl font-bold text-amber-700">{formatCurrency(taxSummary.netRebalancingCost ?? 0)}</p>
+                      <p className="text-xs text-muted-foreground">(Tax + Cess + Exit Load)</p>
+                    </CardContent>
+                  </Card>
                 </div>
-              </CardContent>
-            </Card>
+
+                {/* Grandfathering Benefit */}
+                {(taxSummary.grandfatheringBenefitTotal ?? 0) > 0 && (
+                  <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-green-600" />
+                    <span className="text-sm text-green-700 dark:text-green-300">
+                      Grandfathering benefit applied: {formatCurrency(taxSummary.grandfatheringBenefitTotal)} saved on pre-2018 holdings
+                    </span>
+                  </div>
+                )}
+
+                {/* Tax-Loss Harvesting */}
+                {(taxSummary.taxLossHarvestingOpportunity ?? 0) > 0 && (
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center gap-2">
+                    <Lightbulb className="h-5 w-5 text-blue-600" />
+                    <span className="text-sm text-blue-700 dark:text-blue-300">
+                      Tax-Loss Harvesting Opportunity: {formatCurrency(taxSummary.taxLossHarvestingOpportunity)} in unrealized losses available to offset gains
+                    </span>
+                  </div>
+                )}
+
+                {/* Alerts */}
+                {taxSummary.alerts?.length > 0 && (
+                  <div className="space-y-2">
+                    {taxSummary.alerts.map((alert: any, idx: number) => (
+                      <div key={idx} className={`flex items-start gap-2 p-2 rounded-lg ${
+                        alert.type === 'warning' ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300' : 
+                        alert.type === 'opportunity' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' : 
+                        'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300'
+                      }`}>
+                        {alert.type === 'warning' ? <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" /> : 
+                         alert.type === 'opportunity' ? <Lightbulb className="h-4 w-4 mt-0.5 flex-shrink-0" /> : 
+                         <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />}
+                        <span className="text-sm">{alert.message}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Disclosure */}
+                {taxSummary.disclosure && (
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-xs text-muted-foreground">
+                    <p className="font-medium mb-1">Tax Calculation Disclosure:</p>
+                    <p>{taxSummary.disclosure}</p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Calculator className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No rebalancing recommendations available.</p>
+                <p className="text-sm">Go back to Step 9 to generate rebalancing recommendations first.</p>
+              </div>
+            )}
           </CardContent>
           <CardFooter className="justify-between">
             <Button variant="outline" onClick={() => setCurrentStep(9)} data-testid="back-to-rebalancing-btn">
