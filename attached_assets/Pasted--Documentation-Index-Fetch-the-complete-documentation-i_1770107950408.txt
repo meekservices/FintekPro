@@ -1,0 +1,142 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://developer.sandbox.co.in/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Create Session
+
+<Card title="Run in Postman" icon="https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=bf60d58751a51f6e80a8f2cdae74c9fc" horizontal arrow="true" href="https://www.postman.com/in-co-sandbox/sandbox-api/request/rupyji9/create-session" data-og-width="2030" width="2030" data-og-height="2031" height="2031" data-path="static/svg/Postman.svg" data-optimize="true" data-opv="3" srcset="https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=280&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=a8161d9ab4b0cbfbfe9ce7d86a953ab4 280w, https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=560&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=692bb76a5da8bde417a42bc8e3fb3d12 560w, https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=840&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=22185eb59762467866dfd7ae89f04c61 840w, https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=1100&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=3dfce096efd8f3686e007202e961864f 1100w, https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=1650&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=d763125fec4e71e4017b4c47d2815420 1650w, https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=2500&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=1a03ffbeed1528dff8f272382c72a0d0 2500w" />
+
+
+## OpenAPI
+
+````yaml api-reference/kyc/openapi.json post /kyc/digilocker-sdk/sessions/create
+openapi: 3.1.0
+info:
+  title: KYC
+  version: 1.0.0
+  description: ''
+servers:
+  - url: https://api.sandbox.co.in
+  - url: https://test-api.sandbox.co.in
+security: []
+paths:
+  /kyc/digilocker-sdk/sessions/create:
+    post:
+      tags:
+        - DigiLocker
+        - DigiLocker SDK
+      summary: Create Session
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          description: JWT access token
+          schema:
+            deprecated: false
+            type: string
+        - name: x-api-key
+          in: header
+          required: true
+          description: API key for identification
+          schema:
+            deprecated: false
+            type: string
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            deprecated: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                '@entity':
+                  type: string
+                  const: in.co.sandbox.kyc.digilocker.sdk.session.request
+                flow:
+                  description: >-
+                    Indicates whether the user is signing in or signing up on
+                    DigiLocker
+                  type: string
+                  enum:
+                    - signin
+                    - signup
+                doc_types:
+                  description: Documents you need consent for.
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - aadhaar
+                      - driving_license
+                      - pan
+      responses:
+        '200':
+          description: 200 - OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  timestamp:
+                    type: integer
+                  transaction_id:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      '@entity':
+                        type: string
+                        const: in.co.sandbox.kyc.digilocker.sdk.session
+                      id:
+                        description: Session ID
+                        type: string
+                        format: uuid
+                      status:
+                        description: Status of the Session
+                        type: string
+                        enum:
+                          - created
+                      created_at:
+                        type: integer
+                  code:
+                    type: integer
+              examples:
+                200 - OK:
+                  value:
+                    timestamp: 1750331120324
+                    transaction_id: 5ccad959-0bf4-4472-a3dd-d57e2b61b5a9
+                    data:
+                      '@entity': in.co.sandbox.kyc.digilocker.sdk.session
+                      id: 0454f149-26d0-41ef-9f14-c54f4b5f7b70
+                      status: created
+                      created_at: 1750331120324
+                    code: 200
+        '400':
+          description: 400 - Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  timestamp:
+                    type: integer
+                  message:
+                    type: string
+                    enum:
+                      - Invalid request body
+                  transaction_id:
+                    type: string
+              examples:
+                400 - Invalid request body:
+                  value:
+                    code: 400
+                    timestamp: 1760426007752
+                    message: Invalid request body
+                    transaction_id: f654ccdb-919f-486d-851d-0fc5d0050c17
+
+````
