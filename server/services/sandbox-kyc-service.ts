@@ -1260,30 +1260,41 @@ export class SandboxKYCService {
 
   /**
    * Initiate EntityLocker session for business document verification
-   * @param gstin - GSTIN of the business
    * @param redirectUrl - URL to redirect after authentication
+   * @param flow - Whether user is signing in or signing up on EntityLocker
+   * @param consentExpiry - Optional consent expiry timestamp (min 1 hour from now)
    */
-  async initiateEntityLockerSession(gstin: string, redirectUrl: string): Promise<{
+  async initiateEntityLockerSession(
+    redirectUrl: string,
+    flow: 'signin' | 'signup' = 'signin',
+    consentExpiry?: number
+  ): Promise<{
     sessionId: string;
     authorizationUrl: string;
-    expiresAt: string;
+    transactionId: string;
   }> {
-    if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(gstin)) {
-      throw new Error('Invalid GSTIN format');
-    }
     if (!redirectUrl || !/^https?:\/\/.+/.test(redirectUrl)) {
       throw new Error('Valid redirect URL is required (must start with http:// or https://)');
+    }
+    if (consentExpiry && consentExpiry < Date.now() + 3600000) {
+      throw new Error('Consent expiry must be at least 1 hour from now');
     }
 
     const token = await this.authenticate();
 
     try {
+      const requestBody: Record<string, any> = {
+        '@entity': 'in.co.sandbox.kyc.entitylocker.session.request',
+        flow: flow,
+        redirect_url: redirectUrl,
+      };
+      if (consentExpiry) {
+        requestBody.consent_expiry = consentExpiry;
+      }
+
       const response = await axios.post(
-        `${SANDBOX_BASE_URL}/kyc/entitylocker/initiate`,
-        { 
-          gstin,
-          redirect_url: redirectUrl,
-        },
+        `${SANDBOX_BASE_URL}/kyc/entitylocker/sessions/init`,
+        requestBody,
         {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
@@ -1300,9 +1311,9 @@ export class SandboxKYCService {
 
       const data = response.data.data;
       return {
-        sessionId: data.session_id || data.request_id,
-        authorizationUrl: data.authorization_url || data.url,
-        expiresAt: data.expires_at || new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+        sessionId: data.session_id,
+        authorizationUrl: data.authorization_url,
+        transactionId: response.data.transaction_id,
       };
     } catch (error: any) {
       console.error('EntityLocker initiation error:', error.response?.data || error.message);
