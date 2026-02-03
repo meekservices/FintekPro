@@ -702,6 +702,79 @@ export class SandboxKYCService {
   }
 
   // ============================================
+  // IFSC VERIFICATION
+  // ============================================
+
+  /**
+   * Verify IFSC code and get bank branch details
+   * @param ifsc - 11-digit IFSC code
+   */
+  async verifyIFSC(ifsc: string): Promise<{
+    ifsc: string;
+    bank: string;
+    bankCode: string;
+    branch: string;
+    address: string;
+    city: string;
+    district: string;
+    state: string;
+    contact: string;
+    micr: string;
+    swift: string | null;
+    iso3166: string;
+    upi: boolean;
+    rtgs: boolean;
+    neft: boolean;
+    imps: boolean;
+  }> {
+    if (!/^[A-Z]{4}0[0-9A-Z]{6}$/.test(ifsc)) {
+      throw new Error('Invalid IFSC format. Must be 11 characters: 4 letters + 0 + 6 alphanumeric');
+    }
+
+    const token = await this.authenticate();
+
+    try {
+      const response = await axios.get(
+        `${SANDBOX_BASE_URL}/bank/${ifsc}`,
+        {
+          headers: {
+            'x-api-key': SANDBOX_API_KEY,
+            'authorization': token,
+            'x-api-version': '1.0',
+            'X-Accept-Cache': 'true',
+          },
+        }
+      );
+
+      const data = response.data;
+      return {
+        ifsc: data.IFSC,
+        bank: data.BANK,
+        bankCode: data.BANKCODE,
+        branch: data.BRANCH,
+        address: data.ADDRESS,
+        city: data.CITY,
+        district: data.DISTRICT,
+        state: data.STATE,
+        contact: data.CONTACT || '',
+        micr: data.MICR,
+        swift: data.SWIFT || null,
+        iso3166: data.ISO3166,
+        upi: data.UPI === true,
+        rtgs: data.RTGS === true,
+        neft: data.NEFT === true,
+        imps: data.IMPS === true,
+      };
+    } catch (error: any) {
+      console.error('IFSC verification error:', error.response?.data || error.message);
+      if (error.response?.status === 404) {
+        throw new Error('IFSC code not found');
+      }
+      throw new Error(`IFSC verification failed: ${error.response?.data?.message || error.message}`);
+    }
+  }
+
+  // ============================================
   // PENNYLESS BANK VERIFICATION
   // ============================================
 

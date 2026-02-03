@@ -1,0 +1,411 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://developer.sandbox.co.in/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# IFSC Verification
+
+> Verify the IFSC code and receive details of the associated bank branch.
+
+<Card title="Run in Postman" icon="https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=bf60d58751a51f6e80a8f2cdae74c9fc" horizontal arrow="true" href="https://www.postman.com/in-co-sandbox/sandbox-api/request/jul3oxp/ifsc-verification" data-og-width="2030" width="2030" data-og-height="2031" height="2031" data-path="static/svg/Postman.svg" data-optimize="true" data-opv="3" srcset="https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=280&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=a8161d9ab4b0cbfbfe9ce7d86a953ab4 280w, https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=560&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=692bb76a5da8bde417a42bc8e3fb3d12 560w, https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=840&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=22185eb59762467866dfd7ae89f04c61 840w, https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=1100&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=3dfce096efd8f3686e007202e961864f 1100w, https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=1650&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=d763125fec4e71e4017b4c47d2815420 1650w, https://mintcdn.com/sandboxfinancialtechnologiesprivatelimited/E4RwGFBROD75hm3P/static/svg/Postman.svg?w=2500&fit=max&auto=format&n=E4RwGFBROD75hm3P&q=85&s=1a03ffbeed1528dff8f272382c72a0d0 2500w" />
+
+
+## OpenAPI
+
+````yaml api-reference/kyc/openapi.json get /bank/{ifsc}
+openapi: 3.1.0
+info:
+  title: KYC
+  version: 1.0.0
+  description: ''
+servers:
+  - url: https://api.sandbox.co.in
+  - url: https://test-api.sandbox.co.in
+security: []
+paths:
+  /bank/{ifsc}:
+    parameters:
+      - name: ifsc
+        in: path
+        required: true
+        description: 11-digit alpha-numeric code used to identify the bank branches
+        schema:
+          deprecated: false
+          type: string
+          pattern: ^[A-Z]{4}0[0-9A-Z]{6}$
+    get:
+      tags:
+        - Bank
+      summary: IFSC Verification
+      description: You can identify a bank branch details from given IFSC code
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          description: JWT access token
+          schema:
+            deprecated: false
+            type: string
+        - name: x-api-key
+          in: header
+          required: true
+          description: API key for identification
+          schema:
+            deprecated: false
+            type: string
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            deprecated: false
+      responses:
+        '200':
+          description: 200 - OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  MICR:
+                    type: string
+                  BRANCH:
+                    type: string
+                  ADDRESS:
+                    type: string
+                  STATE:
+                    type: string
+                  CONTACT:
+                    type: string
+                  UPI:
+                    type: boolean
+                  RTGS:
+                    type: boolean
+                  CITY:
+                    type: string
+                  CENTRE:
+                    type: string
+                  DISTRICT:
+                    type: string
+                  NEFT:
+                    type: boolean
+                  IMPS:
+                    type: boolean
+                  SWIFT:
+                    type: string
+                  ISO3166:
+                    type: string
+                  BANK:
+                    type: string
+                  BANKCODE:
+                    type: string
+                  IFSC:
+                    type: string
+              examples:
+                200 - Success:
+                  value:
+                    MICR: '302240007'
+                    BRANCH: PARK STREET
+                    ADDRESS: 3 PARK STREET M I ROAD M I ROAD
+                    STATE: RAJASTHAN
+                    CONTACT: '+919875003333'
+                    UPI: true
+                    RTGS: true
+                    CITY: JAIPUR
+                    CENTRE: JAIPUR
+                    DISTRICT: JAIPUR
+                    NEFT: true
+                    IMPS: true
+                    SWIFT: HDFCINBB
+                    ISO3166: IN-RJ
+                    BANK: HDFC Bank
+                    BANKCODE: HDFC
+                    IFSC: HDFC0001234
+                success:
+                  value:
+                    CENTRE: GHAZIABAD
+                    UPI: true
+                    RTGS: true
+                    NEFT: true
+                    IMPS: true
+                    ADDRESS: >-
+                      H NO 534 SBH ABOOPUR BR DRAMBEDKAR BASTI ABOOPUR TEHSIL
+                      MODINAGAR GHAZIABAD
+                    CITY: GHAZIABAD
+                    CONTACT: '+911232225145'
+                    STATE: UTTAR PRADESH
+                    SWIFT: null
+                    MICR: '110002688'
+                    BRANCH: ABOOPUR
+                    ISO3166: IN-UP
+                    DISTRICT: GHAZIABAD
+                    BANK: State Bank of India
+                    BANKCODE: SBIN
+                    IFSC: SBIN0021744
+                success (1):
+                  value:
+                    MICR: '560002356'
+                    BRANCH: BOMMASANDRA
+                    ADDRESS: >-
+                      3NACADEKSSIDCINDLAEAIISTAGEJIGANILINKDBOMMASANDAINDSBANGALOE
+                    STATE: KARNATAKA
+                    CONTACT: '+918027839267'
+                    UPI: true
+                    RTGS: true
+                    CITY: BANGALORE URBAN
+                    CENTRE: BANGALORE URBAN
+                    DISTRICT: BANGALORE URBAN
+                    NEFT: true
+                    IMPS: true
+                    SWIFT: null
+                    ISO3166: IN-KA
+                    BANK: State Bank of India
+                    BANKCODE: SBIN
+                    IFSC: SBIN0021745
+                success (2):
+                  value:
+                    MICR: '560002355'
+                    BRANCH: YELAHANKA
+                    ADDRESS: CRC SQUARE NO 684 3RD A CROSS A SECTORYELAHANKA NEW TOWN
+                    STATE: KARNATAKA
+                    CONTACT: ''
+                    UPI: true
+                    RTGS: true
+                    CITY: BANGALORE
+                    CENTRE: BANGALORE
+                    DISTRICT: BANGALORE
+                    NEFT: true
+                    IMPS: true
+                    SWIFT: null
+                    ISO3166: IN-KA
+                    BANK: State Bank of India
+                    BANKCODE: SBIN
+                    IFSC: SBIN0021746
+                success (3):
+                  value:
+                    DISTRICT: GREATER BOMBAY
+                    CONTACT: '+912261606161'
+                    ADDRESS: >-
+                      GROUND FLOOR UNIT NO G6 THE CAPITAL G BLOCK BKC BANDRA
+                      EAST MUMBAI MAHARASHTRA 400051
+                    NEFT: true
+                    SWIFT: HDFCINBB
+                    MICR: '400240218'
+                    CENTRE: GREATER BOMBAY
+                    CITY: MUMBAI
+                    ISO3166: IN-MH
+                    STATE: MAHARASHTRA
+                    BRANCH: BANDRA KURLA COMPLEX
+                    UPI: true
+                    RTGS: true
+                    IMPS: true
+                    BANK: HDFC Bank
+                    BANKCODE: HDFC
+                    IFSC: HDFC0009595
+                success (4):
+                  value:
+                    MICR: '799002002'
+                    BRANCH: AGARTALA
+                    ADDRESS: H.G.BASAK RD., AGARTALA, TRIPURA-779001
+                    STATE: TRIPURA
+                    CONTACT: ''
+                    UPI: true
+                    RTGS: true
+                    CITY: AGARTALA
+                    CENTRE: WEST TRIPURA
+                    DISTRICT: WEST TRIPURA
+                    NEFT: true
+                    IMPS: true
+                    SWIFT: SBININBB476
+                    ISO3166: IN-TR
+                    BANK: State Bank of India
+                    BANKCODE: SBIN
+                    IFSC: SBIN0000002
+                200 - success 1:
+                  value:
+                    MICR: '560002356'
+                    BRANCH: BOMMASANDRA
+                    ADDRESS: >-
+                      3NACADEKSSIDCINDLAEAIISTAGEJIGANILINKDBOMMASANDAINDSBANGALOE
+                    STATE: KARNATAKA
+                    CONTACT: '+918027839267'
+                    UPI: true
+                    RTGS: true
+                    CITY: BANGALORE URBAN
+                    CENTRE: BANGALORE URBAN
+                    DISTRICT: BANGALORE URBAN
+                    NEFT: true
+                    IMPS: true
+                    SWIFT: null
+                    ISO3166: IN-KA
+                    BANK: State Bank of India
+                    BANKCODE: SBIN
+                    IFSC: SBIN0021745
+                200 - success 2:
+                  value:
+                    MICR: '560002355'
+                    BRANCH: YELAHANKA
+                    ADDRESS: CRC SQUARE NO 684 3RD A CROSS A SECTORYELAHANKA NEW TOWN
+                    STATE: KARNATAKA
+                    CONTACT: ''
+                    UPI: true
+                    RTGS: true
+                    CITY: BANGALORE
+                    CENTRE: BANGALORE
+                    DISTRICT: BANGALORE
+                    NEFT: true
+                    IMPS: true
+                    SWIFT: null
+                    ISO3166: IN-KA
+                    BANK: State Bank of India
+                    BANKCODE: SBIN
+                    IFSC: SBIN0021746
+                200 - success 3:
+                  value:
+                    DISTRICT: GREATER BOMBAY
+                    CONTACT: '+912261606161'
+                    ADDRESS: >-
+                      GROUND FLOOR UNIT NO G6 THE CAPITAL G BLOCK BKC BANDRA
+                      EAST MUMBAI MAHARASHTRA 400051
+                    NEFT: true
+                    SWIFT: HDFCINBB
+                    MICR: '400240218'
+                    CENTRE: GREATER BOMBAY
+                    CITY: MUMBAI
+                    ISO3166: IN-MH
+                    STATE: MAHARASHTRA
+                    BRANCH: BANDRA KURLA COMPLEX
+                    UPI: true
+                    RTGS: true
+                    IMPS: true
+                    BANK: HDFC Bank
+                    BANKCODE: HDFC
+                    IFSC: HDFC0009595
+                200 - success 4:
+                  value:
+                    MICR: '799002002'
+                    BRANCH: AGARTALA
+                    ADDRESS: H.G.BASAK RD., AGARTALA, TRIPURA-779001
+                    STATE: TRIPURA
+                    CONTACT: ''
+                    UPI: true
+                    RTGS: true
+                    CITY: AGARTALA
+                    CENTRE: WEST TRIPURA
+                    DISTRICT: WEST TRIPURA
+                    NEFT: true
+                    IMPS: true
+                    SWIFT: SBININBB476
+                    ISO3166: IN-TR
+                    BANK: State Bank of India
+                    BANKCODE: SBIN
+                    IFSC: SBIN0000002
+                200 - 200 - Success 1:
+                  value:
+                    CENTRE: GHAZIABAD
+                    UPI: true
+                    RTGS: true
+                    NEFT: true
+                    IMPS: true
+                    ADDRESS: >-
+                      H NO 534 SBH ABOOPUR BR DRAMBEDKAR BASTI ABOOPUR TEHSIL
+                      MODINAGAR GHAZIABAD
+                    CITY: GHAZIABAD
+                    CONTACT: '+911232225145'
+                    STATE: UTTAR PRADESH
+                    SWIFT: null
+                    MICR: '110002688'
+                    BRANCH: ABOOPUR
+                    ISO3166: IN-UP
+                    DISTRICT: GHAZIABAD
+                    BANK: State Bank of India
+                    BANKCODE: SBIN
+                    IFSC: SBIN0021744
+                200 - 200 - Success 2:
+                  value:
+                    MICR: '560002356'
+                    BRANCH: BOMMASANDRA
+                    ADDRESS: >-
+                      3NACADEKSSIDCINDLAEAIISTAGEJIGANILINKDBOMMASANDAINDSBANGALOE
+                    STATE: KARNATAKA
+                    CONTACT: '+918027839267'
+                    UPI: true
+                    RTGS: true
+                    CITY: BANGALORE URBAN
+                    CENTRE: BANGALORE URBAN
+                    DISTRICT: BANGALORE URBAN
+                    NEFT: true
+                    IMPS: true
+                    SWIFT: null
+                    ISO3166: IN-KA
+                    BANK: State Bank of India
+                    BANKCODE: SBIN
+                    IFSC: SBIN0021745
+                200 - 200 - Success 3:
+                  value:
+                    MICR: '560002355'
+                    BRANCH: YELAHANKA
+                    ADDRESS: CRC SQUARE NO 684 3RD A CROSS A SECTORYELAHANKA NEW TOWN
+                    STATE: KARNATAKA
+                    CONTACT: ''
+                    UPI: true
+                    RTGS: true
+                    CITY: BANGALORE
+                    CENTRE: BANGALORE
+                    DISTRICT: BANGALORE
+                    NEFT: true
+                    IMPS: true
+                    SWIFT: null
+                    ISO3166: IN-KA
+                    BANK: State Bank of India
+                    BANKCODE: SBIN
+                    IFSC: SBIN0021746
+                200 - 200 - Success 4:
+                  value:
+                    DISTRICT: GREATER BOMBAY
+                    CONTACT: '+912261606161'
+                    ADDRESS: >-
+                      GROUND FLOOR UNIT NO G6 THE CAPITAL G BLOCK BKC BANDRA
+                      EAST MUMBAI MAHARASHTRA 400051
+                    NEFT: true
+                    SWIFT: HDFCINBB
+                    MICR: '400240218'
+                    CENTRE: GREATER BOMBAY
+                    CITY: MUMBAI
+                    ISO3166: IN-MH
+                    STATE: MAHARASHTRA
+                    BRANCH: BANDRA KURLA COMPLEX
+                    UPI: true
+                    RTGS: true
+                    IMPS: true
+                    BANK: HDFC Bank
+                    BANKCODE: HDFC
+                    IFSC: HDFC0009595
+                200 - 200 - Success 5:
+                  value:
+                    MICR: '302240007'
+                    BRANCH: PARK STREET
+                    ADDRESS: 3 PARK STREET M I ROAD M I ROAD
+                    STATE: RAJASTHAN
+                    CONTACT: '+919875003333'
+                    UPI: true
+                    RTGS: true
+                    CITY: JAIPUR
+                    CENTRE: JAIPUR
+                    DISTRICT: JAIPUR
+                    NEFT: true
+                    IMPS: true
+                    SWIFT: HDFCINBB
+                    ISO3166: IN-RJ
+                    BANK: HDFC Bank
+                    BANKCODE: HDFC
+                    IFSC: HDFC0001234
+        '404':
+          description: 404 - Not Found
+          content:
+            application/json:
+              schema:
+                type: string
+              examples:
+                404- Not Found:
+                  value: Not Found
+
+````
