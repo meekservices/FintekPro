@@ -21,6 +21,7 @@ import { unifiedPDFParser } from "../services/unified-pdf-parser";
 import { assertLotsNotDropped } from "../services/holding-transformer";
 import { requireAuth, requireRole } from "../middleware/roleMiddleware";
 import { prospectReadinessService } from "../services/prospect-readiness-service";
+import { portfolioAnalyticsDataService } from "../services/portfolio-analytics-data-service";
 
 // Multer setup for CAS file upload
 const upload = multer({
@@ -954,14 +955,14 @@ router.post("/proposal-analytics", async (req: Request, res: Response) => {
     }
     if (requestedSections.includes('EXPENSE_RATIO')) {
       analytics.expenseRatio = {
-        data: calculateExpenseRatioAnalysis(normalizedHoldings),
+        data: await calculateExpenseRatioAnalysis(normalizedHoldings),
         assumptions: { benchmarkTER: 1.0 },
         dataSource: 'fund_metadata'
       };
     }
     if (requestedSections.includes('DIVIDEND')) {
       analytics.dividend = {
-        data: calculateDividendProjection(normalizedHoldings),
+        data: await calculateDividendProjection(normalizedHoldings),
         assumptions: { projectionYears: 5, growthRate: 0.08 },
         dataSource: 'dividend_history'
       };
@@ -1145,27 +1146,71 @@ function calculatePortfolioHealthScore(holdings: NormalizedHolding[], riskProfil
   };
 }
 
-function calculateExpenseRatioAnalysis(holdings: NormalizedHolding[]) {
+async function calculateExpenseRatioAnalysis(holdings: NormalizedHolding[]) {
   const totalValue = holdings.reduce((sum, h) => sum + (h.currentValue || 0), 0);
   if (totalValue === 0) return null;
+  
+  // Helper to create stable lookup key matching the service
+  const getKey = (h: NormalizedHolding) => (h as any).isin || (h as any).schemeCode || h.name || '';
+  
+  // Helper to check if holding is a stock/equity
+  const isEquity = (h: NormalizedHolding) => h.assetType === 'equity' || h.assetType === 'stock';
+  
+  // Helper to check if holding is a mutual fund (strict - only MFs have expense ratios)
+  const isMutualFund = (h: NormalizedHolding) => h.assetType === 'mutual_fund' || h.assetType === 'etf';
+  
+  // Batch fetch expense ratios for mutual funds only (not bonds, gold, FDs, etc.)
+  const mfHoldings = holdings.filter(isMutualFund);
+  const terMap = await portfolioAnalyticsDataService.batchGetExpenseRatios(
+    mfHoldings.map(h => ({
+      name: h.name || '',
+      schemeCode: (h as any).schemeCode,
+      isin: (h as any).isin,
+    }))
+  );
   
   const holdingsWithTER: any[] = [];
   let weightedTER = 0;
   let totalAnnualCost = 0;
+  let dbSourceCount = 0;
+  let categoryDefaultCount = 0;
+  let fallbackCount = 0;
   
   for (const h of holdings) {
     const value = h.currentValue || 0;
-    const ter = (h as any).expenseRatio || (h.assetType === 'stock' ? 0 : 0.5 + Math.random() * 1.5);
+    let ter = 0;
+    let dataSource = 'fallback';
+    
+    if (isEquity(h) || !isMutualFund(h)) {
+      // Stocks and non-MF assets (bonds, gold, FDs) don't have TER
+      ter = 0;
+      dataSource = 'not_applicable';
+    } else {
+      const key = getKey(h);
+      const terLookup = terMap.get(key);
+      if (terLookup) {
+        ter = terLookup.value;
+        dataSource = terLookup.source;
+        
+        if (terLookup.source === 'database') dbSourceCount++;
+        else if (terLookup.source === 'category_default') categoryDefaultCount++;
+        else fallbackCount++;
+      }
+    }
+    
     const annualCost = value * (ter / 100);
     weightedTER += ter * (value / totalValue);
     totalAnnualCost += annualCost;
+    
+    const isRegularPlan = !h.name?.toLowerCase().includes('direct');
     
     holdingsWithTER.push({
       name: h.name,
       ter: Math.round(ter * 100) / 100,
       value,
       annualCost: Math.round(annualCost),
-      suggestedAlternative: ter > 1.0 ? {
+      dataSource,
+      suggestedAlternative: (ter > 1.0 && isRegularPlan) ? {
         name: `${h.name?.split(' ')[0]} Direct Plan`,
         ter: Math.max(0.1, ter - 0.8),
         savings: Math.round(annualCost * 0.6)
@@ -1181,7 +1226,12 @@ function calculateExpenseRatioAnalysis(holdings: NormalizedHolding[]) {
     weightedAvgTER: Math.round(weightedTER * 100) / 100,
     totalAnnualCost: Math.round(totalAnnualCost),
     potentialSavings: Math.round(potentialSavings),
-    holdings: holdingsWithTER.sort((a, b) => b.ter - a.ter).slice(0, 10)
+    holdings: holdingsWithTER.sort((a, b) => b.ter - a.ter).slice(0, 10),
+    dataSources: {
+      database: dbSourceCount,
+      categoryDefault: categoryDefaultCount,
+      fallback: fallbackCount
+    }
   };
 }
 
@@ -1213,23 +1263,56 @@ function isGrowthPlan(name: string): boolean {
   return false;
 }
 
-function calculateDividendProjection(holdings: NormalizedHolding[]) {
+async function calculateDividendProjection(holdings: NormalizedHolding[]) {
   const totalValue = holdings.reduce((sum, h) => sum + (h.currentValue || 0), 0);
   if (totalValue === 0) return null;
+  
+  // Helper to create stable lookup key matching the service
+  const getStockKey = (h: NormalizedHolding) => (h as any).isin || h.name || '';
+  
+  // Helper to check if holding is a stock/equity
+  const isEquity = (h: NormalizedHolding) => h.assetType === 'equity' || h.assetType === 'stock';
+  
+  // Helper to check if holding is a mutual fund/ETF (strict - no fallback for missing assetType)
+  const isMutualFund = (h: NormalizedHolding) => h.assetType === 'mutual_fund' || h.assetType === 'etf';
+  
+  // Batch fetch stock/equity dividend yields in a single query
+  const stockHoldings = holdings.filter(isEquity);
+  const stockYieldMap = await portfolioAnalyticsDataService.batchGetStockDividendYields(
+    stockHoldings.map(h => ({
+      name: h.name || '',
+      isin: (h as any).isin,
+      sector: (h as any).sector,
+    }))
+  );
   
   const holdingsWithDividend: any[] = [];
   let totalAnnualDividend = 0;
   let growthOnlyCount = 0;
+  let dbSourceCount = 0;
+  let sectorDefaultCount = 0;
+  let categoryDefaultCount = 0;
+  let fallbackCount = 0;
   
   for (const h of holdings) {
     const value = h.currentValue || 0;
     let dividendYield = 0;
+    let dataSource = 'fallback';
     const name = h.name || '';
     const nameLower = name.toLowerCase();
     
-    if (h.assetType === 'stock') {
-      dividendYield = 1.0 + Math.random() * 3.0;
-    } else if (h.assetType === 'mutual_fund' || !h.assetType) {
+    if (isEquity(h)) {
+      const key = getStockKey(h);
+      const yieldLookup = stockYieldMap.get(key);
+      if (yieldLookup) {
+        dividendYield = yieldLookup.value;
+        dataSource = yieldLookup.source;
+        
+        if (yieldLookup.source === 'database') dbSourceCount++;
+        else if (yieldLookup.source === 'sector_default') sectorDefaultCount++;
+        else fallbackCount++;
+      }
+    } else if (isMutualFund(h)) {
       if (isGrowthPlan(name)) {
         growthOnlyCount++;
         continue;
@@ -1237,7 +1320,17 @@ function calculateDividendProjection(holdings: NormalizedHolding[]) {
       
       if (nameLower.includes('idcw') || nameLower.includes('dividend') || 
           nameLower.includes('payout') || nameLower.includes('income distribution')) {
-        dividendYield = 3.0 + Math.random() * 4.0;
+        // MF dividend yields use category defaults (synchronous - no DB lookup)
+        const yieldLookup = portfolioAnalyticsDataService.getMFDividendYield(
+          name,
+          (h as any).schemeCode,
+          (h as any).category
+        );
+        dividendYield = yieldLookup.value;
+        dataSource = yieldLookup.source;
+        
+        if (yieldLookup.source === 'category_default') categoryDefaultCount++;
+        else fallbackCount++;
       } else {
         continue;
       }
@@ -1253,7 +1346,8 @@ function calculateDividendProjection(holdings: NormalizedHolding[]) {
         name: h.name,
         value,
         dividendYield: Math.round(dividendYield * 100) / 100,
-        estimatedAnnualDividend: Math.round(annualDividend)
+        estimatedAnnualDividend: Math.round(annualDividend),
+        dataSource
       });
     }
   }
@@ -1269,7 +1363,8 @@ function calculateDividendProjection(holdings: NormalizedHolding[]) {
       message: growthOnlyCount > 0 
         ? `Your portfolio has ${growthOnlyCount} Growth plan(s). Growth plans reinvest dividends and do not pay out income. Consider IDCW plans if you need regular income.`
         : 'No dividend-paying holdings found in your portfolio.',
-      hasNoDividendHoldings: true
+      hasNoDividendHoldings: true,
+      dataSources: { database: 0, sectorDefault: 0, categoryDefault: 0, fallback: 0 }
     };
   }
   
@@ -1280,7 +1375,13 @@ function calculateDividendProjection(holdings: NormalizedHolding[]) {
       ? Math.round((totalAnnualDividend / dividendPayingValue) * 10000) / 100
       : 0,
     holdings: holdingsWithDividend.sort((a, b) => b.estimatedAnnualDividend - a.estimatedAnnualDividend).slice(0, 10),
-    hasNoDividendHoldings: false
+    hasNoDividendHoldings: false,
+    dataSources: {
+      database: dbSourceCount,
+      sectorDefault: sectorDefaultCount,
+      categoryDefault: categoryDefaultCount,
+      fallback: fallbackCount
+    }
   };
 }
 
@@ -1301,7 +1402,7 @@ function calculateRiskHeatmap(holdings: NormalizedHolding[], totalValue: number)
     sectorMap.set(sector, (sectorMap.get(sector) || 0) + value);
     assetMap.set(assetType, (assetMap.get(assetType) || 0) + value);
     amcMap.set(amc, (amcMap.get(amc) || 0) + value);
-    if (assetType === 'stock') {
+    if (assetType === 'stock' || assetType === 'equity') {
       stockMap.set(h.name || 'Unknown', value);
     }
   }
@@ -1391,6 +1492,42 @@ function guessSector(name: string): string {
 function calculateBenchmarkComparison(holdings: NormalizedHolding[], analysis: any) {
   const portfolioReturn = analysis?.weightedReturn || 12;
   
+  // Helper to check if holding is a stock/equity
+  const isEquity = (h: NormalizedHolding) => h.assetType === 'equity' || h.assetType === 'stock';
+  
+  // Beta is only meaningful for stocks/equities, not mutual funds
+  // Calculate weighted beta based on stock holdings only
+  const totalValue = holdings.reduce((sum, h) => sum + (h.currentValue || 0), 0);
+  const stockHoldings = holdings.filter(isEquity);
+  const stockValue = stockHoldings.reduce((sum, h) => sum + (h.currentValue || 0), 0);
+  
+  let weightedBeta = 0;
+  let sectorDefaultCount = 0;
+  let fallbackCount = 0;
+  
+  // Only calculate beta for stock portion of portfolio
+  if (stockValue > 0) {
+    for (const h of stockHoldings) {
+      const value = h.currentValue || 0;
+      const weight = value / stockValue;
+      const sector = (h as any).sector || guessSector(h.name || '');
+      
+      const betaLookup = portfolioAnalyticsDataService.getBetaForSector(sector);
+      weightedBeta += betaLookup.value * weight;
+      
+      if (betaLookup.source === 'sector_default') sectorDefaultCount++;
+      else fallbackCount++;
+    }
+  } else {
+    // If no stocks, use MF-weighted beta approximation (MFs typically have beta ~0.9-1.1)
+    weightedBeta = 1.0;
+    fallbackCount = holdings.length;
+  }
+  
+  // Adjust for stock vs MF mix (MFs generally have dampened beta)
+  const stockWeight = totalValue > 0 ? stockValue / totalValue : 0;
+  const adjustedBeta = stockWeight * weightedBeta + (1 - stockWeight) * 0.95; // MFs assumed beta ~0.95
+  
   return {
     portfolioReturn: {
       oneYear: Math.round(portfolioReturn * 10) / 10,
@@ -1404,7 +1541,12 @@ function calculateBenchmarkComparison(holdings: NormalizedHolding[], analysis: a
       { name: 'Category Average', returns: { oneYear: 11.5, threeYear: 10.2, fiveYear: 9.8 } }
     ],
     alpha: Math.round((portfolioReturn - 11.5) * 10) / 10,
-    beta: 0.95 + Math.random() * 0.2
+    beta: Math.round(adjustedBeta * 100) / 100,
+    dataSources: {
+      sectorDefault: sectorDefaultCount,
+      fallback: fallbackCount,
+      note: stockValue === 0 ? 'No direct stock holdings - using MF beta approximation' : undefined
+    }
   };
 }
 
