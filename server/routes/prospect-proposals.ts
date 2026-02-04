@@ -1657,6 +1657,8 @@ router.get("/api/public/proposal/:shareToken", async (req: Request, res: Respons
         agentEmail: proposal.agentEmail,
         validUntil: proposal.validUntil,
         createdAt: proposal.createdAt,
+        proposalSections: proposal.proposalSections,
+        analyticsData: proposal.analyticsData,
       },
       onboardingLink: `${baseUrl}/onboarding?ref=${proposal.referralCode}`,
     });

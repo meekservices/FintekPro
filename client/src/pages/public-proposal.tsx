@@ -36,6 +36,135 @@ import {
   AlertCircle
 } from "lucide-react";
 
+interface ProposalSections {
+  exitLoadCalendar?: boolean;
+  capitalGainsSummary?: boolean;
+  portfolioHealthScore?: boolean;
+  expenseRatioAnalysis?: boolean;
+  dividendProjection?: boolean;
+  riskHeatmap?: boolean;
+  goalGapAnalysis?: boolean;
+  benchmarkComparison?: boolean;
+  priorityRecommendations?: boolean;
+  sipRecommendations?: boolean;
+  whatIfSimulator?: boolean;
+  executiveSummary?: boolean;
+}
+
+interface AnalyticsData {
+  capitalGains?: {
+    data?: {
+      stcg: { count: number; totalValue: number; taxableGain: number | null; estimatedTax: number | null };
+      ltcg: { count: number; totalValue: number; taxableGain: number | null; estimatedTax: number | null; exemptionUsed: number };
+      grandfathered: { count: number; benefit: number };
+      totalTaxLiability: number | null;
+      holdings: Array<{
+        name: string;
+        isin?: string;
+        holdingPeriod: number;
+        isLongTerm: boolean;
+        purchaseValue: number | null;
+        currentValue: number;
+        gain: number | null;
+        taxType: 'STCG' | 'LTCG';
+        estimatedTax: number | null;
+        isGrandfathered?: boolean;
+      }>;
+    };
+    dataSource?: string;
+    assumptions?: any;
+  };
+  healthScore?: {
+    overallScore: number;
+    components?: Record<string, number>;
+    breakdown?: Record<string, number>;
+    recommendations: string[];
+  };
+  expenseRatio?: {
+    weightedAvgTER?: number;
+    weightedAvgExpenseRatio?: number;
+    totalAnnualCost?: number;
+    totalAnnualExpense?: number;
+    potentialSavings?: number;
+    holdings?: Array<{ name: string; ter: number; value: number; annualCost: number; suggestedAlternative?: any }>;
+    highExpenseHoldings?: Array<{ name: string; expenseRatio: number; value: number; annualCost: number }>;
+  };
+  dividend?: {
+    estimatedAnnualIncome?: number;
+    annualDividendIncome?: number;
+    yieldPercent?: number;
+    dividendYield?: number;
+    monthlyIncome?: number;
+    holdings?: Array<{ name: string; value: number; dividendYield: number; estimatedAnnualDividend: number }>;
+    topDividendPayers?: Array<{ name: string; annualDividend: number; yield: number }>;
+  };
+  riskHeatmap?: {
+    overallRisk: string;
+    riskScore?: number;
+    sectorAllocation?: Array<{ sector: string; value: number; percentage: number }>;
+    sectorExposure?: Record<string, { value: number; percentage: number; riskLevel: string }>;
+    concentrationRisk?: { topHolding: string; percentage: number; isConcentrated: boolean };
+    concentrationWarnings?: string[];
+  };
+  benchmark?: {
+    alpha: number;
+    beta: number;
+    sharpeRatio?: number;
+    treynorRatio?: number;
+    portfolioReturn?: { oneYear: number; threeYear: number; fiveYear: number };
+    benchmarks?: Array<{ name: string; returns: { oneYear: number; threeYear: number; fiveYear: number } }>;
+  };
+  whatIf?: {
+    scenarios?: Array<{
+      name: string;
+      marketChange: number;
+      portfolioImpact: number;
+      newValue: number;
+    }>;
+    stressTestResult?: { recovery: string; worstCase: number };
+  } | Array<{
+    scenario: string;
+    description: string;
+    impact: { portfolioValue: number; returnChange: number; riskChange: number };
+  }>;
+  sipRecommendations?: Array<{
+    fundName: string;
+    isin?: string;
+    suggestedAmount: number;
+    expectedReturn: number;
+    rationale: string;
+    category?: string;
+    riskLevel?: string;
+  }>;
+  exitLoad?: {
+    summary?: {
+      totalExitLoadExposure: number;
+      exitLoadFree: number;
+      withinExitLoadPeriod: number;
+      totalHoldings: number;
+      holdingsNearExitLoadExpiry?: number;
+    };
+    totalExitLoadAmount?: number;
+    holdings: Array<{
+      name: string;
+      isin?: string;
+      currentValue?: number;
+      exitLoadPercent?: number;
+      exitLoadPercentage?: number;
+      exitLoadAmount: number;
+      exitLoadSource?: string;
+      isExitLoadFree?: boolean;
+      exitFreeDate?: string;
+      exitLoadFreeDate?: string;
+      daysRemaining?: number;
+      daysToExitLoadFree?: number;
+      taxType?: string;
+      unrealizedGain?: number;
+      holdingPeriodDays?: number;
+    }>;
+  };
+}
+
 interface ProposalData {
   id: string;
   proposalType: string;
@@ -54,6 +183,8 @@ interface ProposalData {
   agentEmail?: string;
   validUntil?: string;
   createdAt: string;
+  proposalSections?: ProposalSections;
+  analyticsData?: AnalyticsData;
 }
 
 interface PortfolioMetrics {
@@ -1647,6 +1778,588 @@ export default function PublicProposalPage() {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* ============ ANALYTICS SECTIONS ============ */}
+        {proposal.proposalSections && proposal.analyticsData && (
+          <>
+            {/* Capital Gains Summary */}
+            {proposal.proposalSections.capitalGainsSummary && proposal.analyticsData.capitalGains && (
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5 text-emerald-600" />
+                    Capital Gains Summary
+                  </CardTitle>
+                  <CardDescription>Tax implications of your portfolio</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const cg = proposal.analyticsData.capitalGains;
+                    const cgData = (cg as any)?.data || cg;
+                    const ltcg = cgData?.ltcg || { count: 0, totalValue: 0 };
+                    const stcg = cgData?.stcg || { count: 0, totalValue: 0 };
+                    const grandfathered = cgData?.grandfathered || { count: 0, benefit: 0 };
+                    const totalTaxLiability = cgData?.totalTaxLiability || 0;
+                    const holdings = cgData?.holdings || [];
+                    
+                    return (
+                      <>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                          <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                            <p className="text-sm text-muted-foreground">LTCG Holdings</p>
+                            <p className="text-2xl font-bold text-green-600">{ltcg.count}</p>
+                            <p className="text-xs text-muted-foreground">₹{(ltcg.totalValue || 0).toLocaleString('en-IN')}</p>
+                          </div>
+                          <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                            <p className="text-sm text-muted-foreground">STCG Holdings</p>
+                            <p className="text-2xl font-bold text-orange-600">{stcg.count}</p>
+                            <p className="text-xs text-muted-foreground">₹{(stcg.totalValue || 0).toLocaleString('en-IN')}</p>
+                          </div>
+                          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                            <p className="text-sm text-muted-foreground">Grandfathered</p>
+                            <p className="text-2xl font-bold text-blue-600">{grandfathered.count}</p>
+                            <p className="text-xs text-muted-foreground">Benefit: ₹{(grandfathered.benefit || 0).toLocaleString('en-IN')}</p>
+                          </div>
+                          <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                            <p className="text-sm text-muted-foreground">Est. Tax Liability</p>
+                            <p className="text-2xl font-bold text-red-600">₹{(totalTaxLiability || 0).toLocaleString('en-IN')}</p>
+                          </div>
+                        </div>
+                        {holdings.length > 0 && (
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Holding</TableHead>
+                                <TableHead className="text-right">Holding Period</TableHead>
+                                <TableHead className="text-right">Gain/Loss</TableHead>
+                                <TableHead className="text-right">Tax Type</TableHead>
+                                <TableHead className="text-right">Est. Tax</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {holdings.slice(0, 10).map((holding: any, idx: number) => (
+                                <TableRow key={idx}>
+                                  <TableCell className="font-medium">{holding.name}</TableCell>
+                                  <TableCell className="text-right">{holding.holdingPeriod} days</TableCell>
+                                  <TableCell className={`text-right ${(holding.gain || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {(holding.gain || 0) >= 0 ? '+' : ''}₹{(holding.gain || 0).toLocaleString('en-IN')}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <Badge variant={holding.taxType === 'LTCG' ? 'default' : 'secondary'}>{holding.taxType}</Badge>
+                                  </TableCell>
+                                  <TableCell className="text-right">₹{(holding.estimatedTax || 0).toLocaleString('en-IN')}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        )}
+                      </>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Portfolio Health Score */}
+            {proposal.proposalSections.portfolioHealthScore && proposal.analyticsData.healthScore && (
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-blue-600" />
+                    Portfolio Health Score
+                  </CardTitle>
+                  <CardDescription>Overall assessment of your portfolio health</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const hs = proposal.analyticsData.healthScore as any;
+                    const overallScore = hs?.overallScore || 0;
+                    const components = hs?.components || hs?.breakdown || {};
+                    const recommendations = hs?.recommendations || [];
+                    
+                    return (
+                      <>
+                        <div className="flex items-center justify-center mb-6">
+                          <div className="relative w-32 h-32">
+                            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                              <circle cx="50" cy="50" r="45" fill="none" stroke="#e5e7eb" strokeWidth="10" />
+                              <circle 
+                                cx="50" cy="50" r="45" fill="none" 
+                                stroke={overallScore >= 70 ? '#22c55e' : overallScore >= 50 ? '#eab308' : '#ef4444'} 
+                                strokeWidth="10" 
+                                strokeDasharray={`${overallScore * 2.83} 283`} 
+                                strokeLinecap="round" 
+                              />
+                            </svg>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <span className="text-3xl font-bold">{overallScore}</span>
+                            </div>
+                          </div>
+                        </div>
+                        {Object.keys(components).length > 0 && (
+                          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                            {Object.entries(components).map(([key, value]) => (
+                              <div key={key} className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                <p className="text-xs text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</p>
+                                <Progress value={value as number} className="h-2 mt-2" />
+                                <p className="text-sm font-semibold mt-1">{value as number}/100</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {recommendations.length > 0 && (
+                          <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                            <p className="text-sm font-semibold text-amber-800 dark:text-amber-200 mb-2">Recommendations:</p>
+                            <ul className="text-sm text-amber-700 dark:text-amber-300 space-y-1">
+                              {recommendations.map((rec: string, idx: number) => (
+                                <li key={idx} className="flex items-start gap-2">
+                                  <Lightbulb className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                                  {rec}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Expense Ratio Analysis */}
+            {proposal.proposalSections.expenseRatioAnalysis && proposal.analyticsData.expenseRatio && (
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Wallet className="w-5 h-5 text-purple-600" />
+                    Expense Ratio Analysis
+                  </CardTitle>
+                  <CardDescription>Cost efficiency of your investments</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const er = proposal.analyticsData.expenseRatio as any;
+                    const holdings = er?.holdings || er?.highExpenseHoldings || [];
+                    const avgRatio = er?.weightedAvgExpenseRatio || er?.averageTER || 0;
+                    const totalExpense = er?.totalAnnualExpense || holdings.reduce((sum: number, h: any) => sum + (h.annualCost || 0), 0);
+                    
+                    return (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                          <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-center">
+                            <p className="text-sm text-muted-foreground">Weighted Avg Expense Ratio</p>
+                            <p className="text-3xl font-bold text-purple-600">{(avgRatio || 0).toFixed(2)}%</p>
+                          </div>
+                          <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg text-center">
+                            <p className="text-sm text-muted-foreground">Annual Expense Cost</p>
+                            <p className="text-3xl font-bold text-red-600">₹{(totalExpense || 0).toLocaleString('en-IN')}</p>
+                          </div>
+                          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-center">
+                            <p className="text-sm text-muted-foreground">High Expense Holdings</p>
+                            <p className="text-3xl font-bold text-blue-600">{holdings.length}</p>
+                          </div>
+                        </div>
+                        {holdings.length > 0 && (
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Fund Name</TableHead>
+                                <TableHead className="text-right">Expense Ratio</TableHead>
+                                <TableHead className="text-right">Value</TableHead>
+                                <TableHead className="text-right">Annual Cost</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {holdings.slice(0, 10).map((holding: any, idx: number) => (
+                                <TableRow key={idx}>
+                                  <TableCell className="font-medium">{holding.name}</TableCell>
+                                  <TableCell className="text-right text-red-600">{(holding.ter || holding.expenseRatio || 0).toFixed(2)}%</TableCell>
+                                  <TableCell className="text-right">₹{(holding.value || 0).toLocaleString('en-IN')}</TableCell>
+                                  <TableCell className="text-right">₹{(holding.annualCost || 0).toLocaleString('en-IN')}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        )}
+                      </>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Risk Heatmap */}
+            {proposal.proposalSections.riskHeatmap && proposal.analyticsData.riskHeatmap && (
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-orange-600" />
+                    Risk Heatmap
+                  </CardTitle>
+                  <CardDescription>Sector exposure and concentration analysis</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const rh = proposal.analyticsData.riskHeatmap as any;
+                    const overallRisk = rh?.overallRisk || 'Unknown';
+                    const riskScore = rh?.riskScore || 0;
+                    const sectorAllocation = rh?.sectorAllocation || [];
+                    const sectorExposure = rh?.sectorExposure || {};
+                    const concentrationRisk = rh?.concentrationRisk || {};
+                    
+                    const sectors = sectorAllocation.length > 0 
+                      ? sectorAllocation 
+                      : Object.entries(sectorExposure).map(([sector, data]: [string, any]) => ({ sector, ...data }));
+                    
+                    return (
+                      <>
+                        <div className="flex items-center justify-between mb-6">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Overall Risk Level</p>
+                            <Badge className={RISK_COLORS[overallRisk] || RISK_COLORS[overallRisk.charAt(0).toUpperCase() + overallRisk.slice(1)] || 'bg-gray-100'}>
+                              {overallRisk.charAt(0).toUpperCase() + overallRisk.slice(1)}
+                            </Badge>
+                          </div>
+                          {riskScore > 0 && (
+                            <div className="text-right">
+                              <p className="text-sm text-muted-foreground">Risk Score</p>
+                              <p className="text-2xl font-bold">{riskScore}/100</p>
+                            </div>
+                          )}
+                        </div>
+                        {sectors.length > 0 && (
+                          <div className="mb-6">
+                            <p className="text-sm font-semibold mb-3">Sector Allocation</p>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                              {sectors.slice(0, 9).map((item: any, idx: number) => (
+                                <div key={idx} className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                                  <p className="text-sm font-medium">{item.sector}</p>
+                                  <p className="text-lg font-bold">{(item.percentage || 0).toFixed(1)}%</p>
+                                  <p className="text-xs text-muted-foreground">₹{(item.value || 0).toLocaleString('en-IN')}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {concentrationRisk?.isConcentrated && (
+                          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                            <div className="flex items-center gap-2">
+                              <AlertCircle className="w-5 h-5 text-amber-600" />
+                              <p className="font-semibold text-amber-800 dark:text-amber-200">Concentration Warning</p>
+                            </div>
+                            <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                              {concentrationRisk.topHolding} represents {(concentrationRisk.percentage || 0).toFixed(1)}% of your portfolio
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Exit Load Calendar */}
+            {proposal.proposalSections.exitLoadCalendar && proposal.analyticsData.exitLoad && (
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-indigo-600" />
+                    Exit Load Calendar
+                  </CardTitle>
+                  <CardDescription>Track when exit loads expire for your holdings</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const el = proposal.analyticsData.exitLoad as any;
+                    const summary = el?.summary || {};
+                    const holdings = el?.holdings || [];
+                    const totalExitLoad = summary?.totalExitLoadExposure || el?.totalExitLoadAmount || 0;
+                    const holdingsWithLoad = holdings.filter((h: any) => (h.exitLoadAmount || 0) > 0);
+                    
+                    return (
+                      <>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                          <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+                            <p className="text-sm text-muted-foreground">Total Exit Load Exposure</p>
+                            <p className="text-xl font-bold text-indigo-600">₹{(totalExitLoad || 0).toLocaleString('en-IN')}</p>
+                          </div>
+                          <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                            <p className="text-sm text-muted-foreground">Exit Load Free</p>
+                            <p className="text-xl font-bold text-green-600">{summary.exitLoadFree || 0}</p>
+                          </div>
+                          <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                            <p className="text-sm text-muted-foreground">Within Exit Period</p>
+                            <p className="text-xl font-bold text-orange-600">{summary.withinExitLoadPeriod || 0}</p>
+                          </div>
+                          <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                            <p className="text-sm text-muted-foreground">Total Holdings</p>
+                            <p className="text-xl font-bold">{summary.totalHoldings || holdings.length}</p>
+                          </div>
+                        </div>
+                        {holdingsWithLoad.length > 0 && (
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Holding</TableHead>
+                                <TableHead className="text-right">Value</TableHead>
+                                <TableHead className="text-right">Exit Load Amount</TableHead>
+                                <TableHead className="text-right">Tax Type</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {holdingsWithLoad.slice(0, 10).map((holding: any, idx: number) => (
+                                <TableRow key={idx}>
+                                  <TableCell className="font-medium">{holding.name}</TableCell>
+                                  <TableCell className="text-right">₹{(holding.currentValue || 0).toLocaleString('en-IN')}</TableCell>
+                                  <TableCell className="text-right text-red-600">₹{(holding.exitLoadAmount || 0).toLocaleString('en-IN')}</TableCell>
+                                  <TableCell className="text-right">
+                                    <Badge variant={holding.taxType === 'LTCG' ? 'default' : 'secondary'}>{holding.taxType || 'N/A'}</Badge>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        )}
+                      </>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Dividend Projection */}
+            {proposal.proposalSections.dividendProjection && proposal.analyticsData.dividend && (
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-green-600" />
+                    Dividend Projection
+                  </CardTitle>
+                  <CardDescription>Expected dividend income from your portfolio</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const div = proposal.analyticsData.dividend as any;
+                    const holdings = div?.holdings || div?.topDividendPayers || [];
+                    const totalDividend = div?.annualDividendIncome || holdings.reduce((sum: number, h: any) => sum + (h.estimatedAnnualDividend || h.annualDividend || 0), 0);
+                    const avgYield = div?.dividendYield || (holdings.length > 0 ? holdings.reduce((sum: number, h: any) => sum + (h.dividendYield || h.yield || 0), 0) / holdings.length : 0);
+                    
+                    return (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                          <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
+                            <p className="text-sm text-muted-foreground">Annual Dividend Income</p>
+                            <p className="text-3xl font-bold text-green-600">₹{(totalDividend || 0).toLocaleString('en-IN')}</p>
+                          </div>
+                          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-center">
+                            <p className="text-sm text-muted-foreground">Average Dividend Yield</p>
+                            <p className="text-3xl font-bold text-blue-600">{(avgYield || 0).toFixed(2)}%</p>
+                          </div>
+                          <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-center">
+                            <p className="text-sm text-muted-foreground">Quarterly Average</p>
+                            <p className="text-3xl font-bold text-purple-600">₹{((totalDividend || 0) / 4).toLocaleString('en-IN')}</p>
+                          </div>
+                        </div>
+                        {holdings.length > 0 && (
+                          <div>
+                            <p className="text-sm font-semibold mb-3">Top Dividend Holdings</p>
+                            <div className="space-y-2">
+                              {holdings.slice(0, 5).map((payer: any, idx: number) => (
+                                <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                  <span className="font-medium">{payer.name}</span>
+                                  <div className="text-right">
+                                    <p className="font-semibold text-green-600">₹{(payer.estimatedAnnualDividend || payer.annualDividend || 0).toLocaleString('en-IN')}</p>
+                                    <p className="text-xs text-muted-foreground">{(payer.dividendYield || payer.yield || 0).toFixed(2)}% yield</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Benchmark Comparison */}
+            {proposal.proposalSections.benchmarkComparison && proposal.analyticsData.benchmark && (
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5 text-blue-600" />
+                    Benchmark Comparison
+                  </CardTitle>
+                  <CardDescription>Portfolio performance metrics vs market benchmarks</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const bm = proposal.analyticsData.benchmark as any;
+                    const alpha = bm?.alpha || 0;
+                    const beta = bm?.beta || 1;
+                    const sharpeRatio = bm?.sharpeRatio || 0;
+                    const treynorRatio = bm?.treynorRatio || 0;
+                    const benchmarks = bm?.benchmarks || [];
+                    
+                    return (
+                      <>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                          <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
+                            <p className="text-sm text-muted-foreground">Alpha</p>
+                            <p className={`text-2xl font-bold ${alpha >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {alpha >= 0 ? '+' : ''}{alpha.toFixed(2)}%
+                            </p>
+                          </div>
+                          <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
+                            <p className="text-sm text-muted-foreground">Beta</p>
+                            <p className="text-2xl font-bold">{beta.toFixed(2)}</p>
+                          </div>
+                          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-center">
+                            <p className="text-sm text-muted-foreground">Sharpe Ratio</p>
+                            <p className="text-xl font-bold text-blue-600">{sharpeRatio.toFixed(2)}</p>
+                          </div>
+                          <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-center">
+                            <p className="text-sm text-muted-foreground">Treynor Ratio</p>
+                            <p className="text-xl font-bold text-purple-600">{treynorRatio.toFixed(2)}</p>
+                          </div>
+                        </div>
+                        {benchmarks.length > 0 && (
+                          <div>
+                            <p className="text-sm font-semibold mb-3">Market Benchmarks</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {benchmarks.map((bench: any, idx: number) => (
+                                <div key={idx} className="p-3 border rounded-lg">
+                                  <p className="font-medium">{bench.name}</p>
+                                  <div className="grid grid-cols-3 gap-2 mt-2 text-sm">
+                                    <div>
+                                      <p className="text-xs text-muted-foreground">1Y</p>
+                                      <p className="font-semibold text-green-600">+{bench.returns?.oneYear || 0}%</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-muted-foreground">3Y</p>
+                                      <p className="font-semibold text-green-600">+{bench.returns?.threeYear || 0}%</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-muted-foreground">5Y</p>
+                                      <p className="font-semibold text-green-600">+{bench.returns?.fiveYear || 0}%</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* SIP Recommendations */}
+            {proposal.proposalSections.sipRecommendations && proposal.analyticsData.sipRecommendations && (
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-emerald-600" />
+                    SIP Recommendations
+                  </CardTitle>
+                  <CardDescription>Suggested systematic investment plans for wealth creation</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const sips = Array.isArray(proposal.analyticsData.sipRecommendations) 
+                      ? proposal.analyticsData.sipRecommendations 
+                      : [];
+                    
+                    if (sips.length === 0) {
+                      return <p className="text-muted-foreground">No SIP recommendations available.</p>;
+                    }
+                    
+                    return (
+                      <div className="space-y-4">
+                        {sips.map((sip: any, idx: number) => (
+                          <div key={idx} className="p-4 border rounded-lg">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <h4 className="font-semibold">{sip.fundName || 'Investment Fund'}</h4>
+                                {sip.category && <Badge variant="outline" className="mt-1">{sip.category}</Badge>}
+                                {sip.riskLevel && <Badge variant="secondary" className="mt-1 ml-2">{sip.riskLevel}</Badge>}
+                                {sip.rationale && <p className="text-sm text-muted-foreground mt-2">{sip.rationale}</p>}
+                              </div>
+                              <div className="text-right">
+                                <p className="text-2xl font-bold text-emerald-600">₹{(sip.suggestedAmount || 0).toLocaleString('en-IN')}</p>
+                                <p className="text-sm text-muted-foreground">per month</p>
+                                <p className="text-sm text-green-600 mt-1">Expected: {(sip.expectedReturn || 0).toFixed(1)}% p.a.</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* What-If Simulator */}
+            {proposal.proposalSections.whatIfSimulator && proposal.analyticsData.whatIf && (
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Lightbulb className="w-5 h-5 text-amber-600" />
+                    What-If Scenarios
+                  </CardTitle>
+                  <CardDescription>Explore different market scenarios and their impact</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const wi = proposal.analyticsData.whatIf as any;
+                    const scenarios = Array.isArray(wi) ? wi : (wi?.scenarios || []);
+                    
+                    if (scenarios.length === 0) {
+                      return <p className="text-muted-foreground">No scenario analysis available.</p>;
+                    }
+                    
+                    return (
+                      <div className="grid gap-4">
+                        {scenarios.map((scenario: any, idx: number) => (
+                          <div key={idx} className={`p-4 border rounded-lg ${
+                            (scenario.portfolioImpact || scenario.marketChange || 0) < 0 ? 'border-red-200 bg-red-50 dark:bg-red-900/10' : 'border-green-200 bg-green-50 dark:bg-green-900/10'
+                          }`}>
+                            <h4 className="font-semibold mb-2">{scenario.name || scenario.scenario || 'Market Scenario'}</h4>
+                            {scenario.description && <p className="text-sm text-muted-foreground mb-3">{scenario.description}</p>}
+                            <div className="grid grid-cols-3 gap-4">
+                              <div className="text-center p-2 bg-white dark:bg-gray-800 rounded">
+                                <p className="text-xs text-muted-foreground">Market Change</p>
+                                <p className={`font-semibold ${(scenario.marketChange || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                  {(scenario.marketChange || 0) >= 0 ? '+' : ''}{(scenario.marketChange || 0)}%
+                                </p>
+                              </div>
+                              <div className="text-center p-2 bg-white dark:bg-gray-800 rounded">
+                                <p className="text-xs text-muted-foreground">Portfolio Impact</p>
+                                <p className={`font-semibold ${(scenario.portfolioImpact || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                  {(scenario.portfolioImpact || 0) >= 0 ? '+' : ''}{(scenario.portfolioImpact || 0)}%
+                                </p>
+                              </div>
+                              <div className="text-center p-2 bg-white dark:bg-gray-800 rounded">
+                                <p className="text-xs text-muted-foreground">New Value</p>
+                                <p className="font-semibold">₹{(scenario.newValue || scenario.impact?.portfolioValue || 0).toLocaleString('en-IN')}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            )}
+          </>
         )}
 
         {/* ============ SECTION 3: EXPECTED IMPACT ============ */}
