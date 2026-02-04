@@ -337,36 +337,36 @@ export function AgentLayout({ children }: AgentLayoutProps) {
   ), [notifications, getNotificationIcon, getNotificationColor, formatTimeAgo, markAsRead]);
 
   const sidebarContent = useMemo(() => (
-    <nav className="px-3 pt-1 pb-3 space-y-0.5">
+    <nav className="px-2 sm:px-3 pt-1 pb-3 space-y-1 sm:space-y-0.5">
       {agentNavCategories.map((category) => {
         const CategoryIcon = category.icon;
         const isExpanded = expandedCategories.has(category.title);
         const hasActiveItem = category.items.some(item => location === item.href);
 
         return (
-          <div key={category.title} className="space-y-0.5">
+          <div key={category.title} className="space-y-1 sm:space-y-0.5">
             <button
               onClick={() => toggleCategory(category.title)}
               className={cn(
-                "flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+                "flex items-center justify-between w-full px-3 py-3 sm:py-2.5 rounded-lg text-sm font-medium transition-all duration-200 touch-manipulation",
                 hasActiveItem 
                   ? "bg-slate-800/80 text-white shadow-sm" 
-                  : "text-slate-400 hover:bg-slate-800/40 hover:text-slate-200"
+                  : "text-slate-400 hover:bg-slate-800/40 hover:text-slate-200 active:bg-slate-800/60"
               )}
               data-testid={`button-category-${category.title.toLowerCase().replace(/\s+/g, '-')}`}
             >
               <div className="flex items-center gap-2.5">
-                <CategoryIcon className={cn("h-4 w-4", hasActiveItem && "text-emerald-400")} />
-                <span>{category.title}</span>
+                <CategoryIcon className={cn("h-5 w-5 sm:h-4 sm:w-4", hasActiveItem && "text-emerald-400")} />
+                <span className="text-base sm:text-sm">{category.title}</span>
               </div>
               <ChevronRight className={cn(
-                "h-4 w-4 transition-transform duration-200",
+                "h-5 w-5 sm:h-4 sm:w-4 transition-transform duration-200",
                 isExpanded && "rotate-90"
               )} />
             </button>
 
             {isExpanded && (
-              <div className="ml-3 pl-3 border-l border-slate-700/50 space-y-0.5 py-1">
+              <div className="ml-2 sm:ml-3 pl-3 border-l border-slate-700/50 space-y-1 sm:space-y-0.5 py-1">
                 {category.items.map((item) => {
                   const Icon = item.icon;
                   const isActive = location === item.href;
@@ -375,20 +375,26 @@ export function AgentLayout({ children }: AgentLayoutProps) {
                     <Link
                       key={item.href}
                       href={item.href}
+                      onClick={() => {
+                        // Close sidebar on mobile after clicking a link
+                        if (window.innerWidth < 768) {
+                          setSidebarOpen(false);
+                        }
+                      }}
                       className={cn(
-                        "flex items-center gap-2.5 px-3 py-2 rounded-md transition-all duration-150 group",
+                        "flex items-center gap-2.5 px-3 py-2.5 sm:py-2 rounded-md transition-all duration-150 group touch-manipulation",
                         isActive
                           ? "bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-md shadow-emerald-500/20"
-                          : "text-slate-400 hover:bg-slate-800/60 hover:text-white"
+                          : "text-slate-400 hover:bg-slate-800/60 hover:text-white active:bg-slate-800/80"
                       )}
                       data-testid={`link-agent-${item.href.split('/').pop() || 'home'}`}
                     >
                       <Icon className={cn(
-                        "h-3.5 w-3.5 flex-shrink-0",
+                        "h-4 w-4 sm:h-3.5 sm:w-3.5 flex-shrink-0",
                         isActive ? "text-white" : "text-slate-500 group-hover:text-emerald-400"
                       )} />
                       <span className={cn(
-                        "text-[13px]",
+                        "text-sm sm:text-[13px]",
                         isActive ? "font-medium" : ""
                       )}>
                         {item.title}
@@ -402,7 +408,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
         );
       })}
     </nav>
-  ), [expandedCategories, location, toggleCategory]);
+  ), [expandedCategories, location, toggleCategory, setSidebarOpen]);
 
   if (isLoading) {
     return (
@@ -506,45 +512,57 @@ export function AgentLayout({ children }: AgentLayoutProps) {
       />
 
       <header className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-800 border-b border-slate-700/50 sticky top-0 z-50 shadow-lg shadow-black/20">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between px-2 sm:px-4 py-2 sm:py-3">
+          <div className="flex items-center gap-2 sm:gap-4">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"
+              className="text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all h-10 w-10 sm:h-9 sm:w-9"
               data-testid="toggle-agent-sidebar"
               aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
             >
               {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                <TrendingUp className="h-5 w-5 text-white" />
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-semibold text-white tracking-tight">FintekPro</h1>
-                <p className="text-[10px] text-emerald-400 font-medium uppercase tracking-wider">Agent Portal</p>
+                <h1 className="text-base sm:text-lg font-semibold text-white tracking-tight">FintekPro</h1>
+                <p className="text-[9px] sm:text-[10px] text-emerald-400 font-medium uppercase tracking-wider hidden xs:block">Agent Portal</p>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
+            {/* Mobile search button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSearchOpen(true)}
+              className="text-slate-400 hover:text-white hover:bg-slate-800/50 h-10 w-10 sm:hidden rounded-lg"
+              data-testid="button-agent-search-mobile"
+            >
+              <Search className="h-5 w-5" />
+            </Button>
+            
+            {/* Desktop search bar */}
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setSearchOpen(true)}
-              className="text-slate-400 hover:text-white hover:bg-slate-800/50 gap-2 hidden md:flex h-9 px-3 rounded-lg border border-slate-700/50 bg-slate-800/30"
+              className="text-slate-400 hover:text-white hover:bg-slate-800/50 gap-2 hidden sm:flex h-9 px-3 rounded-lg border border-slate-700/50 bg-slate-800/30"
               data-testid="button-agent-search"
             >
               <Search className="h-4 w-4" />
-              <span className="text-xs text-slate-500">Search...</span>
-              <kbd className="ml-2 pointer-events-none hidden h-5 select-none items-center gap-1 rounded border border-slate-600 bg-slate-700/50 px-1.5 font-mono text-[10px] font-medium text-slate-400 sm:flex">
+              <span className="text-xs text-slate-500 hidden md:inline">Search...</span>
+              <kbd className="ml-2 pointer-events-none hidden h-5 select-none items-center gap-1 rounded border border-slate-600 bg-slate-700/50 px-1.5 font-mono text-[10px] font-medium text-slate-400 lg:flex">
                 <span className="text-xs">⌘</span>K
               </kbd>
             </Button>
 
-            <Link href="/agent/theme-settings">
+            <Link href="/agent/theme-settings" className="hidden sm:block">
               <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white hover:bg-slate-800/50 h-9 w-9 rounded-lg" data-testid="btn-theme-settings" title="Theme & Accessibility">
                 <Palette className="h-4 w-4" />
               </Button>
@@ -555,18 +573,18 @@ export function AgentLayout({ children }: AgentLayoutProps) {
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="text-slate-400 hover:text-white hover:bg-slate-800/50 h-9 w-9 rounded-lg relative"
+                  className="text-slate-400 hover:text-white hover:bg-slate-800/50 h-10 w-10 sm:h-9 sm:w-9 rounded-lg relative"
                   data-testid="button-agent-notifications"
                 >
-                  <Bell className="h-4 w-4" />
+                  <Bell className="h-5 w-5 sm:h-4 sm:w-4" />
                   {unreadCount > 0 && (
-                    <Badge className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center p-0 text-[10px] bg-emerald-500 border-0 animate-pulse">
+                    <Badge className="absolute -top-1 -right-1 h-5 w-5 sm:h-4 sm:w-4 flex items-center justify-center p-0 text-[10px] bg-emerald-500 border-0 animate-pulse">
                       {unreadCount > 9 ? '9+' : unreadCount}
                     </Badge>
                   )}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-96 p-0 bg-slate-900 border-slate-700" align="end">
+              <PopoverContent className="w-[calc(100vw-1rem)] sm:w-96 max-w-96 p-0 bg-slate-900 border-slate-700" align="end" sideOffset={8}>
                 <div className="p-3 border-b border-slate-700 flex items-center justify-between">
                   <div>
                     <h3 className="font-semibold text-white">Notifications</h3>
@@ -590,12 +608,19 @@ export function AgentLayout({ children }: AgentLayoutProps) {
               </PopoverContent>
             </Popover>
 
-            <div className="flex items-center gap-3 border-l border-slate-700/50 pl-4 ml-2">
+            <div className="flex items-center gap-1 sm:gap-3 border-l border-slate-700/50 pl-2 sm:pl-4 ml-1 sm:ml-2">
+              {/* Mobile: just show avatar */}
+              <div className="flex sm:hidden items-center">
+                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center text-white text-sm font-medium shadow-inner">
+                  {user?.email?.charAt(0).toUpperCase() || 'A'}
+                </div>
+              </div>
+              {/* Desktop: show avatar and name */}
               <div className="hidden sm:flex items-center gap-3">
                 <div className="h-8 w-8 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center text-white text-sm font-medium shadow-inner">
                   {user?.email?.charAt(0).toUpperCase() || 'A'}
                 </div>
-                <div className="text-right">
+                <div className="text-right hidden md:block">
                   <p className="text-sm font-medium text-white leading-tight">{user?.email?.split('@')[0] || 'Agent'}</p>
                   <div className="flex items-center justify-end gap-1">
                     <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
@@ -607,11 +632,11 @@ export function AgentLayout({ children }: AgentLayoutProps) {
                 variant="ghost"
                 size="icon"
                 onClick={() => logoutMutation.mutate()}
-                className="text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                className="text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all h-10 w-10 sm:h-9 sm:w-9"
                 data-testid="button-agent-logout"
                 title="Sign Out"
               >
-                <LogOut className="h-4 w-4" />
+                <LogOut className="h-5 w-5 sm:h-4 sm:w-4" />
               </Button>
             </div>
           </div>
@@ -655,14 +680,14 @@ export function AgentLayout({ children }: AgentLayoutProps) {
         </CommandList>
       </CommandDialog>
 
-      <div className="flex h-[calc(100vh-73px)]">
+      <div className="flex h-[calc(100vh-56px)] sm:h-[calc(100vh-73px)]">
         <aside
           data-testid="agent-sidebar"
           className={cn(
             "bg-slate-900/95 backdrop-blur-sm border-r border-slate-800/50 transition-all duration-300 flex-shrink-0",
             "md:sticky md:top-[73px] md:h-[calc(100vh-73px)] md:relative",
-            "max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:top-[73px] max-md:z-40 max-md:h-[calc(100vh-73px)]",
-            sidebarOpen ? "w-64 min-w-[256px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent" : "w-0 min-w-0 overflow-hidden border-0"
+            "max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:top-[56px] sm:max-md:top-[73px] max-md:z-40 max-md:h-[calc(100vh-56px)] sm:max-md:h-[calc(100vh-73px)]",
+            sidebarOpen ? "w-[280px] sm:w-64 min-w-[280px] sm:min-w-[256px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent" : "w-0 min-w-0 overflow-hidden border-0"
           )}
         >
           {sidebarOpen && sidebarContent}
@@ -676,7 +701,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
         )}
 
         <main className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-          <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
+          <div className="max-w-7xl mx-auto px-3 py-4 sm:p-4 md:p-6 lg:p-8">
             {children}
           </div>
         </main>
