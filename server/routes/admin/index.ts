@@ -2005,15 +2005,15 @@ export function registerAdminPanelRoutes(app: Express): void {
         };
       }
 
-      // JM Financial API Status Check
-      status.apis.jmFinancial = {
-        name: "JM Financial API",
-        status: "not_configured",
+      // IIFL Markets API Status Check
+      status.apis.iiflMarkets = {
+        name: "IIFL Markets API",
+        status: process.env.IIFL_APP_KEY ? "configured" : "not_configured",
         responseTime: "N/A",
         lastChecked: new Date().toISOString(),
-        details: "API credentials not configured",
-        endpoint: "JM Financial Trading API",
-        recommendations: "Configure JM_FINANCIAL_API_KEY and JM_FINANCIAL_SECRET environment variables"
+        details: process.env.IIFL_APP_KEY ? "API credentials configured - Trading capabilities available" : "API credentials not configured",
+        endpoint: "https://api.iiflcapital.com/v1",
+        recommendations: process.env.IIFL_APP_KEY ? "" : "Configure IIFL_APP_KEY and IIFL_APP_SECRET environment variables"
       };
 
 
@@ -2209,34 +2209,34 @@ export function registerAdminPanelRoutes(app: Express): void {
         });
       }
 
-      // JM Financial API Status Check
-      if (process.env.JM_FINANCIAL_MARKET_DATA_API_KEY) {
+      // IIFL Markets API Status Check
+      if (process.env.IIFL_APP_KEY) {
         try {
-          status.apis.jmFinancial = {
-            name: "JM Financial Symphony XTS",
+          status.apis.iiflMarkets = {
+            name: "IIFL Markets API",
             status: "configured",
             responseTime: "N/A",
             lastChecked: new Date().toISOString(),
             details: "API credentials configured - Trading capabilities available"
           };
         } catch (error) {
-          status.apis.jmFinancial = {
-            name: "JM Financial Symphony XTS",
+          status.apis.iiflMarkets = {
+            name: "IIFL Markets API",
             status: "error",
             responseTime: "N/A",
             lastChecked: new Date().toISOString(),
             error: "Configuration error",
-            details: "JM Financial API credentials invalid or expired"
+            details: "IIFL Markets API credentials invalid or expired"
           };
           status.recommendations.push({
             severity: "high",
-            message: "JM Financial API credentials are invalid or expired",
-            action: "Update JM_FINANCIAL_* environment variables with valid credentials"
+            message: "IIFL Markets API credentials are invalid or expired",
+            action: "Update IIFL_APP_KEY and IIFL_APP_SECRET environment variables with valid credentials"
           });
         }
       } else {
-        status.apis.jmFinancial = {
-          name: "JM Financial Symphony XTS",
+        status.apis.iiflMarkets = {
+          name: "IIFL Markets API",
           status: "not_configured",
           responseTime: "N/A",
           lastChecked: new Date().toISOString(),
@@ -2244,8 +2244,8 @@ export function registerAdminPanelRoutes(app: Express): void {
         };
         status.recommendations.push({
           severity: "low",
-          message: "JM Financial API not configured - Trading features are disabled",
-          action: "Add JM_FINANCIAL_* environment variables to enable trading capabilities"
+          message: "IIFL Markets API not configured - Trading features are disabled",
+          action: "Add IIFL_APP_KEY and IIFL_APP_SECRET environment variables to enable trading capabilities"
         });
       }
 
