@@ -1124,7 +1124,7 @@ function AdminRoutes() {
       <Route path="/admin/mca-payments">
         {() => (
           <AdminLayout>
-            <Suspense fallback={<LoadingPage />}>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
               <McaDirectPayments />
             </Suspense>
           </AdminLayout>
@@ -1133,7 +1133,7 @@ function AdminRoutes() {
       <Route path="/admin/mca-backfill">
         {() => (
           <AdminLayout>
-            <Suspense fallback={<LoadingPage />}>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
               <McaFinancialBackfill />
             </Suspense>
           </AdminLayout>
