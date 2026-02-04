@@ -97,6 +97,8 @@ interface AnalyticsData {
     monthlyIncome?: number;
     holdings?: Array<{ name: string; value: number; dividendYield: number; estimatedAnnualDividend: number }>;
     topDividendPayers?: Array<{ name: string; annualDividend: number; yield: number }>;
+    hasNoDividendHoldings?: boolean;
+    message?: string;
   };
   riskHeatmap?: {
     overallRisk: string;
@@ -2143,9 +2145,24 @@ export default function PublicProposalPage() {
                 <CardContent>
                   {(() => {
                     const div = proposal.analyticsData.dividend as any;
+                    const hasNoDividendHoldings = div?.hasNoDividendHoldings;
+                    const message = div?.message;
+                    
+                    if (hasNoDividendHoldings) {
+                      return (
+                        <div className="p-6 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-center">
+                          <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto mb-3" />
+                          <p className="text-lg font-medium text-amber-700 dark:text-amber-300 mb-2">No Dividend-Paying Holdings</p>
+                          <p className="text-sm text-muted-foreground max-w-lg mx-auto">
+                            {message || 'Your portfolio consists of Growth plans which reinvest dividends instead of paying them out. Consider IDCW (Income Distribution cum Capital Withdrawal) plans if you need regular income.'}
+                          </p>
+                        </div>
+                      );
+                    }
+                    
                     const holdings = div?.holdings || div?.topDividendPayers || [];
-                    const totalDividend = div?.annualDividendIncome || holdings.reduce((sum: number, h: any) => sum + (h.estimatedAnnualDividend || h.annualDividend || 0), 0);
-                    const avgYield = div?.dividendYield || (holdings.length > 0 ? holdings.reduce((sum: number, h: any) => sum + (h.dividendYield || h.yield || 0), 0) / holdings.length : 0);
+                    const totalDividend = div?.estimatedAnnualIncome || div?.annualDividendIncome || holdings.reduce((sum: number, h: any) => sum + (h.estimatedAnnualDividend || h.annualDividend || 0), 0);
+                    const avgYield = div?.yieldPercent || div?.dividendYield || (holdings.length > 0 ? holdings.reduce((sum: number, h: any) => sum + (h.dividendYield || h.yield || 0), 0) / holdings.length : 0);
                     
                     return (
                       <>

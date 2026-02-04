@@ -4850,30 +4850,42 @@ export default function AgentProspectWizard() {
                   <CardDescription>Estimated dividend income from portfolio</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-3 gap-3 mb-4">
-                    <div className="p-2 bg-lime-50 dark:bg-lime-900/20 rounded-lg text-center">
-                      <p className="text-xs text-muted-foreground">Annual Income</p>
-                      <p className="text-lg font-bold text-lime-600">{formatCurrency(dividendData?.estimatedAnnualIncome ?? 0)}</p>
+                  {(dividendData as any)?.hasNoDividendHoldings ? (
+                    <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-center">
+                      <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto mb-2" />
+                      <p className="text-sm font-medium text-amber-700 dark:text-amber-300 mb-1">No Dividend-Paying Holdings</p>
+                      <p className="text-xs text-muted-foreground">
+                        {(dividendData as any)?.message || 'Your portfolio consists of Growth plans which reinvest dividends instead of paying them out.'}
+                      </p>
                     </div>
-                    <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
-                      <p className="text-xs text-muted-foreground">Monthly Income</p>
-                      <p className="text-lg font-bold text-green-600">{formatCurrency(dividendData?.monthlyIncome ?? 0)}</p>
-                    </div>
-                    <div className="p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg text-center">
-                      <p className="text-xs text-muted-foreground">Yield</p>
-                      <p className="text-lg font-bold text-emerald-600">{dividendData?.yieldPercent ?? 0}%</p>
-                    </div>
-                  </div>
-                  {(dividendData?.holdings ?? []).length > 0 && (
-                    <div className="space-y-2 max-h-32 overflow-y-auto">
-                      {(dividendData?.holdings ?? []).slice(0, 4).map((h, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg text-sm">
-                          <span className="truncate flex-1">{h.name}</span>
-                          <span className="text-xs text-muted-foreground ml-2">{h.dividendYield}% yield</span>
-                          <Badge variant="outline" className="ml-2 text-xs">{formatCurrency(h.estimatedAnnualDividend)}/yr</Badge>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-3 gap-3 mb-4">
+                        <div className="p-2 bg-lime-50 dark:bg-lime-900/20 rounded-lg text-center">
+                          <p className="text-xs text-muted-foreground">Annual Income</p>
+                          <p className="text-lg font-bold text-lime-600">{formatCurrency(dividendData?.estimatedAnnualIncome ?? 0)}</p>
                         </div>
-                      ))}
-                    </div>
+                        <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
+                          <p className="text-xs text-muted-foreground">Monthly Income</p>
+                          <p className="text-lg font-bold text-green-600">{formatCurrency(dividendData?.monthlyIncome ?? 0)}</p>
+                        </div>
+                        <div className="p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg text-center">
+                          <p className="text-xs text-muted-foreground">Yield</p>
+                          <p className="text-lg font-bold text-emerald-600">{dividendData?.yieldPercent ?? 0}%</p>
+                        </div>
+                      </div>
+                      {(dividendData?.holdings ?? []).length > 0 && (
+                        <div className="space-y-2 max-h-32 overflow-y-auto">
+                          {(dividendData?.holdings ?? []).slice(0, 4).map((h, idx) => (
+                            <div key={idx} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg text-sm">
+                              <span className="truncate flex-1">{h.name}</span>
+                              <span className="text-xs text-muted-foreground ml-2">{h.dividendYield}% yield</span>
+                              <Badge variant="outline" className="ml-2 text-xs">{formatCurrency(h.estimatedAnnualDividend)}/yr</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
                   )}
                 </CardContent>
               </Card>

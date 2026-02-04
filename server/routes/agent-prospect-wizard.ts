@@ -1185,23 +1185,64 @@ function calculateExpenseRatioAnalysis(holdings: NormalizedHolding[]) {
   };
 }
 
+function isGrowthPlan(name: string): boolean {
+  const nameLower = name.toLowerCase();
+  const growthPatterns = [
+    'growth',
+    'gr option',
+    'gr plan',
+    '- gr',
+    '-gr',
+    'accumulation'
+  ];
+  const dividendPatterns = [
+    'idcw',
+    'dividend',
+    'div option',
+    'div plan',
+    'income distribution',
+    'payout'
+  ];
+  
+  const hasGrowthIndicator = growthPatterns.some(p => nameLower.includes(p));
+  const hasDividendIndicator = dividendPatterns.some(p => nameLower.includes(p));
+  
+  if (hasDividendIndicator) return false;
+  if (hasGrowthIndicator) return true;
+  
+  return false;
+}
+
 function calculateDividendProjection(holdings: NormalizedHolding[]) {
   const totalValue = holdings.reduce((sum, h) => sum + (h.currentValue || 0), 0);
   if (totalValue === 0) return null;
   
   const holdingsWithDividend: any[] = [];
   let totalAnnualDividend = 0;
+  let growthOnlyCount = 0;
   
   for (const h of holdings) {
     const value = h.currentValue || 0;
     let dividendYield = 0;
+    const name = h.name || '';
+    const nameLower = name.toLowerCase();
     
     if (h.assetType === 'stock') {
       dividendYield = 1.0 + Math.random() * 3.0;
-    } else if (h.name?.toLowerCase().includes('dividend')) {
-      dividendYield = 3.0 + Math.random() * 4.0;
+    } else if (h.assetType === 'mutual_fund' || !h.assetType) {
+      if (isGrowthPlan(name)) {
+        growthOnlyCount++;
+        continue;
+      }
+      
+      if (nameLower.includes('idcw') || nameLower.includes('dividend') || 
+          nameLower.includes('payout') || nameLower.includes('income distribution')) {
+        dividendYield = 3.0 + Math.random() * 4.0;
+      } else {
+        continue;
+      }
     } else {
-      dividendYield = Math.random() * 1.5;
+      continue;
     }
     
     const annualDividend = value * (dividendYield / 100);
@@ -1217,11 +1258,29 @@ function calculateDividendProjection(holdings: NormalizedHolding[]) {
     }
   }
   
+  const dividendPayingValue = holdingsWithDividend.reduce((sum, h) => sum + h.value, 0);
+  
+  if (holdingsWithDividend.length === 0) {
+    return {
+      estimatedAnnualIncome: 0,
+      monthlyIncome: 0,
+      yieldPercent: 0,
+      holdings: [],
+      message: growthOnlyCount > 0 
+        ? `Your portfolio has ${growthOnlyCount} Growth plan(s). Growth plans reinvest dividends and do not pay out income. Consider IDCW plans if you need regular income.`
+        : 'No dividend-paying holdings found in your portfolio.',
+      hasNoDividendHoldings: true
+    };
+  }
+  
   return {
     estimatedAnnualIncome: Math.round(totalAnnualDividend),
     monthlyIncome: Math.round(totalAnnualDividend / 12),
-    yieldPercent: Math.round((totalAnnualDividend / totalValue) * 10000) / 100,
-    holdings: holdingsWithDividend.sort((a, b) => b.estimatedAnnualDividend - a.estimatedAnnualDividend).slice(0, 10)
+    yieldPercent: dividendPayingValue > 0 
+      ? Math.round((totalAnnualDividend / dividendPayingValue) * 10000) / 100
+      : 0,
+    holdings: holdingsWithDividend.sort((a, b) => b.estimatedAnnualDividend - a.estimatedAnnualDividend).slice(0, 10),
+    hasNoDividendHoldings: false
   };
 }
 
