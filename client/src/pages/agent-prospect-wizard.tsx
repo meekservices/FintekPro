@@ -2121,12 +2121,12 @@ export default function AgentProspectWizard() {
             const analyticsData = await analyticsRes.json();
             if (analyticsData.success && analyticsData.analytics) {
               setCapitalGainsData(analyticsData.analytics.capitalGains);
-              setHealthScoreData(analyticsData.analytics.healthScore);
-              setExpenseRatioData(analyticsData.analytics.expenseRatio);
-              setDividendData(analyticsData.analytics.dividend);
-              setRiskHeatmapData(analyticsData.analytics.riskHeatmap);
+              setHealthScoreData(analyticsData.analytics.healthScore?.data);
+              setExpenseRatioData(analyticsData.analytics.expenseRatio?.data);
+              setDividendData(analyticsData.analytics.dividend?.data);
+              setRiskHeatmapData(analyticsData.analytics.riskHeatmap?.data);
               setBenchmarkData(analyticsData.analytics.benchmark?.data);
-              setWhatIfScenarios(analyticsData.analytics.whatIf);
+              setWhatIfScenarios(analyticsData.analytics.whatIf?.data);
               setSipRecommendations(analyticsData.analytics.sipRecommendations || []);
             }
           }
@@ -2221,13 +2221,13 @@ export default function AgentProspectWizard() {
     onSuccess: (data) => {
       if (data.success && data.analytics) {
         setCapitalGainsData(data.analytics.capitalGains);
-        setHealthScoreData(data.analytics.healthScore);
-        setExpenseRatioData(data.analytics.expenseRatio);
-        setDividendData(data.analytics.dividend);
-        setRiskHeatmapData(data.analytics.riskHeatmap);
+        setHealthScoreData(data.analytics.healthScore?.data);
+        setExpenseRatioData(data.analytics.expenseRatio?.data);
+        setDividendData(data.analytics.dividend?.data);
+        setRiskHeatmapData(data.analytics.riskHeatmap?.data);
         setBenchmarkData(data.analytics.benchmark?.data);
-        setWhatIfScenarios(data.analytics.whatIf);
-        setSipRecommendations(data.analytics.sipRecommendations || []);
+        setWhatIfScenarios(data.analytics.whatIf?.data);
+        setSipRecommendations(data.analytics.sipRecommendations?.data || []);
       }
     }
   });
