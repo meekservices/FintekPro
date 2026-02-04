@@ -2139,7 +2139,8 @@ export default function AgentProspectWizard() {
               setRiskHeatmapData(analyticsData.analytics.riskHeatmap?.data);
               setBenchmarkData(analyticsData.analytics.benchmark?.data);
               setWhatIfScenarios(analyticsData.analytics.whatIf?.data);
-              setSipRecommendations(analyticsData.analytics.sipRecommendations?.data || []);
+              const sipData = analyticsData.analytics.sipRecommendations?.data;
+              setSipRecommendations(Array.isArray(sipData) ? sipData : []);
             }
           }
         } catch (e) {
@@ -2239,7 +2240,8 @@ export default function AgentProspectWizard() {
         setRiskHeatmapData(data.analytics.riskHeatmap?.data);
         setBenchmarkData(data.analytics.benchmark?.data);
         setWhatIfScenarios(data.analytics.whatIf?.data);
-        setSipRecommendations(data.analytics.sipRecommendations?.data || []);
+        const sipData = data.analytics.sipRecommendations?.data;
+        setSipRecommendations(Array.isArray(sipData) ? sipData : []);
       }
     }
   });
@@ -6452,7 +6454,7 @@ export default function AgentProspectWizard() {
                   ))}
                 </div>
                 <p className="text-sm font-medium text-cyan-700 dark:text-cyan-300 mt-4 text-center">
-                  Total Recommended SIP: {formatCurrency(sipRecommendations.reduce((sum, s) => sum + s.suggestedAmount, 0))}/month
+                  Total Recommended SIP: {formatCurrency(Array.isArray(sipRecommendations) ? sipRecommendations.reduce((sum, s) => sum + s.suggestedAmount, 0) : 0)}/month
                 </p>
               </div>
             )}
