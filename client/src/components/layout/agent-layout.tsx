@@ -337,7 +337,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
   ), [notifications, getNotificationIcon, getNotificationColor, formatTimeAgo, markAsRead]);
 
   const sidebarContent = useMemo(() => (
-    <nav className="p-3 space-y-0.5">
+    <nav className="px-3 pt-1 pb-3 space-y-0.5">
       {agentNavCategories.map((category) => {
         const CategoryIcon = category.icon;
         const isExpanded = expandedCategories.has(category.title);
