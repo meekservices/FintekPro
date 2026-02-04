@@ -337,37 +337,36 @@ export function AgentLayout({ children }: AgentLayoutProps) {
   ), [notifications, getNotificationIcon, getNotificationColor, formatTimeAgo, markAsRead]);
 
   const sidebarContent = useMemo(() => (
-    <nav className="p-3 space-y-1">
+    <nav className="p-3 space-y-0.5">
       {agentNavCategories.map((category) => {
         const CategoryIcon = category.icon;
         const isExpanded = expandedCategories.has(category.title);
         const hasActiveItem = category.items.some(item => location === item.href);
 
         return (
-          <div key={category.title} className="space-y-1">
+          <div key={category.title} className="space-y-0.5">
             <button
               onClick={() => toggleCategory(category.title)}
               className={cn(
-                "flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                "flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
                 hasActiveItem 
-                  ? "bg-slate-800 text-white" 
-                  : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+                  ? "bg-slate-800/80 text-white shadow-sm" 
+                  : "text-slate-400 hover:bg-slate-800/40 hover:text-slate-200"
               )}
               data-testid={`button-category-${category.title.toLowerCase().replace(/\s+/g, '-')}`}
             >
-              <div className="flex items-center gap-2">
-                <CategoryIcon className="h-4 w-4" />
+              <div className="flex items-center gap-2.5">
+                <CategoryIcon className={cn("h-4 w-4", hasActiveItem && "text-emerald-400")} />
                 <span>{category.title}</span>
               </div>
-              {isExpanded ? (
-                <ChevronDown className="h-4 w-4" />
-              ) : (
-                <ChevronRight className="h-4 w-4" />
-              )}
+              <ChevronRight className={cn(
+                "h-4 w-4 transition-transform duration-200",
+                isExpanded && "rotate-90"
+              )} />
             </button>
 
             {isExpanded && (
-              <div className="ml-4 pl-2 border-l border-slate-800 space-y-1">
+              <div className="ml-3 pl-3 border-l border-slate-700/50 space-y-0.5 py-1">
                 {category.items.map((item) => {
                   const Icon = item.icon;
                   const isActive = location === item.href;
@@ -377,22 +376,23 @@ export function AgentLayout({ children }: AgentLayoutProps) {
                       key={item.href}
                       href={item.href}
                       className={cn(
-                        "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group",
+                        "flex items-center gap-2.5 px-3 py-2 rounded-md transition-all duration-150 group",
                         isActive
-                          ? "bg-emerald-600 text-white"
-                          : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                          ? "bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-md shadow-emerald-500/20"
+                          : "text-slate-400 hover:bg-slate-800/60 hover:text-white"
                       )}
                       data-testid={`link-agent-${item.href.split('/').pop() || 'home'}`}
                     >
-                      <Icon className="h-4 w-4 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className={cn(
-                          "text-sm",
-                          isActive ? "text-white font-medium" : "text-slate-300 group-hover:text-white"
-                        )}>
-                          {item.title}
-                        </p>
-                      </div>
+                      <Icon className={cn(
+                        "h-3.5 w-3.5 flex-shrink-0",
+                        isActive ? "text-white" : "text-slate-500 group-hover:text-emerald-400"
+                      )} />
+                      <span className={cn(
+                        "text-[13px]",
+                        isActive ? "font-medium" : ""
+                      )}>
+                        {item.title}
+                      </span>
                     </Link>
                   );
                 })}
@@ -505,22 +505,27 @@ export function AgentLayout({ children }: AgentLayoutProps) {
         isLoading={pushLoading}
       />
 
-      <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
+      <header className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-800 border-b border-slate-700/50 sticky top-0 z-50 shadow-lg shadow-black/20">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="text-slate-400 hover:text-white"
+              className="text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"
               data-testid="toggle-agent-sidebar"
               aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
             >
               {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
-            <div>
-              <h1 className="text-xl font-bold text-white">FintekPro Agent</h1>
-              <p className="text-xs text-slate-400">Agent Distribution Portal</p>
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                <TrendingUp className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-semibold text-white tracking-tight">FintekPro</h1>
+                <p className="text-[10px] text-emerald-400 font-medium uppercase tracking-wider">Agent Portal</p>
+              </div>
             </div>
           </div>
 
@@ -529,19 +534,19 @@ export function AgentLayout({ children }: AgentLayoutProps) {
               variant="ghost"
               size="sm"
               onClick={() => setSearchOpen(true)}
-              className="text-slate-400 hover:text-white gap-2 hidden md:flex"
+              className="text-slate-400 hover:text-white hover:bg-slate-800/50 gap-2 hidden md:flex h-9 px-3 rounded-lg border border-slate-700/50 bg-slate-800/30"
               data-testid="button-agent-search"
             >
               <Search className="h-4 w-4" />
-              <span className="text-xs">Search...</span>
-              <kbd className="ml-2 pointer-events-none hidden h-5 select-none items-center gap-1 rounded border border-slate-700 bg-slate-800 px-1.5 font-mono text-[10px] font-medium text-slate-400 sm:flex">
+              <span className="text-xs text-slate-500">Search...</span>
+              <kbd className="ml-2 pointer-events-none hidden h-5 select-none items-center gap-1 rounded border border-slate-600 bg-slate-700/50 px-1.5 font-mono text-[10px] font-medium text-slate-400 sm:flex">
                 <span className="text-xs">⌘</span>K
               </kbd>
             </Button>
 
             <Link href="/agent/theme-settings">
-              <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white" data-testid="btn-theme-settings" title="Theme & Accessibility">
-                <Palette className="h-5 w-5" />
+              <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white hover:bg-slate-800/50 h-9 w-9 rounded-lg" data-testid="btn-theme-settings" title="Theme & Accessibility">
+                <Palette className="h-4 w-4" />
               </Button>
             </Link>
 
@@ -550,12 +555,12 @@ export function AgentLayout({ children }: AgentLayoutProps) {
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="text-slate-400 hover:text-white relative"
+                  className="text-slate-400 hover:text-white hover:bg-slate-800/50 h-9 w-9 rounded-lg relative"
                   data-testid="button-agent-notifications"
                 >
-                  <Bell className="h-5 w-5" />
+                  <Bell className="h-4 w-4" />
                   {unreadCount > 0 && (
-                    <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-emerald-500 border-0">
+                    <Badge className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center p-0 text-[10px] bg-emerald-500 border-0 animate-pulse">
                       {unreadCount > 9 ? '9+' : unreadCount}
                     </Badge>
                   )}
@@ -585,19 +590,28 @@ export function AgentLayout({ children }: AgentLayoutProps) {
               </PopoverContent>
             </Popover>
 
-            <div className="flex items-center gap-3 border-l border-slate-800 pl-4 ml-2">
-              <div className="text-right hidden sm:block">
-                <p className="text-sm font-medium text-white">{user?.email}</p>
-                <p className="text-xs text-slate-400 capitalize">Agent</p>
+            <div className="flex items-center gap-3 border-l border-slate-700/50 pl-4 ml-2">
+              <div className="hidden sm:flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center text-white text-sm font-medium shadow-inner">
+                  {user?.email?.charAt(0).toUpperCase() || 'A'}
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-medium text-white leading-tight">{user?.email?.split('@')[0] || 'Agent'}</p>
+                  <div className="flex items-center justify-end gap-1">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                    <p className="text-[10px] text-emerald-400 font-medium">Active</p>
+                  </div>
+                </div>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => logoutMutation.mutate()}
-                className="text-slate-400 hover:text-red-400"
+                className="text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
                 data-testid="button-agent-logout"
+                title="Sign Out"
               >
-                <LogOut className="h-5 w-5" />
+                <LogOut className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -641,14 +655,14 @@ export function AgentLayout({ children }: AgentLayoutProps) {
         </CommandList>
       </CommandDialog>
 
-      <div className="flex min-h-[calc(100vh-73px)]">
+      <div className="flex h-[calc(100vh-73px)]">
         <aside
           data-testid="agent-sidebar"
           className={cn(
-            "bg-slate-900 border-r border-slate-800 transition-all duration-300 flex-shrink-0",
+            "bg-slate-900/95 backdrop-blur-sm border-r border-slate-800/50 transition-all duration-300 flex-shrink-0",
             "md:sticky md:top-[73px] md:h-[calc(100vh-73px)] md:relative",
             "max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:top-[73px] max-md:z-40 max-md:h-[calc(100vh-73px)]",
-            sidebarOpen ? "w-72 min-w-[288px] overflow-y-auto" : "w-0 min-w-0 overflow-hidden border-0"
+            sidebarOpen ? "w-64 min-w-[256px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent" : "w-0 min-w-0 overflow-hidden border-0"
           )}
         >
           {sidebarOpen && sidebarContent}
@@ -656,13 +670,13 @@ export function AgentLayout({ children }: AgentLayoutProps) {
 
         {sidebarOpen && (
           <div 
-            className="fixed inset-0 bg-black/50 z-30 md:hidden" 
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 md:hidden" 
             onClick={() => setSidebarOpen(false)}
           />
         )}
 
-        <main className="flex-1 p-3 md:p-6 w-full">
-          <div className="max-w-7xl mx-auto">
+        <main className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+          <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
             {children}
           </div>
         </main>
