@@ -36,6 +36,7 @@ import { ProposalVersionTimeline } from "@/components/proposal/ProposalVersionTi
 import { AdvisorOverrideSystem, AdvisorModifiedBadge } from "@/components/proposal/AdvisorOverrideSystem";
 import { useSectionAnalytics, AnalyticsSection } from "@/hooks/use-section-analytics";
 import { SectionAnalyticsLoader } from "@/components/proposal/SectionAnalyticsLoader";
+import { StockOverlapAnalysis } from "@/components/proposal-builder/stock-overlap-analysis";
 
 interface PortfolioHoldingLot {
   purchaseDate?: string;
@@ -4851,6 +4852,21 @@ export default function AgentProspectWizard() {
                   </div>
                 </CardContent>
               </Card>
+            )}
+
+            {/* Stock Overlap Analysis */}
+            {holdings.length > 0 && (
+              <div className="mt-4">
+                <StockOverlapAnalysis
+                  holdings={holdings.map(h => ({
+                    mfIsin: h.isin,
+                    name: h.name,
+                    portfolioWeight: totalPortfolioValue > 0 ? (h.value / totalPortfolioValue) * 100 : 0,
+                    currentValue: h.value,
+                  }))}
+                  prospectId={selectedProspectId}
+                />
+              </div>
             )}
 
             {/* Dividend Projection Card */}
