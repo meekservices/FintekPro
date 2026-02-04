@@ -4879,40 +4879,6 @@ export default function AgentProspectWizard() {
               </Card>
             )}
 
-            {/* SIP Recommendations Card */}
-            {proposalSections.sipRecommendations && sipRecommendations.length > 0 && (
-              <Card className="mt-4 border-cyan-200 dark:border-cyan-800">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <ArrowUpCircle className="h-5 w-5 text-cyan-600" />
-                    SIP Recommendations
-                  </CardTitle>
-                  <CardDescription>Suggested SIP portfolio based on {riskProfile.riskTolerance} risk profile</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {sipRecommendations.map((sip, idx) => (
-                      <div key={idx} className="p-3 bg-muted/50 rounded-lg">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-medium text-sm">{sip.fundName}</span>
-                          <Badge variant="outline" className="text-cyan-600">{formatCurrency(sip.suggestedAmount)}/mo</Badge>
-                        </div>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                          <span>{sip.category}</span>
-                          <span className="text-green-600">~{sip.expectedReturn}% returns</span>
-                          <Badge variant="secondary" className="text-xs">{sip.riskLevel}</Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">{sip.rationale}</p>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-3 text-center">
-                    Total SIP: {formatCurrency(sipRecommendations.reduce((sum, s) => sum + s.suggestedAmount, 0))}/month
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-
             {/* Exit Load Calendar */}
             {proposalSections.exitLoadCalendar && exitLoadData && exitLoadData.holdings.length > 0 && (
               <Card className="mt-4 border-blue-200 dark:border-blue-800">
@@ -6426,6 +6392,36 @@ export default function AgentProspectWizard() {
                 </div>
               </div>
             </div>
+
+            {/* AI SIP Recommendations */}
+            {sipRecommendations.length > 0 && (
+              <div className="mt-6 p-4 border border-cyan-200 dark:border-cyan-800 rounded-lg bg-gradient-to-r from-cyan-50 to-blue-50 dark:from-cyan-900/20 dark:to-blue-900/20">
+                <div className="flex items-center gap-2 mb-3">
+                  <ArrowUpCircle className="h-5 w-5 text-cyan-600" />
+                  <h4 className="font-semibold text-cyan-700 dark:text-cyan-300">AI SIP Recommendations</h4>
+                </div>
+                <p className="text-sm text-muted-foreground mb-4">Suggested SIP portfolio based on {riskProfile.riskTolerance} risk profile</p>
+                <div className="space-y-3">
+                  {sipRecommendations.map((sip, idx) => (
+                    <div key={idx} className="p-3 bg-white dark:bg-gray-800 rounded-lg border">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium text-sm">{sip.fundName}</span>
+                        <Badge variant="outline" className="text-cyan-600 border-cyan-300">{formatCurrency(sip.suggestedAmount)}/mo</Badge>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <span>{sip.category}</span>
+                        <span className="text-green-600 font-medium">~{sip.expectedReturn}% returns</span>
+                        <Badge variant="secondary" className="text-xs">{sip.riskLevel}</Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">{sip.rationale}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-sm font-medium text-cyan-700 dark:text-cyan-300 mt-4 text-center">
+                  Total Recommended SIP: {formatCurrency(sipRecommendations.reduce((sum, s) => sum + s.suggestedAmount, 0))}/month
+                </p>
+              </div>
+            )}
           </CardContent>
           <CardFooter className="justify-between">
             <Button variant="outline" onClick={() => setCurrentStep(11)} data-testid="back-to-fresh-invest-btn">
