@@ -2791,7 +2791,7 @@ router.post(
       const conditions = [];
       if (prospect.email) conditions.push(eq(users.email, prospect.email));
       if (prospect.mobile) conditions.push(eq(users.mobile, prospect.mobile));
-      if (prospect.pan) conditions.push(eq(users.pan, prospect.pan));
+      if (prospect.pan) conditions.push(eq(users.panNumber, prospect.pan));
       
       if (conditions.length > 0) {
         const matchedUser = await db.select({ id: users.id })
@@ -2897,7 +2897,7 @@ router.get(
       const conditions = [];
       if (prospect.email) conditions.push(eq(users.email, prospect.email));
       if (prospect.mobile) conditions.push(eq(users.mobile, prospect.mobile));
-      if (prospect.pan) conditions.push(eq(users.pan, prospect.pan));
+      if (prospect.pan) conditions.push(eq(users.panNumber, prospect.pan));
       
       if (conditions.length > 0) {
         const matchedUser = await db.select({ id: users.id })

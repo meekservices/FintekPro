@@ -1,0 +1,178 @@
+chunk-XQLYTHWV.js?v=7c394d09:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+main.tsx:23 [PWA] Service Worker registered: https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/
+agent-prospect-wizard.tsx:1510 [Holdings] Loaded saved holdings (backend): 40
+agent-prospect-wizard.tsx:1514 [Holdings] Transformed to frontend format: 40
+agent-prospect-wizard.tsx:1543  GET https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/agent-wizard/prospects/f7672695-88b6-4478-a873-acfbaab33de0/goals 500 (Internal Server Error)
+loadSavedGoals @ agent-prospect-wizard.tsx:1543
+(anonymous) @ agent-prospect-wizard.tsx:1574
+commitHookEffectListMount @ chunk-XQLYTHWV.js?v=7c394d09:16915
+commitPassiveMountOnFiber @ chunk-XQLYTHWV.js?v=7c394d09:18156
+commitPassiveMountEffects_complete @ chunk-XQLYTHWV.js?v=7c394d09:18129
+commitPassiveMountEffects_begin @ chunk-XQLYTHWV.js?v=7c394d09:18119
+commitPassiveMountEffects @ chunk-XQLYTHWV.js?v=7c394d09:18109
+flushPassiveEffectsImpl @ chunk-XQLYTHWV.js?v=7c394d09:19490
+flushPassiveEffects @ chunk-XQLYTHWV.js?v=7c394d09:19447
+commitRootImpl @ chunk-XQLYTHWV.js?v=7c394d09:19416
+commitRoot @ chunk-XQLYTHWV.js?v=7c394d09:19277
+performSyncWorkOnRoot @ chunk-XQLYTHWV.js?v=7c394d09:18895
+flushSyncCallbacks @ chunk-XQLYTHWV.js?v=7c394d09:9119
+(anonymous) @ chunk-XQLYTHWV.js?v=7c394d09:18627
+agent-prospect-wizard.tsx:1599  POST https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/agent-wizard/prospects/f7672695-88b6-4478-a873-acfbaab33de0/goals 500 (Internal Server Error)
+(anonymous) @ agent-prospect-wizard.tsx:1599
+setTimeout
+(anonymous) @ agent-prospect-wizard.tsx:1597
+commitHookEffectListMount @ chunk-XQLYTHWV.js?v=7c394d09:16915
+commitPassiveMountOnFiber @ chunk-XQLYTHWV.js?v=7c394d09:18156
+commitPassiveMountEffects_complete @ chunk-XQLYTHWV.js?v=7c394d09:18129
+commitPassiveMountEffects_begin @ chunk-XQLYTHWV.js?v=7c394d09:18119
+commitPassiveMountEffects @ chunk-XQLYTHWV.js?v=7c394d09:18109
+flushPassiveEffectsImpl @ chunk-XQLYTHWV.js?v=7c394d09:19490
+flushPassiveEffects @ chunk-XQLYTHWV.js?v=7c394d09:19447
+performSyncWorkOnRoot @ chunk-XQLYTHWV.js?v=7c394d09:18868
+flushSyncCallbacks @ chunk-XQLYTHWV.js?v=7c394d09:9119
+commitRootImpl @ chunk-XQLYTHWV.js?v=7c394d09:19432
+commitRoot @ chunk-XQLYTHWV.js?v=7c394d09:19277
+finishConcurrentRender @ chunk-XQLYTHWV.js?v=7c394d09:18805
+performConcurrentWorkOnRoot @ chunk-XQLYTHWV.js?v=7c394d09:18718
+workLoop @ chunk-XQLYTHWV.js?v=7c394d09:197
+flushWork @ chunk-XQLYTHWV.js?v=7c394d09:176
+performWorkUntilDeadline @ chunk-XQLYTHWV.js?v=7c394d09:384
+agent-prospect-wizard.tsx:1599  POST https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/agent-wizard/prospects/f7672695-88b6-4478-a873-acfbaab33de0/goals 500 (Internal Server Error)
+(anonymous) @ agent-prospect-wizard.tsx:1599
+setTimeout
+(anonymous) @ agent-prospect-wizard.tsx:1597
+commitHookEffectListMount @ chunk-XQLYTHWV.js?v=7c394d09:16915
+commitPassiveMountOnFiber @ chunk-XQLYTHWV.js?v=7c394d09:18156
+commitPassiveMountEffects_complete @ chunk-XQLYTHWV.js?v=7c394d09:18129
+commitPassiveMountEffects_begin @ chunk-XQLYTHWV.js?v=7c394d09:18119
+commitPassiveMountEffects @ chunk-XQLYTHWV.js?v=7c394d09:18109
+flushPassiveEffectsImpl @ chunk-XQLYTHWV.js?v=7c394d09:19490
+flushPassiveEffects @ chunk-XQLYTHWV.js?v=7c394d09:19447
+commitRootImpl @ chunk-XQLYTHWV.js?v=7c394d09:19416
+commitRoot @ chunk-XQLYTHWV.js?v=7c394d09:19277
+performSyncWorkOnRoot @ chunk-XQLYTHWV.js?v=7c394d09:18895
+flushSyncCallbacks @ chunk-XQLYTHWV.js?v=7c394d09:9119
+(anonymous) @ chunk-XQLYTHWV.js?v=7c394d09:18627
+agent-prospect-wizard.tsx:1599  POST https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/agent-wizard/prospects/f7672695-88b6-4478-a873-acfbaab33de0/goals 500 (Internal Server Error)
+(anonymous) @ agent-prospect-wizard.tsx:1599
+setTimeout
+(anonymous) @ agent-prospect-wizard.tsx:1597
+commitHookEffectListMount @ chunk-XQLYTHWV.js?v=7c394d09:16915
+commitPassiveMountOnFiber @ chunk-XQLYTHWV.js?v=7c394d09:18156
+commitPassiveMountEffects_complete @ chunk-XQLYTHWV.js?v=7c394d09:18129
+commitPassiveMountEffects_begin @ chunk-XQLYTHWV.js?v=7c394d09:18119
+commitPassiveMountEffects @ chunk-XQLYTHWV.js?v=7c394d09:18109
+flushPassiveEffectsImpl @ chunk-XQLYTHWV.js?v=7c394d09:19490
+flushPassiveEffects @ chunk-XQLYTHWV.js?v=7c394d09:19447
+commitRootImpl @ chunk-XQLYTHWV.js?v=7c394d09:19416
+commitRoot @ chunk-XQLYTHWV.js?v=7c394d09:19277
+performSyncWorkOnRoot @ chunk-XQLYTHWV.js?v=7c394d09:18895
+flushSyncCallbacks @ chunk-XQLYTHWV.js?v=7c394d09:9119
+flushSync @ chunk-XQLYTHWV.js?v=7c394d09:18959
+finishEventHandler @ chunk-XQLYTHWV.js?v=7c394d09:3569
+batchedUpdates @ chunk-XQLYTHWV.js?v=7c394d09:3582
+dispatchEventForPluginEventSystem @ chunk-XQLYTHWV.js?v=7c394d09:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-XQLYTHWV.js?v=7c394d09:5478
+dispatchEvent @ chunk-XQLYTHWV.js?v=7c394d09:5472
+dispatchDiscreteEvent @ chunk-XQLYTHWV.js?v=7c394d09:5449
+agent-prospect-wizard.tsx:1599  POST https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/agent-wizard/prospects/f7672695-88b6-4478-a873-acfbaab33de0/goals 500 (Internal Server Error)
+(anonymous) @ agent-prospect-wizard.tsx:1599
+setTimeout
+(anonymous) @ agent-prospect-wizard.tsx:1597
+commitHookEffectListMount @ chunk-XQLYTHWV.js?v=7c394d09:16915
+commitPassiveMountOnFiber @ chunk-XQLYTHWV.js?v=7c394d09:18156
+commitPassiveMountEffects_complete @ chunk-XQLYTHWV.js?v=7c394d09:18129
+commitPassiveMountEffects_begin @ chunk-XQLYTHWV.js?v=7c394d09:18119
+commitPassiveMountEffects @ chunk-XQLYTHWV.js?v=7c394d09:18109
+flushPassiveEffectsImpl @ chunk-XQLYTHWV.js?v=7c394d09:19490
+flushPassiveEffects @ chunk-XQLYTHWV.js?v=7c394d09:19447
+commitRootImpl @ chunk-XQLYTHWV.js?v=7c394d09:19416
+commitRoot @ chunk-XQLYTHWV.js?v=7c394d09:19277
+performSyncWorkOnRoot @ chunk-XQLYTHWV.js?v=7c394d09:18895
+flushSyncCallbacks @ chunk-XQLYTHWV.js?v=7c394d09:9119
+flushSync @ chunk-XQLYTHWV.js?v=7c394d09:18959
+finishEventHandler @ chunk-XQLYTHWV.js?v=7c394d09:3569
+batchedUpdates @ chunk-XQLYTHWV.js?v=7c394d09:3582
+dispatchEventForPluginEventSystem @ chunk-XQLYTHWV.js?v=7c394d09:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-XQLYTHWV.js?v=7c394d09:5478
+dispatchEvent @ chunk-XQLYTHWV.js?v=7c394d09:5472
+dispatchDiscreteEvent @ chunk-XQLYTHWV.js?v=7c394d09:5449
+agent-prospect-wizard.tsx:1599  POST https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/agent-wizard/prospects/f7672695-88b6-4478-a873-acfbaab33de0/goals 500 (Internal Server Error)
+(anonymous) @ agent-prospect-wizard.tsx:1599
+setTimeout
+(anonymous) @ agent-prospect-wizard.tsx:1597
+commitHookEffectListMount @ chunk-XQLYTHWV.js?v=7c394d09:16915
+commitPassiveMountOnFiber @ chunk-XQLYTHWV.js?v=7c394d09:18156
+commitPassiveMountEffects_complete @ chunk-XQLYTHWV.js?v=7c394d09:18129
+commitPassiveMountEffects_begin @ chunk-XQLYTHWV.js?v=7c394d09:18119
+commitPassiveMountEffects @ chunk-XQLYTHWV.js?v=7c394d09:18109
+flushPassiveEffectsImpl @ chunk-XQLYTHWV.js?v=7c394d09:19490
+flushPassiveEffects @ chunk-XQLYTHWV.js?v=7c394d09:19447
+commitRootImpl @ chunk-XQLYTHWV.js?v=7c394d09:19416
+commitRoot @ chunk-XQLYTHWV.js?v=7c394d09:19277
+performSyncWorkOnRoot @ chunk-XQLYTHWV.js?v=7c394d09:18895
+flushSyncCallbacks @ chunk-XQLYTHWV.js?v=7c394d09:9119
+flushSync @ chunk-XQLYTHWV.js?v=7c394d09:18959
+finishEventHandler @ chunk-XQLYTHWV.js?v=7c394d09:3569
+batchedUpdates @ chunk-XQLYTHWV.js?v=7c394d09:3582
+dispatchEventForPluginEventSystem @ chunk-XQLYTHWV.js?v=7c394d09:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-XQLYTHWV.js?v=7c394d09:5478
+dispatchEvent @ chunk-XQLYTHWV.js?v=7c394d09:5472
+dispatchDiscreteEvent @ chunk-XQLYTHWV.js?v=7c394d09:5449
+queryClient.ts:226  POST https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/agent-wizard/prospects/f7672695-88b6-4478-a873-acfbaab33de0/goals 500 (Internal Server Error)
+apiRequest @ queryClient.ts:226
+mutationFn @ agent-prospect-wizard.tsx:2149
+fn @ @tanstack_react-query.js?v=7c394d09:1189
+run @ @tanstack_react-query.js?v=7c394d09:494
+start @ @tanstack_react-query.js?v=7c394d09:536
+execute @ @tanstack_react-query.js?v=7c394d09:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=7c394d09:2630
+(anonymous) @ @tanstack_react-query.js?v=7c394d09:3295
+onClick @ agent-prospect-wizard.tsx:3272
+callCallback2 @ chunk-XQLYTHWV.js?v=7c394d09:3674
+invokeGuardedCallbackDev @ chunk-XQLYTHWV.js?v=7c394d09:3699
+invokeGuardedCallback @ chunk-XQLYTHWV.js?v=7c394d09:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-XQLYTHWV.js?v=7c394d09:3736
+executeDispatch @ chunk-XQLYTHWV.js?v=7c394d09:7014
+processDispatchQueueItemsInOrder @ chunk-XQLYTHWV.js?v=7c394d09:7034
+processDispatchQueue @ chunk-XQLYTHWV.js?v=7c394d09:7043
+dispatchEventsForPlugins @ chunk-XQLYTHWV.js?v=7c394d09:7051
+(anonymous) @ chunk-XQLYTHWV.js?v=7c394d09:7174
+batchedUpdates$1 @ chunk-XQLYTHWV.js?v=7c394d09:18913
+batchedUpdates @ chunk-XQLYTHWV.js?v=7c394d09:3579
+dispatchEventForPluginEventSystem @ chunk-XQLYTHWV.js?v=7c394d09:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-XQLYTHWV.js?v=7c394d09:5478
+dispatchEvent @ chunk-XQLYTHWV.js?v=7c394d09:5472
+dispatchDiscreteEvent @ chunk-XQLYTHWV.js?v=7c394d09:5449
+queryClient.ts:226  POST https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/agent-wizard/prospects/f7672695-88b6-4478-a873-acfbaab33de0/goals 500 (Internal Server Error)
+apiRequest @ queryClient.ts:226
+mutationFn @ agent-prospect-wizard.tsx:2149
+fn @ @tanstack_react-query.js?v=7c394d09:1189
+run @ @tanstack_react-query.js?v=7c394d09:494
+(anonymous) @ @tanstack_react-query.js?v=7c394d09:519
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=7c394d09:515
+Promise.catch
+run @ @tanstack_react-query.js?v=7c394d09:498
+start @ @tanstack_react-query.js?v=7c394d09:536
+execute @ @tanstack_react-query.js?v=7c394d09:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=7c394d09:2630
+(anonymous) @ @tanstack_react-query.js?v=7c394d09:3295
+onClick @ agent-prospect-wizard.tsx:3272
+callCallback2 @ chunk-XQLYTHWV.js?v=7c394d09:3674
+invokeGuardedCallbackDev @ chunk-XQLYTHWV.js?v=7c394d09:3699
+invokeGuardedCallback @ chunk-XQLYTHWV.js?v=7c394d09:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-XQLYTHWV.js?v=7c394d09:3736
+executeDispatch @ chunk-XQLYTHWV.js?v=7c394d09:7014
+processDispatchQueueItemsInOrder @ chunk-XQLYTHWV.js?v=7c394d09:7034
+processDispatchQueue @ chunk-XQLYTHWV.js?v=7c394d09:7043
+dispatchEventsForPlugins @ chunk-XQLYTHWV.js?v=7c394d09:7051
+(anonymous) @ chunk-XQLYTHWV.js?v=7c394d09:7174
+batchedUpdates$1 @ chunk-XQLYTHWV.js?v=7c394d09:18913
+batchedUpdates @ chunk-XQLYTHWV.js?v=7c394d09:3579
+dispatchEventForPluginEventSystem @ chunk-XQLYTHWV.js?v=7c394d09:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-XQLYTHWV.js?v=7c394d09:5478
+dispatchEvent @ chunk-XQLYTHWV.js?v=7c394d09:5472
+dispatchDiscreteEvent @ chunk-XQLYTHWV.js?v=7c394d09:5449
