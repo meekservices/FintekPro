@@ -2127,7 +2127,7 @@ export default function AgentProspectWizard() {
               setRiskHeatmapData(analyticsData.analytics.riskHeatmap?.data);
               setBenchmarkData(analyticsData.analytics.benchmark?.data);
               setWhatIfScenarios(analyticsData.analytics.whatIf?.data);
-              setSipRecommendations(analyticsData.analytics.sipRecommendations || []);
+              setSipRecommendations(analyticsData.analytics.sipRecommendations?.data || []);
             }
           }
         } catch (e) {
