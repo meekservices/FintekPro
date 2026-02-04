@@ -37,6 +37,17 @@ import { AdvisorOverrideSystem, AdvisorModifiedBadge } from "@/components/propos
 import { useSectionAnalytics, AnalyticsSection } from "@/hooks/use-section-analytics";
 import { SectionAnalyticsLoader } from "@/components/proposal/SectionAnalyticsLoader";
 
+interface PortfolioHoldingLot {
+  purchaseDate?: string;
+  transactionDateStr?: string;
+  transactionDate?: Date | string;
+  transactionType?: string;
+  amount?: number;
+  units: number;
+  nav: number;
+  cost?: number;
+}
+
 interface PortfolioHolding {
   id?: string;
   productType: string;
@@ -48,6 +59,7 @@ interface PortfolioHolding {
   isin?: string;
   category?: string;
   symbol?: string;
+  lots?: PortfolioHoldingLot[];
 }
 
 // Map frontend productType to backend assetType (backend schema has limited enum values)
@@ -3541,7 +3553,7 @@ export default function AgentProspectWizard() {
                                                               if (!earliest) return lotDate;
                                                               return lotDate < earliest ? lotDate : earliest;
                                                             }, null);
-                                                            return { ...h, lots: updatedLots, firstPurchaseDate: newEarliestDate };
+                                                            return { ...h, lots: updatedLots, firstPurchaseDate: newEarliestDate ?? undefined };
                                                           }
                                                           return h;
                                                         });
@@ -4619,7 +4631,7 @@ export default function AgentProspectWizard() {
                     <div className="p-3 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg">
                       <p className="text-xs text-muted-foreground mb-1">Total Portfolio Value</p>
                       <p className="text-xl font-bold text-blue-700 dark:text-blue-300">{formatCurrency(analysis.totalValue)}</p>
-                      <p className="text-xs text-green-600 mt-1">+{((analysis.totalGainPercent || 0)).toFixed(1)}% overall gain</p>
+                      <p className="text-xs text-green-600 mt-1">+{(((analysis as any).totalGainPercent || 0)).toFixed(1)}% overall gain</p>
                     </div>
                     <div className="p-3 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg">
                       <p className="text-xs text-muted-foreground mb-1">Risk Profile</p>
@@ -5893,7 +5905,10 @@ export default function AgentProspectWizard() {
                           <span className="font-medium">{rec.productName}</span>
                           <Badge variant="outline">{rec.priority}</Badge>
                           {rec.isOverridden && rec.override && (
-                            <AdvisorModifiedBadge override={rec.override} />
+                            <AdvisorModifiedBadge override={{
+                              ...rec.override,
+                              overrideCategory: rec.override.overrideCategory as 'client_preference' | 'market_outlook' | 'risk_adjustment' | 'tax_optimization' | 'other'
+                            }} />
                           )}
                         </div>
                         <span className={`font-bold ${rec.changeAmount < 0 ? 'text-red-600' : 'text-green-600'}`}>
@@ -5936,19 +5951,19 @@ export default function AgentProspectWizard() {
                               <span className="text-amber-600 dark:text-amber-400">Est. Tax:</span>{' '}
                               {formatCurrency(rec.taxImplications.estimatedTax || 0)}
                             </div>
-                            {rec.taxImplications.exitLoad > 0 && (
+                            {(rec.taxImplications.exitLoad ?? 0) > 0 && (
                               <div>
                                 <span className="text-amber-600 dark:text-amber-400">Exit Load:</span>{' '}
-                                {formatCurrency(rec.taxImplications.exitLoad)}
+                                {formatCurrency(rec.taxImplications.exitLoad ?? 0)}
                               </div>
                             )}
                           </div>
-                          {rec.taxImplications.grandfatheringBenefit > 0 && (
+                          {(rec.taxImplications.grandfatheringBenefit ?? 0) > 0 && (
                             <div className="text-green-600 dark:text-green-400">
-                              Grandfathering Benefit: {formatCurrency(rec.taxImplications.grandfatheringBenefit)} (pre-2018 holding)
+                              Grandfathering Benefit: {formatCurrency(rec.taxImplications.grandfatheringBenefit ?? 0)} (pre-2018 holding)
                             </div>
                           )}
-                          {rec.taxImplications.alerts?.length > 0 && (
+                          {(rec.taxImplications.alerts?.length ?? 0) > 0 && rec.taxImplications.alerts && (
                             <div className="space-y-1">
                               {rec.taxImplications.alerts.map((alert: any, aIdx: number) => (
                                 <div key={aIdx} className={`flex items-start gap-1 ${
@@ -5973,17 +5988,24 @@ export default function AgentProspectWizard() {
                           <AdvisorOverrideSystem
                             recommendation={{
                               productName: rec.productName,
-                              action: rec.action,
+                              action: rec.action as 'BUY' | 'SELL' | 'HOLD' | 'SWITCH',
                               changeAmount: rec.changeAmount,
                               category: rec.productType,
                               isOverridden: rec.isOverridden,
-                              override: rec.override
+                              override: rec.override ? {
+                                ...rec.override,
+                                overrideCategory: rec.override.overrideCategory as 'client_preference' | 'market_outlook' | 'risk_adjustment' | 'tax_optimization' | 'other'
+                              } : undefined
                             }}
                             proposalId={proposal.proposalId}
                             agentName={proposal.agentName || 'Advisor'}
                             onOverrideComplete={(updated) => {
                               const newRebalancing = [...rebalancing];
-                              newRebalancing[idx] = { ...newRebalancing[idx], ...updated };
+                              newRebalancing[idx] = { 
+                                ...newRebalancing[idx], 
+                                ...updated,
+                                action: (updated.action || newRebalancing[idx].action) as 'BUY' | 'SELL' | 'HOLD' | 'SWITCH'
+                              };
                               setRebalancing(newRebalancing);
                             }}
                           />
