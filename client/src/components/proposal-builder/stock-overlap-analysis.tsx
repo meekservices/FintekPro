@@ -404,6 +404,89 @@ export function StockOverlapAnalysis({
             </p>
           </div>
         )}
+
+        {(analysis.highRiskStocksCount > 0 || analysis.mediumRiskStocksCount > 0) && (
+          <div className="mt-4 border border-amber-200 dark:border-amber-800 rounded-lg overflow-hidden">
+            <div className="bg-amber-50 dark:bg-amber-950/30 px-4 py-3 border-b border-amber-200 dark:border-amber-800">
+              <h4 className="text-sm font-medium flex items-center gap-2 text-amber-800 dark:text-amber-200">
+                <ShieldAlert className="h-4 w-4" />
+                Rebalancing Insights
+              </h4>
+            </div>
+            <div className="p-4 space-y-3 bg-white dark:bg-background">
+              {analysis.highRiskStocksCount > 0 && (
+                <div className="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-950/20 rounded-lg">
+                  <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-red-700 dark:text-red-300">
+                      High Concentration Alert
+                    </p>
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                      {analysis.highRiskStocksCount} stock(s) have &gt;10% exposure across your funds. 
+                      Consider reducing positions in overlapping funds to lower concentration risk.
+                    </p>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {analysis.stockOverlaps
+                        .filter((s) => s.riskFlag === "HIGH")
+                        .slice(0, 5)
+                        .map((s) => (
+                          <Badge key={s.stock} variant="outline" className="text-xs bg-red-100 text-red-700 border-red-200">
+                            {s.stock}: {s.totalExposure.toFixed(1)}%
+                          </Badge>
+                        ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {analysis.mediumRiskStocksCount > 0 && (
+                <div className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg">
+                  <ShieldAlert className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                      Moderate Concentration Notice
+                    </p>
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                      {analysis.mediumRiskStocksCount} stock(s) have 5-10% exposure. 
+                      Monitor these positions during portfolio rebalancing.
+                    </p>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {analysis.stockOverlaps
+                        .filter((s) => s.riskFlag === "MEDIUM")
+                        .slice(0, 5)
+                        .map((s) => (
+                          <Badge key={s.stock} variant="outline" className="text-xs bg-amber-100 text-amber-700 border-amber-200">
+                            {s.stock}: {s.totalExposure.toFixed(1)}%
+                          </Badge>
+                        ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {analysis.sectorConcentration.filter((s) => s.riskFlag === "HIGH").length > 0 && (
+                <div className="flex items-start gap-3 p-3 bg-purple-50 dark:bg-purple-950/20 rounded-lg">
+                  <Building2 className="h-5 w-5 text-purple-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                      Sector Concentration Alert
+                    </p>
+                    <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                      Consider diversifying into underweight sectors to reduce sector-specific risk.
+                    </p>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {analysis.sectorConcentration
+                        .filter((s) => s.riskFlag === "HIGH")
+                        .map((s) => (
+                          <Badge key={s.sector} variant="outline" className="text-xs bg-purple-100 text-purple-700 border-purple-200">
+                            {s.sector}: {s.exposure.toFixed(1)}%
+                          </Badge>
+                        ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
