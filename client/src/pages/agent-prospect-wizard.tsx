@@ -4773,15 +4773,20 @@ export default function AgentProspectWizard() {
                       ))}
                     </div>
                   )}
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <p className="text-xs font-medium text-muted-foreground mb-2">Sector Allocation</p>
                     {(riskHeatmapData?.sectorAllocation ?? []).slice(0, 6).map((s, idx) => (
                       <div key={idx} className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs truncate">{s.sector}</span>
-                          <span className="text-xs font-semibold text-primary">{s.percentage?.toFixed(1) || 0}%</span>
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="text-sm">{s.sector}</span>
+                          <span className="text-sm font-bold text-green-600 dark:text-green-400 whitespace-nowrap">{(s.percentage ?? 0).toFixed(1)}%</span>
                         </div>
-                        <Progress value={s.percentage || 0} className="h-2" />
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                          <div 
+                            className="bg-green-500 h-2 rounded-full transition-all duration-300" 
+                            style={{ width: `${Math.min(s.percentage || 0, 100)}%` }}
+                          />
+                        </div>
                       </div>
                     ))}
                   </div>
