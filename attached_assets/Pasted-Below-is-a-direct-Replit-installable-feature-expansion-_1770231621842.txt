@@ -1,0 +1,191 @@
+Below is a direct, Replit-installable feature expansion that builds on top of your Stock Intersection engine (no rework), and converts overlaps into actionable recommendations + advisor intelligence.
+This is structured so each capability can be shipped independently, but together they create a premium proposal differentiator.
+EPIC: Overlap-Aware Intelligence Engine (Portfolio → Action)
+Objective
+Convert stock overlap insights into:
+Smarter fund recommendations
+“Replace fund” suggestions
+Quantified diversification impact
+Auto-generated advisor talking points
+BACKEND TICKETS
+BE-10: Diversification Scoring Engine
+Type: Backend – Analytics
+Priority: P0
+Description
+Introduce a numeric diversification score that penalizes stock & sector overlap.
+Score Definition
+Base Score = 100
+
+Penalties:
+- Stock overlap >10% → −15
+- Stock overlap 5–10% → −8
+- Sector exposure >30% → −10
+- >3 funds holding same stock → −5 per extra fund
+Output
+{
+  "diversification_score": 68,
+  "penalties": [
+    { "type": "STOCK_OVERLAP", "stock": "RELIANCE", "impact": -15 },
+    { "type": "SECTOR_CONCENTRATION", "sector": "Banking", "impact": -10 }
+  ]
+}
+Acceptance Criteria
+Score range 0–100
+Deterministic output
+Used across UI + PDF + recommendations
+BE-11: Overlap-Aware Fund Suitability Filter
+Type: Backend – Recommendation Logic
+Priority: P0
+Description
+Modify fund recommendation engine to penalize candidate funds that increase overlap.
+Logic
+For each candidate fund:
+overlap_risk_score =
+  Σ (candidate_stock_weight × existing_portfolio_stock_exposure)
+
+If overlap_risk_score > threshold → downgrade ranking
+Thresholds
+Overlap Risk	Action
+>8%	Exclude
+4–8%	Rank lower
+<4%	Allowed
+Acceptance Criteria
+No recommended fund increases top stock exposure
+Category & risk profile rules still respected
+BE-12: “Replace Fund” Detection Engine
+Type: Backend – Analytics
+Priority: P0
+Description
+Identify funds that are redundant due to high overlap.
+Replacement Conditions
+A fund is replaceable if:
+≥40% holdings overlap with another fund AND
+Lower Sharpe / higher expense ratio OR
+Lower diversification contribution
+Output
+{
+  "replace_fund": "ABC Large Cap Fund",
+  "reason": "High overlap with XYZ Large Cap (42%) and lower Sharpe",
+  "suggested_action": "Switch"
+}
+Acceptance Criteria
+Never suggest replacing the only fund in a category
+No circular replacements
+BE-13: Alternative Fund Selector (Low Overlap)
+Type: Backend – Recommendation
+Priority: P0
+Description
+For each replaceable fund, suggest lower-overlap alternatives.
+Filters
+Same category
+Same or lower risk
+Stock overlap <5%
+Better or equal metrics (Sharpe, TER)
+Output
+{
+  "original_fund": "ABC Large Cap",
+  "alternatives": [
+    {
+      "fund": "DEF Large Cap",
+      "overlap_reduction": "−28%",
+      "diversification_gain": "+12"
+    }
+  ]
+}
+BE-14: Diversification Impact Simulator
+Type: Backend – Analytics
+Priority: P1
+Description
+Simulate before vs after diversification score.
+Input
+Current portfolio
+Proposed replace/add/remove action
+Output
+{
+  "current_score": 68,
+  "post_change_score": 82,
+  "net_improvement": +14
+}
+Acceptance Criteria
+Used in UI previews
+Used in proposal PDF
+BE-15: Advisor Talking Points Generator
+Type: Backend – Narrative Engine
+Priority: P0
+Description
+Generate human-readable advisor explanations from analytics.
+Templates (Deterministic, Not AI Hallucination)
+Stock Overlap
+“Your portfolio has a concentrated exposure to RELIANCE across 3 funds, resulting in 11.8% overall exposure. This increases single-stock risk.”
+Replace Fund
+“ABC Large Cap Fund significantly overlaps with XYZ Large Cap Fund but delivers lower risk-adjusted returns. Replacing it improves diversification.”
+Diversification Improvement
+“The proposed changes improve your diversification score from 68 to 82 without increasing risk.”
+Acceptance Criteria
+Fully deterministic
+Regulator-safe language
+No promises of returns
+BE-16: Portfolio Recommendation API Extension
+Type: Backend – API
+Priority: P0
+Endpoint
+POST /api/portfolio/recommend
+Add Response
+{
+  "replace_suggestions": [...],
+  "overlap_safe_recommendations": [...],
+  "diversification_impact": {...},
+  "advisor_talking_points": [...]
+}
+FRONTEND TICKETS
+FE-06: Diversification Score Widget
+Priority: P0
+Placement: Portfolio Analysis Summary
+UI
+Score gauge (0–100)
+Color bands:
+Red <60
+Amber 60–75
+Green >75
+Tooltip
+“Score reflects diversification after accounting for overlapping stocks and sectors.”
+FE-07: Replace Fund Recommendations Panel
+Priority: P0
+Placement: Rebalancing Recommendations
+UI Elements
+Fund to replace
+Reason (overlap %, metrics)
+Suggested alternatives
+“View impact” button
+FE-08: Before / After Diversification Preview
+Priority: P1
+UI
+Side-by-side score
+Net improvement highlight
+FE-09: Advisor Talking Points Section
+Priority: P0
+Placement: Proposal Builder → Advisor Notes
+Features
+Auto-generated bullets
+Editable by advisor
+Insert into PDF
+FE-10: Proposal PDF – Diversification & Overlap Section
+Priority: P1
+Content
+Diversification score
+Top overlap risks
+Replace fund rationale
+Advisor commentary
+FINAL SYSTEM CAPABILITIES AFTER THIS INSTALL
+✅ Portfolio overlap detected
+✅ Diversification quantified
+✅ Bad recommendations automatically avoided
+✅ Redundant funds flagged
+✅ Low-overlap alternatives suggested
+✅ Advisor explanations auto-generated
+✅ Proposal quality upgraded from “data” → “advice”
+STRATEGIC NOTE (Why This Matters)
+This feature:
+Makes FintekPro proposals hard to replicate
+Moves agents from product sellers → portfolio advisors
+Creates clear switching rationale (conversion lever)
