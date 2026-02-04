@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, index, uniqueIndex, integer, date, bigint, numeric, pgEnum, serial } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, index, uniqueIndex, integer, date, bigint, numeric, pgEnum, serial, uuid } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -4149,6 +4149,71 @@ export const mfSchemeExitLoads = pgTable("mf_scheme_exit_loads", {
   schemeCodeIdx: index("mf_scheme_exit_loads_scheme_code_idx").on(table.schemeCode),
   isinIdx: index("mf_scheme_exit_loads_isin_idx").on(table.isin),
 }));
+
+// MF Scheme Stock Holdings - Stock-level holdings for look-through analysis
+export const mfSchemeStockHoldings = pgTable("mf_scheme_stock_holdings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  mfIsin: varchar("mf_isin", { length: 20 }).notNull(),
+  stockSymbol: varchar("stock_symbol", { length: 30 }).notNull(),
+  stockName: text("stock_name"),
+  stockIsin: varchar("stock_isin", { length: 20 }),
+  sector: varchar("sector", { length: 100 }),
+  holdingPercentage: decimal("holding_percentage", { precision: 8, scale: 4 }).notNull(),
+  holdingDate: date("holding_date").notNull(),
+  marketValue: decimal("market_value", { precision: 15, scale: 2 }),
+  quantity: decimal("quantity", { precision: 15, scale: 4 }),
+  source: varchar("source", { length: 30 }).default("amfi"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  mfIsinIdx: index("mf_scheme_stock_holdings_mf_isin_idx").on(table.mfIsin),
+  stockSymbolIdx: index("mf_scheme_stock_holdings_stock_symbol_idx").on(table.stockSymbol),
+  holdingDateIdx: index("mf_scheme_stock_holdings_holding_date_idx").on(table.holdingDate),
+  uniqueHolding: uniqueIndex("mf_scheme_stock_holdings_unique_idx").on(table.mfIsin, table.stockSymbol, table.holdingDate),
+}));
+
+export const insertMfSchemeStockHoldingsSchema = createInsertSchema(mfSchemeStockHoldings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type MfSchemeStockHolding = typeof mfSchemeStockHoldings.$inferSelect;
+export type InsertMfSchemeStockHolding = z.infer<typeof insertMfSchemeStockHoldingsSchema>;
+
+// Stock Intersection Analysis Results - Cached analysis for portfolio overlap
+export const stockIntersectionAnalysis = pgTable("stock_intersection_analysis", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  portfolioId: uuid("portfolio_id"),
+  prospectId: uuid("prospect_id"),
+  userId: uuid("user_id"),
+  analysisDate: timestamp("analysis_date").defaultNow(),
+  totalFundsAnalyzed: integer("total_funds_analyzed").default(0),
+  totalStocksFound: integer("total_stocks_found").default(0),
+  overlappingStocksCount: integer("overlapping_stocks_count").default(0),
+  highRiskStocksCount: integer("high_risk_stocks_count").default(0),
+  mediumRiskStocksCount: integer("medium_risk_stocks_count").default(0),
+  stockOverlaps: jsonb("stock_overlaps"),
+  sectorConcentration: jsonb("sector_concentration"),
+  diversificationScore: decimal("diversification_score", { precision: 5, scale: 2 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  portfolioIdIdx: index("stock_intersection_portfolio_id_idx").on(table.portfolioId),
+  prospectIdIdx: index("stock_intersection_prospect_id_idx").on(table.prospectId),
+  userIdIdx: index("stock_intersection_user_id_idx").on(table.userId),
+  analysisDateIdx: index("stock_intersection_analysis_date_idx").on(table.analysisDate),
+}));
+
+export const insertStockIntersectionAnalysisSchema = createInsertSchema(stockIntersectionAnalysis).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type StockIntersectionAnalysis = typeof stockIntersectionAnalysis.$inferSelect;
+export type InsertStockIntersectionAnalysis = z.infer<typeof insertStockIntersectionAnalysisSchema>;
+
 
 // MF Tax Rules table for current tax rates
 export const mfTaxRules = pgTable("mf_tax_rules", {

@@ -203,6 +203,7 @@ import financialMetricsRoutes from './routes/financial-metrics-routes';
 import financialMetricsAdminRoutes from './routes/financial-metrics-admin';
 import aaConsentRoutes from './routes/aa-consent-routes';
 import portfolioStagingRoutes from './routes/portfolio-staging-routes';
+import stockIntersectionRoutes from './routes/stock-intersection';
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -843,6 +844,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   app.use("/api", intrinsicValueRoutes);
   console.log("✅ Intrinsic Value Calculator routes registered");
   app.use("/api/portfolio/staging", portfolioStagingRoutes);
+
+  // Stock Intersection Analysis routes
+  app.use("/api/stock-intersection", stockIntersectionRoutes);
+  console.log("✅ Stock Intersection Analysis routes registered");
   app.post("/api/admin/seed-products", requireAdmin, async (req, res) => {
     try {
       const count = await seedProducts(storage as any);
