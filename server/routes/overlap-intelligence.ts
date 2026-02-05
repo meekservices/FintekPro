@@ -169,4 +169,86 @@ router.post("/recommend", async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * POST /api/portfolio/optimize-sip
+ * BE-17: SIP Allocation Optimizer
+ */
+router.post("/optimize-sip", async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      sipAmount: z.number().min(1),
+      candidateFunds: z.array(z.string()),
+      existingPortfolio: z.array(portfolioFundSchema),
+    });
+    const { sipAmount, candidateFunds, existingPortfolio } = schema.parse(req.body);
+    const result = await overlapIntelligenceEngine.optimizeSIPAllocation(
+      sipAmount,
+      candidateFunds,
+      existingPortfolio
+    );
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    console.error("[OptimizeSIP] Error:", error);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/portfolio/goal-based-score
+ * BE-18: Goal-Specific Diversification Model
+ */
+router.post("/goal-based-score", async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      funds: z.array(portfolioFundSchema),
+      goal: z.enum(["WEALTH_CREATION", "RETIREMENT", "CHILD_EDUCATION", "INCOME"]),
+    });
+    const { funds, goal } = schema.parse(req.body);
+    const result = await overlapIntelligenceEngine.calculateGoalBasedDiversificationScore(funds, goal);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    console.error("[GoalBasedScore] Error:", error);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/portfolio/sebi-narratives
+ * BE-19: SEBI-Compliant Narrative Templates
+ */
+router.post("/sebi-narratives", async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      funds: z.array(portfolioFundSchema),
+      goal: z.string().optional(),
+    });
+    const { funds, goal } = schema.parse(req.body);
+    const diversificationScore = await overlapIntelligenceEngine.calculateDiversificationScore(funds);
+    const narratives = overlapIntelligenceEngine.generateAllSEBINarratives(diversificationScore, goal);
+    res.json({ success: true, data: { narratives, diversificationScore } });
+  } catch (error: any) {
+    console.error("[SEBINarratives] Error:", error);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/portfolio/sebi-narrative
+ * Single SEBI-compliant narrative for a specific context
+ */
+router.post("/sebi-narrative", async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      type: z.enum(["OVERLAP_RISK", "SIP_ROUTING", "REPLACE_FUND", "DIVERSIFICATION_SCORE", "GOAL_ALIGNMENT"]),
+      data: z.record(z.any()),
+    });
+    const context = schema.parse(req.body);
+    const result = overlapIntelligenceEngine.generateSEBICompliantNarratives(context);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    console.error("[SEBINarrative] Error:", error);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
 export default router;

@@ -710,6 +710,297 @@ export class OverlapIntelligenceEngine {
     this.cache.set(cacheKey, { data: result, timestamp: Date.now() });
     return result;
   }
+
+  /**
+   * BE-17: SIP Allocation Optimizer
+   * Routes SIP amounts dynamically to minimize incremental stock overlap
+   */
+  async optimizeSIPAllocation(
+    sipAmount: number,
+    candidateFunds: string[],
+    existingPortfolio: PortfolioFund[]
+  ): Promise<{
+    sipRouting: Array<{ fund: string; fundIsin: string; amount: number; overlapScore: number }>;
+    explanation: string;
+    totalAllocated: number;
+  }> {
+    if (!candidateFunds.length || sipAmount <= 0) {
+      return { sipRouting: [], explanation: "No valid candidates for SIP allocation", totalAllocated: 0 };
+    }
+
+    // Get fund details and calculate overlap scores
+    const fundScores: Array<{
+      isin: string;
+      name: string;
+      overlapScore: number;
+      expectedReturn: number;
+    }> = [];
+
+    for (const fundIsin of candidateFunds) {
+      const [fundDetails] = await db
+        .select()
+        .from(mutualFunds)
+        .where(eq(mutualFunds.isin, fundIsin))
+        .limit(1);
+
+      if (!fundDetails) continue;
+
+      const overlapRisk = await this.calculateOverlapRiskScore(fundIsin, existingPortfolio);
+      
+      // Higher overlap = higher penalty = lower score
+      const overlapPenalty = overlapRisk.score * 2; // Scale up penalty
+      const baseReturnScore = 50; // Neutral base
+      const effectiveScore = baseReturnScore - overlapPenalty;
+
+      fundScores.push({
+        isin: fundIsin,
+        name: fundDetails.schemeName || "Unknown Fund",
+        overlapScore: overlapRisk.score,
+        expectedReturn: effectiveScore,
+      });
+    }
+
+    if (!fundScores.length) {
+      return { sipRouting: [], explanation: "No fund details found", totalAllocated: 0 };
+    }
+
+    // Sort by effective score (lowest overlap first)
+    fundScores.sort((a, b) => a.overlapScore - b.overlapScore);
+
+    // Allocate SIP proportionally - lower overlap gets more allocation
+    const totalInverseOverlap = fundScores.reduce((sum, f) => sum + (100 - f.overlapScore), 0);
+    const sipRouting = fundScores.map(f => {
+      const proportion = (100 - f.overlapScore) / totalInverseOverlap;
+      const amount = Math.round(sipAmount * proportion);
+      return {
+        fund: f.name,
+        fundIsin: f.isin,
+        amount,
+        overlapScore: f.overlapScore,
+      };
+    });
+
+    // Ensure total equals sipAmount (adjust rounding)
+    const allocatedTotal = sipRouting.reduce((sum, r) => sum + r.amount, 0);
+    if (allocatedTotal !== sipAmount && sipRouting.length > 0) {
+      sipRouting[0].amount += sipAmount - allocatedTotal;
+    }
+
+    // Generate explanation
+    const topFund = sipRouting[0];
+    const explanation = `Allocation prioritizes ${topFund.fund} with lowest overlap score (${topFund.overlapScore.toFixed(1)}%). This reduces exposure to stocks already concentrated in your portfolio.`;
+
+    return {
+      sipRouting,
+      explanation,
+      totalAllocated: sipAmount,
+    };
+  }
+
+  /**
+   * BE-18: Goal-Specific Diversification Model
+   * Adjusts diversification scoring based on investment goal
+   */
+  async calculateGoalBasedDiversificationScore(
+    funds: PortfolioFund[],
+    goal: "WEALTH_CREATION" | "RETIREMENT" | "CHILD_EDUCATION" | "INCOME"
+  ): Promise<{
+    score: number;
+    grade: "EXCELLENT" | "GOOD" | "FAIR" | "POOR";
+    goal: string;
+    riskAlignment: "EXCELLENT" | "GOOD" | "FAIR" | "POOR";
+    penalties: DiversificationPenalty[];
+    goalAdjustments: { stockOverlapMultiplier: number; sectorPenaltyMultiplier: number };
+  }> {
+    // Goal-specific penalty multipliers
+    const goalWeights = {
+      WEALTH_CREATION: { stockOverlapMultiplier: 1.0, sectorPenaltyMultiplier: 0.7 },
+      RETIREMENT: { stockOverlapMultiplier: 1.5, sectorPenaltyMultiplier: 1.5 },
+      CHILD_EDUCATION: { stockOverlapMultiplier: 1.3, sectorPenaltyMultiplier: 1.2 },
+      INCOME: { stockOverlapMultiplier: 1.0, sectorPenaltyMultiplier: 1.4 },
+    };
+
+    const weights = goalWeights[goal];
+    
+    // Get base diversification data
+    const baseResult = await this.calculateDiversificationScore(funds);
+    
+    // Recalculate with goal-adjusted penalties
+    let adjustedScore = 100;
+    const adjustedPenalties: DiversificationPenalty[] = [];
+
+    for (const penalty of baseResult.penalties) {
+      let adjustedImpact = penalty.impact;
+      
+      if (penalty.type === "STOCK_OVERLAP") {
+        adjustedImpact = Math.round(penalty.impact * weights.stockOverlapMultiplier);
+      } else if (penalty.type === "SECTOR_CONCENTRATION") {
+        adjustedImpact = Math.round(penalty.impact * weights.sectorPenaltyMultiplier);
+      }
+      
+      adjustedPenalties.push({
+        ...penalty,
+        impact: adjustedImpact,
+        description: `${penalty.description} (adjusted for ${goal.toLowerCase().replace(/_/g, " ")} goal)`,
+      });
+      
+      adjustedScore += adjustedImpact;
+    }
+
+    // Clamp score
+    adjustedScore = Math.max(0, Math.min(100, adjustedScore));
+
+    // Determine grade
+    let grade: "EXCELLENT" | "GOOD" | "FAIR" | "POOR";
+    if (adjustedScore >= 75) grade = "EXCELLENT";
+    else if (adjustedScore >= 60) grade = "GOOD";
+    else if (adjustedScore >= 40) grade = "FAIR";
+    else grade = "POOR";
+
+    // Risk alignment based on goal requirements
+    let riskAlignment: "EXCELLENT" | "GOOD" | "FAIR" | "POOR";
+    if (goal === "RETIREMENT" || goal === "CHILD_EDUCATION") {
+      // These goals need higher diversification
+      riskAlignment = adjustedScore >= 70 ? "EXCELLENT" : adjustedScore >= 55 ? "GOOD" : adjustedScore >= 40 ? "FAIR" : "POOR";
+    } else {
+      riskAlignment = grade;
+    }
+
+    return {
+      score: adjustedScore,
+      grade,
+      goal: goal.replace(/_/g, " "),
+      riskAlignment,
+      penalties: adjustedPenalties,
+      goalAdjustments: weights,
+    };
+  }
+
+  /**
+   * BE-19: SEBI-Compliant Narrative Template Engine
+   * Pre-approved templates for regulatory compliance
+   */
+  generateSEBICompliantNarratives(
+    context: {
+      type: "OVERLAP_RISK" | "SIP_ROUTING" | "REPLACE_FUND" | "DIVERSIFICATION_SCORE" | "GOAL_ALIGNMENT";
+      data: Record<string, any>;
+    }
+  ): {
+    narrative: string;
+    disclaimer: string;
+    isLocked: boolean;
+    templateId: string;
+  } {
+    const disclaimers = {
+      general: "Mutual fund investments are subject to market risks. Read all scheme related documents carefully before investing.",
+      past_performance: "Past performance is not indicative of future results.",
+      advice: "This information is for educational purposes only and does not constitute investment advice.",
+    };
+
+    const templates: Record<string, { text: string; disclaimer: string; id: string }> = {
+      OVERLAP_RISK: {
+        text: "Multiple schemes in the portfolio invest in the same underlying stocks. This may increase concentration risk and reduce the benefits of diversification.",
+        disclaimer: disclaimers.general,
+        id: "SEBI-TPL-001",
+      },
+      SIP_ROUTING: {
+        text: "SIP allocations are structured to improve diversification based on current portfolio holdings. The suggested allocation aims to balance exposure across different securities.",
+        disclaimer: disclaimers.general,
+        id: "SEBI-TPL-002",
+      },
+      REPLACE_FUND: {
+        text: "The suggested change aims to reduce overlap and align the portfolio with the stated investment objective. This recommendation is based on current holdings analysis.",
+        disclaimer: disclaimers.general + " " + disclaimers.past_performance,
+        id: "SEBI-TPL-003",
+      },
+      DIVERSIFICATION_SCORE: {
+        text: "The diversification score reflects how spread the investments are across different stocks and sectors. A higher score indicates broader distribution of holdings.",
+        disclaimer: disclaimers.advice,
+        id: "SEBI-TPL-004",
+      },
+      GOAL_ALIGNMENT: {
+        text: "The portfolio has been evaluated against the selected financial goal. Risk tolerance and investment horizon are key factors in determining goal alignment.",
+        disclaimer: disclaimers.general + " " + disclaimers.advice,
+        id: "SEBI-TPL-005",
+      },
+    };
+
+    const template = templates[context.type];
+    if (!template) {
+      return {
+        narrative: "Portfolio analysis completed.",
+        disclaimer: disclaimers.general,
+        isLocked: true,
+        templateId: "SEBI-TPL-000",
+      };
+    }
+
+    // Personalize template with data while keeping SEBI-compliant language
+    let narrative = template.text;
+    
+    if (context.type === "OVERLAP_RISK" && context.data.stockCount) {
+      narrative = `${context.data.stockCount} stocks appear in multiple schemes within the portfolio. ${template.text}`;
+    } else if (context.type === "DIVERSIFICATION_SCORE" && context.data.score !== undefined) {
+      narrative = `Current diversification score: ${context.data.score}/100. ${template.text}`;
+    } else if (context.type === "GOAL_ALIGNMENT" && context.data.goal) {
+      narrative = `For ${context.data.goal} goal: ${template.text}`;
+    }
+
+    return {
+      narrative,
+      disclaimer: template.disclaimer,
+      isLocked: true,
+      templateId: template.id,
+    };
+  }
+
+  /**
+   * Get all SEBI-compliant narratives for a portfolio analysis
+   */
+  generateAllSEBINarratives(
+    diversificationScore: DiversificationScore,
+    goal?: string
+  ): Array<{
+    type: string;
+    narrative: string;
+    disclaimer: string;
+    isLocked: boolean;
+    templateId: string;
+  }> {
+    const narratives = [];
+
+    // Overlap risk narrative
+    const overlappingStocks = diversificationScore.stockExposures.filter(s => s.fundCount >= 2);
+    narratives.push({
+      type: "OVERLAP_RISK",
+      ...this.generateSEBICompliantNarratives({
+        type: "OVERLAP_RISK",
+        data: { stockCount: overlappingStocks.length },
+      }),
+    });
+
+    // Diversification score narrative
+    narratives.push({
+      type: "DIVERSIFICATION_SCORE",
+      ...this.generateSEBICompliantNarratives({
+        type: "DIVERSIFICATION_SCORE",
+        data: { score: diversificationScore.score },
+      }),
+    });
+
+    // Goal alignment if provided
+    if (goal) {
+      narratives.push({
+        type: "GOAL_ALIGNMENT",
+        ...this.generateSEBICompliantNarratives({
+          type: "GOAL_ALIGNMENT",
+          data: { goal },
+        }),
+      });
+    }
+
+    return narratives;
+  }
 }
 
 export const overlapIntelligenceEngine = OverlapIntelligenceEngine.getInstance();

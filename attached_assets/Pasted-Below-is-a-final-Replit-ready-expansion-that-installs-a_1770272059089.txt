@@ -1,0 +1,147 @@
+Below is a final, Replit-ready expansion that installs all four features without changing your existing engines (Stock Intersection, Overlap-Aware Recommendations, Diversification Score).
+Each item is modular and can be shipped independently.
+EPIC: Advanced Portfolio Intelligence & Compliance Layer
+Scope Added
+SIP routing to reduce overlap
+Goal-based diversification scoring
+Client-friendly risk visuals
+SEBI-aligned explanation templates
+1️⃣ SIP ROUTING TO REDUCE OVERLAP
+BE-17: SIP Allocation Optimizer (Overlap-Aware)
+Type: Backend – Analytics
+Priority: P0
+Description
+Route SIP amounts dynamically across selected funds to minimize incremental stock overlap.
+Inputs
+{
+  "sip_amount": 25000,
+  "candidate_funds": ["INF123", "INF456", "INF789"],
+  "existing_portfolio": [...]
+}
+Logic
+For each SIP-eligible fund:
+incremental_overlap =
+  Σ (fund_stock_weight × existing_portfolio_stock_exposure)
+
+score = expected_return_score − overlap_penalty
+Allocate SIP proportionally to lowest overlap score first.
+Output
+{
+  "sip_routing": [
+    { "fund": "INF456", "amount": 12000 },
+    { "fund": "INF789", "amount": 8000 },
+    { "fund": "INF123", "amount": 5000 }
+  ]
+}
+Acceptance Criteria
+Total SIP = input amount
+No fund increases top-stock exposure beyond threshold
+Deterministic allocation
+FE-11: SIP Routing Visualization
+Priority: P0
+Placement: Rebalancing → SIP Recommendations
+UI
+Fund-wise SIP split
+“Why this split?” tooltip:
+“Allocation reduces exposure to RELIANCE and Banking sector overlap.”
+2️⃣ GOAL-BASED DIVERSIFICATION SCORING
+BE-18: Goal-Specific Diversification Model
+Type: Backend – Analytics
+Priority: P0
+Description
+Adjust diversification scoring based on investment goal.
+Goals Supported
+Wealth Creation
+Retirement
+Child Education
+Income / Conservative
+Weighting Examples
+Goal	Stock Overlap Penalty	Sector Penalty
+Wealth Creation	Medium	Low
+Retirement	High	High
+Child Education	High	Medium
+Income	Medium	High
+Output
+{
+  "goal": "Retirement",
+  "diversification_score": 74,
+  "risk_alignment": "GOOD"
+}
+Acceptance Criteria
+Same portfolio → different score per goal
+Goal must be explicitly selected
+FE-12: Goal Selector + Score Comparison
+Priority: P0
+Placement: Portfolio Analysis Header
+UI
+Goal dropdown
+Score dynamically updates
+Label:
+“Score adjusted for Retirement goal”
+3️⃣ CLIENT-FRIENDLY RISK VISUALS
+FE-13: Overlap Risk Heatmap
+Priority: P1
+Visual
+X-axis: Funds
+Y-axis: Overlapping Stocks
+Color intensity = exposure %
+Purpose
+Instantly shows hidden concentration without numbers.
+FE-14: Diversification Dial (Client Mode)
+Priority: P0
+Visual
+Large dial (0–100)
+Labels:
+Poorly Diversified
+Moderately Diversified
+Well Diversified
+Toggle
+Advisor View → Client View (simplified)
+FE-15: “Before vs After” Risk Bars
+Priority: P1
+Visual
+Current portfolio risk
+Proposed portfolio risk
+Side-by-side bars
+4️⃣ SEBI-ALIGNED EXPLANATION TEMPLATES
+BE-19: SEBI-Compliant Narrative Template Engine
+Type: Backend – Compliance / Content
+Priority: P0
+Description
+Replace free-form explanations with pre-approved SEBI-safe templates.
+Principles
+No return guarantees
+No superlatives (“best”, “guaranteed”)
+Risk-first language
+Template Examples
+Overlap Risk
+“Multiple schemes in the portfolio invest in the same underlying stocks. This may increase concentration risk.”
+SIP Routing
+“SIP allocations are structured to improve diversification based on current portfolio holdings.”
+Replace Fund
+“The suggested change aims to reduce overlap and align the portfolio with the stated investment objective.”
+Diversification Score
+“The diversification score reflects how spread the investments are across different stocks and sectors.”
+FE-16: Explanation Lock Indicator
+Priority: P1
+UI
+Lock icon on SEBI templates
+Editable notes allowed only in “Advisor Comments”
+FE-17: Proposal PDF – SEBI Language Enforcement
+Priority: P0
+Rules
+Only approved templates auto-inserted
+Advisor notes appended separately
+Mandatory disclaimer block
+FINAL DELIVERY STATE
+After installing this epic, FintekPro will:
+✅ Route SIPs intelligently to reduce overlap
+✅ Score diversification by financial goal
+✅ Explain risk using client-friendly visuals
+✅ Generate proposals with SEBI-safe language
+✅ Give advisors strong talking points without compliance risk
+What this unlocks commercially
+Higher conversion during review calls
+Stronger justification for switches & SIP upsell
+Enterprise-ready compliance posture
+Clear differentiation from regular MF proposal tools
