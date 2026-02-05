@@ -160,13 +160,13 @@ class MFExtendedEnrichmentService {
         if (schemeCode) {
           data.set(schemeCode, {
             scheme_code: schemeCode,
-            scheme_name: row.scheme_name || row.name || '',
-            nav: row.nav || '',
-            aum: row.aum || row.assets_under_management || '',
-            category: row.category || row.scheme_category || '',
-            fund_house: row.fund_house || row.amc || '',
-            isin_growth: row.isin_growth || row.isin || '',
-            isin_dividend: row.isin_dividend || row.isin_div || '',
+            scheme_name: row.scheme_name || row.scheme_nav_name || row.name || '',
+            nav: row.nav || row.scheme_nav || '',
+            aum: row.average_aum_cr || row.aum || row.assets_under_management || '',
+            category: row.scheme_category || row.category || '',
+            fund_house: row.amc || row.fund_house || '',
+            isin_growth: row['isin_div_payout/growth'] || row.isin_growth || row['isin_div_payout/growth/div_reinvestment'] || row.isin || '',
+            isin_dividend: row.isin_div_reinvestment || row.isin_dividend || row.isin_div || '',
             scheme_type: row.scheme_type || '',
           });
         }
@@ -339,9 +339,10 @@ class MFExtendedEnrichmentService {
             const updates: Record<string, any> = {};
             let updated = false;
             
-            // Try to get AUM from GitHub data
+            // Try to get AUM and ISIN from GitHub data
+            const githubScheme = githubData.get(fund.schemeCode);
+            
             if (fund.aum === null || forceRefresh) {
-              const githubScheme = githubData.get(fund.schemeCode);
               if (githubScheme?.aum) {
                 const parsedAum = this.parseAUM(githubScheme.aum);
                 if (parsedAum !== null && parsedAum > 0) {
@@ -349,6 +350,14 @@ class MFExtendedEnrichmentService {
                   stats.aumUpdated++;
                   updated = true;
                 }
+              }
+            }
+            
+            // Try to get ISIN from GitHub data if null
+            if (!fund.isin || fund.isin === '' || forceRefresh) {
+              if (githubScheme?.isin_growth) {
+                updates.isin = githubScheme.isin_growth;
+                updated = true;
               }
             }
             
