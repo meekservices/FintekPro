@@ -56,27 +56,41 @@ export function useVersionCheck(): VersionCheckResult {
     }
   }, []);
 
-  const forceUpdate = useCallback(() => {
+  const forceUpdate = useCallback(async () => {
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.getRegistration().then((registration) => {
-        if (registration?.waiting) {
-          registration.waiting.postMessage({ type: "SKIP_WAITING" });
+      try {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (registration) {
+          await registration.update();
+          if (registration.waiting) {
+            registration.waiting.postMessage({ type: "SKIP_WAITING" });
+          }
         }
-      });
+      } catch (err) {
+        console.error("Service worker update failed:", err);
+      }
     }
     
+    sessionStorage.removeItem("versionDismissed");
     window.location.reload();
   }, []);
 
   const dismissUpdate = useCallback(() => {
-    setIsDismissed(true);
-    sessionStorage.setItem("versionDismissed", APP_VERSION);
-  }, []);
+    if (serverVersion) {
+      setIsDismissed(true);
+      sessionStorage.setItem("versionDismissed", serverVersion);
+    }
+  }, [serverVersion]);
 
   useEffect(() => {
-    const dismissed = sessionStorage.getItem("versionDismissed");
-    if (dismissed === serverVersion) {
-      setIsDismissed(true);
+    if (serverVersion) {
+      const dismissed = sessionStorage.getItem("versionDismissed");
+      if (dismissed === serverVersion) {
+        setIsDismissed(true);
+      } else if (dismissed && dismissed !== serverVersion) {
+        setIsDismissed(false);
+        sessionStorage.removeItem("versionDismissed");
+      }
     }
   }, [serverVersion]);
 
