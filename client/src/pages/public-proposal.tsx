@@ -1626,7 +1626,9 @@ export default function PublicProposalPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {recommendations.map((rec: any, idx: number) => (
+                {recommendations
+                  .filter((rec: any) => rec.productName && rec.productName.length > 3 && !rec.productName.endsWith(')') || rec.recommendedAmount)
+                  .map((rec: any, idx: number) => (
                   <div key={idx} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
                     <div className="flex flex-col gap-4">
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -1650,8 +1652,12 @@ export default function PublicProposalPage() {
                         <div className="flex items-center gap-6">
                           <div className="text-center">
                             <p className="text-xs text-muted-foreground">Investment</p>
-                            <p className="font-bold text-lg">₹{rec.recommendedAmount?.toLocaleString('en-IN')}</p>
-                            <p className="text-xs text-muted-foreground">{rec.allocationPercentage}% allocation</p>
+                            <p className="font-bold text-lg">
+                              {rec.recommendedAmount ? `₹${rec.recommendedAmount.toLocaleString('en-IN')}` : '—'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {rec.allocationPercentage ? `${rec.allocationPercentage}% allocation` : ''}
+                            </p>
                           </div>
                           {rec.investmentType === 'sip' && rec.sipAmount && (
                             <div className="text-center">
