@@ -205,6 +205,8 @@ import aaConsentRoutes from './routes/aa-consent-routes';
 import portfolioStagingRoutes from './routes/portfolio-staging-routes';
 import stockIntersectionRoutes from './routes/stock-intersection';
 import overlapIntelligenceRoutes from './routes/overlap-intelligence';
+import sipSimulatorRoutes from './routes/sip-simulator';
+import sebiAuditRoutes from './routes/sebi-audit';
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -852,6 +854,11 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   // Overlap Intelligence Engine routes
   app.use("/api/portfolio", overlapIntelligenceRoutes);
   console.log("✅ Overlap Intelligence Engine routes registered");
+  
+  // SIP Simulator and SEBI Audit routes
+  app.use("/api/sip", sipSimulatorRoutes);
+  app.use("/api/sebi-audit", sebiAuditRoutes);
+  console.log("✅ SIP Simulator and SEBI Audit routes registered");
   console.log("✅ Stock Intersection Analysis routes registered");
   app.post("/api/admin/seed-products", requireAdmin, async (req, res) => {
     try {

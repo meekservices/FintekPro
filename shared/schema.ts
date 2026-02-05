@@ -30075,3 +30075,48 @@ export const insertMfBenchmarkLineageSchema = createInsertSchema(mfBenchmarkLine
 });
 export type MfBenchmarkLineage = typeof mfBenchmarkLineage.$inferSelect;
 export type InsertMfBenchmarkLineage = z.infer<typeof insertMfBenchmarkLineageSchema>;
+
+// SEBI Audit Logs - Immutable records for regulatory compliance
+export const sebiAuditLogs = pgTable("sebi_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id"),
+  advisorId: varchar("advisor_id").references(() => users.id),
+  clientId: varchar("client_id"),
+  prospectId: varchar("prospect_id"),
+  actionType: varchar("action_type", { length: 50 }).notNull(), // SIP_ROUTING, FUND_REPLACEMENT, DIVERSIFICATION_SCORE, RECOMMENDATION, PROPOSAL_GENERATED
+  actionSummary: text("action_summary").notNull(),
+  inputData: jsonb("input_data"), // Original input for reproducibility
+  outputData: jsonb("output_data"), // Result data
+  rationale: text("rationale"), // SEBI-compliant explanation
+  templateId: varchar("template_id", { length: 30 }), // SEBI template used
+  riskDisclosure: text("risk_disclosure"), // Mandatory risk disclosure
+  complianceFlags: jsonb("compliance_flags"), // Any compliance issues flagged
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  sessionId: varchar("session_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_sebi_audit_proposal").on(table.proposalId),
+  index("idx_sebi_audit_advisor").on(table.advisorId),
+  index("idx_sebi_audit_action_type").on(table.actionType),
+  index("idx_sebi_audit_created").on(table.createdAt),
+]);
+
+export const insertSebiAuditLogSchema = createInsertSchema(sebiAuditLogs).omit({
+  id: true, createdAt: true,
+});
+export type SebiAuditLog = typeof sebiAuditLogs.$inferSelect;
+export type InsertSebiAuditLog = z.infer<typeof insertSebiAuditLogSchema>;
+
+// SEBI Audit Action Types
+export const SEBI_AUDIT_ACTION_TYPES = {
+  SIP_ROUTING: "SIP_ROUTING",
+  SIP_SIMULATION: "SIP_SIMULATION",
+  FUND_REPLACEMENT: "FUND_REPLACEMENT",
+  DIVERSIFICATION_SCORE: "DIVERSIFICATION_SCORE",
+  GOAL_BASED_SCORE: "GOAL_BASED_SCORE",
+  RECOMMENDATION: "RECOMMENDATION",
+  PROPOSAL_GENERATED: "PROPOSAL_GENERATED",
+  OVERLAP_ANALYSIS: "OVERLAP_ANALYSIS",
+} as const;
+
