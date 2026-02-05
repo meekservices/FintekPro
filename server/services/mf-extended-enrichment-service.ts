@@ -240,33 +240,48 @@ class MFExtendedEnrichmentService {
   }
 
   /**
-   * Determine TER based on category and plan type
+   * Determine TER based on category, plan type, and scheme name
    */
-  private inferTER(category: string | null, planType: string | null): number | null {
-    if (!category) return null;
-    
-    // Try exact match first
-    const categoryData = CATEGORY_TER_DEFAULTS[category];
-    if (categoryData) {
-      return planType === 'direct' ? categoryData.directTer : categoryData.regularTer;
+  private inferTER(category: string | null, planType: string | null, schemeName?: string | null): number | null {
+    // Try exact match first with category
+    if (category) {
+      const categoryData = CATEGORY_TER_DEFAULTS[category];
+      if (categoryData) {
+        return planType === 'direct' ? categoryData.directTer : categoryData.regularTer;
+      }
     }
     
-    // Try partial match
-    const categoryLower = category.toLowerCase();
+    // Use category or scheme name for partial matching
+    const searchText = (category || schemeName || '').toLowerCase();
+    if (!searchText) return planType === 'direct' ? 0.50 : 1.25;
+    
+    // Try partial match against TER defaults
     for (const [key, data] of Object.entries(CATEGORY_TER_DEFAULTS)) {
-      if (categoryLower.includes(key.toLowerCase()) || key.toLowerCase().includes(categoryLower)) {
+      if (searchText.includes(key.toLowerCase()) || key.toLowerCase().includes(searchText)) {
         return planType === 'direct' ? data.directTer : data.regularTer;
       }
     }
     
+    // Fixed term/FMP - lower TER due to passive management
+    if (searchText.includes('ftif') || searchText.includes('fixed term') || 
+        searchText.includes('fmp') || searchText.includes('fixed maturity')) {
+      return planType === 'direct' ? 0.30 : 0.70;
+    }
+    
+    // Ultra short/liquid - lower TER
+    if (searchText.includes('ultra short') || searchText.includes('liquid') || 
+        searchText.includes('overnight') || searchText.includes('money market')) {
+      return planType === 'direct' ? 0.20 : 0.50;
+    }
+    
     // Default based on broad category type
-    if (categoryLower.includes('equity') || categoryLower.includes('stock')) {
+    if (searchText.includes('equity') || searchText.includes('stock')) {
       return planType === 'direct' ? 0.65 : 1.70;
     }
-    if (categoryLower.includes('debt') || categoryLower.includes('bond') || categoryLower.includes('income')) {
+    if (searchText.includes('debt') || searchText.includes('bond') || searchText.includes('income')) {
       return planType === 'direct' ? 0.40 : 0.85;
     }
-    if (categoryLower.includes('hybrid') || categoryLower.includes('balanced')) {
+    if (searchText.includes('hybrid') || searchText.includes('balanced')) {
       return planType === 'direct' ? 0.55 : 1.45;
     }
     
@@ -274,81 +289,88 @@ class MFExtendedEnrichmentService {
   }
 
   /**
-   * Infer risk level from category
+   * Infer risk level from category or scheme name
    */
-  private inferRiskLevel(category: string | null): string | null {
-    if (!category) return null;
+  private inferRiskLevel(category: string | null, schemeName?: string | null): string | null {
+    // Use category or fallback to scheme name
+    const searchText = (category || schemeName || '').toLowerCase();
     
-    const categoryLower = category.toLowerCase();
+    if (!searchText) return null;
+    
+    // Fixed Term/FMP funds - typically low risk debt
+    if (searchText.includes('ftif') || searchText.includes('fixed term') || searchText.includes('fmp') ||
+        searchText.includes('ftp') || searchText.includes('fixed maturity')) {
+      return 'Low to Moderate';
+    }
     
     // High risk categories
-    if (categoryLower.includes('small cap') || 
-        categoryLower.includes('sectoral') || 
-        categoryLower.includes('thematic') ||
-        categoryLower.includes('international') ||
-        categoryLower.includes('smallcap')) {
+    if (searchText.includes('small cap') || 
+        searchText.includes('sectoral') || 
+        searchText.includes('thematic') ||
+        searchText.includes('international') ||
+        searchText.includes('smallcap')) {
       return 'Very High';
     }
     
     // Moderately high risk
-    if (categoryLower.includes('mid cap') || 
-        categoryLower.includes('flexi cap') ||
-        categoryLower.includes('multi cap') ||
-        categoryLower.includes('focused') ||
-        categoryLower.includes('midcap') ||
-        categoryLower.includes('elss')) {
+    if (searchText.includes('mid cap') || 
+        searchText.includes('flexi cap') ||
+        searchText.includes('multi cap') ||
+        searchText.includes('focused') ||
+        searchText.includes('midcap') ||
+        searchText.includes('elss')) {
       return 'High';
     }
     
     // Moderate risk
-    if (categoryLower.includes('large cap') || 
-        categoryLower.includes('largecap') ||
-        categoryLower.includes('large & mid') ||
-        categoryLower.includes('index') ||
-        categoryLower.includes('value')) {
+    if (searchText.includes('large cap') || 
+        searchText.includes('largecap') ||
+        searchText.includes('large & mid') ||
+        searchText.includes('index') ||
+        searchText.includes('value')) {
       return 'Moderately High';
     }
     
     // Balanced/Hybrid
-    if (categoryLower.includes('hybrid') || 
-        categoryLower.includes('balanced') ||
-        categoryLower.includes('dynamic asset') ||
-        categoryLower.includes('multi asset') ||
-        categoryLower.includes('aggressive')) {
+    if (searchText.includes('hybrid') || 
+        searchText.includes('balanced') ||
+        searchText.includes('dynamic asset') ||
+        searchText.includes('multi asset') ||
+        searchText.includes('aggressive')) {
       return 'Moderate';
     }
     
     // Low risk - debt categories
-    if (categoryLower.includes('liquid') || 
-        categoryLower.includes('overnight') ||
-        categoryLower.includes('money market')) {
+    if (searchText.includes('liquid') || 
+        searchText.includes('overnight') ||
+        searchText.includes('money market')) {
       return 'Low';
     }
     
-    if (categoryLower.includes('ultra short') || 
-        categoryLower.includes('low duration') ||
-        categoryLower.includes('floater')) {
+    if (searchText.includes('ultra short') || 
+        searchText.includes('low duration') ||
+        searchText.includes('floater')) {
       return 'Low to Moderate';
     }
     
-    if (categoryLower.includes('short duration') || 
-        categoryLower.includes('banking') ||
-        categoryLower.includes('corporate bond')) {
+    if (searchText.includes('short duration') || 
+        searchText.includes('banking') ||
+        searchText.includes('corporate bond')) {
       return 'Moderate';
     }
     
-    if (categoryLower.includes('gilt') || 
-        categoryLower.includes('government') ||
-        categoryLower.includes('long duration') ||
-        categoryLower.includes('medium duration') ||
-        categoryLower.includes('credit risk') ||
-        categoryLower.includes('dynamic bond')) {
+    if (searchText.includes('gilt') || 
+        searchText.includes('government') ||
+        searchText.includes('long duration') ||
+        searchText.includes('medium duration') ||
+        searchText.includes('credit risk') ||
+        searchText.includes('dynamic bond')) {
       return 'Moderate';
     }
     
     // Default based on broad type
-    if (categoryLower.includes('equity')) return 'High';
-    if (categoryLower.includes('debt') || categoryLower.includes('income') || categoryLower.includes('bond')) return 'Moderate';
+    if (searchText.includes('equity')) return 'High';
+    if (searchText.includes('debt') || searchText.includes('income') || searchText.includes('bond')) return 'Moderate';
     
     return 'Moderate'; // Default
   }
@@ -456,9 +478,9 @@ class MFExtendedEnrichmentService {
               }
             }
             
-            // Infer TER from category if null
+            // Infer TER from category or scheme name if null
             if (fund.expenseRatio === null || forceRefresh) {
-              const inferredTer = this.inferTER(fund.category, fund.planType);
+              const inferredTer = this.inferTER(fund.category, fund.planType, fund.schemeName);
               if (inferredTer !== null) {
                 updates.expenseRatio = inferredTer.toString();
                 stats.terUpdated++;
@@ -466,9 +488,9 @@ class MFExtendedEnrichmentService {
               }
             }
             
-            // Infer risk level from category if null
+            // Infer risk level from category or scheme name if null
             if (!fund.riskLevel || forceRefresh) {
-              const inferredRisk = this.inferRiskLevel(fund.category);
+              const inferredRisk = this.inferRiskLevel(fund.category, fund.schemeName);
               if (inferredRisk) {
                 updates.riskLevel = inferredRisk;
                 updated = true;

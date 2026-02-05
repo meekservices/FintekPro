@@ -238,13 +238,22 @@ class AmfiOfficialNavService {
             // Parse NAV date from AMFI format (dd-MMM-yyyy or dd-Mon-yyyy)
             const parsedNavDate = this.parseAmfiDate(record.navDate);
             
+            // Filter invalid ISIN values (empty, -, N/A, INF-)
+            const isValidIsin = (isin: string): boolean => {
+              if (!isin || isin === '-' || isin === 'N/A' || isin.trim() === '') return false;
+              return isin.startsWith('INF') && isin.length >= 12;
+            };
+            
+            const validGrowthIsin = isValidIsin(record.isinGrowth) ? record.isinGrowth : undefined;
+            const validDividendIsin = isValidIsin(record.isinDividendReinvest) ? record.isinDividendReinvest : undefined;
+            
             // Update existing fund by scheme code
             const updateResult = await db.update(mutualFunds)
               .set({
                 nav: record.nav.toString(),
-                isin: record.isinGrowth || undefined,
-                isinGrowth: record.isinGrowth || undefined,
-                isinDividendReinvest: record.isinDividendReinvest || undefined,
+                isin: validGrowthIsin,
+                isinGrowth: validGrowthIsin,
+                isinDividendReinvest: validDividendIsin,
                 fundHouse: record.fundHouse || undefined,
                 category: record.schemeCategory || undefined,
                 dataSource: 'AMFI_OFFICIAL',
