@@ -3984,7 +3984,8 @@ System Security Data:`;
         message: `Synced ${result.parsed} schemes, ${result.normalized} normalized successfully`
       });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      console.error(`[AMFI Admin] Sync error:`, error.message, error.stack);
+      res.status(500).json({ success: false, error: error.message || 'Unknown error during AMFI benchmark sync' });
     }
   });
 
