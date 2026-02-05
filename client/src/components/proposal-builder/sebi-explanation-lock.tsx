@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -104,8 +104,14 @@ export function SEBIExplanationLock({
     toast({ title: "All narratives copied" });
   };
 
-  // Get unique disclaimer
-  const disclaimer = narratives[0]?.disclaimer || "";
+  // Collect all unique disclaimers
+  const uniqueDisclaimers = useMemo(() => {
+    const disclaimerSet = new Set<string>();
+    narratives.forEach(n => {
+      if (n.disclaimer) disclaimerSet.add(n.disclaimer);
+    });
+    return Array.from(disclaimerSet);
+  }, [narratives]);
 
   return (
     <Card>
@@ -220,16 +226,18 @@ export function SEBIExplanationLock({
           )}
         </div>
 
-        {/* Mandatory disclaimer */}
-        {showDisclaimer && disclaimer && (
+        {/* Mandatory disclaimers - show all unique ones */}
+        {showDisclaimer && uniqueDisclaimers.length > 0 && (
           <>
             <Separator />
             <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200">
               <div className="flex items-start gap-2">
                 <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-xs font-medium text-amber-700 mb-1">Mandatory Disclaimer</p>
-                  <p className="text-xs text-amber-600">{disclaimer}</p>
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-amber-700">Mandatory Disclaimer{uniqueDisclaimers.length > 1 ? "s" : ""}</p>
+                  {uniqueDisclaimers.map((disclaimer, idx) => (
+                    <p key={idx} className="text-xs text-amber-600">{disclaimer}</p>
+                  ))}
                 </div>
               </div>
             </div>

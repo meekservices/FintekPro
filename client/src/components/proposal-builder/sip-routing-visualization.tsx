@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -67,6 +67,12 @@ export function SIPRoutingVisualization({
     enabled: candidateFunds.length > 0 && sipAmount > 0,
     staleTime: 5 * 60 * 1000,
   });
+
+  useEffect(() => {
+    if (routingResult && onRoutingChange) {
+      onRoutingChange(routingResult.sipRouting);
+    }
+  }, [routingResult, onRoutingChange]);
 
   const handleOptimize = () => {
     setIsOptimizing(true);
