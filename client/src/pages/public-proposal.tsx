@@ -1627,7 +1627,11 @@ export default function PublicProposalPage() {
             <CardContent>
               <div className="space-y-4">
                 {recommendations
-                  .filter((rec: any) => rec.productName && rec.productName.length > 3 && !rec.productName.endsWith(')') || rec.recommendedAmount)
+                  .filter((rec: any) => {
+                    if (!rec.productName || rec.productName.length < 4) return false;
+                    if (rec.productName === 'Demat)' || rec.productName.startsWith('Demat)')) return false;
+                    return true;
+                  })
                   .map((rec: any, idx: number) => (
                   <div key={idx} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
                     <div className="flex flex-col gap-4">
@@ -1651,12 +1655,24 @@ export default function PublicProposalPage() {
                         </div>
                         <div className="flex items-center gap-6">
                           <div className="text-center">
-                            <p className="text-xs text-muted-foreground">Investment</p>
+                            <p className="text-xs text-muted-foreground">
+                              {rec.action ? (rec.action === 'SELL' ? 'Current Value' : rec.action === 'BUY' ? 'Invest' : 'Investment') : 'Investment'}
+                            </p>
                             <p className="font-bold text-lg">
-                              {rec.recommendedAmount ? `₹${rec.recommendedAmount.toLocaleString('en-IN')}` : '—'}
+                              {rec.recommendedAmount 
+                                ? `₹${rec.recommendedAmount.toLocaleString('en-IN')}`
+                                : rec.currentValue 
+                                  ? `₹${Math.round(rec.currentValue).toLocaleString('en-IN')}`
+                                  : rec.suggestedValue
+                                    ? `₹${Math.round(rec.suggestedValue).toLocaleString('en-IN')}`
+                                    : '—'}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {rec.allocationPercentage ? `${rec.allocationPercentage}% allocation` : ''}
+                              {rec.allocationPercentage 
+                                ? `${rec.allocationPercentage}% allocation` 
+                                : rec.action 
+                                  ? rec.action 
+                                  : ''}
                             </p>
                           </div>
                           {rec.investmentType === 'sip' && rec.sipAmount && (
