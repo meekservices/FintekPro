@@ -763,6 +763,125 @@ export class HistoricalNavService {
     
     return { ready: true, summary };
   }
+
+  /**
+   * Calculate 1Y, 3Y, 5Y CAGR returns from stored historical NAV data
+   * Primary data source: database (historicalNavData table)
+   */
+  async calculateReturnsFromStoredData(schemeCode: string): Promise<{
+    returns1y: number | null;
+    returns3y: number | null;
+    returns5y: number | null;
+    currentNav: number | null;
+    dataQuality: 'full' | 'partial' | 'insufficient';
+    source: 'database';
+  }> {
+    try {
+      const identifier = schemeCode.toString();
+      
+      // Get NAV data from database
+      const navData = await db.select({
+        date: historicalNavData.navDate,
+        nav: historicalNavData.navValue
+      })
+      .from(historicalNavData)
+      .where(eq(historicalNavData.identifier, identifier))
+      .orderBy(desc(historicalNavData.navDate))
+      .limit(2000); // ~5-6 years of daily data
+      
+      if (!navData || navData.length === 0) {
+        return { 
+          returns1y: null, returns3y: null, returns5y: null, 
+          currentNav: null, dataQuality: 'insufficient', source: 'database' 
+        };
+      }
+      
+      const currentNav = parseFloat(navData[0].nav as string);
+      const currentDate = new Date(navData[0].date as string);
+      
+      // Calculate target dates
+      const oneYearAgo = new Date(currentDate);
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      
+      const threeYearsAgo = new Date(currentDate);
+      threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3);
+      
+      const fiveYearsAgo = new Date(currentDate);
+      fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
+      
+      // Find closest NAVs for each period
+      const findClosestNav = (targetDate: Date) => {
+        let closest = null;
+        let minDiff = Infinity;
+        
+        for (const point of navData) {
+          const pointDate = new Date(point.date as string);
+          const diff = Math.abs(pointDate.getTime() - targetDate.getTime());
+          // Within 7 days tolerance
+          if (diff < minDiff && diff <= 7 * 24 * 60 * 60 * 1000) {
+            minDiff = diff;
+            closest = parseFloat(point.nav as string);
+          }
+        }
+        return closest;
+      };
+      
+      const nav1y = findClosestNav(oneYearAgo);
+      const nav3y = findClosestNav(threeYearsAgo);
+      const nav5y = findClosestNav(fiveYearsAgo);
+      
+      // Calculate CAGR returns
+      const calculateCAGR = (current: number, old: number, years: number): number => {
+        if (old <= 0 || years <= 0 || current <= 0) return 0;
+        return (Math.pow(current / old, 1 / years) - 1) * 100;
+      };
+      
+      const returns1y = nav1y ? calculateCAGR(currentNav, nav1y, 1) : null;
+      const returns3y = nav3y ? calculateCAGR(currentNav, nav3y, 3) : null;
+      const returns5y = nav5y ? calculateCAGR(currentNav, nav5y, 5) : null;
+      
+      // Determine data quality
+      let dataQuality: 'full' | 'partial' | 'insufficient' = 'full';
+      if (!returns1y && !returns3y && !returns5y) {
+        dataQuality = 'insufficient';
+      } else if (!returns3y || !returns5y) {
+        dataQuality = 'partial';
+      }
+      
+      return { returns1y, returns3y, returns5y, currentNav, dataQuality, source: 'database' };
+    } catch (error: any) {
+      console.error(`[HistoricalNav] Error calculating returns for ${schemeCode}:`, error.message);
+      return { 
+        returns1y: null, returns3y: null, returns5y: null, 
+        currentNav: null, dataQuality: 'insufficient', source: 'database' 
+      };
+    }
+  }
+
+  /**
+   * Bulk calculate returns for multiple schemes from stored data
+   * Efficient batch processing for data enrichment
+   */
+  async bulkCalculateReturnsFromStored(schemeCodes: string[]): Promise<Map<string, {
+    returns1y: number | null;
+    returns3y: number | null;
+    returns5y: number | null;
+  }>> {
+    const results = new Map();
+    
+    for (const code of schemeCodes) {
+      const returns = await this.calculateReturnsFromStoredData(code);
+      if (returns.dataQuality !== 'insufficient') {
+        results.set(code, {
+          returns1y: returns.returns1y,
+          returns3y: returns.returns3y,
+          returns5y: returns.returns5y
+        });
+      }
+    }
+    
+    return results;
+  }
 }
 
 export const historicalNavService = HistoricalNavService.getInstance();

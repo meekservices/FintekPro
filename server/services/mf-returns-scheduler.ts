@@ -2,6 +2,7 @@ import { mfReturnsSyncService } from "./mf-returns-sync-service";
 import { benchmarkSyncService } from "./benchmark-sync-service";
 import { mfBenchmarkMappingService } from "./mf-benchmark-mapping-service";
 import { mfRelativeMetricsEngine } from "./mf-relative-metrics-engine";
+import { historicalNavService } from "./historical-nav-service";
 import { updateLiveReturnsCache } from "./agent-prospect-wizard-service";
 import { db } from "../db";
 import { mutualFunds } from "@shared/schema";
@@ -170,33 +171,113 @@ class MFReturnsScheduler {
   }
 
   /**
-   * Schedule daily sync at 7 AM IST
+   * Schedule hourly sync for faster data enrichment
+   * Runs every hour to continuously enrich MF data from AMFI
    */
   scheduleDailySync(): void {
-    // Calculate time until next 7 AM IST
-    const now = new Date();
-    const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
-    const nowIST = new Date(now.getTime() + istOffset);
+    const SYNC_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+    const BATCH_SIZE = 200; // Increased batch size per run
     
-    let next7AM = new Date(nowIST);
-    next7AM.setHours(7, 0, 0, 0);
+    console.log(`[MFReturnsScheduler] Hourly sync scheduled (every 60 min, batch size: ${BATCH_SIZE})`);
+    console.log(`[MFReturnsScheduler] Primary data source: AMFI via MFAPI`);
     
-    if (nowIST > next7AM) {
-      next7AM.setDate(next7AM.getDate() + 1);
-    }
-    
-    const msUntilNext7AM = next7AM.getTime() - nowIST.getTime();
-    const hoursUntil = Math.floor(msUntilNext7AM / (1000 * 60 * 60));
-    const minsUntil = Math.floor((msUntilNext7AM % (1000 * 60 * 60)) / (1000 * 60));
-    
-    console.log(`[MFReturnsScheduler] Next daily sync in ${hoursUntil}h ${minsUntil}m`);
-    
-    // Schedule first run
+    // Start first batch after 2 minutes (allow startup to complete)
     setTimeout(() => {
-      this.runDailySync();
-      // Then schedule to run every 24 hours
-      this.syncInterval = setInterval(() => this.runDailySync(), 24 * 60 * 60 * 1000);
-    }, msUntilNext7AM);
+      this.runHourlySync(BATCH_SIZE);
+      // Then schedule to run every hour
+      this.syncInterval = setInterval(() => this.runHourlySync(BATCH_SIZE), SYNC_INTERVAL_MS);
+    }, 2 * 60 * 1000);
+  }
+
+  /**
+   * Run hourly sync batch - Database-first approach
+   * 1. First calculate returns from stored historical NAV data
+   * 2. For funds without stored data, fetch from AMFI and store
+   */
+  async runHourlySync(batchSize: number): Promise<void> {
+    console.log(`[MFReturnsScheduler] Running hourly sync (batch: ${batchSize})...`);
+    console.log(`[MFReturnsScheduler] Step 1: Calculate returns from stored historical NAV data`);
+    
+    try {
+      // Step 1: Get funds that need returns calculated
+      const fundsNeedingReturns = await db.select({
+        schemeCode: mutualFunds.schemeCode,
+        schemeName: mutualFunds.schemeName
+      })
+      .from(mutualFunds)
+      .where(or(
+        isNull(mutualFunds.returns1y),
+        isNull(mutualFunds.returns3y)
+      ))
+      .limit(batchSize);
+      
+      let dbCalculated = 0;
+      let apiSynced = 0;
+      
+      for (const fund of fundsNeedingReturns) {
+        if (!fund.schemeCode) continue;
+        
+        // Try to calculate from stored historical data first
+        const storedReturns = await historicalNavService.calculateReturnsFromStoredData(fund.schemeCode);
+        
+        if (storedReturns.dataQuality !== 'insufficient' && storedReturns.returns1y !== null) {
+          // Update fund with calculated returns from database
+          await db.update(mutualFunds)
+            .set({
+              returns1y: storedReturns.returns1y?.toString(),
+              returns3y: storedReturns.returns3y?.toString(),
+              returns5y: storedReturns.returns5y?.toString(),
+              nav: storedReturns.currentNav?.toString(),
+              updatedAt: new Date()
+            })
+            .where(eq(mutualFunds.schemeCode, fund.schemeCode));
+          
+          dbCalculated++;
+          
+          // Update cache
+          if (fund.schemeName) {
+            updateLiveReturnsCache(fund.schemeName, {
+              returns1Y: storedReturns.returns1y,
+              returns3Y: storedReturns.returns3y,
+              returns5Y: storedReturns.returns5y,
+              dataSource: 'database'
+            });
+          }
+        } else {
+          // No stored data - fetch from AMFI API and store
+          try {
+            await historicalNavService.fetchAndStoreMutualFundHistory(fund.schemeCode);
+            const freshReturns = await historicalNavService.calculateReturnsFromStoredData(fund.schemeCode);
+            
+            if (freshReturns.returns1y !== null) {
+              await db.update(mutualFunds)
+                .set({
+                  returns1y: freshReturns.returns1y?.toString(),
+                  returns3y: freshReturns.returns3y?.toString(),
+                  returns5y: freshReturns.returns5y?.toString(),
+                  nav: freshReturns.currentNav?.toString(),
+                  updatedAt: new Date()
+                })
+                .where(eq(mutualFunds.schemeCode, fund.schemeCode));
+              
+              apiSynced++;
+            }
+          } catch (err: any) {
+            // API fetch failed, continue with next fund
+          }
+        }
+        
+        // Small delay to avoid overwhelming the database
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      
+      console.log(`[MFReturnsScheduler] Hourly sync complete: ${dbCalculated} from DB, ${apiSynced} from AMFI API`);
+      
+      // Warm up cache
+      await this.warmupCacheFromDatabase();
+    } catch (error: any) {
+      console.error(`[MFReturnsScheduler] Hourly sync error: ${error.message}`);
+    }
   }
 
   /**
