@@ -601,6 +601,10 @@ app.use((req, res, next) => {
   // Continue registering routes asynchronously (server is already listening)
   console.log('📦 Registering routes...');
   
+  // Register Version API route (for PWA update checks)
+  const versionRoutes = await import('./routes/version');
+  app.use(versionRoutes.default);
+  
   // Register Zoho integration routes
   const zohoRoutes = await import('./zoho/routes');
   app.use('/api/zoho', zohoRoutes.default);
