@@ -1,0 +1,23 @@
+Unchecked runtime.lastError: The message port closed before a response was received.
+Unchecked runtime.lastError: The message port closed before a response was received.
+Unchecked runtime.lastError: The page keeping the extension port is moved into back/forward cache, so the message channel is closed.
+Unchecked runtime.lastError: The page keeping the extension port is moved into back/forward cache, so the message channel is closed.
+Unchecked runtime.lastError: The page keeping the extension port is moved into back/forward cache, so the message channel is closed.
+Unchecked runtime.lastError: The message port closed before a response was received.
+index-L6qn3SDl.js:1714 [PWA] Service Worker registered: https://agent.fintekpro.com/
+/api/unified-cart:1  Failed to load resource: the server responded with a status of 401 ()
+/api/user:1  Failed to load resource: the server responded with a status of 401 ()
+Unchecked runtime.lastError: The message port closed before a response was received.
+/auth:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+/auth:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+/auth:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+/auth:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+/auth:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+utils.js:1  Failed to load resource: net::ERR_FILE_NOT_FOUND
+extensionState.js:1  Failed to load resource: net::ERR_FILE_NOT_FOUND
+heuristicsRedefinitions.js:1  Failed to load resource: net::ERR_FILE_NOT_FOUND
+completion_list.html?username=sangram.m@outlook.com&colorScheme=&screenX=0&screenY=154&effectiveWin…:1 Error in event handler: TypeError: Cannot read properties of undefined (reading 'length')
+    at showChoices (chrome-extension://pejdijmoenmkgeppbflobdenhhabjlaj/completion_list.js:1:10099)
+    at populateCompletionListWithCachedContentIfReady (chrome-extension://pejdijmoenmkgeppbflobdenhhabjlaj/completion_list.js:1:11449)
+    at gotOneTimeCodeChoices (chrome-extension://pejdijmoenmkgeppbflobdenhhabjlaj/completion_list.js:1:11756)
+    at chrome-extension://pejdijmoenmkgeppbflobdenhhabjlaj/completion_list.js:1:21972
