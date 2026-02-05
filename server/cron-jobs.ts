@@ -21,6 +21,7 @@ import { aifNavSyncScheduler } from './services/aif-nav-sync-scheduler';
 import { pmsNavSyncScheduler } from './services/pms-nav-sync-scheduler';
 import { commodityPriceSyncScheduler } from './services/commodity-price-sync-scheduler';
 import { exitLoadSyncScheduler } from './services/exit-load-sync-scheduler';
+import { amfiNavScheduler } from './services/amfi-nav-scheduler';
 
 const STAGGER_DELAY_MS = 30000;
 
@@ -72,6 +73,12 @@ export function initializeCronJobs(): void {
   staggeredStart('Exit Load sync', () => {
     exitLoadSyncScheduler.start();
     console.log('📊 [ExitLoad Sync] Exit load sync scheduler started (monthly refresh on 1st at 3 AM IST)');
+  }, delay);
+  delay += STAGGER_DELAY_MS;
+  
+  staggeredStart('AMFI Official NAV sync', () => {
+    amfiNavScheduler.initialize();
+    console.log('📊 [AMFI NAV] Official NAV sync scheduler started (daily at 11:30 PM IST)');
   }, delay);
   delay += STAGGER_DELAY_MS;
   

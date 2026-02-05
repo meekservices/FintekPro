@@ -4075,6 +4075,61 @@ System Security Data:`;
   console.log("✅ AMFI Benchmark Auto-Parser routes registered");
   console.log("✅ Benchmark Mapping Admin routes registered");
 
+  // ============ AMFI OFFICIAL NAV SYNC ROUTES ============
+  
+  // Get NAV sync status
+  app.get("/api/admin/amfi-nav/status", requireAdmin, async (req, res) => {
+    try {
+      const { amfiNavScheduler } = await import("../../services/amfi-nav-scheduler");
+      const { amfiOfficialNavService } = await import("../../services/amfi-official-nav-service");
+      
+      const schedulerStatus = amfiNavScheduler.getStatus();
+      const progress = amfiOfficialNavService.getProgress();
+      
+      res.json({
+        success: true,
+        scheduler: schedulerStatus,
+        progress,
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  
+  // Trigger manual NAV sync
+  app.post("/api/admin/amfi-nav/sync", requireAdmin, async (req: any, res) => {
+    try {
+      const { amfiNavScheduler } = await import("../../services/amfi-nav-scheduler");
+      
+      console.log(`[AMFI NAV Admin] Manual sync triggered by ${req.user?.email || 'admin'}`);
+      const result = await amfiNavScheduler.triggerManualSync();
+      
+      res.json({
+        success: result.success,
+        ...result,
+        message: result.success 
+          ? `Synced ${result.updatedFunds} funds with NAV data from ${result.navDate}` 
+          : `Sync failed: ${result.errorDetails?.join(', ')}`
+      });
+    } catch (error: any) {
+      console.error(`[AMFI NAV Admin] Manual sync error:`, error.message);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  
+  // Get NAV sync progress (for polling during sync)
+  app.get("/api/admin/amfi-nav/progress", requireAdmin, async (req, res) => {
+    try {
+      const { amfiOfficialNavService } = await import("../../services/amfi-official-nav-service");
+      const progress = amfiOfficialNavService.getProgress();
+      res.json({ success: true, ...progress });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  
+  console.log("✅ AMFI Official NAV Sync routes registered");
+
   // ============ BSE BENCHMARK ROUTES ============
   
   // Seed BSE indices to market_indices table
