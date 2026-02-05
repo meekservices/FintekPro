@@ -2080,26 +2080,25 @@ export default function AgentDemoProposalBuilder() {
                         </Card>
                       )}
 
-                      <Card className="mt-6">
-                        <CardHeader>
-                          <CardTitle className="text-base flex items-center gap-2">
-                            <Shield className="h-5 w-5 text-primary" />
-                            SEBI Audit & Compliance Export
-                          </CardTitle>
-                          <CardDescription>
-                            Export proposal data for regulatory audit and compliance records
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <SEBIAuditExport
-                            prospectId={selectedClient?.id?.toString()}
-                            proposalId={generatedProposalData?.id?.toString()}
-                            onExportComplete={(result) => {
-                              console.log('SEBI Audit export complete:', result);
-                            }}
-                          />
-                        </CardContent>
-                      </Card>
+                      {generatedProposalData?.id && (
+                        <Card className="mt-6">
+                          <CardHeader>
+                            <CardTitle className="text-base flex items-center gap-2">
+                              <Shield className="h-5 w-5 text-primary" />
+                              SEBI Audit & Compliance Export
+                            </CardTitle>
+                            <CardDescription>
+                              Export proposal data for regulatory audit and compliance records
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <SEBIAuditExport
+                              proposalId={generatedProposalData.id.toString()}
+                              isAdmin={true}
+                            />
+                          </CardContent>
+                        </Card>
+                      )}
                     </div>
                   </div>
                 )}
