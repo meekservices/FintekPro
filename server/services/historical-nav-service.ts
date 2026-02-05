@@ -777,7 +777,13 @@ export class HistoricalNavService {
     source: 'database';
   }> {
     try {
-      const identifier = schemeCode.toString();
+      const identifier = schemeCode?.toString();
+      if (!identifier) {
+        return { 
+          returns1y: null, returns3y: null, returns5y: null, 
+          currentNav: null, dataQuality: 'insufficient', source: 'database' 
+        };
+      }
       
       // Get NAV data from database
       const navData = await db.select({
@@ -789,15 +795,30 @@ export class HistoricalNavService {
       .orderBy(desc(historicalNavData.navDate))
       .limit(2000); // ~5-6 years of daily data
       
-      if (!navData || navData.length === 0) {
+      if (!navData || !Array.isArray(navData) || navData.length === 0) {
         return { 
           returns1y: null, returns3y: null, returns5y: null, 
           currentNav: null, dataQuality: 'insufficient', source: 'database' 
         };
       }
       
-      const currentNav = parseFloat(navData[0].nav as string);
-      const currentDate = new Date(navData[0].date as string);
+      const firstRecord = navData[0];
+      if (!firstRecord || !firstRecord.nav || !firstRecord.date) {
+        return { 
+          returns1y: null, returns3y: null, returns5y: null, 
+          currentNav: null, dataQuality: 'insufficient', source: 'database' 
+        };
+      }
+      
+      const currentNav = parseFloat(String(firstRecord.nav));
+      const currentDate = new Date(String(firstRecord.date));
+      
+      if (isNaN(currentNav) || isNaN(currentDate.getTime())) {
+        return { 
+          returns1y: null, returns3y: null, returns5y: null, 
+          currentNav: null, dataQuality: 'insufficient', source: 'database' 
+        };
+      }
       
       // Calculate target dates
       const oneYearAgo = new Date(currentDate);
@@ -810,17 +831,24 @@ export class HistoricalNavService {
       fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
       
       // Find closest NAVs for each period
-      const findClosestNav = (targetDate: Date) => {
-        let closest = null;
+      const findClosestNav = (targetDate: Date): number | null => {
+        let closest: number | null = null;
         let minDiff = Infinity;
         
         for (const point of navData) {
-          const pointDate = new Date(point.date as string);
+          if (!point || !point.date || !point.nav) continue;
+          
+          const pointDate = new Date(String(point.date));
+          if (isNaN(pointDate.getTime())) continue;
+          
           const diff = Math.abs(pointDate.getTime() - targetDate.getTime());
           // Within 7 days tolerance
           if (diff < minDiff && diff <= 7 * 24 * 60 * 60 * 1000) {
             minDiff = diff;
-            closest = parseFloat(point.nav as string);
+            const navValue = parseFloat(String(point.nav));
+            if (!isNaN(navValue)) {
+              closest = navValue;
+            }
           }
         }
         return closest;
