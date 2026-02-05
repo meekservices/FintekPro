@@ -165,7 +165,7 @@ class MFExtendedEnrichmentService {
             aum: row.average_aum_cr || row.aum || row.assets_under_management || '',
             category: row.scheme_category || row.category || '',
             fund_house: row.amc || row.fund_house || '',
-            isin_growth: row['isin_div_payout/growth'] || row.isin_growth || row['isin_div_payout/growth/div_reinvestment'] || row.isin || '',
+            isin_growth: row['isin_div_payout/growth'] || row['isin_div_payout_growth'] || row.isin_growth || row['isin_div_payout/growth/div_reinvestment'] || row.isin || '',
             isin_dividend: row.isin_div_reinvestment || row.isin_dividend || row.isin_div || '',
             scheme_type: row.scheme_type || '',
           });
@@ -274,6 +274,86 @@ class MFExtendedEnrichmentService {
   }
 
   /**
+   * Infer risk level from category
+   */
+  private inferRiskLevel(category: string | null): string | null {
+    if (!category) return null;
+    
+    const categoryLower = category.toLowerCase();
+    
+    // High risk categories
+    if (categoryLower.includes('small cap') || 
+        categoryLower.includes('sectoral') || 
+        categoryLower.includes('thematic') ||
+        categoryLower.includes('international') ||
+        categoryLower.includes('smallcap')) {
+      return 'Very High';
+    }
+    
+    // Moderately high risk
+    if (categoryLower.includes('mid cap') || 
+        categoryLower.includes('flexi cap') ||
+        categoryLower.includes('multi cap') ||
+        categoryLower.includes('focused') ||
+        categoryLower.includes('midcap') ||
+        categoryLower.includes('elss')) {
+      return 'High';
+    }
+    
+    // Moderate risk
+    if (categoryLower.includes('large cap') || 
+        categoryLower.includes('largecap') ||
+        categoryLower.includes('large & mid') ||
+        categoryLower.includes('index') ||
+        categoryLower.includes('value')) {
+      return 'Moderately High';
+    }
+    
+    // Balanced/Hybrid
+    if (categoryLower.includes('hybrid') || 
+        categoryLower.includes('balanced') ||
+        categoryLower.includes('dynamic asset') ||
+        categoryLower.includes('multi asset') ||
+        categoryLower.includes('aggressive')) {
+      return 'Moderate';
+    }
+    
+    // Low risk - debt categories
+    if (categoryLower.includes('liquid') || 
+        categoryLower.includes('overnight') ||
+        categoryLower.includes('money market')) {
+      return 'Low';
+    }
+    
+    if (categoryLower.includes('ultra short') || 
+        categoryLower.includes('low duration') ||
+        categoryLower.includes('floater')) {
+      return 'Low to Moderate';
+    }
+    
+    if (categoryLower.includes('short duration') || 
+        categoryLower.includes('banking') ||
+        categoryLower.includes('corporate bond')) {
+      return 'Moderate';
+    }
+    
+    if (categoryLower.includes('gilt') || 
+        categoryLower.includes('government') ||
+        categoryLower.includes('long duration') ||
+        categoryLower.includes('medium duration') ||
+        categoryLower.includes('credit risk') ||
+        categoryLower.includes('dynamic bond')) {
+      return 'Moderate';
+    }
+    
+    // Default based on broad type
+    if (categoryLower.includes('equity')) return 'High';
+    if (categoryLower.includes('debt') || categoryLower.includes('income') || categoryLower.includes('bond')) return 'Moderate';
+    
+    return 'Moderate'; // Default
+  }
+
+  /**
    * Run full enrichment for all funds with NULL TER/AUM
    */
   async enrichAllFunds(options: { 
@@ -317,13 +397,17 @@ class MFExtendedEnrichmentService {
         expenseRatio: mutualFunds.expenseRatio,
         aum: mutualFunds.aum,
         isin: mutualFunds.isin,
+        riskLevel: mutualFunds.riskLevel,
       }).from(mutualFunds);
       
       if (onlyNulls && !forceRefresh) {
         fundsQuery = fundsQuery.where(
           or(
             isNull(mutualFunds.expenseRatio),
-            isNull(mutualFunds.aum)
+            isNull(mutualFunds.aum),
+            isNull(mutualFunds.riskLevel),
+            eq(mutualFunds.isin, '-'),
+            isNull(mutualFunds.isin)
           )
         ) as any;
       }
@@ -363,10 +447,11 @@ class MFExtendedEnrichmentService {
               }
             }
             
-            // Try to get ISIN from GitHub data if null
-            if (!fund.isin || fund.isin === '' || forceRefresh) {
-              if (githubScheme?.isin_growth) {
+            // Try to get ISIN from GitHub data if null or placeholder
+            if (!fund.isin || fund.isin === '' || fund.isin === '-' || fund.isin === 'N/A' || forceRefresh) {
+              if (githubScheme?.isin_growth && githubScheme.isin_growth !== '-' && githubScheme.isin_growth !== 'N/A') {
                 updates.isin = githubScheme.isin_growth;
+                updates.isinGrowth = githubScheme.isin_growth;
                 updated = true;
               }
             }
@@ -381,9 +466,18 @@ class MFExtendedEnrichmentService {
               }
             }
             
+            // Infer risk level from category if null
+            if (!fund.riskLevel || forceRefresh) {
+              const inferredRisk = this.inferRiskLevel(fund.category);
+              if (inferredRisk) {
+                updates.riskLevel = inferredRisk;
+                updated = true;
+              }
+            }
+            
             // Update database if we have changes
             if (Object.keys(updates).length > 0) {
-              updates.lastUpdated = new Date();
+              updates.lastVerifiedAt = new Date();
               await db.update(mutualFunds)
                 .set(updates)
                 .where(eq(mutualFunds.id, fund.id));
