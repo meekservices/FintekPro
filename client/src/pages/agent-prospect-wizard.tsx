@@ -4864,7 +4864,7 @@ export default function AgentProspectWizard() {
                     portfolioWeight: totalPortfolioValue > 0 ? (h.value / totalPortfolioValue) * 100 : 0,
                     currentValue: h.value,
                   }))}
-                  prospectId={selectedProspectId}
+                  prospectId={prospectId || undefined}
                 />
               </div>
             )}
