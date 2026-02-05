@@ -4094,6 +4094,7 @@ export const mutualFunds = pgTable("mutual_funds", {
   informationRatioAvailable: boolean("information_ratio_available").default(false),
   
   // Benchmark mapping reference
+  benchmarkIndex: varchar("benchmark_index"), // Raw AMFI benchmark name e.g., 'NIFTY 50 TRI', 'S&P BSE SENSEX TRI'
   benchmarkIndexCode: varchar("benchmark_index_code"), // e.g., NIFTY50, NIFTY_MIDCAP_150
   benchmarkConfidenceScore: decimal("benchmark_confidence_score", { precision: 3, scale: 2 }), // 0.00-1.00
   
