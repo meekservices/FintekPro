@@ -57,8 +57,15 @@ import {
   Clock,
   MessageSquare,
   CheckCircle2,
-  Globe
+  Globe,
+  Brain,
+  GraduationCap,
+  Layers
 } from "lucide-react";
+
+import SIPSimulatorUI from "@/components/proposal-builder/sip-simulator-ui";
+import AdvisorTrainingPanel from "@/components/proposal-builder/advisor-training-panel";
+import SEBIAuditExport from "@/components/proposal-builder/sebi-audit-export";
 
 interface Client {
   id: number | string;
@@ -208,9 +215,10 @@ const WIZARD_STEPS = [
   { id: 2, title: 'Investment Goals', icon: Target, description: 'Define financial objectives' },
   { id: 3, title: 'Asset Allocation', icon: PieChart, description: 'Configure portfolio mix' },
   { id: 4, title: 'Risk Profile', icon: Scale, description: 'Assess risk tolerance' },
-  { id: 5, title: 'Proposal Sections', icon: FileText, description: 'Select content modules' },
-  { id: 6, title: 'Customize Content', icon: Settings, description: 'Add notes & customize sections' },
-  { id: 7, title: 'Generate', icon: Download, description: 'Create proposal PDF' },
+  { id: 5, title: 'Portfolio Intelligence', icon: Brain, description: 'Overlap analysis & SIP simulation' },
+  { id: 6, title: 'Proposal Sections', icon: FileText, description: 'Select content modules' },
+  { id: 7, title: 'Customize Content', icon: Settings, description: 'Add notes & customize sections' },
+  { id: 8, title: 'Generate', icon: Download, description: 'Create proposal PDF' },
 ];
 
 const INVESTMENT_GOALS = [
@@ -677,7 +685,7 @@ export default function AgentDemoProposalBuilder() {
   }, [selectedClient, prospectPortfolio]);
 
   const handleNext = () => {
-    if (currentStep < 7) {
+    if (currentStep < 8) {
       setCurrentStep(prev => prev + 1);
     }
   };
@@ -987,7 +995,7 @@ export default function AgentDemoProposalBuilder() {
               })}
             </div>
 
-            <Progress value={(currentStep / 6) * 100} className="mb-8" />
+            <Progress value={(currentStep / 8) * 100} className="mb-8" />
 
             <Card className="mb-6">
               <CardContent className="p-6">
@@ -1514,6 +1522,109 @@ export default function AgentDemoProposalBuilder() {
 
                 {currentStep === 5 && (
                   <div className="space-y-6">
+                    <h2 className="text-xl font-semibold">Portfolio Intelligence</h2>
+                    <p className="text-muted-foreground">Analyze overlap, simulate SIP impact, and generate advisor talking points</p>
+                    
+                    <Tabs defaultValue="simulator" className="w-full">
+                      <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="simulator" className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4" />
+                          SIP Simulator
+                        </TabsTrigger>
+                        <TabsTrigger value="analysis" className="flex items-center gap-2">
+                          <Layers className="h-4 w-4" />
+                          Overlap Analysis
+                        </TabsTrigger>
+                        <TabsTrigger value="training" className="flex items-center gap-2">
+                          <GraduationCap className="h-4 w-4" />
+                          Advisor Training
+                        </TabsTrigger>
+                      </TabsList>
+                      
+                      <TabsContent value="simulator" className="space-y-4 mt-4">
+                        <SIPSimulatorUI
+                          existingPortfolio={prospectPortfolio?.holdings?.map(h => ({
+                            mfIsin: h.name?.replace(/\s+/g, '_') || '',
+                            name: h.name || '',
+                            portfolioWeight: (h.currentValue / (prospectPortfolio?.totalValue || 1)) * 100,
+                            currentValue: h.currentValue
+                          })) || []}
+                          candidateFunds={[]}
+                          onSimulationComplete={(result) => {
+                            console.log('SIP simulation complete:', result);
+                          }}
+                        />
+                        <Alert>
+                          <Brain className="h-4 w-4" />
+                          <AlertDescription>
+                            The SIP Simulator projects how monthly investments will improve your portfolio's diversification score over time.
+                          </AlertDescription>
+                        </Alert>
+                      </TabsContent>
+                      
+                      <TabsContent value="analysis" className="space-y-4 mt-4">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-base flex items-center gap-2">
+                              <Brain className="h-5 w-5 text-primary" />
+                              Diversification Analysis
+                            </CardTitle>
+                            <CardDescription>
+                              Analyze portfolio overlap and identify concentration risks
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            {prospectPortfolio?.holdings && prospectPortfolio.holdings.length > 0 ? (
+                              <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="p-4 bg-muted/50 rounded-lg text-center">
+                                    <div className="text-2xl font-bold text-primary">{prospectPortfolio.holdings.length}</div>
+                                    <div className="text-sm text-muted-foreground">Holdings</div>
+                                  </div>
+                                  <div className="p-4 bg-muted/50 rounded-lg text-center">
+                                    <div className="text-2xl font-bold text-green-600">
+                                      ₹{((prospectPortfolio.totalValue || 0) / 100000).toFixed(1)}L
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">Total Value</div>
+                                  </div>
+                                </div>
+                                <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                                    Portfolio overlap analysis examines fund holdings for stock/sector concentration. 
+                                    Import CAS statement for detailed ISIN-level analysis.
+                                  </p>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="p-4 bg-muted/50 rounded-lg text-center">
+                                <p className="text-sm text-muted-foreground">
+                                  Import portfolio holdings in Step 1 to enable overlap analysis.
+                                </p>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      </TabsContent>
+                      
+                      <TabsContent value="training" className="space-y-4 mt-4">
+                        <AdvisorTrainingPanel
+                          diversificationScore={{
+                            score: 72,
+                            grade: "GOOD",
+                            penalties: [],
+                            stockExposures: [],
+                            sectorExposures: []
+                          }}
+                          selectedGoal={config.investmentGoals.primaryGoal}
+                          isAdvisor={true}
+                        />
+                      </TabsContent>
+                    </Tabs>
+                  </div>
+                )}
+
+                {currentStep === 6 && (
+                  <div className="space-y-6">
                     <h2 className="text-xl font-semibold">Select Proposal Sections</h2>
                     <p className="text-muted-foreground">Choose which sections to include in the proposal report. Some sections require specific data.</p>
                     
@@ -1712,7 +1823,7 @@ export default function AgentDemoProposalBuilder() {
                   </div>
                 )}
 
-                {currentStep === 6 && (
+                {currentStep === 7 && (
                   <div className="space-y-6">
                     <h2 className="text-xl font-semibold">Customize Report Content</h2>
                     <p className="text-muted-foreground">Add custom notes and personalize each section of the proposal</p>
@@ -1820,7 +1931,7 @@ export default function AgentDemoProposalBuilder() {
                   </div>
                 )}
 
-                {currentStep === 7 && (
+                {currentStep === 8 && (
                   <div className="space-y-6">
                     <h2 className="text-xl font-semibold">Generate Proposal</h2>
                     
@@ -1984,7 +2095,7 @@ export default function AgentDemoProposalBuilder() {
                   Previous
                 </Button>
                 
-                {currentStep < 7 && (
+                {currentStep < 8 && (
                   <Button
                     onClick={handleNext}
                     disabled={!canProceed()}
