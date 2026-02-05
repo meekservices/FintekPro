@@ -175,6 +175,15 @@ class MFExtendedEnrichmentService {
       this.githubDataCache = data;
       this.lastCacheTime = Date.now();
       console.log(`[MF Enrichment] Loaded ${data.size} schemes with AUM data from GitHub`);
+      
+      // Debug: Check sample matches
+      let withAum = 0, withIsin = 0;
+      data.forEach((scheme) => {
+        if (scheme.aum && scheme.aum !== '' && scheme.aum !== '-') withAum++;
+        if (scheme.isin_growth && scheme.isin_growth !== '' && scheme.isin_growth !== '-') withIsin++;
+      });
+      console.log(`[MF Enrichment] GitHub data: ${withAum} with AUM, ${withIsin} with ISIN`);
+      
       return data;
     } catch (error: any) {
       console.warn('[MF Enrichment] Failed to fetch GitHub AUM data:', error.message);
@@ -328,6 +337,7 @@ class MFExtendedEnrichmentService {
       stats.fundsWithNullAum = funds.filter(f => f.aum === null).length;
       
       console.log(`[MF Enrichment] Processing ${funds.length} funds (${stats.fundsWithNullTer} null TER, ${stats.fundsWithNullAum} null AUM)`);
+      console.log(`[MF Enrichment] GitHub cache has ${githubData.size} schemes`);
       
       // Process in batches
       for (let i = 0; i < funds.length; i += batchSize) {
