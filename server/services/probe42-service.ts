@@ -186,7 +186,7 @@ class Probe42Service {
     });
 
     if (!this.isConfigured) {
-      console.warn('⚠️ PROBE42_API_KEY not configured. Probe42 service will use mock data in development.');
+      console.warn('⚠️ PROBE42_API_KEY not configured. Probe42 service will not be available.');
     } else {
       console.log('✅ Probe42 service initialized');
     }
@@ -281,8 +281,12 @@ class Probe42Service {
     }
 
     if (!this.isConfigured) {
-      console.log(`[Probe42] Not configured, using mock data for query: "${query}"`);
-      return this.getMockSearchResults(query);
+      throw new ExternalServiceError(
+        'Probe42',
+        'Probe42 API key is not configured. Please set PROBE42_API_KEY in environment variables.',
+        null,
+        false
+      );
     }
 
     try {
@@ -315,12 +319,7 @@ class Probe42Service {
       }
       return results;
     } catch (error: any) {
-      // Handle authentication errors gracefully - fall back to mock data in development
       if (error.response?.status === 401 || error.response?.status === 403) {
-        console.warn('⚠️ Probe42 API authentication failed (token may be expired). Using mock data.');
-        if (process.env.NODE_ENV === 'development') {
-          return this.getMockSearchResults(query);
-        }
         throw new ExternalServiceError(
           'Probe42',
           'Probe42 API authentication failed. The API key may be expired or invalid.',
@@ -356,11 +355,16 @@ class Probe42Service {
     }
 
     if (!this.isConfigured) {
-      console.log(`[Probe42] Not configured, using mock data for query: "${query}"`);
       return {
-        success: true,
-        data: this.getMockSearchResults(query),
-        usedMockData: true
+        success: false,
+        error: {
+          code: 503,
+          message: 'Probe42 API key is not configured. Please set PROBE42_API_KEY in environment variables.',
+          troubleshooting: 'Contact system administrator to configure the Probe42 API key.',
+          isRetryable: false
+        },
+        data: [],
+        usedMockData: false
       };
     }
 
@@ -433,16 +437,6 @@ class Probe42Service {
           isRetryable = true;
       }
 
-      // In development, fall back to mock data if authentication fails
-      if (process.env.NODE_ENV === 'development' && (errorCode === 401 || errorCode === 403)) {
-        console.warn('⚠️ Probe42 API authentication failed. Using mock data in development.');
-        return {
-          success: true,
-          data: this.getMockSearchResults(query),
-          usedMockData: true
-        };
-      }
-
       return {
         success: false,
         error: {
@@ -466,7 +460,12 @@ class Probe42Service {
     }
 
     if (!this.isConfigured) {
-      return this.getMockCompanyDetails(probe42CompanyId);
+      throw new ExternalServiceError(
+        'Probe42',
+        'Probe42 API key is not configured. Please set PROBE42_API_KEY in environment variables.',
+        null,
+        false
+      );
     }
 
     const dedupeKey = requestDedupeService.createKey('probe42', 'base-details', probe42CompanyId);
@@ -502,21 +501,6 @@ class Probe42Service {
           }))
         };
         
-        // If API returned no directors/capital, supplement with mock data in development
-        if (process.env.NODE_ENV === 'development') {
-          const mockData = this.getMockCompanyDetails(probe42CompanyId);
-          if (!mappedData.directors || mappedData.directors.length === 0) {
-            console.log('[Probe42] API returned no directors, using mock data');
-            mappedData.directors = mockData.directors;
-          }
-          if (!mappedData.paid_up_capital) {
-            mappedData.paid_up_capital = mockData.paid_up_capital;
-          }
-          if (!mappedData.authorized_capital) {
-            mappedData.authorized_capital = mockData.authorized_capital;
-          }
-        }
-        
         // Use NIC-based classification as fallback if sector/industry not provided by API
         if ((!mappedData.sector || !mappedData.industry) && mappedData.cin) {
           try {
@@ -542,20 +526,22 @@ class Probe42Service {
         if (error.response?.status === 404) {
           return null;
         }
-        // Handle authentication errors gracefully
-        if (error.response?.status === 401 || error.response?.status === 403) {
-          console.warn(`⚠️ Probe42 API authentication error (${error.response?.status}) for ${probe42CompanyId}.`);
+        const status = error.response?.status;
+        let message = `Failed to fetch company details: ${error.message}`;
+        let isRetryable = true;
+        
+        if (status === 401 || status === 403) {
+          message = 'Probe42 API authentication failed. The API key may be expired or invalid. Contact system administrator.';
+          isRetryable = false;
+        } else if (status === 422) {
+          message = `Probe42 API rejected identifier "${probe42CompanyId}". The CIN/identifier format is invalid or not recognized by Probe42.`;
+          isRetryable = false;
+        } else if (status === 429) {
+          message = 'Probe42 API rate limit exceeded. Please wait a few minutes and try again.';
+          isRetryable = true;
         }
-        // Handle 422 (invalid entity) - likely an invalid identifier format
-        if (error.response?.status === 422) {
-          console.warn(`⚠️ Probe42 API rejected identifier "${probe42CompanyId}" (422). Check if the CIN/identifier is valid.`);
-        }
-        throw new ExternalServiceError(
-          'Probe42',
-          `Failed to fetch company details: ${error.message}`,
-          error,
-          true
-        );
+        
+        throw new ExternalServiceError('Probe42', message, error, isRetryable);
       }
     });
   }
@@ -694,7 +680,12 @@ class Probe42Service {
     }
 
     if (!this.isConfigured) {
-      return this.getMockRatios(probe42CompanyId, years);
+      throw new ExternalServiceError(
+        'Probe42',
+        'Probe42 API key is not configured. Please set PROBE42_API_KEY in environment variables.',
+        null,
+        false
+      );
     }
 
     const dedupeKey = requestDedupeService.createKey('probe42', 'credit-ratings', probe42CompanyId, years.toString());
@@ -737,26 +728,23 @@ class Probe42Service {
           }));
         }
         
-        // If API returned empty ratios, fall back to mock data in development
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[Probe42] API returned no ratios, using mock data');
-          return this.getMockRatios(probe42CompanyId, years);
-        }
         return [];
       } catch (error: any) {
-        // Handle authentication errors gracefully - fall back to mock data in development
-        if (error.response?.status === 401 || error.response?.status === 403) {
-          console.warn('⚠️ Probe42 API authentication failed (token may be expired). Using mock data.');
-          if (process.env.NODE_ENV === 'development') {
-            return this.getMockRatios(probe42CompanyId, years);
-          }
+        const status = error.response?.status;
+        let message = `Failed to fetch company ratios: ${error.message}`;
+        let isRetryable = true;
+        
+        if (status === 401 || status === 403) {
+          message = 'Probe42 API authentication failed. The API key may be expired or invalid.';
+          isRetryable = false;
+        } else if (status === 422) {
+          message = `Probe42 API rejected identifier "${probe42CompanyId}" for ratios lookup. The CIN/identifier is invalid.`;
+          isRetryable = false;
+        } else if (status === 429) {
+          message = 'Probe42 API rate limit exceeded. Please wait a few minutes and try again.';
         }
-        throw new ExternalServiceError(
-          'Probe42',
-          `Failed to fetch company ratios: ${error.message}`,
-          error,
-          true
-        );
+        
+        throw new ExternalServiceError('Probe42', message, error, isRetryable);
       }
     });
   }
