@@ -76,8 +76,9 @@ export function MarketNews() {
     );
   }
 
-  // Take first 3 news items
-  const displayNews = (Array.isArray(news) ? news : (news as any)?.items || []).slice(0, 3);
+  // Take first 3 news items - handle various API response shapes
+  const rawNews = Array.isArray(news) ? news : Array.isArray((news as any)?.items) ? (news as any).items : Array.isArray((news as any)?.data) ? (news as any).data : [];
+  const displayNews = rawNews.slice(0, 3);
 
   return (
     <Card data-testid="market-news">

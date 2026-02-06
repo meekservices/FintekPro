@@ -6514,7 +6514,7 @@ export default function AgentProspectWizard() {
                 <CardContent className="pt-4">
                   <p className="text-sm text-muted-foreground">Monthly SIP Addition</p>
                   <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">
-                    {formatCurrency(sipRecommendations?.reduce((sum, s) => sum + s.suggestedAmount, 0) || 0)}
+                    {formatCurrency(Array.isArray(sipRecommendations) ? sipRecommendations.reduce((sum, s) => sum + s.suggestedAmount, 0) : 0)}
                   </p>
                 </CardContent>
               </Card>
@@ -6533,25 +6533,25 @@ export default function AgentProspectWizard() {
                   <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-center">
                     <p className="text-xs text-muted-foreground">1 Year</p>
                     <p className="text-lg font-bold text-amber-700 dark:text-amber-300">
-                      {formatCurrency(((analysis?.totalValue || 0) * 1.12) + ((sipRecommendations?.reduce((sum, s) => sum + s.suggestedAmount, 0) || 0) * 12))}
+                      {formatCurrency(((analysis?.totalValue || 0) * 1.12) + ((Array.isArray(sipRecommendations) ? sipRecommendations.reduce((sum, s) => sum + s.suggestedAmount, 0) : 0) * 12))}
                     </p>
                   </div>
                   <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-center">
                     <p className="text-xs text-muted-foreground">3 Years</p>
                     <p className="text-lg font-bold text-amber-700 dark:text-amber-300">
-                      {formatCurrency(((analysis?.totalValue || 0) * 1.4) + ((sipRecommendations?.reduce((sum, s) => sum + s.suggestedAmount, 0) || 0) * 36 * 1.15))}
+                      {formatCurrency(((analysis?.totalValue || 0) * 1.4) + ((Array.isArray(sipRecommendations) ? sipRecommendations.reduce((sum, s) => sum + s.suggestedAmount, 0) : 0) * 36 * 1.15))}
                     </p>
                   </div>
                   <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-center">
                     <p className="text-xs text-muted-foreground">5 Years</p>
                     <p className="text-lg font-bold text-amber-700 dark:text-amber-300">
-                      {formatCurrency(((analysis?.totalValue || 0) * 1.76) + ((sipRecommendations?.reduce((sum, s) => sum + s.suggestedAmount, 0) || 0) * 60 * 1.25))}
+                      {formatCurrency(((analysis?.totalValue || 0) * 1.76) + ((Array.isArray(sipRecommendations) ? sipRecommendations.reduce((sum, s) => sum + s.suggestedAmount, 0) : 0) * 60 * 1.25))}
                     </p>
                   </div>
                   <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
                     <p className="text-xs text-muted-foreground">10 Years</p>
                     <p className="text-lg font-bold text-green-700 dark:text-green-300">
-                      {formatCurrency(((analysis?.totalValue || 0) * 3.1) + ((sipRecommendations?.reduce((sum, s) => sum + s.suggestedAmount, 0) || 0) * 120 * 1.65))}
+                      {formatCurrency(((analysis?.totalValue || 0) * 3.1) + ((Array.isArray(sipRecommendations) ? sipRecommendations.reduce((sum, s) => sum + s.suggestedAmount, 0) : 0) * 120 * 1.65))}
                     </p>
                   </div>
                 </div>
@@ -6569,7 +6569,7 @@ export default function AgentProspectWizard() {
                   <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                     <p className="text-sm text-muted-foreground">5-Year Value</p>
                     <p className="text-xl font-bold text-green-600">
-                      {formatCurrency(((analysis?.totalValue || 0) * 2.3) + ((sipRecommendations?.reduce((sum, s) => sum + s.suggestedAmount, 0) || 0) * 60 * 1.6))}
+                      {formatCurrency(((analysis?.totalValue || 0) * 2.3) + ((Array.isArray(sipRecommendations) ? sipRecommendations.reduce((sum, s) => sum + s.suggestedAmount, 0) : 0) * 60 * 1.6))}
                     </p>
                   </div>
                 </CardContent>
@@ -6583,7 +6583,7 @@ export default function AgentProspectWizard() {
                   <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
                     <p className="text-sm text-muted-foreground">5-Year Value</p>
                     <p className="text-xl font-bold text-red-600">
-                      {formatCurrency(((analysis?.totalValue || 0) * 1.3) + ((sipRecommendations?.reduce((sum, s) => sum + s.suggestedAmount, 0) || 0) * 60 * 0.95))}
+                      {formatCurrency(((analysis?.totalValue || 0) * 1.3) + ((Array.isArray(sipRecommendations) ? sipRecommendations.reduce((sum, s) => sum + s.suggestedAmount, 0) : 0) * 60 * 0.95))}
                     </p>
                   </div>
                 </CardContent>
@@ -6606,7 +6606,7 @@ export default function AgentProspectWizard() {
                 </div>
                 <div>
                   <p className="text-muted-foreground">New Investments</p>
-                  <p className="font-semibold text-green-600">{(rebalancing?.filter(r => r.action === 'BUY').length || 0) + (sipRecommendations?.length || 0)} instruments</p>
+                  <p className="font-semibold text-green-600">{(rebalancing?.filter(r => r.action === 'BUY').length || 0) + (Array.isArray(sipRecommendations) ? sipRecommendations.length : 0)} instruments</p>
                 </div>
               </div>
             </div>

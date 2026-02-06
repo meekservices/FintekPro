@@ -505,7 +505,10 @@ export function setupAuth(app: Express) {
       await db.delete(schema.otpVerifications)
         .where(eq(schema.otpVerifications.id, otpRecord.id));
 
-      // Auto-login the user
+      // Auto-login the user (guard against missing session middleware)
+      if (!req.session) {
+        return apiResponse.serverError(res, "Session not available. Please try again.");
+      }
       req.login(user, (err) => {
         if (err) {
           console.error("Login error:", err);
@@ -833,7 +836,10 @@ export function setupAuth(app: Express) {
         return apiResponse.serverError(res, "Failed to retrieve updated user data");
       }
 
-      // Complete login by creating session with updated user data
+      // Complete login by creating session with updated user data (guard against missing session middleware)
+      if (!req.session) {
+        return apiResponse.serverError(res, "Session not available. Please try again.");
+      }
       req.login(updatedUser, (loginErr) => {
         if (loginErr) {
           console.error("❌ Login session error:", loginErr);
