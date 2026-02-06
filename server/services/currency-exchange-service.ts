@@ -28,14 +28,20 @@ export class CurrencyExchangeService {
 
   async fetchExchangeRates(baseCurrency: string = 'INR'): Promise<Record<string, number>> {
     try {
-      const response = await fetch(`https://api.exchangerate-api.com/v4/latest/${baseCurrency}`);
+      const apiKey = process.env.EXCHANGE_RATE_API_KEY;
+      const url = apiKey
+        ? `https://v6.exchangerate-api.com/v6/${apiKey}/latest/${baseCurrency}`
+        : `https://api.exchangerate-api.com/v4/latest/${baseCurrency}`;
+
+      const response = await fetch(url);
       
       if (!response.ok) {
         throw new Error(`Failed to fetch exchange rates: ${response.statusText}`);
       }
 
-      const data: ExchangeRateResponse = await response.json();
-      return data.rates;
+      const data = await response.json();
+      const rates = apiKey ? data.conversion_rates : data.rates;
+      return rates;
     } catch (error) {
       console.error(`Error fetching exchange rates for ${baseCurrency}:`, error);
       throw error;
