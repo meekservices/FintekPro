@@ -62,7 +62,7 @@ class CkycEnvironmentService {
     console.log(`[CKYC Environment] Mode: ${this.mode}`);
     
     if (this.mode === 'PROD') {
-      console.log('[CKYC Environment] ⚠️ PRODUCTION MODE - Mock provider DISABLED');
+      console.log('[CKYC Environment] Production mode - mock provider disabled');
     }
   }
 

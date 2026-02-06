@@ -18,6 +18,7 @@ export class AlertMonitoringService {
   private static instance: AlertMonitoringService;
   private isRunning = false;
   private intervalId: NodeJS.Timeout | null = null;
+  private startTime = Date.now();
 
   private constructor() {}
 
@@ -103,12 +104,12 @@ export class AlertMonitoringService {
       console.log(`Alert check complete at ${new Date().toISOString()}`);
     } catch (error: any) {
       if (error?.code === 'XX000' && retries > 0) {
-        // Retry with exponential backoff
-        console.warn(`⚠️ Alert check failed (${retries} retries left), retrying...`);
         await new Promise(resolve => setTimeout(resolve, (3 - retries) * 1000));
         return this.checkAllAlerts(retries - 1);
       }
-      console.warn("⚠️ Alert monitoring cycle skipped due to database issue");
+      if (Date.now() - this.startTime > 120000) {
+        console.log("[AlertMonitoring] Cycle skipped due to transient DB issue");
+      }
     }
   }
 

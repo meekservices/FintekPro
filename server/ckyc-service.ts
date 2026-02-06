@@ -207,9 +207,9 @@ export class CKYCService {
     
     if (!hasCredentials && !CKYCService.credentialWarningLogged) {
       CKYCService.credentialWarningLogged = true;
-      console.warn('⚠️ CKYC API credentials (CKYC_API_KEY, CKYC_API_SECRET) not configured');
-      console.warn('⚠️ CKYC registration and KIN polling will use mock responses');
-      console.warn('ℹ️ Set CKYC_API_KEY and CKYC_API_SECRET to enable real CKYC integration');
+      console.log('CKYC API credentials (CKYC_API_KEY, CKYC_API_SECRET) not configured');
+      console.log('CKYC registration and KIN polling will use mock responses');
+      console.log('ℹ️ Set CKYC_API_KEY and CKYC_API_SECRET to enable real CKYC integration');
     }
   }
   

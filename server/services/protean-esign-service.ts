@@ -87,7 +87,7 @@ class ProteanESignService {
     this.licenseKey = process.env.PROTEAN_LICENSE_KEY || '';
 
     if (!this.aspId || !this.aspSecret) {
-      console.warn(`⚠️ [Protean eSign] API credentials not configured. Using mock mode.`);
+      console.log(`[Protean eSign] Running in mock mode (no API credentials)`);
       console.log(`ℹ️ [Protean eSign] Set PROTEAN_ASP_ID, PROTEAN_ASP_SECRET, PROTEAN_LICENSE_KEY when available`);
     } else {
       console.log(`✅ [Protean eSign] Initialized in ${this.environment.toUpperCase()} mode`);

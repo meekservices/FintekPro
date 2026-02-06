@@ -71,9 +71,9 @@ export function getSession() {
     errorLog: (error: Error) => {
       // Log session store errors but don't crash - these are often transient
       if (error.message.includes('timeout')) {
-        console.warn('[Session Store] Database timeout (will retry):', error.message);
+        console.log('[Session Store] Database timeout (will retry):', error.message);
       } else {
-        console.error('[Session Store] Database error:', error.message);
+        console.log('[Session Store] Database error:', error.message);
       }
     },
     pruneSessionInterval: 60 * 60, // Prune expired sessions every hour (in seconds)
@@ -81,7 +81,7 @@ export function getSession() {
   
   // Handle session store errors gracefully - don't throw
   sessionStore.on('error', (error: Error) => {
-    console.warn('[Session Store] Connection error (will auto-retry):', error.message);
+    console.log('[Session Store] Connection error (will auto-retry):', error.message);
   });
   
   // Determine if we're on a custom domain or Replit domain
@@ -151,14 +151,14 @@ export function getSession() {
     
     // Wrap session middleware with timeout protection
     const sessionTimeout = setTimeout(() => {
-      console.warn('[Session] Session initialization timeout - continuing without session');
+      console.log('[Session] Session initialization timeout - continuing without session');
       // Don't call next twice
     }, 15000);
     
     sessionMiddleware(req, res, (err: any) => {
       clearTimeout(sessionTimeout);
       if (err) {
-        console.warn('[Session] Error initializing session:', err.message);
+        console.log('[Session] Error initializing session:', err.message);
         return next();
       }
       
@@ -271,6 +271,9 @@ export async function setupAuth(app: Express) {
   // Wrap passport.session to skip Vite dev routes
   app.use((req, res, next) => {
     if (isViteDevRoute(req.path)) {
+      return next();
+    }
+    if (!req.session) {
       return next();
     }
     passport.session()(req, res, next);

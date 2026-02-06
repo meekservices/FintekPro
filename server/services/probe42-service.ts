@@ -577,7 +577,7 @@ class Probe42Service {
           const details = await this.getCompanyDetails(cin);
           results.set(cin, details);
         } catch (error: any) {
-          console.error(`[Probe42] Batch fetch failed for ${cin}: ${error.message}`);
+          // Individual failures logged at summary level only
           results.set(cin, null);
         }
       });
@@ -627,7 +627,7 @@ class Probe42Service {
           const financials = await this.getCompanyFinancials(cin, years);
           results.set(cin, financials);
         } catch (error: any) {
-          console.error(`[Probe42] Batch financials failed for ${cin}: ${error.message}`);
+          // Individual failures logged at summary level only
           results.set(cin, []);
         }
       });

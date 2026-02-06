@@ -83,7 +83,7 @@ class AuthBridgeCKYCService {
     this.clientId = process.env.AUTHBRIDGE_CLIENT_ID || '';
 
     if (!this.apiKey || !this.clientId) {
-      console.warn(`⚠️ [AuthBridge CKYC API] API credentials not configured. Using mock mode.`);
+      console.log(`[AuthBridge CKYC API] Running in mock mode (no API credentials)`);
       console.log(`ℹ️ [AuthBridge CKYC API] Environment: ${this.environment} (auto-detected)`);
     } else {
       console.log(`✅ [AuthBridge CKYC API] Initialized in ${this.environment.toUpperCase()} mode`);

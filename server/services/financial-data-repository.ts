@@ -24,7 +24,9 @@ const YAHOO_RETRY_OPTIONS = {
            errorStr.includes('fetch failed');
   },
   onRetry: (error: Error, attempt: number) => {
-    console.log(`🔄 [FinancialDataRepository] Retry attempt ${attempt}/3: ${error.message}`);
+    if (attempt >= 3) {
+      console.log(`🔄 [FinancialDataRepository] Request failed after 3 retries: ${error.message}`);
+    }
   },
 };
 
@@ -186,7 +188,7 @@ class FinancialDataRepository {
       }
       
       if (!quote.regularMarketPrice && !quote.shortName) {
-        console.warn(`⚠️ [FinancialDataRepository] Possible rate limit for ${symbol}, skipping`);
+        console.log(`[FinancialDataRepository] Possible rate limit for ${symbol}, skipping`);
         return { success: false, error: 'Rate limited or no market data' };
       }
 
@@ -216,11 +218,11 @@ class FinancialDataRepository {
       return { success: true, data };
     } catch (error) {
       const errorStr = String(error);
-      if (errorStr.includes('Too Many') || errorStr.includes('429')) {
-        console.warn(`⚠️ [FinancialDataRepository] Rate limit for ${symbol}`);
+      if (errorStr.includes('Too Many') || errorStr.includes('429') || errorStr.includes("Unexpected token 'T'")) {
+        console.log(`[FinancialDataRepository] Rate limit for ${symbol}`);
         return { success: false, error: 'Rate limited - Too Many Requests' };
       }
-      console.warn(`⚠️ [FinancialDataRepository] Yahoo fetch failed for ${symbol}:`, error);
+      console.log(`[FinancialDataRepository] Yahoo fetch failed for ${symbol}: ${errorStr}`);
       return { success: false, error: errorStr };
     }
   }
@@ -241,7 +243,7 @@ class FinancialDataRepository {
       
       // Check for rate limit response
       if (!quote.regularMarketPrice && !quote.shortName) {
-        console.warn(`⚠️ [FinancialDataRepository] Possible rate limit for ${symbol}, skipping`);
+        console.log(`[FinancialDataRepository] Possible rate limit for ${symbol}, skipping`);
         return { success: false, error: 'Rate limited or no market data' };
       }
 
@@ -271,11 +273,11 @@ class FinancialDataRepository {
     } catch (error) {
       const errorStr = String(error);
       // Detect rate limit errors from Yahoo Finance
-      if (errorStr.includes('Too Many') || errorStr.includes('429')) {
-        console.warn(`⚠️ [FinancialDataRepository] Rate limit for ETF ${symbol}`);
+      if (errorStr.includes('Too Many') || errorStr.includes('429') || errorStr.includes("Unexpected token 'T'")) {
+        console.log(`[FinancialDataRepository] Rate limit for ETF ${symbol}`);
         return { success: false, error: 'Rate limited - Too Many Requests' };
       }
-      console.warn(`⚠️ [FinancialDataRepository] ETF fetch failed for ${symbol}:`, error);
+      console.log(`[FinancialDataRepository] ETF fetch failed for ${symbol}: ${errorStr}`);
       return { success: false, error: errorStr };
     }
   }
@@ -491,7 +493,7 @@ class FinancialDataRepository {
     for (const symbol of symbols) {
       // If we hit too many consecutive rate limits, stop and wait for next scheduled refresh
       if (consecutiveRateLimits >= 3) {
-        console.warn(`⚠️ [FinancialDataRepository] Rate limit detected, skipping remaining ${symbols.length - (success + failed)} symbols`);
+        console.log(`[FinancialDataRepository] Rate limit detected, skipping remaining ${symbols.length - (success + failed)} symbols`);
         failed += symbols.length - (success + failed);
         break;
       }
@@ -530,7 +532,7 @@ class FinancialDataRepository {
     for (const symbol of symbols) {
       // If we hit too many consecutive rate limits, stop and wait for next scheduled refresh
       if (consecutiveRateLimits >= 3) {
-        console.warn(`⚠️ [FinancialDataRepository] Rate limit detected, skipping remaining ${symbols.length - (success + failed)} ETFs`);
+        console.log(`[FinancialDataRepository] Rate limit detected, skipping remaining ${symbols.length - (success + failed)} ETFs`);
         failed += symbols.length - (success + failed);
         break;
       }

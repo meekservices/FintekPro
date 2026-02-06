@@ -119,7 +119,7 @@ class AuthBridgeESignService {
     this.clientSecret = process.env.AUTHBRIDGE_ESIGN_CLIENT_SECRET || process.env.AUTHBRIDGE_CLIENT_SECRET || '';
 
     if (!this.apiKey || !this.clientId) {
-      console.warn(`⚠️ [AuthBridge eSign] API credentials not configured. Using mock mode.`);
+      console.log(`[AuthBridge eSign] Running in mock mode (no API credentials)`);
       console.log(`ℹ️ [AuthBridge eSign] Environment: ${this.environment} (auto-detected)`);
     } else {
       console.log(`✅ [AuthBridge eSign] Initialized in ${this.environment.toUpperCase()} mode`);
