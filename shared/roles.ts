@@ -55,7 +55,10 @@ export type RoleId =
   // Client Types
   | 'client'            // Regular retail client
   | 'business_client'   // Business/Corporate client
-  | 'user';             // Default user role
+  | 'user'              // Default user role
+  
+  // Special Roles
+  | 'tester';           // Universal tester - full access + error data collection
 
 // Role metadata interface
 export interface RoleDefinition {
@@ -548,6 +551,27 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     isInternal: false,
     requiresCompliance: false,
   },
+
+  tester: {
+    id: 'tester',
+    name: 'Universal Tester',
+    description: 'QA/Testing role with full platform access and error data collection capabilities',
+    parentRoles: ['superadmin'],
+    portal: 'admin',
+    level: 1,
+    permissions: [
+      '*',
+      'access:error_diagnostics',
+      'access:all_portals',
+      'collect:error_data',
+      'view:system_logs',
+      'access:dev_tools',
+      'view:api_metrics',
+    ],
+    canManageRoles: [],
+    isInternal: true,
+    requiresCompliance: false,
+  },
 };
 
 // Helper functions for role hierarchy
@@ -762,7 +786,7 @@ export function getRoleOptions(filterByPortal?: 'admin' | 'partner' | 'agent' | 
 }
 
 // Export role groups for easy access
-export const ADMIN_ROLES: RoleId[] = ['superadmin', 'master_agent', 'admin', 'bd_head', 'compliance_officer', 'finance_head', 'ops_head', 'hr_head', 'tech_head', 'regulatory_auditor'];
+export const ADMIN_ROLES: RoleId[] = ['superadmin', 'master_agent', 'admin', 'bd_head', 'compliance_officer', 'finance_head', 'ops_head', 'hr_head', 'tech_head', 'regulatory_auditor', 'tester'];
 export const TEAM_ROLES: RoleId[] = ['bd_team', 'compliance_team', 'finance_team', 'ops_team', 'hr_team', 'tech_backend', 'tech_frontend', 'tech_devops'];
 export const PARTNER_ROLES: RoleId[] = ['partner', 'partner_ops'];
 export const AGENT_ROLES: RoleId[] = ['agent', 'sub_agent', 'associate'];

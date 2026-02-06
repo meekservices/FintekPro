@@ -35,6 +35,7 @@ import FinancialCalculators from "@/pages/financial-calculators";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/auth-page";
 import AdminPanel from "@/pages/admin";
+import TesterDiagnostics from "@/pages/tester-diagnostics";
 const PartnerPortal = lazy(() => import("@/pages/partner-portal"));
 import Support from "@/pages/support";
 import InvestSmart from "@/pages/wealth-management";
@@ -2086,6 +2087,7 @@ function Router() {
         
         {/* Agent/Admin routes - bypass profile completion but require authentication */}
         <Route path="/admin" component={AdminPanel} />
+        <Route path="/tester-diagnostics" component={TesterDiagnostics} />
         <Route path="/admin/proposals" component={AdminProposalsPage} />
         <Route path="/admin/unlisted/companies">
           {() => (

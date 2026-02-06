@@ -179,6 +179,7 @@ import portfolioReportsRoutes from "./routes/portfolio-reports";
 import ckycProviderRoutes from "./routes/ckyc-provider-routes";
 import aiRecommendationTrackingRoutes from "./routes/ai-recommendation-tracking-routes";
 import errorTrackingRoutes from "./routes/error-tracking-routes";
+import testerDiagnosticsRoutes from "./routes/tester-diagnostics-routes";
 import activityCentreRoutes from "./routes/activity-centre-routes";
 import taskOversightRoutes from "./routes/task-oversight-routes";
 import usTradingRoutes from "./routes/us-trading";
@@ -764,6 +765,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   app.use(portfolioReportsRoutes);
   app.use("/api/ai-recommendations-tracking", aiRecommendationTrackingRoutes);
   app.use("/api/errors", errorTrackingRoutes);
+  app.use("/api/tester", testerDiagnosticsRoutes);
   app.use("/api/activity-centre", activityCentreRoutes);
   app.use("/api/admin/task-oversight", taskOversightRoutes);
   console.log("✅ Task Oversight routes registered");
@@ -779,6 +781,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   console.log("✅ AI Rebalancing routes registered");
   console.log("✅ Unified Proposals routes registered");
   console.log("✅ Error Tracking routes registered");
+  console.log("✅ Tester Diagnostics routes registered");
   console.log("✅ AI Recommendation Tracking routes registered");
   
   // CKYC Provider Configuration Routes
