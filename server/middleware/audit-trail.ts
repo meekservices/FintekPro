@@ -179,35 +179,19 @@ export const auditTrailMiddleware = (req: Request, res: Response, next: NextFunc
     return next();
   }
 
-  // Capture the original response
-  const originalSend = res.send;
   const startTime = Date.now();
   
-  // Override res.send to capture response status
-  res.send = function(data: any) {
-    // Calculate response duration
+  res.on('finish', () => {
     const duration = Date.now() - startTime;
-    
-    // Determine if operation was successful
     const isSuccess = res.statusCode < 400;
     const outcome = isSuccess ? 'success' : 'failure';
     
-    // Extract user ID from session
-    const userId = (req.session as any)?.user?.id;
-    
-    // Get IP address
+    const userId = (req as any).user?.id || (req.session as any)?.passport?.user;
     const ipAddress = req.ip || req.socket?.remoteAddress;
-    
-    // Get user agent
     const userAgent = req.get('User-Agent');
-    
-    // Categorize the route
     const category = categorizeRoute(req.path);
-    
-    // Determine risk level
     const riskLevel = determineRiskLevel(req.path, req.method);
     
-    // Prepare audit details
     const details: Record<string, any> = {
       method: req.method,
       path: req.path,
@@ -216,13 +200,11 @@ export const auditTrailMiddleware = (req: Request, res: Response, next: NextFunc
       queryParamsCount: Object.keys(req.query).length,
     };
     
-    // Add body size if present
     const contentLength = req.get('Content-Length');
     if (contentLength) {
       details.requestBodySize = parseInt(contentLength, 10);
     }
     
-    // Log the audit trail
     auditLog({
       userId,
       action: `${req.method} ${req.path}`,
@@ -233,13 +215,9 @@ export const auditTrailMiddleware = (req: Request, res: Response, next: NextFunc
       outcome,
       riskLevel,
     }).catch((err) => {
-      // Silently catch audit logging errors to prevent disrupting main request flow
       console.error('[AUDIT] Failed to log audit trail:', err?.message || 'Unknown error');
     });
-    
-    // Call the original send method
-    return originalSend.call(this, data);
-  };
+  });
   
   next();
 };

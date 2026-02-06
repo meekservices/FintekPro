@@ -163,7 +163,7 @@ export function getSession() {
       }
       
       // Server-side idle timeout enforcement (RBI Digital Lending Guidelines)
-      if (req.session && (req.session as any).user) {
+      if (req.session && (req.session as any).passport?.user) {
         const now = Date.now();
         const lastActivity = (req.session as any).lastActivity || now;
         const timeSinceLastActivity = now - lastActivity;
@@ -174,13 +174,11 @@ export function getSession() {
             if (destroyErr) {
               console.warn('[Session] Error destroying idle session:', destroyErr.message);
             }
-            // Clear the session cookie
-            res.clearCookie('fintekpro.sid');
+            res.clearCookie('fintekpro.sid', { path: '/' });
             next();
           });
         }
         
-        // Update last activity timestamp
         (req.session as any).lastActivity = now;
       }
       
