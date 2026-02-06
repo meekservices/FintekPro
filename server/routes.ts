@@ -8526,11 +8526,17 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     try {
       const { category = "all", limit = 20 } = req.query;
       
-      // News feed requires Finnhub API integration
-      res.json({ items: [], message: 'News feed requires Finnhub API integration. Configure FINNHUB_API_KEY for live news.' });
+      if (!process.env.FINNHUB_API_KEY) {
+        return res.json([]);
+      }
+
+      const finnhubCategory = category === 'all' ? 'general' : String(category);
+      const newsData = await finnhubService.getMarketNews(finnhubCategory);
+      const limitedNews = (newsData || []).slice(0, parseInt(limit as string) || 20);
+      res.json(limitedNews);
     } catch (error) {
       console.error("Error fetching news:", error);
-      res.status(500).json({ error: "Failed to fetch market news" });
+      res.json([]);
     }
   });
 
@@ -8587,13 +8593,11 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     try {
       const { limit = 5 } = req.query;
       
-      // Trending news requires Finnhub API integration
-      res.json({ items: [], message: 'Trending news requires Finnhub API integration. Configure FINNHUB_API_KEY for trending news.' });
-      return;
+      res.json([]);
 
     } catch (error) {
       console.error("Error fetching trending news:", error);
-      res.status(500).json({ error: "Failed to fetch trending news" });
+      res.json([]);
     }
   });
 

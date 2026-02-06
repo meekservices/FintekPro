@@ -85,7 +85,7 @@ export class FinnhubService {
    */
   async getCompanyProfile(symbol: string): Promise<FinnhubCompanyProfile> {
     return new Promise((resolve, reject) => {
-      this.client.companyProfile2(symbol, (error: any, data: FinnhubCompanyProfile, response: any) => {
+      this.client.companyProfile2({ symbol }, (error: any, data: FinnhubCompanyProfile, response: any) => {
         if (error) {
           reject(error);
         } else {
@@ -115,11 +115,13 @@ export class FinnhubService {
    */
   async getMarketNews(category: string = 'general'): Promise<any[]> {
     return new Promise((resolve, reject) => {
-      this.client.marketNews(category, (error: any, data: any[], response: any) => {
+      const timeout = setTimeout(() => resolve([]), 8000);
+      this.client.marketNews(category, {}, (error: any, data: any[], response: any) => {
+        clearTimeout(timeout);
         if (error) {
-          reject(error);
+          resolve([]);
         } else {
-          resolve(data);
+          resolve(data || []);
         }
       });
     });

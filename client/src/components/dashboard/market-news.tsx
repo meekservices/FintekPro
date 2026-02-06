@@ -77,7 +77,7 @@ export function MarketNews() {
   }
 
   // Take first 3 news items
-  const displayNews = news?.slice(0, 3) || [];
+  const displayNews = (Array.isArray(news) ? news : (news as any)?.items || []).slice(0, 3);
 
   return (
     <Card data-testid="market-news">
