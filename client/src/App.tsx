@@ -2092,7 +2092,6 @@ function Router() {
         <Route path="/disclaimer" component={InvestmentDisclaimer} />
         
         {/* Agent/Admin routes - bypass profile completion but require authentication */}
-        <Route path="/admin" component={AdminPanel} />
         <Route path="/tester-diagnostics" component={TesterDiagnostics} />
         <Route path="/admin/proposals" component={AdminProposalsPage} />
         <Route path="/admin/unlisted/companies">
@@ -2109,6 +2108,7 @@ function Router() {
             </AdminLayout>
           )}
         </Route>
+        <Route path="/admin" component={AdminPanel} />
         <Route path="/agent" component={AgentDashboard} />
         
         {/* User routes - require both authentication and profile completion */}
