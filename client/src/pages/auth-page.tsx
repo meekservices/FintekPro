@@ -284,12 +284,17 @@ export default function AuthPage() {
       setLoginIdentifier(data.identifier || loginForm.getValues("identifier"));
       setOtpChannel(data.otpSentTo || "your registered email/mobile");
       otpForm.setValue("identifier", data.identifier || loginForm.getValues("identifier"));
+      if (data.devOtp) {
+        otpForm.setValue("otp", data.devOtp);
+      }
       setOtpTimer(300); // Reset timer to 5 minutes
       setCanResendOtp(false);
       setOtpDialogOpen(true);
       toast({
-        title: "OTP Sent",
-        description: `Verification code sent to ${data.otpSentTo || "your registered email/mobile"}`,
+        title: data.devOtp ? "Dev Mode - OTP Auto-Filled" : "OTP Sent",
+        description: data.devOtp 
+          ? `Development OTP: ${data.devOtp} (auto-filled)` 
+          : `Verification code sent to ${data.otpSentTo || "your registered email/mobile"}`,
       });
     },
     onError: (error: Error) => {

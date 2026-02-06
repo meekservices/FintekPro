@@ -668,8 +668,14 @@ export function setupAuth(app: Express) {
         }
 
         // Credentials are valid - now send OTP for mandatory verification
-        const otp = generateOtp();
+        const isDev = process.env.NODE_ENV === "development";
+        const isTesterAccount = user.email === "test@fintekpro.com" || (user.roles && Array.isArray(user.roles) && user.roles.includes("tester"));
+        const otp = (isDev && isTesterAccount) ? "123456" : generateOtp();
         const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+        if (isDev && isTesterAccount) {
+          console.log(`🧪 [DEV] Tester account detected - using fixed OTP: ${otp}`);
+        }
 
         // Determine OTP destination based on identifier type
         let otpDestination: string;
@@ -702,8 +708,12 @@ export function setupAuth(app: Express) {
         // Send OTP via appropriate channels (email/SMS/WhatsApp)
         let otpDelivered = false;
         let deliveryChannel = "";
-        
-        if (otpType === "email") {
+
+        if (isDev && isTesterAccount) {
+          otpDelivered = true;
+          deliveryChannel = "DEV_BYPASS";
+          console.log(`🧪 [DEV] Skipping OTP delivery for tester account - use OTP: ${otp}`);
+        } else if (otpType === "email") {
           const emailSent = await emailService.sendLoginOTP(otpDestination, otp);
           if (emailSent) {
             console.log(`✅ Login OTP sent to email: ${otpDestination}`);
@@ -740,13 +750,20 @@ export function setupAuth(app: Express) {
         }
 
         // Return success with OTP destination info (don't complete login yet)
-        return apiResponse.success(res, {
+        const responseData: any = {
           requiresOtp: true,
           otpSentTo: otpType === "email" ? "email" : "mobile",
           identifier: otpDestination,
           userId: user.userId,
           deliveryChannel
-        }, `OTP sent to your ${otpType} via ${deliveryChannel}`);
+        };
+        if (isDev && isTesterAccount) {
+          responseData.devOtp = otp;
+          responseData.devHint = "Development mode: use this OTP to login";
+        }
+        return apiResponse.success(res, responseData, isDev && isTesterAccount 
+          ? `Development mode - use OTP: ${otp}` 
+          : `OTP sent to your ${otpType} via ${deliveryChannel}`);
       })(modifiedReq, res, next);
     } catch (error) {
       console.error("Unified login error:", error);
