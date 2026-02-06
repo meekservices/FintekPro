@@ -599,9 +599,6 @@ function AdminRoutes() {
       <Route path="/proposal/:shareToken" component={PublicProposalPage} />
       
       {/* Protected admin routes - wrapped in AdminLayout */}
-      <Route path="/" component={AdminRoot} />
-      <Route path="/admin" component={AdminRoot} />
-      
       <Route path="/admin/dashboard">
         {() => (
           <AdminLayout>
@@ -1435,6 +1432,9 @@ function AdminRoutes() {
           </AdminLayout>
         )}
       </Route>
+      {/* Generic admin root - must be after all specific /admin/* routes */}
+      <Route path="/admin" component={AdminRoot} />
+      <Route path="/" component={AdminRoot} />
       <Route component={NotFound} />
     </Switch>
   );
