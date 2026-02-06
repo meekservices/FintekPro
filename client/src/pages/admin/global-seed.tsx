@@ -95,7 +95,7 @@ const marketCapCategories = [
 
 const tradingApiProviders: Record<string, { name: string; description: string; markets: string[] }> = {
   alpaca: { name: "Alpaca", description: "Commission-free US stock trading API", markets: ["US"] },
-  iex_cloud: { name: "IEX Cloud", description: "Real-time and historical market data", markets: ["US"] },
+  alpha_vantage: { name: "Alpha Vantage", description: "Real-time and historical market data (replaces IEX Cloud)", markets: ["US"] },
   polygon: { name: "Massive (Polygon)", description: "Real-time and historical stock data via REST, WebSocket & Flat Files", markets: ["US"] },
   ibkr: { name: "Interactive Brokers", description: "Global multi-asset trading platform", markets: ["US", "UK", "EU", "JP", "HK", "CN", "SG"] },
   saxo: { name: "Saxo Bank", description: "European multi-asset trading", markets: ["UK", "EU"] },

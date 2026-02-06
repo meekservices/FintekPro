@@ -26709,12 +26709,12 @@ export const globalInstruments = pgTable("global_instruments", {
   returns1Y: numeric("returns_1y"),
   returns3Y: numeric("returns_3y"),
   returns5Y: numeric("returns_5y"),
-  dataSource: varchar("data_source", { length: 50 }), // yahoo_finance, iex_cloud, finnhub
+  dataSource: varchar("data_source", { length: 50 }), // yahoo_finance, alpha_vantage, finnhub
   // Trading API Integration Fields
   apiSymbol: varchar("api_symbol", { length: 30 }), // Symbol used by trading API (may differ from display symbol)
   isTradeable: boolean("is_tradeable").default(false), // Whether live trading is enabled
   lotSize: integer("lot_size").default(1), // Minimum trading quantity
-  tradingApiProvider: varchar("trading_api_provider", { length: 30 }), // alpaca, iex_cloud, ibkr, futu, tiger
+  tradingApiProvider: varchar("trading_api_provider", { length: 30 }), // alpaca, alpha_vantage, ibkr, futu, tiger
   bidPrice: numeric("bid_price"),
   askPrice: numeric("ask_price"),
   tradingHours: varchar("trading_hours", { length: 100 }), // e.g., "09:30-16:00 ET"

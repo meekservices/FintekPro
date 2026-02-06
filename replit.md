@@ -76,7 +76,7 @@ The platform is undergoing service consolidation, including:
 - Zoho Campaigns
 - Zoho Meeting
 - Zoho Sign
-- IEX Cloud
+- Alpha Vantage (replaced IEX Cloud)
 
 ### Database Services
 - Neon Database (PostgreSQL)
