@@ -1,4 +1,7 @@
 import axios from "axios";
+import { S3Client, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
+import { createGunzip } from "zlib";
+import { Readable } from "stream";
 
 const POLYGON_BASE_URL = "https://api.polygon.io";
 const CACHE_TTL_MS = 60000;
@@ -52,13 +55,37 @@ class PolygonMarketService {
   private apiKey: string;
   private priceCache: Map<string, PriceCache> = new Map();
   private detailsCache: Map<string, StockDetails> = new Map();
+  private s3Client: S3Client | null = null;
+  private s3Bucket: string;
 
   constructor() {
     this.apiKey = process.env.POLYGON_API_KEY || "";
+    this.s3Bucket = process.env.POLYGON_S3_BUCKET || "flatfiles";
+    this.initS3Client();
+  }
+
+  private initS3Client(): void {
+    const accessKeyId = process.env.POLYGON_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.POLYGON_SECRET_ACCESS_KEY;
+    const endpoint = process.env.POLYGON_S3_ENDPOINT || "https://files.massive.com";
+
+    if (accessKeyId && secretAccessKey) {
+      this.s3Client = new S3Client({
+        endpoint,
+        region: "us-east-1",
+        credentials: { accessKeyId, secretAccessKey },
+        forcePathStyle: true,
+      });
+      console.log("✅ Polygon Flat Files (S3) client initialized");
+    }
   }
 
   private isConfigured(): boolean {
     return !!this.apiKey;
+  }
+
+  isS3Configured(): boolean {
+    return !!this.s3Client;
   }
 
   private getCacheKey(symbol: string): string {
@@ -330,16 +357,167 @@ class PolygonMarketService {
     }
   }
 
+  async listFlatFiles(prefix: string = "us_stocks_sip", maxKeys: number = 100): Promise<{ key: string; size: number; lastModified: Date }[]> {
+    if (!this.s3Client) {
+      throw new Error("Polygon Flat Files (S3) not configured. Set POLYGON_ACCESS_KEY_ID and POLYGON_SECRET_ACCESS_KEY.");
+    }
+
+    try {
+      const command = new ListObjectsV2Command({
+        Bucket: this.s3Bucket,
+        Prefix: prefix,
+        MaxKeys: maxKeys,
+      });
+      const response = await this.s3Client.send(command);
+      return (response.Contents || []).map(obj => ({
+        key: obj.Key || "",
+        size: obj.Size || 0,
+        lastModified: obj.LastModified || new Date(),
+      }));
+    } catch (error: any) {
+      console.error("Polygon S3 list error:", error.message);
+      throw new Error(`Failed to list Polygon flat files: ${error.message}`);
+    }
+  }
+
+  async downloadFlatFile(objectKey: string): Promise<string> {
+    if (!this.s3Client) {
+      throw new Error("Polygon Flat Files (S3) not configured. Set POLYGON_ACCESS_KEY_ID and POLYGON_SECRET_ACCESS_KEY.");
+    }
+
+    try {
+      const command = new GetObjectCommand({
+        Bucket: this.s3Bucket,
+        Key: objectKey,
+      });
+      const response = await this.s3Client.send(command);
+
+      if (!response.Body) {
+        throw new Error("Empty response body from S3");
+      }
+
+      const stream = response.Body as Readable;
+
+      if (objectKey.endsWith(".gz")) {
+        const gunzip = createGunzip();
+        const chunks: Buffer[] = [];
+        return new Promise((resolve, reject) => {
+          stream.pipe(gunzip)
+            .on("data", (chunk: Buffer) => chunks.push(chunk))
+            .on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")))
+            .on("error", reject);
+        });
+      }
+
+      const chunks: Buffer[] = [];
+      return new Promise((resolve, reject) => {
+        stream
+          .on("data", (chunk: Buffer) => chunks.push(chunk))
+          .on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")))
+          .on("error", reject);
+      });
+    } catch (error: any) {
+      console.error(`Polygon S3 download error for ${objectKey}:`, error.message);
+      throw new Error(`Failed to download flat file ${objectKey}: ${error.message}`);
+    }
+  }
+
+  parseFlatFileCsv(csvContent: string): Record<string, string>[] {
+    const lines = csvContent.trim().split("\n");
+    if (lines.length < 2) return [];
+
+    const headers = lines[0].split(",").map(h => h.trim());
+    const rows: Record<string, string>[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(",");
+      const row: Record<string, string> = {};
+      headers.forEach((header, idx) => {
+        row[header] = values[idx]?.trim() || "";
+      });
+      rows.push(row);
+    }
+    return rows;
+  }
+
+  async getHistoricalDayAggs(date: string): Promise<Record<string, string>[]> {
+    const [year, month] = date.split("-");
+    const objectKey = `us_stocks_sip/day_aggs_v1/${year}/${month}/${date}.csv.gz`;
+    const csv = await this.downloadFlatFile(objectKey);
+    return this.parseFlatFileCsv(csv);
+  }
+
+  async getHistoricalMinuteAggs(date: string): Promise<Record<string, string>[]> {
+    const [year, month] = date.split("-");
+    const objectKey = `us_stocks_sip/minute_aggs_v1/${year}/${month}/${date}.csv.gz`;
+    const csv = await this.downloadFlatFile(objectKey);
+    return this.parseFlatFileCsv(csv);
+  }
+
+  async getHistoricalTrades(date: string): Promise<Record<string, string>[]> {
+    const [year, month] = date.split("-");
+    const objectKey = `us_stocks_sip/trades_v1/${year}/${month}/${date}.csv.gz`;
+    const csv = await this.downloadFlatFile(objectKey);
+    return this.parseFlatFileCsv(csv);
+  }
+
+  async getAvailableDatasets(): Promise<{ key: string; size: number; lastModified: Date }[]> {
+    if (!this.s3Client) {
+      throw new Error("Polygon Flat Files (S3) not configured. Set POLYGON_ACCESS_KEY_ID and POLYGON_SECRET_ACCESS_KEY.");
+    }
+
+    const prefixes = [
+      "us_stocks_sip/",
+      "us_options_opra/",
+      "us_indices/",
+      "global_crypto/",
+      "global_forex/",
+    ];
+
+    const results: { key: string; size: number; lastModified: Date }[] = [];
+
+    for (const prefix of prefixes) {
+      try {
+        const command = new ListObjectsV2Command({
+          Bucket: this.s3Bucket,
+          Prefix: prefix,
+          Delimiter: "/",
+          MaxKeys: 10,
+        });
+        const response = await this.s3Client.send(command);
+        const commonPrefixes = response.CommonPrefixes || [];
+        for (const cp of commonPrefixes) {
+          results.push({
+            key: cp.Prefix || "",
+            size: 0,
+            lastModified: new Date(),
+          });
+        }
+      } catch (error: any) {
+        console.warn(`Polygon S3 list warning for ${prefix}:`, error.message);
+      }
+    }
+
+    return results;
+  }
+
   clearCache(): void {
     this.priceCache.clear();
     this.detailsCache.clear();
   }
 
-  testConnection(): { configured: boolean; message: string } {
-    if (!this.isConfigured()) {
-      return { configured: false, message: "Polygon API key not configured. Set POLYGON_API_KEY for US market data." };
+  testConnection(): { configured: boolean; message: string; s3Configured: boolean } {
+    const s3Configured = this.isS3Configured();
+    if (!this.isConfigured() && !s3Configured) {
+      return { configured: false, s3Configured: false, message: "Polygon API key and S3 credentials not configured." };
     }
-    return { configured: true, message: "Polygon API configured" };
+    if (!this.isConfigured()) {
+      return { configured: false, s3Configured, message: "Polygon REST API key not configured. S3 Flat Files access available." };
+    }
+    if (!s3Configured) {
+      return { configured: true, s3Configured: false, message: "Polygon REST API configured. S3 Flat Files not configured." };
+    }
+    return { configured: true, s3Configured: true, message: "Polygon REST API and S3 Flat Files fully configured." };
   }
 }
 

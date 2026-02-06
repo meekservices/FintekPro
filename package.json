@@ -11,6 +11,7 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.984.0",
     "@google-cloud/storage": "^7.17.1",
     "@google/genai": "^1.25.0",
     "@hookform/resolvers": "^3.10.0",
