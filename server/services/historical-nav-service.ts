@@ -96,14 +96,15 @@ export class HistoricalNavService {
         };
       }
       
-      // Store metadata
+      // Store metadata (guard against missing meta)
+      const meta = data.meta || {} as any;
       await this.upsertAssetMetadata({
         identifier,
         identifierType,
-        name: data.meta.scheme_name,
-        category: data.meta.scheme_category,
-        amcName: data.meta.fund_house,
-        schemeType: data.meta.scheme_type,
+        name: (meta.scheme_name || `Scheme ${schemeCode}`).substring(0, 300),
+        category: (meta.scheme_category || '').substring(0, 100),
+        amcName: (meta.fund_house || '').substring(0, 200),
+        schemeType: (meta.scheme_type || '').substring(0, 50),
         latestNav: data.data[0]?.nav,
         latestNavDate: this.parseDate(data.data[0]?.date),
         source: 'mfapi'
@@ -877,7 +878,11 @@ export class HistoricalNavService {
       
       return { returns1y, returns3y, returns5y, currentNav, dataQuality, source: 'database' };
     } catch (error: any) {
-      console.error(`[HistoricalNav] Error calculating returns for ${schemeCode}:`, error.message);
+      if (error.message?.includes('Cannot convert undefined or null to object')) {
+        // Silently handle - scheme has no valid NAV data
+      } else {
+        console.error(`[HistoricalNav] Error calculating returns for ${schemeCode}:`, error.message);
+      }
       return { 
         returns1y: null, returns3y: null, returns5y: null, 
         currentNav: null, dataQuality: 'insufficient', source: 'database' 
