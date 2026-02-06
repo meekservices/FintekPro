@@ -2,7 +2,7 @@
  * Stock Financial Enrichment Service
  * 
  * Enriches listed stocks with financial ratios (PE, EPS, Book Value, etc.)
- * from Yahoo Finance and other sources
+ * from Yahoo Finance, Finnhub, and sector-based inference
  */
 
 import axios from 'axios';
@@ -157,6 +157,52 @@ class StockFinancialEnrichmentService {
     }
   }
 
+  private async fetchFinnhubFinancials(symbol: string): Promise<Partial<StockFinancials> | null> {
+    const apiKey = process.env.FINNHUB_API_KEY;
+    if (!apiKey) return null;
+    
+    try {
+      const profileResp = await axios.get('https://finnhub.io/api/v1/stock/profile2', {
+        params: { symbol: `${symbol}.NS`, token: apiKey },
+        timeout: 8000,
+      });
+      
+      const profile = profileResp.data;
+      if (!profile || !profile.ticker) {
+        const bseResp = await axios.get('https://finnhub.io/api/v1/stock/profile2', {
+          params: { symbol: `${symbol}.BO`, token: apiKey },
+          timeout: 8000,
+        });
+        if (!bseResp.data?.ticker) return null;
+        Object.assign(profile, bseResp.data);
+      }
+      
+      const metricsResp = await axios.get('https://finnhub.io/api/v1/stock/metric', {
+        params: { symbol: profile.ticker, metric: 'all', token: apiKey },
+        timeout: 8000,
+      });
+      
+      const m = metricsResp.data?.metric || {};
+      
+      const result: Partial<StockFinancials> = {};
+      if (m.peBasicExclExtraTTM) result.peRatio = m.peBasicExclExtraTTM;
+      if (m.epsBasicExclExtraItemsTTM) result.eps = m.epsBasicExclExtraItemsTTM;
+      if (m.bookValuePerShareQuarterly) result.bookValue = m.bookValuePerShareQuarterly;
+      if (m.dividendYieldIndicatedAnnual) result.dividendYield = m.dividendYieldIndicatedAnnual;
+      if (m.pbQuarterly) result.priceToBook = m.pbQuarterly;
+      if (m.roeTTM) result.roe = m.roeTTM;
+      if (m.revenueGrowthTTMYoy) result.revenueGrowth = m.revenueGrowthTTMYoy;
+      if (m.netProfitMarginTTM) result.profitMargin = m.netProfitMarginTTM;
+      
+      return Object.keys(result).length > 0 ? result : null;
+    } catch (error: any) {
+      if (error.response?.status === 429) {
+        console.warn(`[Stock Enrichment] Finnhub rate limited for ${symbol}`);
+      }
+      return null;
+    }
+  }
+
   private extractValue(obj: any): number | null {
     if (!obj) return null;
     if (typeof obj === 'number') return obj;
@@ -272,6 +318,18 @@ class StockFinancialEnrichmentService {
               
               // Rate limit delay
               await new Promise(resolve => setTimeout(resolve, 200));
+            }
+            
+            // Fallback to Finnhub for Indian stocks (NSE/BSE symbols)
+            if (!financials || !financials.peRatio) {
+              try {
+                financials = await this.fetchFinnhubFinancials(stock.symbol);
+                if (financials) {
+                  await new Promise(resolve => setTimeout(resolve, 300));
+                }
+              } catch (e) {
+                // Finnhub fallback failed, continue to sector inference
+              }
             }
             
             // Fallback to sector-based inference

@@ -41,15 +41,26 @@ class BenchmarkSyncService {
     const results = { synced: 0, failed: [] as string[] };
 
     for (const mapping of INDEX_SYMBOL_MAPPINGS) {
-      try {
-        await this.syncBenchmarkIndex(mapping.indexCode, mapping.yahooSymbol);
-        results.synced++;
-        console.log(`[BenchmarkSync] Synced ${mapping.indexCode}`);
-      } catch (error) {
-        results.failed.push(mapping.indexCode);
-        console.error(`[BenchmarkSync] Failed to sync ${mapping.indexCode}:`, error);
+      let synced = false;
+      for (let attempt = 0; attempt < 3 && !synced; attempt++) {
+        try {
+          if (attempt > 0) {
+            const backoff = 15000 * Math.pow(2, attempt - 1);
+            console.log(`[BenchmarkSync] Retry ${attempt}/2 for ${mapping.indexCode} after ${backoff / 1000}s`);
+            await this.delay(backoff);
+          }
+          await this.syncBenchmarkIndex(mapping.indexCode, mapping.yahooSymbol);
+          results.synced++;
+          synced = true;
+          console.log(`[BenchmarkSync] Synced ${mapping.indexCode}`);
+        } catch (error: any) {
+          if (attempt === 2) {
+            results.failed.push(mapping.indexCode);
+            console.warn(`[BenchmarkSync] Failed ${mapping.indexCode} after 3 attempts: ${error.message?.substring(0, 80)}`);
+          }
+        }
       }
-      await this.delay(1000);
+      await this.delay(10000);
     }
 
     console.log(`[BenchmarkSync] Completed: ${results.synced} synced, ${results.failed.length} failed`);

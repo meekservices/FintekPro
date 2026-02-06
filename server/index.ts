@@ -989,4 +989,63 @@ app.use((req, res, next) => {
   storage.seedDefaultStoreCategories().catch(error => {
     console.error('❌ Failed to seed store categories:', error);
   });
+
+  // First-run data bootstrap: seed benchmark indices and trigger initial enrichment
+  // Only runs if benchmark NAV data is empty (indicates first deployment)
+  setTimeout(async () => {
+    try {
+      const { db } = await import('./db');
+      const { sql } = await import('drizzle-orm');
+      
+      const indicesCheck = await db.execute(sql`SELECT COUNT(*) as cnt FROM market_indices`);
+      const indicesCount = parseInt(String((indicesCheck.rows[0] as any)?.cnt || '0'));
+      
+      if (indicesCount === 0) {
+        console.log('🔄 [Bootstrap] First-run detected: seeding benchmark index data...');
+        
+        try {
+          const { bseBenchmarkService } = await import('./services/bse-benchmark-service');
+          const bseResult = await bseBenchmarkService.seedBseIndices();
+          console.log(`✅ [Bootstrap] BSE indices seeded: ${bseResult.seeded} new, ${bseResult.existing} existing`);
+        } catch (err: any) {
+          console.error('⚠️ [Bootstrap] BSE index seeding failed:', err.message);
+        }
+        
+        try {
+          const { amfiBenchmarkIngestionService } = await import('./services/amfi-benchmark-ingestion-service');
+          const amfiResult = await amfiBenchmarkIngestionService.syncAmfiSchemeBenchmarks();
+          console.log(`✅ [Bootstrap] AMFI benchmark mapping: ${amfiResult.normalized} schemes mapped`);
+        } catch (err: any) {
+          console.error('⚠️ [Bootstrap] AMFI benchmark ingestion failed:', err.message);
+        }
+        
+        console.log('✅ [Bootstrap] First-run data seeding completed');
+      } else {
+        console.log(`✅ [Bootstrap] ${indicesCount} market indices already exist, skipping first-run seeding`);
+      }
+      
+      // Check MF returns gap - enrich top funds if most are missing
+      const mfCheck = await db.execute(sql`
+        SELECT COUNT(*) as total, 
+               SUM(CASE WHEN returns_1y IS NULL THEN 1 ELSE 0 END) as missing
+        FROM mutual_funds
+      `);
+      const mfTotal = parseInt(String((mfCheck.rows[0] as any)?.total || '0'));
+      const mfMissing = parseInt(String((mfCheck.rows[0] as any)?.missing || '0'));
+      const gapPercent = mfTotal > 0 ? (mfMissing / mfTotal) * 100 : 0;
+      
+      if (gapPercent > 80 && mfTotal > 100) {
+        console.log(`🔄 [Bootstrap] MF returns gap: ${gapPercent.toFixed(1)}% missing - starting initial enrichment for top 500 funds...`);
+        try {
+          const { mfReturnsSyncService } = await import('./services/mf-returns-sync-service');
+          const result = await mfReturnsSyncService.runBatchSync(500);
+          console.log(`✅ [Bootstrap] MF returns initial enrichment: synced ${typeof result === 'object' ? JSON.stringify(result) : result}`);
+        } catch (err: any) {
+          console.error('⚠️ [Bootstrap] MF returns initial enrichment failed:', err.message);
+        }
+      }
+    } catch (error: any) {
+      console.error('❌ [Bootstrap] Data seeding failed:', error.message);
+    }
+  }, 60000); // 60 second delay to let other services initialize first
 })();

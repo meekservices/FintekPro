@@ -785,14 +785,13 @@ export class HistoricalNavService {
         };
       }
       
-      // Get NAV data from database
       const navData = await db.select({
-        date: historicalNavData.navDate,
-        nav: historicalNavData.navValue
+        date: historicalNavData.date,
+        nav: historicalNavData.nav
       })
       .from(historicalNavData)
       .where(eq(historicalNavData.identifier, identifier))
-      .orderBy(desc(historicalNavData.navDate))
+      .orderBy(desc(historicalNavData.date))
       .limit(2000); // ~5-6 years of daily data
       
       if (!navData || !Array.isArray(navData) || navData.length === 0) {

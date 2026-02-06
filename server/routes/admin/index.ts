@@ -4383,16 +4383,92 @@ System Security Data:`;
       const { stockFinancialEnrichmentService } = await import("../../services/stock-financial-enrichment-service");
       const { mfReturnsSyncService } = await import("../../services/mf-returns-sync-service");
       
-      // Start all enrichment jobs async
+      const startedJobs: string[] = [];
+      
       Promise.all([
-        mfExtendedEnrichmentService.enrichAllFunds({ forceRefresh: false }),
-        stockFinancialEnrichmentService.enrichAllStocks({ useYahoo: false }),
-        mfReturnsSyncService.runBatchSync(200),
+        mfExtendedEnrichmentService.enrichAllFunds({ forceRefresh: false }).then(() => console.log('[Enrichment All] MF TER/AUM done')),
+        stockFinancialEnrichmentService.enrichAllStocks({ useYahoo: false }).then(() => console.log('[Enrichment All] Stock PE/EPS done')),
+        mfReturnsSyncService.runBatchSync(200).then(() => console.log('[Enrichment All] MF Returns done')),
       ]).catch(err => {
         console.error('[Enrichment All] Failed:', err.message);
       });
+      startedJobs.push('mf_extended', 'stock_financials', 'mf_returns');
       
-      res.json({ success: true, message: 'All enrichment jobs started' });
+      try {
+        const { benchmarkSyncService } = await import("../../services/benchmark-sync-service");
+        benchmarkSyncService.syncAllBenchmarks().then(result => {
+          console.log(`[Enrichment All] Benchmarks done: ${result.synced} synced`);
+        }).catch(err => console.error('[Enrichment All] Benchmark sync failed:', err.message));
+        startedJobs.push('benchmark_sync');
+      } catch (err) { /* optional */ }
+      
+      try {
+        const { amfiBenchmarkIngestionService } = await import("../../services/amfi-benchmark-ingestion-service");
+        amfiBenchmarkIngestionService.syncAmfiSchemeBenchmarks().then(result => {
+          console.log(`[Enrichment All] AMFI benchmarks done: ${result.normalized} normalized`);
+        }).catch(err => console.error('[Enrichment All] AMFI benchmark failed:', err.message));
+        startedJobs.push('amfi_benchmarks');
+      } catch (err) { /* optional */ }
+      
+      try {
+        const { bseBenchmarkService } = await import("../../services/bse-benchmark-service");
+        bseBenchmarkService.seedBseIndices().then(result => {
+          console.log(`[Enrichment All] BSE indices seeded: ${result.seeded} new`);
+        }).catch(err => console.error('[Enrichment All] BSE seed failed:', err.message));
+        startedJobs.push('bse_benchmark_seed');
+      } catch (err) { /* optional */ }
+      
+      res.json({ success: true, message: 'All enrichment jobs started', jobs: startedJobs });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/admin/enrichment/full-status", requireAdmin, async (req, res) => {
+    try {
+      const statuses: Record<string, any> = {};
+      
+      try {
+        const { dataEnrichmentScheduler } = await import("../../services/data-enrichment-scheduler");
+        statuses.dataEnrichmentScheduler = dataEnrichmentScheduler.getStatus();
+      } catch (e) { statuses.dataEnrichmentScheduler = { error: 'not loaded' }; }
+      
+      try {
+        const { mfExtendedEnrichmentService } = await import("../../services/mf-extended-enrichment-service");
+        statuses.mfExtended = mfExtendedEnrichmentService.getProgress();
+      } catch (e) { statuses.mfExtended = { error: 'not loaded' }; }
+      
+      try {
+        const { stockFinancialEnrichmentService } = await import("../../services/stock-financial-enrichment-service");
+        statuses.stockFinancials = stockFinancialEnrichmentService.getProgress();
+      } catch (e) { statuses.stockFinancials = { error: 'not loaded' }; }
+      
+      try {
+        const { financialMetricsRefreshScheduler } = await import("../../services/financial-metrics-refresh-scheduler");
+        statuses.metricsRefresh = financialMetricsRefreshScheduler.getStatus();
+      } catch (e) { statuses.metricsRefresh = { error: 'not loaded' }; }
+      
+      try {
+        const { historicalNavRefreshJob } = await import("../../services/historical-nav-refresh-job");
+        statuses.historicalNav = await historicalNavRefreshJob.getStatus();
+      } catch (e) { statuses.historicalNav = { error: 'not loaded' }; }
+      
+      const dbGaps = await db.execute(sql`
+        SELECT 
+          (SELECT COUNT(*) FROM mutual_funds) as total_mf,
+          (SELECT SUM(CASE WHEN returns_1y IS NULL THEN 1 ELSE 0 END) FROM mutual_funds) as mf_missing_returns,
+          (SELECT SUM(CASE WHEN expense_ratio IS NULL THEN 1 ELSE 0 END) FROM mutual_funds) as mf_missing_expense,
+          (SELECT SUM(CASE WHEN sharpe_ratio IS NULL THEN 1 ELSE 0 END) FROM mutual_funds) as mf_missing_sharpe,
+          (SELECT COUNT(*) FROM listed_stocks) as total_stocks,
+          (SELECT SUM(CASE WHEN pe_ratio IS NULL THEN 1 ELSE 0 END) FROM listed_stocks) as stocks_missing_pe,
+          (SELECT COUNT(*) FROM historical_nav_data) as total_nav_records,
+          (SELECT COUNT(DISTINCT identifier) FROM historical_nav_data) as nav_unique_schemes,
+          (SELECT COUNT(*) FROM market_index_nav) as total_benchmark_nav
+      `);
+      
+      statuses.databaseGaps = dbGaps.rows[0];
+      
+      res.json({ success: true, statuses });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });
     }

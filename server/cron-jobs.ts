@@ -22,6 +22,9 @@ import { pmsNavSyncScheduler } from './services/pms-nav-sync-scheduler';
 import { commodityPriceSyncScheduler } from './services/commodity-price-sync-scheduler';
 import { exitLoadSyncScheduler } from './services/exit-load-sync-scheduler';
 import { amfiNavScheduler } from './services/amfi-nav-scheduler';
+import { dataEnrichmentScheduler } from './services/data-enrichment-scheduler';
+import { financialMetricsRefreshScheduler } from './services/financial-metrics-refresh-scheduler';
+import { historicalNavRefreshJob } from './services/historical-nav-refresh-job';
 
 const STAGGER_DELAY_MS = 30000;
 
@@ -79,6 +82,95 @@ export function initializeCronJobs(): void {
   staggeredStart('AMFI Official NAV sync', () => {
     amfiNavScheduler.initialize();
     console.log('📊 [AMFI NAV] Official NAV sync scheduler started (daily at 11:30 PM IST)');
+  }, delay);
+  delay += STAGGER_DELAY_MS;
+  
+  staggeredStart('Data Enrichment Scheduler', () => {
+    dataEnrichmentScheduler.initialize();
+    console.log('📊 [DataEnrichment] Master enrichment scheduler started (daily at 5 AM IST)');
+  }, delay);
+  delay += STAGGER_DELAY_MS;
+  
+  staggeredStart('Financial Metrics Refresh', () => {
+    financialMetricsRefreshScheduler.start();
+    console.log('📊 [MetricsRefresh] MF returns + stock metrics scheduler started (daily after market close)');
+  }, delay);
+  delay += STAGGER_DELAY_MS;
+  
+  staggeredStart('Historical NAV Refresh', () => {
+    historicalNavRefreshJob.initialize();
+    console.log('📊 [HistoricalNAV] Historical NAV data refresh job started (daily incremental updates)');
+  }, delay);
+  delay += STAGGER_DELAY_MS;
+  
+  staggeredStart('Benchmark Sync', () => {
+    import('./services/benchmark-sync-service').then(({ benchmarkSyncService }) => {
+      cron.schedule('0 1 * * 0', async () => {
+        console.log('[CRON] Starting weekly benchmark index sync...');
+        try {
+          const result = await benchmarkSyncService.syncAllBenchmarks();
+          console.log(`[CRON] Benchmark sync completed: ${result.synced} synced, ${result.failed.length} failed`);
+        } catch (error: any) {
+          console.error('[CRON] Benchmark sync failed:', error.message);
+        }
+      });
+      console.log('📊 [BenchmarkSync] Weekly benchmark index sync scheduled (Sunday 1 AM UTC)');
+    }).catch(err => console.error('❌ Failed to load benchmark sync service:', err));
+  }, delay);
+  delay += STAGGER_DELAY_MS;
+  
+  staggeredStart('AMFI Benchmark Ingestion', () => {
+    import('./services/amfi-benchmark-ingestion-service').then(({ amfiBenchmarkIngestionService }) => {
+      cron.schedule('0 2 * * 1', async () => {
+        console.log('[CRON] Starting weekly AMFI benchmark ingestion...');
+        try {
+          const result = await amfiBenchmarkIngestionService.syncAmfiSchemeBenchmarks();
+          console.log(`[CRON] AMFI benchmark ingestion: ${result.parsed} parsed, ${result.normalized} normalized, ${result.failed} failed`);
+        } catch (error: any) {
+          console.error('[CRON] AMFI benchmark ingestion failed:', error.message);
+        }
+      });
+      console.log('📊 [AMFIBenchmark] Weekly AMFI benchmark ingestion scheduled (Monday 2 AM UTC)');
+    }).catch(err => console.error('❌ Failed to load AMFI benchmark service:', err));
+  }, delay);
+  delay += STAGGER_DELAY_MS;
+  
+  staggeredStart('BSE Benchmark Seed', () => {
+    import('./services/bse-benchmark-service').then(({ bseBenchmarkService }) => {
+      bseBenchmarkService.seedBseIndices().then(result => {
+        console.log(`📊 [BSEBenchmark] BSE indices seeded: ${result.seeded} new, ${result.existing} existing`);
+      }).catch(err => console.error('❌ BSE index seeding failed:', err));
+    }).catch(err => console.error('❌ Failed to load BSE benchmark service:', err));
+  }, delay);
+  delay += STAGGER_DELAY_MS;
+  
+  staggeredStart('Stock Financial Enrichment', () => {
+    cron.schedule('30 12 * * 1-5', async () => {
+      console.log('[CRON] Starting daily stock financial enrichment (6 PM IST)...');
+      try {
+        const { stockFinancialEnrichmentService } = await import('./services/stock-financial-enrichment-service');
+        await stockFinancialEnrichmentService.enrichAllStocks({ batchSize: 100, useYahoo: true, maxYahooRequests: 100 });
+        console.log('[CRON] Stock financial enrichment completed');
+      } catch (error: any) {
+        console.error('[CRON] Stock financial enrichment failed:', error.message);
+      }
+    });
+    console.log('📊 [StockEnrichment] Daily stock PE/EPS enrichment scheduled (6 PM IST weekdays)');
+  }, delay);
+  delay += STAGGER_DELAY_MS;
+  
+  staggeredStart('MF Extended Enrichment', () => {
+    cron.schedule('0 18 * * *', async () => {
+      console.log('[CRON] Starting daily MF extended enrichment (TER/AUM)...');
+      try {
+        const { mfExtendedEnrichmentService } = await import('./services/mf-extended-enrichment-service');
+        await mfExtendedEnrichmentService.enrichAllFunds({ batchSize: 200, onlyNulls: true });
+        console.log('[CRON] MF extended enrichment completed');
+      } catch (error: any) {
+        console.error('[CRON] MF extended enrichment failed:', error.message);
+      }
+    });
+    console.log('📊 [MFExtended] Daily MF TER/AUM enrichment scheduled (11:30 PM IST)');
   }, delay);
   delay += STAGGER_DELAY_MS;
   

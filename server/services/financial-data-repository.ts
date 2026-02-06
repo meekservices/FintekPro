@@ -1,5 +1,6 @@
 import { pool } from '../db';
 import yahooFinance from 'yahoo-finance2';
+import axios from 'axios';
 import { executeWithRetry } from '../utils/retry';
 
 // Retry configuration for Yahoo Finance API
@@ -106,11 +107,75 @@ class FinancialDataRepository {
     return 50;
   }
 
+  private async fetchFromMassive(symbol: string): Promise<FetchResult> {
+    const apiKey = process.env.POLYGON_API_KEY;
+    if (!apiKey) return { success: false, error: 'Massive API key not configured' };
+    
+    try {
+      const [snapshotResp, detailsResp] = await Promise.all([
+        axios.get(`https://api.massive.com/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}`, {
+          params: { apiKey },
+          timeout: 8000,
+        }).catch(() => null),
+        axios.get(`https://api.massive.com/v3/reference/tickers/${symbol}`, {
+          params: { apiKey },
+          timeout: 8000,
+        }).catch(() => null),
+      ]);
+      
+      const snapshot = snapshotResp?.data?.ticker;
+      const details = detailsResp?.data?.results;
+      
+      if (!snapshot && !details) {
+        return { success: false, error: 'No data from Massive API' };
+      }
+      
+      const day = snapshot?.day || {};
+      const prevDay = snapshot?.prevDay || {};
+      
+      const currentPrice = day.c || snapshot?.lastTrade?.p;
+      const prevClose = prevDay.c;
+      
+      const data: InstrumentData = {
+        instrumentType: 'global_stock',
+        symbol,
+        name: details?.name || symbol,
+        exchange: details?.primary_exchange || 'US',
+        currency: details?.currency_name?.toUpperCase() || 'USD',
+        country: 'US',
+        currentPrice: currentPrice,
+        previousClose: prevClose,
+        dayChange: currentPrice && prevClose ? currentPrice - prevClose : undefined,
+        dayChangePercent: currentPrice && prevClose ? ((currentPrice - prevClose) / prevClose) * 100 : undefined,
+        dayHigh: day.h,
+        dayLow: day.l,
+        openPrice: day.o,
+        volume: day.v,
+        marketCap: details?.market_cap,
+        sector: details?.sic_description,
+        dataSource: 'massive',
+        confidenceScore: 95,
+      };
+      
+      return { success: true, data };
+    } catch (error: any) {
+      return { success: false, error: `Massive API error: ${error.message}` };
+    }
+  }
+
   async fetchGlobalStock(symbol: string): Promise<FetchResult> {
+    const isUSSymbol = !symbol.includes('.NS') && !symbol.includes('.BO');
+    
+    if (isUSSymbol && process.env.POLYGON_API_KEY) {
+      const massiveResult = await this.fetchFromMassive(symbol);
+      if (massiveResult.success) {
+        return massiveResult;
+      }
+    }
+    
     try {
       yahooFinance.suppressNotices(['yahooSurvey']);
       
-      // Use retry logic for transient network errors
       const { result: quote } = await executeWithRetry(
         () => yahooFinance.quote(symbol),
         YAHOO_RETRY_OPTIONS
@@ -120,7 +185,6 @@ class FinancialDataRepository {
         return { success: false, error: 'No data returned' };
       }
       
-      // Check for rate limit response (Yahoo returns empty or minimal data when rate limited)
       if (!quote.regularMarketPrice && !quote.shortName) {
         console.warn(`⚠️ [FinancialDataRepository] Possible rate limit for ${symbol}, skipping`);
         return { success: false, error: 'Rate limited or no market data' };
@@ -152,7 +216,6 @@ class FinancialDataRepository {
       return { success: true, data };
     } catch (error) {
       const errorStr = String(error);
-      // Detect rate limit errors from Yahoo Finance
       if (errorStr.includes('Too Many') || errorStr.includes('429')) {
         console.warn(`⚠️ [FinancialDataRepository] Rate limit for ${symbol}`);
         return { success: false, error: 'Rate limited - Too Many Requests' };
