@@ -46,6 +46,9 @@ import { subdomainDetection } from "./subdomain-middleware";
 import { initializeCronJobs } from "./cron-jobs";
 import { requestContextMiddleware } from "./middleware/request-context";
 import { errorMonitoringMiddleware, globalErrorHandler } from "./error-monitor";
+import { sensitiveDataMaskingMiddleware } from "./middleware/sensitive-data-masking";
+import { setupGracefulShutdown } from "./graceful-shutdown";
+import { auditTrailMiddleware } from "./middleware/audit-trail";
 import { randomBytes } from "crypto";
 import fs from "fs";
 import path from "path";
@@ -420,11 +423,17 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+// PAN/Aadhaar masking middleware - SEBI/RBI data protection compliance
+app.use(sensitiveDataMaskingMiddleware);
+
 // Subdomain detection middleware - must come early to be available in all routes
 app.use(subdomainDetection);
 
 // Compliance monitoring middleware
 app.use(complianceMiddleware);
+
+// Regulatory audit trail middleware - SEBI/RBI compliance logging
+app.use(auditTrailMiddleware);
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -588,6 +597,9 @@ app.use((req, res, next) => {
   app.use('/api', bootInProgressMiddleware);
   
   // Start listening IMMEDIATELY - don't wait for routes
+  // Setup graceful shutdown handling (SIGTERM/SIGINT)
+  setupGracefulShutdown(server);
+  
   server.listen({
     port,
     host: "0.0.0.0",

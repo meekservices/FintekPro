@@ -79,6 +79,7 @@ import { PartnerLayout } from "@/components/layout/partner-layout";
 import { LayoutResolver } from "@/components/layout/LayoutResolver";
 import { useSubdomain } from "@/hooks/useSubdomain";
 import { useAuth } from "@/hooks/useAuth";
+import { IdleTimeoutManager } from "@/components/IdleTimeoutManager";
 import AdminDashboard from "@/pages/admin/dashboard";
 import SystemHealthMonitor from "@/pages/admin/system-health";
 import RevenueAnalytics from "@/pages/admin/revenue-analytics";
@@ -2035,27 +2036,33 @@ function AgentRoutes() {
   );
 }
 
+function IdleTimeoutWrapper() {
+  const { user } = useAuth();
+  return <IdleTimeoutManager isAuthenticated={!!user} timeoutMinutes={15} />;
+}
+
 function Router() {
   const { isAdminPortal, isPartnerPortal, isAgentPortal } = useSubdomain();
 
   // Render admin portal on admin subdomain
   if (isAdminPortal) {
-    return <AdminRoutes />;
+    return (<><IdleTimeoutWrapper /><AdminRoutes /></>);
   }
 
   // Render partner portal on partner subdomain
   if (isPartnerPortal) {
-    return <PartnerRoutes />;
+    return (<><IdleTimeoutWrapper /><PartnerRoutes /></>);
   }
 
   // Render agent portal on agent subdomain
   if (isAgentPortal) {
-    return <AgentRoutes />;
+    return (<><IdleTimeoutWrapper /><AgentRoutes /></>);
   }
 
   // Render client portal on main domain
   return (
     <LayoutResolver>
+      <IdleTimeoutWrapper />
       <Switch>
         {/* Public routes - no authentication or profile completion required */}
         <Route path="/auth" component={AuthPage} />
