@@ -19,7 +19,7 @@ export type AuditCategory =
  * Parameters for audit logging
  */
 export interface AuditLogParams {
-  userId?: number;
+  userId?: string | number;
   action: string;
   category: AuditCategory;
   details?: Record<string, any>;
