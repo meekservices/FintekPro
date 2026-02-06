@@ -67,7 +67,7 @@ class UsTradingService {
     const defaultFlags = [
       { flagName: 'US_TRADING_ENABLED', isEnabled: false, description: 'Master switch for US trading module' },
       { flagName: 'US_TRADING_ALPACA', isEnabled: false, description: 'Enable Alpaca broker integration' },
-      { flagName: 'US_MARKET_DATA_POLYGON', isEnabled: false, description: 'Enable Polygon.io market data' },
+      { flagName: 'US_MARKET_DATA_POLYGON', isEnabled: false, description: 'Enable Massive (formerly Polygon.io) market data' },
       { flagName: 'US_FRACTIONAL_TRADING', isEnabled: false, description: 'Enable fractional share trading' },
     ];
 

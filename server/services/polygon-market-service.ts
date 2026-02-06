@@ -3,7 +3,7 @@ import { S3Client, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/clien
 import { createGunzip } from "zlib";
 import { Readable } from "stream";
 
-const POLYGON_BASE_URL = "https://api.polygon.io";
+const POLYGON_BASE_URL = "https://api.massive.com";
 const CACHE_TTL_MS = 60000;
 
 interface StockQuote {

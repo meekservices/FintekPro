@@ -3,6 +3,7 @@ import { z } from "zod";
 import { usTradingService } from "../services/us-trading-service";
 import { polygonMarketService } from "../services/polygon-market-service";
 import { alpacaBrokerService } from "../services/alpaca-broker-service";
+import { massiveWebSocketService } from "../services/massive-websocket-service";
 import { usOrderNotificationService } from "../services/us-order-notification-service";
 import { usRebalancingEngine } from "../services/us-rebalancing-engine";
 import { orderAuditHook } from "../services/order-audit-hook";
@@ -579,11 +580,18 @@ router.get("/broker/test-connection", async (req, res) => {
   try {
     const alpacaResult = await alpacaBrokerService.testConnection();
     const polygonResult = polygonMarketService.testConnection();
+    const wsStatus = massiveWebSocketService.getStatus();
 
     res.json({
       success: true,
       alpaca: alpacaResult,
       polygon: polygonResult,
+      massiveWebSocket: {
+        configured: wsStatus.configured,
+        connected: wsStatus.connected,
+        authenticated: wsStatus.authenticated,
+        feedType: wsStatus.feedType,
+      },
     });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -953,6 +961,172 @@ router.get("/rebalancing/suggestion", async (req, res) => {
 
     const suggestion = await usRebalancingEngine.getSuggestion(userId);
     res.json({ success: true, suggestion });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/ws/status", async (req, res) => {
+  try {
+    const status = massiveWebSocketService.getStatus();
+    res.json({ success: true, ...status });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/ws/connect", async (req, res) => {
+  try {
+    const { feed } = req.body || {};
+    if (!massiveWebSocketService.isConfigured()) {
+      return res.status(400).json({
+        success: false,
+        error: "Massive WebSocket API key not configured. Set POLYGON_API_KEY.",
+      });
+    }
+    massiveWebSocketService.connect(feed || "delayed");
+    res.json({
+      success: true,
+      message: `Connecting to ${feed || "delayed"} feed...`,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/ws/disconnect", async (req, res) => {
+  try {
+    massiveWebSocketService.disconnect();
+    res.json({ success: true, message: "Disconnected from Massive WebSocket" });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+const validWsChannels = ["trades", "quotes", "minuteAggs", "secondAggs", "all"] as const;
+
+const wsSubscribeSchema = z.object({
+  symbols: z.array(z.string().min(1).max(10)).min(1).max(50),
+  channels: z.array(z.enum(validWsChannels)).optional(),
+});
+
+router.post("/ws/subscribe", async (req, res) => {
+  try {
+    const parsed = wsSubscribeSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
+    }
+
+    const { symbols, channels } = parsed.data;
+
+    if (!massiveWebSocketService.isConnected()) {
+      return res.status(400).json({
+        success: false,
+        error: "WebSocket not connected. Call POST /ws/connect first.",
+      });
+    }
+
+    const channelList = channels || ["trades", "quotes", "minuteAggs"];
+
+    if (channelList.includes("trades")) massiveWebSocketService.subscribeTrades(symbols);
+    if (channelList.includes("quotes")) massiveWebSocketService.subscribeQuotes(symbols);
+    if (channelList.includes("minuteAggs")) massiveWebSocketService.subscribeMinuteAggs(symbols);
+    if (channelList.includes("secondAggs")) massiveWebSocketService.subscribeSecondAggs(symbols);
+    if (channelList.includes("all")) massiveWebSocketService.subscribeAll(symbols);
+
+    res.json({
+      success: true,
+      message: `Subscribed to ${channelList.join(", ")} for ${symbols.join(", ")}`,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/ws/unsubscribe", async (req, res) => {
+  try {
+    const parsed = wsSubscribeSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
+    }
+
+    const { symbols, channels } = parsed.data;
+    const channelList = channels || ["trades", "quotes", "minuteAggs"];
+
+    if (channelList.includes("trades")) massiveWebSocketService.unsubscribeTrades(symbols);
+    if (channelList.includes("quotes")) massiveWebSocketService.unsubscribeQuotes(symbols);
+    if (channelList.includes("minuteAggs")) massiveWebSocketService.unsubscribeMinuteAggs(symbols);
+    if (channelList.includes("all")) massiveWebSocketService.unsubscribeAll(symbols);
+
+    res.json({
+      success: true,
+      message: `Unsubscribed from ${channelList.join(", ")} for ${symbols.join(", ")}`,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/ws/latest/:symbol", async (req, res) => {
+  try {
+    const symbol = req.params.symbol.toUpperCase();
+    const quote = massiveWebSocketService.getLatestQuote(symbol);
+    const trade = massiveWebSocketService.getLatestTrade(symbol);
+    const agg = massiveWebSocketService.getLatestAgg(symbol);
+
+    res.json({
+      success: true,
+      symbol,
+      quote: quote || null,
+      trade: trade || null,
+      aggregate: agg || null,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/ws/latest", async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      quotes: massiveWebSocketService.getAllLatestQuotes(),
+      trades: massiveWebSocketService.getAllLatestTrades(),
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/flatfiles/datasets", async (req, res) => {
+  try {
+    const datasets = await polygonMarketService.getAvailableDatasets();
+    res.json({ success: true, datasets });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/flatfiles/list", async (req, res) => {
+  try {
+    const prefix = (req.query.prefix as string) || "us_stocks_sip";
+    const maxKeys = parseInt(req.query.maxKeys as string) || 50;
+    const files = await polygonMarketService.listFlatFiles(prefix, maxKeys);
+    res.json({ success: true, files });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/flatfiles/day-aggs/:date", async (req, res) => {
+  try {
+    const data = await polygonMarketService.getHistoricalDayAggs(req.params.date);
+    res.json({
+      success: true,
+      date: req.params.date,
+      count: data.length,
+      data: data.slice(0, parseInt(req.query.limit as string) || 100),
+    });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
