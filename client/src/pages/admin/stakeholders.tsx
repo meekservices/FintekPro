@@ -394,18 +394,17 @@ export default function StakeholdersPage() {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async ({ id, type }: { id: string; type: StakeholderType }) => {
-      const endpoint = type === "clients" ? `/api/admin/users/${id}` :
+      const endpoint = type === "clients" ? `/api/admin/users/${id}?permanent=true` :
                       type === "partners" ? `/api/admin/partners/${id}` :
                       type === "agents" ? `/api/admin/agents/${id}` :
                       `/api/admin/suppliers/${id}`;
       return apiRequest(endpoint, "DELETE");
     },
     onSuccess: (_, variables) => {
-      const queryKey = variables.type === "clients" ? ["/api/stakeholders/clients"] :
-                      variables.type === "partners" ? ["/api/admin/partners"] :
-                      variables.type === "agents" ? ["/api/admin/agents"] :
-                      ["/api/admin/suppliers"];
-      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/partners"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/agents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/suppliers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/stakeholders/stats"] });
       setDeletingItem(null);
       toast({ title: "Deleted successfully" });
