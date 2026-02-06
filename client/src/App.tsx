@@ -1421,7 +1421,13 @@ function AdminRoutes() {
           </AdminLayout>
         )}
       </Route>
-      <Route path="/admin/activity-centre" component={ActivityCentre} />
+      <Route path="/admin/activity-centre">
+        {() => (
+          <AdminLayout>
+            <ActivityCentre />
+          </AdminLayout>
+        )}
+      </Route>
       <Route path="/admin/exchange-filings">
         {() => (
           <AdminLayout>
