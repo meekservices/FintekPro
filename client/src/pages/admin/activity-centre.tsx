@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { AdminLayout } from "@/components/layout/admin-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -909,7 +908,6 @@ export default function ActivityCentre() {
     : [];
 
   return (
-    <AdminLayout>
       <div className="space-y-6 p-6">
         <div className="flex items-center justify-between">
           <div>
@@ -1645,6 +1643,5 @@ export default function ActivityCentre() {
           </DialogContent>
         </Dialog>
       </div>
-    </AdminLayout>
   );
 }
