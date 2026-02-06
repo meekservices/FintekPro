@@ -480,24 +480,75 @@ export class ZohoCampaignsService {
   }
 }
 
-// Singleton instance
 let zohoCampaignsService: ZohoCampaignsService | null = null;
+let zohoCampaignsInitPromise: Promise<ZohoCampaignsService | null> | null = null;
+
+export async function initZohoCampaignsService(): Promise<ZohoCampaignsService | null> {
+  if (zohoCampaignsService) return zohoCampaignsService;
+
+  const clientId = process.env.ZOHO_CLIENT_ID;
+  const clientSecret = process.env.ZOHO_CLIENT_SECRET;
+  const refreshToken = process.env.ZOHO_REFRESH_TOKEN;
+  const datacenter = process.env.ZOHO_DATACENTER || 'in';
+
+  if (!clientId || !clientSecret || !refreshToken) {
+    console.warn('⚠️ Zoho OAuth credentials not configured. Email campaigns will not be available.');
+    return null;
+  }
+
+  try {
+    const response = await axios.post(
+      `https://accounts.zoho.${datacenter}/oauth/v2/token`,
+      null,
+      {
+        params: {
+          refresh_token: refreshToken,
+          client_id: clientId,
+          client_secret: clientSecret,
+          grant_type: 'refresh_token'
+        }
+      }
+    );
+
+    if (!response.data?.access_token) {
+      console.error('❌ Zoho Campaigns: Failed to obtain access token from refresh token');
+      return null;
+    }
+
+    zohoCampaignsService = new ZohoCampaignsService({
+      accessToken: response.data.access_token,
+      refreshToken,
+      clientId,
+      clientSecret,
+      datacenter
+    });
+
+    console.log('✅ Zoho Campaigns service initialized (using shared refresh token)');
+    return zohoCampaignsService;
+  } catch (error: any) {
+    console.error('❌ Zoho Campaigns initialization failed:', error.response?.data || error.message);
+    return null;
+  }
+}
 
 export function getZohoCampaignsService(): ZohoCampaignsService {
   if (!zohoCampaignsService) {
     const accessToken = process.env.ZOHO_CAMPAIGNS_ACCESS_TOKEN;
-    
-    if (!accessToken) {
-      console.warn('⚠️ ZOHO_CAMPAIGNS_ACCESS_TOKEN not configured. Email campaigns will not be available.');
-      throw new Error('Zoho Campaigns access token not configured');
+    const refreshToken = process.env.ZOHO_REFRESH_TOKEN;
+    const clientId = process.env.ZOHO_CLIENT_ID;
+    const clientSecret = process.env.ZOHO_CLIENT_SECRET;
+
+    if (!accessToken && !refreshToken) {
+      console.warn('⚠️ Zoho Campaigns: No access token or refresh token configured. Email campaigns will not be available.');
+      throw new Error('Zoho Campaigns credentials not configured');
     }
 
     zohoCampaignsService = new ZohoCampaignsService({
-      accessToken,
-      refreshToken: process.env.ZOHO_CAMPAIGNS_REFRESH_TOKEN,
-      clientId: process.env.ZOHO_CLIENT_ID,
-      clientSecret: process.env.ZOHO_CLIENT_SECRET,
-      datacenter: process.env.ZOHO_DATACENTER || 'in' // Default to India
+      accessToken: accessToken || 'pending-refresh',
+      refreshToken: refreshToken,
+      clientId,
+      clientSecret,
+      datacenter: process.env.ZOHO_DATACENTER || 'in'
     });
 
     console.log('✅ Zoho Campaigns service initialized');
