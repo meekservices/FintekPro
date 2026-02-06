@@ -102,25 +102,44 @@ export default function FinancialOperations() {
   const dashboard = dashboardResponse?.data;
 
   // Fetch orders
+  const ordersParams = new URLSearchParams();
+  if (statusFilter !== "all") ordersParams.set("status", statusFilter);
+  if (productTypeFilter !== "all") ordersParams.set("productType", productTypeFilter);
+  if (paymentStatusFilter !== "all") ordersParams.set("paymentStatus", paymentStatusFilter);
+  if (searchQuery) ordersParams.set("search", searchQuery);
+  const ordersQueryStr = ordersParams.toString();
   const { data: ordersResponse } = useQuery<{ success: boolean; data: Order[]; pagination: { total: number } }>({
-    queryKey: ["/api/admin/financial/orders", {
-      status: statusFilter === "all" ? undefined : statusFilter,
-      productType: productTypeFilter === "all" ? undefined : productTypeFilter,
-      paymentStatus: paymentStatusFilter === "all" ? undefined : paymentStatusFilter,
-      search: searchQuery || undefined
-    }],
+    queryKey: ["/api/admin/financial/orders", statusFilter, productTypeFilter, paymentStatusFilter, searchQuery],
+    queryFn: async () => {
+      const url = `/api/admin/financial/orders${ordersQueryStr ? `?${ordersQueryStr}` : ""}`;
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error(`Failed to fetch orders: ${res.status}`);
+      return res.json();
+    },
     enabled: activeTab === "orders",
   });
 
   // Fetch Cashfree transactions
+  const cashfreeQueryStr = statusFilter !== "all" ? `?status=${statusFilter}` : "";
   const { data: cashfreeResponse } = useQuery<{ success: boolean; data: Transaction[] }>({
-    queryKey: ["/api/admin/financial/cashfree-transactions", { status: statusFilter === "all" ? undefined : statusFilter }],
+    queryKey: ["/api/admin/financial/cashfree-transactions", statusFilter],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/financial/cashfree-transactions${cashfreeQueryStr}`, { credentials: "include" });
+      if (!res.ok) throw new Error(`Failed to fetch cashfree transactions: ${res.status}`);
+      return res.json();
+    },
     enabled: activeTab === "transactions",
   });
 
   // Fetch PhonePe transactions
+  const phonePeQueryStr = statusFilter !== "all" ? `?state=${statusFilter}` : "";
   const { data: phonePeResponse } = useQuery<{ success: boolean; data: Transaction[] }>({
-    queryKey: ["/api/admin/financial/phonepe-transactions", { state: statusFilter === "all" ? undefined : statusFilter }],
+    queryKey: ["/api/admin/financial/phonepe-transactions", statusFilter],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/financial/phonepe-transactions${phonePeQueryStr}`, { credentials: "include" });
+      if (!res.ok) throw new Error(`Failed to fetch PhonePe transactions: ${res.status}`);
+      return res.json();
+    },
     enabled: activeTab === "transactions",
   });
 
@@ -137,8 +156,14 @@ export default function FinancialOperations() {
   });
 
   // Fetch refunds
+  const refundsQueryStr = statusFilter !== "all" ? `?status=${statusFilter}` : "";
   const { data: refundsResponse } = useQuery<{ success: boolean; data: Refund[] }>({
-    queryKey: ["/api/admin/financial/refunds", { status: statusFilter === "all" ? undefined : statusFilter }],
+    queryKey: ["/api/admin/financial/refunds", statusFilter],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/financial/refunds${refundsQueryStr}`, { credentials: "include" });
+      if (!res.ok) throw new Error(`Failed to fetch refunds: ${res.status}`);
+      return res.json();
+    },
     enabled: activeTab === "refunds",
   });
 
