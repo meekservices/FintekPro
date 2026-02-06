@@ -481,8 +481,6 @@ export class ZohoCampaignsService {
 }
 
 let zohoCampaignsService: ZohoCampaignsService | null = null;
-let zohoCampaignsInitPromise: Promise<ZohoCampaignsService | null> | null = null;
-
 export async function initZohoCampaignsService(): Promise<ZohoCampaignsService | null> {
   if (zohoCampaignsService) return zohoCampaignsService;
 
@@ -543,15 +541,18 @@ export function getZohoCampaignsService(): ZohoCampaignsService {
       throw new Error('Zoho Campaigns credentials not configured');
     }
 
-    zohoCampaignsService = new ZohoCampaignsService({
-      accessToken: accessToken || 'pending-refresh',
-      refreshToken: refreshToken,
-      clientId,
-      clientSecret,
-      datacenter: process.env.ZOHO_DATACENTER || 'in'
-    });
-
-    console.log('✅ Zoho Campaigns service initialized');
+    if (accessToken) {
+      zohoCampaignsService = new ZohoCampaignsService({
+        accessToken,
+        refreshToken: refreshToken,
+        clientId,
+        clientSecret,
+        datacenter: process.env.ZOHO_DATACENTER || 'in'
+      });
+      console.log('✅ Zoho Campaigns service initialized (direct access token)');
+    } else {
+      throw new Error('Zoho Campaigns not yet initialized. Call initZohoCampaignsService() first or set ZOHO_CAMPAIGNS_ACCESS_TOKEN.');
+    }
   }
 
   return zohoCampaignsService;

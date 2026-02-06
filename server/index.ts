@@ -633,6 +633,9 @@ app.use((req, res, next) => {
   const { registerKYCVaultRoutes } = await import('./kyc-vault-routes');
   registerKYCVaultRoutes(app);
   
+  // Initialize Zoho Campaigns using shared refresh token (non-blocking)
+  import('./zoho-campaigns-service').then(m => m.initZohoCampaignsService()).catch(() => {});
+  
   // Register Marketing Automation routes (Zoho Campaigns, Twilio, Probe42)
   const { registerMarketingRoutes } = await import('./marketing-routes');
   registerMarketingRoutes(app);
