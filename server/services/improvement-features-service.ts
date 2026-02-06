@@ -277,19 +277,8 @@ class ImprovementFeaturesService {
       return await query;
     } catch (error) {
       console.error("Error getting trending investments:", error);
-      return this.getMockTrendingInvestments();
+      throw new Error('Trending investments data service not configured.');
     }
-  }
-
-  private getMockTrendingInvestments() {
-    return [
-      { id: '1', assetType: 'stock', symbol: 'RELIANCE', name: 'Reliance Industries', trendScore: 95, viewCount: 15420, category: 'most_traded' },
-      { id: '2', assetType: 'stock', symbol: 'TCS', name: 'Tata Consultancy Services', trendScore: 92, viewCount: 12340, category: 'top_gainers' },
-      { id: '3', assetType: 'mutual_fund', symbol: 'PPFAS', name: 'Parag Parikh Flexi Cap', trendScore: 88, investorCount: 8920, category: 'newly_popular' },
-      { id: '4', assetType: 'stock', symbol: 'INFY', name: 'Infosys Ltd', trendScore: 85, viewCount: 9870, category: 'most_traded' },
-      { id: '5', assetType: 'stock', symbol: 'HDFCBANK', name: 'HDFC Bank', trendScore: 82, viewCount: 8540, category: 'top_gainers' },
-      { id: '6', assetType: 'mutual_fund', symbol: 'AXIS-SG', name: 'Axis Small Cap Fund', trendScore: 80, investorCount: 6780, category: 'newly_popular' }
-    ];
   }
 
   async getThemePreferences(userId: string): Promise<{

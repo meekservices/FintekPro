@@ -195,8 +195,7 @@ export class KRAStatusService {
     const hasCredentials = this.apiKey && this.apiSecret;
     
     if (isDevelopment && !hasCredentials) {
-      console.warn('⚠️ KRA API credentials not configured - using mock responses in development mode');
-      return this.getMockKRAStatus(request);
+      throw new Error('KRA verification service not configured. Set KRA_API_KEY and KRA_API_SECRET for KYC status verification.');
     }
 
     try {
@@ -237,67 +236,11 @@ export class KRAStatusService {
           };
         }
         
-        // Only use mock in development mode WITHOUT credentials
-        console.warn('⚠️ Using mock KRA response (development mode with no credentials)');
-        return this.getMockKRAStatus(request);
+        throw new Error('KRA verification service not configured. Set KRA_API_KEY and KRA_API_SECRET for KYC status verification.');
       }
     }
   }
 
-  /**
-   * Get mock KRA status for development/testing
-   */
-  private getMockKRAStatus(request: KRAStatusRequest): KRAStatusResponse {
-    console.log('⚠️ Using mock KRA status (development mode)');
-    
-    // Simulate different scenarios based on PAN pattern
-    const lastChar = request.panNumber.slice(-1);
-    
-    // PANs ending in A-G = VERIFIED (70%)
-    if (lastChar >= 'A' && lastChar <= 'G') {
-      return {
-        success: true,
-        status: 'VERIFIED',
-        ckycNumber: `KIN${Date.now()}`,
-        verificationDate: '2024-01-15',
-        expiryDate: '2034-01-15',
-        kycDetails: {
-          name: request.fullName || 'Test User',
-          dob: request.dateOfBirth,
-          address: 'Mock address from KRA',
-          mobile: '+919876543210',
-          email: 'test@example.com',
-        },
-        message: 'KYC verified and active (mock)',
-      };
-    }
-    
-    // PANs ending in H-J = ONHOLD (10%)
-    if (lastChar >= 'H' && lastChar <= 'J') {
-      return {
-        success: true,
-        status: 'ONHOLD',
-        ckycNumber: `KIN${Date.now()}`,
-        message: 'KYC is on hold - additional documents required (mock)',
-      };
-    }
-    
-    // PANs ending in K = REJECTED (5%)
-    if (lastChar === 'K') {
-      return {
-        success: true,
-        status: 'REJECTED',
-        message: 'Previous KYC application was rejected (mock)',
-      };
-    }
-    
-    // Default = NOT FOUND (15%)
-    return {
-      success: true,
-      status: 'KYC_NOT_FOUND',
-      message: 'No KYC record found in registry (mock)',
-    };
-  }
 
   /**
    * Download KYC details from KRA (for reuse)

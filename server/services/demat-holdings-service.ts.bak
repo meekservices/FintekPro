@@ -428,6 +428,179 @@ export class DematHoldingsService {
     return isin.substring(3, 9).toUpperCase();
   }
 
+  /* getMockDematData removed - use real API */
+  private __PLACEHOLDER_DEMAT__(): void {
+    const mockAccounts: DematAccount[] = [
+      {
+        dematAccountNumber: '1204470000123456',
+        dpId: '12044700',
+        dpName: 'HDFC Bank Ltd',
+        depository: 'NSDL',
+        status: 'active'
+      },
+      {
+        dematAccountNumber: 'IN30023910654321',
+        dpId: 'IN300239',
+        dpName: 'ICICI Securities Ltd',
+        depository: 'CDSL',
+        status: 'active'
+      }
+    ];
+
+    const mockHoldings: DematHolding[] = [
+      // NSDL Account Holdings
+      {
+        isin: 'INE002A01018',
+        symbol: 'RELIANCE',
+        companyName: 'Reliance Industries Ltd',
+        quantity: 50,
+        averagePrice: 2350.00,
+        currentPrice: 2615.50,
+        currentValue: 130775.00,
+        investedAmount: 117500.00,
+        returns: 13275.00,
+        returnsPercentage: 11.30,
+        assetType: 'equity',
+        exchange: 'NSE',
+        sector: 'Energy',
+        industry: 'Oil & Gas',
+        marketCap: 17680000000000,
+        freeQuantity: 50,
+        pledgedQuantity: 0,
+        lockedQuantity: 0,
+        depository: 'NSDL',
+        dematAccountNumber: mockAccounts[0].dematAccountNumber
+      },
+      {
+        isin: 'INE009A01021',
+        symbol: 'INFY',
+        companyName: 'Infosys Ltd',
+        quantity: 100,
+        averagePrice: 1450.00,
+        currentPrice: 1589.25,
+        currentValue: 158925.00,
+        investedAmount: 145000.00,
+        returns: 13925.00,
+        returnsPercentage: 9.60,
+        assetType: 'equity',
+        exchange: 'NSE',
+        sector: 'Technology',
+        industry: 'IT Services',
+        marketCap: 6590000000000,
+        freeQuantity: 100,
+        pledgedQuantity: 0,
+        lockedQuantity: 0,
+        depository: 'NSDL',
+        dematAccountNumber: mockAccounts[0].dematAccountNumber
+      },
+      {
+        isin: 'INF209KB1X25',
+        symbol: 'NIFTYBEES',
+        companyName: 'Nippon India ETF Nifty BeES',
+        quantity: 500,
+        averagePrice: 220.50,
+        currentPrice: 245.30,
+        currentValue: 122650.00,
+        investedAmount: 110250.00,
+        returns: 12400.00,
+        returnsPercentage: 11.25,
+        assetType: 'etf',
+        exchange: 'NSE',
+        sector: 'Index Fund',
+        industry: 'ETF',
+        freeQuantity: 500,
+        pledgedQuantity: 0,
+        lockedQuantity: 0,
+        depository: 'NSDL',
+        dematAccountNumber: mockAccounts[0].dematAccountNumber
+      },
+      // CDSL Account Holdings
+      {
+        isin: 'INE040A01034',
+        symbol: 'HDFCBANK',
+        companyName: 'HDFC Bank Ltd',
+        quantity: 75,
+        averagePrice: 1520.00,
+        currentPrice: 1645.30,
+        currentValue: 123397.50,
+        investedAmount: 114000.00,
+        returns: 9397.50,
+        returnsPercentage: 8.24,
+        assetType: 'equity',
+        exchange: 'NSE',
+        sector: 'Financial Services',
+        industry: 'Banks',
+        marketCap: 12450000000000,
+        freeQuantity: 75,
+        pledgedQuantity: 0,
+        lockedQuantity: 0,
+        depository: 'CDSL',
+        dematAccountNumber: mockAccounts[1].dematAccountNumber
+      },
+      {
+        isin: 'INE467B01029',
+        symbol: 'TATASTEEL',
+        companyName: 'Tata Steel Ltd',
+        quantity: 200,
+        averagePrice: 115.50,
+        currentPrice: 128.75,
+        currentValue: 25750.00,
+        investedAmount: 23100.00,
+        returns: 2650.00,
+        returnsPercentage: 11.47,
+        assetType: 'equity',
+        exchange: 'NSE',
+        sector: 'Materials',
+        industry: 'Steel',
+        marketCap: 1580000000000,
+        freeQuantity: 200,
+        pledgedQuantity: 0,
+        lockedQuantity: 0,
+        depository: 'CDSL',
+        dematAccountNumber: mockAccounts[1].dematAccountNumber
+      },
+      {
+        isin: 'INE155A01022',
+        symbol: 'TATAMOTORS',
+        companyName: 'Tata Motors Ltd',
+        quantity: 150,
+        averagePrice: 450.00,
+        currentPrice: 525.80,
+        currentValue: 78870.00,
+        investedAmount: 67500.00,
+        returns: 11370.00,
+        returnsPercentage: 16.84,
+        assetType: 'equity',
+        exchange: 'NSE',
+        sector: 'Consumer Discretionary',
+        industry: 'Automobiles',
+        marketCap: 1920000000000,
+        freeQuantity: 150,
+        pledgedQuantity: 0,
+        lockedQuantity: 0,
+        depository: 'CDSL',
+        dematAccountNumber: mockAccounts[1].dematAccountNumber
+      }
+    ];
+
+    const totalValue = mockHoldings.reduce((sum, h) => sum + h.currentValue, 0);
+    const totalInvestedAmount = mockHoldings.reduce((sum, h) => sum + h.investedAmount, 0);
+    const totalReturns = totalValue - totalInvestedAmount;
+    const totalReturnsPercentage = (totalReturns / totalInvestedAmount) * 100;
+
+    return {
+      success: true,
+      accounts: mockAccounts,
+      totalHoldings: mockHoldings.length,
+      totalValue,
+      totalInvestedAmount,
+      totalReturns,
+      totalReturnsPercentage,
+      holdings: mockHoldings,
+      nsdlHoldings: 3,
+      cdslHoldings: 3
+    };
+  }
 
   /**
    * Fetch demat transaction history via Account Aggregator
@@ -620,6 +793,184 @@ export class DematHoldingsService {
       message: success 
         ? `Fetched ${holdingsResult.holdings.length} holdings and ${transactionsResult.transactions.length} transactions`
         : holdingsResult.message || transactionsResult.message
+    };
+  }
+
+  /**
+   * Get mock transaction data for development
+   */
+  private getMockTransactionData(panNumber: string, fromDate: string, toDate: string): DematTransactionResponse {
+    const mockTransactions: DematTransaction[] = [
+      {
+        transactionId: 'DTX001',
+        isin: 'INE002A01018',
+        symbol: 'RELIANCE',
+        securityName: 'Reliance Industries Ltd',
+        transactionDate: '2024-12-15',
+        transactionType: 'buy',
+        quantity: 10,
+        price: 2600.50,
+        amount: 26005.00,
+        brokerage: 13.00,
+        stt: 2.60,
+        stampDuty: 3.90,
+        gst: 2.34,
+        otherCharges: 1.50,
+        netAmount: 26028.34,
+        exchange: 'NSE',
+        orderNumber: 'ORD2024121501',
+        settlementDate: '2024-12-17',
+        depository: 'NSDL',
+        dematAccountNumber: '1204470000123456'
+      },
+      {
+        transactionId: 'DTX002',
+        isin: 'INE009A01021',
+        symbol: 'INFY',
+        securityName: 'Infosys Ltd',
+        transactionDate: '2024-11-20',
+        transactionType: 'buy',
+        quantity: 25,
+        price: 1550.00,
+        amount: 38750.00,
+        brokerage: 19.38,
+        stt: 3.88,
+        stampDuty: 5.81,
+        gst: 3.49,
+        otherCharges: 2.00,
+        netAmount: 38784.56,
+        exchange: 'NSE',
+        orderNumber: 'ORD2024112001',
+        settlementDate: '2024-11-22',
+        depository: 'NSDL',
+        dematAccountNumber: '1204470000123456'
+      },
+      {
+        transactionId: 'DTX003',
+        isin: 'INE040A01034',
+        symbol: 'HDFCBANK',
+        securityName: 'HDFC Bank Ltd',
+        transactionDate: '2024-10-05',
+        transactionType: 'sell',
+        quantity: -20,
+        price: 1680.00,
+        amount: 33600.00,
+        brokerage: 16.80,
+        stt: 33.60,
+        stampDuty: 0,
+        gst: 3.02,
+        otherCharges: 1.50,
+        netAmount: 33545.08,
+        exchange: 'NSE',
+        orderNumber: 'ORD2024100501',
+        settlementDate: '2024-10-08',
+        depository: 'CDSL',
+        dematAccountNumber: 'IN30023910654321'
+      },
+      {
+        transactionId: 'DTX004',
+        isin: 'INE002A01018',
+        symbol: 'RELIANCE',
+        securityName: 'Reliance Industries Ltd',
+        transactionDate: '2024-09-15',
+        transactionType: 'dividend',
+        quantity: 0,
+        price: 0,
+        amount: 450.00,
+        brokerage: 0,
+        stt: 0,
+        stampDuty: 0,
+        gst: 0,
+        otherCharges: 0,
+        netAmount: 450.00,
+        exchange: 'NSE',
+        remarks: 'Interim Dividend FY24-25',
+        depository: 'NSDL',
+        dematAccountNumber: '1204470000123456'
+      },
+      {
+        transactionId: 'DTX005',
+        isin: 'INE467B01029',
+        symbol: 'TATASTEEL',
+        securityName: 'Tata Steel Ltd',
+        transactionDate: '2024-08-01',
+        transactionType: 'bonus',
+        quantity: 50,
+        price: 0,
+        amount: 0,
+        brokerage: 0,
+        stt: 0,
+        stampDuty: 0,
+        gst: 0,
+        otherCharges: 0,
+        netAmount: 0,
+        exchange: 'NSE',
+        remarks: 'Bonus 1:4 ratio',
+        depository: 'CDSL',
+        dematAccountNumber: 'IN30023910654321'
+      },
+      {
+        transactionId: 'DTX006',
+        isin: 'INE774D07140',
+        symbol: 'SGBMAR29',
+        securityName: 'Sovereign Gold Bond 2029 Series I',
+        transactionDate: '2024-03-15',
+        transactionType: 'interest',
+        quantity: 0,
+        price: 0,
+        amount: 1250.00,
+        brokerage: 0,
+        stt: 0,
+        stampDuty: 0,
+        gst: 0,
+        otherCharges: 0,
+        netAmount: 1250.00,
+        exchange: 'OTC',
+        remarks: 'Half-yearly interest @ 2.5%',
+        depository: 'NSDL',
+        dematAccountNumber: '1204470000123456'
+      },
+      {
+        transactionId: 'DTX007',
+        isin: 'INE756I07AP4',
+        symbol: 'SHRIRAMFIN-NCD',
+        securityName: 'Shriram Finance NCD 9.75% 2027',
+        transactionDate: '2024-06-01',
+        transactionType: 'interest',
+        quantity: 0,
+        price: 0,
+        amount: 4875.00,
+        brokerage: 0,
+        stt: 0,
+        stampDuty: 0,
+        gst: 0,
+        otherCharges: 0,
+        netAmount: 4875.00,
+        exchange: 'NSE',
+        remarks: 'Half-yearly coupon payment',
+        depository: 'CDSL',
+        dematAccountNumber: 'IN30023910654321'
+      }
+    ];
+
+    // Filter transactions within date range
+    const filteredTransactions = mockTransactions.filter(tx => {
+      const txDate = new Date(tx.transactionDate);
+      return txDate >= new Date(fromDate) && txDate <= new Date(toDate);
+    });
+
+    // Sort by date descending
+    filteredTransactions.sort((a, b) => 
+      new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime()
+    );
+
+    return {
+      success: true,
+      totalTransactions: filteredTransactions.length,
+      transactions: filteredTransactions,
+      fromDate,
+      toDate,
+      message: 'Mock data for development'
     };
   }
 }

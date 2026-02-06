@@ -304,7 +304,7 @@ class SandboxITRService {
 
   private async makeAPICall(endpoint: string, data?: any, method: 'GET' | 'POST' | 'PUT' = 'GET') {
     if (!this.apiKey || !this.apiSecret) {
-      return this.getMockResponse(endpoint, data);
+      throw new Error('Sandbox ITR API not configured. Set SANDBOX_API_KEY and SANDBOX_API_SECRET for ITR services.');
     }
 
     try {
@@ -323,9 +323,7 @@ class SandboxITRService {
       return await response.json();
     } catch (error) {
       console.error('Sandbox API call failed:', error);
-      // Fallback to mock data on API failure
-      console.log('Falling back to mock data due to API error');
-      return this.getMockResponse(endpoint, data);
+      throw new Error('Sandbox ITR API not configured. Set SANDBOX_API_KEY and SANDBOX_API_SECRET for ITR services.');
     }
   }
 
@@ -345,126 +343,6 @@ class SandboxITRService {
     if (taxableIncome <= 1200000) return 50000 + (taxableIncome - 1000000) * 0.15;
     if (taxableIncome <= 1500000) return 80000 + (taxableIncome - 1200000) * 0.20;
     return 140000 + (taxableIncome - 1500000) * 0.30;
-  }
-
-  private getMockResponse(endpoint: string, data?: any) {
-    if (endpoint.includes('/itr-reporting/taxpayer') || endpoint.includes('/calculate-tax')) {
-      const totalIncome = (data?.incomeDetails?.salaryIncome ?? 0) + 
-                         (data?.incomeDetails?.businessIncome ?? 0) + 
-                         (data?.incomeDetails?.capitalGains ?? 0) +
-                         (data?.incomeDetails?.otherIncome ?? 0) +
-                         (data?.incomeDetails?.interestIncome ?? 0) +
-                         (data?.incomeDetails?.rentalIncome ?? 0) +
-                         (data?.incomeDetails?.dividendIncome ?? 0);
-      
-      const totalDeductions = (data?.deductions?.section80C ?? 0) + 
-                             (data?.deductions?.section80D ?? 0) + 
-                             (data?.deductions?.section80G ?? 0) +
-                             (data?.deductions?.homeLoanInterest ?? 0) +
-                             (data?.deductions?.standardDeduction ?? 50000) +
-                             (data?.deductions?.professionalTax ?? 0) +
-                             (data?.deductions?.otherDeductions ?? 0);
-      
-      const taxableIncome = Math.max(0, totalIncome - totalDeductions);
-      
-      // Calculate tax under both regimes and use lower
-      const oldRegimeTax = this.calculateTaxOldRegime(taxableIncome);
-      const newRegimeTaxableIncome = Math.max(0, totalIncome - 75000); // Only standard deduction in new regime
-      const newRegimeTax = this.calculateTaxNewRegime(newRegimeTaxableIncome);
-      
-      const taxLiability = Math.min(oldRegimeTax, newRegimeTax);
-      const taxPaid = (data?.taxPayments?.tdsDeducted ?? 0) + 
-                      (data?.taxPayments?.advanceTaxPaid ?? 0) +
-                      (data?.taxPayments?.selfAssessmentTax ?? 0);
-      
-      return {
-        success: true,
-        data: {
-          totalIncome,
-          taxableIncome,
-          totalDeductions,
-          taxLiability,
-          taxPaid,
-          refundAmount: Math.max(0, taxPaid - taxLiability),
-          taxPayable: Math.max(0, taxLiability - taxPaid),
-          effectiveTaxRate: totalIncome > 0 ? (taxLiability / totalIncome) * 100 : 0,
-          oldRegimeTax,
-          newRegimeTax,
-          recommendedRegime: oldRegimeTax <= newRegimeTax ? 'Old Regime' : 'New Regime',
-        },
-        message: 'Tax calculation completed (Sandbox Mock Data)'
-      };
-    }
-
-    if (endpoint.includes('/prepare-itr') || endpoint.includes('/file-itr')) {
-      return {
-        success: true,
-        data: {
-          acknowledgmentNumber: `SBXITR${Date.now()}`,
-          filingDate: new Date().toISOString(),
-          taxLiability: 45000,
-          refundAmount: 5000,
-          receiptNumber: `SBXREC${Date.now()}`,
-          status: 'Filed' as const,
-          itrJsonUrl: `/api/itr/download/json/${Date.now()}`,
-        },
-        message: 'ITR prepared successfully via Sandbox.co.in'
-      };
-    }
-
-    if (endpoint.includes('/itr-v')) {
-      const acknowledgmentNumber = endpoint.split('/').pop() || `SBXITR${Date.now()}`;
-      return {
-        success: true,
-        data: {
-          acknowledgmentNumber,
-          status: 'Filed' as const,
-          filingDate: new Date().toISOString(),
-          taxLiability: 45000,
-          refundStatus: 'Pending' as const,
-          refundAmount: 5000,
-          itrVUrl: `/api/itr/download/itr-v/${acknowledgmentNumber}`,
-        },
-        message: 'ITR-V retrieved successfully'
-      };
-    }
-
-    if (endpoint.includes('/form-26as')) {
-      return {
-        success: true,
-        data: {
-          pan: data?.pan || 'XXXXX0000X',
-          assessmentYear: data?.assessmentYear || '2024-25',
-          tdsCredits: [
-            { deductorName: 'Employer Ltd', tanNumber: 'ABCD12345E', tdsAmount: 45000, section: '192' },
-            { deductorName: 'Bank Interest', tanNumber: 'EFGH67890F', tdsAmount: 5000, section: '194A' },
-          ],
-          totalTds: 50000,
-          advanceTaxPaid: 0,
-          selfAssessmentTax: 0,
-        },
-        message: 'Form 26AS data retrieved successfully'
-      };
-    }
-
-    if (endpoint.includes('/ais')) {
-      return {
-        success: true,
-        data: {
-          pan: data?.pan || 'XXXXX0000X',
-          assessmentYear: data?.assessmentYear || '2024-25',
-          salaryIncome: 850000,
-          interestIncome: 25000,
-          dividendIncome: 15000,
-          capitalGains: 0,
-          tdsCredits: 50000,
-          highValueTransactions: [],
-        },
-        message: 'AIS data retrieved successfully'
-      };
-    }
-
-    return { success: false, message: 'Unknown endpoint' };
   }
 
   async calculateTax(formData: ITRFormData): Promise<ITRCalculationResponse> {
@@ -943,8 +821,7 @@ class SandboxITRService {
   async parseForm16(fileBuffer: Buffer, fileName: string): Promise<Form16OCRResponse> {
     try {
       if (!this.apiKey || !this.apiSecret) {
-        console.log('Using mock Form 16 OCR response (API credentials not configured)');
-        return this.getMockForm16OCRResponse();
+        throw new Error('Sandbox ITR API not configured. Set SANDBOX_API_KEY and SANDBOX_API_SECRET for ITR services.');
       }
 
       const formData = new FormData();
@@ -965,14 +842,6 @@ class SandboxITRService {
         const errorBody = await response.text();
         console.error('Form 16 OCR API error:', errorBody);
         
-        // Fall back to mock data for 403/401 (permission/auth issues) in development
-        if (response.status === 403 || response.status === 401) {
-          console.log('OCR API access denied, falling back to mock data for demonstration');
-          const mockResponse = this.getMockForm16OCRResponse();
-          mockResponse.message = 'Form 16 parsed (demo mode - API access not available)';
-          return mockResponse;
-        }
-        
         throw new Error(`Form 16 OCR failed: ${response.status} ${response.statusText}`);
       }
 
@@ -984,14 +853,6 @@ class SandboxITRService {
       };
     } catch (error) {
       console.error('Form 16 OCR error:', error);
-      
-      // Fall back to mock data for network/API errors in development
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('Form 16 OCR failed, falling back to mock data for demonstration');
-        const mockResponse = this.getMockForm16OCRResponse();
-        mockResponse.message = 'Form 16 parsed (demo mode - API temporarily unavailable)';
-        return mockResponse;
-      }
       
       return {
         success: false,
@@ -1008,8 +869,7 @@ class SandboxITRService {
   async parseForm26AS(fileBuffer: Buffer, fileName: string): Promise<Form26ASOCRResponse> {
     try {
       if (!this.apiKey || !this.apiSecret) {
-        console.log('Using mock Form 26AS OCR response (API credentials not configured)');
-        return this.getMockForm26ASOCRResponse();
+        throw new Error('Sandbox ITR API not configured. Set SANDBOX_API_KEY and SANDBOX_API_SECRET for ITR services.');
       }
 
       const formData = new FormData();
@@ -1030,14 +890,6 @@ class SandboxITRService {
         const errorBody = await response.text();
         console.error('Form 26AS OCR API error:', errorBody);
         
-        // Fall back to mock data for 403/401 (permission/auth issues) in development
-        if (response.status === 403 || response.status === 401) {
-          console.log('OCR API access denied, falling back to mock data for demonstration');
-          const mockResponse = this.getMockForm26ASOCRResponse();
-          mockResponse.message = 'Form 26AS parsed (demo mode - API access not available)';
-          return mockResponse;
-        }
-        
         throw new Error(`Form 26AS OCR failed: ${response.status} ${response.statusText}`);
       }
 
@@ -1049,14 +901,6 @@ class SandboxITRService {
       };
     } catch (error) {
       console.error('Form 26AS OCR error:', error);
-      
-      // Fall back to mock data for network/API errors in development
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('Form 26AS OCR failed, falling back to mock data for demonstration');
-        const mockResponse = this.getMockForm26ASOCRResponse();
-        mockResponse.message = 'Form 26AS parsed (demo mode - API temporarily unavailable)';
-        return mockResponse;
-      }
       
       return {
         success: false,
@@ -1199,142 +1043,6 @@ class SandboxITRService {
         totalTaxCredits: apiResponse.summary?.total_tax_credits || 0,
       },
       confidence: apiResponse.confidence || 0.85,
-    };
-  }
-
-  private getMockForm16OCRResponse(): Form16OCRResponse {
-    return {
-      success: true,
-      data: {
-        documentType: 'FORM_16',
-        assessmentYear: '2024-25',
-        financialYear: '2023-24',
-        employee: {
-          pan: 'ABCDE1234F',
-          name: 'John Doe',
-          address: '123 Main Street, Mumbai, Maharashtra 400001',
-          email: 'john.doe@example.com',
-        },
-        employer: {
-          tan: 'MUMB12345E',
-          name: 'ABC Corporation Pvt Ltd',
-          address: 'Tower A, Business Park, Mumbai 400051',
-        },
-        salaryDetails: {
-          grossSalary: 1200000,
-          exemptAllowances: 50000,
-          netSalary: 1150000,
-          standardDeduction: 50000,
-          professionalTax: 2500,
-        },
-        incomeDetails: {
-          salaryIncome: 1097500,
-          housePropertyIncome: 0,
-          otherIncome: 25000,
-          grossTotalIncome: 1122500,
-        },
-        deductions: {
-          section80C: 150000,
-          section80CCC: 0,
-          section80CCD1: 0,
-          section80CCD1B: 50000,
-          section80CCD2: 0,
-          section80D: 25000,
-          section80E: 0,
-          section80G: 10000,
-          section80TTA: 10000,
-          totalDeductions: 245000,
-        },
-        taxComputation: {
-          totalTaxableIncome: 877500,
-          taxOnTotalIncome: 82500,
-          rebate87A: 0,
-          surcharge: 0,
-          educationCess: 3300,
-          totalTaxPayable: 85800,
-          reliefUnder89: 0,
-          netTaxPayable: 85800,
-        },
-        tdsDetails: {
-          tdsDeducted: 85800,
-          tdsDeposited: 85800,
-          challanDetails: [
-            { challanNo: 'CHL001', date: '2024-01-15', amount: 21450, bsrCode: 'BSR001' },
-            { challanNo: 'CHL002', date: '2024-02-15', amount: 21450, bsrCode: 'BSR001' },
-            { challanNo: 'CHL003', date: '2024-03-15', amount: 42900, bsrCode: 'BSR001' },
-          ],
-        },
-        verificationDetails: {
-          dateOfIssue: '2024-06-15',
-          placeOfIssue: 'Mumbai',
-          signatory: 'Rajesh Kumar',
-          designation: 'Finance Manager',
-        },
-        confidence: 0.92,
-      },
-      message: 'Form 16 parsed successfully (mock data - API credentials not configured)',
-    };
-  }
-
-  private getMockForm26ASOCRResponse(): Form26ASOCRResponse {
-    return {
-      success: true,
-      data: {
-        pan: 'ABCDE1234F',
-        assessmentYear: '2024-25',
-        financialYear: '2023-24',
-        partA_TDS: [
-          {
-            deductorTAN: 'MUMB12345E',
-            deductorName: 'ABC Corporation Pvt Ltd',
-            section: '192',
-            transactionDate: '2024-03-31',
-            amountPaid: 1200000,
-            tdsDeducted: 85800,
-            tdsDeposited: 85800,
-            dateOfDeposit: '2024-04-07',
-          },
-          {
-            deductorTAN: 'BANK67890F',
-            deductorName: 'State Bank of India',
-            section: '194A',
-            transactionDate: '2024-03-31',
-            amountPaid: 75000,
-            tdsDeducted: 7500,
-            tdsDeposited: 7500,
-            dateOfDeposit: '2024-04-07',
-          },
-        ],
-        partA1_TDS15G15H: [],
-        partA2_TCS: [],
-        partB_AdvanceTax: [
-          {
-            bsrCode: 'ADV001',
-            challanSerialNo: 'ADV2024001',
-            date: '2023-09-15',
-            amount: 10000,
-          },
-        ],
-        partC_SelfAssessmentTax: [],
-        partD_Refunds: [],
-        partE_AIRTransactions: [
-          {
-            transactionType: 'SFT-001 Cash Deposits',
-            reportingEntity: 'State Bank of India',
-            amount: 500000,
-          },
-        ],
-        summary: {
-          totalTDSDeducted: 93300,
-          totalTCSCollected: 0,
-          totalAdvanceTax: 10000,
-          totalSelfAssessmentTax: 0,
-          totalRefunds: 0,
-          totalTaxCredits: 103300,
-        },
-        confidence: 0.89,
-      },
-      message: 'Form 26AS parsed successfully (mock data - API credentials not configured)',
     };
   }
 

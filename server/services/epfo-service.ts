@@ -227,65 +227,6 @@ export class EPFOService {
   }
 
   /**
-   * Generate mock EPF data for development
-   */
-  private getMockEPFData(panNumber: string, memberName: string): EPFFetchResponse {
-    const mockAccounts: EPFAccount[] = [
-      {
-        epfAccountNumber: 'DLCPM1234567890',
-        uan: '100987654321',
-        employerName: 'Tech Solutions Pvt Ltd',
-        memberName: memberName,
-        employeeContribution: 385000.00,
-        employerContribution: 352000.00,
-        pensionContribution: 145000.00,
-        totalBalance: 1050000.00,
-        interestEarned: 168000.00,
-        interestRate: 8.25, // FY 2024-25 rate
-        dateOfJoining: '2018-04-01',
-        isActive: true,
-        nomineeName: 'Spouse Name',
-        nomineeRelationship: 'Spouse',
-        lastContributionDate: '2024-12-01'
-      },
-      {
-        epfAccountNumber: 'MHBOM0987654321',
-        uan: '100987654321', // Same UAN, different establishment (previous employer)
-        employerName: 'Previous Company Ltd',
-        memberName: memberName,
-        employeeContribution: 145000.00,
-        employerContribution: 132000.00,
-        pensionContribution: 58000.00,
-        totalBalance: 385000.00,
-        interestEarned: 50000.00,
-        interestRate: 8.15, // Previous year rate
-        dateOfJoining: '2015-07-15',
-        dateOfExit: '2018-03-31',
-        isActive: false,
-        nomineeName: 'Parent Name',
-        nomineeRelationship: 'Father'
-      }
-    ];
-
-    const totalBalance = mockAccounts.reduce((sum, a) => sum + a.totalBalance, 0);
-    const totalEmployeeContribution = mockAccounts.reduce((sum, a) => sum + a.employeeContribution, 0);
-    const totalEmployerContribution = mockAccounts.reduce((sum, a) => sum + a.employerContribution, 0);
-    const totalPensionContribution = mockAccounts.reduce((sum, a) => sum + a.pensionContribution, 0);
-    const totalInterestEarned = mockAccounts.reduce((sum, a) => sum + a.interestEarned, 0);
-
-    return {
-      success: true,
-      totalAccounts: mockAccounts.length,
-      totalBalance,
-      totalEmployeeContribution,
-      totalEmployerContribution,
-      totalPensionContribution,
-      totalInterestEarned,
-      accounts: mockAccounts
-    };
-  }
-
-  /**
    * Get EPF contribution history (detailed month-by-month)
    * This is useful for showing contribution trends
    */

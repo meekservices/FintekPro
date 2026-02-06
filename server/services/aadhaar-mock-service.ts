@@ -119,71 +119,7 @@ export class AadhaarMockService {
     // OTP verified successfully - cleanup and return mock data
     this.otpStore.delete(transactionId);
 
-    // Return mock Aadhaar data (in production, this comes from UIDAI API)
-    const mockData = this.generateMockAadhaarData(otpData.aadhaarNumber);
-
-    return {
-      success: true,
-      message: "Aadhaar verified successfully",
-      verified: true,
-      data: mockData
-    };
-  }
-
-  /**
-   * Generate mock Aadhaar data for demo
-   */
-  private static generateMockAadhaarData(aadhaarNumber: string) {
-    // Different mock data based on Aadhaar number pattern
-    const patterns: Record<string, any> = {
-      '123456789012': {
-        name: "RAJESH KUMAR SHARMA",
-        dob: "1990-05-15",
-        gender: "Male",
-        address: {
-          house: "B-123",
-          street: "MG Road",
-          landmark: "Near City Hospital",
-          locality: "Sector 15",
-          city: "Mumbai",
-          state: "Maharashtra",
-          pincode: "400001",
-          country: "India"
-        }
-      },
-      '234567890123': {
-        name: "PRIYA SINGH",
-        dob: "1985-08-22",
-        gender: "Female",
-        address: {
-          house: "Flat 45, Tower A",
-          street: "Palm Avenue",
-          landmark: "Opposite Metro Station",
-          locality: "Bandra West",
-          city: "Mumbai",
-          state: "Maharashtra",
-          pincode: "400050",
-          country: "India"
-        }
-      }
-    };
-
-    // Return matched pattern or default
-    return patterns[aadhaarNumber] || {
-      name: "DEMO USER",
-      dob: "1992-01-01",
-      gender: "Male",
-      address: {
-        house: "123 Demo House",
-        street: "Demo Street",
-        landmark: "Near Demo Landmark",
-        locality: "Demo Locality",
-        city: "Delhi",
-        state: "Delhi",
-        pincode: "110001",
-        country: "India"
-      }
-    };
+    throw new Error('Aadhaar verification service not configured. UIDAI API integration required for Aadhaar data.');
   }
 
   /**

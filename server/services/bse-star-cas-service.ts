@@ -125,23 +125,6 @@ export class BSEStarCASService {
               this.credentials.password && this.credentials.passKey);
   }
 
-  private getComingSoonResponse(): CASFetchResponse {
-    return {
-      success: false,
-      totalHoldings: 0,
-      totalValue: 0,
-      totalInvestedAmount: 0,
-      totalReturns: 0,
-      totalReturnsPercentage: 0,
-      holdings: [],
-      rtaSummary: {
-        camsHoldings: 0,
-        karvyHoldings: 0,
-        franklinHoldings: 0
-      },
-      message: 'Coming Soon - BSE STAR MF integration will be available once API credentials are configured. Please contact support to enable this feature.'
-    };
-  }
 
   /**
    * Fetch Consolidated Account Statement for a PAN
@@ -152,8 +135,7 @@ export class BSEStarCASService {
       console.log(`📊 Fetching BSE STAR CAS`);
 
       if (!this.hasValidCredentials()) {
-        console.log('⏳ BSE STAR MF API credentials not configured - Coming Soon');
-        return this.getComingSoonResponse();
+        throw new Error('BSE STAR CAS service not configured. Set BSE_USER_ID, BSE_MEMBER_ID, BSE_PASSWORD, and BSE_PASS_KEY for mutual fund data.');
       }
 
       // Production: Call BSE STAR CAS API
@@ -424,109 +406,6 @@ export class BSEStarCASService {
     }
   }
 
-  /**
-   * Get mock CAS data for development/testing
-   */
-  private getMockCASData(panNumber: string): CASFetchResponse {
-    const mockHoldings: MutualFundHolding[] = [
-      {
-        folioNumber: `CAM123456/${panNumber.slice(-4)}`,
-        schemeCode: 'HDFC123',
-        schemeName: 'HDFC Flexi Cap Fund - Direct Plan - Growth',
-        amcName: 'HDFC Asset Management Company Ltd',
-        rtaCode: 'CAMS',
-        registrarName: 'Computer Age Management Services Ltd (CAMS)',
-        units: 1250.5034,
-        nav: 845.30,
-        currentValue: 1056797.65,
-        investedAmount: 950000,
-        returns: 106797.65,
-        returnsPercentage: 11.24,
-        averageNav: 759.62,
-        purchaseDate: '2020-04-15',
-        lastTransactionDate: '2024-12-10',
-        schemePlan: 'growth',
-        schemeOption: 'direct'
-      },
-      {
-        folioNumber: `KAR789012/${panNumber.slice(-4)}`,
-        schemeCode: 'AXIS456',
-        schemeName: 'Axis Bluechip Fund - Direct Growth',
-        amcName: 'Axis Asset Management Company Ltd',
-        rtaCode: 'KARVY',
-        registrarName: 'Kfin Technologies Limited (Karvy)',
-        units: 2100.0000,
-        nav: 425.80,
-        currentValue: 894180.00,
-        investedAmount: 800000,
-        returns: 94180.00,
-        returnsPercentage: 11.77,
-        averageNav: 380.95,
-        purchaseDate: '2021-01-20',
-        lastTransactionDate: '2024-11-28',
-        schemePlan: 'growth',
-        schemeOption: 'direct'
-      },
-      {
-        folioNumber: `CAM345678/${panNumber.slice(-4)}`,
-        schemeCode: 'ICICI789',
-        schemeName: 'ICICI Prudential Equity & Debt Fund - Growth',
-        amcName: 'ICICI Prudential Asset Management Company Ltd',
-        rtaCode: 'CAMS',
-        registrarName: 'Computer Age Management Services Ltd (CAMS)',
-        units: 850.2500,
-        nav: 295.45,
-        currentValue: 251198.39,
-        investedAmount: 220000,
-        returns: 31198.39,
-        returnsPercentage: 14.18,
-        averageNav: 258.80,
-        purchaseDate: '2021-06-10',
-        lastTransactionDate: '2024-10-15',
-        schemePlan: 'growth',
-        schemeOption: 'regular'
-      },
-      {
-        folioNumber: `KAR456789/${panNumber.slice(-4)}`,
-        schemeCode: 'SBI234',
-        schemeName: 'SBI Small Cap Fund - Direct Plan - Growth',
-        amcName: 'SBI Funds Management Limited',
-        rtaCode: 'KARVY',
-        registrarName: 'Kfin Technologies Limited (Karvy)',
-        units: 425.7800,
-        nav: 185.90,
-        currentValue: 79169.22,
-        investedAmount: 65000,
-        returns: 14169.22,
-        returnsPercentage: 21.80,
-        averageNav: 152.67,
-        purchaseDate: '2022-03-05',
-        lastTransactionDate: '2024-12-01',
-        schemePlan: 'growth',
-        schemeOption: 'direct'
-      }
-    ];
-
-    const totalValue = mockHoldings.reduce((sum, h) => sum + h.currentValue, 0);
-    const totalInvestedAmount = mockHoldings.reduce((sum, h) => sum + h.investedAmount, 0);
-    const totalReturns = totalValue - totalInvestedAmount;
-
-    return {
-      success: true,
-      totalHoldings: mockHoldings.length,
-      totalValue,
-      totalInvestedAmount,
-      totalReturns,
-      totalReturnsPercentage: (totalReturns / totalInvestedAmount) * 100,
-      holdings: mockHoldings,
-      rtaSummary: {
-        camsHoldings: 2,
-        karvyHoldings: 2,
-        franklinHoldings: 0
-      },
-      message: 'Mock data for development'
-    };
-  }
 
   /**
    * Fetch holdings for a specific AMC/fund house
@@ -600,8 +479,7 @@ export class BSEStarCASService {
       const startDate = fromDate || new Date(Date.now() - 3 * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
       if (!this.hasValidCredentials()) {
-        console.log('⏳ BSE STAR MF API credentials not configured - returning mock transactions');
-        return this.getMockTransactionData(request.panNumber, startDate, endDate);
+        throw new Error('BSE STAR CAS service not configured. Set BSE_USER_ID, BSE_MEMBER_ID, BSE_PASSWORD, and BSE_PASS_KEY for mutual fund transactions.');
       }
 
       // Production: Call BSE STAR Transaction Statement API
@@ -879,185 +757,6 @@ export class BSEStarCASService {
     };
   }
 
-  /**
-   * Get mock transaction data for development/testing
-   */
-  private getMockTransactionData(panNumber: string, fromDate: string, toDate: string): TransactionStatementResponse {
-    const mockTransactions: MutualFundTransaction[] = [
-      {
-        transactionId: 'TXN001',
-        folioNumber: `CAM123456/${panNumber.slice(-4)}`,
-        schemeCode: 'HDFC123',
-        schemeName: 'HDFC Flexi Cap Fund - Direct Plan - Growth',
-        amcName: 'HDFC Asset Management Company Ltd',
-        registrarName: 'CAMS',
-        transactionDate: '2024-12-10',
-        transactionType: 'sip',
-        units: 12.5034,
-        nav: 845.30,
-        amount: 10000,
-        stampDuty: 5.00,
-        stt: 0,
-        tds: 0,
-        netAmount: 9995.00,
-        orderNumber: 'ORD2024121001',
-        description: 'SIP - December 2024'
-      },
-      {
-        transactionId: 'TXN002',
-        folioNumber: `CAM123456/${panNumber.slice(-4)}`,
-        schemeCode: 'HDFC123',
-        schemeName: 'HDFC Flexi Cap Fund - Direct Plan - Growth',
-        amcName: 'HDFC Asset Management Company Ltd',
-        registrarName: 'CAMS',
-        transactionDate: '2024-11-10',
-        transactionType: 'sip',
-        units: 11.8523,
-        nav: 843.85,
-        amount: 10000,
-        stampDuty: 5.00,
-        stt: 0,
-        tds: 0,
-        netAmount: 9995.00,
-        orderNumber: 'ORD2024111001',
-        description: 'SIP - November 2024'
-      },
-      {
-        transactionId: 'TXN003',
-        folioNumber: `KAR789012/${panNumber.slice(-4)}`,
-        schemeCode: 'AXIS456',
-        schemeName: 'Axis Bluechip Fund - Direct Growth',
-        amcName: 'Axis Asset Management Company Ltd',
-        registrarName: 'KFINTECH',
-        transactionDate: '2024-11-28',
-        transactionType: 'purchase',
-        units: 100.0000,
-        nav: 425.80,
-        amount: 42580,
-        stampDuty: 21.29,
-        stt: 0,
-        tds: 0,
-        netAmount: 42558.71,
-        orderNumber: 'ORD2024112801',
-        description: 'Lumpsum Purchase'
-      },
-      {
-        transactionId: 'TXN004',
-        folioNumber: `CAM345678/${panNumber.slice(-4)}`,
-        schemeCode: 'ICICI789',
-        schemeName: 'ICICI Prudential Equity & Debt Fund - Growth',
-        amcName: 'ICICI Prudential Asset Management Company Ltd',
-        registrarName: 'CAMS',
-        transactionDate: '2024-10-15',
-        transactionType: 'redemption',
-        units: -50.0000,
-        nav: 295.45,
-        amount: 14772.50,
-        stampDuty: 0,
-        stt: 1.48,
-        tds: 0,
-        netAmount: 14771.02,
-        orderNumber: 'ORD2024101501',
-        description: 'Partial Redemption'
-      },
-      {
-        transactionId: 'TXN005',
-        folioNumber: `KAR456789/${panNumber.slice(-4)}`,
-        schemeCode: 'SBI234',
-        schemeName: 'SBI Small Cap Fund - Direct Plan - Growth',
-        amcName: 'SBI Funds Management Limited',
-        registrarName: 'KFINTECH',
-        transactionDate: '2024-12-01',
-        transactionType: 'sip',
-        units: 26.9800,
-        nav: 185.90,
-        amount: 5000,
-        stampDuty: 2.50,
-        stt: 0,
-        tds: 0,
-        netAmount: 4997.50,
-        orderNumber: 'ORD2024120101',
-        description: 'SIP - December 2024'
-      },
-      {
-        transactionId: 'TXN006',
-        folioNumber: `CAM123456/${panNumber.slice(-4)}`,
-        schemeCode: 'HDFC123',
-        schemeName: 'HDFC Flexi Cap Fund - Direct Plan - Growth',
-        amcName: 'HDFC Asset Management Company Ltd',
-        registrarName: 'CAMS',
-        transactionDate: '2020-04-15',
-        transactionType: 'purchase',
-        units: 1200.0000,
-        nav: 760.00,
-        amount: 912000,
-        stampDuty: 456.00,
-        stt: 0,
-        tds: 0,
-        netAmount: 911544.00,
-        orderNumber: 'ORD2020041501',
-        description: 'Initial Investment'
-      },
-      {
-        transactionId: 'TXN007',
-        folioNumber: `KAR789012/${panNumber.slice(-4)}`,
-        schemeCode: 'AXIS456',
-        schemeName: 'Axis Bluechip Fund - Direct Growth',
-        amcName: 'Axis Asset Management Company Ltd',
-        registrarName: 'KFINTECH',
-        transactionDate: '2021-01-20',
-        transactionType: 'purchase',
-        units: 2000.0000,
-        nav: 380.00,
-        amount: 760000,
-        stampDuty: 380.00,
-        stt: 0,
-        tds: 0,
-        netAmount: 759620.00,
-        orderNumber: 'ORD2021012001',
-        description: 'Initial Investment'
-      },
-      {
-        transactionId: 'TXN008',
-        folioNumber: `CAM345678/${panNumber.slice(-4)}`,
-        schemeCode: 'ICICI789',
-        schemeName: 'ICICI Prudential Equity & Debt Fund - Growth',
-        amcName: 'ICICI Prudential Asset Management Company Ltd',
-        registrarName: 'CAMS',
-        transactionDate: '2024-09-20',
-        transactionType: 'dividend',
-        units: 0,
-        nav: 0,
-        amount: 2500,
-        stampDuty: 0,
-        stt: 0,
-        tds: 250,
-        netAmount: 2250,
-        orderNumber: 'DIV2024092001',
-        description: 'Dividend Payout'
-      }
-    ];
-
-    // Filter transactions within date range
-    const filteredTransactions = mockTransactions.filter(tx => {
-      const txDate = new Date(tx.transactionDate);
-      return txDate >= new Date(fromDate) && txDate <= new Date(toDate);
-    });
-
-    // Sort by date descending
-    filteredTransactions.sort((a, b) => 
-      new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime()
-    );
-
-    return {
-      success: true,
-      totalTransactions: filteredTransactions.length,
-      transactions: filteredTransactions,
-      fromDate,
-      toDate,
-      message: 'Mock data for development'
-    };
-  }
 }
 
 // Export singleton instance

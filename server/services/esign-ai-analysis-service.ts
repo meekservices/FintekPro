@@ -63,7 +63,7 @@ class ESignAIAnalysisService {
       this.genAI = new GoogleGenAI({ apiKey });
       console.log('✅ [eSign AI Analysis] Gemini AI initialized');
     } else {
-      console.warn('⚠️ [eSign AI Analysis] No API key found - using mock mode');
+      console.warn('⚠️ [eSign AI Analysis] No API key found');
     }
   }
 
@@ -92,7 +92,7 @@ class ESignAIAnalysisService {
       if (this.model) {
         annotations = await this.performAIAnalysis(request);
       } else {
-        annotations = this.getMockAnnotations(request.documentType);
+        throw new Error('AI analysis service not configured. OpenAI API key required for document analysis.');
       }
 
       const savedAnnotations = await this.saveAnnotations(documentId, request.workflowId, annotations);
@@ -185,7 +185,7 @@ Return ONLY a valid JSON array, no other text.`;
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (!jsonMatch) {
         console.warn('[eSign AI Analysis] Could not parse JSON from response');
-        return this.getMockAnnotations(request.documentType);
+        throw new Error('AI analysis service not configured. OpenAI API key required for document analysis.');
       }
       
       const annotations = JSON.parse(jsonMatch[0]) as AIAnnotationSuggestion[];
@@ -202,7 +202,7 @@ Return ONLY a valid JSON array, no other text.`;
       }));
     } catch (error) {
       console.error('[eSign AI Analysis] Gemini API error:', error);
-      return this.getMockAnnotations(request.documentType);
+      throw new Error('AI analysis service not configured. OpenAI API key required for document analysis.');
     }
   }
 
@@ -214,56 +214,6 @@ Return ONLY a valid JSON array, no other text.`;
   private validateSeverity(severity: string): AnnotationSeverity {
     const valid: AnnotationSeverity[] = ['info', 'warning', 'error', 'critical'];
     return valid.includes(severity as AnnotationSeverity) ? severity as AnnotationSeverity : 'info';
-  }
-
-  private getMockAnnotations(documentType: string): AIAnnotationSuggestion[] {
-    const baseAnnotations: AIAnnotationSuggestion[] = [
-      {
-        category: 'summary',
-        title: 'Document Summary',
-        content: `This ${documentType.replace(/_/g, ' ')} document outlines the terms and conditions for the agreement between parties. Key sections include scope of services, payment terms, confidentiality provisions, and termination clauses.`,
-        severity: 'info',
-        confidence: 0.95,
-        suggestedAction: 'Review all sections before signing',
-      },
-      {
-        category: 'correction',
-        title: 'Potential Typo Detected',
-        content: 'The word "recieve" should be spelled "receive".',
-        severity: 'warning',
-        textExcerpt: '...shall recieve payment...',
-        suggestedReplacement: '...shall receive payment...',
-        confidence: 0.92,
-        suggestedAction: 'Correct the spelling',
-      },
-      {
-        category: 'missing_clause',
-        title: 'Missing Dispute Resolution Clause',
-        content: 'Standard financial agreements should include an arbitration or dispute resolution clause specifying jurisdiction and process.',
-        severity: 'warning',
-        confidence: 0.88,
-        suggestedAction: 'Add dispute resolution mechanism with specified jurisdiction',
-      },
-      {
-        category: 'compliance',
-        title: 'SEBI Disclosure Requirement',
-        content: 'For investment agreements, SEBI requires clear disclosure of risks and potential loss of capital. Ensure risk disclosure section is prominently placed.',
-        severity: 'error',
-        confidence: 0.85,
-        suggestedAction: 'Add or verify SEBI-compliant risk disclosure statement',
-      },
-      {
-        category: 'general',
-        title: 'Clarity Improvement Suggested',
-        content: 'Section 4.2 contains complex legal language that may be difficult for clients to understand. Consider simplifying.',
-        severity: 'info',
-        textExcerpt: 'The party of the first part shall indemnify and hold harmless...',
-        confidence: 0.75,
-        suggestedAction: 'Simplify language for better readability',
-      },
-    ];
-
-    return baseAnnotations;
   }
 
   private async saveAnnotations(

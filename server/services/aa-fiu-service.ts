@@ -710,7 +710,7 @@ export class AAFIUService {
     // In production, this would be the actual AA data fetch
     // For development, return mock data based on asset type
     if (process.env.NODE_ENV !== 'production') {
-      return this.getMockDataForAssetType(assetType);
+      throw new Error('Account Aggregator FIU service not configured. Configure AA provider credentials for portfolio data fetch.');
     }
 
     // Production AA data fetch
@@ -921,30 +921,6 @@ export class AAFIUService {
     }
   }
 
-  private getMockDataForAssetType(assetType: AAAssetType): any[] {
-    switch (assetType) {
-      case 'MF':
-        return [
-          { isin: 'INF209K01ZQ2', name: 'SBI Blue Chip Fund', units: 150.5, nav: 78.25, value: 11777.06 },
-          { isin: 'INF846K01DP8', name: 'HDFC Mid-Cap Opportunities', units: 200, nav: 145.50, value: 29100 },
-          { isin: 'INF179K01XL8', name: 'Axis Long Term Equity', units: 100, nav: 85.30, value: 8530 }
-        ];
-      case 'DEMAT':
-        return [
-          { isin: 'INE002A01018', name: 'Reliance Industries', qty: 50, avgPrice: 2450, cmp: 2890, value: 144500 },
-          { isin: 'INE009A01021', name: 'Infosys', qty: 100, avgPrice: 1450, cmp: 1566, value: 156600 },
-          { isin: 'INE040A01034', name: 'HDFC Bank', qty: 75, avgPrice: 1520, cmp: 1650, value: 123750 }
-        ];
-      case 'NPS':
-        return [{ pranNumber: 'PRAN123456', tier: 'TIER_I', balance: 450000, scheme: 'Auto Choice LC50' }];
-      case 'EPF':
-        return [{ uanNumber: 'UAN123456789', balance: 550000, employerName: 'Tech Corp' }];
-      case 'PPF':
-        return [{ accountNumber: 'PPF123456', balance: 850000, bankName: 'SBI' }];
-      default:
-        return [];
-    }
-  }
 }
 
 // Export singleton instance

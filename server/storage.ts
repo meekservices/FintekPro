@@ -4092,28 +4092,7 @@ export class DatabaseStorage implements IStorage {
         processingStartedAt: new Date()
       });
 
-      // Simulate processing based on document type and file format
-      const mockExtractedData = this.generateMockTaxData(document);
-      
-      // Create structured tax data entries
-      let extractedCount = 0;
-      for (const data of mockExtractedData) {
-        await this.createStructuredTaxData({
-          ...data,
-          dataType: data.dataType || 'unknown',
-          documentId,
-          userId: document.userId
-        });
-        extractedCount++;
-      }
-
-      // Mark document as completed
-      await this.updateTaxDocument(documentId, {
-        processingStatus: 'completed',
-        processingCompletedAt: new Date()
-      });
-
-      return { success: true, extractedDataCount: extractedCount };
+      throw new Error('Tax document processing service not configured. Document parsing API integration required.');
 
     } catch (error) {
       // Mark document as failed
@@ -4269,43 +4248,6 @@ export class DatabaseStorage implements IStorage {
     });
 
     return calculation;
-  }
-
-  // Helper methods for tax calculations
-  private generateMockTaxData(document: TaxDocument): Partial<InsertStructuredTaxData>[] {
-    // This would be replaced with actual document parsing logic
-    const mockData: Partial<InsertStructuredTaxData>[] = [];
-
-    if (document.documentType === '26AS') {
-      // Mock TDS entries
-      mockData.push({
-        dataType: 'TDS',
-        dataCategory: 'deduction',
-        sourceType: 'employer',
-        taxableAmount: '500000',
-        taxDeducted: '50000',
-        transactionDate: '2024-03-31',
-        deductorPan: 'ABCDE1234F',
-        deductorName: 'Sample Employer',
-        incomeNature: 'salary'
-      });
-    }
-
-    if (document.documentType === 'AIS') {
-      // Mock interest income
-      mockData.push({
-        dataType: 'interest',
-        dataCategory: 'income',
-        sourceType: 'bank',
-        taxableAmount: '25000',
-        taxDeducted: '2500',
-        transactionDate: '2024-03-31',
-        bankName: 'Sample Bank',
-        incomeNature: 'interest'
-      });
-    }
-
-    return mockData;
   }
 
   private groupTaxDataByType(taxData: any[]): Record<string, any[]> {

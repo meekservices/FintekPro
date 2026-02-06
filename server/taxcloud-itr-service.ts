@@ -125,14 +125,13 @@ class TaxCloudITRService {
     this.apiKey = process.env.TAXCLOUD_API_KEY || '';
     
     if (!this.apiKey) {
-      console.warn('⚠️ TaxCloud API key not configured. ITR services will use mock data.');
+      console.warn('⚠️ TaxCloud API key not configured.');
     }
   }
 
   private async makeAPICall(endpoint: string, data?: any, method: 'GET' | 'POST' | 'PUT' = 'GET') {
     if (!this.apiKey) {
-      // Return mock data when API key is not available
-      return this.getMockResponse(endpoint, data);
+      throw new Error('TaxCloud API not configured. Set TAXCLOUD_API_KEY for ITR filing services.');
     }
 
     try {
@@ -156,103 +155,6 @@ class TaxCloudITRService {
       console.error('TaxCloud API call failed:', error);
       throw error;
     }
-  }
-
-  private calculateMockTax(taxableIncome: number): number {
-    // Simple progressive tax calculation for mock
-    if (taxableIncome <= 300000) return 0;
-    if (taxableIncome <= 600000) return (taxableIncome - 300000) * 0.05;
-    if (taxableIncome <= 900000) return 15000 + (taxableIncome - 600000) * 0.10;
-    if (taxableIncome <= 1200000) return 45000 + (taxableIncome - 900000) * 0.15;
-    if (taxableIncome <= 1500000) return 90000 + (taxableIncome - 1200000) * 0.20;
-    return 150000 + (taxableIncome - 1500000) * 0.30;
-  }
-
-  private getMockResponse(endpoint: string, data?: any) {
-    // Mock responses for development/testing
-    if (endpoint.includes('/calculate-tax')) {
-      // Include all income sources using nullish coalescing
-      const totalIncome = (data?.incomeDetails?.salaryIncome ?? 0) + 
-                         (data?.incomeDetails?.businessIncome ?? 0) + 
-                         (data?.incomeDetails?.capitalGains ?? 0) +
-                         (data?.incomeDetails?.otherIncome ?? 0) +
-                         (data?.incomeDetails?.interestIncome ?? 0) +
-                         (data?.incomeDetails?.rentalIncome ?? 0) +
-                         (data?.incomeDetails?.dividendIncome ?? 0);
-      
-      const totalDeductions = (data?.deductions?.section80C ?? 0) + 
-                             (data?.deductions?.section80D ?? 0) + 
-                             (data?.deductions?.section80G ?? 0) +
-                             (data?.deductions?.homeLoanInterest ?? 0) +
-                             (data?.deductions?.standardDeduction ?? 50000) +
-                             (data?.deductions?.professionalTax ?? 0) +
-                             (data?.deductions?.otherDeductions ?? 0);
-      
-      const taxableIncome = Math.max(0, totalIncome - totalDeductions);
-      const taxLiability = this.calculateMockTax(taxableIncome);
-      const taxPaid = data?.taxPayments?.tdsDeducted ?? 0;
-      
-      return {
-        success: true,
-        data: {
-          totalIncome,
-          taxableIncome,
-          totalDeductions,
-          taxLiability,
-          taxPaid,
-          refundAmount: Math.max(0, taxPaid - taxLiability),
-          taxPayable: Math.max(0, taxLiability - taxPaid),
-          effectiveTaxRate: totalIncome > 0 ? (taxLiability / totalIncome) * 100 : 0,
-        },
-        message: 'Tax calculation completed (Mock Data)'
-      };
-    }
-
-    if (endpoint.includes('/file-itr')) {
-      return {
-        success: true,
-        data: {
-          acknowledgmentNumber: `ITR${Date.now()}`,
-          filingDate: new Date().toISOString(),
-          taxLiability: 45000,
-          refundAmount: 5000,
-          receiptNumber: `REC${Date.now()}`,
-          status: 'Filed' as const,
-        },
-        message: 'ITR filed successfully (Mock Data)'
-      };
-    }
-
-    if (endpoint.includes('/itr-status')) {
-      // Parse acknowledgment number from URL path since GET doesn't have body
-      const acknowledgmentNumber = endpoint.split('/').pop() || `ITR${Date.now()}`;
-      return {
-        success: true,
-        data: {
-          acknowledgmentNumber,
-          status: 'Filed' as const,
-          filingDate: new Date().toISOString(),
-          taxLiability: 45000,
-          refundStatus: 'Pending' as const,
-          refundAmount: 5000,
-        },
-        message: 'ITR status retrieved successfully (Mock Data)'
-      };
-    }
-
-    if (endpoint.includes('/download-itr-v')) {
-      return {
-        success: true,
-        data: {
-          downloadUrl: `/mock-itr-v/${endpoint.split('/').pop()}.pdf`,
-          fileName: `ITR-V-${endpoint.split('/').pop()}.pdf`,
-          contentType: 'application/pdf'
-        },
-        message: 'ITR-V download link generated (Mock Data)'
-      };
-    }
-
-    return { success: false, message: 'Unknown endpoint' };
   }
 
   /**

@@ -236,10 +236,8 @@ export class CashfreeService {
       throw new Error('Cashfree credentials required for bank verification in production');
     }
 
-    // Use mocks in non-production environments when credentials are missing
     if (!this.hasValidCredentials()) {
-      console.log('⚠️ Using mock bank verification (credentials not configured)');
-      return this.mockBankVerification(accountNumber, ifsc, accountHolderName);
+      throw new Error('Cashfree credentials not configured. Set CASHFREE_APP_ID and CASHFREE_SECRET_KEY for bank verification.');
     }
 
     try {
@@ -316,54 +314,6 @@ export class CashfreeService {
   }
 
   /**
-   * Mock bank verification for development/testing
-   */
-  private mockBankVerification(
-    accountNumber: string,
-    ifsc: string,
-    accountHolderName: string
-  ): BankVerificationResult {
-    // Validate IFSC format
-    const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
-    if (!ifscRegex.test(ifsc.toUpperCase())) {
-      return {
-        success: false,
-        verified: false,
-        accountExists: false,
-        message: 'Invalid IFSC code format'
-      };
-    }
-
-    // Validate account number format
-    const accountRegex = /^[0-9]{9,18}$/;
-    if (!accountRegex.test(accountNumber)) {
-      return {
-        success: false,
-        verified: false,
-        accountExists: false,
-        message: 'Invalid account number format'
-      };
-    }
-
-    // Mock successful verification
-    const mockVerifiedName = accountHolderName.toUpperCase();
-    const nameMatchScore = 100;
-
-    console.log(`✅ [MOCK] Bank account verified: ${accountNumber.slice(-4)}`);
-
-    return {
-      success: true,
-      verified: true,
-      accountExists: true,
-      verifiedName: mockVerifiedName,
-      nameMatchScore,
-      accountStatus: 'active',
-      transactionId: `mock_txn_${Date.now()}`,
-      message: 'Bank account verified successfully (MOCK)'
-    };
-  }
-
-  /**
    * Calculate name match score using Levenshtein distance
    * Returns similarity percentage (0-100)
    */
@@ -435,10 +385,8 @@ export class CashfreeService {
       throw new Error('Cashfree credentials required for eMandate creation in production');
     }
 
-    // Use mocks in non-production environments when credentials are missing
     if (!this.hasValidCredentials()) {
-      console.log('⚠️ Using mock eMandate creation (credentials not configured)');
-      return this.mockEMandateCreation(userId, accountNumber, maxAmount);
+      throw new Error('Cashfree credentials not configured. Set CASHFREE_APP_ID and CASHFREE_SECRET_KEY for eMandate services.');
     }
 
     try {
@@ -523,7 +471,7 @@ export class CashfreeService {
    */
   async getEMandateStatus(mandateId: string): Promise<EMandateStatusResult> {
     if (!this.hasValidCredentials()) {
-      return this.mockEMandateStatus(mandateId);
+      throw new Error('Cashfree credentials not configured. Set CASHFREE_APP_ID and CASHFREE_SECRET_KEY for eMandate services.');
     }
 
     try {
@@ -603,43 +551,6 @@ export class CashfreeService {
     }
   }
 
-  /**
-   * Mock eMandate creation for development/testing
-   */
-  private mockEMandateCreation(
-    userId: string,
-    accountNumber: string,
-    maxAmount: number
-  ): EMandateCreateResult {
-    const mockMandateId = `mock_mandate_${Date.now()}`;
-    const mockMandateUrl = `https://sandbox.cashfree.com/emandate/authorize/${mockMandateId}`;
-
-    console.log(`✅ [MOCK] eMandate created: ${mockMandateId} for ₹${maxAmount}`);
-
-    return {
-      success: true,
-      mandateId: mockMandateId,
-      mandateUrl: mockMandateUrl,
-      status: 'PENDING_AUTHORIZATION',
-      message: 'eMandate created successfully (MOCK). User would authorize via bank in production.'
-    };
-  }
-
-  /**
-   * Mock eMandate status for development/testing
-   */
-  private mockEMandateStatus(mandateId: string): EMandateStatusResult {
-    // Simulate authorized mandate for mock IDs
-    return {
-      success: true,
-      mandateId,
-      status: 'ACTIVE',
-      authorizationDate: new Date().toISOString(),
-      expiryDate: new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000).toISOString(),
-      maxAmount: 50000,
-      frequency: 'MONTHLY'
-    };
-  }
 }
 
 export interface BankVerificationResult {

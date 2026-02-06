@@ -78,7 +78,7 @@ class PolygonMarketService {
     }
 
     if (!this.isConfigured()) {
-      return this.getMockQuote(symbol);
+      throw new Error('Polygon API key not configured. Set POLYGON_API_KEY for US market data.');
     }
 
     try {
@@ -111,7 +111,7 @@ class PolygonMarketService {
       return null;
     } catch (error: any) {
       console.error(`Polygon quote error for ${symbol}:`, error.message);
-      return this.getMockQuote(symbol);
+      throw new Error(`Polygon API call failed for ${symbol}: ${error.message}`);
     }
   }
 
@@ -134,10 +134,7 @@ class PolygonMarketService {
     }
 
     if (!this.isConfigured()) {
-      for (const symbol of uncachedSymbols) {
-        results.set(symbol, this.getMockQuote(symbol));
-      }
-      return results;
+      throw new Error('Polygon API key not configured. Set POLYGON_API_KEY for US market data.');
     }
 
     try {
@@ -172,20 +169,11 @@ class PolygonMarketService {
           results.set(ticker.ticker, quote);
         }
       }
-
-      for (const symbol of uncachedSymbols) {
-        if (!results.has(symbol)) {
-          results.set(symbol, this.getMockQuote(symbol));
-        }
-      }
       
       return results;
     } catch (error: any) {
       console.error(`Polygon batch quote error:`, error.message);
-      for (const symbol of uncachedSymbols) {
-        results.set(symbol, this.getMockQuote(symbol));
-      }
-      return results;
+      throw new Error(`Polygon API batch quote call failed: ${error.message}`);
     }
   }
 
@@ -198,7 +186,7 @@ class PolygonMarketService {
     }
 
     if (!this.isConfigured()) {
-      return this.getMockDetails(symbol);
+      throw new Error('Polygon API key not configured. Set POLYGON_API_KEY for US market data.');
     }
 
     try {
@@ -236,13 +224,13 @@ class PolygonMarketService {
       return null;
     } catch (error: any) {
       console.error(`Polygon details error for ${symbol}:`, error.message);
-      return this.getMockDetails(symbol);
+      throw new Error(`Polygon API call failed for ${symbol} details: ${error.message}`);
     }
   }
 
   async searchSymbols(query: string, limit = 10): Promise<StockDetails[]> {
     if (!this.isConfigured()) {
-      return this.getMockSearchResults(query);
+      throw new Error('Polygon API key not configured. Set POLYGON_API_KEY for US market data.');
     }
 
     try {
@@ -271,7 +259,7 @@ class PolygonMarketService {
       })) || [];
     } catch (error: any) {
       console.error(`Polygon search error:`, error.message);
-      return this.getMockSearchResults(query);
+      throw new Error(`Polygon API search call failed: ${error.message}`);
     }
   }
 
@@ -292,7 +280,7 @@ class PolygonMarketService {
     ]);
 
     return popularSymbols.map((symbol, idx) => {
-      const details = detailsPromises[idx] || this.getMockDetails(symbol);
+      const details = detailsPromises[idx] || { symbol, name: symbol, market: 'stocks', locale: 'us', primaryExchange: 'UNKNOWN', type: 'CS', currency: 'USD' };
       const quote = quotes.get(symbol);
       return {
         ...details,
@@ -342,92 +330,6 @@ class PolygonMarketService {
     }
   }
 
-  private getMockQuote(symbol: string): StockQuote {
-    const basePrice = this.getBasePriceForSymbol(symbol);
-    const change = (Math.random() - 0.5) * 5;
-    return {
-      symbol: symbol.toUpperCase(),
-      price: basePrice,
-      change,
-      changePercent: (change / basePrice) * 100,
-      open: basePrice - 1,
-      high: basePrice + 2,
-      low: basePrice - 2,
-      close: basePrice,
-      volume: Math.floor(Math.random() * 10000000),
-      timestamp: Date.now(),
-    };
-  }
-
-  private getBasePriceForSymbol(symbol: string): number {
-    const prices: Record<string, number> = {
-      SPY: 595.50,
-      QQQ: 520.25,
-      VOO: 548.75,
-      DIA: 425.80,
-      AAPL: 195.50,
-      MSFT: 425.30,
-      AMZN: 185.75,
-      GOOGL: 175.20,
-      META: 565.40,
-      TSLA: 265.80,
-      NVDA: 875.50,
-    };
-    return prices[symbol.toUpperCase()] || 100 + Math.random() * 200;
-  }
-
-  private getMockDetails(symbol: string): StockDetails {
-    const details: Record<string, Partial<StockDetails>> = {
-      SPY: { name: "SPDR S&P 500 ETF Trust", type: "ETF", primaryExchange: "ARCA" },
-      QQQ: { name: "Invesco QQQ Trust", type: "ETF", primaryExchange: "NASDAQ" },
-      VOO: { name: "Vanguard S&P 500 ETF", type: "ETF", primaryExchange: "ARCA" },
-      AAPL: { name: "Apple Inc.", type: "CS", primaryExchange: "NASDAQ", marketCap: 3000000000000 },
-      MSFT: { name: "Microsoft Corporation", type: "CS", primaryExchange: "NASDAQ", marketCap: 2800000000000 },
-      GOOGL: { name: "Alphabet Inc.", type: "CS", primaryExchange: "NASDAQ", marketCap: 2000000000000 },
-    };
-
-    const info = details[symbol.toUpperCase()] || {};
-    return {
-      symbol: symbol.toUpperCase(),
-      name: info.name || `${symbol} Inc.`,
-      market: "stocks",
-      locale: "us",
-      primaryExchange: info.primaryExchange || "NASDAQ",
-      type: info.type || "CS",
-      currency: "USD",
-      marketCap: info.marketCap,
-    };
-  }
-
-  private getMockSearchResults(query: string): StockDetails[] {
-    const allStocks = [
-      { symbol: "AAPL", name: "Apple Inc." },
-      { symbol: "MSFT", name: "Microsoft Corporation" },
-      { symbol: "GOOGL", name: "Alphabet Inc." },
-      { symbol: "AMZN", name: "Amazon.com Inc." },
-      { symbol: "META", name: "Meta Platforms Inc." },
-      { symbol: "TSLA", name: "Tesla Inc." },
-      { symbol: "NVDA", name: "NVIDIA Corporation" },
-      { symbol: "SPY", name: "SPDR S&P 500 ETF Trust" },
-      { symbol: "QQQ", name: "Invesco QQQ Trust" },
-      { symbol: "VOO", name: "Vanguard S&P 500 ETF" },
-    ];
-
-    const q = query.toLowerCase();
-    return allStocks
-      .filter(s => s.symbol.toLowerCase().includes(q) || s.name.toLowerCase().includes(q))
-      .slice(0, 5)
-      .map(s => ({
-        symbol: s.symbol,
-        name: s.name,
-        market: "stocks",
-        locale: "us",
-        primaryExchange: "NASDAQ",
-        type: s.symbol.length === 3 ? "ETF" : "CS",
-        currency: "USD",
-      }));
-  }
-
   clearCache(): void {
     this.priceCache.clear();
     this.detailsCache.clear();
@@ -435,7 +337,7 @@ class PolygonMarketService {
 
   testConnection(): { configured: boolean; message: string } {
     if (!this.isConfigured()) {
-      return { configured: false, message: "Polygon API key not configured - using mock data" };
+      return { configured: false, message: "Polygon API key not configured. Set POLYGON_API_KEY for US market data." };
     }
     return { configured: true, message: "Polygon API configured" };
   }

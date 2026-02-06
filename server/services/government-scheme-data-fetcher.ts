@@ -363,75 +363,7 @@ class GovernmentSchemeDataFetcher {
    * Fetch PPF data (placeholder - would connect to bank APIs)
    */
   private async fetchAndStorePPFData(request: FetchRequest): Promise<FetchResult> {
-    console.log(`📋 [DATA_FETCHER] PPF fetch - using mock data (bank API integration pending)`);
-    
-    const mockPPFData = this.getMockPPFData(request.panNumber, request.name);
-    
-    if (mockPPFData.length === 0) {
-      return {
-        success: true,
-        schemeType: 'ppf',
-        recordsCreated: 0,
-        recordsUpdated: 0,
-        message: 'No PPF accounts found for this PAN'
-      };
-    }
-
-    let created = 0;
-    let updated = 0;
-
-    for (const ppf of mockPPFData) {
-      const existing = await db.select()
-        .from(schema.ppfHoldings)
-        .where(
-          and(
-            eq(schema.ppfHoldings.userId, request.userId),
-            eq(schema.ppfHoldings.ppfAccountNumber, ppf.accountNumber)
-          )
-        )
-        .limit(1);
-
-      if (existing.length > 0) {
-        await db.update(schema.ppfHoldings)
-          .set({
-            totalBalance: ppf.balance.toString(),
-            totalContribution: ppf.totalDeposits.toString(),
-            totalInterestEarned: ppf.interestEarned.toString(),
-            updatedAt: new Date()
-          })
-          .where(eq(schema.ppfHoldings.id, existing[0].id));
-        updated++;
-      } else {
-        await db.insert(schema.ppfHoldings).values({
-          userId: request.userId,
-          ppfAccountNumber: ppf.accountNumber,
-          bankName: ppf.bankName,
-          branchName: ppf.branchName,
-          accountHolderName: ppf.accountHolderName,
-          totalBalance: ppf.balance.toString(),
-          totalContribution: ppf.totalDeposits.toString(),
-          totalInterestEarned: ppf.interestEarned.toString(),
-          currentInterestRate: ppf.interestRate.toString(),
-          accountOpenDate: ppf.openingDate,
-          maturityDate: ppf.maturityDate,
-          contributionRemaining: ppf.contributionRemaining?.toString() || '150000'
-        });
-        created++;
-      }
-    }
-
-    console.log(`✅ [DATA_FETCHER] PPF: ${created} created, ${updated} updated`);
-
-    return {
-      success: true,
-      schemeType: 'ppf',
-      recordsCreated: created,
-      recordsUpdated: updated,
-      message: `Successfully fetched ${mockPPFData.length} PPF account(s)`,
-      data: {
-        totalBalance: mockPPFData.reduce((sum, p) => sum + p.balance, 0)
-      }
-    };
+    throw new Error('PPF data service not configured. Bank API integration required for PPF data.');
   }
 
   /**
@@ -522,78 +454,7 @@ class GovernmentSchemeDataFetcher {
    * Fetch Insurance data (placeholder - would connect to Turtlefin/CAMS)
    */
   private async fetchAndStoreInsuranceData(request: FetchRequest): Promise<FetchResult> {
-    console.log(`📋 [DATA_FETCHER] Insurance fetch - using mock data (Turtlefin integration pending)`);
-    
-    const mockInsurance = this.getMockInsuranceData(request.panNumber, request.name);
-    
-    if (mockInsurance.length === 0) {
-      return {
-        success: true,
-        schemeType: 'insurance',
-        recordsCreated: 0,
-        recordsUpdated: 0,
-        message: 'No insurance policies found for this PAN'
-      };
-    }
-
-    let created = 0;
-    let updated = 0;
-
-    for (const policy of mockInsurance) {
-      const existing = await db.select()
-        .from(schema.insuranceHoldings)
-        .where(
-          and(
-            eq(schema.insuranceHoldings.userId, request.userId),
-            eq(schema.insuranceHoldings.policyNumber, policy.policyNumber)
-          )
-        )
-        .limit(1);
-
-      if (existing.length > 0) {
-        await db.update(schema.insuranceHoldings)
-          .set({
-            sumAssured: policy.sumAssured.toString(),
-            premiumAmount: policy.premium.toString(),
-            policyStatus: policy.status,
-            updatedAt: new Date()
-          })
-          .where(eq(schema.insuranceHoldings.id, existing[0].id));
-        updated++;
-      } else {
-        await db.insert(schema.insuranceHoldings).values({
-          userId: request.userId,
-          policyNumber: policy.policyNumber,
-          policyName: policy.policyName || 'Term Insurance Policy',
-          policyType: policy.policyType,
-          category: policy.category || 'term',
-          insuranceCompany: policy.insurer,
-          sumAssured: policy.sumAssured.toString(),
-          premiumAmount: policy.premium.toString(),
-          premiumFrequency: policy.premiumFrequency,
-          policyStartDate: policy.startDate,
-          policyMaturityDate: policy.maturityDate,
-          policyStatus: policy.status,
-          nomineeDetails: policy.nominee,
-          depositoryName: 'NSDL'
-        });
-        created++;
-      }
-    }
-
-    console.log(`✅ [DATA_FETCHER] Insurance: ${created} created, ${updated} updated`);
-
-    return {
-      success: true,
-      schemeType: 'insurance',
-      recordsCreated: created,
-      recordsUpdated: updated,
-      message: `Successfully fetched ${mockInsurance.length} insurance policy(ies)`,
-      data: {
-        totalPolicies: mockInsurance.length,
-        totalSumAssured: mockInsurance.reduce((sum, p) => sum + p.sumAssured, 0)
-      }
-    };
+    throw new Error('Insurance data service not configured. Turtlefin/CAMS API integration required for insurance data.');
   }
 
   // Helper methods
@@ -610,45 +471,6 @@ class GovernmentSchemeDataFetcher {
     return Math.min(Math.max(monthlyPension, 1000), 15000);
   }
 
-  private getMockPPFData(panNumber: string, name: string): any[] {
-    if (panNumber === 'AMAPM7904P') {
-      return [{
-        accountNumber: 'PPF1234567890',
-        bankName: 'State Bank of India',
-        branchName: 'Mumbai Main Branch',
-        accountHolderName: 'Sangram Kesari Mohanty',
-        balance: 850000,
-        totalDeposits: 750000,
-        interestEarned: 100000,
-        interestRate: 7.1,
-        openingDate: '2015-04-01',
-        maturityDate: '2030-03-31',
-        contributionRemaining: 150000
-      }];
-    }
-    return [];
-  }
-
-  private getMockInsuranceData(panNumber: string, name: string): any[] {
-    if (panNumber === 'AMAPM7904P') {
-      return [{
-        policyNumber: 'LIC123456789',
-        policyName: 'LIC Term Assurance Plan',
-        policyType: 'life',
-        category: 'term',
-        insurer: 'LIC of India',
-        policyHolderName: 'Sangram Kesari Mohanty',
-        sumAssured: 5000000,
-        premium: 15000,
-        premiumFrequency: 'yearly',
-        startDate: '2020-01-15',
-        maturityDate: '2045-01-14',
-        status: 'active',
-        nominee: 'Spouse'
-      }];
-    }
-    return [];
-  }
 }
 
 export const governmentSchemeDataFetcher = new GovernmentSchemeDataFetcher();

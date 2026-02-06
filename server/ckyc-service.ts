@@ -229,9 +229,7 @@ export class CKYCService {
     
     // Use mock mode when credentials are not configured
     if (!hasCredentials) {
-      console.warn('⚠️ Using mock CKYC upload response (credentials not configured)');
-      // PRODUCTION SAFETY: Mock throws error in PROD, returns response in DEV
-      return await this.getMockUploadResponse({ userId: context?.userId, panNumber: request.personalInfo.panNumber });
+      throw new Error('CKYC service not configured. AuthBridge CKYC API credentials required for KYC upload and verification.');
     }
 
     console.log('📤 Uploading CKYC documents to NSDL for PAN:', request.personalInfo.panNumber.slice(0, 4) + '***');
@@ -310,9 +308,7 @@ export class CKYCService {
     
     // Use mock mode when credentials are not configured
     if (!hasCredentials) {
-      console.warn('⚠️ Using mock KIN poll response (credentials not configured)');
-      // PRODUCTION SAFETY: Mock throws error in PROD, returns response in DEV
-      return await this.getMockKINPollResponse(applicationNumber, context);
+      throw new Error('CKYC service not configured. AuthBridge CKYC API credentials required for KYC upload and verification.');
     }
 
     console.log('🔍 Polling KIN status for application:', applicationNumber);
@@ -360,71 +356,6 @@ export class CKYCService {
     
     // Default to pending for unknown/initial statuses
     return 'pending';
-  }
-
-  /**
-   * Mock upload response for development ONLY
-   * PRODUCTION SAFETY: This method throws an error if called in PROD
-   */
-  private async getMockUploadResponse(context?: { userId?: string; panNumber?: string }): Promise<CKYCUploadResponse> {
-    // PRODUCTION SAFETY: Block mock in PROD environment
-    if (ckycEnvironmentService.isProductionMode()) {
-      await this.logMockBlockedAttemptSync('mock_upload', context);
-      throw new CkycComplianceError(
-        'MOCK_BLOCKED_IN_PROD',
-        'Mock CKYC upload is not allowed in production environment. Configure real API credentials.'
-      );
-    }
-    
-    return {
-      success: true,
-      applicationNumber: `APP${Date.now()}`,
-      uploadStatus: 'submitted',
-      message: 'CKYC documents uploaded successfully (mock)',
-    };
-  }
-
-  /**
-   * Mock KIN poll response for development ONLY
-   * PRODUCTION SAFETY: This method throws an error if called in PROD
-   */
-  private async getMockKINPollResponse(applicationNumber: string, context?: { userId?: string; panNumber?: string }): Promise<KINPollResponse> {
-    // PRODUCTION SAFETY: Block mock in PROD environment
-    if (ckycEnvironmentService.isProductionMode()) {
-      await this.logMockBlockedAttemptSync('mock_kin_poll', context);
-      throw new CkycComplianceError(
-        'MOCK_BLOCKED_IN_PROD',
-        'Mock KIN polling is not allowed in production environment. Configure real API credentials.'
-      );
-    }
-    
-    // Simulate different statuses based on time
-    const elapsed = Date.now() - parseInt(applicationNumber.replace('APP', ''));
-    const seconds = Math.floor(elapsed / 1000);
-    
-    if (seconds < 30) {
-      return {
-        success: true,
-        status: 'pending',
-        applicationNumber,
-        message: 'Application submitted, pending processing (mock)',
-      };
-    } else if (seconds < 60) {
-      return {
-        success: true,
-        status: 'processing',
-        applicationNumber,
-        message: 'Application under processing (mock)',
-      };
-    } else {
-      return {
-        success: true,
-        status: 'completed',
-        ckycNumber: `KIN${Date.now()}`,
-        applicationNumber,
-        message: 'KIN generated successfully (mock)',
-      };
-    }
   }
 
   /**

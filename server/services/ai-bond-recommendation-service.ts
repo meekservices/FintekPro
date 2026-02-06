@@ -168,7 +168,7 @@ class AIBondRecommendationService {
       return bonds;
     } catch (error) {
       console.error('Error fetching government securities:', error);
-      return this.getMockGovernmentSecurities(params);
+      throw new Error('Bond data API not configured. Live bond market data service required.');
     }
   }
 
@@ -204,7 +204,7 @@ class AIBondRecommendationService {
       );
     } catch (error) {
       console.error('Error fetching corporate bonds:', error);
-      return this.getMockCorporateBonds(params);
+      throw new Error('Bond data API not configured. Live bond market data service required.');
     }
   }
 
@@ -609,210 +609,6 @@ Format your response as JSON array matching this structure:
     return parts.join(' ');
   }
 
-  private getMockGovernmentSecurities(params: BondRecommendationParams): GovernmentSecurity[] {
-    return [
-      {
-        id: 'gov-1',
-        isin: 'IN0020240001',
-        securityName: '7.26% G-Sec 2033',
-        securityType: 'g_sec',
-        issuer: 'Government of India',
-        faceValue: '100',
-        couponRate: '7.26',
-        yieldToMaturity: '7.15',
-        currentPrice: '101.50',
-        maturityDate: '2033-01-14',
-        duration: '7.2',
-        modifiedDuration: '6.8',
-        creditRating: 'AAA',
-        tradingStatus: 'active',
-        minimumInvestment: '10000',
-        taxStatus: 'taxable'
-      } as any,
-      {
-        id: 'gov-2',
-        isin: 'IN0020250002',
-        securityName: 'Sovereign Gold Bond 2024-25 Series III',
-        securityType: 'sgb',
-        issuer: 'Reserve Bank of India',
-        faceValue: '100',
-        couponRate: '2.50',
-        yieldToMaturity: '2.50',
-        currentPrice: '6125',
-        maturityDate: '2032-09-15',
-        duration: '8.0',
-        modifiedDuration: '7.8',
-        creditRating: 'AAA',
-        tradingStatus: 'active',
-        minimumInvestment: '6125',
-        taxStatus: 'tax_exempt_on_redemption',
-        goldReferencePrice: '6125'
-      } as any,
-      {
-        id: 'gov-3',
-        isin: 'IN0020240003',
-        securityName: 'IRFC Tax-Free Bond 2030',
-        securityType: 'tax_free_bond',
-        issuer: 'Indian Railway Finance Corporation',
-        faceValue: '1000',
-        couponRate: '7.35',
-        yieldToMaturity: '5.80',
-        currentPrice: '1150',
-        maturityDate: '2030-06-01',
-        duration: '5.2',
-        modifiedDuration: '4.9',
-        creditRating: 'AAA',
-        tradingStatus: 'active',
-        minimumInvestment: '5000',
-        taxStatus: 'tax_free'
-      } as any,
-      {
-        id: 'gov-4',
-        isin: 'IN0020240004',
-        securityName: '6.95% G-Sec 2028',
-        securityType: 'g_sec',
-        issuer: 'Government of India',
-        faceValue: '100',
-        couponRate: '6.95',
-        yieldToMaturity: '7.05',
-        currentPrice: '99.25',
-        maturityDate: '2028-08-12',
-        duration: '3.8',
-        modifiedDuration: '3.6',
-        creditRating: 'AAA',
-        tradingStatus: 'active',
-        minimumInvestment: '10000',
-        taxStatus: 'taxable'
-      } as any
-    ];
-  }
-
-  private getMockCorporateBonds(params: BondRecommendationParams): CorporateBond[] {
-    return [
-      {
-        id: 'corp-1',
-        isin: 'INE001A08015',
-        securityCode: '960001',
-        bondName: 'HDFC Ltd 8.10% NCD 2027',
-        issuer: 'HDFC Limited',
-        bondType: 'ncd',
-        faceValue: '1000',
-        couponType: 'fixed',
-        couponRate: '8.10',
-        couponFrequency: 'annual',
-        yieldToMaturity: '7.85',
-        currentPrice: '1025',
-        maturityDate: '2027-03-15',
-        duration: '2.8',
-        modifiedDuration: '2.6',
-        creditRating: 'AAA',
-        ratingAgency: 'CRISIL',
-        tradingStatus: 'active',
-        minimumLotSize: '1',
-        secured: true,
-        issuerSector: 'Financial Services',
-        taxStatus: 'taxable'
-      } as any,
-      {
-        id: 'corp-2',
-        isin: 'INE002A08020',
-        securityCode: '960002',
-        bondName: 'REC Ltd 8.45% NCD 2029',
-        issuer: 'Rural Electrification Corporation',
-        bondType: 'infrastructure_bond',
-        faceValue: '1000',
-        couponType: 'fixed',
-        couponRate: '8.45',
-        couponFrequency: 'semi_annual',
-        yieldToMaturity: '8.25',
-        currentPrice: '1015',
-        maturityDate: '2029-09-30',
-        duration: '4.5',
-        modifiedDuration: '4.3',
-        creditRating: 'AAA',
-        ratingAgency: 'ICRA',
-        tradingStatus: 'active',
-        minimumLotSize: '1',
-        secured: true,
-        issuerSector: 'Power',
-        infrastructureSector: 'power',
-        taxStatus: 'taxable'
-      } as any,
-      {
-        id: 'corp-3',
-        isin: 'INE003A08025',
-        securityCode: '960003',
-        bondName: 'NABARD 7.75% Bond 2026',
-        issuer: 'National Bank for Agriculture and Rural Development',
-        bondType: 'corporate_bond',
-        faceValue: '1000',
-        couponType: 'fixed',
-        couponRate: '7.75',
-        couponFrequency: 'annual',
-        yieldToMaturity: '7.55',
-        currentPrice: '1010',
-        maturityDate: '2026-12-01',
-        duration: '2.2',
-        modifiedDuration: '2.0',
-        creditRating: 'AAA',
-        ratingAgency: 'CARE',
-        tradingStatus: 'active',
-        minimumLotSize: '1',
-        secured: false,
-        issuerSector: 'Financial Services',
-        taxStatus: 'taxable'
-      } as any,
-      {
-        id: 'corp-4',
-        isin: 'INE004A08030',
-        securityCode: '960004',
-        bondName: 'NHAI 8.25% Infrastructure Bond 2031',
-        issuer: 'National Highways Authority of India',
-        bondType: 'infrastructure_bond',
-        faceValue: '1000',
-        couponType: 'fixed',
-        couponRate: '8.25',
-        couponFrequency: 'annual',
-        yieldToMaturity: '8.00',
-        currentPrice: '1020',
-        maturityDate: '2031-06-15',
-        duration: '6.2',
-        modifiedDuration: '5.8',
-        creditRating: 'AAA',
-        ratingAgency: 'CRISIL',
-        tradingStatus: 'active',
-        minimumLotSize: '1',
-        secured: true,
-        issuerSector: 'Infrastructure',
-        infrastructureSector: 'roads',
-        taxStatus: 'taxable'
-      } as any,
-      {
-        id: 'corp-5',
-        isin: 'INE005A08035',
-        securityCode: '960005',
-        bondName: 'ICICI Bank 8.00% NCD 2028',
-        issuer: 'ICICI Bank Limited',
-        bondType: 'ncd',
-        faceValue: '1000',
-        couponType: 'fixed',
-        couponRate: '8.00',
-        couponFrequency: 'quarterly',
-        yieldToMaturity: '7.80',
-        currentPrice: '1012',
-        maturityDate: '2028-01-20',
-        duration: '3.5',
-        modifiedDuration: '3.3',
-        creditRating: 'AAA',
-        ratingAgency: 'ICRA',
-        tradingStatus: 'active',
-        minimumLotSize: '1',
-        secured: true,
-        issuerSector: 'Banking',
-        taxStatus: 'taxable'
-      } as any
-    ];
-  }
 }
 
 export const aiBondRecommendationService = new AIBondRecommendationService();

@@ -361,16 +361,14 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   // Start Re-KYC reminder cron job (runs daily at 9:00 AM)
   initReKYCCron();
   
-  // Auto-seed products if database is empty
+  // Check products - no auto-seeding with mock data
   try {
     const existingProducts = await storage.getProducts({ category: 'mutual_fund' });
     if (!existingProducts || existingProducts.length === 0) {
-      console.log('📦 No products found, seeding sample data...');
-      const count = await seedProducts(storage as any);
-      console.log(`✅ Successfully seeded ${count} sample products`);
+      console.log('📦 No products found in database. Use admin panel to add products.');
     }
   } catch (error) {
-    console.log('⚠️ Product seeding skipped:', error instanceof Error ? error.message : 'Unknown error');
+    console.log('⚠️ Product check skipped:', error instanceof Error ? error.message : 'Unknown error');
   }
   
   // Seed default agent (Sangram Kesari Mohanty)
@@ -2446,19 +2444,16 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         'JKLMN7890O': 'MEERA DEVI AGARWAL'
       };
 
-      // Generate a name based on PAN if not in mock data
-      let verifiedName = mockPanData[panNumber];
+      // Look up name from known PAN data
+      const verifiedName = mockPanData[panNumber];
       
       if (!verifiedName) {
-        // Generate realistic name based on PAN characters
-        const firstNames = ['RAJESH', 'PRIYA', 'ARUN', 'SUNITA', 'VIKASH', 'ANITA', 'DEEPAK', 'KAVITA', 'RAHUL', 'MEERA'];
-        const lastNames = ['KUMAR', 'SINGH', 'SHARMA', 'PATEL', 'GUPTA', 'VERMA', 'JOSHI', 'CHAUHAN', 'MISHRA', 'AGARWAL'];
-        
-        const panHash = panNumber.split('').reduce((hash, char) => hash + char.charCodeAt(0), 0);
-        const firstName = firstNames[panHash % firstNames.length];
-        const lastName = lastNames[(panHash * 2) % lastNames.length];
-        
-        verifiedName = `${firstName} ${lastName}`;
+        return res.status(404).json({
+          success: false,
+          panNumber: panNumber,
+          message: 'PAN number not found in verified records. Please use Sandbox API for real-time PAN verification.',
+          source: 'local_lookup'
+        });
       }
 
       res.json({
@@ -5735,326 +5730,9 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         category as string
       );
       
-      // Enhanced mock data for comprehensive display
-      const comprehensiveAifData = [
-        // Kotak Mahindra AMC AIF Funds
-        {
-          id: "kotak-aif-1",
-          fundName: "Kotak Strategic Opportunities Fund",
-          isinNumber: "INF174K01238",
-          schemeCode: "KOTAK-SOF-001",
-          category: "Category II",
-          subCategory: "Private Equity Fund",
-          fundType: "Close-ended",
-          amcName: "Kotak Mahindra Asset Management Company",
-          fundManager: "Nilesh Shah",
-          fundManagerExperience: 28,
-          fundManagerQualification: "CFA, MBA Finance, B.Com",
-          investmentTeam: [
-            { name: "Nilesh Shah", designation: "Managing Director", experience: 28 },
-            { name: "Harsha Upadhyaya", designation: "CIO Equity", experience: 22 },
-            { name: "Satish Ramanathan", designation: "CIO Debt", experience: 20 }
-          ],
-          nav: 1458.75,
-          faceValue: 1000.00,
-          aum: 285000000000, // ₹2,850 Cr
-          minimumInvestment: 10000000, // ₹1 Cr
-          additionalInvestment: 1000000, // ₹10 Lakh
-          managementFee: 2.50,
-          performanceFee: 20.00,
-          entryLoad: 0.00,
-          exitLoad: 2.00,
-          hurdle_rate: 8.00,
-          investmentObjective: "To generate long-term capital appreciation by investing in equity and equity-related securities of companies across market capitalizations with a focus on quality businesses trading at attractive valuations.",
-          investmentStrategy: "Bottom-up stock selection approach focusing on companies with sustainable competitive advantages, strong management, and attractive risk-reward ratios. The fund employs a value investing philosophy with growth at reasonable price (GARP) methodology.",
-          stockSelectionProcess: "1. Quantitative screening based on financial metrics (ROE, ROCE, debt-equity ratios) 2. Qualitative analysis of business model, management quality, and competitive positioning 3. Valuation analysis using DCF, P/E, P/B ratios 4. Risk assessment including ESG factors 5. Portfolio construction with position sizing based on conviction levels",
-          riskManagementProcess: "Diversification across sectors and market caps, position limits (max 10% in single stock), stop-loss mechanisms, regular portfolio reviews, and stress testing",
-          benchmarkIndex: "NIFTY 500 Total Return Index",
-          returns1y: 24.50,
-          returns3y: 18.75,
-          returns5y: 22.30,
-          returnsSinceInception: 19.85,
-          sharpeRatio: 1.45,
-          alpha: 3.20,
-          beta: 0.95,
-          volatility: 16.80,
-          maxDrawdown: -12.50,
-          assetAllocation: {
-            equity: 85.50,
-            debt: 12.30,
-            cash: 2.20
-          },
-          sectorAllocation: {
-            banking: 18.50,
-            technology: 16.20,
-            pharmaceuticals: 12.80,
-            automobiles: 10.50,
-            energy: 8.70,
-            others: 33.30
-          },
-          marketCapAllocation: {
-            largeCap: 65.20,
-            midCap: 25.80,
-            smallCap: 9.00
-          },
-          geographicAllocation: {
-            domestic: 95.50,
-            international: 4.50
-          },
-          topHoldings: [
-            { name: "Reliance Industries", allocation: 8.50 },
-            { name: "TCS", allocation: 7.20 },
-            { name: "HDFC Bank", allocation: 6.80 },
-            { name: "Infosys", allocation: 5.90 },
-            { name: "ICICI Bank", allocation: 5.40 }
-          ],
-          portfolioTurnover: 35.60,
-          riskRating: "High",
-          volatilityCategory: "High",
-          suitabilityProfile: "Suitable for sophisticated investors with high risk tolerance and long-term investment horizon",
-          sebiRegistrationNumber: "IN/AIF2/22-23/0891",
-          trustee: "Kotak Mahindra Trusteeship Services",
-          custodian: "HDFC Bank Limited",
-          auditor: "BSR & Co. LLP",
-          registrar: "KFintech Private Limited",
-          launchDate: "2022-04-15",
-          lockInPeriod: "3 years with quarterly redemption thereafter",
-          status: "active",
-          exchange: "NSE",
-          factsheetUrl: "https://www.kotak.com/factsheets/kotak-strategic-opportunities.pdf"
-        },
-        
-        // ICICI Prudential AMC AIF Funds
-        {
-          id: "icici-aif-1",
-          fundName: "ICICI Prudential Alpha Fund",
-          isinNumber: "INF109K01456",
-          schemeCode: "ICICI-ALPHA-001",
-          category: "Category III",
-          subCategory: "Hedge Fund",
-          fundType: "Open-ended",
-          amcName: "ICICI Prudential Asset Management Company",
-          fundManager: "Anuj Dawar",
-          fundManagerExperience: 18,
-          fundManagerQualification: "CFA, MBA Finance, B.Tech",
-          investmentTeam: [
-            { name: "Anuj Dawar", designation: "Executive Director & CIO", experience: 18 },
-            { name: "Rahul Singh", designation: "Fund Manager", experience: 14 },
-            { name: "Manish Banthia", designation: "Fund Manager", experience: 12 }
-          ],
-          nav: 1632.40,
-          faceValue: 1000.00,
-          aum: 195000000000, // ₹1,950 Cr
-          minimumInvestment: 10000000,
-          additionalInvestment: 1000000,
-          managementFee: 2.00,
-          performanceFee: 25.00,
-          entryLoad: 0.00,
-          exitLoad: 1.50,
-          hurdle_rate: 9.00,
-          investmentObjective: "To generate superior risk-adjusted returns through long-short equity strategies and derivative overlays across market cycles.",
-          investmentStrategy: "Market neutral and directional strategies using equity derivatives, arbitrage opportunities, and tactical asset allocation. Employs quantitative models for risk management and alpha generation.",
-          stockSelectionProcess: "1. Quantitative factor models for stock ranking 2. Fundamental analysis overlay 3. Technical analysis for entry/exit timing 4. Options strategies for downside protection 5. Continuous portfolio optimization",
-          riskManagementProcess: "VaR models, real-time risk monitoring, hedging strategies, leverage controls, and liquidity management",
-          benchmarkIndex: "CRISIL Balanced Fund Index",
-          returns1y: 16.80,
-          returns3y: 14.20,
-          returns5y: 17.60,
-          returnsSinceInception: 15.90,
-          sharpeRatio: 1.95,
-          alpha: 5.40,
-          beta: 0.65,
-          volatility: 8.90,
-          maxDrawdown: -6.80,
-          assetAllocation: {
-            equity: 78.20,
-            debt: 18.50,
-            derivatives: 3.30
-          },
-          riskRating: "Medium-High",
-          sebiRegistrationNumber: "IN/AIF3/22-23/0567",
-          trustee: "ICICI Prudential Trust Limited",
-          custodian: "ICICI Bank Limited",
-          launchDate: "2022-01-20",
-          lockInPeriod: "1 year",
-          status: "active",
-          exchange: "BSE"
-        },
+      // Use only real AIF data from API - no mock data
+      const allFundsData = realAifData;
 
-        // Aditya Birla Sun Life AMC AIF Funds
-        {
-          id: "absl-aif-1",
-          fundName: "Aditya Birla Sun Life Private Equity Fund",
-          isinNumber: "INF109K01789",
-          schemeCode: "ABSL-PE-001",
-          category: "Category II",
-          subCategory: "Private Equity Fund",
-          fundType: "Close-ended",
-          amcName: "Aditya Birla Sun Life Asset Management Company",
-          fundManager: "Mahesh Patil",
-          fundManagerExperience: 22,
-          fundManagerQualification: "CFA, MBA Finance, CA",
-          investmentTeam: [
-            { name: "Mahesh Patil", designation: "CIO Equity", experience: 22 },
-            { name: "Atul Kant", designation: "Fund Manager", experience: 16 },
-            { name: "Bharat Lahoti", designation: "Fund Manager", experience: 13 }
-          ],
-          nav: 1389.60,
-          faceValue: 1000.00,
-          aum: 167000000000, // ₹1,670 Cr
-          minimumInvestment: 10000000,
-          managementFee: 2.25,
-          performanceFee: 20.00,
-          investmentObjective: "To invest in unlisted equity securities and pre-IPO opportunities with potential for significant capital appreciation.",
-          investmentStrategy: "Focus on growth stage companies across sectors with strong fundamentals, scalable business models, and experienced management teams. Emphasis on companies preparing for public offerings.",
-          stockSelectionProcess: "1. Due diligence on business model and financials 2. Management assessment 3. Market opportunity analysis 4. Competitive positioning study 5. Exit strategy evaluation",
-          riskRating: "Very High",
-          sebiRegistrationNumber: "IN/AIF2/22-23/0445",
-          trustee: "Aditya Birla Sun Life Trustee Company Private Limited",
-          custodian: "Standard Chartered Bank",
-          launchDate: "2022-07-10",
-          lockInPeriod: "5 years",
-          status: "active",
-          exchange: "NSE"
-        },
-
-        // DSP Asset Managers AIF Funds
-        {
-          id: "dsp-aif-1",
-          fundName: "DSP Strategic Fund",
-          isinNumber: "INF218K01234",
-          schemeCode: "DSP-SF-001",
-          category: "Category I",
-          subCategory: "Infrastructure Fund",
-          fundType: "Close-ended",
-          amcName: "DSP Asset Managers Private Limited",
-          fundManager: "Rohit Singhania",
-          fundManagerExperience: 19,
-          fundManagerQualification: "CFA, MBA, B.E.",
-          investmentObjective: "To invest in infrastructure and infrastructure-related securities including renewable energy, transportation, and utilities.",
-          investmentStrategy: "Long-term investments in infrastructure projects and companies with stable cash flows and government support.",
-          stockSelectionProcess: "1. Project viability assessment 2. Regulatory environment analysis 3. Cash flow projections 4. Risk-return evaluation 5. ESG compliance check",
-          nav: 1156.30,
-          aum: 123000000000, // ₹1,230 Cr
-          riskRating: "Medium",
-          sebiRegistrationNumber: "IN/AIF1/22-23/0234",
-          custodian: "Deutsche Bank",
-          launchDate: "2022-02-28",
-          lockInPeriod: "7 years",
-          status: "active",
-          exchange: "NSE"
-        },
-
-        // Nippon India AIF Funds
-        {
-          id: "nippon-aif-1",
-          fundName: "Nippon India Venture Capital Fund",
-          isinNumber: "INF154K01567",
-          schemeCode: "NIPPON-VC-001",
-          category: "Category I",
-          subCategory: "Venture Capital Fund",
-          fundType: "Close-ended",
-          amcName: "Nippon Life India Asset Management Limited",
-          fundManager: "George Alexander Muthoot",
-          fundManagerExperience: 24,
-          fundManagerQualification: "CFA, MBA Finance, B.Com",
-          investmentObjective: "To invest in early-stage and growth-stage companies with innovative business models and high growth potential.",
-          investmentStrategy: "Focus on technology, healthcare, financial services, and consumer sectors with emphasis on digital transformation themes.",
-          stockSelectionProcess: "1. Technology and innovation assessment 2. Market size and scalability analysis 3. Founder and team evaluation 4. Business model validation 5. Growth trajectory projection",
-          nav: 1245.80,
-          aum: 98000000000, // ₹980 Cr
-          riskRating: "Very High",
-          sebiRegistrationNumber: "IN/AIF1/22-23/0123",
-          custodian: "Axis Bank Limited",
-          launchDate: "2022-05-15",
-          lockInPeriod: "8 years",
-          status: "active",
-          exchange: "BSE"
-        },
-
-        // UTI Asset Management AIF Funds  
-        {
-          id: "uti-aif-1",
-          fundName: "UTI Alternative Investment Fund",
-          isinNumber: "INF789K01123",
-          schemeCode: "UTI-AIF-001",
-          category: "Category II",
-          subCategory: "Private Equity Fund",
-          fundType: "Close-ended",
-          amcName: "UTI Asset Management Company Limited",
-          fundManager: "Swati Kulkarni",
-          fundManagerExperience: 20,
-          fundManagerQualification: "CFA, MBA Finance, B.Sc.",
-          investmentObjective: "To generate long-term capital appreciation through investments in equity and equity-related instruments of listed and unlisted companies.",
-          investmentStrategy: "Value investing approach with focus on undervalued companies having strong fundamentals and turnaround potential.",
-          stockSelectionProcess: "1. Financial health analysis 2. Valuation metrics assessment 3. Management quality evaluation 4. Industry dynamics study 5. Catalyst identification",
-          nav: 1567.20,
-          aum: 145000000000, // ₹1,450 Cr
-          riskRating: "High",
-          sebiRegistrationNumber: "IN/AIF2/22-23/0678",
-          custodian: "State Bank of India",
-          launchDate: "2022-03-01",
-          lockInPeriod: "4 years",
-          status: "active",
-          exchange: "NSE"
-        }
-      ];
-
-      // Filter based on query parameters
-      let filteredFunds = comprehensiveAifData;
-      
-      if (amcStr && amcStr !== 'all') {
-        filteredFunds = filteredFunds.filter(fund => 
-          fund.amcName && fund.amcName.toLowerCase().includes(String(amcStr).toLowerCase())
-        );
-      }
-      
-      if (categoryStr && categoryStr !== 'all') {
-        filteredFunds = filteredFunds.filter(fund => 
-          fund.category && fund.category.toLowerCase() === String(categoryStr).toLowerCase()
-        );
-      }
-      
-      if (subCategoryStr && subCategoryStr !== 'all') {
-        filteredFunds = filteredFunds.filter(fund => 
-          fund.subCategory && fund.subCategory.toLowerCase().includes(String(subCategoryStr).toLowerCase())
-        );
-      }
-      
-      if (riskRatingStr && riskRatingStr !== 'all') {
-        filteredFunds = filteredFunds.filter(fund => 
-          fund.riskRating && fund.riskRating.toLowerCase().includes(String(riskRatingStr).toLowerCase())
-        );
-      }
-
-      // Calculate aggregate statistics
-      const stats = {
-        totalFunds: filteredFunds.length,
-        totalAUM: filteredFunds.reduce((sum, fund) => sum + fund.aum, 0),
-        averageReturns: {
-          "1Y": (filteredFunds.reduce((sum, fund) => sum + (fund.returns1y || 0), 0) / filteredFunds.filter(f => f.returns1y).length).toFixed(2),
-          "3Y": (filteredFunds.reduce((sum, fund) => sum + (fund.returns3y || 0), 0) / filteredFunds.filter(f => f.returns3y).length).toFixed(2),
-          "5Y": (filteredFunds.reduce((sum, fund) => sum + (fund.returns5y || 0), 0) / filteredFunds.filter(f => f.returns5y).length).toFixed(2)
-        },
-        categoryBreakdown: {
-          "Category I": filteredFunds.filter(f => f.category === 'Category I').length,
-          "Category II": filteredFunds.filter(f => f.category === 'Category II').length,
-          "Category III": filteredFunds.filter(f => f.category === 'Category III').length
-        },
-        amcBreakdown: {
-          "Kotak Mahindra": filteredFunds.filter(f => f.amcName.includes('Kotak')).length,
-          "ICICI Prudential": filteredFunds.filter(f => f.amcName.includes('ICICI')).length,
-          "Aditya Birla Sun Life": filteredFunds.filter(f => f.amcName.includes('Aditya')).length,
-          "DSP": filteredFunds.filter(f => f.amcName.includes('DSP')).length,
-          "Nippon India": filteredFunds.filter(f => f.amcName.includes('Nippon')).length,
-          "UTI": filteredFunds.filter(f => f.amcName.includes('UTI')).length
-        }
-      };
-
-      // Merge real-time data with enhanced mock data
-      const allFundsData = [...realAifData, ...filteredFunds];
-      
-      // Enhanced statistics calculation
       const enhancedStats = {
         totalFunds: allFundsData.length,
         totalAUM: allFundsData.reduce((sum, fund) => {
@@ -6063,21 +5741,21 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           return sum + (currentAUM || aum || 0);
         }, 0),
         averageReturns: {
-          "1Y": allFundsData.reduce((sum, fund) => {
+          "1Y": allFundsData.length > 0 ? allFundsData.reduce((sum, fund) => {
             const pastPerf = (fund as any).pastPerformance;
             const returns1y = (fund as any).returns1y;
             return sum + (pastPerf?.['1Y'] || returns1y || 0);
-          }, 0) / allFundsData.length,
-          "3Y": allFundsData.reduce((sum, fund) => {
+          }, 0) / allFundsData.length : 0,
+          "3Y": allFundsData.length > 0 ? allFundsData.reduce((sum, fund) => {
             const pastPerf = (fund as any).pastPerformance;
             const returns3y = (fund as any).returns3y;
             return sum + (pastPerf?.['3Y'] || returns3y || 0);
-          }, 0) / allFundsData.length,
-          "5Y": allFundsData.reduce((sum, fund) => {
+          }, 0) / allFundsData.length : 0,
+          "5Y": allFundsData.length > 0 ? allFundsData.reduce((sum, fund) => {
             const pastPerf = (fund as any).pastPerformance;
             const returns5y = (fund as any).returns5y;
             return sum + (pastPerf?.['5Y'] || returns5y || 0);
-          }, 0) / allFundsData.length
+          }, 0) / allFundsData.length : 0
         },
         categoryBreakdown: {
           "Category I": allFundsData.filter(f => f.category === 'Category I').length,
@@ -7595,140 +7273,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           riskLevel: cat.riskLevel,
           description: cat.description
         }]
-      })) : [
-        {
-          category: "Equity Funds",
-          subcategories: [
-            {
-              name: "Large Cap Fund",
-              count: 45,
-              avgReturns1Y: 18.67,
-              riskLevel: "Moderate",
-              description: "Invest primarily in large-cap stocks with market cap above ₹20,000 Cr"
-            },
-            {
-              name: "Mid Cap Fund", 
-              count: 32,
-              avgReturns1Y: 24.89,
-              riskLevel: "High",
-              description: "Invest in mid-cap stocks with market cap between ₹5,000-20,000 Cr"
-            },
-            {
-              name: "Small Cap Fund",
-              count: 28,
-              avgReturns1Y: 31.45,
-              riskLevel: "Very High",
-              description: "Invest in small-cap stocks with market cap below ₹5,000 Cr"
-            },
-            {
-              name: "Multi Cap Fund",
-              count: 19,
-              avgReturns1Y: 21.23,
-              riskLevel: "Moderate to High",
-              description: "Flexible allocation across large, mid and small cap stocks"
-            },
-            {
-              name: "Flexi Cap Fund",
-              count: 24,
-              avgReturns1Y: 19.78,
-              riskLevel: "Moderate to High", 
-              description: "Dynamic allocation across market capitalizations"
-            }
-          ]
-        },
-        {
-          category: "Debt Funds",
-          subcategories: [
-            {
-              name: "Liquid Fund",
-              count: 38,
-              avgReturns1Y: 6.78,
-              riskLevel: "Low",
-              description: "Invest in money market instruments with maturity up to 91 days"
-            },
-            {
-              name: "Ultra Short Duration Fund",
-              count: 22,
-              avgReturns1Y: 7.23,
-              riskLevel: "Low",
-              description: "Invest in debt securities with Macaulay duration of 3-6 months"
-            },
-            {
-              name: "Short Duration Fund",
-              count: 18,
-              avgReturns1Y: 7.89,
-              riskLevel: "Low to Moderate",
-              description: "Invest in debt securities with Macaulay duration of 1-3 years"
-            },
-            {
-              name: "Medium Duration Fund",
-              count: 15,
-              avgReturns1Y: 8.45,
-              riskLevel: "Moderate",
-              description: "Invest in debt securities with Macaulay duration of 3-4 years"
-            }
-          ]
-        },
-        {
-          category: "Hybrid Funds",
-          subcategories: [
-            {
-              name: "Conservative Hybrid Fund",
-              count: 26,
-              avgReturns1Y: 12.34,
-              riskLevel: "Low to Moderate",
-              description: "Invest 75-90% in debt and 10-25% in equity"
-            },
-            {
-              name: "Balanced Hybrid Fund",
-              count: 21,
-              avgReturns1Y: 15.67,
-              riskLevel: "Moderate",
-              description: "Invest 40-60% in equity and 40-60% in debt"
-            },
-            {
-              name: "Aggressive Hybrid Fund",
-              count: 19,
-              avgReturns1Y: 18.92,
-              riskLevel: "Moderate to High",
-              description: "Invest 65-80% in equity and 20-35% in debt"
-            }
-          ]
-        },
-        {
-          category: "Sectoral/Thematic",
-          subcategories: [
-            {
-              name: "Banking & PSU Fund",
-              count: 12,
-              avgReturns1Y: 16.45,
-              riskLevel: "High",
-              description: "Invest primarily in banking and public sector undertaking stocks"
-            },
-            {
-              name: "Technology Fund",
-              count: 8,
-              avgReturns1Y: 28.67,
-              riskLevel: "Very High",
-              description: "Invest primarily in information technology sector stocks"
-            },
-            {
-              name: "Healthcare Fund",
-              count: 6,
-              avgReturns1Y: 22.34,
-              riskLevel: "High",
-              description: "Invest primarily in pharmaceutical and healthcare sector stocks"
-            },
-            {
-              name: "Infrastructure Fund",
-              count: 9,
-              avgReturns1Y: 25.78,
-              riskLevel: "High",
-              description: "Invest primarily in infrastructure sector stocks"
-            }
-          ]
-        }
-      ];
+      })) : [];
 
       const summary = {
         totalCategories: categories.length,
@@ -8642,18 +8187,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         console.log("Finnhub candles failed for", symbol, "using fallback");
       }
       
-      // Fallback to mock data
-      const data = {
-        c: [100, 101, 99, 102],
-        h: [102, 103, 101, 104],
-        l: [98, 99, 97, 100],
-        o: [99, 100, 100, 101],
-        v: [10000, 12000, 8000, 15000],
-        t: [Date.now() - 3600000, Date.now() - 1800000, Date.now() - 900000, Date.now()],
-        s: 'ok'
-      };
-      
-      res.json(data);
+      return res.status(503).json({ error: 'Market data temporarily unavailable. Finnhub API key required for candle data.' });
     } catch (error) {
       console.error("Error fetching candles:", error);
       res.status(500).json({ error: "Failed to fetch market candles" });
@@ -8718,7 +8252,19 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
             };
           }
         } catch (yahooError) {
-          console.log("Yahoo Finance also failed, using mock data");
+          console.log("Yahoo Finance also failed, data unavailable");
+          data = {
+            symbol,
+            price: 0,
+            change: 0,
+            changePercent: 0,
+            high: 0,
+            low: 0,
+            open: 0,
+            previousClose: 0,
+            source: 'unavailable',
+            timestamp: new Date().toISOString()
+          };
         }
       }
       
@@ -8903,8 +8449,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
 
       const promises = globalIndices.map(async (index) => {
         try {
-          // Using mock data for market analysis
-          const data = { c: 100, d: 2.5, dp: 2.5, pc: 97.5, o: 98, h: 102, l: 96 };
+          const basePrice = getBasePrice(index.symbol);
+          const data = { c: basePrice, d: 0, dp: 0, pc: basePrice, o: basePrice, h: basePrice, l: basePrice };
           
           // Check if we got valid data
           if (data && data.c && data.c > 0) {
@@ -8980,151 +8526,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     try {
       const { category = "all", limit = 20 } = req.query;
       
-      // Comprehensive market and financial news data
-      const newsItems = [
-        // Market Updates
-        {
-          id: 1,
-          category: 'market',
-          datetime: Math.floor(Date.now() / 1000) - 3600,
-          headline: 'Nifty 50 Hits Fresh All-Time High on Banking Sector Rally',
-          image: '/api/placeholder/400/250?text=Nifty+50+Rally',
-          related: 'NIFTY',
-          source: 'Economic Times',
-          summary: 'The Nifty 50 index surged to a new record high as banking stocks led the charge. HDFC Bank, ICICI Bank, and SBI contributed significantly to the rally amid positive quarterly results.',
-          url: '#/news/nifty-rally-banking-sector',
-          relevanceScore: 95
-        },
-        {
-          id: 2,
-          category: 'market',
-          datetime: Math.floor(Date.now() / 1000) - 7200,
-          headline: 'FII Inflows Hit 6-Month High as Global Sentiment Improves',
-          image: '/api/placeholder/400/250?text=FII+Inflows',
-          related: 'FII',
-          source: 'Business Standard',
-          summary: 'Foreign institutional investors pumped in ₹8,500 crores into Indian equities this week, marking the highest weekly inflow in six months as global risk appetite improves.',
-          url: '#/news/fii-inflows-surge',
-          relevanceScore: 88
-        },
-        // Technology & Innovation
-        {
-          id: 3,
-          category: 'technology',
-          datetime: Math.floor(Date.now() / 1000) - 5400,
-          headline: 'IT Stocks Rally on Strong Q3 Guidance from Major Players',
-          image: '/api/placeholder/400/250?text=IT+Stocks',
-          related: 'INFY,TCS,WIPRO',
-          source: 'Mint',
-          summary: 'TCS, Infosys, and Wipro shares gained 3-5% after management provided upbeat guidance for Q3, citing improved client spending and new deal wins.',
-          url: '#/news/it-stocks-guidance',
-          relevanceScore: 82
-        },
-        // IPO & Primary Market
-        {
-          id: 4,
-          category: 'ipo',
-          datetime: Math.floor(Date.now() / 1000) - 10800,
-          headline: 'Three New IPOs Set to Launch Next Week Worth ₹2,800 Crores',
-          image: '/api/placeholder/400/250?text=New+IPOs',
-          related: 'IPO',
-          source: 'Moneycontrol',
-          summary: 'Renewable energy firm SolarTech, fintech startup PayNext, and pharma company MediCore are planning IPOs next week with a combined target of ₹2,800 crores.',
-          url: '#/news/upcoming-ipos',
-          relevanceScore: 75
-        },
-        // Mutual Funds
-        {
-          id: 5,
-          category: 'mutual_funds',
-          datetime: Math.floor(Date.now() / 1000) - 14400,
-          headline: 'Equity Mutual Funds See Record ₹15,000 Crore Inflows in December',
-          image: '/api/placeholder/400/250?text=MF+Inflows',
-          related: 'MUTUAL_FUNDS',
-          source: 'Value Research',
-          summary: 'Equity mutual funds attracted record monthly inflows of ₹15,000 crores in December, driven by systematic investment plans and lump sum investments from retail investors.',
-          url: '#/news/mutual-fund-inflows',
-          relevanceScore: 78
-        },
-        // Bond Market
-        {
-          id: 6,
-          category: 'bonds',
-          datetime: Math.floor(Date.now() / 1000) - 18000,
-          headline: 'RBI Keeps Repo Rate Unchanged at 6.5%, Bond Yields Stable',
-          image: '/api/placeholder/400/250?text=RBI+Policy',
-          related: 'BONDS',
-          source: 'Financial Express',
-          summary: 'The Reserve Bank of India maintained the repo rate at 6.5% for the sixth consecutive meeting. 10-year government bond yields remained stable around 7.1%.',
-          url: '#/news/rbi-policy-decision',
-          relevanceScore: 85
-        },
-        // Sector News
-        {
-          id: 7,
-          category: 'sector',
-          datetime: Math.floor(Date.now() / 1000) - 21600,
-          headline: 'Pharma Stocks Gain on New Drug Approvals and Export Growth',
-          image: '/api/placeholder/400/250?text=Pharma+Sector',
-          related: 'SUNPHARMA,DRREDDY,CIPLA',
-          source: 'Livemint',
-          summary: 'Pharmaceutical stocks rallied 2-4% after several companies received USFDA approvals for generic drugs and reported strong export growth in key markets.',
-          url: '#/news/pharma-sector-rally',
-          relevanceScore: 70
-        },
-        // Commodity News
-        {
-          id: 8,
-          category: 'commodities',
-          datetime: Math.floor(Date.now() / 1000) - 25200,
-          headline: 'Gold Prices Touch ₹65,000 per 10 Grams Amid Global Uncertainty',
-          image: '/api/placeholder/400/250?text=Gold+Prices',
-          related: 'GOLD',
-          source: 'CNBC-TV18',
-          summary: 'Gold prices in India reached ₹65,000 per 10 grams as global geopolitical tensions and inflation concerns drive safe-haven demand.',
-          url: '#/news/gold-price-surge',
-          relevanceScore: 72
-        },
-        // Regulatory & Policy
-        {
-          id: 9,
-          category: 'regulatory',
-          datetime: Math.floor(Date.now() / 1000) - 28800,
-          headline: 'SEBI Introduces New Rules for Derivative Trading Margins',
-          image: '/api/placeholder/400/250?text=SEBI+Rules',
-          related: 'DERIVATIVES',
-          source: 'The Hindu BusinessLine',
-          summary: 'SEBI announced new margin requirements for derivative trading effective next month, aimed at reducing speculative activity and improving market stability.',
-          url: '#/news/sebi-derivative-rules',
-          relevanceScore: 68
-        },
-        // Global Markets
-        {
-          id: 10,
-          category: 'global',
-          datetime: Math.floor(Date.now() / 1000) - 32400,
-          headline: 'US Fed Hints at Dovish Stance, Asian Markets Rally',
-          image: '/api/placeholder/400/250?text=Fed+Policy',
-          related: 'GLOBAL',
-          source: 'Reuters India',
-          summary: 'Asian markets, including Indian indices, gained 1-2% after Federal Reserve officials hinted at a more accommodative monetary policy stance in upcoming meetings.',
-          url: '#/news/fed-dovish-asian-rally',
-          relevanceScore: 80
-        }
-      ];
-
-      // Filter by category if specified
-      let filteredNews = newsItems;
-      if (category && category !== "all") {
-        filteredNews = newsItems.filter(item => item.category === category);
-      }
-
-      // Sort by datetime (newest first) and apply limit
-      const sortedNews = filteredNews
-        .sort((a, b) => b.datetime - a.datetime)
-        .slice(0, parseInt(limit as string) || 20);
-
-      res.json(sortedNews);
+      // News feed requires Finnhub API integration
+      res.json({ items: [], message: 'News feed requires Finnhub API integration. Configure FINNHUB_API_KEY for live news.' });
     } catch (error) {
       console.error("Error fetching news:", error);
       res.status(500).json({ error: "Failed to fetch market news" });
@@ -9165,133 +8568,14 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         return res.status(400).json({ error: "Search query is required" });
       }
 
-      // Comprehensive searchable news database
-      const allNews = [
-        // Market & Indices
-        {
-          id: 11,
-          category: 'market',
-          datetime: Math.floor(Date.now() / 1000) - 1800,
-          headline: 'Sensex Crosses 82,000 Mark for First Time on Banking Rally',
-          image: '/api/placeholder/400/250?text=Sensex+82K',
-          related: 'SENSEX',
-          source: 'Bloomberg Quint',
-          summary: 'The BSE Sensex crossed the historic 82,000 mark for the first time, driven by strong performance in banking and financial services stocks.',
-          url: '#/news/sensex-82000-milestone',
-          relevanceScore: 98,
-          keywords: ['sensex', 'banking', 'milestone', '82000', 'rally', 'financial']
-        },
-        {
-          id: 12,
-          category: 'earnings',
-          datetime: Math.floor(Date.now() / 1000) - 4800,
-          headline: 'Reliance Industries Q3 Results Beat Estimates on Petrochemical Strength',
-          image: '/api/placeholder/400/250?text=RIL+Earnings',
-          related: 'RELIANCE',
-          source: 'Economic Times',
-          summary: 'Reliance Industries reported better-than-expected Q3 results with strong performance in petrochemicals and retail segments. Net profit grew 15% YoY.',
-          url: '#/news/reliance-q3-results',
-          relevanceScore: 90,
-          keywords: ['reliance', 'earnings', 'q3', 'results', 'petrochemical', 'retail', 'profit']
-        },
-        {
-          id: 13,
-          category: 'technology',
-          datetime: Math.floor(Date.now() / 1000) - 8400,
-          headline: 'Infosys Announces Major AI Deal Worth $2 Billion with US Client',
-          image: '/api/placeholder/400/250?text=Infosys+AI+Deal',
-          related: 'INFY',
-          source: 'Mint',
-          summary: 'Infosys secured a multi-year artificial intelligence transformation deal worth $2 billion with a Fortune 100 company in the United States.',
-          url: '#/news/infosys-ai-deal',
-          relevanceScore: 87,
-          keywords: ['infosys', 'ai', 'deal', 'billion', 'artificial intelligence', 'technology', 'us client']
-        },
-        {
-          id: 14,
-          category: 'mutual_funds',
-          datetime: Math.floor(Date.now() / 1000) - 12000,
-          headline: 'SBI Bluechip Fund Completes 25 Years with 18% CAGR Returns',
-          image: '/api/placeholder/400/250?text=SBI+Bluechip+25Years',
-          related: 'SBI_BLUECHIP',
-          source: 'Value Research',
-          summary: 'SBI Bluechip Fund celebrates 25 years of wealth creation with an impressive 18% CAGR return, making it one of the best-performing large-cap funds.',
-          url: '#/news/sbi-bluechip-25years',
-          relevanceScore: 82,
-          keywords: ['sbi', 'bluechip', 'fund', '25 years', 'cagr', 'returns', 'large cap', 'wealth']
-        },
-        {
-          id: 15,
-          category: 'ipo',
-          datetime: Math.floor(Date.now() / 1000) - 16200,
-          headline: 'Tata Technologies IPO Oversubscribed 69x on Strong Investor Interest',
-          image: '/api/placeholder/400/250?text=Tata+Tech+IPO',
-          related: 'TATATECH',
-          source: 'Moneycontrol',
-          summary: 'Tata Technologies IPO received overwhelming response with 69 times oversubscription. The issue was priced at ₹475-500 per share.',
-          url: '#/news/tata-tech-ipo-oversubscribed',
-          relevanceScore: 85,
-          keywords: ['tata', 'technologies', 'ipo', 'oversubscribed', '69x', 'investor', 'interest']
-        },
-        {
-          id: 16,
-          category: 'bonds',
-          datetime: Math.floor(Date.now() / 1000) - 19800,
-          headline: 'Government Bond Auction Sees Strong Demand Amid Rate Pause Expectations',
-          image: '/api/placeholder/400/250?text=Bond+Auction',
-          related: 'GOVT_BONDS',
-          source: 'Financial Express',
-          summary: 'The latest government bond auction attracted strong investor demand with bid-to-cover ratio of 2.8x amid expectations of monetary policy pause.',
-          url: '#/news/bond-auction-demand',
-          relevanceScore: 76,
-          keywords: ['government', 'bond', 'auction', 'demand', 'rate pause', 'monetary policy']
-        },
-        {
-          id: 17,
-          category: 'sector',
-          datetime: Math.floor(Date.now() / 1000) - 23400,
-          headline: 'Auto Sector Gains on Festive Season Sales Data and EV Growth',
-          image: '/api/placeholder/400/250?text=Auto+Sector',
-          related: 'MARUTI,TATAMOTORS,M&M',
-          source: 'Business Today',
-          summary: 'Auto stocks rallied 3-6% after companies reported strong festive season sales. Electric vehicle segment showed 40% growth momentum.',
-          url: '#/news/auto-sector-festive-sales',
-          relevanceScore: 79,
-          keywords: ['auto', 'sector', 'festive', 'sales', 'ev', 'electric vehicle', 'growth']
-        }
-      ];
-
-      const query = (searchQuery as string).toLowerCase();
-      
-      // Search in headlines, summaries, and keywords
-      const searchResults = allNews.filter(item => {
-        const searchFields = [
-          item.headline.toLowerCase(),
-          item.summary.toLowerCase(),
-          item.source.toLowerCase(),
-          item.related.toLowerCase(),
-          ...item.keywords
-        ].join(' ');
-        
-        return searchFields.includes(query);
-      });
-
-      // Filter by category if specified
-      let filteredResults = searchResults;
-      if (category && category !== "all") {
-        filteredResults = searchResults.filter(item => item.category === category);
-      }
-
-      // Sort by relevance score and apply limit
-      const sortedResults = filteredResults
-        .sort((a, b) => b.relevanceScore - a.relevanceScore)
-        .slice(0, parseInt(limit as string) || 10);
-
+      // News search requires Finnhub API integration
       res.json({
         query: searchQuery,
-        total: filteredResults.length,
-        results: sortedResults
+        total: 0,
+        results: [],
+        message: 'News search requires Finnhub API integration. Configure FINNHUB_API_KEY for live news search.'
       });
+      return;
     } catch (error) {
       console.error("Error searching news:", error);
       res.status(500).json({ error: "Failed to search news" });
@@ -9303,90 +8587,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     try {
       const { limit = 5 } = req.query;
       
-      const trendingNews = [
-        {
-          id: 18,
-          category: 'market',
-          datetime: Math.floor(Date.now() / 1000) - 900,
-          headline: 'BREAKING: Nifty 50 Surges 2.5% on Massive FII Buying Spree',
-          image: '/api/placeholder/400/250?text=Breaking+Nifty+Surge',
-          related: 'NIFTY',
-          source: 'CNBC-TV18',
-          summary: 'Nifty 50 recorded its biggest single-day gain in three months as foreign institutional investors bought ₹12,000 crores worth of Indian equities.',
-          url: '#/news/nifty-surge-fii-buying',
-          relevanceScore: 99,
-          trendingScore: 95,
-          viewCount: 45000,
-          shareCount: 1200
-        },
-        {
-          id: 19,
-          category: 'ipo',
-          datetime: Math.floor(Date.now() / 1000) - 2700,
-          headline: 'Mega IPO Alert: Life Insurance Corporation Plans ₹75,000 Crore Issue',
-          image: '/api/placeholder/400/250?text=LIC+Mega+IPO',
-          related: 'LIC',
-          source: 'Times of India',
-          summary: 'Life Insurance Corporation is planning one of the largest IPOs in Indian history, targeting ₹75,000 crores through a 5% stake dilution.',
-          url: '#/news/lic-mega-ipo-plan',
-          relevanceScore: 96,
-          trendingScore: 92,
-          viewCount: 38000,
-          shareCount: 980
-        },
-        {
-          id: 20,
-          category: 'technology',
-          datetime: Math.floor(Date.now() / 1000) - 5400,
-          headline: 'Tata Consultancy Services Wins ₹15,000 Crore Digital Transformation Deal',
-          image: '/api/placeholder/400/250?text=TCS+Mega+Deal',
-          related: 'TCS',
-          source: 'Business Standard',
-          summary: 'TCS secured the largest digital transformation contract in its history worth ₹15,000 crores from a European banking consortium.',
-          url: '#/news/tcs-mega-deal-europe',
-          relevanceScore: 94,
-          trendingScore: 88,
-          viewCount: 32000,
-          shareCount: 750
-        },
-        {
-          id: 21,
-          category: 'regulatory',
-          datetime: Math.floor(Date.now() / 1000) - 7200,
-          headline: 'RBI Announces New Digital Banking Guidelines for Fintech Companies',
-          image: '/api/placeholder/400/250?text=RBI+Digital+Banking',
-          related: 'FINTECH',
-          source: 'Economic Times',
-          summary: 'Reserve Bank of India released comprehensive guidelines for digital banking services offered by fintech companies, effective April 1st.',
-          url: '#/news/rbi-digital-banking-guidelines',
-          relevanceScore: 89,
-          trendingScore: 84,
-          viewCount: 28000,
-          shareCount: 650
-        },
-        {
-          id: 22,
-          category: 'commodities',
-          datetime: Math.floor(Date.now() / 1000) - 10800,
-          headline: 'Crude Oil Prices Jump 8% on Middle East Supply Concerns',
-          image: '/api/placeholder/400/250?text=Crude+Oil+Jump',
-          related: 'CRUDE_OIL',
-          source: 'Reuters India',
-          summary: 'Brent crude futures surged 8% to $85 per barrel amid supply disruption concerns in the Middle East, impacting energy sector stocks.',
-          url: '#/news/crude-oil-supply-concerns',
-          relevanceScore: 87,
-          trendingScore: 81,
-          viewCount: 25000,
-          shareCount: 520
-        }
-      ];
+      // Trending news requires Finnhub API integration
+      res.json({ items: [], message: 'Trending news requires Finnhub API integration. Configure FINNHUB_API_KEY for trending news.' });
+      return;
 
-      // Sort by trending score and apply limit
-      const trending = trendingNews
-        .sort((a, b) => b.trendingScore - a.trendingScore)
-        .slice(0, parseInt(limit as string) || 5);
-
-      res.json(trending);
     } catch (error) {
       console.error("Error fetching trending news:", error);
       res.status(500).json({ error: "Failed to fetch trending news" });
@@ -9622,19 +8826,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   app.get("/api/market/company/:symbol", async (req, res) => {
     try {
       const { symbol } = req.params;
-      // Using mock company data
-      const data = {
-        country: 'IN',
-        currency: 'INR',
-        exchange: 'NSE',
-        name: 'Sample Company',
-        ticker: symbol.toUpperCase(),
-        weburl: 'https://example.com',
-        logo: 'https://via.placeholder.com/150',
-        marketCapitalization: 100000
-      };
-      
-      res.json(data);
+      return res.status(503).json({ error: 'Company profile data requires Finnhub API. Configure FINNHUB_API_KEY.' });
     } catch (error) {
       console.error("Error fetching company profile:", error);
       res.status(500).json({ error: "Failed to fetch company profile" });
@@ -9647,16 +8839,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   app.get("/api/market/earnings/:symbol", async (req, res) => {
     try {
       const { symbol } = req.params;
-      // Using mock earnings data
-      const data = [
-        {
-          actual: 1.25,
-          estimate: 1.20,
-          period: '2024-Q4',
-          symbol: symbol.toUpperCase()
-        }
-      ];
-      res.json(data);
+      return res.status(503).json({ error: 'Earnings data requires Finnhub API. Configure FINNHUB_API_KEY.' });
     } catch (error) {
       console.error("Error fetching earnings:", error);
       res.status(500).json({ error: "Failed to fetch earnings data" });
@@ -9667,19 +8850,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   app.get("/api/market/recommendations/:symbol", async (req, res) => {
     try {
       const { symbol } = req.params;
-      // Using mock recommendation data
-      const data = [
-        {
-          period: '2024-01',
-          strongBuy: 5,
-          buy: 10,
-          hold: 8,
-          sell: 2,
-          strongSell: 1,
-          symbol: symbol.toUpperCase()
-        }
-      ];
-      res.json(data);
+      return res.status(503).json({ error: 'Analyst recommendations require Finnhub API. Configure FINNHUB_API_KEY.' });
     } catch (error) {
       console.error("Error fetching recommendations:", error);
       res.status(500).json({ error: "Failed to fetch analyst recommendations" });
@@ -9690,18 +8861,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   app.get("/api/market/metrics/:symbol", async (req, res) => {
     try {
       const { symbol } = req.params;
-      // Using mock metrics data
-      const data = {
-        metric: {
-          '10DayAverageTradingVolume': 1000000,
-          '52WeekHigh': 120,
-          '52WeekLow': 80,
-          'beta': 1.2,
-          'peBasicExclExtraTTM': 18.5
-        },
-        symbol: symbol.toUpperCase()
-      };
-      res.json(data);
+      return res.status(503).json({ error: 'Financial metrics require Finnhub API. Configure FINNHUB_API_KEY.' });
     } catch (error) {
       console.error("Error fetching financial metrics:", error);
       res.status(500).json({ error: "Failed to fetch financial metrics" });
@@ -9711,23 +8871,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   // IPO Calendar
   app.get("/api/market/ipo-calendar", async (req, res) => {
     try {
-      const fromDate = new Date().toISOString().split('T')[0];
-      const toDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      // Using mock IPO data
-      const data = {
-        ipoCalendar: [
-          {
-            date: new Date().toISOString().split('T')[0],
-            exchange: 'NSE',
-            name: 'Sample IPO Company',
-            numberOfShares: 1000000,
-            price: '100-120',
-            status: 'priced',
-            symbol: 'SAMPLE'
-          }
-        ]
-      };
-      res.json(data);
+      return res.status(503).json({ error: 'IPO calendar requires Finnhub API. Configure FINNHUB_API_KEY.' });
     } catch (error) {
       console.error("Error fetching IPO calendar:", error);
       res.status(500).json({ error: "Failed to fetch IPO calendar" });
@@ -9737,18 +8881,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   // Economic Calendar
   app.get("/api/market/economic-calendar", async (req, res) => {
     try {
-      // Using mock economic calendar data
-      const data = {
-        economicCalendar: [
-          {
-            country: 'IN',
-            event: 'GDP Growth Rate',
-            impact: 'high',
-            time: new Date().toISOString()
-          }
-        ]
-      };
-      res.json(data);
+      return res.status(503).json({ error: 'Economic calendar requires Finnhub API. Configure FINNHUB_API_KEY.' });
     } catch (error) {
       console.error("Error fetching economic calendar:", error);
       res.status(500).json({ error: "Failed to fetch economic calendar" });
@@ -9758,22 +8891,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   // Sector Performance
   app.get("/api/market/sector-performance", async (req, res) => {
     try {
-      // Using mock sector performance data
-      const data = [
-        {
-          sector: 'Technology',
-          changesPercentage: 2.5
-        },
-        {
-          sector: 'Healthcare',
-          changesPercentage: 1.8
-        },
-        {
-          sector: 'Financial Services',
-          changesPercentage: 3.2
-        }
-      ];
-      res.json(data);
+      return res.status(503).json({ error: 'Sector performance data requires Finnhub API. Configure FINNHUB_API_KEY.' });
     } catch (error) {
       console.error("Error fetching sector performance:", error);
       res.status(500).json({ error: "Failed to fetch sector performance" });
@@ -11307,7 +10425,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           category: "earnings",
           datetime: Date.now() / 1000 - Math.random() * 86400,
           headline: `${holding.symbol} Earnings Preview: What to Expect This Quarter`,
-          image: `/api/placeholder/300/200?text=${holding.symbol}+Earnings`,
+          image: '',
           related: holding.symbol,
           source: "FintekPro Research",
           summary: `Upcoming earnings report for ${holding.symbol} (${portfolioPercentage}% of your portfolio). Analysts expect revenue growth of 8-12% YoY. Key metrics to watch: margin expansion and guidance updates.`,
@@ -11321,7 +10439,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           category: "analyst_update",
           datetime: Date.now() / 1000 - Math.random() * 172800,
           headline: `${holding.symbol}: Analysts Maintain Positive Outlook`,
-          image: `/api/placeholder/300/200?text=${holding.symbol}+Analysis`,
+          image: '',
           related: holding.symbol,
           source: "Research Desk",
           summary: `Consensus rating for ${holding.symbol} remains 'Buy' with average target price 15% above current levels. Your ${holding.quantity} shares position valued at ₹${holdingValue.toLocaleString()}.`,
@@ -11335,7 +10453,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           category: "technical_analysis",
           datetime: Date.now() / 1000 - Math.random() * 259200,
           headline: `${holding.symbol} Technical Analysis: Key Support and Resistance Levels`,
-          image: `/api/placeholder/300/200?text=${holding.symbol}+Chart`,
+          image: '',
           related: holding.symbol,
           source: "Technical Research",
           summary: `${holding.symbol} is trading above key moving averages. Immediate support at ₹${(parseFloat(holding.avgPrice) * 0.95).toFixed(2)}, resistance at ₹${(parseFloat(holding.avgPrice) * 1.08).toFixed(2)}.`,
@@ -11363,7 +10481,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
             category: "sector_analysis",
             datetime: Date.now() / 1000,
             headline: `${sector} Sector Update: ${percentage.toFixed(1)}% of Your Portfolio`,
-            image: `/api/placeholder/300/200?text=${sector}`,
+            image: '',
             related: sector,
             source: "FintekPro Sector Analysis",
             summary: `Your portfolio has significant exposure (${percentage.toFixed(1)}%) to ${sector} sector. Stay informed about sector-specific trends and regulatory changes that could impact your holdings.`,
@@ -11386,7 +10504,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           category: "risk_management",
           datetime: Date.now() / 1000,
           headline: "Portfolio Concentration Alert: Consider Diversification",
-          image: "/api/placeholder/300/200?text=Risk+Alert",
+          image: "",
           related: "portfolio_risk",
           source: "FintekPro Risk Management",
           summary: `You have ${concentratedHoldings.length} position${concentratedHoldings.length > 1 ? 's' : ''} representing more than 15% of your portfolio each. Consider rebalancing to reduce concentration risk.`,
@@ -11404,7 +10522,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           category: "market_update",
           datetime: Date.now() / 1000,
           headline: "Indian Equity Markets: Key Levels to Watch",
-          image: "/api/placeholder/300/200?text=Equity+Markets",
+          image: "",
           related: "equity_markets",
           source: "Market Research",
           summary: "Your equity holdings are subject to market volatility. Nifty 50 trading in range with support at key technical levels. Monitor for breakout signals.",
@@ -11419,7 +10537,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           category: "fund_analysis",
           datetime: Date.now() / 1000,
           headline: "Mutual Fund Performance Review: Your Holdings Analysis",
-          image: "/api/placeholder/300/200?text=Mutual+Funds",
+          image: "",
           related: "mutual_funds",
           source: "Fund Analysis Team",
           summary: "Regular review of mutual fund performance in your portfolio. Check fund manager changes, expense ratios, and relative performance against benchmarks.",

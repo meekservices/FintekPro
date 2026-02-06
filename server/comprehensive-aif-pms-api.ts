@@ -850,10 +850,6 @@ export class ComprehensiveAIFPMSAPI {
 
   private combineAIFData(sebiData: any[], pmsBazaarData: any[], pmsWorldData: any[]): ComprehensiveAIFData[] {
     const combinedData: ComprehensiveAIFData[] = [];
-    const mockData = this.getMockAIFData();
-    
-    // Start with mock data as base structure
-    combinedData.push(...mockData);
     
     // Merge real SEBI data if available
     sebiData.forEach(sebi => {
@@ -876,10 +872,6 @@ export class ComprehensiveAIFPMSAPI {
 
   private combinePMSData(sebiData: any[], pmsBazaarData: any[], apmiData: any[]): ComprehensivePMSData[] {
     const combinedData: ComprehensivePMSData[] = [];
-    const mockData = this.getMockPMSData();
-    
-    // Start with mock data as base structure
-    combinedData.push(...mockData);
     
     // Merge real SEBI PMS data
     sebiData.forEach(sebi => {
@@ -1062,159 +1054,6 @@ export class ComprehensiveAIFPMSAPI {
     return 'Others';
   }
 
-  // Mock data generators with comprehensive fields
-  private getMockAIFData(): ComprehensiveAIFData[] {
-    return [
-      {
-        aifId: "AIF001",
-        isin: "INF846K01EW7",
-        schemaName: "Kotak Strategic Situations Fund",
-        sebiRegistrationNumber: "IN/AIF2/21-22/1047",
-        category: "Category II",
-        subCategory: "Private Equity Fund",
-        fundType: "Growth Equity",
-        investmentObjective: "Generate superior risk-adjusted returns through investments in undervalued growth companies",
-        fundManager: {
-          name: "Nilesh Shah",
-          experience: 15,
-          qualification: "CFA, MBA Finance",
-          previousPerformance: [
-            { fundName: "Kotak Equity Fund", period: "2019-2024", returns: 18.5 }
-          ],
-          trackRecord: "Consistent top quartile performance across market cycles"
-        },
-        stockScreeningStrategy: {
-          screeningCriteria: ["ROE > 15%", "Debt/Equity < 0.5", "Revenue Growth > 12%"],
-          selectionProcess: "Bottom-up fundamental analysis with sector rotation",
-          riskParameters: {
-            maxSingleStockExposure: 8,
-            sectorConcentrationLimit: 25,
-            marketCapPreference: "Mid to Large Cap"
-          },
-          investmentPhilosophy: "Value investing with growth at reasonable price (GARP)",
-          portfolioConstruction: "Concentrated portfolio of 25-30 high conviction stocks"
-        },
-        pastPerformance: {
-          '1M': 2.8,
-          '3M': 8.5,
-          '6M': 15.2,
-          '1Y': 22.4,
-          '3Y': 18.7,
-          '5Y': 16.9,
-          sinceInception: 19.2,
-          annualizedReturns: [
-            { year: 2024, return: 22.4, benchmark: 18.7, outperformance: 3.7 },
-            { year: 2023, return: 15.8, benchmark: 12.3, outperformance: 3.5 }
-          ]
-        },
-        startDate: "2021-03-15",
-        fundTenure: "7 years",
-        lockInPeriod: "3 years",
-        minimumInvestment: 10000000, // 1 crore
-        targetCorpus: 50000000000, // 500 crores
-        currentAUM: 35000000000, // 350 crores
-        managementFee: 2.0,
-        performanceFee: 20.0,
-        hurdle_rate: 12.0,
-        highWaterMark: true,
-        topHoldings: [
-          { stockName: "Reliance Industries", isin: "INE002A01018", allocation: 8.5, sector: "Energy", marketCap: "Large Cap" },
-          { stockName: "HDFC Bank", isin: "INE040A01034", allocation: 7.2, sector: "Banking", marketCap: "Large Cap" }
-        ],
-        riskMetrics: {
-          volatility: 16.8,
-          sharpeRatio: 1.32,
-          maxDrawdown: -18.5,
-          beta: 0.95,
-          alpha: 3.7,
-          informationRatio: 0.85
-        },
-        sebiCompliance: {
-          lastInspectionDate: "2024-06-15",
-          complianceRating: "A+",
-          penalties: []
-        }
-      }
-    ];
-  }
-
-  private getMockPMSData(): ComprehensivePMSData[] {
-    return [
-      {
-        pmsId: "PMS001",
-        isin: "INF754K01UV8",
-        schemaName: "Abakkus All Cap Growth Portfolio",
-        sebiRegistrationNumber: "INP000005647",
-        category: "Multi Cap",
-        subCategory: "Growth Focused",
-        investmentStyle: "Bottom-up Stock Picking",
-        fundManager: {
-          name: "Sunil Singhania",
-          experience: 25,
-          qualification: "CFA, CA, MBA",
-          previousFunds: [
-            { fundName: "Reliance Growth Fund", period: "2010-2020", performance: 19.5 }
-          ],
-          investmentPhilosophy: "Identifying companies that can double earnings in 4-5 years"
-        },
-        stockScreeningStrategy: {
-          screeningMethodology: "MEETS Framework - Management, Earnings, Economic moats, Trailing indicators, Scalability",
-          fundamentalCriteria: ["Strong management track record", "Consistent earnings growth", "Sustainable competitive advantages"],
-          technicalCriteria: ["Momentum indicators", "Volume analysis", "Chart patterns"],
-          quantitativeModels: ["DCF valuation", "PE ratio analysis", "PEG ratio screening"],
-          riskManagement: {
-            stopLossStrategy: "15% stop loss on individual positions",
-            positionSizing: "Maximum 8% in single stock",
-            diversificationRules: "15-25 stocks across 8-10 sectors"
-          },
-          portfolioConstruction: "Concentrated high conviction portfolio"
-        },
-        pastPerformance: {
-          '1M': 3.2,
-          '3M': 9.8,
-          '6M': 18.5,
-          '1Y': 28.7,
-          '3Y': 22.1,
-          '5Y': 19.8,
-          '10Y': 17.5,
-          sinceInception: 21.3,
-          calendarYearReturns: [
-            { year: 2024, return: 28.7, benchmark: 24.1, rank: 2 },
-            { year: 2023, return: 19.2, benchmark: 16.8, rank: 3 }
-          ]
-        },
-        startDate: "2019-04-01",
-        fundTenure: "Open ended",
-        minimumInvestment: 5000000, // 50 lakhs
-        currentAUM: 37200000000, // 372 crores
-        maxCapacity: 100000000000, // 1000 crores
-        managementFee: 2.5,
-        performanceFee: 20.0,
-        entryLoad: 0,
-        exitLoad: 1.0,
-        portfolioComposition: {
-          equityAllocation: 95.5,
-          cashAllocation: 4.5,
-          numberOfStocks: 23,
-          portfolioTurnover: 15.8,
-          averageMarketCap: 125000000000 // 1.25 lakh crores
-        },
-        topHoldings: [
-          { stockName: "HDFC Bank", isin: "INE040A01034", allocation: 7.8, sector: "Banking", marketCap: "Large Cap", entryDate: "2023-01-15" },
-          { stockName: "Infosys", isin: "INE009A01021", allocation: 6.9, sector: "IT Services", marketCap: "Large Cap", entryDate: "2022-11-20" }
-        ],
-        riskMetrics: {
-          volatility: 18.2,
-          sharpeRatio: 1.45,
-          sortinoRatio: 1.98,
-          maxDrawdown: -22.1,
-          beta: 1.08,
-          alpha: 4.6,
-          trackingError: 6.8
-        }
-      }
-    ];
-  }
 }
 
 export const comprehensiveAIFPMSAPI = new ComprehensiveAIFPMSAPI();

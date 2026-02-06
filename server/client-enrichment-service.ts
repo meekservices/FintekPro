@@ -68,43 +68,7 @@ class ClientEnrichmentEngine {
     const provider = enrichmentProviders.karza_pan;
     
     try {
-      // Simulate API call to PAN verification service
-      const mockPANData = this.generateMockPANData(panNumber);
-      
-      // Process with AI to extract insights
-      const processedData = this.processWithAI(mockPANData, 'pan_verification');
-      
-      // Store enrichment data
-      const enrichmentRecord: InsertClientEnrichmentData = {
-        userId,
-        sourceId: await this.getOrCreateSource('karza_pan'),
-        enrichmentType: 'financial_profile',
-        dataCategory: 'income_verification',
-        rawData: mockPANData,
-        processedData: processedData,
-        enrichmentScore: 85,
-        confidenceLevel: 'high',
-        estimatedIncome: 1200000, // ₹12 lakh annual
-        incomeStability: 'stable',
-        creditworthiness: 'good',
-        isVerified: true,
-        verificationMethod: 'pan_api',
-        aiModelUsed: 'gpt-4-enrichment-v1',
-        processingTime: 1250,
-        apiCallCount: 1
-      };
-
-      await db.insert(clientEnrichmentData).values(enrichmentRecord);
-      
-      // Log API usage
-      await this.logAPIUsage(userId, 'karza_pan', true, provider.costPerCall);
-      
-      return {
-        success: true,
-        enrichmentScore: 85,
-        insights: processedData,
-        costIncurred: provider.costPerCall
-      };
+      throw new Error('PAN verification API not configured. Karza API integration required for PAN enrichment.');
       
     } catch (error) {
       console.error('PAN enrichment failed:', error);
@@ -118,45 +82,7 @@ class ClientEnrichmentEngine {
     const provider = enrichmentProviders.karza_gstin;
     
     try {
-      const mockGSTData = this.generateMockGSTData(gstNumber);
-      const processedData = this.processWithAI(mockGSTData, 'business_verification');
-      
-      const enrichmentRecord: InsertClientEnrichmentData = {
-        userId,
-        sourceId: await this.getOrCreateSource('karza_gstin'),
-        enrichmentType: 'business_details',
-        dataCategory: 'business_turnover',
-        rawData: mockGSTData,
-        processedData: processedData,
-        enrichmentScore: 92,
-        confidenceLevel: 'high',
-        businessTurnover: 25000000, // ₹2.5 crore annual
-        businessType: 'manufacturing',
-        industryRisk: 'medium',
-        businessVintage: 36, // 3 years
-        gstCompliance: 'compliant',
-        isVerified: true,
-        verificationMethod: 'gst_api',
-        aiModelUsed: 'gpt-4-enrichment-v1',
-        processingTime: 2100,
-        apiCallCount: 1
-      };
-
-      await db.insert(clientEnrichmentData).values(enrichmentRecord);
-      await this.logAPIUsage(userId, 'karza_gstin', true, provider.costPerCall);
-      
-      return {
-        success: true,
-        enrichmentScore: 92,
-        insights: processedData,
-        businessProfile: {
-          turnover: 25000000,
-          type: 'manufacturing',
-          vintage: 36,
-          compliance: 'compliant'
-        },
-        costIncurred: provider.costPerCall
-      };
+      throw new Error('GST verification API not configured. Karza API integration required for business enrichment.');
       
     } catch (error) {
       console.error('Business enrichment failed:', error);
@@ -170,50 +96,7 @@ class ClientEnrichmentEngine {
     const provider = enrichmentProviders.signzy_bank_analysis;
     
     try {
-      const mockBankData = this.generateMockBankStatementData();
-      const processedData = this.processWithAI(mockBankData, 'bank_statement_analysis');
-      
-      const enrichmentRecord: InsertClientEnrichmentData = {
-        userId,
-        sourceId: await this.getOrCreateSource('signzy_bank_analysis'),
-        enrichmentType: 'financial_profile',
-        dataCategory: 'spending_behavior',
-        rawData: mockBankData,
-        processedData: processedData,
-        enrichmentScore: 88,
-        confidenceLevel: 'high',
-        estimatedIncome: 1500000, // ₹15 lakh annual
-        incomeStability: 'stable',
-        spendingPattern: {
-          necessities: 45,
-          lifestyle: 25,
-          investments: 20,
-          discretionary: 10
-        },
-        creditworthiness: 'excellent',
-        riskIndicators: ['high_cash_transactions'],
-        isVerified: true,
-        verificationMethod: 'bank_statement_ai',
-        aiModelUsed: 'gpt-4-financial-v1',
-        processingTime: 5200,
-        apiCallCount: 1
-      };
-
-      await db.insert(clientEnrichmentData).values(enrichmentRecord);
-      await this.logAPIUsage(userId, 'signzy_bank_analysis', true, provider.costPerCall);
-      
-      return {
-        success: true,
-        enrichmentScore: 88,
-        insights: processedData,
-        financialProfile: {
-          monthlyIncome: 125000,
-          spendingCategories: mockBankData.spendingPattern,
-          creditworthiness: 'excellent',
-          riskFactors: ['high_cash_transactions']
-        },
-        costIncurred: provider.costPerCall
-      };
+      throw new Error('Bank statement analysis API not configured. Signzy API integration required for bank statement enrichment.');
       
     } catch (error) {
       console.error('Bank statement enrichment failed:', error);
@@ -227,42 +110,7 @@ class ClientEnrichmentEngine {
     const provider = enrichmentProviders.bureau_credit_score;
     
     try {
-      const mockCreditData = this.generateMockCreditData(panNumber);
-      const processedData = this.processWithAI(mockCreditData, 'credit_analysis');
-      
-      const enrichmentRecord: InsertClientEnrichmentData = {
-        userId,
-        sourceId: await this.getOrCreateSource('bureau_credit_score'),
-        enrichmentType: 'credit_analysis',
-        dataCategory: 'credit_behavior',
-        rawData: mockCreditData,
-        processedData: processedData,
-        enrichmentScore: 91,
-        confidenceLevel: 'high',
-        creditworthiness: 'excellent',
-        riskIndicators: [],
-        isVerified: true,
-        verificationMethod: 'credit_bureau_api',
-        aiModelUsed: 'gpt-4-credit-v1',
-        processingTime: 1800,
-        apiCallCount: 1
-      };
-
-      await db.insert(clientEnrichmentData).values(enrichmentRecord);
-      await this.logAPIUsage(userId, 'bureau_credit_score', true, provider.costPerCall);
-      
-      return {
-        success: true,
-        enrichmentScore: 91,
-        insights: processedData,
-        creditProfile: {
-          score: 785,
-          rating: 'Excellent',
-          factors: mockCreditData.creditFactors,
-          recommendations: mockCreditData.recommendations
-        },
-        costIncurred: provider.costPerCall
-      };
+      throw new Error('Credit bureau API not configured. Bureau API integration required for credit enrichment.');
       
     } catch (error) {
       console.error('Credit enrichment failed:', error);
@@ -433,88 +281,6 @@ class ClientEnrichmentEngine {
       'Eligible for preferential loan terms',
       'Consider corporate banking solutions if business client'
     ];
-  }
-
-  // Mock data generators
-  private generateMockPANData(panNumber: string) {
-    return {
-      panNumber,
-      verified: true,
-      name: 'RAJESH KUMAR SHARMA',
-      dob: '1985-06-15',
-      category: 'Individual',
-      status: 'Valid',
-      lastUpdated: '2024-12-15',
-      aadhaarLinked: true,
-      incomeRange: '10-15 Lakhs',
-      filingStatus: 'Regular Filer'
-    };
-  }
-
-  private generateMockGSTData(gstNumber: string) {
-    return {
-      gstNumber,
-      verified: true,
-      businessName: 'SHARMA MANUFACTURING PVT LTD',
-      registrationDate: '2021-04-01',
-      status: 'Active',
-      businessType: 'Manufacturing',
-      turnover: 25000000,
-      compliance: 'Compliant',
-      filingHistory: {
-        onTime: 11,
-        late: 1,
-        missed: 0
-      },
-      lastReturn: '2024-11-30'
-    };
-  }
-
-  private generateMockBankStatementData() {
-    return {
-      accountType: 'Savings',
-      tenure: 12, // months
-      averageBalance: 850000,
-      monthlyIncome: 125000,
-      monthlyExpenses: 75000,
-      spendingPattern: {
-        groceries: 15000,
-        utilities: 8000,
-        entertainment: 12000,
-        investments: 25000,
-        loans: 20000,
-        others: 15000
-      },
-      transactionBehavior: 'Conservative',
-      creditTransactions: 45,
-      debitTransactions: 178,
-      cashDeposits: 5
-    };
-  }
-
-  private generateMockCreditData(panNumber: string) {
-    return {
-      creditScore: 785,
-      scoreRange: 'Excellent (750-900)',
-      reportDate: '2024-12-15',
-      creditHistory: '7 years',
-      totalAccounts: 8,
-      activeAccounts: 5,
-      creditUtilization: 25,
-      onTimePayments: 98,
-      creditFactors: [
-        'Payment History: Excellent',
-        'Credit Utilization: Good',
-        'Credit History Length: Very Good',
-        'Credit Mix: Good',
-        'New Credit: Excellent'
-      ],
-      recommendations: [
-        'Continue making on-time payments',
-        'Consider increasing credit limits',
-        'Maintain low credit utilization'
-      ]
-    };
   }
 
   // Helper methods

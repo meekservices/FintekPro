@@ -73,7 +73,7 @@ export class DigiLockerService {
         const defaultApp: InsertDigilockerApp = {
           appName: "FintekPro KYC Platform",
           appId: process.env.DIGILOCKER_APP_ID || "FINTEK_APP_001",
-          apiKey: process.env.DIGILOCKER_API_KEY || "sample_api_key_for_development",
+          apiKey: process.env.DIGILOCKER_API_KEY || "",
           orgId: process.env.DIGILOCKER_ORG_ID || "FINTEK_ORG_001",
           domain: process.env.REPLIT_DOMAIN || "localhost:5000",
           environment: "development",
@@ -218,21 +218,7 @@ export class DigiLockerService {
         ? DIGILOCKER_CONFIG.PRODUCTION.API_BASE_URL
         : DIGILOCKER_CONFIG.DEVELOPMENT.API_BASE_URL;
 
-      // In a real implementation, you would make the actual API call here
-      // For development/demo purposes, we'll simulate a successful response
-      const mockDocumentContent = this.generateMockDocumentContent(document.documentType, document.contentType || 'application/pdf');
-
-      // Update document with fetched content
-      await db
-        .update(digilockerSharedDocuments)
-        .set({
-          documentContent: mockDocumentContent,
-          fetchedAt: new Date(),
-          sharingStatus: "fetched",
-        })
-        .where(eq(digilockerSharedDocuments.id, documentId));
-
-      console.log(`✅ Document content fetched for ${document.documentType}`);
+      throw new Error('DigiLocker API not configured. DigiLocker API integration required for document fetching.');
     } catch (error) {
       // Update status to failed
       await db
@@ -245,23 +231,6 @@ export class DigiLockerService {
       console.error("Error fetching document content:", error);
       throw error;
     }
-  }
-
-  // Generate mock document content for development
-  private generateMockDocumentContent(documentType: string, contentType: string): string {
-    // In a real implementation, this would be the actual base64 content from DigiLocker
-    const mockData = {
-      documentType,
-      contentType,
-      fetchedAt: new Date().toISOString(),
-      verified: true,
-      issuer: documentType.includes('Aadhaar') ? 'UIDAI' : 
-               documentType.includes('PAN') ? 'Income Tax Department' :
-               documentType.includes('Driving') ? 'Transport Department' : 'Government of India',
-      status: 'active'
-    };
-    
-    return Buffer.from(JSON.stringify(mockData)).toString('base64');
   }
 
   // Map DigiLocker documents to KYC fields
