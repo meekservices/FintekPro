@@ -324,19 +324,27 @@ router.post('/probe42/sync/:companyId', requireAuth, async (req: Request, res: R
       return apiResponse.notFound(res, 'Company not found');
     }
     
-    if (!company.probe42CompanyId) {
-      return apiResponse.badRequest(res, 'Company does not have Probe42 integration');
+    // Use CIN as the Probe42 identifier (Probe42 API uses CIN for entity lookup)
+    // Fall back to probe42CompanyId if CIN is not available
+    const probe42Identifier = company.cin || company.probe42CompanyId;
+    if (!probe42Identifier) {
+      return apiResponse.badRequest(res, 'Company does not have a CIN or Probe42 ID for syncing');
     }
     
-    // Fetch company details from Probe42
-    const probe42Details = await probe42Service.getCompanyDetails(company.probe42CompanyId);
+    // Fetch company details from Probe42 using CIN
+    const probe42Details = await probe42Service.getCompanyDetails(probe42Identifier);
     if (!probe42Details) {
       return apiResponse.notFound(res, 'Company not found on Probe42');
     }
     
+    // Update probe42CompanyId to CIN if it was a mock ID
+    if (company.probe42CompanyId !== probe42Identifier) {
+      await storage.updateUnlistedCompany(companyId, { probe42CompanyId: probe42Identifier });
+    }
+    
     // Fetch financials (last 3 years)
-    const financialsData = await probe42Service.getCompanyFinancials(company.probe42CompanyId, 3);
-    const ratiosData = await probe42Service.getCompanyRatios(company.probe42CompanyId, 3);
+    const financialsData = await probe42Service.getCompanyFinancials(probe42Identifier, 3);
+    const ratiosData = await probe42Service.getCompanyRatios(probe42Identifier, 3);
     
     // Auto-populate ISIN from NSDL if not available from Probe42
     let isinResult: { isin: string | null; source: string; matchScore: number } = { 
