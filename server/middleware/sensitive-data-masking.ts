@@ -152,24 +152,22 @@ function maskSensitiveStrings(str: string): string {
  * These paths are explicitly allowed to return unmasked sensitive data
  */
 const EXEMPT_PATHS = [
-  '/api/kyc/verify',
-  '/api/admin/kyc',
-  '/api/ckyc',
-  '/api/esign', // eSign verification endpoints
-  '/api/proposal-esign', // Proposal eSign workflow
+  '/api/kyc/verify-pan',
+  '/api/kyc/verify-aadhaar',
+  '/api/ckyc/search',
+  '/api/ckyc/register',
 ];
 
-/**
- * Check if a path should skip masking
- */
-function shouldSkipMasking(path: string): boolean {
-  // Skip masking for webhook paths
+function shouldSkipMasking(path: string, method: string): boolean {
   if (path.includes('/webhook') || path.includes('/webhooks')) {
     return true;
   }
   
-  // Skip masking for exempt paths
-  return EXEMPT_PATHS.some(exemptPath => path.startsWith(exemptPath));
+  if (method !== 'POST') {
+    return false;
+  }
+  
+  return EXEMPT_PATHS.some(exemptPath => path === exemptPath);
 }
 
 /**
@@ -181,8 +179,7 @@ export function sensitiveDataMaskingMiddleware(
   res: Response,
   next: NextFunction
 ): void {
-  // Skip masking for exempt paths
-  if (shouldSkipMasking(req.path)) {
+  if (shouldSkipMasking(req.path, req.method)) {
     return next();
   }
   

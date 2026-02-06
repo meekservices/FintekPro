@@ -139,17 +139,43 @@ export async function auditLog(params: AuditLogParams): Promise<void> {
  * 
  * Usage: app.use(auditTrailMiddleware);
  */
+const SENSITIVE_GET_PATTERNS = [
+  '/api/kyc',
+  '/api/ckyc',
+  '/api/portfolio',
+  '/api/holdings',
+  '/api/orders',
+  '/api/payments',
+  '/api/admin',
+  '/api/compliance',
+  '/api/audit',
+  '/api/users',
+  '/api/proposals',
+  '/api/capital-gains',
+  '/api/tax',
+  '/api/itr',
+  '/api/cas',
+  '/api/documents',
+  '/api/esign',
+  '/api/loans',
+  '/api/export',
+  '/api/download',
+  '/api/report',
+  '/api/statements',
+];
+
 export const auditTrailMiddleware = (req: Request, res: Response, next: NextFunction) => {
-  // Only audit sensitive operations (POST, PUT, PATCH, DELETE)
-  const isSensitiveMethod = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
-  
-  // Only audit API endpoints
+  const isMutatingMethod = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
   const isApiRoute = req.path.startsWith('/api/');
-  
-  // Skip health checks and non-sensitive routes
   const isHealthCheck = req.path === '/api/health' || req.path === '/api/ready' || req.path === '/api/live';
   
-  if (!isSensitiveMethod || !isApiRoute || isHealthCheck) {
+  if (!isApiRoute || isHealthCheck) {
+    return next();
+  }
+
+  const isSensitiveGet = req.method === 'GET' && SENSITIVE_GET_PATTERNS.some(p => req.path.startsWith(p));
+  
+  if (!isMutatingMethod && !isSensitiveGet) {
     return next();
   }
 

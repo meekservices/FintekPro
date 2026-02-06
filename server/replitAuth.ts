@@ -38,6 +38,7 @@ const getOidcConfig = memoize(
 
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
+  const idleTimeoutMs = 15 * 60 * 1000; // 15 minutes - RBI Digital Lending Guidelines
   const pgStore = connectPg(session);
   
   // Create a dedicated pool for sessions with resilient settings
@@ -157,11 +158,32 @@ export function getSession() {
     sessionMiddleware(req, res, (err: any) => {
       clearTimeout(sessionTimeout);
       if (err) {
-        // Log the error but continue - treat as unauthenticated
         console.warn('[Session] Error initializing session:', err.message);
-        // Don't throw - just continue without session data
         return next();
       }
+      
+      // Server-side idle timeout enforcement (RBI Digital Lending Guidelines)
+      if (req.session && (req.session as any).user) {
+        const now = Date.now();
+        const lastActivity = (req.session as any).lastActivity || now;
+        const timeSinceLastActivity = now - lastActivity;
+        
+        if (timeSinceLastActivity > idleTimeoutMs) {
+          console.log(`[Session] Idle timeout exceeded (${Math.round(timeSinceLastActivity / 60000)}m) - destroying session`);
+          return req.session.destroy((destroyErr: any) => {
+            if (destroyErr) {
+              console.warn('[Session] Error destroying idle session:', destroyErr.message);
+            }
+            // Clear the session cookie
+            res.clearCookie('fintekpro.sid');
+            next();
+          });
+        }
+        
+        // Update last activity timestamp
+        (req.session as any).lastActivity = now;
+      }
+      
       next();
     });
   };
