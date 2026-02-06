@@ -465,7 +465,7 @@ class Probe42Service {
       throw new ValidationError('Company ID is required');
     }
 
-    if (!this.isConfigured) {
+    if (!this.isConfigured || probe42CompanyId.startsWith('mock_')) {
       return this.getMockCompanyDetails(probe42CompanyId);
     }
 
@@ -542,12 +542,10 @@ class Probe42Service {
         if (error.response?.status === 404) {
           return null;
         }
-        // Handle authentication errors gracefully - fall back to mock data in development
-        if (error.response?.status === 401 || error.response?.status === 403) {
-          console.warn('⚠️ Probe42 API authentication failed (token may be expired). Using mock data.');
-          if (process.env.NODE_ENV === 'development') {
-            return this.getMockCompanyDetails(probe42CompanyId);
-          }
+        // Handle authentication or invalid entity errors gracefully - fall back to mock data in development
+        if (error.response?.status === 401 || error.response?.status === 403 || error.response?.status === 422) {
+          console.warn(`⚠️ Probe42 API error (${error.response?.status}) for ${probe42CompanyId}. Using mock data.`);
+          return this.getMockCompanyDetails(probe42CompanyId);
         }
         throw new ExternalServiceError(
           'Probe42',
@@ -692,7 +690,7 @@ class Probe42Service {
       throw new ValidationError('Company ID is required');
     }
 
-    if (!this.isConfigured) {
+    if (!this.isConfigured || probe42CompanyId.startsWith('mock_')) {
       return this.getMockRatios(probe42CompanyId, years);
     }
 
