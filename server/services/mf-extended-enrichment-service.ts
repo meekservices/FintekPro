@@ -403,6 +403,9 @@ class MFExtendedEnrichmentService {
     };
     
     try {
+      // Pre-clean: clear invalid ISIN values so they can be re-enriched
+      await db.execute(sql`UPDATE mutual_funds SET isin = NULL WHERE isin = '-' OR isin = 'N/A' OR isin = ''`);
+      
       // Fetch GitHub AUM data
       const githubData = await this.fetchGitHubAumData();
       
