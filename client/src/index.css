@@ -55,7 +55,7 @@
   --secondary: hsla(217, 33%, 24%, 0.8);
   --secondary-foreground: hsl(210, 40%, 98%);
   --muted: hsla(217, 33%, 22%, 0.7);
-  --muted-foreground: hsl(215, 20%, 75%);
+  --muted-foreground: hsl(215, 20%, 82%);
   --accent: hsla(217, 33%, 28%, 0.75);
   --accent-foreground: hsl(210, 40%, 98%);
   --destructive: hsl(0, 84%, 60%);
@@ -256,6 +256,36 @@
   th {
     color: hsl(210, 30%, 93%);
     font-weight: 600;
+  }
+
+  /* Global paragraph and span readability in cards and containers */
+  p {
+    color: hsl(210, 20%, 88%);
+  }
+
+  /* Labels and small text */
+  label {
+    color: hsl(210, 25%, 88%);
+  }
+
+  /* Description and secondary text elements */
+  span {
+    color: inherit;
+  }
+
+  /* Ensure list items are readable */
+  li {
+    color: hsl(210, 20%, 88%);
+  }
+
+  /* Card description text */
+  [class*="CardDescription"] {
+    color: hsl(215, 20%, 82%);
+  }
+
+  /* Improve input text */
+  input, select, textarea {
+    color: hsl(210, 40%, 98%);
   }
 }
 
