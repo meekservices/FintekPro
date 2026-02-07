@@ -84,6 +84,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { IdleTimeoutManager } from "@/components/IdleTimeoutManager";
 import AdminDashboard from "@/pages/admin/dashboard";
 import SystemHealthMonitor from "@/pages/admin/system-health";
+import EngineHealthCheck from "@/pages/admin/engine-health-check";
 import RevenueAnalytics from "@/pages/admin/revenue-analytics";
 import UserActivityTimeline from "@/pages/admin/user-activity-timeline";
 import BulkOperations from "@/pages/admin/bulk-operations";
@@ -862,6 +863,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <SystemHealthMonitor />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/engine-health-check">
+        {() => (
+          <AdminLayout>
+            <EngineHealthCheck />
           </AdminLayout>
         )}
       </Route>

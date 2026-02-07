@@ -221,6 +221,7 @@ const navCategories: NavCategory[] = [
       { title: "Integration Config", href: "/admin/api-config", icon: Key, description: "Zoho, Cashfree & APIs" },
       { title: "Aadhaar Providers", href: "/admin/aadhaar-config", icon: Shield, description: "KYC provider config" },
       { title: "System Health", href: "/admin/system-health", icon: Activity, description: "Performance monitoring" },
+      { title: "Engine Health", href: "/admin/engine-health-check", icon: Activity, description: "Calculation engine validation" },
       { title: "API Usage", href: "/admin/api-usage", icon: Activity, description: "API cost tracking" },
       { title: "Feature Flags", href: "/admin/feature-flags", icon: Lightbulb, description: "A/B testing controls" },
       { title: "PDF Parser", href: "/admin/parser-config", icon: FileText, description: "Unified PDF parser settings" },

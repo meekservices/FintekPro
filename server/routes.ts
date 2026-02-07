@@ -180,6 +180,7 @@ import ckycProviderRoutes from "./routes/ckyc-provider-routes";
 import aiRecommendationTrackingRoutes from "./routes/ai-recommendation-tracking-routes";
 import errorTrackingRoutes from "./routes/error-tracking-routes";
 import testerDiagnosticsRoutes from "./routes/tester-diagnostics-routes";
+import engineHealthCheckRoutes from "./routes/engine-health-check";
 import activityCentreRoutes from "./routes/activity-centre-routes";
 import taskOversightRoutes from "./routes/task-oversight-routes";
 import usTradingRoutes from "./routes/us-trading";
@@ -766,6 +767,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   app.use("/api/ai-recommendations-tracking", aiRecommendationTrackingRoutes);
   app.use("/api/errors", errorTrackingRoutes);
   app.use("/api/tester", testerDiagnosticsRoutes);
+  app.use("/api/engine-health", engineHealthCheckRoutes);
+  console.log("✅ Engine Health Check routes registered");
   app.use("/api/activity-centre", activityCentreRoutes);
   app.use("/api/admin/task-oversight", taskOversightRoutes);
   console.log("✅ Task Oversight routes registered");
