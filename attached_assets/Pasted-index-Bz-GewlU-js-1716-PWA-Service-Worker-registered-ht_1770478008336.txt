@@ -1,0 +1,76 @@
+index-Bz-GewlU.js:1716 [PWA] Service Worker registered: https://agent.fintekpro.com/
+index-Bz-GewlU.js:49  GET https://agent.fintekpro.com/api/agent/marketing-profile 500 (Internal Server Error)
+(anonymous) @ index-Bz-GewlU.js:49
+i @ index-Bz-GewlU.js:49
+g @ index-Bz-GewlU.js:49
+start @ index-Bz-GewlU.js:49
+fetch @ index-Bz-GewlU.js:49
+Aw @ index-Bz-GewlU.js:49
+onSubscribe @ index-Bz-GewlU.js:49
+subscribe @ index-Bz-GewlU.js:49
+(anonymous) @ index-Bz-GewlU.js:49
+Hse @ index-Bz-GewlU.js:39
+tk @ index-Bz-GewlU.js:41
+cN @ index-Bz-GewlU.js:41
+Pq @ index-Bz-GewlU.js:41
+kg @ index-Bz-GewlU.js:39
+Wwe @ index-Bz-GewlU.js:41
+aj @ index-Bz-GewlU.js:41
+_ae @ index-Bz-GewlU.js:41
+T @ index-Bz-GewlU.js:26
+M @ index-Bz-GewlU.js:26
+index-Bz-GewlU.js:49  GET https://agent.fintekpro.com/api/agent/marketing-profile 500 (Internal Server Error)
+(anonymous) @ index-Bz-GewlU.js:49
+i @ index-Bz-GewlU.js:49
+g @ index-Bz-GewlU.js:49
+(anonymous) @ index-Bz-GewlU.js:49
+Promise.then
+(anonymous) @ index-Bz-GewlU.js:49
+Promise.catch
+g @ index-Bz-GewlU.js:49
+start @ index-Bz-GewlU.js:49
+fetch @ index-Bz-GewlU.js:49
+Aw @ index-Bz-GewlU.js:49
+onSubscribe @ index-Bz-GewlU.js:49
+subscribe @ index-Bz-GewlU.js:49
+(anonymous) @ index-Bz-GewlU.js:49
+Hse @ index-Bz-GewlU.js:39
+tk @ index-Bz-GewlU.js:41
+cN @ index-Bz-GewlU.js:41
+Pq @ index-Bz-GewlU.js:41
+kg @ index-Bz-GewlU.js:39
+Wwe @ index-Bz-GewlU.js:41
+aj @ index-Bz-GewlU.js:41
+_ae @ index-Bz-GewlU.js:41
+T @ index-Bz-GewlU.js:26
+M @ index-Bz-GewlU.js:26
+index-Bz-GewlU.js:49  GET https://agent.fintekpro.com/api/agent/marketing-profile 500 (Internal Server Error)
+(anonymous) @ index-Bz-GewlU.js:49
+i @ index-Bz-GewlU.js:49
+g @ index-Bz-GewlU.js:49
+(anonymous) @ index-Bz-GewlU.js:49
+Promise.then
+(anonymous) @ index-Bz-GewlU.js:49
+Promise.catch
+g @ index-Bz-GewlU.js:49
+(anonymous) @ index-Bz-GewlU.js:49
+Promise.then
+(anonymous) @ index-Bz-GewlU.js:49
+Promise.catch
+g @ index-Bz-GewlU.js:49
+start @ index-Bz-GewlU.js:49
+fetch @ index-Bz-GewlU.js:49
+Aw @ index-Bz-GewlU.js:49
+onSubscribe @ index-Bz-GewlU.js:49
+subscribe @ index-Bz-GewlU.js:49
+(anonymous) @ index-Bz-GewlU.js:49
+Hse @ index-Bz-GewlU.js:39
+tk @ index-Bz-GewlU.js:41
+cN @ index-Bz-GewlU.js:41
+Pq @ index-Bz-GewlU.js:41
+kg @ index-Bz-GewlU.js:39
+Wwe @ index-Bz-GewlU.js:41
+aj @ index-Bz-GewlU.js:41
+_ae @ index-Bz-GewlU.js:41
+T @ index-Bz-GewlU.js:26
+M @ index-Bz-GewlU.js:26
