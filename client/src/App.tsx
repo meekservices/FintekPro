@@ -129,6 +129,7 @@ const SeedUnlistedPage = lazy(() => import("@/pages/admin/seed-unlisted"));
 const UnlistedPreviewPage = lazy(() => import("@/pages/admin/unlisted-preview"));
 const UnlistedPricingPreviewPage = lazy(() => import("@/pages/admin/unlisted-pricing-preview"));
 const DuplicateManagementPage = lazy(() => import("@/pages/admin/duplicate-management"));
+const AdminThemeSettings = lazy(() => import("@/pages/admin/theme-settings"));
 const ComprehensivePortfolio = lazy(() => import("@/pages/comprehensive-portfolio"));
 const DocumentsPage = lazy(() => import("@/pages/documents"));
 import BBPSPage from "@/pages/BBPSPage";
@@ -1375,6 +1376,15 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <RiskComplianceExport />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/theme-settings">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <AdminThemeSettings />
+            </Suspense>
           </AdminLayout>
         )}
       </Route>

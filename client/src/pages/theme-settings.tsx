@@ -22,7 +22,7 @@ interface ThemePrefs {
   darkModeStart: string;
 }
 
-export default function ThemeSettings() {
+export function ThemeSettingsContent() {
   const { theme, setTheme, accessibility, setAccessibility } = useTheme();
   const { toast } = useToast();
   
@@ -366,4 +366,8 @@ export default function ThemeSettings() {
       </div>
     </div>
   );
+}
+
+export default function ThemeSettings() {
+  return <ThemeSettingsContent />;
 }
