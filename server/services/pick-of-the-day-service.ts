@@ -81,11 +81,26 @@ class PickOfTheDayService {
   private readonly SGB_STOPLOSS_PCT = 0.03; // 3% stoploss for SGBs
 
   constructor() {
-    // Use GEMINI_API_KEY for Google GenAI (not OPENAI_API_KEY)
     if (process.env.GEMINI_API_KEY) {
       this.genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     }
     console.log("✅ Pick of the Day Service initialized");
+    
+    setTimeout(() => {
+      this.refreshLivePicks()
+        .then(r => console.log(`📊 [PickOfTheDay] Initial price refresh: ${r.updated} updated, ${r.errors} errors`))
+        .catch(e => console.error("[PickOfTheDay] Initial refresh failed:", e));
+    }, 15000);
+    
+    setInterval(() => {
+      this.refreshLivePicks()
+        .then(r => {
+          if (r.updated > 0) {
+            console.log(`📊 [PickOfTheDay] Periodic refresh: ${r.updated} updated, ${r.errors} errors`);
+          }
+        })
+        .catch(e => console.error("[PickOfTheDay] Periodic refresh failed:", e));
+    }, 4 * 60 * 60 * 1000);
   }
 
   // Get time horizon by category
@@ -223,9 +238,21 @@ class PickOfTheDayService {
       }
     }
 
-    stats.hitRate = stats.targetHits > 0 ? 
-      Math.round((stats.targetHits / (stats.targetHits + stats.stoplossHits + stats.expired)) * 100) : 0;
-    stats.avgReturn = closedPicks > 0 ? Math.round((totalReturn / closedPicks) * 100) / 100 : 0;
+    const closedForHitRate = stats.targetHits + stats.stoplossHits + stats.expired;
+    stats.hitRate = closedForHitRate > 0 ? 
+      Math.round((stats.targetHits / closedForHitRate) * 100) : 0;
+    
+    let liveReturn = 0;
+    let liveReturnCount = 0;
+    for (const pick of allPicks) {
+      if (pick.status === 'live' && pick.returnPct) {
+        liveReturn += parseFloat(pick.returnPct);
+        liveReturnCount++;
+      }
+    }
+    const allReturnPicks = closedPicks + liveReturnCount;
+    const allReturnTotal = totalReturn + liveReturn;
+    stats.avgReturn = allReturnPicks > 0 ? Math.round((allReturnTotal / allReturnPicks) * 100) / 100 : 0;
 
     for (const cat in stats.byCategory) {
       const catStats = stats.byCategory[cat];
@@ -1568,13 +1595,20 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
     try {
       switch (pick.category) {
         case 'listed_stocks':
-        case 'global_stocks':
           const stock = await db
             .select({ currentPrice: listedStocks.currentPrice })
             .from(listedStocks)
             .where(eq(listedStocks.id, pick.instrumentId))
             .limit(1);
           return stock[0]?.currentPrice ? parseFloat(stock[0].currentPrice) : null;
+
+        case 'global_stocks':
+          const globalStock = await db
+            .select({ lastPrice: globalInstruments.lastPrice })
+            .from(globalInstruments)
+            .where(eq(globalInstruments.id, pick.instrumentId))
+            .limit(1);
+          return globalStock[0]?.lastPrice ? parseFloat(globalStock[0].lastPrice) : null;
 
         case 'mutual_funds':
           const fund = await db
@@ -1607,6 +1641,16 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
             .where(eq(instrumentMaster.id, pick.instrumentId))
             .limit(1);
           return etf[0]?.lastPrice ? parseFloat(etf[0].lastPrice) : null;
+
+        case 'reits_invits':
+          const reitResult = await db.execute(sql`
+            SELECT current_price FROM reits WHERE id = ${pick.instrumentId}
+            UNION ALL
+            SELECT current_price FROM invits WHERE id = ${pick.instrumentId}
+            LIMIT 1
+          `);
+          const reitRow = (reitResult as any).rows?.[0] || (reitResult as any)[0];
+          return reitRow?.current_price ? parseFloat(reitRow.current_price) : null;
 
         case 'sgb':
           const sgb = await db

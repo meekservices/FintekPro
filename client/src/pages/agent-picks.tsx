@@ -405,8 +405,18 @@ export default function AgentPicksPage() {
                 <Target className="h-4 w-4 text-orange-500" />
                 <span className="text-sm text-muted-foreground">Hit Rate</span>
               </div>
-              <div className="text-2xl font-bold mt-1">{stats.hitRate}%</div>
-              <Progress value={stats.hitRate} className="mt-2 h-1" />
+              {(() => {
+                const closedCount = stats.targetHits + (stats.stoplossHits || 0) + (stats.expired || 0);
+                return closedCount > 0 ? (
+                  <>
+                    <div className="text-2xl font-bold mt-1">{stats.hitRate}%</div>
+                    <span className="text-xs text-muted-foreground">{closedCount} closed</span>
+                    <Progress value={stats.hitRate} className="mt-1 h-1" />
+                  </>
+                ) : (
+                  <div className="text-lg font-medium mt-1 text-muted-foreground">--</div>
+                );
+              })()}
             </CardContent>
           </Card>
           <Card>
@@ -416,7 +426,7 @@ export default function AgentPicksPage() {
                 <span className="text-sm text-muted-foreground">Avg Return</span>
               </div>
               <div className={`text-2xl font-bold mt-1 ${stats.avgReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {stats.avgReturn >= 0 ? '+' : ''}{stats.avgReturn}%
+                {stats.avgReturn >= 0 ? '+' : ''}{stats.avgReturn.toFixed(2)}%
               </div>
             </CardContent>
           </Card>
