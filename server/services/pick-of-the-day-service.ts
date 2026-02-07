@@ -1608,7 +1608,37 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
             .from(globalInstruments)
             .where(eq(globalInstruments.id, pick.instrumentId))
             .limit(1);
-          return globalStock[0]?.lastPrice ? parseFloat(globalStock[0].lastPrice) : null;
+          if (globalStock[0]?.lastPrice) {
+            return parseFloat(globalStock[0].lastPrice);
+          }
+          const cacheResult = await db.execute(sql`
+            SELECT current_price FROM financial_instruments_cache
+            WHERE instrument_type = 'global_stock'
+            AND symbol = (SELECT symbol FROM global_instruments WHERE id = ${pick.instrumentId} LIMIT 1)
+            AND current_price IS NOT NULL
+            ORDER BY fetched_at DESC LIMIT 1
+          `);
+          const cacheRow = (cacheResult as any).rows?.[0] || (cacheResult as any)[0];
+          if (cacheRow?.current_price) {
+            return parseFloat(cacheRow.current_price);
+          }
+          if (pick.symbol && process.env.ALPHA_VANTAGE_API_KEY) {
+            try {
+              const avUrl = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${encodeURIComponent(pick.symbol)}&apikey=${process.env.ALPHA_VANTAGE_API_KEY}`;
+              const avResp = await fetch(avUrl, { signal: AbortSignal.timeout(8000) });
+              const avJson = await avResp.json();
+              const avPrice = avJson?.['Global Quote']?.['05. price'];
+              if (avPrice) {
+                const price = parseFloat(avPrice);
+                await db.execute(sql`
+                  UPDATE global_instruments SET last_price = ${price}, data_source = 'alpha_vantage', last_updated = NOW()
+                  WHERE id = ${pick.instrumentId}
+                `);
+                return price;
+              }
+            } catch {}
+          }
+          return null;
 
         case 'mutual_funds':
           const fund = await db
@@ -1644,21 +1674,34 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
 
         case 'reits_invits':
           const reitResult = await db.execute(sql`
-            SELECT current_price FROM reits WHERE id = ${pick.instrumentId}
+            SELECT current_price FROM reits WHERE id::text = ${pick.instrumentId}
             UNION ALL
-            SELECT current_price FROM invits WHERE id = ${pick.instrumentId}
+            SELECT current_price FROM invits WHERE id::text = ${pick.instrumentId}
             LIMIT 1
           `);
           const reitRow = (reitResult as any).rows?.[0] || (reitResult as any)[0];
           return reitRow?.current_price ? parseFloat(reitRow.current_price) : null;
 
         case 'sgb':
-          const sgb = await db
-            .select({ issuePrice: sgbPrimaryIssues.issuePrice })
-            .from(sgbPrimaryIssues)
-            .where(eq(sgbPrimaryIssues.id, pick.instrumentId))
-            .limit(1);
-          return sgb[0]?.issuePrice ? parseFloat(sgb[0].issuePrice) : null;
+          const sgbResult = await db.execute(sql`
+            SELECT issue_price FROM sgb_primary_issues WHERE id = ${pick.instrumentId} LIMIT 1
+          `);
+          const sgbRow = (sgbResult as any).rows?.[0] || (sgbResult as any)[0];
+          if (!sgbRow?.issue_price) return null;
+          const sgbIssuePrice = parseFloat(sgbRow.issue_price);
+          const goldResult = await db.execute(sql`
+            SELECT price_inr FROM commodity_prices WHERE symbol = 'GOLD' ORDER BY updated_at DESC LIMIT 1
+          `);
+          const goldRow = (goldResult as any).rows?.[0] || (goldResult as any)[0];
+          if (goldRow?.price_inr) {
+            const currentGoldPerGram = parseFloat(goldRow.price_inr);
+            const sgbGramsPerUnit = 1;
+            const estimatedCurrentValue = currentGoldPerGram * sgbGramsPerUnit;
+            if (estimatedCurrentValue > 0 && estimatedCurrentValue < sgbIssuePrice * 3) {
+              return estimatedCurrentValue;
+            }
+          }
+          return sgbIssuePrice;
 
         default:
           return null;

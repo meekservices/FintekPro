@@ -44,6 +44,19 @@ const requireAuth = (req: Request, res: Response, next: NextFunction) => {
   next();
 };
 
+const REGULATORY_DISCLAIMER = "Investment recommendations are AI-generated and for informational purposes only. Past performance does not guarantee future results. Investors should conduct independent due diligence and consult a SEBI-registered investment advisor before making investment decisions. FintekPro does not guarantee accuracy of third-party data. Data sourced from NSE, BSE, AMFI, Alpha Vantage, and Yahoo Finance.";
+
+const DATA_SOURCES: Record<string, { name: string; type: string; refreshInterval: string }> = {
+  listed_stocks: { name: "NSE/BSE Exchange Feed", type: "Real-time (15-min delay)", refreshInterval: "Every 4 hours" },
+  mutual_funds: { name: "AMFI NAV Service", type: "End-of-day NAV", refreshInterval: "Daily after 11:30 PM IST" },
+  bonds: { name: "NSE/BSE Bond Catalog", type: "Daily pricing", refreshInterval: "Daily" },
+  global_stocks: { name: "Alpha Vantage / Yahoo Finance", type: "Near real-time", refreshInterval: "Every 30 minutes" },
+  etfs: { name: "NSE/Yahoo Finance", type: "Near real-time", refreshInterval: "Every 30 minutes" },
+  reits_invits: { name: "NSE India / Yahoo Finance", type: "Daily pricing", refreshInterval: "Every 6 hours" },
+  sgb: { name: "RBI / Gold Spot Price", type: "Gold-linked valuation", refreshInterval: "Daily" },
+  unlisted: { name: "FintekPro OTC Desk", type: "Dealer quote", refreshInterval: "On update" },
+};
+
 router.get("/today", async (req, res) => {
   try {
     const picks = await pickOfTheDayService.getTodaysPicks();
@@ -52,6 +65,9 @@ router.get("/today", async (req, res) => {
       success: true,
       date: new Date().toISOString().split('T')[0],
       picks,
+      lastRefreshedAt: new Date().toISOString(),
+      dataSources: DATA_SOURCES,
+      disclaimer: REGULATORY_DISCLAIMER,
       message: picks.length === 0 ? "No picks generated for today yet. Use admin panel to generate picks." : undefined,
     });
   } catch (error) {
@@ -63,10 +79,15 @@ router.get("/today", async (req, res) => {
 router.get("/live", async (req, res) => {
   try {
     const picks = await pickOfTheDayService.getLivePicks();
+    const lastUpdated = await db.select({ maxUpdated: sql<string>`MAX(updated_at)` }).from(dailyPicks).where(eq(dailyPicks.status, 'live'));
+
     res.json({
       success: true,
       count: picks.length,
       picks,
+      lastRefreshedAt: lastUpdated[0]?.maxUpdated || new Date().toISOString(),
+      dataSources: DATA_SOURCES,
+      disclaimer: REGULATORY_DISCLAIMER,
     });
   } catch (error) {
     console.error("[API] Error fetching live picks:", error);
@@ -84,6 +105,7 @@ router.get("/history", async (req, res) => {
       success: true,
       count: picks.length,
       picks,
+      disclaimer: REGULATORY_DISCLAIMER,
     });
   } catch (error) {
     console.error("[API] Error fetching pick history:", error);
@@ -94,9 +116,15 @@ router.get("/history", async (req, res) => {
 router.get("/stats", async (req, res) => {
   try {
     const stats = await pickOfTheDayService.getPerformanceStats();
+    const lastUpdated = await db.select({ maxUpdated: sql<string>`MAX(updated_at)` }).from(dailyPicks);
+
     res.json({
       success: true,
       stats,
+      asOfDate: new Date().toISOString(),
+      lastDataRefresh: lastUpdated[0]?.maxUpdated || new Date().toISOString(),
+      dataSources: DATA_SOURCES,
+      disclaimer: REGULATORY_DISCLAIMER,
     });
   } catch (error) {
     console.error("[API] Error fetching pick stats:", error);

@@ -165,16 +165,134 @@ class FinancialDataRepository {
     }
   }
 
+  private async fetchFromAlphaVantage(symbol: string): Promise<FetchResult> {
+    const apiKey = process.env.ALPHA_VANTAGE_API_KEY;
+    if (!apiKey) return { success: false, error: 'Alpha Vantage API key not configured' };
+
+    try {
+      const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${encodeURIComponent(symbol)}&apikey=${apiKey}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: { 'Accept': 'application/json', 'User-Agent': 'FintekPro/2.5' },
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        return { success: false, error: `Alpha Vantage HTTP ${response.status}` };
+      }
+
+      const json = await response.json();
+
+      if (json['Error Message']) {
+        return { success: false, error: json['Error Message'] };
+      }
+      if (json['Note'] || json['Information']) {
+        return { success: false, error: 'Alpha Vantage rate limit reached' };
+      }
+
+      const q = json['Global Quote'];
+      if (!q || !q['05. price']) {
+        return { success: false, error: 'No quote data from Alpha Vantage' };
+      }
+
+      const price = parseFloat(q['05. price']);
+      const prevClose = parseFloat(q['08. previous close']);
+      const change = parseFloat(q['09. change']);
+      const changePct = parseFloat((q['10. change percent'] || '0').replace('%', ''));
+
+      const data: InstrumentData = {
+        instrumentType: 'global_stock',
+        symbol: q['01. symbol'] || symbol,
+        name: symbol,
+        exchange: 'US',
+        currency: 'USD',
+        country: 'US',
+        currentPrice: price,
+        previousClose: prevClose || undefined,
+        dayChange: change || undefined,
+        dayChangePercent: changePct || undefined,
+        dayHigh: parseFloat(q['03. high']) || undefined,
+        dayLow: parseFloat(q['04. low']) || undefined,
+        openPrice: parseFloat(q['02. open']) || undefined,
+        volume: parseInt(q['06. volume']) || undefined,
+        dataSource: 'alpha_vantage',
+        confidenceScore: 92,
+      };
+
+      return { success: true, data };
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        return { success: false, error: 'Alpha Vantage timeout' };
+      }
+      return { success: false, error: `Alpha Vantage error: ${error.message}` };
+    }
+  }
+
+  async fetchAlphaVantageHistorical(symbol: string, outputSize: string = 'compact'): Promise<{ success: boolean; data?: Array<{ date: string; open: number; high: number; low: number; close: number; volume: number }>; error?: string }> {
+    const apiKey = process.env.ALPHA_VANTAGE_API_KEY;
+    if (!apiKey) return { success: false, error: 'Alpha Vantage API key not configured' };
+
+    try {
+      const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${encodeURIComponent(symbol)}&outputsize=${outputSize}&apikey=${apiKey}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: { 'Accept': 'application/json', 'User-Agent': 'FintekPro/2.5' },
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        return { success: false, error: `Alpha Vantage HTTP ${response.status}` };
+      }
+
+      const json = await response.json();
+      if (json['Error Message'] || json['Note'] || json['Information']) {
+        return { success: false, error: json['Error Message'] || json['Note'] || json['Information'] };
+      }
+
+      const timeSeries = json['Time Series (Daily)'];
+      if (!timeSeries) {
+        return { success: false, error: 'No time series data' };
+      }
+
+      const data = Object.entries(timeSeries).map(([date, values]: [string, any]) => ({
+        date,
+        open: parseFloat(values['1. open']),
+        high: parseFloat(values['2. high']),
+        low: parseFloat(values['3. low']),
+        close: parseFloat(values['4. close']),
+        volume: parseInt(values['5. volume']),
+      }));
+
+      return { success: true, data };
+    } catch (error: any) {
+      return { success: false, error: `Alpha Vantage historical error: ${error.message}` };
+    }
+  }
+
   async fetchGlobalStock(symbol: string): Promise<FetchResult> {
     const isUSSymbol = !symbol.includes('.NS') && !symbol.includes('.BO');
     
     if (isUSSymbol && process.env.POLYGON_API_KEY) {
       const massiveResult = await this.fetchFromMassive(symbol);
-      if (massiveResult.success) {
+      if (massiveResult.success && massiveResult.data?.currentPrice) {
         return massiveResult;
       }
     }
     
+    if (isUSSymbol && process.env.ALPHA_VANTAGE_API_KEY) {
+      const avResult = await this.fetchFromAlphaVantage(symbol);
+      if (avResult.success && avResult.data?.currentPrice) {
+        console.log(`✅ [AlphaVantage] ${symbol}: $${avResult.data.currentPrice}`);
+        return avResult;
+      }
+    }
+
     try {
       yahooFinance.suppressNotices(['yahooSurvey']);
       
@@ -399,6 +517,22 @@ class FinancialDataRepository {
         instrument.secondarySource || null,
         instrument.confidenceScore || 80,
       ]);
+
+      if (instrument.instrumentType === 'global_stock' && instrument.currentPrice) {
+        await client.query(`
+          UPDATE global_instruments 
+          SET last_price = $1, 
+              price_change_percent = $2,
+              data_source = $3,
+              last_updated = NOW()
+          WHERE symbol = $4
+        `, [
+          instrument.currentPrice,
+          instrument.dayChangePercent || null,
+          instrument.dataSource,
+          instrument.symbol,
+        ]).catch(() => {});
+      }
 
       return true;
     } catch (error) {

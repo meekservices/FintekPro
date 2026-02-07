@@ -848,6 +848,17 @@ export default function AgentPicksPage() {
         </TabsContent>
       </Tabs>
 
+      <div className="mt-6 p-4 bg-muted/50 rounded-lg border border-muted">
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p className="font-medium text-foreground/80">Regulatory Disclaimer</p>
+            <p>Investment recommendations are AI-generated and for informational purposes only. Past performance does not guarantee future results. Investors should conduct independent due diligence and consult a SEBI-registered investment advisor before making investment decisions.</p>
+            <p className="text-[10px]">Data sourced from NSE, BSE, AMFI, Alpha Vantage, and Yahoo Finance. Prices may be delayed up to 15 minutes for listed securities.</p>
+          </div>
+        </div>
+      </div>
+
       <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
         <DialogContent>
           <DialogHeader>
