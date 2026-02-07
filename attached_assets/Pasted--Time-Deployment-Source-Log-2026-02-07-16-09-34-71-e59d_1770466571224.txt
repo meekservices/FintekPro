@@ -1,0 +1,189 @@
+
+Time
+Deployment
+Source
+Log
+2026-02-07 16:09:34.71
+e59db062
+User
+at emitErrorNT (node:internal/streams/destroy:169:8)
+2026-02-07 16:09:36.86
+e59db062
+User
+at RedirectableRequest.handleRequestError (file:///home/runner/workspace/node_modules/axios/lib/adapters/http.js:638:25)
+2026-02-07 16:09:36.86
+e59db062
+User
+maxContentLength: -1,
+2026-02-07 16:09:36.86
+e59db062
+User
+maxBodyLength: -1,
+2026-02-07 16:09:36.86
+e59db062
+User
+at ClientRequest.emit (node:events:524:28)
+2026-02-07 16:09:36.86
+e59db062
+User
+xsrfHeaderName: 'X-XSRF-TOKEN',
+2026-02-07 16:09:36.86
+e59db062
+User
+at TLSSocket.socketErrorListener (node:_http_client:504:5)
+2026-02-07 16:09:36.86
+e59db062
+User
+at TLSSocket.emit (node:events:524:28)
+2026-02-07 16:09:36.86
+e59db062
+User
+silentJSONParsing: true,
+2026-02-07 16:09:36.86
+e59db062
+User
+_events: {
+2026-02-07 16:09:36.86
+e59db062
+User
+socket: [Function: handleRequestSocket]
+2026-02-07 16:09:36.86
+e59db062
+User
+errno: -110,
+2026-02-07 16:09:36.86
+e59db062
+User
+'User-Agent': 'FintekPro/1.0',
+2026-02-07 16:09:36.86
+e59db062
+User
+transformResponse: [ [Function: transformResponse] ],
+2026-02-07 16:09:36.86
+e59db062
+User
+Error fetching infrastructure bonds: AxiosError: connect ETIMEDOUT 43.228.176.174:443
+2026-02-07 16:09:36.86
+e59db062
+User
+allowAbsoluteUrls: true,
+2026-02-07 16:09:36.86
+e59db062
+User
+transformRequest: [ [Function: transformRequest] ],
+2026-02-07 16:09:36.86
+e59db062
+User
+},
+2026-02-07 16:09:36.86
+e59db062
+User
+at async BondCatalogService.refreshAllBonds (file:///home/runner/workspace/dist/index.js:120359:58) {
+2026-02-07 16:09:36.86
+e59db062
+User
+'Content-Type': undefined,
+2026-02-07 16:09:36.86
+e59db062
+User
+data: undefined
+2026-02-07 16:09:36.86
+e59db062
+User
+at async Promise.allSettled (index 4)
+2026-02-07 16:09:36.86
+e59db062
+User
+syscall: 'connect',
+2026-02-07 16:09:36.86
+e59db062
+User
+timeout: 0,
+2026-02-07 16:09:36.86
+e59db062
+User
+},
+2026-02-07 16:09:36.86
+e59db062
+User
+Accept: 'application/json',
+2026-02-07 16:09:36.86
+e59db062
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-02-07 16:09:36.86
+e59db062
+User
+headers: Object [AxiosHeaders] {
+2026-02-07 16:09:36.86
+e59db062
+User
+at AxiosError.from (file:///home/runner/workspace/node_modules/axios/lib/core/AxiosError.js:96:14)
+2026-02-07 16:09:36.86
+e59db062
+User
+},
+2026-02-07 16:09:36.86
+e59db062
+User
+request: Writable {
+2026-02-07 16:09:36.86
+e59db062
+User
+onwrite: [Function: bound onwrite],
+2026-02-07 16:09:36.86
+e59db062
+User
+url: 'https://bond.bseindia.com/api/bonds/infrastructure',
+2026-02-07 16:09:36.86
+e59db062
+User
+at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+2026-02-07 16:09:36.86
+e59db062
+User
+code: 'ETIMEDOUT',
+2026-02-07 16:09:36.86
+e59db062
+User
+at Axios.request (file:///home/runner/workspace/node_modules/axios/lib/core/Axios.js:45:41)
+2026-02-07 16:09:36.86
+e59db062
+User
+transitional: {
+2026-02-07 16:09:36.86
+e59db062
+User
+at eventHandlers. (/home/runner/workspace/node_modules/follow-redirects/index.js:49:24)
+2026-02-07 16:09:36.86
+e59db062
+User
+corked: 0,
+2026-02-07 16:09:36.86
+e59db062
+User
+config: {
+2026-02-07 16:09:36.86
+e59db062
+User
+writelen: 0,
+2026-02-07 16:09:36.86
+e59db062
+User
+},
+2026-02-07 16:09:36.86
+e59db062
+User
+port: 443,
+2026-02-07 16:09:36.86
+e59db062
+User
+adapter: [ 'xhr', 'http', 'fetch' ],
+2026-02-07 16:09:36.86
+e59db062
+User
+_writableState: WritableState {
+2026-02-07 16:09:36.86
+e59db062
+User
+validateStatus: [Function: validateStatus],
