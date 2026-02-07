@@ -338,14 +338,14 @@ function PortfolioApprovalsTab() {
                       <TableCell className="text-foreground">
                         <div>
                           <p className="font-medium">{holding.client?.name || 'Unknown'}</p>
-                          <p className="text-xs text-foreground/60">{holding.client?.email}</p>
+                          <p className="text-xs text-slate-400">{holding.client?.email}</p>
                         </div>
                       </TableCell>
-                      <TableCell className="text-foreground/80">{holding.schemeName}</TableCell>
-                      <TableCell className="text-foreground/80">{holding.amcName}</TableCell>
-                      <TableCell className="text-right text-foreground/80">{formatCurrency(holding.commitmentAmount)}</TableCell>
-                      <TableCell className="text-right text-foreground/80">{formatCurrency(holding.capitalCalled)}</TableCell>
-                      <TableCell className="text-right text-foreground/80">{formatCurrency(holding.currentValue)}</TableCell>
+                      <TableCell className="text-slate-200">{holding.schemeName}</TableCell>
+                      <TableCell className="text-slate-200">{holding.amcName}</TableCell>
+                      <TableCell className="text-right text-slate-200">{formatCurrency(holding.commitmentAmount)}</TableCell>
+                      <TableCell className="text-right text-slate-200">{formatCurrency(holding.capitalCalled)}</TableCell>
+                      <TableCell className="text-right text-slate-200">{formatCurrency(holding.currentValue)}</TableCell>
                       <TableCell>
                         <Badge className={
                           holding.entryStatus === 'approved' ? 'bg-green-500/20 text-green-400' :
@@ -419,13 +419,13 @@ function PortfolioApprovalsTab() {
                       <TableCell className="text-foreground">
                         <div>
                           <p className="font-medium">{holding.client?.name || 'Unknown'}</p>
-                          <p className="text-xs text-foreground/60">{holding.client?.email}</p>
+                          <p className="text-xs text-slate-400">{holding.client?.email}</p>
                         </div>
                       </TableCell>
-                      <TableCell className="text-foreground/80">{holding.schemeName}</TableCell>
-                      <TableCell className="text-foreground/80">{holding.amcName}</TableCell>
-                      <TableCell className="text-right text-foreground/80">{formatCurrency(holding.totalInvested)}</TableCell>
-                      <TableCell className="text-right text-foreground/80">{formatCurrency(holding.corpusValue)}</TableCell>
+                      <TableCell className="text-slate-200">{holding.schemeName}</TableCell>
+                      <TableCell className="text-slate-200">{holding.amcName}</TableCell>
+                      <TableCell className="text-right text-slate-200">{formatCurrency(holding.totalInvested)}</TableCell>
+                      <TableCell className="text-right text-slate-200">{formatCurrency(holding.corpusValue)}</TableCell>
                       <TableCell className="text-right">
                         <span className={parseFloat(holding.cagr || '0') >= 0 ? 'text-green-400' : 'text-red-400'}>
                           {holding.cagr ? `${parseFloat(holding.cagr).toFixed(2)}%` : '-'}
@@ -504,18 +504,18 @@ function PortfolioApprovalsTab() {
                       <TableCell className="text-foreground">
                         <div>
                           <p className="font-medium">{holding.client?.name || 'Unknown'}</p>
-                          <p className="text-xs text-foreground/60">{holding.client?.email}</p>
+                          <p className="text-xs text-slate-400">{holding.client?.email}</p>
                         </div>
                       </TableCell>
-                      <TableCell className="text-foreground/80">{holding.mldName}</TableCell>
-                      <TableCell className="text-foreground/80">{holding.issuer || '-'}</TableCell>
+                      <TableCell className="text-slate-200">{holding.mldName}</TableCell>
+                      <TableCell className="text-slate-200">{holding.issuer || '-'}</TableCell>
                       <TableCell>
                         <Badge className="bg-teal-500/20 text-teal-400">
                           {holding.payoffType || 'Digital'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right text-foreground/80">{holding.quantity}</TableCell>
-                      <TableCell className="text-right text-foreground/80">{formatCurrency(holding.totalInvested)}</TableCell>
+                      <TableCell className="text-right text-slate-200">{holding.quantity}</TableCell>
+                      <TableCell className="text-right text-slate-200">{formatCurrency(holding.totalInvested)}</TableCell>
                       <TableCell>
                         <Badge className={
                           holding.entryStatus === 'approved' ? 'bg-green-500/20 text-green-400' :
@@ -1143,7 +1143,7 @@ export default function StoreManagement() {
                                             </Badge>
                                           )}
                                           {product.expenseRatio && (
-                                            <span className="text-xs text-foreground/70">
+                                            <span className="text-xs text-slate-300">
                                               TER: {(parseFloat(product.expenseRatio) * 100).toFixed(2)}%
                                             </span>
                                           )}
@@ -1303,7 +1303,7 @@ export default function StoreManagement() {
                                     {product.planType === 'direct' ? 'Direct' : 'Regular'}
                                   </Badge>
                                   {product.expenseRatio && (
-                                    <span className="text-xs text-foreground/70">
+                                    <span className="text-xs text-slate-300">
                                       TER: {(parseFloat(product.expenseRatio) * 100).toFixed(2)}%
                                     </span>
                                   )}
@@ -1319,14 +1319,14 @@ export default function StoreManagement() {
                                   )}
                                 </div>
                               ) : (
-                                <span className="text-xs text-foreground/50">-</span>
+                                <span className="text-xs text-slate-400">-</span>
                               )}
                             </TableCell>
-                            <TableCell className="text-foreground/80">
+                            <TableCell className="text-slate-200">
                               <div className="flex flex-col">
                                 <span>{category?.name || 'Unknown'}</span>
                                 {subcategory && (
-                                  <span className="text-xs text-foreground/60">→ {subcategory.name}</span>
+                                  <span className="text-xs text-slate-400">→ {subcategory.name}</span>
                                 )}
                               </div>
                             </TableCell>
@@ -1415,10 +1415,10 @@ export default function StoreManagement() {
                           className="border-border hover:bg-muted/20"
                           data-testid={`row-audit-${log.id}`}
                         >
-                          <TableCell className="text-foreground/80 whitespace-nowrap">
+                          <TableCell className="text-slate-200 whitespace-nowrap">
                             {format(new Date(log.timestamp), 'MMM dd, yyyy HH:mm')}
                           </TableCell>
-                          <TableCell className="text-foreground/80">
+                          <TableCell className="text-slate-200">
                             {log.adminEmail}
                           </TableCell>
                           <TableCell>
@@ -1431,13 +1431,13 @@ export default function StoreManagement() {
                               <Badge variant="outline" className="text-xs text-foreground border-border">
                                 {log.targetType}
                               </Badge>
-                              <span className="text-foreground/80">{log.targetName}</span>
+                              <span className="text-slate-200">{log.targetName}</span>
                             </div>
                           </TableCell>
                           <TableCell>
                             <Dialog>
                               <DialogTrigger asChild>
-                                <Button variant="ghost" size="sm" className="text-foreground/70 hover:text-foreground">
+                                <Button variant="ghost" size="sm" className="text-slate-300 hover:text-foreground">
                                   <FileText className="w-4 h-4 mr-1" />
                                   View
                                 </Button>

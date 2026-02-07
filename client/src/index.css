@@ -247,6 +247,16 @@
   ::placeholder {
     color: hsl(215, 20%, 50%);
   }
+
+  /* Global table readability - ensures all table text is visible in dark mode */
+  td {
+    color: hsl(210, 25%, 86%);
+  }
+  
+  th {
+    color: hsl(210, 30%, 93%);
+    font-weight: 600;
+  }
 }
 
 /* Reduced motion preference */
