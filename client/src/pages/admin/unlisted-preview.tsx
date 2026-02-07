@@ -218,15 +218,20 @@ export default function UnlistedPreviewPage() {
   const buyPrice = searchParams.get('buyPrice') || '';
   const sellPrice = searchParams.get('sellPrice') || '';
 
-  const { data: company, isLoading: isLoadingCompany, refetch: refetchCompany } = useQuery<UnlistedCompany>({
+  const { data: company, isLoading: isLoadingCompany, isError: isCompanyError, refetch: refetchCompany } = useQuery<UnlistedCompany | null>({
     queryKey: ['/api/unlisted/admin/companies', id],
     queryFn: async () => {
       const response = await fetch(`/api/unlisted/admin/companies/${id}`, {
         credentials: 'include',
       });
+      if (response.status === 404) return null;
       if (!response.ok) throw new Error('Failed to fetch company');
       const result = await response.json();
       return result.data;
+    },
+    retry: (failureCount, error) => {
+      if (error?.message?.includes('404') || error?.message?.includes('not found')) return false;
+      return failureCount < 2;
     },
   });
 
@@ -240,7 +245,7 @@ export default function UnlistedPreviewPage() {
       const result = await response.json();
       return result.data || [];
     },
-    enabled: !!id,
+    enabled: !!id && !!company,
   });
 
   const { data: ratios, isLoading: isLoadingRatios, refetch: refetchRatios } = useQuery<CompanyRatios[]>({
@@ -253,7 +258,7 @@ export default function UnlistedPreviewPage() {
       const result = await response.json();
       return result.data || [];
     },
-    enabled: !!id,
+    enabled: !!id && !!company,
   });
 
   const { data: dataQuality, refetch: refetchDataQuality } = useQuery<DataQualityInfo>({
@@ -274,7 +279,7 @@ export default function UnlistedPreviewPage() {
       const result = await response.json();
       return result.data;
     },
-    enabled: !!id,
+    enabled: !!id && !!company,
   });
 
   // Auto-enrich missing metadata (sector, industry, name) from MCA/Probe42
@@ -656,16 +661,25 @@ export default function UnlistedPreviewPage() {
     );
   }
 
-  if (!company) {
+  if (!company && !isLoadingCompany) {
     return (
       <div className="p-8 text-center">
         <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
         <h2 className="text-xl font-bold text-foreground mb-2">Company Not Found</h2>
-        <p className="text-muted-foreground mb-4">The company you're looking for doesn't exist.</p>
-        <Button onClick={handleBack} variant="outline" data-testid="button-back-not-found">
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Pricing
-        </Button>
+        <p className="text-muted-foreground mb-4">
+          The company ID "{id}" does not exist. It may have been removed or the URL is outdated.
+        </p>
+        <div className="flex gap-3 justify-center">
+          <Button onClick={handleBack} variant="outline" data-testid="button-back-not-found">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Pricing
+          </Button>
+          <Link href="/admin/unlisted/companies">
+            <Button variant="default" data-testid="button-browse-companies">
+              Browse Companies
+            </Button>
+          </Link>
+        </div>
       </div>
     );
   }
