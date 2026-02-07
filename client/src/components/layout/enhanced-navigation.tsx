@@ -59,7 +59,29 @@ import {
   Folder,
   LayoutDashboard,
   Sparkles,
-  X
+  X,
+  Star,
+  GraduationCap,
+  Newspaper,
+  Search,
+  Calendar,
+  Pen,
+  Send,
+  MapPin,
+  Database,
+  Gauge,
+  BookOpen,
+  Award,
+  Lightbulb,
+  Hammer,
+  ListChecks,
+  Eye,
+  Clock,
+  Palette,
+  Phone,
+  UserPlus,
+  Layers,
+  Zap
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/use-cart";
@@ -154,25 +176,23 @@ export function EnhancedNavigation() {
   const isPremium = (user as any)?.kycLevel === 'enhanced' || (user as any)?.kycLevel === 'accredited';
   const isKycComplete = (user as any)?.kycStatus === 'verified' || (user as any)?.kycStatus === 'approved';
 
-  // Store sub-items organized by category
   const storeSubItems: NavigationSubItem[] = [
-    // Premium products - only visible to premium users
     ...(isPremium ? [
       { name: "AIF", href: "/aif", description: "Alternative Investment Funds (₹1Cr min)", badge: "PREMIUM" },
       { name: "PMS", href: "/pms", description: "Portfolio Management Services (₹50L min)", badge: "ELITE" },
     ] : []),
-    // Equity products
     { name: "Mutual Funds", href: "/mutual-funds", description: "Domestic & international funds" },
     { name: "IPO & Pre-IPO", href: "/ipo", description: "Public offerings" },
     { name: "Unlisted Shares", href: "/unlisted", description: "Pre-IPO securities" },
-    // Fixed income
-    { name: "Bonds & NCDs", href: "/bonds", description: "Fixed income securities" },
-    { name: "MLDs", href: "/mlds", description: "Market Linked Debentures" },
-    // Insurance
-    { name: "Insurance Hub", href: "/insurance", description: "Life, health, general insurance" }
+    { name: "REIT / InvIT", href: "/reit-invit", description: "Real estate & infrastructure trusts", badge: "NEW" }
   ];
 
-  // Trading sub-items (requires KYC)
+  const fixedIncomeSubItems: NavigationSubItem[] = [
+    { name: "Bonds & NCDs", href: "/bonds", description: "Government & corporate bonds" },
+    { name: "Fixed Income Marketplace", href: "/fixed-income", description: "Comprehensive bond marketplace" },
+    { name: "MLDs", href: "/mlds", description: "Market Linked Debentures" }
+  ];
+
   const tradingSubItems: NavigationSubItem[] = isKycComplete ? [
     { name: "Equities (NSE/BSE)", href: "/broking", description: "Stock trading" },
     { name: "F&O", href: "/derivatives", description: "Futures & options" },
@@ -182,7 +202,6 @@ export function EnhancedNavigation() {
     { name: "Complete KYC to Trade", href: "/onboarding", description: "Verify your identity to start trading", badge: "REQUIRED" }
   ];
 
-  // FintekPro 5-Pillar Navigation Architecture (Config-driven with role-based visibility)
   const navigationGroups: NavigationGroup[] = [
     // ============ PILLAR 1: DASHBOARD ============
     {
@@ -200,39 +219,37 @@ export function EnhancedNavigation() {
           description: "Complete investment holdings",
           subItems: [
             { name: "My Holdings", href: "/portfolio/holdings", description: "Unified domestic & global investments" },
+            { name: "Import Portfolio", href: "/portfolio/import", description: "Import from CAS, brokers & more" },
             { name: "Goal Planning", href: "/portfolio/goals", description: "Plan & execute financial goals", badge: "AI" },
             { name: "Retirement Planning", href: "/portfolio/retirement", description: "Retirement corpus planning", badge: "AI" },
             { name: "AI Insights", href: "/portfolio/ai-insights", description: "AI-powered investment insights", badge: "AI" },
             { name: "AI Rebalancing", href: "/portfolio/rebalancing", description: "Smart portfolio rebalancing", badge: "AI" }
           ]
         },
-        // Proposals visible to all authenticated users - single page with tabs
-        // Documents visible to all authenticated users
-        ...(isAuthenticated ? [{
-          name: "Documents",
-          href: "/documents",
-          icon: FileCheck,
-          description: "Sign and manage documents"
-        }] : []),
-        // Proposals visible to all authenticated users - single page with tabs
-        ...(isAuthenticated ? [{
-          name: "My Proposals",
-          href: "/my-proposals",
-          icon: ClipboardCheck,
-          description: "AI, Agent & Self-requested investment recommendations"
-        }] : []),
         {
           name: "Net Worth",
           href: "/net-worth",
           icon: Wallet,
-          description: "Complete wealth snapshot",
-          badge: "NEW"
+          description: "Complete wealth snapshot"
         },
+        ...(isAuthenticated ? [{
+          name: "My Proposals",
+          href: "/my-proposals",
+          icon: ClipboardCheck,
+          description: "Investment recommendations"
+        }] : []),
         {
           name: "Alerts",
           href: "/alerts",
           icon: Bell,
           description: "Price, renewal & tax alerts"
+        },
+        {
+          name: "Pick of the Day",
+          href: "/ai-stock-picks",
+          icon: Star,
+          description: "Daily investment picks",
+          badge: "AI"
         }
       ]
     },
@@ -248,16 +265,34 @@ export function EnhancedNavigation() {
           subItems: storeSubItems
         },
         {
+          name: "Fixed Income",
+          icon: Landmark,
+          description: "Bonds, NCDs & MLDs",
+          subItems: fixedIncomeSubItems
+        },
+        {
           name: "Trading",
           icon: TrendingUp,
           description: isKycComplete ? "Equity & derivatives" : "Complete KYC to access trading",
           subItems: tradingSubItems
         },
         {
+          name: "Insurance Hub",
+          href: "/insurance",
+          icon: Shield,
+          description: "Life, health & general insurance"
+        },
+        {
           name: "GIFT City IFSC",
           href: "/gift-city",
           icon: Crown,
           description: "International financial services"
+        },
+        {
+          name: "NRI Services",
+          href: "/nri-services",
+          icon: Globe,
+          description: "NRO/NRE & cross-border investments"
         }
       ]
     },
@@ -279,23 +314,20 @@ export function EnhancedNavigation() {
           description: "Compare & apply"
         },
         {
-          name: "CIBIL & Credit",
-          href: "/cibil",
-          icon: BarChart3,
-          description: "Credit score monitoring"
-        },
-        {
-          name: "Banking Products",
-          href: "/banking-products",
-          icon: Building,
-          description: "FD, RD, Savings, NRO/NRE"
+          name: "BBPS & Bills",
+          icon: Receipt,
+          description: "Bill payments & tracking",
+          subItems: [
+            { name: "Pay Bills", href: "/bbps", description: "Electricity, water, gas, mobile" },
+            { name: "Expenses & Budgets", href: "/expenses-budgets", description: "AI expense tracking", badge: "AI" }
+          ]
         }
       ]
     },
 
-    // ============ PILLAR 4: TAX & COMPLIANCE ============
+    // ============ PILLAR 4: TAX ============
     {
-      title: "Tax & Compliance",
+      title: "Tax",
       items: [
         {
           name: "ITR Filing",
@@ -314,16 +346,22 @@ export function EnhancedNavigation() {
           badge: "CA ASSIST"
         },
         {
-          name: "Tax Notices",
-          href: "/tax/notices",
-          icon: AlertTriangle,
-          description: "Manage IT notices"
+          name: "Capital Gains",
+          href: "/reports?type=capital-gains",
+          icon: BarChart3,
+          description: "Tax reports & harvesting"
         },
         {
           name: "Tax Documents",
           href: "/tax/documents",
           icon: FolderOpen,
           description: "Secure vault (8-year retention)"
+        },
+        {
+          name: "Tax Notices",
+          href: "/tax/notices",
+          icon: AlertTriangle,
+          description: "Manage IT notices"
         },
         {
           name: "CA Desk",
@@ -335,34 +373,10 @@ export function EnhancedNavigation() {
       ]
     },
 
-    // ============ PILLAR 5: MANAGE ============
+    // ============ PILLAR 5: REPORTS & TOOLS ============
     {
-      title: "Manage",
+      title: "Reports & Tools",
       items: [
-        {
-          name: "Profile & KYC",
-          icon: UserCheck,
-          description: "Personal info & verification",
-          subItems: [
-            { name: "My Profile", href: "/profile", description: "Account details & KYC status" },
-            { name: "Onboarding", href: "/onboarding", description: "PAN-based KYC verification" }
-          ]
-        },
-        {
-          name: "BBPS & Bills",
-          icon: Receipt,
-          description: "Bill payments",
-          subItems: [
-            { name: "Pay Bills", href: "/bbps", description: "Electricity, water, gas, mobile" },
-            { name: "Expenses & Budgets", href: "/expenses-budgets", description: "AI expense tracking", badge: "AI" }
-          ]
-        },
-        {
-          name: "Family",
-          href: "/families",
-          icon: Users,
-          description: "Family collaboration"
-        },
         {
           name: "Reports Hub",
           icon: Folder,
@@ -370,40 +384,15 @@ export function EnhancedNavigation() {
           subItems: [
             { name: "Tracker Portfolio", href: "/reports/tracker-portfolio", description: "PAN-level consolidated holdings" },
             { name: "Transactions", href: "/reports?type=transactions", description: "Transaction history" },
-            { name: "Capital Gains", href: "/reports?type=capital-gains", description: "Tax reports" },
-            { name: "Compliance", href: "/reports?type=compliance", description: "Regulatory reports" }
-          ]
-        },
-        {
-          name: "Alerts & Reports",
-          icon: Bell,
-          description: "Notifications & automation",
-          subItems: [
-            { name: "Compound Alerts", href: "/compound-alerts", description: "Multi-condition alerts" },
+            { name: "Compliance", href: "/reports?type=compliance", description: "Regulatory reports" },
             { name: "Scheduled Reports", href: "/scheduled-reports", description: "Automated reports" }
           ]
         },
         {
-          name: "Customize",
-          icon: Settings,
-          description: "Personalization",
-          subItems: [
-            { name: "Dashboard Layout", href: "/dashboard-customize", description: "Arrange widgets" },
-            { name: "Theme Settings", href: "/theme-settings", description: "Appearance & accessibility" }
-          ]
-        }
-      ]
-    },
-
-    // ============ PILLAR 6: TOOLS ============
-    {
-      title: "Tools",
-      items: [
-        {
           name: "Documents",
           href: "/documents",
-          icon: FileText,
-          description: "View & sign documents"
+          icon: FileCheck,
+          description: "Sign & manage documents"
         },
         {
           name: "Calculators",
@@ -416,123 +405,172 @@ export function EnhancedNavigation() {
             { name: "Tax Calculator", href: "/calculators?type=tax", description: "Estimate tax liability" },
             { name: "All Calculators", href: "/calculators", description: "View all tools" }
           ]
-        }
+        },
       ]
     },
 
-    // ============ PILLAR 7: HELP & SUPPORT ============
+    // ============ PILLAR 6: ACCOUNT ============
     {
-      title: "Help",
+      title: "Account",
       items: [
         {
-          name: "Support",
-          icon: HelpCircle,
-          description: "Get help",
+          name: "Profile & KYC",
+          icon: UserCheck,
+          description: "Personal info & verification",
           subItems: [
-            { name: "FAQs", href: "/help/faqs", description: "Frequently asked questions" },
-            { name: "Contact Support", href: "/help/contact", description: "Reach our support team" },
-            { name: "Book CA Consultation", href: "/tax/ca-desk", description: "Expert tax assistance" }
+            { name: "My Profile", href: "/profile", description: "Account details & KYC status" },
+            { name: "Onboarding", href: "/onboarding", description: "PAN-based KYC verification" }
           ]
+        },
+        {
+          name: "Family",
+          href: "/families",
+          icon: Users,
+          description: "Family collaboration"
+        },
+        {
+          name: "Customize",
+          icon: Palette,
+          description: "Personalization",
+          subItems: [
+            { name: "Dashboard Layout", href: "/dashboard-customize", description: "Arrange widgets" },
+            { name: "Theme Settings", href: "/theme-settings", description: "Appearance & accessibility" },
+            { name: "Notifications", href: "/notification-preferences", description: "Alert preferences" }
+          ]
+        },
+        {
+          name: "Help & Support",
+          href: "/support",
+          icon: HelpCircle,
+          description: "FAQs & contact support"
         }
       ]
     }
   ];
 
-  // ============ AGENT NAVIGATION (Role-based) ============
+  // ============ AGENT PORTAL (Role-based, 6 sections) ============
   if (isAgent) {
-    navigationGroups.push({
-      title: "Agent Portal",
-      items: [
-        {
-          name: "Agent Dashboard",
-          href: "/agent",
-          icon: LayoutDashboard,
-          description: "Agent overview"
-        },
-        {
-          name: "Prospect Wizard",
-          href: "/agent-prospect-wizard",
-          icon: Sparkles,
-          description: "Complete onboarding workflow",
-          badge: "NEW"
-        },
-        {
-          name: "Client Proposals",
-          href: "/admin/proposals",
-          icon: ClipboardCheck,
-          description: "Create & manage proposals"
-        },
-        {
-          name: "Agent Performance",
-          href: "/agent-performance",
-          icon: BadgePercent,
-          description: "Performance metrics"
-        },
-        {
-          name: "Field View",
-          href: "/agent-field-view",
-          icon: FileText,
-          description: "Field activities"
-        },
-        {
-          name: "AI Recommendations",
-          href: "/ai-recommendations",
-          icon: PieChart,
-          description: "AI-powered insights"
-        },
-        {
-          name: "External Portfolios",
-          href: "/agent/external-portfolios",
-          icon: Briefcase,
-          description: "COB & external holdings management"
-        }
-      ]
-    });
+    navigationGroups.push(
+      {
+        title: "Agent: Overview",
+        items: [
+          { name: "Agent Dashboard", href: "/agent", icon: LayoutDashboard, description: "Agent overview" },
+          { name: "Performance", href: "/agent-performance", icon: BadgePercent, description: "Performance metrics" },
+          { name: "Leaderboard", href: "/agent/leaderboard", icon: Award, description: "Top agents ranking" },
+          { name: "Revenue Cockpit", href: "/agent/revenue", icon: DollarSign, description: "Revenue analytics" }
+        ]
+      },
+      {
+        title: "Agent: Clients",
+        items: [
+          { name: "Prospect Wizard", href: "/agent-prospect-wizard", icon: Sparkles, description: "Complete onboarding workflow", badge: "NEW" },
+          { name: "Client Pipeline", href: "/agent/crm/pipeline", icon: Target, description: "CRM pipeline management" },
+          { name: "My Clients", href: "/agent/clients", icon: Users, description: "Client directory" },
+          { name: "CRM Analytics", href: "/agent/crm/analytics", icon: Eye, description: "CRM analytics & insights" },
+          { name: "Tasks", href: "/agent/tasks", icon: ListChecks, description: "Task management" },
+          { name: "Onboard Client", href: "/agent/onboard-client", icon: UserPlus, description: "New client onboarding" },
+          { name: "External Portfolios", href: "/agent/external-portfolios", icon: Briefcase, description: "COB & external holdings" }
+        ]
+      },
+      {
+        title: "Agent: Advisory",
+        items: [
+          { name: "Proposals", href: "/agent/proposals", icon: ClipboardCheck, description: "Create & manage proposals" },
+          { name: "AI Recommendations", href: "/ai-recommendations", icon: Sparkles, description: "AI-powered insights", badge: "AI" },
+          { name: "Pick of the Day", href: "/agent/picks", icon: Star, description: "Daily investment picks" },
+          { name: "Research Workspace", href: "/agent/research-lists", icon: Search, description: "Research & watchlists" },
+          { name: "Screener", href: "/agent/screener", icon: BarChart3, description: "Stock screener" },
+          { name: "Report Builder", href: "/agent/report-builder", icon: FileText, description: "Custom reports" }
+        ]
+      },
+      {
+        title: "Agent: Loans (DSA)",
+        items: [
+          { name: "Loan Applications", href: "/agent/loan-applications", icon: ClipboardList, description: "Track applications" },
+          { name: "Loan Marketplace", href: "/agent/loan-marketplace", icon: Store, description: "Multi-bank products" },
+          { name: "Apply for Client", href: "/agent/loan-apply", icon: Banknote, description: "New loan application" },
+          { name: "Builder Finance", href: "/agent/loan-apply?type=developer", icon: Building2, description: "Project & developer finance", badge: "NEW" },
+          { name: "DSA Performance", href: "/agent/dsa-performance", icon: Activity, description: "DSA analytics" },
+          { name: "Payout Claims", href: "/agent/payout-claims", icon: CircleDollarSign, description: "Commission claims" }
+        ]
+      },
+      {
+        title: "Agent: Operations",
+        items: [
+          { name: "Calendar", href: "/agent/calendar", icon: Calendar, description: "Schedule & appointments" },
+          { name: "Meetings", href: "/agent/meetings", icon: Phone, description: "Client meetings" },
+          { name: "eSign", href: "/agent/esign", icon: Pen, description: "Digital signatures" },
+          { name: "Bulk Communication", href: "/agent/bulk-communication", icon: Send, description: "Mass outreach" },
+          { name: "Field View", href: "/agent-field-view", icon: MapPin, description: "Field activities" },
+          { name: "Orders", href: "/agent/orders", icon: ShoppingCart, description: "Order management" },
+          { name: "KYC Management", href: "/agent/kyc", icon: UserCheck, description: "Client KYC tracking" }
+        ]
+      },
+      {
+        title: "Agent: Knowledge",
+        items: [
+          { name: "Knowledge Hub", href: "/agent/knowledge-hub", icon: BookOpen, description: "Market intelligence" },
+          { name: "Market Brief", href: "/agent/knowledge-hub/market-brief", icon: Newspaper, description: "Daily AI market brief", badge: "AI" },
+          { name: "Training", href: "/agent/training", icon: GraduationCap, description: "Training & certifications" },
+          { name: "Product Knowledge", href: "/agent/knowledge-hub/products", icon: Lightbulb, description: "Product deep-dives" }
+        ]
+      }
+    );
   }
 
-  // ============ ADMIN NAVIGATION (Role-based) ============
+  // ============ ADMIN PANEL (Role-based, 5 sections) ============
   if (isAdmin) {
-    navigationGroups.push({
-      title: "Administration",
-      items: [
-        {
-          name: "Admin Panel",
-          href: "/admin",
-          icon: UserCog,
-          description: "System administration"
-        },
-        {
-          name: "User Management",
-          href: "/admin/users",
-          icon: Users,
-          description: "Manage users & roles"
-        },
-        {
-          name: "Supplier Management",
-          href: "/suppliers",
-          icon: Building2,
-          description: "Vendors & partners"
-        },
-        {
-          name: "Commission Engine",
-          href: "/admin/commission-master",
-          icon: CircleDollarSign,
-          description: "Configure payouts"
-        },
-        {
-          name: "Store Management",
-          href: "/admin/store-management",
-          icon: Package,
-          description: "Manage products"
-        },
-        {
-          name: "Audit Logs",
-          href: "/admin/unlisted/audit-log",
-          icon: ScrollText,
-          description: "Compliance audit trail"
-        }
-      ]
-    });
+    navigationGroups.push(
+      {
+        title: "Admin: System",
+        items: [
+          { name: "Admin Dashboard", href: "/admin", icon: LayoutDashboard, description: "System overview" },
+          { name: "User Management", href: "/admin/users", icon: Users, description: "Manage users & roles" },
+          { name: "Audit Logs", href: "/admin/unlisted/audit-log", icon: ScrollText, description: "Compliance audit trail" },
+          { name: "API Usage", href: "/admin/api-usage", icon: Activity, description: "API monitoring" },
+          { name: "Engine Health", href: "/admin/engine-health-check", icon: Gauge, description: "System health check" }
+        ]
+      },
+      {
+        title: "Admin: Products",
+        items: [
+          { name: "Store Management", href: "/admin/store-management", icon: Package, description: "Manage products" },
+          { name: "MF Admin", href: "/admin/mf-enrichment", icon: PieChart, description: "Mutual fund data" },
+          { name: "Bond Admin", href: "/admin/bond-seed", icon: Landmark, description: "Bond marketplace admin" },
+          { name: "Unlisted Admin", href: "/admin/unlisted/companies", icon: Building, description: "Unlisted shares" },
+          { name: "Listed Stocks", href: "/admin/listed-stocks-seed", icon: TrendingUp, description: "Stock data management" },
+          { name: "MF Benchmarks", href: "/admin/mf-benchmarks", icon: BarChart3, description: "Benchmark management" }
+        ]
+      },
+      {
+        title: "Admin: Financial",
+        items: [
+          { name: "Commission Engine", href: "/admin/commission-master", icon: CircleDollarSign, description: "Configure payouts" },
+          { name: "Agent Payouts", href: "/admin/agent-payouts", icon: Banknote, description: "Payout management" },
+          { name: "Platform Fees", href: "/admin/global-fee-model", icon: DollarSign, description: "Fee configuration" },
+          { name: "Loan Management", href: "/admin/loan-marketplace", icon: ClipboardList, description: "DSA loan admin" },
+          { name: "Prospect Dashboard", href: "/admin/prospect-dashboard", icon: Target, description: "Prospect analytics" }
+        ]
+      },
+      {
+        title: "Admin: Compliance",
+        items: [
+          { name: "Supplier Management", href: "/suppliers", icon: Building2, description: "Vendors & partners" },
+          { name: "Compliance Dashboard", href: "/admin/compliance-dashboard", icon: Scale, description: "Regulatory compliance" },
+          { name: "Regulatory Compliance", href: "/admin/unlisted/regulatory-compliance", icon: Shield, description: "Compliance rules" },
+          { name: "KYC Compliance", href: "/admin/kyc-compliance", icon: AlertCircle, description: "KYC monitoring" }
+        ]
+      },
+      {
+        title: "Admin: Data",
+        items: [
+          { name: "Data Enrichment", href: "/admin/data-enrichment", icon: Database, description: "Data quality management" },
+          { name: "System Health", href: "/admin/system-health", icon: Zap, description: "System monitoring" },
+          { name: "Zoho Import", href: "/admin/zoho-import", icon: Layers, description: "Zoho data sync" },
+          { name: "Parser Admin", href: "/admin/parser-config", icon: FileText, description: "Document parser config" }
+        ]
+      }
+    );
   }
 
   const isItemActive = (href: string) => {
