@@ -1279,14 +1279,14 @@ export default function StoreManagement() {
                             className="border-border hover:bg-muted/20"
                             data-testid={`row-product-${product.id}`}
                           >
-                            <TableCell className="font-medium text-foreground">
+                            <TableCell className="font-medium text-gray-900 dark:text-white">
                               <div className="flex items-center gap-2">
-                                <Package className={`w-4 h-4 ${product.isActive ? 'text-green-400' : 'text-muted-foreground'}`} />
+                                <Package className={`w-4 h-4 ${product.isActive ? 'text-green-400' : 'text-gray-400 dark:text-gray-500'}`} />
                                 {product.name}
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Badge variant="outline" className="text-xs text-foreground border-border">
+                              <Badge variant="outline" className="text-xs text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600">
                                 {product.productType || 'N/A'}
                               </Badge>
                             </TableCell>
