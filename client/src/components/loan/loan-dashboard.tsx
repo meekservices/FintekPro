@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { 
   CreditCard, 
   Plus, 
@@ -129,7 +129,8 @@ export function LoanDashboard() {
                 Calculator
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-3xl">
+            <DialogContent className="max-w-3xl" aria-describedby={undefined}>
+              <DialogTitle className="sr-only">Loan Eligibility Calculator</DialogTitle>
               <LoanEligibilityCalculator />
             </DialogContent>
           </Dialog>
@@ -141,7 +142,8 @@ export function LoanDashboard() {
                 Apply for Loan
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto" aria-describedby={undefined}>
+              <DialogTitle className="sr-only">Loan Application Form</DialogTitle>
               <LoanApplicationForm onClose={() => setShowApplicationForm(false)} />
             </DialogContent>
           </Dialog>
@@ -208,7 +210,8 @@ export function LoanDashboard() {
                       Apply for Your First Loan
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+                  <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto" aria-describedby={undefined}>
+                    <DialogTitle className="sr-only">Loan Application Form</DialogTitle>
                     <LoanApplicationForm onClose={() => setShowApplicationForm(false)} />
                   </DialogContent>
                 </Dialog>

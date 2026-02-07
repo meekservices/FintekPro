@@ -432,7 +432,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
-        <DialogContent className="bg-background border-border p-0 max-w-lg">
+        <DialogContent className="bg-background border-border p-0 max-w-lg" aria-describedby={undefined}>
+          <DialogTitle className="sr-only">Search Admin Features</DialogTitle>
           <Command className="bg-transparent">
             <CommandInput placeholder="Search admin features..." className="border-0" />
             <CommandList>
