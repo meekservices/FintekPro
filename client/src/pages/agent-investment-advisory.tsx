@@ -95,6 +95,20 @@ import {
 } from "lucide-react";
 import { PortfolioImportPanel } from "@/components/portfolio/PortfolioImportPanel";
 
+const formatCurrencyShared = (value: number | string) => {
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  return new Intl.NumberFormat('en-IN', { 
+    style: 'currency', 
+    currency: 'INR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(num || 0);
+};
+
+const formatPercentShared = (value: number) => {
+  return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
+};
+
 interface Portfolio {
   id: string;
   clientId: string;
@@ -724,18 +738,8 @@ export default function AgentInvestmentAdvisory() {
     }
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-IN', { 
-      style: 'currency', 
-      currency: 'INR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(value);
-  };
-
-  const formatPercent = (value: number) => {
-    return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
-  };
+  const formatCurrency = formatCurrencyShared;
+  const formatPercent = formatPercentShared;
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -973,13 +977,13 @@ export default function AgentInvestmentAdvisory() {
                 </DialogHeader>
                 <div className="py-2">
                   <PortfolioImportPanel
-                    prospectId={selectedClient}
+                    prospectId={selectedClientId}
                     onImportComplete={(result) => {
                       console.log("Import complete:", result);
                     }}
                     onHoldingsSaved={(count) => {
                       setShowUnifiedImportDialog(false);
-                      queryClient.invalidateQueries({ queryKey: ['/api/ai-investment/holdings', selectedClient] });
+                      queryClient.invalidateQueries({ queryKey: ['/api/ai-investment/holdings', selectedClientId] });
                       toast({
                         title: "Import Successful",
                         description: `${count} holdings imported and enriched with ISIN data.`,
@@ -2780,498 +2784,6 @@ TCS     Tata Consultancy        25      3850.00"
   );
 }
 
-// ITR Services Tab Component
-function ItrServicesTab({ clientId }: { clientId: string }) {
-  const { toast } = useToast();
-  const [showCreateCaseDialog, setShowCreateCaseDialog] = useState(false);
-  const [selectedCase, setSelectedCase] = useState<any>(null);
-  const [assessmentYear, setAssessmentYear] = useState("2024-25");
-  const [financialYear, setFinancialYear] = useState("2023-24");
-  const [itrFormType, setItrFormType] = useState("ITR-2");
-
-  const { data: itrStats, isLoading: statsLoading } = useQuery<any>({
-    queryKey: ['/api/agent/itr/stats'],
-  });
-
-  const { data: itrCases, isLoading: casesLoading, refetch: refetchCases } = useQuery<any[]>({
-    queryKey: ['/api/agent/itr/cases'],
-  });
-
-  const { data: availableCas } = useQuery<any[]>({
-    queryKey: ['/api/agent/itr/available-cas'],
-  });
-
-  const createCaseMutation = useMutation({
-    mutationFn: async (data: any) => {
-      return apiRequest('/api/agent/itr/cases', {
-        method: 'POST',
-        body: JSON.stringify(data),
-        headers: { 'Content-Type': 'application/json' }
-      });
-    },
-    onSuccess: () => {
-      toast({ title: "Success", description: "ITR case created successfully" });
-      queryClient.invalidateQueries({ queryKey: ['/api/agent/itr/cases'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/agent/itr/stats'] });
-      setShowCreateCaseDialog(false);
-    },
-    onError: (error: any) => {
-      toast({ title: "Error", description: error.message || "Failed to create case", variant: "destructive" });
-    }
-  });
-
-  const autoPopulateMutation = useMutation({
-    mutationFn: async (caseId: string) => {
-      return apiRequest(`/api/agent/itr/cases/${caseId}/auto-populate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-    },
-    onSuccess: (data: any) => {
-      toast({ 
-        title: "Income Data Auto-Populated", 
-        description: `Total gross income: ₹${(data.data?.totalGrossIncome || 0).toLocaleString('en-IN')}` 
-      });
-      refetchCases();
-    },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to auto-populate data", variant: "destructive" });
-    }
-  });
-
-  const calculateTaxMutation = useMutation({
-    mutationFn: async ({ caseId, taxRegime }: { caseId: string; taxRegime: string }) => {
-      return apiRequest(`/api/agent/itr/cases/${caseId}/calculate-tax`, {
-        method: 'POST',
-        body: JSON.stringify({ taxRegime }),
-        headers: { 'Content-Type': 'application/json' }
-      });
-    },
-    onSuccess: (data: any) => {
-      const isRefund = data.refundOrDue < 0;
-      toast({ 
-        title: isRefund ? "Refund Expected" : "Tax Due",
-        description: `${isRefund ? 'Refund' : 'Tax payable'}: ₹${Math.abs(data.refundOrDue).toLocaleString('en-IN')}`
-      });
-      refetchCases();
-    },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to calculate tax", variant: "destructive" });
-    }
-  });
-
-  const assignCaMutation = useMutation({
-    mutationFn: async ({ caseId, caId }: { caseId: string; caId: string }) => {
-      return apiRequest(`/api/agent/itr/cases/${caseId}/assign-ca`, {
-        method: 'POST',
-        body: JSON.stringify({ caId }),
-        headers: { 'Content-Type': 'application/json' }
-      });
-    },
-    onSuccess: (data: any) => {
-      toast({ title: "CA Assigned", description: `${data.caName} assigned to the case` });
-      refetchCases();
-    },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to assign CA", variant: "destructive" });
-    }
-  });
-
-  const formatCurrency = (value: number | string) => {
-    const num = typeof value === 'string' ? parseFloat(value) : value;
-    return new Intl.NumberFormat('en-IN', { 
-      style: 'currency', 
-      currency: 'INR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(num || 0);
-  };
-
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      initiated: "bg-muted text-muted-foreground",
-      documents_pending: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
-      documents_received: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
-      under_review: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
-      ca_assigned: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300",
-      processing: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
-      filed: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300",
-      completed: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
-    };
-    return colors[status] || colors.initiated;
-  };
-
-  const DOCUMENT_TYPES = [
-    { value: 'form_16', label: 'Form 16', description: 'Salary TDS certificate' },
-    { value: 'form_16a', label: 'Form 16A', description: 'Non-salary TDS certificate' },
-    { value: 'form_26as', label: 'Form 26AS', description: 'Annual Tax Statement' },
-    { value: 'ais', label: 'AIS', description: 'Annual Information Statement' },
-    { value: 'capital_gains_statement', label: 'Capital Gains Statement', description: 'From broker/DP' },
-    { value: 'bank_statement', label: 'Bank Statement', description: 'Interest income proof' },
-    { value: 'rent_receipt', label: 'Rent Receipt', description: 'HRA exemption proof' },
-    { value: 'investment_proof', label: 'Investment Proof', description: '80C, 80D deductions' }
-  ];
-
-  return (
-    <div className="space-y-6">
-      {/* Stats Overview */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Cases</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{itrStats?.total_cases || 0}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {(parseInt(itrStats?.under_review) || 0) + (parseInt(itrStats?.processing) || 0) + (parseInt(itrStats?.ca_assigned) || 0)}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Filed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{itrStats?.filed || 0}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Revenue</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(itrStats?.collected_fees || 0)}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Actions */}
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">ITR Filing Cases</h3>
-        <Dialog open={showCreateCaseDialog} onOpenChange={setShowCreateCaseDialog}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-create-itr-case">
-              <Plus className="h-4 w-4 mr-2" />
-              New ITR Case
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create ITR Filing Case</DialogTitle>
-              <DialogDescription>
-                Initiate CA-assisted ITR filing for your client
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>Assessment Year</Label>
-                <Select value={assessmentYear} onValueChange={setAssessmentYear}>
-                  <SelectTrigger data-testid="select-ay">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="2024-25">AY 2024-25</SelectItem>
-                    <SelectItem value="2023-24">AY 2023-24</SelectItem>
-                    <SelectItem value="2022-23">AY 2022-23</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Financial Year</Label>
-                <Select value={financialYear} onValueChange={setFinancialYear}>
-                  <SelectTrigger data-testid="select-fy">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="2023-24">FY 2023-24</SelectItem>
-                    <SelectItem value="2022-23">FY 2022-23</SelectItem>
-                    <SelectItem value="2021-22">FY 2021-22</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>ITR Form Type</Label>
-                <Select value={itrFormType} onValueChange={setItrFormType}>
-                  <SelectTrigger data-testid="select-itr-form">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ITR-1">ITR-1 (Sahaj) - Salary & Interest</SelectItem>
-                    <SelectItem value="ITR-2">ITR-2 - Salary, Capital Gains, Multiple Properties</SelectItem>
-                    <SelectItem value="ITR-3">ITR-3 - Business/Profession Income</SelectItem>
-                    <SelectItem value="ITR-4">ITR-4 (Sugam) - Presumptive Business</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowCreateCaseDialog(false)}>Cancel</Button>
-              <Button 
-                onClick={() => createCaseMutation.mutate({
-                  clientId,
-                  assessmentYear,
-                  financialYear,
-                  itrFormType,
-                  sourceProduct: 'investment_advisory'
-                })}
-                disabled={createCaseMutation.isPending}
-                data-testid="button-confirm-create"
-              >
-                {createCaseMutation.isPending ? "Creating..." : "Create Case"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {/* Cases List */}
-      {casesLoading ? (
-        <Card>
-          <CardContent className="p-6">
-            <Skeleton className="h-64 w-full" />
-          </CardContent>
-        </Card>
-      ) : !itrCases || itrCases.length === 0 ? (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-medium mb-2">No ITR Cases Yet</h3>
-            <p className="text-muted-foreground mb-4">
-              Start assisting your clients with their income tax filing
-            </p>
-            <Button onClick={() => setShowCreateCaseDialog(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create First Case
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {itrCases.map((itrCase: any) => (
-            <Card key={itrCase.id} className="hover:shadow-md transition-shadow">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-base">{itrCase.client_name || itrCase.client_email}</CardTitle>
-                    <CardDescription>
-                      {itrCase.itr_form_type || 'ITR'} - AY {itrCase.assessment_year}
-                    </CardDescription>
-                  </div>
-                  <Badge className={getStatusColor(itrCase.status)}>
-                    {itrCase.status?.replace(/_/g, ' ').toUpperCase()}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Income Summary */}
-                {parseFloat(itrCase.total_gross_income) > 0 && (
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Gross Income:</span>
-                      <span className="ml-2 font-medium">{formatCurrency(itrCase.total_gross_income)}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Tax Payable:</span>
-                      <span className="ml-2 font-medium">{formatCurrency(itrCase.tax_payable)}</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Document Progress */}
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-muted-foreground">Documents</span>
-                    <span>{(itrCase.documents_received?.length || 0)}/{(itrCase.documents_required?.length || 4)}</span>
-                  </div>
-                  <Progress 
-                    value={((itrCase.documents_received?.length || 0) / (itrCase.documents_required?.length || 4)) * 100} 
-                    className="h-2"
-                  />
-                </div>
-
-                {/* CA Assignment */}
-                {itrCase.ca_name ? (
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    <span>CA: {itrCase.ca_name}</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <Select onValueChange={(caId) => assignCaMutation.mutate({ caseId: itrCase.id, caId })}>
-                      <SelectTrigger className="h-8 text-sm" data-testid={`select-ca-${itrCase.id}`}>
-                        <SelectValue placeholder="Assign CA" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableCas && availableCas.length > 0 ? (
-                          availableCas.map((ca: any, idx: number) => (
-                            <SelectItem key={ca.user_id || `ca-${idx}`} value={ca.user_id}>
-                              {ca.full_name} ({ca.membership_type})
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <SelectItem key="no-cas" value="none" disabled>No CAs available</SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-              </CardContent>
-              <CardFooter className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => autoPopulateMutation.mutate(itrCase.id)}
-                  disabled={autoPopulateMutation.isPending}
-                  data-testid={`button-auto-populate-${itrCase.id}`}
-                >
-                  <RefreshCw className={`h-3 w-3 mr-1 ${autoPopulateMutation.isPending ? 'animate-spin' : ''}`} />
-                  Auto-Fill
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => calculateTaxMutation.mutate({ caseId: itrCase.id, taxRegime: 'new' })}
-                  disabled={calculateTaxMutation.isPending}
-                  data-testid={`button-calc-tax-${itrCase.id}`}
-                >
-                  <Calculator className="h-3 w-3 mr-1" />
-                  Calculate
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => setSelectedCase(itrCase)}
-                  data-testid={`button-view-case-${itrCase.id}`}
-                >
-                  <Eye className="h-3 w-3 mr-1" />
-                  Details
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* Case Details Dialog */}
-      <Dialog open={!!selectedCase} onOpenChange={() => setSelectedCase(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>ITR Case Details</DialogTitle>
-            <DialogDescription>
-              {selectedCase?.client_name} - AY {selectedCase?.assessment_year}
-            </DialogDescription>
-          </DialogHeader>
-          {selectedCase && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-muted-foreground">Status</Label>
-                  <div className="mt-1">
-                    <Badge className={getStatusColor(selectedCase.status)}>
-                      {selectedCase.status?.replace(/_/g, ' ').toUpperCase()}
-                    </Badge>
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">ITR Form</Label>
-                  <p className="font-medium">{selectedCase.itr_form_type || 'Not determined'}</p>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div>
-                <Label className="text-muted-foreground">Income Breakdown</Label>
-                <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
-                  <div className="flex justify-between p-2 bg-muted rounded">
-                    <span>Salary Income</span>
-                    <span className="font-medium">{formatCurrency(selectedCase.salary_income)}</span>
-                  </div>
-                  <div className="flex justify-between p-2 bg-muted rounded">
-                    <span>Interest Income</span>
-                    <span className="font-medium">{formatCurrency(selectedCase.interest_income)}</span>
-                  </div>
-                  <div className="flex justify-between p-2 bg-muted rounded">
-                    <span>Dividend Income</span>
-                    <span className="font-medium">{formatCurrency(selectedCase.dividend_income)}</span>
-                  </div>
-                  <div className="flex justify-between p-2 bg-muted rounded">
-                    <span>Capital Gains (STCG)</span>
-                    <span className="font-medium">{formatCurrency(selectedCase.capital_gains_stcg)}</span>
-                  </div>
-                  <div className="flex justify-between p-2 bg-muted rounded">
-                    <span>Capital Gains (LTCG)</span>
-                    <span className="font-medium">{formatCurrency(selectedCase.capital_gains_ltcg)}</span>
-                  </div>
-                  <div className="flex justify-between p-2 bg-muted rounded">
-                    <span>Other Income</span>
-                    <span className="font-medium">{formatCurrency(selectedCase.other_income)}</span>
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
-                  <p className="text-sm text-muted-foreground">Gross Income</p>
-                  <p className="text-xl font-bold text-blue-600">{formatCurrency(selectedCase.total_gross_income)}</p>
-                </div>
-                <div className="text-center p-4 bg-purple-50 dark:bg-purple-950 rounded-lg">
-                  <p className="text-sm text-muted-foreground">Tax Payable</p>
-                  <p className="text-xl font-bold text-purple-600">{formatCurrency(selectedCase.tax_payable)}</p>
-                </div>
-                <div className={`text-center p-4 rounded-lg ${parseFloat(selectedCase.refund_or_due) < 0 ? 'bg-green-50 dark:bg-green-950' : 'bg-red-50 dark:bg-red-950'}`}>
-                  <p className="text-sm text-muted-foreground">
-                    {parseFloat(selectedCase.refund_or_due) < 0 ? 'Refund' : 'Balance Due'}
-                  </p>
-                  <p className={`text-xl font-bold ${parseFloat(selectedCase.refund_or_due) < 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {formatCurrency(Math.abs(parseFloat(selectedCase.refund_or_due) || 0))}
-                  </p>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div>
-                <Label className="text-muted-foreground">Required Documents</Label>
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  {DOCUMENT_TYPES.map((doc) => {
-                    const isReceived = selectedCase.documents_received?.includes(doc.value);
-                    return (
-                      <div 
-                        key={doc.value}
-                        className={`flex items-center gap-2 p-2 rounded ${isReceived ? 'bg-green-50 dark:bg-green-950' : 'bg-muted'}`}
-                      >
-                        {isReceived ? (
-                          <CheckCircle2 className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <Clock className="h-4 w-4 text-muted-foreground" />
-                        )}
-                        <span className="text-sm">{doc.label}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedCase(null)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
 // Goal Planning Tab Component
 const GOAL_TYPES = [
   { id: 'retirement', label: 'Retirement', icon: Wallet, color: 'bg-blue-500', description: 'Build retirement corpus' },
@@ -3382,7 +2894,7 @@ function GoalPlanningTab({ clientId, clientName }: { clientId: string; clientNam
     });
   };
 
-  const formatCurrency = (value: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
+  const formatCurrency = formatCurrencyShared;
 
   if (!clientId) {
     return (
@@ -3971,7 +3483,7 @@ function WhatIfSimulatorTab({ clientId, portfolio, analysis }: { clientId: strin
     }
   };
 
-  const formatCurrency = (value: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
+  const formatCurrency = formatCurrencyShared;
   const impact = calculateImpact();
 
   if (!clientId || !portfolio) {
@@ -4097,8 +3609,8 @@ function BenchmarkComparisonTab({ clientId, portfolio }: { clientId: string; por
     enabled: !!clientId && !!portfolio
   });
 
-  const formatPercent = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
-  const formatCurrency = (value: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
+  const formatPercent = formatPercentShared;
+  const formatCurrency = formatCurrencyShared;
 
   if (!clientId || !portfolio) {
     return (
