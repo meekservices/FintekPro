@@ -93,7 +93,7 @@ class AIBondRecommendationService {
   private genAI: GoogleGenAI | null = null;
 
   constructor() {
-    const apiKey = process.env.AI_INTEGRATIONS_GOOGLE_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.AI_INTEGRATIONS_GOOGLE_API_KEY;
     if (apiKey) {
       this.genAI = new GoogleGenAI({ apiKey });
       console.log("✅ AI Bond Recommendation Service initialized with Gemini");
