@@ -755,9 +755,9 @@ export function EnhancedNavigation() {
         <SheetContent side="left" className="w-[280px] p-0">
           <SheetHeader className="p-4 border-b">
             <SheetTitle className="flex items-center justify-between">
-              <Link href="/" onClick={handleMobileNavClick} className="flex items-center gap-2">
-                <img src={fintekproLogo} alt="FintekPro" className="h-8 w-8 rounded-lg object-contain" />
-                <span className="text-xl font-bold text-primary">FintekPro</span>
+              <Link href="/" onClick={handleMobileNavClick} className="flex items-center gap-3">
+                <img src={fintekproLogo} alt="FintekPro" className="h-10 w-10 rounded-lg object-contain flex-shrink-0" />
+                <span className="text-lg font-bold text-primary">FintekPro</span>
               </Link>
             </SheetTitle>
           </SheetHeader>
@@ -775,18 +775,18 @@ export function EnhancedNavigation() {
       }`}>
         <div className="flex flex-col h-full">
           {/* Logo and Toggle */}
-          <div className="flex items-center h-16 px-4 border-b border-border justify-between">
+          <div className="flex items-center min-h-[64px] px-4 py-3 border-b border-border justify-between">
             {!isCollapsed && (
-              <Link href="/" className="flex items-center gap-2">
-                <img src={fintekproLogo} alt="FintekPro" className="h-8 w-8 rounded-lg object-contain" />
-                <h1 className="text-xl font-bold text-finance-blue cursor-pointer" data-testid="logo">
+              <Link href="/" className="flex items-center gap-3">
+                <img src={fintekproLogo} alt="FintekPro" className="h-10 w-10 rounded-lg object-contain flex-shrink-0" />
+                <h1 className="text-lg font-bold text-finance-blue cursor-pointer truncate" data-testid="logo">
                   FintekPro
                 </h1>
               </Link>
             )}
             {isCollapsed && (
               <Link href="/">
-                <img src={fintekproLogo} alt="FintekPro" className="h-8 w-8 rounded-lg object-contain" />
+                <img src={fintekproLogo} alt="FintekPro" className="h-10 w-10 rounded-lg object-contain" />
               </Link>
             )}
             <Button
