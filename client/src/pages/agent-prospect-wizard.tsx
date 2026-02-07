@@ -2659,6 +2659,7 @@ export default function AgentProspectWizard() {
     const holdingToEdit = holdings[index];
     setEditingHoldingIndex(index);
     setNewHolding({
+      ...holdingToEdit,
       productType: holdingToEdit.productType,
       productName: holdingToEdit.productName,
       quantity: holdingToEdit.quantity ?? 1,
@@ -2677,7 +2678,8 @@ export default function AgentProspectWizard() {
       return;
     }
     
-    const updatedHolding = newHolding as PortfolioHolding;
+    const existingHolding = holdings[editingHoldingIndex];
+    const updatedHolding = { ...existingHolding, ...newHolding } as PortfolioHolding;
     
     if (prospectId) {
       updateHoldingMutation.mutate({ index: editingHoldingIndex, holding: updatedHolding });

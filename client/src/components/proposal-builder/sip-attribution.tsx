@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -267,6 +267,7 @@ export function SipAttribution({ proposalId }: SipAttributionProps) {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Convert Lumpsum to SIP</DialogTitle>
+              <DialogDescription>Convert a lumpsum investment into a systematic investment plan</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="font-medium">{selectedInstrument}</div>
