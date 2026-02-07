@@ -32,7 +32,34 @@ export function registerPartnerPortalRoutes(app: Express): void {
 
   // Partner middleware to check authentication
   const requirePartner = async (req: any, res: any, next: any) => {
-    // For demo purposes, authenticate with email/password from headers
+    // Check session-based auth first (user logged in via normal login flow with partner role)
+    if (req.isAuthenticated?.() && req.user) {
+      const userRoles = req.user.roles || [];
+      if (userRoles.includes('partner') || userRoles.includes('admin') || userRoles.includes('superadmin')) {
+        req.partner = {
+          id: req.user.id,
+          companyName: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || 'Partner',
+          contactEmail: req.user.email,
+          partnerType: 'distributor',
+          permissions: ['read', 'write'],
+        };
+        return next();
+      }
+    }
+
+    // Dev mode fallback
+    if (process.env.NODE_ENV === 'development' && !req.headers.authorization) {
+      req.partner = {
+        id: 'dev-partner',
+        companyName: 'Dev Partner',
+        contactEmail: 'dev@fintekpro.com',
+        partnerType: 'distributor',
+        permissions: ['read', 'write'],
+      };
+      return next();
+    }
+
+    // Fallback: Basic auth via Authorization header
     const authHeader = req.headers.authorization;
     if (!authHeader) {
       return res.status(401).json({ message: "Partner authentication required" });

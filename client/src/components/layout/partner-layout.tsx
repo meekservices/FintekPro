@@ -86,7 +86,7 @@ const partnerNavSections: NavSection[] = [
     items: [
       {
         title: "My Agents",
-        href: "/agents",
+        href: "/partner/agents",
         icon: Users,
         description: "Agent network & performance"
       },
@@ -153,7 +153,7 @@ const partnerNavSections: NavSection[] = [
       },
       {
         title: "CA Support Tickets",
-        href: "/ca-support",
+        href: "/partner/ca-support",
         icon: HelpCircle,
         description: "Client assistance requests"
       }

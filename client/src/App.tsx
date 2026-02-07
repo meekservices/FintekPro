@@ -414,6 +414,13 @@ function UserProtectedRoutes() {
         <Route path="/kfintech-services" component={KfintechServices} />
         <Route path="/agricultural-insights" component={AgriculturalInsights} />
         <Route path="/calculators" component={FinancialCalculators} />
+        <Route path="/partner-portal">
+          {() => (
+            <Suspense fallback={<LoadingState variant="partner-dashboard" />}>
+              <DistributionPartnerPortal />
+            </Suspense>
+          )}
+        </Route>
         <Route path="/partner">
           {() => (
             <Suspense fallback={<LoadingState variant="partner-dashboard" />}>
@@ -423,6 +430,21 @@ function UserProtectedRoutes() {
         </Route>
         <Route path="/partner/ca-dashboard" component={CADashboard} />
         <Route path="/partner/agents" component={PartnerAgentDashboard} />
+        <Route path="/partner/agent-performance" component={PartnerAgentDashboard} />
+        <Route path="/partner/payouts">
+          {() => (
+            <Suspense fallback={<LoadingState variant="partner-dashboard" />}>
+              <AgentPayoutClaims />
+            </Suspense>
+          )}
+        </Route>
+        <Route path="/partner/proposals">
+          {() => (
+            <Suspense fallback={<LoadingState variant="partner-dashboard" />}>
+              <AgentProspectProposals />
+            </Suspense>
+          )}
+        </Route>
         <Route path="/partner/ca-management" component={PartnerCAManagement} />
         <Route path="/partner/ca-support" component={CASupportDashboard} />
         <Route path="/partner/ca-support/:id" component={CASupportDetail} />
@@ -1513,6 +1535,15 @@ function PartnerRoutes() {
           </PartnerLayout>
         )}
       </Route>
+      <Route path="/partner/agents">
+        {() => (
+          <PartnerLayout>
+            <Suspense fallback={<LoadingState variant="partner-dashboard" />}>
+              <PartnerAgentDashboard />
+            </Suspense>
+          </PartnerLayout>
+        )}
+      </Route>
       <Route path="/ca-support">
         {() => (
           <PartnerLayout>
@@ -1521,6 +1552,20 @@ function PartnerRoutes() {
         )}
       </Route>
       <Route path="/ca-support/:id">
+        {() => (
+          <PartnerLayout>
+            <CASupportDetail />
+          </PartnerLayout>
+        )}
+      </Route>
+      <Route path="/partner/ca-support">
+        {() => (
+          <PartnerLayout>
+            <CASupportDashboard />
+          </PartnerLayout>
+        )}
+      </Route>
+      <Route path="/partner/ca-support/:id">
         {() => (
           <PartnerLayout>
             <CASupportDetail />
