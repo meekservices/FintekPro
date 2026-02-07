@@ -55,7 +55,7 @@
   --secondary: hsla(217, 33%, 24%, 0.8);
   --secondary-foreground: hsl(210, 40%, 98%);
   --muted: hsla(217, 33%, 22%, 0.7);
-  --muted-foreground: hsl(215, 15%, 80%);
+  --muted-foreground: hsl(215, 20%, 75%);
   --accent: hsla(217, 33%, 28%, 0.75);
   --accent-foreground: hsl(210, 40%, 98%);
   --destructive: hsl(0, 84%, 60%);
@@ -230,26 +230,6 @@
 
 /* Dark Mode Visibility Improvements */
 .dark {
-  /* Ensure card descriptions are readable */
-  .text-muted-foreground {
-    color: hsl(215, 20%, 75%) !important;
-  }
-  
-  /* Improve text in cards */
-  [class*="CardDescription"] {
-    color: hsl(215, 20%, 75%);
-  }
-  
-  /* Better visibility for secondary text */
-  .text-gray-400, .text-gray-500 {
-    color: hsl(215, 20%, 70%) !important;
-  }
-  
-  /* Improve list item text */
-  li {
-    color: hsl(210, 20%, 88%);
-  }
-  
   /* Better badge contrast */
   .bg-green-500\/10 {
     background-color: hsla(142, 76%, 36%, 0.2) !important;
@@ -263,39 +243,9 @@
     background-color: hsla(0, 84%, 60%, 0.2) !important;
   }
   
-  /* Improve table readability */
-  table {
-    color: hsl(210, 20%, 90%);
-  }
-  
-  th {
-    color: hsl(210, 20%, 85%);
-    font-weight: 600;
-  }
-  
-  td {
-    color: hsl(210, 20%, 88%);
-  }
-  
-  /* Card content improvements */
-  .bg-card {
-    background-color: hsl(222, 47%, 14%);
-  }
-  
   /* Better contrast for placeholder text */
   ::placeholder {
     color: hsl(215, 20%, 50%);
-  }
-  
-  /* Improve input visibility */
-  input, select, textarea {
-    background-color: hsl(222, 47%, 16%);
-    border-color: hsl(217, 33%, 32%);
-    color: hsl(210, 40%, 98%);
-  }
-  
-  input:focus, select:focus, textarea:focus {
-    border-color: hsl(214, 84%, 56%);
   }
 }
 

@@ -1400,25 +1400,25 @@ export default function StoreManagement() {
                 <ScrollArea className="h-[500px]">
                   <Table>
                     <TableHeader>
-                      <TableRow className="border-border">
-                        <TableHead className="text-muted-foreground">Timestamp</TableHead>
-                        <TableHead className="text-muted-foreground">Admin</TableHead>
-                        <TableHead className="text-muted-foreground">Action</TableHead>
-                        <TableHead className="text-muted-foreground">Target</TableHead>
-                        <TableHead className="text-muted-foreground">Details</TableHead>
+                      <TableRow className="border-border bg-muted/30">
+                        <TableHead className="text-foreground font-semibold">Timestamp</TableHead>
+                        <TableHead className="text-foreground font-semibold">Admin</TableHead>
+                        <TableHead className="text-foreground font-semibold">Action</TableHead>
+                        <TableHead className="text-foreground font-semibold">Target</TableHead>
+                        <TableHead className="text-foreground font-semibold">Details</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {auditLogs.map((log) => (
                         <TableRow 
                           key={log.id} 
-                          className="border-border"
+                          className="border-border hover:bg-muted/20"
                           data-testid={`row-audit-${log.id}`}
                         >
-                          <TableCell className="text-muted-foreground whitespace-nowrap">
+                          <TableCell className="text-foreground/80 whitespace-nowrap">
                             {format(new Date(log.timestamp), 'MMM dd, yyyy HH:mm')}
                           </TableCell>
-                          <TableCell className="text-muted-foreground">
+                          <TableCell className="text-foreground/80">
                             {log.adminEmail}
                           </TableCell>
                           <TableCell>
@@ -1428,16 +1428,16 @@ export default function StoreManagement() {
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="text-xs">
+                              <Badge variant="outline" className="text-xs text-foreground border-border">
                                 {log.targetType}
                               </Badge>
-                              <span className="text-muted-foreground">{log.targetName}</span>
+                              <span className="text-foreground/80">{log.targetName}</span>
                             </div>
                           </TableCell>
                           <TableCell>
                             <Dialog>
                               <DialogTrigger asChild>
-                                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+                                <Button variant="ghost" size="sm" className="text-foreground/70 hover:text-foreground">
                                   <FileText className="w-4 h-4 mr-1" />
                                   View
                                 </Button>
