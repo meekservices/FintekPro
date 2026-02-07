@@ -2000,6 +2000,56 @@ class CASStatementService {
     return result;
   }
   
+  convertToPortfolioHoldingsWithDates(
+    holdings: CASHolding[],
+    transactions: CASTransaction[]
+  ): Array<{
+    name: string;
+    isin: string;
+    symbol?: string;
+    folioNumber: string;
+    assetType: string;
+    quantity: number;
+    averageCost: number;
+    investedValue: number;
+    currentValue: number;
+    broker?: string;
+    purchaseDate?: string;
+  }> {
+    return holdings.map(holding => {
+      let purchaseDate: string | undefined = holding.firstPurchaseDate;
+
+      if (!purchaseDate) {
+        const purchaseTxns = transactions
+          .filter(t =>
+            t.folioNumber === holding.folioNumber &&
+            t.isin === holding.isin &&
+            t.isCredit &&
+            ['Purchase', 'SIP', 'Switch In'].includes(t.transactionType)
+          )
+          .sort((a, b) => new Date(a.transactionDate).getTime() - new Date(b.transactionDate).getTime());
+
+        if (purchaseTxns.length > 0) {
+          purchaseDate = purchaseTxns[0].transactionDate;
+        }
+      }
+
+      return {
+        name: holding.schemeName,
+        isin: holding.isin,
+        symbol: undefined,
+        folioNumber: holding.folioNumber,
+        assetType: holding.assetType,
+        quantity: holding.unitBalance,
+        averageCost: holding.avgCostPerUnit || (holding.unitBalance > 0 ? holding.costValue / holding.unitBalance : 0),
+        investedValue: holding.costValue,
+        currentValue: holding.marketValue,
+        broker: holding.amcName,
+        purchaseDate,
+      };
+    });
+  }
+
   getTransactionLotsByHolding(holding: CASHolding): CASTransaction[] {
     return holding.transactions.filter(t => t.isCredit && t.units > 0);
   }

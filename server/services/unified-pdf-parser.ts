@@ -369,11 +369,19 @@ class UnifiedPDFParser {
       parser = new PDFParse({ data: buffer });
       const result = await parser.getText();
 
+      let info: Record<string, any> | undefined;
+      try {
+        const infoResult = await parser.getInfo();
+        info = infoResult as any;
+      } catch {
+        // Info extraction is optional
+      }
+
       const parseResult: TextExtractResult = {
         text: result.text || '',
-        pageCount: result.numpages,
-        info: result.info,
-        metadata: result.metadata
+        pageCount: result.pages?.length || result.total || undefined,
+        info,
+        metadata: info
       };
 
       if (!parseResult.text || parseResult.text.trim().length === 0) {
@@ -406,7 +414,7 @@ class UnifiedPDFParser {
 
       if (!result.text || result.text.trim().length === 0) {
         return {
-          success: true,
+          success: false,
           result,
           error: 'PDF parsed but contains no extractable text',
           errorCode: 'EMPTY_CONTENT'
@@ -1352,14 +1360,11 @@ class UnifiedPDFParser {
         if (t.type !== 'purchase' && t.type !== 'sip' && t.type !== 'switch_in') {
           return false;
         }
-        if (holding.isin && t.isin && t.isin === holding.isin) {
-          return true;
-        }
-        if (holding.name && t.scheme) {
-          const normalizedHoldingName = holding.name.toLowerCase().replace(/\s+/g, '');
-          const normalizedTxnScheme = t.scheme.toLowerCase().replace(/\s+/g, '');
-          if (normalizedHoldingName.includes(normalizedTxnScheme) || 
-              normalizedTxnScheme.includes(normalizedHoldingName)) {
+        if (holding.schemeName && t.description) {
+          const normalizedHoldingName = holding.schemeName.toLowerCase().replace(/\s+/g, '');
+          const normalizedTxnDesc = t.description.toLowerCase().replace(/\s+/g, '');
+          if (normalizedHoldingName.includes(normalizedTxnDesc) || 
+              normalizedTxnDesc.includes(normalizedHoldingName)) {
             return true;
           }
         }
