@@ -103,7 +103,7 @@ export default function ClientSmartProposals() {
   });
 
   const totalPortfolioValue = useMemo(() => {
-    return holdings.reduce((sum, h) => sum + h.currentValue, 0);
+    return (holdings || []).reduce((sum, h) => sum + h.currentValue, 0);
   }, [holdings]);
 
   const selectedRecommendations = useMemo(() => {

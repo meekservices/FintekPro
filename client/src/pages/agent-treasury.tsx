@@ -688,7 +688,7 @@ export default function AgentTreasuryPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold">
-                  ₹{corporateClients?.reduce((sum, c) => sum + parseFloat(c.totalCorpus || "0"), 0).toLocaleString('en-IN') || "0"}
+                  ₹{(Array.isArray(corporateClients) ? corporateClients : []).reduce((sum, c) => sum + parseFloat(c.totalCorpus || "0"), 0).toLocaleString('en-IN') || "0"}
                 </p>
                 <p className="text-sm text-muted-foreground">Total AUM</p>
               </div>

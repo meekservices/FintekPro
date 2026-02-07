@@ -108,12 +108,13 @@ export class NSENCBApiService {
         headers: {
           'User-Agent': 'FintekPro/1.0',
           'Accept': 'application/json'
-        }
+        },
+        timeout: 15000
       });
 
       return response.data.auctions || [];
     } catch (error) {
-      console.error('Error fetching NSE NCB auctions:', error);
+      console.error('Error fetching NSE NCB auctions:', error instanceof Error ? error.message : 'Unknown error');
       // Fallback to demo data
       return this.getDemoAuctions();
     }
@@ -306,7 +307,8 @@ export class NSENCBApiService {
           headers: {
             'Content-Type': 'application/json',
             'User-Agent': 'FintekPro/1.0'
-          }
+          },
+          timeout: 15000
         }
       );
 
@@ -317,7 +319,7 @@ export class NSENCBApiService {
         allotmentDetails: response.data.allotment
       };
     } catch (error: any) {
-      console.error('Error placing NSE NCB order:', error);
+      console.error('Error placing NSE NCB order:', error instanceof Error ? error.message : 'Unknown error');
       return {
         success: false,
         message: error.response?.data?.message || 'Failed to place NCB order'
@@ -371,13 +373,14 @@ export class NSENCBApiService {
           headers: {
             'User-Agent': 'FintekPro/1.0',
             'Accept': 'application/json'
-          }
+          },
+          timeout: 15000
         }
       );
 
       return response.data;
     } catch (error) {
-      console.error('Error fetching order status:', error);
+      console.error('Error fetching order status:', error instanceof Error ? error.message : 'Unknown error');
       throw error;
     }
   }
@@ -418,13 +421,14 @@ export class NSENCBApiService {
           headers: {
             'User-Agent': 'FintekPro/1.0',
             'Accept': 'application/json'
-          }
+          },
+          timeout: 15000
         }
       );
 
       return response.data;
     } catch (error) {
-      console.error('Error fetching G-Sec details:', error);
+      console.error('Error fetching G-Sec details:', error instanceof Error ? error.message : 'Unknown error');
       return null;
     }
   }
@@ -444,13 +448,14 @@ export class NSENCBApiService {
           headers: {
             'User-Agent': 'FintekPro/1.0',
             'Accept': 'application/json'
-          }
+          },
+          timeout: 15000
         }
       );
 
       return response.data.yieldCurve || [];
     } catch (error) {
-      console.error('Error fetching yield curve:', error);
+      console.error('Error fetching yield curve:', error instanceof Error ? error.message : 'Unknown error');
       return this.getDemoYieldCurve();
     }
   }
@@ -499,13 +504,14 @@ export class NSENCBApiService {
           headers: {
             'User-Agent': 'FintekPro/1.0',
             'Accept': 'application/json'
-          }
+          },
+          timeout: 15000
         }
       );
 
       return response.data.auctions || [];
     } catch (error) {
-      console.error('Error fetching historical auctions:', error);
+      console.error('Error fetching historical auctions:', error instanceof Error ? error.message : 'Unknown error');
       return this.getDemoHistoricalAuctions(params);
     }
   }
@@ -561,13 +567,14 @@ export class NSENCBApiService {
           headers: {
             'User-Agent': 'FintekPro/1.0',
             'Accept': 'application/json'
-          }
+          },
+          timeout: 15000
         }
       );
 
       return response.data.sgbs || [];
     } catch (error) {
-      console.error('Error fetching SGB data:', error);
+      console.error('Error fetching SGB data:', error instanceof Error ? error.message : 'Unknown error');
       return this.getDemoSGBData();
     }
   }
@@ -623,13 +630,14 @@ export class NSENCBApiService {
             'User-Agent': 'FintekPro/1.0',
             'Accept': 'application/json',
             'Content-Type': 'application/json'
-          }
+          },
+          timeout: 15000
         }
       );
 
       return response.data.prices || [];
     } catch (error) {
-      console.error('Error fetching market prices:', error);
+      console.error('Error fetching market prices:', error instanceof Error ? error.message : 'Unknown error');
       return this.getDemoMarketPrices(isins);
     }
   }

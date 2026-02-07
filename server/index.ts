@@ -4,6 +4,18 @@
 // The @neondatabase/serverless v0.10.4 has a bug where it tries to set
 // a read-only property on ErrorEvent when handling connection terminations
 process.on('uncaughtException', (error: Error) => {
+  if (error.message?.includes('socket hang up') || 
+      error.message?.includes('ECONNRESET') || 
+      error.message?.includes('ECONNREFUSED') ||
+      error.message?.includes('ETIMEDOUT') ||
+      error.message?.includes('read ECONNRESET') ||
+      error.message?.includes('write ECONNABORTED') ||
+      (error as any).code === 'ECONNRESET' ||
+      (error as any).code === 'EPIPE' ||
+      (error as any).code === 'ERR_STREAM_DESTROYED') {
+    console.warn('[Global] Network/stream error (non-fatal):', error.message);
+    return;
+  }
   // Ignore the specific Neon library bug that crashes on connection errors
   if (error.message?.includes('Cannot set property message of') && 
       error.message?.includes('which has only a getter')) {
@@ -19,6 +31,15 @@ process.on('uncaughtException', (error: Error) => {
 });
 
 process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+  if (reason?.message?.includes('socket hang up') || 
+      reason?.message?.includes('ECONNRESET') ||
+      reason?.message?.includes('ETIMEDOUT') ||
+      reason?.code === 'ECONNRESET' ||
+      reason?.code === 'EPIPE' ||
+      reason?.code === 'ERR_STREAM_DESTROYED') {
+    console.warn('[Global] Network/stream rejection (non-fatal):', reason?.message || reason);
+    return;
+  }
   // Ignore Neon connection termination errors (error code 57P01)
   if (reason?.code === '57P01' || 
       reason?.message?.includes('terminating connection due to administrator command')) {

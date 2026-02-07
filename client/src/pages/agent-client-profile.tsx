@@ -808,10 +808,10 @@ export default function AgentClientProfile() {
                     <tfoot>
                       <tr className="bg-background/50">
                         <td colSpan={2} className="p-4 text-foreground font-bold">Total</td>
-                        <td className="p-4 text-right text-muted-foreground font-medium">{formatCurrency(holdings.reduce((s, h) => s + h.invested, 0))}</td>
-                        <td className="p-4 text-right text-foreground font-bold">{formatCurrency(holdings.reduce((s, h) => s + h.current, 0))}</td>
-                        <td className="p-4 text-right text-emerald-400 font-bold">+{formatCurrency(holdings.reduce((s, h) => s + h.returns, 0))}</td>
-                        <td className="p-4 text-right text-emerald-400 font-bold">+{((holdings.reduce((s, h) => s + h.returns, 0) / holdings.reduce((s, h) => s + h.invested, 0)) * 100).toFixed(1)}%</td>
+                        <td className="p-4 text-right text-muted-foreground font-medium">{formatCurrency((Array.isArray(holdings) ? holdings : []).reduce((s, h) => s + h.invested, 0))}</td>
+                        <td className="p-4 text-right text-foreground font-bold">{formatCurrency((Array.isArray(holdings) ? holdings : []).reduce((s, h) => s + h.current, 0))}</td>
+                        <td className="p-4 text-right text-emerald-400 font-bold">+{formatCurrency((Array.isArray(holdings) ? holdings : []).reduce((s, h) => s + h.returns, 0))}</td>
+                        <td className="p-4 text-right text-emerald-400 font-bold">+{(((Array.isArray(holdings) ? holdings : []).reduce((s, h) => s + h.returns, 0) / ((Array.isArray(holdings) ? holdings : []).reduce((s, h) => s + h.invested, 0) || 1)) * 100).toFixed(1)}%</td>
                       </tr>
                     </tfoot>
                   </table>

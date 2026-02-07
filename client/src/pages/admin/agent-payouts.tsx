@@ -44,7 +44,7 @@ interface PayoutClaim {
   agentEmail?: string;
   applicantName: string;
   loanType: string;
-  disbursedAmount: string;
+  disbursedAmount?: string;
   claimAmount: string;
   status: string;
   invoiceNumber?: string;
@@ -344,7 +344,7 @@ export default function AdminAgentPayoutsPage() {
                       <div className="flex items-center gap-4">
                         <div>
                           <span className="text-sm text-muted-foreground">Disbursed:</span>
-                          <span className="font-medium ml-1">{formatCurrency(claim.disbursedAmount)}</span>
+                          <span className="font-medium ml-1">{formatCurrency(claim.disbursedAmount || '0')}</span>
                         </div>
                         <div>
                           <span className="text-sm text-muted-foreground">Claim:</span>
@@ -441,7 +441,7 @@ export default function AdminAgentPayoutsPage() {
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Disbursed Amount</Label>
-                  <p className="font-medium">{formatCurrency(selectedClaim.disbursedAmount)}</p>
+                  <p className="font-medium">{formatCurrency(selectedClaim.disbursedAmount || '0')}</p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Claim Amount</Label>

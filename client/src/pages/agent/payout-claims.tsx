@@ -36,7 +36,7 @@ interface PayoutClaim {
   agentId: string;
   applicantName: string;
   loanType: string;
-  disbursedAmount: string;
+  disbursedAmount?: string;
   claimAmount: string;
   status: string;
   invoiceNumber?: string;
@@ -54,7 +54,7 @@ interface DisbursedLoan {
   applicationNumber: string;
   applicantName: string;
   loanType: string;
-  disbursedAmount: string;
+  disbursedAmount?: string;
   bankCode: string;
   bankName: string;
   disbursedAt: string;
@@ -275,7 +275,7 @@ export default function AgentPayoutClaimsPage() {
                             </span>
                           </div>
                           <div className="font-semibold text-lg">
-                            Disbursed: {formatCurrency(loan.disbursedAmount)}
+                            Disbursed: {formatCurrency(loan.disbursedAmount || '0')}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -348,7 +348,7 @@ export default function AgentPayoutClaimsPage() {
                           <div className="flex items-center gap-4">
                             <div>
                               <span className="text-sm text-muted-foreground">Disbursed:</span>
-                              <span className="font-medium ml-1">{formatCurrency(claim.disbursedAmount)}</span>
+                              <span className="font-medium ml-1">{formatCurrency(claim.disbursedAmount || '0')}</span>
                             </div>
                             <div>
                               <span className="text-sm text-muted-foreground">Claim Amount:</span>
@@ -403,7 +403,7 @@ export default function AgentPayoutClaimsPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Disbursed Amount</span>
-                  <span className="font-bold text-lg">{formatCurrency(selectedLoan.disbursedAmount)}</span>
+                  <span className="font-bold text-lg">{formatCurrency(selectedLoan.disbursedAmount || '0')}</span>
                 </div>
               </div>
 

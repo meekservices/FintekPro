@@ -679,8 +679,8 @@ const RECOMMENDATION_CATEGORIES = [
   };
 
   // Calculate portfolio summary with proper guards against NaN
-  const totalPortfolioValue = quickHoldings.reduce((sum, h) => sum + (h.currentValue || 0), 0);
-  const holdingsWithValue = quickHoldings.filter(h => (h.currentValue || 0) > 0 && h.returns1y !== null);
+  const totalPortfolioValue = (quickHoldings || []).reduce((sum, h) => sum + (h.currentValue || 0), 0);
+  const holdingsWithValue = (quickHoldings || []).filter(h => (h.currentValue || 0) > 0 && h.returns1y !== null);
   const weightedReturnNumerator = holdingsWithValue.reduce((sum, h) => sum + ((h.returns1y || 0) * (h.currentValue || 0)), 0);
   
   const portfolioSummary = {
@@ -721,7 +721,7 @@ const RECOMMENDATION_CATEGORIES = [
           allocation: 0,
           returns1Y: h.unrealizedGainLossPercent || 10,
         }));
-        totalValue = parseFloat(portfolioValue) || holdings.reduce((sum, h) => sum + h.currentValue, 0);
+        totalValue = parseFloat(portfolioValue) || (Array.isArray(holdings) ? holdings : []).reduce((sum, h) => sum + h.currentValue, 0);
       } else if (quickHoldings.length > 0) {
         // Quick entry mode with product search
         holdings = quickHoldings.filter(h => h.productName).map(h => ({
@@ -748,7 +748,7 @@ const RECOMMENDATION_CATEGORIES = [
             returns1Y: parseFloat(parts[2]) || 10,
           };
         });
-        totalValue = parseFloat(portfolioValue) || holdings.reduce((sum, h) => sum + h.currentValue, 0);
+        totalValue = parseFloat(portfolioValue) || (Array.isArray(holdings) ? holdings : []).reduce((sum, h) => sum + h.currentValue, 0);
       }
       
       holdings.forEach(h => { h.allocation = totalValue > 0 ? (h.currentValue / totalValue) * 100 : 0; });
@@ -812,7 +812,7 @@ const RECOMMENDATION_CATEGORIES = [
           allocation: 0,
         };
       });
-      const totalValue = parseFloat(portfolioValue) || holdings.reduce((sum, h) => sum + h.currentValue, 0);
+      const totalValue = parseFloat(portfolioValue) || (Array.isArray(holdings) ? holdings : []).reduce((sum, h) => sum + h.currentValue, 0);
       data.samplePortfolio = { totalValue, holdings, assetAllocation: {} };
     } else {
       data.investmentGoals = {

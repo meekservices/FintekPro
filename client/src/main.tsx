@@ -4,6 +4,11 @@ import "./index.css";
 import { SessionProvider } from "@/contexts/session-context";
 import { SessionExpiredDialog } from "@/components/ui/session-expired-dialog";
 
+// Vite chunk loading error handler for stale cached chunks after deployments
+window.addEventListener('vite:preloadError', () => {
+  window.location.reload();
+});
+
 // Global error handlers to prevent unhandled promise rejections
 window.addEventListener('unhandledrejection', (event) => {
   console.error('Unhandled promise rejection:', event.reason);
@@ -11,8 +16,19 @@ window.addEventListener('unhandledrejection', (event) => {
   event.preventDefault();
 });
 
+// Enhanced error handler for dynamic import failures
 window.addEventListener('error', (event) => {
-  console.error('Global error:', event.error);
+  if (event.message?.includes('Failed to fetch dynamically imported module') ||
+      event.message?.includes('Importing a module script failed')) {
+    console.warn('[PWA] Stale chunk detected, reloading...');
+    const reloadKey = 'chunk-reload-' + window.location.pathname;
+    if (!sessionStorage.getItem(reloadKey)) {
+      sessionStorage.setItem(reloadKey, '1');
+      window.location.reload();
+    }
+  } else {
+    console.error('Global error:', event.error);
+  }
 });
 
 // Register Service Worker for PWA functionality
