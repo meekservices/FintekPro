@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
+import fintekproLogo from "@assets/fintekpro_favicon_1770477461031.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -66,7 +67,8 @@ export function Header() {
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-8">
             <div className="flex-shrink-0">
-              <Link href="/">
+              <Link href="/" className="flex items-center gap-2">
+                <img src={fintekproLogo} alt="FintekPro" className="h-9 w-9 rounded-lg object-contain" />
                 <h1 className="text-2xl font-bold text-finance-blue cursor-pointer" data-testid="logo">
                   FintekPro
                 </h1>

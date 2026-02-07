@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
+import fintekproLogo from "@assets/fintekpro_favicon_1770477461031.png";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -754,7 +755,8 @@ export function EnhancedNavigation() {
         <SheetContent side="left" className="w-[280px] p-0">
           <SheetHeader className="p-4 border-b">
             <SheetTitle className="flex items-center justify-between">
-              <Link href="/" onClick={handleMobileNavClick}>
+              <Link href="/" onClick={handleMobileNavClick} className="flex items-center gap-2">
+                <img src={fintekproLogo} alt="FintekPro" className="h-8 w-8 rounded-lg object-contain" />
                 <span className="text-xl font-bold text-primary">FintekPro</span>
               </Link>
             </SheetTitle>
@@ -775,10 +777,16 @@ export function EnhancedNavigation() {
           {/* Logo and Toggle */}
           <div className="flex items-center h-16 px-4 border-b border-border justify-between">
             {!isCollapsed && (
-              <Link href="/">
+              <Link href="/" className="flex items-center gap-2">
+                <img src={fintekproLogo} alt="FintekPro" className="h-8 w-8 rounded-lg object-contain" />
                 <h1 className="text-xl font-bold text-finance-blue cursor-pointer" data-testid="logo">
                   FintekPro
                 </h1>
+              </Link>
+            )}
+            {isCollapsed && (
+              <Link href="/">
+                <img src={fintekproLogo} alt="FintekPro" className="h-8 w-8 rounded-lg object-contain" />
               </Link>
             )}
             <Button

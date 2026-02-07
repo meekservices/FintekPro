@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
+import fintekproLogo from "@assets/fintekpro_favicon_1770477461031.png";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
@@ -76,9 +77,7 @@ export function TopNavLayout({ children }: TopNavLayoutProps) {
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-6">
             <Link href="/" className="flex items-center gap-2" data-testid="link-logo">
-              <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-                <TrendingUp className="h-5 w-5 text-primary-foreground" />
-              </div>
+              <img src={fintekproLogo} alt="FintekPro" className="h-8 w-8 rounded-lg object-contain" />
               <span className="font-bold text-xl hidden sm:inline">FintekPro</span>
             </Link>
 

@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import fintekproLogo from "@assets/fintekpro_favicon_1770477461031.png";
 import { 
   Facebook, Twitter, Linkedin, Instagram, Home, UserCheck, Briefcase, Calculator, 
   Store, TrendingUp, CreditCard, Receipt, Users, Bell, Settings, HelpCircle, Shield,
@@ -115,9 +116,12 @@ export function Footer() {
           
           {/* Company Info */}
           <div>
-            <h3 className="text-xl font-bold mb-4" data-testid="footer-company-name">
-              FintekPro
-            </h3>
+            <div className="flex items-center gap-2 mb-4">
+              <img src={fintekproLogo} alt="FintekPro" className="h-8 w-8 rounded-lg object-contain" />
+              <h3 className="text-xl font-bold" data-testid="footer-company-name">
+                FintekPro
+              </h3>
+            </div>
             <p className="text-muted-foreground mb-4 text-sm" data-testid="footer-company-description">
               Complete financial services platform for investments, trading, loans, tax filing, and wealth management.
             </p>
