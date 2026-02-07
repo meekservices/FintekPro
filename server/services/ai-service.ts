@@ -98,10 +98,14 @@ class AIService {
     } catch (error: any) {
       console.error(`AI Service Error (${provider}):`, error.message);
       
-      // Fallback: Gemini -> OpenAI (if OpenAI is available)
       if (provider === 'gemini') {
-        console.log('Falling back to OpenAI...');
+        console.log('[AI Fallback] Gemini failed, falling back to OpenAI...');
         return await this.chatWithOpenAI(messages, 'gpt-5', temperature, maxTokens, stream);
+      }
+      
+      if ((provider === 'openai' || provider === 'openai-direct') && gemini) {
+        console.log('[AI Fallback] OpenAI failed, falling back to Gemini...');
+        return await this.chatWithGemini(messages, 'gemini-2.5-flash', temperature, maxTokens);
       }
       
       throw error;
@@ -135,10 +139,14 @@ class AIService {
     } catch (error: any) {
       console.error(`AI Streaming Error (${provider}):`, error.message);
       
-      // Fallback: Gemini -> OpenAI (if OpenAI is available)
       if (provider === 'gemini') {
-        console.log('Falling back to OpenAI for streaming...');
+        console.log('[AI Fallback] Gemini streaming failed, falling back to OpenAI...');
         return await this.streamOpenAI(messages, 'gpt-5', temperature, maxTokens, onChunk);
+      }
+      
+      if ((provider === 'openai' || provider === 'openai-direct') && gemini) {
+        console.log('[AI Fallback] OpenAI streaming failed, falling back to Gemini...');
+        return await this.streamGemini(messages, 'gemini-2.5-flash', temperature, maxTokens, onChunk);
       }
       
       throw error;
