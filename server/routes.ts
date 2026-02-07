@@ -21,6 +21,7 @@ import dsaLoanRoutes from "./routes/dsa-loan-routes";
 import adminDsaLoanRoutes from "./routes/admin-dsa-loan-routes";
 import agentLoanRoutes from "./routes/agent-loan-routes";
 import adminAgentPayoutRoutes from "./routes/admin-agent-payout-routes";
+import developerFinanceRoutes from "./routes/developer-finance-routes";
 import { registerFinancialDataRoutes } from './routes/financial-data-routes';
 import knowledgeHubRoutes from './routes/knowledge-hub-routes';
 import mcaIntelligenceRoutes from './routes/mca-intelligence-routes';
@@ -29014,6 +29015,7 @@ Provide analysis in JSON format with these sections:
   app.use("/api/admin/dsa-loans", adminDsaLoanRoutes);
   app.use("/api/agent/loans", isAuthenticated, agentLoanRoutes);
   app.use("/api/admin/agent-payouts", isAuthenticated, adminAgentPayoutRoutes);
+  app.use("/api/developer-finance", developerFinanceRoutes);
   console.log("✅ DSA Multi-Financier Loan routes registered");
   registerLoanCommissionRoutes(app);
   registerEligibilityMatrixRoutes(app);

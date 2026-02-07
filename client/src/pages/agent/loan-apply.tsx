@@ -47,6 +47,18 @@ import { LoanProgressStepper, ProcessingTimeDisplay } from "@/components/loan/lo
 import { DraftIndicator, RestorePrompt } from "@/components/loan/draft-indicator";
 import { useFormAutosave } from "@/hooks/use-form-autosave";
 import { LoanDocumentUpload, UploadedDocument } from "@/components/loan/document-upload";
+import ProjectFinanceWizard from "@/components/loan/project-finance-wizard";
+
+const loanSubTypeLabels: Record<string, string> = {
+  BUILDER_FUNDING: "Builder Funding",
+  PROJECT_FUNDING: "Project Funding",
+  CONSTRUCTION_FINANCE: "Construction Finance",
+  LRD: "Lease Rental Discounting",
+  LAND_FINANCE: "Land Finance",
+  INVENTORY_FINANCE: "Inventory Finance",
+  MEZZANINE: "Mezzanine Finance",
+  BRIDGE: "Bridge Loan",
+};
 
 const loanApplicationSchema = z.object({
   clientSource: z.enum(["existing", "new"]),
@@ -141,6 +153,9 @@ const bankStatusColors: Record<string, string> = {
 export default function AgentLoanApplyPage() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("apply");
+  const [loanVertical, setLoanVertical] = useState<"RETAIL" | "MSME" | "DEVELOPER">("RETAIL");
+  const [loanSubType, setLoanSubType] = useState<string>("");
+  const [devAppId, setDevAppId] = useState<string>("");
   const [clientSource, setClientSource] = useState<"existing" | "new">("new");
   const [searchQuery, setSearchQuery] = useState("");
   const [routeDialogOpen, setRouteDialogOpen] = useState(false);
@@ -430,6 +445,66 @@ export default function AgentLoanApplyPage() {
         </TabsList>
 
         <TabsContent value="apply">
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5" />
+                Loan Vertical
+              </CardTitle>
+              <CardDescription>Select the loan category to proceed</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { value: "RETAIL" as const, label: "Retail Loans", desc: "Personal, Home, Car, Education, Gold, LAP" },
+                  { value: "MSME" as const, label: "MSME Loans", desc: "Business & Working Capital" },
+                  { value: "DEVELOPER" as const, label: "Developer Finance", desc: "Builder Funding, Project Finance, LRD" },
+                ].map((v) => (
+                  <div
+                    key={v.value}
+                    onClick={() => { setLoanVertical(v.value); if (v.value !== "DEVELOPER") setLoanSubType(""); }}
+                    className={`cursor-pointer rounded-lg border-2 p-4 transition-all ${
+                      loanVertical === v.value
+                        ? "border-primary bg-primary/5"
+                        : "border-muted hover:border-primary/40"
+                    }`}
+                  >
+                    <p className="font-semibold text-sm">{v.label}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{v.desc}</p>
+                  </div>
+                ))}
+              </div>
+
+              {loanVertical === "DEVELOPER" && (
+                <div className="mt-4">
+                  <Label className="text-sm font-medium">Loan Sub-Type</Label>
+                  <Select value={loanSubType} onValueChange={setLoanSubType}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select developer finance type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(loanSubTypeLabels).map(([key, label]) => (
+                        <SelectItem key={key} value={key}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {loanVertical === "DEVELOPER" && loanSubType ? (
+            <ProjectFinanceWizard
+              applicationId={devAppId}
+              loanSubType={loanSubType}
+              onComplete={() => {
+                toast({ title: "Success", description: "Developer finance application submitted successfully" });
+                setActiveTab("track");
+                queryClient.invalidateQueries({ queryKey: ["/api/agent/loans/my-applications"] });
+              }}
+            />
+          ) : loanVertical !== "DEVELOPER" ? (
+            <>
           {showRestorePrompt && (
             <RestorePrompt onRestore={restoreDraft} onDiscard={discardDraft} />
           )}
@@ -849,6 +924,14 @@ export default function AgentLoanApplyPage() {
               </div>
             </form>
           </Form>
+            </>
+          ) : (
+            <Card className="py-12 text-center">
+              <CardContent>
+                <p className="text-muted-foreground">Please select a loan sub-type above to begin the Developer Finance application.</p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="track">

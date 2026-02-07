@@ -56,6 +56,65 @@ export const payoutClaimStatusEnum = pgEnum("payout_claim_status", [
   "paid"
 ]);
 
+// ============== DEVELOPER / PROJECT FINANCE ENUMS ==============
+
+export const loanVerticalEnum = pgEnum("loan_vertical", [
+  "RETAIL",
+  "MSME",
+  "DEVELOPER"
+]);
+
+export const loanSubTypeEnum = pgEnum("loan_sub_type", [
+  "BUILDER_FUNDING",
+  "PROJECT_FUNDING",
+  "CONSTRUCTION_FINANCE",
+  "LRD",
+  "LAND_FINANCE",
+  "INVENTORY_FINANCE",
+  "MEZZANINE",
+  "BRIDGE"
+]);
+
+export const projectStageEnum = pgEnum("project_stage", [
+  "LAND_ACQUISITION",
+  "APPROVALS",
+  "CONSTRUCTION_EARLY",
+  "CONSTRUCTION_MID",
+  "CONSTRUCTION_ADVANCED",
+  "NEAR_COMPLETION",
+  "COMPLETED",
+  "POSSESSION"
+]);
+
+export const tranchStatusEnum = pgEnum("tranch_status", [
+  "PENDING",
+  "RELEASED",
+  "ON_HOLD",
+  "CANCELLED"
+]);
+
+export const approvalStatusEnum = pgEnum("dev_approval_status", [
+  "OBTAINED",
+  "APPLIED",
+  "PENDING",
+  "NOT_REQUIRED",
+  "REJECTED"
+]);
+
+export const encumbranceStatusEnum = pgEnum("encumbrance_status", [
+  "CLEAR",
+  "ENCUMBERED",
+  "PARTIALLY_CLEAR",
+  "UNDER_VERIFICATION"
+]);
+
+export const titleStatusEnum = pgEnum("title_status", [
+  "CLEAR",
+  "DISPUTED",
+  "UNDER_LITIGATION",
+  "UNDER_VERIFICATION"
+]);
+
 // ============== SUB-DSA GOVERNANCE ENUMS ==============
 
 export const originationModeEnum = pgEnum("origination_mode", [
@@ -114,6 +173,9 @@ export const dsaLoanApplications = pgTable("dsa_loan_applications", {
   otherIncome: decimal("other_income", { precision: 15, scale: 2 }).default("0"),
   
   loanType: varchar("loan_type").notNull(),
+  loanVertical: loanVerticalEnum("loan_vertical").default("RETAIL"),
+  loanSubType: loanSubTypeEnum("loan_sub_type"),
+  developerProjectId: varchar("developer_project_id"),
   requestedAmount: decimal("requested_amount", { precision: 15, scale: 2 }).notNull(),
   requestedTenure: integer("requested_tenure").notNull(),
   loanPurpose: varchar("loan_purpose"),
@@ -711,3 +773,202 @@ export type AgentPayoutClaim = typeof agentPayoutClaims.$inferSelect;
 export type InsertAgentPayoutClaim = z.infer<typeof insertAgentPayoutClaimSchema>;
 export type AgentLoanStatusHistory = typeof agentLoanStatusHistory.$inferSelect;
 export type InsertAgentLoanStatusHistory = z.infer<typeof insertAgentLoanStatusHistorySchema>;
+
+// ============== DEVELOPER / PROJECT FINANCE TABLES ==============
+
+export const developerProjects = pgTable("developer_projects", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").references(() => users.id),
+  developerName: varchar("developer_name").notNull(),
+  developerCin: varchar("developer_cin"),
+  developerPan: varchar("developer_pan"),
+  promoterName: varchar("promoter_name"),
+  promoterDin: varchar("promoter_din"),
+  contactEmail: varchar("contact_email"),
+  contactPhone: varchar("contact_phone"),
+  projectName: varchar("project_name").notNull(),
+  reraNumber: varchar("rera_number"),
+  reraState: varchar("rera_state"),
+  projectCity: varchar("project_city"),
+  projectState: varchar("project_state"),
+  projectAddress: text("project_address"),
+  projectStage: projectStageEnum("project_stage").default("LAND_ACQUISITION"),
+  projectType: varchar("project_type"),
+  totalUnits: integer("total_units"),
+  unitsSold: integer("units_sold").default(0),
+  totalSalableArea: decimal("total_salable_area", { precision: 15, scale: 2 }),
+  totalProjectCost: decimal("total_project_cost", { precision: 18, scale: 2 }),
+  totalProjectRevenue: decimal("total_project_revenue", { precision: 18, scale: 2 }),
+  expectedCompletionDate: date("expected_completion_date"),
+  projectTenureMonths: integer("project_tenure_months"),
+  landCost: decimal("land_cost", { precision: 18, scale: 2 }),
+  constructionCost: decimal("construction_cost", { precision: 18, scale: 2 }),
+  approvalCost: decimal("approval_cost", { precision: 15, scale: 2 }),
+  marketingCost: decimal("marketing_cost", { precision: 15, scale: 2 }),
+  financeCost: decimal("finance_cost", { precision: 15, scale: 2 }),
+  contingencyCost: decimal("contingency_cost", { precision: 15, scale: 2 }),
+  status: varchar("status").default("active"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const projectLandDetails = pgTable("project_land_details", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").references(() => developerProjects.id).notNull(),
+  surveyNumber: varchar("survey_number"),
+  plotNumber: varchar("plot_number"),
+  totalLandArea: decimal("total_land_area", { precision: 15, scale: 2 }),
+  landAreaUnit: varchar("land_area_unit").default("sqft"),
+  landUseZone: varchar("land_use_zone"),
+  encumbranceStatus: encumbranceStatusEnum("encumbrance_status").default("UNDER_VERIFICATION"),
+  encumbranceCertificateUrl: varchar("encumbrance_certificate_url"),
+  titleStatus: titleStatusEnum("title_status").default("UNDER_VERIFICATION"),
+  titleReportUrl: varchar("title_report_url"),
+  titleReportDate: date("title_report_date"),
+  landOwnership: varchar("land_ownership"),
+  registrationNumber: varchar("registration_number"),
+  registrationDate: date("registration_date"),
+  marketValue: decimal("market_value", { precision: 18, scale: 2 }),
+  guidanceValue: decimal("guidance_value", { precision: 18, scale: 2 }),
+  purchaseValue: decimal("purchase_value", { precision: 18, scale: 2 }),
+  remarks: text("remarks"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const projectApprovals = pgTable("project_approvals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").references(() => developerProjects.id).notNull(),
+  approvalType: varchar("approval_type").notNull(),
+  approvalAuthority: varchar("approval_authority"),
+  approvalNumber: varchar("approval_number"),
+  approvalDate: date("approval_date"),
+  expiryDate: date("expiry_date"),
+  status: approvalStatusEnum("status").default("PENDING"),
+  documentUrl: varchar("document_url"),
+  isMandatory: boolean("is_mandatory").default(false),
+  remarks: text("remarks"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const projectCashflows = pgTable("project_cashflows", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").references(() => developerProjects.id).notNull(),
+  month: integer("month").notNull(),
+  year: integer("year").notNull(),
+  label: varchar("label"),
+  inflowSales: decimal("inflow_sales", { precision: 18, scale: 2 }).default("0"),
+  inflowDisbursement: decimal("inflow_disbursement", { precision: 18, scale: 2 }).default("0"),
+  inflowOther: decimal("inflow_other", { precision: 18, scale: 2 }).default("0"),
+  outflowConstruction: decimal("outflow_construction", { precision: 18, scale: 2 }).default("0"),
+  outflowLand: decimal("outflow_land", { precision: 18, scale: 2 }).default("0"),
+  outflowInterest: decimal("outflow_interest", { precision: 18, scale: 2 }).default("0"),
+  outflowAdmin: decimal("outflow_admin", { precision: 18, scale: 2 }).default("0"),
+  outflowOther: decimal("outflow_other", { precision: 18, scale: 2 }).default("0"),
+  netCashflow: decimal("net_cashflow", { precision: 18, scale: 2 }).default("0"),
+  cumulativeCashflow: decimal("cumulative_cashflow", { precision: 18, scale: 2 }).default("0"),
+  remarks: text("remarks"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const developerFinancials = pgTable("developer_financials", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").references(() => developerProjects.id).notNull(),
+  financialYear: varchar("financial_year").notNull(),
+  revenue: decimal("revenue", { precision: 18, scale: 2 }),
+  patProfit: decimal("pat_profit", { precision: 18, scale: 2 }),
+  netWorth: decimal("net_worth", { precision: 18, scale: 2 }),
+  totalDebt: decimal("total_debt", { precision: 18, scale: 2 }),
+  totalAssets: decimal("total_assets", { precision: 18, scale: 2 }),
+  currentRatio: decimal("current_ratio", { precision: 8, scale: 2 }),
+  debtEquityRatio: decimal("debt_equity_ratio", { precision: 8, scale: 2 }),
+  dscr: decimal("dscr", { precision: 8, scale: 2 }),
+  interestCoverage: decimal("interest_coverage", { precision: 8, scale: 2 }),
+  promoterContribution: decimal("promoter_contribution", { precision: 18, scale: 2 }),
+  promoterContributionPercent: decimal("promoter_contribution_percent", { precision: 5, scale: 2 }),
+  escrowBalance: decimal("escrow_balance", { precision: 18, scale: 2 }),
+  cashAndEquivalents: decimal("cash_and_equivalents", { precision: 18, scale: 2 }),
+  operatingCashflow: decimal("operating_cashflow", { precision: 18, scale: 2 }),
+  auditedBy: varchar("audited_by"),
+  auditReportUrl: varchar("audit_report_url"),
+  itrFilingDate: date("itr_filing_date"),
+  remarks: text("remarks"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const loanDisbursementTranches = pgTable("loan_disbursement_tranches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  applicationId: varchar("application_id").references(() => dsaLoanApplications.id).notNull(),
+  projectId: varchar("project_id").references(() => developerProjects.id),
+  trancheNumber: integer("tranche_number").notNull(),
+  milestoneName: varchar("milestone_name").notNull(),
+  milestoneDescription: text("milestone_description"),
+  expectedCompletionPercent: decimal("expected_completion_percent", { precision: 5, scale: 2 }),
+  trancheAmount: decimal("tranche_amount", { precision: 18, scale: 2 }).notNull(),
+  tranchePercent: decimal("tranche_percent", { precision: 5, scale: 2 }),
+  status: tranchStatusEnum("status").default("PENDING"),
+  releaseDate: date("release_date"),
+  releasedAmount: decimal("released_amount", { precision: 18, scale: 2 }),
+  releasedBy: varchar("released_by"),
+  holdReason: text("hold_reason"),
+  engineerCertificateUrl: varchar("engineer_certificate_url"),
+  caCertificateUrl: varchar("ca_certificate_url"),
+  photographUrl: varchar("photograph_url"),
+  bankReference: varchar("bank_reference"),
+  remarks: text("remarks"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const bankProductAppetite = pgTable("bank_product_appetite", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bankCode: varchar("bank_code").references(() => bankConnectors.bankCode).notNull(),
+  loanSubType: loanSubTypeEnum("loan_sub_type").notNull(),
+  isActive: boolean("is_active").default(true),
+  minTicketSize: decimal("min_ticket_size", { precision: 18, scale: 2 }),
+  maxTicketSize: decimal("max_ticket_size", { precision: 18, scale: 2 }),
+  minDscr: decimal("min_dscr", { precision: 8, scale: 2 }),
+  maxLtv: decimal("max_ltv", { precision: 5, scale: 2 }),
+  maxLtc: decimal("max_ltc", { precision: 5, scale: 2 }),
+  minPromoterContribution: decimal("min_promoter_contribution", { precision: 5, scale: 2 }),
+  requiredEscrow: boolean("required_escrow").default(true),
+  allowedProjectStages: text("allowed_project_stages").array().default(sql`ARRAY[]::text[]`),
+  allowedCities: text("allowed_cities").array().default(sql`ARRAY[]::text[]`),
+  allowedStates: text("allowed_states").array().default(sql`ARRAY[]::text[]`),
+  interestRateMin: decimal("interest_rate_min", { precision: 5, scale: 2 }),
+  interestRateMax: decimal("interest_rate_max", { precision: 5, scale: 2 }),
+  maxTenureMonths: integer("max_tenure_months"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ============== DEVELOPER FINANCE INSERT SCHEMAS ==============
+
+export const insertDeveloperProjectSchema = createInsertSchema(developerProjects).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertProjectLandDetailsSchema = createInsertSchema(projectLandDetails).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertProjectApprovalsSchema = createInsertSchema(projectApprovals).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertProjectCashflowsSchema = createInsertSchema(projectCashflows).omit({ id: true, createdAt: true });
+export const insertDeveloperFinancialsSchema = createInsertSchema(developerFinancials).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertLoanDisbursementTrancheSchema = createInsertSchema(loanDisbursementTranches).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertBankProductAppetiteSchema = createInsertSchema(bankProductAppetite).omit({ id: true, createdAt: true, updatedAt: true });
+
+// ============== DEVELOPER FINANCE TYPES ==============
+
+export type DeveloperProject = typeof developerProjects.$inferSelect;
+export type InsertDeveloperProject = z.infer<typeof insertDeveloperProjectSchema>;
+export type ProjectLandDetail = typeof projectLandDetails.$inferSelect;
+export type InsertProjectLandDetail = z.infer<typeof insertProjectLandDetailsSchema>;
+export type ProjectApproval = typeof projectApprovals.$inferSelect;
+export type InsertProjectApproval = z.infer<typeof insertProjectApprovalsSchema>;
+export type ProjectCashflow = typeof projectCashflows.$inferSelect;
+export type InsertProjectCashflow = z.infer<typeof insertProjectCashflowsSchema>;
+export type DeveloperFinancial = typeof developerFinancials.$inferSelect;
+export type InsertDeveloperFinancial = z.infer<typeof insertDeveloperFinancialsSchema>;
+export type LoanDisbursementTranche = typeof loanDisbursementTranches.$inferSelect;
+export type InsertLoanDisbursementTranche = z.infer<typeof insertLoanDisbursementTrancheSchema>;
+export type BankProductAppetite = typeof bankProductAppetite.$inferSelect;
+export type InsertBankProductAppetite = z.infer<typeof insertBankProductAppetiteSchema>;

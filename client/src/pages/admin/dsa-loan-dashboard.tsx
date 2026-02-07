@@ -109,7 +109,7 @@ export default function AdminDsaLoanDashboard() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedApplication, setSelectedApplication] = useState<string | null>(null);
   
-  // SUB-DSA GOVERNANCE: Mandatory filters
+  const [loanVerticalFilter, setLoanVerticalFilter] = useState<string>("all");
   const [originationModeFilter, setOriginationModeFilter] = useState<string>("all");
   const [routingIntentFilter, setRoutingIntentFilter] = useState<string>("all");
   const [bankCodeFilter, setBankCodeFilter] = useState<string>("all");
@@ -122,6 +122,7 @@ export default function AdminDsaLoanDashboard() {
   const buildApplicationsQueryUrl = () => {
     const params = new URLSearchParams();
     if (statusFilter !== "all") params.append("status", statusFilter);
+    if (loanVerticalFilter !== "all") params.append("loanVertical", loanVerticalFilter);
     if (originationModeFilter !== "all") params.append("originationMode", originationModeFilter);
     if (routingIntentFilter !== "all") params.append("routingIntent", routingIntentFilter);
     if (bankCodeFilter !== "all") params.append("bankCode", bankCodeFilter);
@@ -130,7 +131,7 @@ export default function AdminDsaLoanDashboard() {
   };
 
   const { data: applicationsData, isLoading: applicationsLoading, refetch: refetchApplications } = useQuery<{ success: boolean; data: LoanApplication[]; meta: { total: number } }>({
-    queryKey: ["/api/admin/dsa-loans/applications", statusFilter, originationModeFilter, routingIntentFilter, bankCodeFilter],
+    queryKey: ["/api/admin/dsa-loans/applications", statusFilter, loanVerticalFilter, originationModeFilter, routingIntentFilter, bankCodeFilter],
     queryFn: () => fetch(buildApplicationsQueryUrl()).then(res => res.json()),
   });
 
@@ -358,7 +359,18 @@ export default function AdminDsaLoanDashboard() {
                   </SelectContent>
                 </Select>
                 
-                {/* SUB-DSA GOVERNANCE: Mandatory filters */}
+                <Select value={loanVerticalFilter} onValueChange={setLoanVerticalFilter}>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue placeholder="Vertical" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Verticals</SelectItem>
+                    <SelectItem value="RETAIL">Retail</SelectItem>
+                    <SelectItem value="MSME">MSME</SelectItem>
+                    <SelectItem value="DEVELOPER">Developer Finance</SelectItem>
+                  </SelectContent>
+                </Select>
+                
                 <Select value={originationModeFilter} onValueChange={setOriginationModeFilter}>
                   <SelectTrigger className="w-[160px]">
                     <SelectValue placeholder="Origination" />
