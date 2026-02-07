@@ -49,54 +49,49 @@ function getStoredAccessibility(): AccessibilitySettings {
 function applyAccessibilityStyles(settings: AccessibilitySettings, isDark: boolean) {
   const root = document.documentElement;
   
-  // Text brightness: 0 = darker, 50 = default, 100 = lighter
-  const brightnessOffset = (settings.textBrightness - 50) * 0.6; // -30 to +30
+  const brightnessOffset = (settings.textBrightness - 50) * 0.6;
   const mutedLightness = isDark ? (65 + brightnessOffset) : (45 - brightnessOffset);
   const foregroundLightness = isDark ? Math.min(98, 90 + brightnessOffset / 2) : Math.max(5, 17 - brightnessOffset / 2);
   
-  root.style.setProperty('--muted-foreground', `hsl(215, 15%, ${Math.max(30, Math.min(90, mutedLightness))}%)`);
-  root.style.setProperty('--foreground', `hsl(210, 40%, ${Math.max(5, Math.min(98, foregroundLightness))}%)`);
+  const clampedMuted = Math.max(30, Math.min(90, mutedLightness));
+  const clampedFg = Math.max(5, Math.min(98, foregroundLightness));
+  root.style.setProperty('--muted-foreground', `215 15% ${clampedMuted}%`);
+  root.style.setProperty('--foreground', `210 40% ${clampedFg}%`);
   
-  // Text size
   const sizeMap = { small: '14px', medium: '16px', large: '18px' };
   root.style.setProperty('--base-font-size', sizeMap[settings.textSize]);
   root.style.fontSize = sizeMap[settings.textSize];
   
-  // Transparency: 0 = default transparency, 100 = fully solid backgrounds
   const transparencyLevel = settings.transparency / 100;
   if (isDark) {
-    const cardAlpha = 0.85 + (0.15 * transparencyLevel); // 0.85 to 1.0
-    const mutedAlpha = 0.7 + (0.3 * transparencyLevel); // 0.7 to 1.0
-    const secondaryAlpha = 0.8 + (0.2 * transparencyLevel); // 0.8 to 1.0
-    root.style.setProperty('--card', `hsla(222, 47%, 16%, ${cardAlpha})`);
-    root.style.setProperty('--muted', `hsla(217, 33%, 22%, ${mutedAlpha})`);
-    root.style.setProperty('--secondary', `hsla(217, 33%, 24%, ${secondaryAlpha})`);
+    const cardAlpha = 0.85 + (0.15 * transparencyLevel);
+    const mutedAlpha = 0.7 + (0.3 * transparencyLevel);
+    const secondaryAlpha = 0.8 + (0.2 * transparencyLevel);
+    root.style.setProperty('--card', `222 47% 16% / ${cardAlpha}`);
+    root.style.setProperty('--muted', `217 33% 22% / ${mutedAlpha}`);
+    root.style.setProperty('--secondary', `217 33% 24% / ${secondaryAlpha}`);
   } else {
-    root.style.setProperty('--card', 'hsl(0, 0%, 100%)');
-    root.style.setProperty('--muted', 'hsl(210, 20%, 96%)');
-    root.style.setProperty('--secondary', 'hsl(210, 20%, 96%)');
+    root.style.setProperty('--card', '0 0% 100%');
+    root.style.setProperty('--muted', '210 20% 96%');
+    root.style.setProperty('--secondary', '210 20% 96%');
   }
   
-  // Contrast: 0 = normal, 100 = maximum contrast
   const contrastLevel = settings.contrast / 100;
   const borderLightness = isDark 
-    ? 35 + (15 * contrastLevel) // 35% to 50%
-    : 85 - (15 * contrastLevel); // 85% to 70%
-  root.style.setProperty('--border', `hsl(217, 33%, ${borderLightness}%)`);
+    ? 35 + (15 * contrastLevel)
+    : 85 - (15 * contrastLevel);
+  root.style.setProperty('--border', `217 33% ${borderLightness}%`);
   
-  // Apply high-contrast class for values > 50
   if (contrastLevel > 0.5) {
     root.classList.add('high-contrast');
   } else {
     root.classList.remove('high-contrast');
   }
   
-  // Motion: 0 = full animations, 100 = no animations
   const motionLevel = settings.motion / 100;
-  root.style.setProperty('--animation-speed', `${1 - motionLevel}`); // 1 to 0
-  root.style.setProperty('--transition-duration', `${Math.max(0.01, 0.3 * (1 - motionLevel))}s`); // 0.3s to 0.01s
+  root.style.setProperty('--animation-speed', `${1 - motionLevel}`);
+  root.style.setProperty('--transition-duration', `${Math.max(0.01, 0.3 * (1 - motionLevel))}s`);
   
-  // Apply reduce-motion class for values > 50
   if (motionLevel > 0.5) {
     root.classList.add('reduce-motion');
   } else {
