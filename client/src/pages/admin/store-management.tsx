@@ -321,31 +321,31 @@ function PortfolioApprovalsTab() {
             <ScrollArea className="h-[500px]">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-border">
-                    <TableHead className="text-muted-foreground">Client</TableHead>
-                    <TableHead className="text-muted-foreground">Scheme</TableHead>
-                    <TableHead className="text-muted-foreground">AMC</TableHead>
-                    <TableHead className="text-muted-foreground text-right">Commitment</TableHead>
-                    <TableHead className="text-muted-foreground text-right">Called</TableHead>
-                    <TableHead className="text-muted-foreground text-right">Current Value</TableHead>
-                    <TableHead className="text-muted-foreground">Status</TableHead>
-                    <TableHead className="text-muted-foreground text-right">Actions</TableHead>
+                  <TableRow className="border-border bg-muted/30">
+                    <TableHead className="text-foreground font-semibold">Client</TableHead>
+                    <TableHead className="text-foreground font-semibold">Scheme</TableHead>
+                    <TableHead className="text-foreground font-semibold">AMC</TableHead>
+                    <TableHead className="text-foreground font-semibold text-right">Commitment</TableHead>
+                    <TableHead className="text-foreground font-semibold text-right">Called</TableHead>
+                    <TableHead className="text-foreground font-semibold text-right">Current Value</TableHead>
+                    <TableHead className="text-foreground font-semibold">Status</TableHead>
+                    <TableHead className="text-foreground font-semibold text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredAIF.map((holding) => (
-                    <TableRow key={holding.id} className="border-border" data-testid={`row-aif-${holding.id}`}>
-                      <TableCell className="text-muted-foreground">
+                    <TableRow key={holding.id} className="border-border hover:bg-muted/20" data-testid={`row-aif-${holding.id}`}>
+                      <TableCell className="text-foreground">
                         <div>
                           <p className="font-medium">{holding.client?.name || 'Unknown'}</p>
-                          <p className="text-xs text-muted-foreground">{holding.client?.email}</p>
+                          <p className="text-xs text-foreground/60">{holding.client?.email}</p>
                         </div>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{holding.schemeName}</TableCell>
-                      <TableCell className="text-muted-foreground">{holding.amcName}</TableCell>
-                      <TableCell className="text-right text-muted-foreground">{formatCurrency(holding.commitmentAmount)}</TableCell>
-                      <TableCell className="text-right text-muted-foreground">{formatCurrency(holding.capitalCalled)}</TableCell>
-                      <TableCell className="text-right text-muted-foreground">{formatCurrency(holding.currentValue)}</TableCell>
+                      <TableCell className="text-foreground/80">{holding.schemeName}</TableCell>
+                      <TableCell className="text-foreground/80">{holding.amcName}</TableCell>
+                      <TableCell className="text-right text-foreground/80">{formatCurrency(holding.commitmentAmount)}</TableCell>
+                      <TableCell className="text-right text-foreground/80">{formatCurrency(holding.capitalCalled)}</TableCell>
+                      <TableCell className="text-right text-foreground/80">{formatCurrency(holding.currentValue)}</TableCell>
                       <TableCell>
                         <Badge className={
                           holding.entryStatus === 'approved' ? 'bg-green-500/20 text-green-400' :
@@ -402,30 +402,30 @@ function PortfolioApprovalsTab() {
             <ScrollArea className="h-[500px]">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-border">
-                    <TableHead className="text-muted-foreground">Client</TableHead>
-                    <TableHead className="text-muted-foreground">Scheme</TableHead>
-                    <TableHead className="text-muted-foreground">AMC</TableHead>
-                    <TableHead className="text-muted-foreground text-right">Total Invested</TableHead>
-                    <TableHead className="text-muted-foreground text-right">Corpus Value</TableHead>
-                    <TableHead className="text-muted-foreground text-right">CAGR</TableHead>
-                    <TableHead className="text-muted-foreground">Status</TableHead>
-                    <TableHead className="text-muted-foreground text-right">Actions</TableHead>
+                  <TableRow className="border-border bg-muted/30">
+                    <TableHead className="text-foreground font-semibold">Client</TableHead>
+                    <TableHead className="text-foreground font-semibold">Scheme</TableHead>
+                    <TableHead className="text-foreground font-semibold">AMC</TableHead>
+                    <TableHead className="text-foreground font-semibold text-right">Total Invested</TableHead>
+                    <TableHead className="text-foreground font-semibold text-right">Corpus Value</TableHead>
+                    <TableHead className="text-foreground font-semibold text-right">CAGR</TableHead>
+                    <TableHead className="text-foreground font-semibold">Status</TableHead>
+                    <TableHead className="text-foreground font-semibold text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredPMS.map((holding) => (
-                    <TableRow key={holding.id} className="border-border" data-testid={`row-pms-${holding.id}`}>
-                      <TableCell className="text-muted-foreground">
+                    <TableRow key={holding.id} className="border-border hover:bg-muted/20" data-testid={`row-pms-${holding.id}`}>
+                      <TableCell className="text-foreground">
                         <div>
                           <p className="font-medium">{holding.client?.name || 'Unknown'}</p>
-                          <p className="text-xs text-muted-foreground">{holding.client?.email}</p>
+                          <p className="text-xs text-foreground/60">{holding.client?.email}</p>
                         </div>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{holding.schemeName}</TableCell>
-                      <TableCell className="text-muted-foreground">{holding.amcName}</TableCell>
-                      <TableCell className="text-right text-muted-foreground">{formatCurrency(holding.totalInvested)}</TableCell>
-                      <TableCell className="text-right text-muted-foreground">{formatCurrency(holding.corpusValue)}</TableCell>
+                      <TableCell className="text-foreground/80">{holding.schemeName}</TableCell>
+                      <TableCell className="text-foreground/80">{holding.amcName}</TableCell>
+                      <TableCell className="text-right text-foreground/80">{formatCurrency(holding.totalInvested)}</TableCell>
+                      <TableCell className="text-right text-foreground/80">{formatCurrency(holding.corpusValue)}</TableCell>
                       <TableCell className="text-right">
                         <span className={parseFloat(holding.cagr || '0') >= 0 ? 'text-green-400' : 'text-red-400'}>
                           {holding.cagr ? `${parseFloat(holding.cagr).toFixed(2)}%` : '-'}
@@ -487,35 +487,35 @@ function PortfolioApprovalsTab() {
             <ScrollArea className="h-[500px]">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-border">
-                    <TableHead className="text-muted-foreground">Client</TableHead>
-                    <TableHead className="text-muted-foreground">MLD Name</TableHead>
-                    <TableHead className="text-muted-foreground">Issuer</TableHead>
-                    <TableHead className="text-muted-foreground">Payoff Type</TableHead>
-                    <TableHead className="text-muted-foreground text-right">Quantity</TableHead>
-                    <TableHead className="text-muted-foreground text-right">Total Invested</TableHead>
-                    <TableHead className="text-muted-foreground">Status</TableHead>
-                    <TableHead className="text-muted-foreground text-right">Actions</TableHead>
+                  <TableRow className="border-border bg-muted/30">
+                    <TableHead className="text-foreground font-semibold">Client</TableHead>
+                    <TableHead className="text-foreground font-semibold">MLD Name</TableHead>
+                    <TableHead className="text-foreground font-semibold">Issuer</TableHead>
+                    <TableHead className="text-foreground font-semibold">Payoff Type</TableHead>
+                    <TableHead className="text-foreground font-semibold text-right">Quantity</TableHead>
+                    <TableHead className="text-foreground font-semibold text-right">Total Invested</TableHead>
+                    <TableHead className="text-foreground font-semibold">Status</TableHead>
+                    <TableHead className="text-foreground font-semibold text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredMLD.map((holding) => (
-                    <TableRow key={holding.id} className="border-border" data-testid={`row-mld-${holding.id}`}>
-                      <TableCell className="text-muted-foreground">
+                    <TableRow key={holding.id} className="border-border hover:bg-muted/20" data-testid={`row-mld-${holding.id}`}>
+                      <TableCell className="text-foreground">
                         <div>
                           <p className="font-medium">{holding.client?.name || 'Unknown'}</p>
-                          <p className="text-xs text-muted-foreground">{holding.client?.email}</p>
+                          <p className="text-xs text-foreground/60">{holding.client?.email}</p>
                         </div>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{holding.mldName}</TableCell>
-                      <TableCell className="text-muted-foreground">{holding.issuer || '-'}</TableCell>
+                      <TableCell className="text-foreground/80">{holding.mldName}</TableCell>
+                      <TableCell className="text-foreground/80">{holding.issuer || '-'}</TableCell>
                       <TableCell>
                         <Badge className="bg-teal-500/20 text-teal-400">
                           {holding.payoffType || 'Digital'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right text-muted-foreground">{holding.quantity}</TableCell>
-                      <TableCell className="text-right text-muted-foreground">{formatCurrency(holding.totalInvested)}</TableCell>
+                      <TableCell className="text-right text-foreground/80">{holding.quantity}</TableCell>
+                      <TableCell className="text-right text-foreground/80">{formatCurrency(holding.totalInvested)}</TableCell>
                       <TableCell>
                         <Badge className={
                           holding.entryStatus === 'approved' ? 'bg-green-500/20 text-green-400' :
@@ -1143,12 +1143,12 @@ export default function StoreManagement() {
                                             </Badge>
                                           )}
                                           {product.expenseRatio && (
-                                            <span className="text-xs text-muted-foreground">
+                                            <span className="text-xs text-foreground/70">
                                               TER: {(parseFloat(product.expenseRatio) * 100).toFixed(2)}%
                                             </span>
                                           )}
                                           {product.trailCommission && (
-                                            <span className="text-xs text-yellow-500" title="SEBI Disclosure: This Regular plan includes distributor commission">
+                                            <span className="text-xs text-yellow-400 font-medium" title="SEBI Disclosure: This Regular plan includes distributor commission">
                                               Trail: {(parseFloat(product.trailCommission) * 100).toFixed(2)}%
                                             </span>
                                           )}
@@ -1258,13 +1258,13 @@ export default function StoreManagement() {
                 <ScrollArea className="h-[500px]">
                   <Table>
                     <TableHeader>
-                      <TableRow className="border-border">
-                        <TableHead className="text-muted-foreground">Product</TableHead>
-                        <TableHead className="text-muted-foreground">Type</TableHead>
-                        <TableHead className="text-muted-foreground">Plan</TableHead>
-                        <TableHead className="text-muted-foreground">Category</TableHead>
-                        <TableHead className="text-muted-foreground">Status</TableHead>
-                        <TableHead className="text-muted-foreground text-right">Toggle</TableHead>
+                      <TableRow className="border-border bg-muted/30">
+                        <TableHead className="text-foreground font-semibold">Product</TableHead>
+                        <TableHead className="text-foreground font-semibold">Type</TableHead>
+                        <TableHead className="text-foreground font-semibold">Plan</TableHead>
+                        <TableHead className="text-foreground font-semibold">Category</TableHead>
+                        <TableHead className="text-foreground font-semibold">Status</TableHead>
+                        <TableHead className="text-foreground font-semibold text-right">Toggle</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1276,7 +1276,7 @@ export default function StoreManagement() {
                         return (
                           <TableRow 
                             key={product.id} 
-                            className="border-border"
+                            className="border-border hover:bg-muted/20"
                             data-testid={`row-product-${product.id}`}
                           >
                             <TableCell className="font-medium text-foreground">
@@ -1286,7 +1286,7 @@ export default function StoreManagement() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Badge variant="outline" className="text-xs">
+                              <Badge variant="outline" className="text-xs text-foreground border-border">
                                 {product.productType || 'N/A'}
                               </Badge>
                             </TableCell>
@@ -1294,39 +1294,39 @@ export default function StoreManagement() {
                               {product.planType ? (
                                 <div className="flex flex-col gap-1">
                                   <Badge 
-                                    className={`text-xs ${
+                                    className={`text-xs font-medium ${
                                       product.planType === 'direct' 
-                                        ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' 
-                                        : 'bg-orange-500/20 text-orange-400 border-orange-500/30'
+                                        ? 'bg-blue-500/20 text-blue-300 border-blue-500/40' 
+                                        : 'bg-orange-500/20 text-orange-300 border-orange-500/40'
                                     }`}
                                   >
                                     {product.planType === 'direct' ? 'Direct' : 'Regular'}
                                   </Badge>
                                   {product.expenseRatio && (
-                                    <span className="text-xs text-muted-foreground">
+                                    <span className="text-xs text-foreground/70">
                                       TER: {(parseFloat(product.expenseRatio) * 100).toFixed(2)}%
                                     </span>
                                   )}
                                   {product.trailCommission && (
-                                    <span className="text-xs text-yellow-500" title="SEBI Disclosure: Distributor commission included">
+                                    <span className="text-xs text-yellow-400 font-medium" title="SEBI Disclosure: Distributor commission included">
                                       Trail: {(parseFloat(product.trailCommission) * 100).toFixed(2)}%
                                     </span>
                                   )}
                                   {product.planType === 'regular' && (
-                                    <Badge variant="outline" className="text-xs text-amber-400 border-amber-500/30" title="Commission paid by AMC to distributor as per SEBI regulations">
+                                    <Badge variant="outline" className="text-xs text-amber-300 border-amber-500/40 font-medium" title="Commission paid by AMC to distributor as per SEBI regulations">
                                       SEBI Disclosed
                                     </Badge>
                                   )}
                                 </div>
                               ) : (
-                                <span className="text-xs text-muted-foreground">-</span>
+                                <span className="text-xs text-foreground/50">-</span>
                               )}
                             </TableCell>
-                            <TableCell className="text-muted-foreground">
+                            <TableCell className="text-foreground/80">
                               <div className="flex flex-col">
                                 <span>{category?.name || 'Unknown'}</span>
                                 {subcategory && (
-                                  <span className="text-xs text-muted-foreground">→ {subcategory.name}</span>
+                                  <span className="text-xs text-foreground/60">→ {subcategory.name}</span>
                                 )}
                               </div>
                             </TableCell>
@@ -1334,13 +1334,13 @@ export default function StoreManagement() {
                               <div className="flex items-center gap-2">
                                 <Badge
                                   className={product.isActive 
-                                    ? 'bg-green-500/20 text-green-400' 
-                                    : 'bg-red-500/20 text-red-400'}
+                                    ? 'bg-green-500/20 text-green-300 font-medium' 
+                                    : 'bg-red-500/20 text-red-300 font-medium'}
                                 >
                                   {product.isActive ? 'Active' : 'Disabled'}
                                 </Badge>
                                 {isParentDisabled && (
-                                  <Badge variant="outline" className="text-xs text-yellow-400 border-yellow-500/30">
+                                  <Badge variant="outline" className="text-xs text-yellow-300 border-yellow-500/40 font-medium">
                                     Parent Off
                                   </Badge>
                                 )}
