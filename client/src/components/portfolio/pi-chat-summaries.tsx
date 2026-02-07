@@ -13,6 +13,7 @@ interface PiChatSummariesProps {
 export function PiChatSummaries({ portfolioId }: PiChatSummariesProps) {
   const { data: summaries, isLoading, refetch } = useQuery({
     queryKey: [`/api/portfolios/${portfolioId}/pi-chat-summaries`],
+    enabled: !!portfolioId,
     refetchInterval: 300000, // Refresh every 5 minutes
   });
 
