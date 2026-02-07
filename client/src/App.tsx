@@ -560,6 +560,7 @@ function UserProtectedRoutes() {
         <Route path="/admin/mld-seed">
           {() => <Suspense fallback={<LoadingState variant="dashboard" />}><MldSeedAdmin /></Suspense>}
         </Route>
+        <Route component={NotFound} />
       </Switch>
     </ProfileCompletionGuard>
   );
