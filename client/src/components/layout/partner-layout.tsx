@@ -74,7 +74,7 @@ const partnerNavSections: NavSection[] = [
       },
       {
         title: "Proposals",
-        href: "/agent/proposals",
+        href: "/partner/proposals",
         icon: ClipboardList,
         description: "Client investment proposals"
       }
@@ -85,7 +85,7 @@ const partnerNavSections: NavSection[] = [
     items: [
       {
         title: "My Agents",
-        href: "/partner/agents",
+        href: "/agents",
         icon: Users,
         description: "Agent network & performance"
       },
@@ -97,7 +97,7 @@ const partnerNavSections: NavSection[] = [
       },
       {
         title: "Agent Payouts",
-        href: "/agent/payouts",
+        href: "/partner/payouts",
         icon: Wallet,
         description: "Commission payouts"
       }

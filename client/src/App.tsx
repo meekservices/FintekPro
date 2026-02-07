@@ -192,6 +192,7 @@ const AgentLoanApplications = lazy(() => import("@/pages/agent/loan-applications
 const AgentDSAPerformance = lazy(() => import("@/pages/agent/dsa-performance"));
 const AgentPayoutClaims = lazy(() => import("@/pages/agent/payout-claims"));
 const AdminAgentPayouts = lazy(() => import("@/pages/admin/agent-payouts"));
+const AgentProspectProposals = lazy(() => import("@/pages/agent-prospect-proposals"));
 import OnboardingPage from "@/pages/onboarding";
 import PublicProposalPage from "@/pages/public-proposal";
 import ManualKYCPage from "@/pages/manual-kyc";
@@ -1514,6 +1515,68 @@ function PartnerRoutes() {
         {() => (
           <PartnerLayout>
             <CASupportDetail />
+          </PartnerLayout>
+        )}
+      </Route>
+      <Route path="/partner/proposals">
+        {() => (
+          <PartnerLayout>
+            <Suspense fallback={<LoadingState variant="partner-dashboard" />}>
+              <AgentProspectProposals />
+            </Suspense>
+          </PartnerLayout>
+        )}
+      </Route>
+      <Route path="/partner/payouts">
+        {() => (
+          <PartnerLayout>
+            <Suspense fallback={<LoadingState variant="partner-dashboard" />}>
+              <AgentPayoutClaims />
+            </Suspense>
+          </PartnerLayout>
+        )}
+      </Route>
+      <Route path="/partner/agent-performance">
+        {() => (
+          <PartnerLayout>
+            <Suspense fallback={<LoadingState variant="partner-dashboard" />}>
+              <PartnerAgentDashboard />
+            </Suspense>
+          </PartnerLayout>
+        )}
+      </Route>
+      <Route path="/partner/ca-management">
+        {() => (
+          <PartnerLayout>
+            <PartnerCAManagement />
+          </PartnerLayout>
+        )}
+      </Route>
+      <Route path="/mutual-funds">
+        {() => (
+          <PartnerLayout>
+            <MutualFunds />
+          </PartnerLayout>
+        )}
+      </Route>
+      <Route path="/bonds">
+        {() => (
+          <PartnerLayout>
+            <Bonds />
+          </PartnerLayout>
+        )}
+      </Route>
+      <Route path="/unlisted">
+        {() => (
+          <PartnerLayout>
+            <Unlisted />
+          </PartnerLayout>
+        )}
+      </Route>
+      <Route path="/theme-settings">
+        {() => (
+          <PartnerLayout>
+            <ThemeSettings />
           </PartnerLayout>
         )}
       </Route>
