@@ -229,64 +229,67 @@
 }
 
 /* Dark Mode Visibility Improvements */
-.dark {
-  /* Better badge contrast */
-  .bg-green-500\/10 {
-    background-color: hsla(142, 76%, 36%, 0.2) !important;
-  }
-  
-  .bg-amber-500\/10 {
-    background-color: hsla(38, 92%, 50%, 0.2) !important;
-  }
-  
-  .bg-red-500\/10 {
-    background-color: hsla(0, 84%, 60%, 0.2) !important;
-  }
-  
-  /* Better contrast for placeholder text */
-  ::placeholder {
-    color: hsl(215, 20%, 50%);
-  }
+.dark .bg-green-500\/10 {
+  background-color: hsla(142, 76%, 36%, 0.2) !important;
+}
+.dark .bg-amber-500\/10 {
+  background-color: hsla(38, 92%, 50%, 0.2) !important;
+}
+.dark .bg-red-500\/10 {
+  background-color: hsla(0, 84%, 60%, 0.2) !important;
+}
+.dark ::placeholder {
+  color: hsl(215, 20%, 50%);
+}
+.dark td {
+  color: hsl(210, 25%, 86%);
+}
+.dark th {
+  color: hsl(210, 30%, 93%);
+  font-weight: 600;
+}
+.dark p {
+  color: hsl(210, 20%, 88%);
+}
+.dark label {
+  color: hsl(210, 25%, 88%);
+}
+.dark li {
+  color: hsl(210, 20%, 88%);
+}
+.dark input, .dark select, .dark textarea {
+  color: hsl(210, 40%, 98%);
+}
 
-  /* Global table readability - ensures all table text is visible in dark mode */
-  td {
-    color: hsl(210, 25%, 86%);
-  }
-  
-  th {
-    color: hsl(210, 30%, 93%);
-    font-weight: 600;
-  }
+/* Override dim Tailwind text utility classes for dark mode */
+.dark .text-slate-300 { color: hsl(210, 25%, 85%) !important; }
+.dark .text-slate-400 { color: hsl(210, 20%, 78%) !important; }
+.dark .text-slate-500 { color: hsl(210, 18%, 72%) !important; }
+.dark .text-slate-600 { color: hsl(210, 15%, 68%) !important; }
+.dark .text-gray-300 { color: hsl(210, 25%, 85%) !important; }
+.dark .text-gray-400 { color: hsl(210, 20%, 78%) !important; }
+.dark .text-gray-500 { color: hsl(210, 18%, 72%) !important; }
+.dark .text-gray-600 { color: hsl(210, 15%, 68%) !important; }
+.dark .text-zinc-300 { color: hsl(210, 25%, 85%) !important; }
+.dark .text-zinc-400 { color: hsl(210, 20%, 78%) !important; }
+.dark .text-zinc-500 { color: hsl(210, 18%, 72%) !important; }
+.dark .text-neutral-400 { color: hsl(210, 20%, 78%) !important; }
+.dark .text-neutral-500 { color: hsl(210, 18%, 72%) !important; }
 
-  /* Global paragraph and span readability in cards and containers */
-  p {
-    color: hsl(210, 20%, 88%);
-  }
+/* Override Tailwind theme text classes - fix broken hsl(hsl(...)) wrapping */
+.dark .text-foreground { color: hsl(210, 40%, 98%) !important; }
+.dark .text-card-foreground { color: hsl(210, 40%, 98%) !important; }
+.dark .text-popover-foreground { color: hsl(210, 40%, 98%) !important; }
+.dark .text-primary-foreground { color: hsl(0, 0%, 100%) !important; }
+.dark .text-secondary-foreground { color: hsl(210, 40%, 98%) !important; }
+.dark .text-muted-foreground { color: hsl(215, 20%, 82%) !important; }
+.dark .text-accent-foreground { color: hsl(210, 40%, 98%) !important; }
+.dark .text-destructive-foreground { color: hsl(0, 0%, 100%) !important; }
+.dark .text-destructive { color: hsl(0, 84%, 60%) !important; }
+.dark .text-primary { color: hsl(214, 84%, 56%) !important; }
 
-  /* Labels and small text */
-  label {
-    color: hsl(210, 25%, 88%);
-  }
-
-  /* Description and secondary text elements */
-  span {
-    color: inherit;
-  }
-
-  /* Ensure list items are readable */
-  li {
-    color: hsl(210, 20%, 88%);
-  }
-
-  /* Card description text */
-  [class*="CardDescription"] {
-    color: hsl(215, 20%, 82%);
-  }
-
-  /* Improve input text */
-  input, select, textarea {
-    color: hsl(210, 40%, 98%);
-  }
+.dark .text-xs, .dark .text-sm {
+  opacity: 1;
 }
 
 /* Reduced motion preference */
