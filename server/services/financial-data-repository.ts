@@ -203,13 +203,26 @@ class FinancialDataRepository {
       const change = parseFloat(q['09. change']);
       const changePct = parseFloat((q['10. change percent'] || '0').replace('%', ''));
 
+      const exchangeMap: Record<string, { exchange: string; currency: string; country: string }> = {
+        '.HK': { exchange: 'HKEX', currency: 'HKD', country: 'HK' },
+        '.T': { exchange: 'TSE', currency: 'JPY', country: 'JP' },
+        '.L': { exchange: 'LSE', currency: 'GBP', country: 'UK' },
+        '.AS': { exchange: 'AMS', currency: 'EUR', country: 'NL' },
+        '.DE': { exchange: 'FRA', currency: 'EUR', country: 'DE' },
+        '.PA': { exchange: 'PAR', currency: 'EUR', country: 'FR' },
+        '.NS': { exchange: 'NSE', currency: 'INR', country: 'IN' },
+        '.BO': { exchange: 'BSE', currency: 'INR', country: 'IN' },
+      };
+      const suffix = Object.keys(exchangeMap).find(s => symbol.includes(s));
+      const marketInfo = suffix ? exchangeMap[suffix] : { exchange: 'US', currency: 'USD', country: 'US' };
+
       const data: InstrumentData = {
         instrumentType: 'global_stock',
         symbol: q['01. symbol'] || symbol,
         name: symbol,
-        exchange: 'US',
-        currency: 'USD',
-        country: 'US',
+        exchange: marketInfo.exchange,
+        currency: marketInfo.currency,
+        country: marketInfo.country,
         currentPrice: price,
         previousClose: prevClose || undefined,
         dayChange: change || undefined,
@@ -276,19 +289,20 @@ class FinancialDataRepository {
   }
 
   async fetchGlobalStock(symbol: string): Promise<FetchResult> {
-    const isUSSymbol = !symbol.includes('.NS') && !symbol.includes('.BO');
+    const isIndianSymbol = symbol.includes('.NS') || symbol.includes('.BO');
     
-    if (isUSSymbol && process.env.POLYGON_API_KEY) {
+    if (!isIndianSymbol && process.env.POLYGON_API_KEY) {
       const massiveResult = await this.fetchFromMassive(symbol);
       if (massiveResult.success && massiveResult.data?.currentPrice) {
         return massiveResult;
       }
     }
     
-    if (isUSSymbol && process.env.ALPHA_VANTAGE_API_KEY) {
+    if (process.env.ALPHA_VANTAGE_API_KEY) {
       const avResult = await this.fetchFromAlphaVantage(symbol);
       if (avResult.success && avResult.data?.currentPrice) {
-        console.log(`✅ [AlphaVantage] ${symbol}: $${avResult.data.currentPrice}`);
+        const currSymbol = isIndianSymbol ? '₹' : (symbol.includes('.L') ? '£' : (symbol.includes('.HK') || symbol.includes('.T') ? '¥' : '$'));
+        console.log(`✅ [AlphaVantage] ${symbol}: ${currSymbol}${avResult.data.currentPrice}`);
         return avResult;
       }
     }

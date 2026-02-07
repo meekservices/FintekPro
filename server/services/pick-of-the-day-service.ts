@@ -8,6 +8,7 @@ import {
   isETFInvestable, 
   logFilteredInstrument 
 } from "./regulatory-investability-service";
+import { currencyExchangeService } from "./currency-exchange-service";
 
 const financialMetricsCalculator = new FinancialMetricsCalculator();
 
@@ -46,9 +47,11 @@ export interface DailyPickData {
   riskLevel: string;
   suitableFor: string[];
   keyMetrics?: Record<string, any>;
-  timeHorizon?: string; // short_term, medium_term, long_term
-  confidenceScore?: number; // 0-100
+  timeHorizon?: string;
+  confidenceScore?: number;
   sectorCategory?: string;
+  updatedAt?: Date | string;
+  statusUpdatedAt?: Date | string;
 }
 
 interface StockCandidate {
@@ -1690,17 +1693,43 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
           if (!sgbRow?.issue_price) return null;
           const sgbIssuePrice = parseFloat(sgbRow.issue_price);
           const goldResult = await db.execute(sql`
-            SELECT price_inr FROM commodity_prices WHERE symbol = 'GOLD' ORDER BY updated_at DESC LIMIT 1
+            SELECT price FROM commodity_prices WHERE symbol = 'GOLD' AND price IS NOT NULL ORDER BY last_updated DESC LIMIT 1
           `);
           const goldRow = (goldResult as any).rows?.[0] || (goldResult as any)[0];
-          if (goldRow?.price_inr) {
-            const currentGoldPerGram = parseFloat(goldRow.price_inr);
+          if (goldRow?.price) {
+            const goldPriceUSD = parseFloat(goldRow.price);
+            let usdToInr = 83.5;
+            try { usdToInr = await currencyExchangeService.getExchangeRate('USD', 'INR'); } catch {}
+            const goldPricePerGramINR = (goldPriceUSD / 31.1035) * usdToInr;
             const sgbGramsPerUnit = 1;
-            const estimatedCurrentValue = currentGoldPerGram * sgbGramsPerUnit;
+            const estimatedCurrentValue = goldPricePerGramINR * sgbGramsPerUnit;
             if (estimatedCurrentValue > 0 && estimatedCurrentValue < sgbIssuePrice * 3) {
-              return estimatedCurrentValue;
+              return Math.round(estimatedCurrentValue * 100) / 100;
             }
           }
+          try {
+            const yahooGoldResult = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/GC=F?interval=1d&range=1d', {
+              signal: AbortSignal.timeout(5000),
+              headers: { 'User-Agent': 'FintekPro/2.5' }
+            });
+            if (yahooGoldResult.ok) {
+              const goldData = await yahooGoldResult.json();
+              const goldPrice = goldData?.chart?.result?.[0]?.meta?.regularMarketPrice;
+              if (goldPrice) {
+                let usdToInrFallback = 83.5;
+                try { usdToInrFallback = await currencyExchangeService.getExchangeRate('USD', 'INR'); } catch {}
+                const goldPricePerGramINR = (goldPrice / 31.1035) * usdToInrFallback;
+                if (goldPricePerGramINR > 0 && goldPricePerGramINR < sgbIssuePrice * 3) {
+                  await db.execute(sql`
+                    INSERT INTO commodity_prices (id, symbol, name, category, price, price_unit, last_updated)
+                    VALUES (gen_random_uuid()::text, 'GOLD', 'Gold Spot (XAU/USD)', 'precious_metals', ${goldPrice}, 'USD/oz', NOW())
+                    ON CONFLICT (symbol) DO UPDATE SET price = ${goldPrice}, last_updated = NOW()
+                  `).catch(() => {});
+                  return Math.round(goldPricePerGramINR * 100) / 100;
+                }
+              }
+            }
+          } catch {}
           return sgbIssuePrice;
 
         default:
@@ -1811,6 +1840,8 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
       timeHorizon: pick.timeHorizon || this.getTimeHorizon(pick.category),
       confidenceScore: pick.confidenceScore || 70,
       sectorCategory: pick.sectorCategory,
+      updatedAt: pick.updatedAt,
+      statusUpdatedAt: pick.statusUpdatedAt,
     };
   }
 }

@@ -1,4 +1,6 @@
 import { financialDataRepository } from './financial-data-repository';
+import { db } from '../db';
+import { globalInstruments } from '@shared/schema';
 
 const DEFAULT_GLOBAL_STOCKS = [
   'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'BRK-B', 'JPM', 'V',
@@ -135,7 +137,11 @@ class FinancialDataScheduler {
   private async refreshGlobalStocks(): Promise<void> {
     console.log('🔄 [FinancialDataScheduler] Refreshing global stocks...');
     try {
-      const result = await financialDataRepository.refreshGlobalStocks(DEFAULT_GLOBAL_STOCKS);
+      const dbInstruments = await db.select({ symbol: globalInstruments.symbol }).from(globalInstruments);
+      const dbSymbols = dbInstruments.map(i => i.symbol).filter(Boolean);
+      const allSymbols = [...new Set([...DEFAULT_GLOBAL_STOCKS, ...dbSymbols])];
+      console.log(`📊 [FinancialDataScheduler] Refreshing ${allSymbols.length} global stocks (${DEFAULT_GLOBAL_STOCKS.length} default + ${dbSymbols.length} from DB)`);
+      const result = await financialDataRepository.refreshGlobalStocks(allSymbols);
       this.lastRefreshTimes['globalStocks'] = new Date();
       console.log(`✅ Global stocks: ${result.success} updated, ${result.failed} failed`);
     } catch (error) {

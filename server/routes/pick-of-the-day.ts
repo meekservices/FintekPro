@@ -57,14 +57,53 @@ const DATA_SOURCES: Record<string, { name: string; type: string; refreshInterval
   unlisted: { name: "FintekPro OTC Desk", type: "Dealer quote", refreshInterval: "On update" },
 };
 
+async function enrichPicksWithDataSource(picks: any[]) {
+  const categoryLastUpdated: Record<string, string> = {};
+  
+  for (const pick of picks) {
+    const source = DATA_SOURCES[pick.category];
+    pick.priceDataSource = source?.name || 'Unknown';
+    pick.priceDataType = source?.type || 'Unknown';
+    pick.priceRefreshInterval = source?.refreshInterval || 'Unknown';
+    
+    if (pick.updatedAt || pick.statusUpdatedAt) {
+      const updatedAt = pick.statusUpdatedAt || pick.updatedAt;
+      pick.lastPriceUpdate = updatedAt;
+      const cat = pick.category;
+      if (!categoryLastUpdated[cat] || new Date(updatedAt) > new Date(categoryLastUpdated[cat])) {
+        categoryLastUpdated[cat] = updatedAt;
+      }
+    }
+    
+    const ageHours = pick.lastPriceUpdate ? 
+      (Date.now() - new Date(pick.lastPriceUpdate).getTime()) / (1000 * 60 * 60) : null;
+    
+    if (ageHours === null) {
+      pick.dataFreshness = 'unknown';
+    } else if (ageHours < 1) {
+      pick.dataFreshness = 'live';
+    } else if (ageHours < 6) {
+      pick.dataFreshness = 'recent';
+    } else if (ageHours < 24) {
+      pick.dataFreshness = 'delayed';
+    } else {
+      pick.dataFreshness = 'stale';
+    }
+  }
+  
+  return { picks, categoryLastUpdated };
+}
+
 router.get("/today", async (req, res) => {
   try {
-    const picks = await pickOfTheDayService.getTodaysPicks();
+    const rawPicks = await pickOfTheDayService.getTodaysPicks();
+    const { picks, categoryLastUpdated } = await enrichPicksWithDataSource(rawPicks);
     
     res.json({
       success: true,
       date: new Date().toISOString().split('T')[0],
       picks,
+      categoryLastUpdated,
       lastRefreshedAt: new Date().toISOString(),
       dataSources: DATA_SOURCES,
       disclaimer: REGULATORY_DISCLAIMER,
@@ -78,13 +117,15 @@ router.get("/today", async (req, res) => {
 
 router.get("/live", async (req, res) => {
   try {
-    const picks = await pickOfTheDayService.getLivePicks();
+    const rawPicks = await pickOfTheDayService.getLivePicks();
+    const { picks, categoryLastUpdated } = await enrichPicksWithDataSource(rawPicks);
     const lastUpdated = await db.select({ maxUpdated: sql<string>`MAX(updated_at)` }).from(dailyPicks).where(eq(dailyPicks.status, 'live'));
 
     res.json({
       success: true,
       count: picks.length,
       picks,
+      categoryLastUpdated,
       lastRefreshedAt: lastUpdated[0]?.maxUpdated || new Date().toISOString(),
       dataSources: DATA_SOURCES,
       disclaimer: REGULATORY_DISCLAIMER,
@@ -101,10 +142,12 @@ router.get("/history", async (req, res) => {
     const limit = parseInt(req.query.limit as string) || 50;
     
     const picks = await pickOfTheDayService.getPickHistory(category, limit);
+    const enrichedPicks = enrichPicksWithDataSource(picks);
     res.json({
       success: true,
-      count: picks.length,
-      picks,
+      count: enrichedPicks.length,
+      picks: enrichedPicks,
+      dataSources: DATA_SOURCES,
       disclaimer: REGULATORY_DISCLAIMER,
     });
   } catch (error) {

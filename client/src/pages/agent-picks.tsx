@@ -72,6 +72,28 @@ interface DailyPick {
   timeHorizon?: 'short_term' | 'medium_term' | 'long_term';
   confidenceScore?: number;
   sectorCategory?: string;
+  priceDataSource?: string;
+  priceDataType?: string;
+  priceRefreshInterval?: string;
+  lastPriceUpdate?: string;
+  dataFreshness?: 'live' | 'recent' | 'delayed' | 'stale' | 'unknown';
+}
+
+interface PicksApiResponse {
+  success: boolean;
+  picks: DailyPick[];
+  dataSources?: Record<string, { name: string; type: string; refreshInterval: string }>;
+  lastRefreshedAt?: string;
+  categoryLastUpdated?: Record<string, string>;
+  disclaimer?: string;
+}
+
+interface StatsApiResponse {
+  success: boolean;
+  stats: PickStats;
+  asOfDate?: string;
+  lastDataRefresh?: string;
+  disclaimer?: string;
 }
 
 interface WatchlistItem {
@@ -202,19 +224,19 @@ export default function AgentPicksPage() {
   const [sharePickId, setSharePickId] = useState<number | null>(null);
   const [shareEmail, setShareEmail] = useState("");
 
-  const { data: todayData, isLoading: loadingToday } = useQuery<{ success: boolean; picks: DailyPick[] }>({
+  const { data: todayData, isLoading: loadingToday } = useQuery<PicksApiResponse>({
     queryKey: ["/api/picks/today"],
   });
 
-  const { data: liveData, isLoading: loadingLive } = useQuery<{ success: boolean; picks: DailyPick[] }>({
+  const { data: liveData, isLoading: loadingLive } = useQuery<PicksApiResponse>({
     queryKey: ["/api/picks/live"],
   });
 
-  const { data: historyData, isLoading: loadingHistory } = useQuery<{ success: boolean; picks: DailyPick[] }>({
+  const { data: historyData, isLoading: loadingHistory } = useQuery<PicksApiResponse>({
     queryKey: ["/api/picks/history"],
   });
 
-  const { data: statsData, isLoading: loadingStats } = useQuery<{ success: boolean; stats: PickStats }>({
+  const { data: statsData, isLoading: loadingStats } = useQuery<StatsApiResponse>({
     queryKey: ["/api/picks/stats"],
   });
 
@@ -349,6 +371,35 @@ export default function AgentPicksPage() {
   const liveMarketCounts = getMarketCounts(livePicks);
   const historyMarketCounts = getMarketCounts(historyPicks);
 
+  const lastRefreshed = liveData?.lastRefreshedAt || todayData?.lastRefreshedAt;
+  const categoryLastUpdated = liveData?.categoryLastUpdated || todayData?.categoryLastUpdated || {};
+
+  const formatTimeAgo = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+  };
+
+  const freshnessColors: Record<string, string> = {
+    live: 'bg-green-500',
+    recent: 'bg-blue-500',
+    delayed: 'bg-yellow-500',
+    stale: 'bg-red-500',
+    unknown: 'bg-gray-400',
+  };
+
+  const freshnessLabels: Record<string, string> = {
+    live: 'Live',
+    recent: 'Recent',
+    delayed: 'Delayed',
+    stale: 'Stale',
+    unknown: 'N/A',
+  };
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -361,7 +412,45 @@ export default function AgentPicksPage() {
             AI-powered daily investment recommendations with full tracking
           </p>
         </div>
+        {lastRefreshed && (
+          <div className="text-right text-xs text-muted-foreground">
+            <div className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              <span>Last refreshed: {formatTimeAgo(lastRefreshed)}</span>
+            </div>
+            <div className="text-[10px] mt-0.5">
+              {new Date(lastRefreshed).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+            </div>
+          </div>
+        )}
       </div>
+
+      {Object.keys(categoryLastUpdated).length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {Object.entries(categoryLastUpdated).map(([cat, updated]) => {
+            const ageHours = (Date.now() - new Date(updated).getTime()) / (1000 * 60 * 60);
+            const freshness = ageHours < 1 ? 'live' : ageHours < 6 ? 'recent' : ageHours < 24 ? 'delayed' : 'stale';
+            return (
+              <TooltipProvider key={cat}>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Badge variant="outline" className="text-[10px] gap-1 cursor-default">
+                      <span className={`w-1.5 h-1.5 rounded-full ${freshnessColors[freshness]}`} />
+                      {categoryLabels[cat] || cat}
+                      <span className="text-muted-foreground">{formatTimeAgo(updated)}</span>
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-xs">
+                    <p>{categoryLabels[cat]}: {freshnessLabels[freshness]} data</p>
+                    <p>Source: {todayData?.dataSources?.[cat]?.name || liveData?.dataSources?.[cat]?.name || 'N/A'}</p>
+                    <p>Updated: {new Date(updated).toLocaleString('en-IN')}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            );
+          })}
+        </div>
+      )}
 
       {/* Performance Stats */}
       {loadingStats ? (
@@ -371,6 +460,13 @@ export default function AgentPicksPage() {
           ))}
         </div>
       ) : stats ? (
+        <div className="space-y-2">
+        {statsData?.lastDataRefresh && (
+          <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            Stats as of {new Date(statsData.lastDataRefresh).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+          </div>
+        )}
         <div className="grid gap-4 md:grid-cols-5">
           <Card>
             <CardContent className="pt-4">
@@ -430,6 +526,7 @@ export default function AgentPicksPage() {
               </div>
             </CardContent>
           </Card>
+        </div>
         </div>
       ) : null}
 
@@ -1077,11 +1174,40 @@ function PickCard({
                     {parseFloat(currentReturn || '0') >= 0 ? '+' : ''}{currentReturn}%
                   </span>
                 </div>
-                {pick.daysHeld !== undefined && (
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Holding for {pick.daysHeld} days
-                  </div>
-                )}
+                <div className="flex items-center justify-between mt-1">
+                  {pick.daysHeld !== undefined && (
+                    <span className="text-xs text-muted-foreground">
+                      Holding for {pick.daysHeld} days
+                    </span>
+                  )}
+                  {pick.priceDataSource && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                            {pick.dataFreshness && (
+                              <span className={`w-1.5 h-1.5 rounded-full ${
+                                pick.dataFreshness === 'live' ? 'bg-green-500' :
+                                pick.dataFreshness === 'recent' ? 'bg-blue-500' :
+                                pick.dataFreshness === 'delayed' ? 'bg-yellow-500' :
+                                pick.dataFreshness === 'stale' ? 'bg-red-500' : 'bg-gray-400'
+                              }`} />
+                            )}
+                            {pick.priceDataSource}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="text-xs">
+                          <p>Source: {pick.priceDataSource}</p>
+                          <p>Type: {pick.priceDataType}</p>
+                          <p>Refresh: {pick.priceRefreshInterval}</p>
+                          {pick.lastPriceUpdate && (
+                            <p>Updated: {new Date(pick.lastPriceUpdate).toLocaleString('en-IN')}</p>
+                          )}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </div>
               </div>
             )}
 
