@@ -55,11 +55,12 @@ const STEPS = [
 
 const PROJECT_STAGES = [
   "LAND_ACQUISITION",
-  "PLANNING",
-  "APPROVAL",
-  "FOUNDATION",
-  "CONSTRUCTION",
-  "FINISHING",
+  "APPROVALS",
+  "CONSTRUCTION_EARLY",
+  "CONSTRUCTION_MID",
+  "CONSTRUCTION_ADVANCED",
+  "NEAR_COMPLETION",
+  "COMPLETED",
   "POSSESSION",
 ] as const;
 
@@ -366,15 +367,56 @@ export default function ProjectFinanceWizard({ applicationId, loanSubType, onCom
     enabled: currentStep === 7 && !!projectId,
   });
 
-  const { data: bankAppetite, isLoading: loadingBanks } = useQuery<any>({
-    queryKey: ["/api/developer-finance/bank-appetite", { loanSubType: "PROJECT_FINANCE" }],
-    enabled: currentStep === 9,
-    queryFn: async () => {
-      const res = await fetch(`/api/developer-finance/bank-appetite?loanSubType=PROJECT_FINANCE`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch banks");
-      return res.json();
-    },
-  });
+  const [lenderMatchResults, setLenderMatchResults] = useState<any>(null);
+  const [loadingLenderMatch, setLoadingLenderMatch] = useState(false);
+  const [showDisqualified, setShowDisqualified] = useState(false);
+
+  const fetchLenderMatches = useCallback(async () => {
+    setLoadingLenderMatch(true);
+    try {
+      const projectValues = projectForm.getValues();
+      const totalCost = fundingInputs.totalProjectCost;
+      const rules = creditSummary?.data?.creditRules || [];
+      const extractNumeric = (rulePrefix: string) => {
+        const found = rules.find((r: any) => r.rule?.startsWith(rulePrefix));
+        if (!found) return undefined;
+        const num = parseFloat(String(found.value).replace(/[%x,]/g, ''));
+        return isNaN(num) ? undefined : num;
+      };
+      const res = await fetch("/api/developer-finance/match-lenders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          loanSubType: loanSubType || "PROJECT_FUNDING",
+          projectStage: projectValues.projectStage || undefined,
+          ticketSize: totalCost || undefined,
+          city: projectValues.city || undefined,
+          dscr: extractNumeric("DSCR"),
+          ltv: extractNumeric("LTV"),
+          promoterContribution: extractNumeric("Promoter Contribution"),
+          trackRecordProjects: undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setLenderMatchResults(data.data);
+      } else {
+        toast({ title: "Matching failed", description: data.error || "Could not match lenders", variant: "destructive" });
+      }
+    } catch (err) {
+      console.error("Lender match error:", err);
+      toast({ title: "Error", description: "Failed to run lender matching engine", variant: "destructive" });
+    } finally {
+      setLoadingLenderMatch(false);
+    }
+  }, [loanSubType, projectForm, fundingInputs, creditSummary, toast]);
+
+  useEffect(() => {
+    if (currentStep === 9 && !lenderMatchResults && !loadingLenderMatch) {
+      fetchLenderMatches();
+    }
+  }, [currentStep]);
 
   const markStepComplete = useCallback((step: number) => {
     setCompletedSteps((prev) => new Set([...prev, step]));
@@ -1350,77 +1392,173 @@ export default function ProjectFinanceWizard({ applicationId, loanSubType, onCom
           </Card>
         </TabsContent>
 
-        {/* Step 10: Bank Selection */}
+        {/* Step 10: Intelligent Bank Selection */}
         <TabsContent value="banks">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Bank Selection</CardTitle>
-              <CardDescription>Review recommended banks and select target lenders</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg">Intelligent Lender Matching</CardTitle>
+                  <CardDescription>Auto-shortlist lenders based on project profile, credit metrics & deal structure</CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={fetchLenderMatches} disabled={loadingLenderMatch}>
+                  {loadingLenderMatch ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                  {lenderMatchResults ? "Re-Match" : "Find Lenders"}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
-              {loadingBanks ? (
-                <div className="flex items-center justify-center py-12">
+              {loadingLenderMatch ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3">
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Running credit-desk matching engine...</p>
                 </div>
-              ) : bankAppetite?.data?.length > 0 ? (
-                <div className="space-y-4">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[40px]">Select</TableHead>
-                        <TableHead>Bank Name</TableHead>
-                        <TableHead>Interest Range</TableHead>
-                        <TableHead>Ticket Size</TableHead>
-                        <TableHead>DSCR Req.</TableHead>
-                        <TableHead>LTV Max</TableHead>
-                        <TableHead>Details</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {bankAppetite.data.map((item: any, idx: number) => {
-                        const bank = item.bank || {};
-                        const appetite = item.appetite || item;
-                        const bankId = bank.id || appetite.bankCode || `bank-${idx}`;
-                        const isSelected = selectedBanks.includes(bankId);
+              ) : lenderMatchResults ? (
+                <div className="space-y-5">
+                  {/* Summary Stats */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="p-3 rounded-lg border bg-card">
+                      <p className="text-xs text-muted-foreground">Total Lenders</p>
+                      <p className="text-2xl font-bold">{lenderMatchResults.summary.totalLenders}</p>
+                    </div>
+                    <div className="p-3 rounded-lg border bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
+                      <p className="text-xs text-green-700 dark:text-green-400">Qualified</p>
+                      <p className="text-2xl font-bold text-green-700 dark:text-green-400">{lenderMatchResults.summary.qualifiedCount}</p>
+                    </div>
+                    <div className="p-3 rounded-lg border bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+                      <p className="text-xs text-blue-700 dark:text-blue-400">Strong Match</p>
+                      <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">{lenderMatchResults.summary.strongMatches}</p>
+                    </div>
+                    <div className="p-3 rounded-lg border bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800">
+                      <p className="text-xs text-orange-700 dark:text-orange-400">Disqualified</p>
+                      <p className="text-2xl font-bold text-orange-700 dark:text-orange-400">{lenderMatchResults.summary.disqualifiedCount}</p>
+                    </div>
+                  </div>
 
-                        return (
-                          <TableRow key={idx} className={isSelected ? "bg-blue-50 dark:bg-blue-950/20" : ""}>
-                            <TableCell>
-                              <Checkbox
-                                checked={isSelected}
-                                onCheckedChange={(checked) => {
-                                  if (checked) setSelectedBanks([...selectedBanks, bankId]);
-                                  else setSelectedBanks(selectedBanks.filter((b) => b !== bankId));
-                                }}
-                              />
-                            </TableCell>
-                            <TableCell className="font-medium">{bank.name || appetite.bankName || "Unknown Bank"}</TableCell>
-                            <TableCell>{appetite.interestRateMin && appetite.interestRateMax ? `${appetite.interestRateMin}% - ${appetite.interestRateMax}%` : appetite.interestRange || "N/A"}</TableCell>
-                            <TableCell>{appetite.minTicketSize && appetite.maxTicketSize ? `${formatCurrency(appetite.minTicketSize)} - ${formatCurrency(appetite.maxTicketSize)}` : appetite.ticketSize || "N/A"}</TableCell>
-                            <TableCell>{appetite.dscrRequirement || appetite.minDscr || "N/A"}</TableCell>
-                            <TableCell>{appetite.maxLtv ? `${appetite.maxLtv}%` : "N/A"}</TableCell>
-                            <TableCell>
-                              {appetite.specialConditions && (
-                                <Badge variant="outline" className="text-xs">{appetite.specialConditions}</Badge>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+                  {/* Qualified Lenders by Category */}
+                  {Object.entries(lenderMatchResults.categoryGroups as Record<string, any[]>).map(([category, lenders]) => {
+                    const catLabels: Record<string, { label: string; color: string }> = {
+                      PSU_BANK: { label: "PSU Banks", color: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300" },
+                      PRIVATE_BANK: { label: "Private Banks", color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300" },
+                      HFC: { label: "Housing Finance Companies", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300" },
+                      NBFC: { label: "NBFCs - RE Specialists", color: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300" },
+                      AIF_PLATFORM: { label: "Private Credit / AIF", color: "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300" },
+                    };
+                    const cat = catLabels[category] || { label: category, color: "bg-gray-100 text-gray-800" };
+                    return (
+                      <div key={category} className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Badge className={`${cat.color} text-xs font-medium`}>{cat.label}</Badge>
+                          <span className="text-xs text-muted-foreground">{(lenders as any[]).length} lender(s)</span>
+                        </div>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-[40px]">Select</TableHead>
+                              <TableHead>Lender</TableHead>
+                              <TableHead>Product</TableHead>
+                              <TableHead>Match</TableHead>
+                              <TableHead>Rate</TableHead>
+                              <TableHead>Ticket Range</TableHead>
+                              <TableHead>DSCR</TableHead>
+                              <TableHead>Flags</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {(lenders as any[]).map((m: any, idx: number) => {
+                              const bankId = m.bank?.bankCode || m.appetite?.bankCode || `lender-${idx}`;
+                              const isSelected = selectedBanks.includes(bankId);
+                              const matchColor = m.matchLevel === 'STRONG' ? 'text-green-600 bg-green-50 dark:bg-green-950/20' :
+                                m.matchLevel === 'MODERATE' ? 'text-blue-600 bg-blue-50 dark:bg-blue-950/20' :
+                                'text-orange-600 bg-orange-50 dark:bg-orange-950/20';
+                              return (
+                                <TableRow key={`${bankId}-${m.appetite?.loanSubType}-${idx}`} className={isSelected ? "bg-blue-50 dark:bg-blue-950/20" : ""}>
+                                  <TableCell>
+                                    <Checkbox checked={isSelected} onCheckedChange={(checked) => {
+                                      if (checked) setSelectedBanks([...selectedBanks, bankId]);
+                                      else setSelectedBanks(selectedBanks.filter((b) => b !== bankId));
+                                    }} />
+                                  </TableCell>
+                                  <TableCell className="font-medium text-sm">{m.bank?.bankName || "Unknown"}</TableCell>
+                                  <TableCell><Badge variant="outline" className="text-xs">{formatLabel(m.appetite?.loanSubType || "")}</Badge></TableCell>
+                                  <TableCell>
+                                    <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${matchColor}`}>
+                                      {m.matchScore}%
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-sm">{m.appetite?.interestRateMin && m.appetite?.interestRateMax ? `${m.appetite.interestRateMin}–${m.appetite.interestRateMax}%` : "N/A"}</TableCell>
+                                  <TableCell className="text-xs">{m.appetite?.minTicketSize && m.appetite?.maxTicketSize ? `${formatCurrency(m.appetite.minTicketSize)} – ${formatCurrency(m.appetite.maxTicketSize)}` : "N/A"}</TableCell>
+                                  <TableCell className="text-sm">{m.appetite?.minDscr ? `≥ ${m.appetite.minDscr}` : "Flex"}</TableCell>
+                                  <TableCell>
+                                    <div className="flex flex-wrap gap-1">
+                                      {m.flags.slice(0, 2).map((f: string, fi: number) => (
+                                        <Badge key={fi} variant="outline" className="text-[10px] text-orange-600 border-orange-300">{f}</Badge>
+                                      ))}
+                                      {m.appetite?.specialConditions && m.flags.length === 0 && (
+                                        <Badge variant="outline" className="text-[10px]">{m.appetite.specialConditions.length > 40 ? m.appetite.specialConditions.slice(0, 40) + "..." : m.appetite.specialConditions}</Badge>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    );
+                  })}
 
+                  {/* Selection Summary */}
                   {selectedBanks.length > 0 && (
                     <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
                       <CheckCircle2 className="h-4 w-4 text-blue-600" />
-                      <span className="text-sm font-medium">{selectedBanks.length} bank(s) selected</span>
+                      <span className="text-sm font-medium">{selectedBanks.length} lender(s) selected for submission</span>
+                    </div>
+                  )}
+
+                  {/* Disqualified Toggle */}
+                  {lenderMatchResults.disqualified.length > 0 && (
+                    <div className="space-y-2">
+                      <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setShowDisqualified(!showDisqualified)}>
+                        <ChevronRight className={`h-4 w-4 mr-1 transition-transform ${showDisqualified ? "rotate-90" : ""}`} />
+                        {showDisqualified ? "Hide" : "Show"} {lenderMatchResults.disqualified.length} disqualified lender(s)
+                      </Button>
+                      {showDisqualified && (
+                        <div className="border rounded-lg overflow-hidden">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-muted/50">
+                                <TableHead>Lender</TableHead>
+                                <TableHead>Product</TableHead>
+                                <TableHead>Reason</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {lenderMatchResults.disqualified.map((m: any, idx: number) => (
+                                <TableRow key={idx} className="opacity-60">
+                                  <TableCell className="text-sm">{m.bank?.bankName || "Unknown"}</TableCell>
+                                  <TableCell><Badge variant="outline" className="text-xs">{formatLabel(m.appetite?.loanSubType || "")}</Badge></TableCell>
+                                  <TableCell>
+                                    <div className="flex flex-wrap gap-1">
+                                      {m.disqualified.map((d: string, di: number) => (
+                                        <Badge key={di} variant="destructive" className="text-[10px]">{d}</Badge>
+                                      ))}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Landmark className="h-12 w-12 mx-auto mb-2 opacity-30" />
-                  <p>No bank appetite data available for this loan type.</p>
+                <div className="text-center py-12 text-muted-foreground space-y-3">
+                  <Landmark className="h-12 w-12 mx-auto opacity-30" />
+                  <p className="font-medium">Click "Find Lenders" to run the matching engine</p>
+                  <p className="text-xs max-w-sm mx-auto">The engine analyzes your project profile, credit metrics, city, stage, and ticket size to auto-shortlist eligible lenders like a real credit desk.</p>
                 </div>
               )}
             </CardContent>

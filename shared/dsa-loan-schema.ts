@@ -86,6 +86,14 @@ export const projectStageEnum = pgEnum("project_stage", [
   "POSSESSION"
 ]);
 
+export const lenderCategoryEnum = pgEnum("lender_category", [
+  "PSU_BANK",
+  "PRIVATE_BANK",
+  "HFC",
+  "NBFC",
+  "AIF_PLATFORM"
+]);
+
 export const tranchStatusEnum = pgEnum("tranch_status", [
   "PENDING",
   "RELEASED",
@@ -263,6 +271,8 @@ export const bankConnectors = pgTable("bank_connectors", {
   
   authType: varchar("auth_type"),
   credentialsRef: varchar("credentials_ref"),
+  
+  lenderCategory: lenderCategoryEnum("lender_category"),
   
   priority: integer("priority").default(50),
   isActive: boolean("is_active").default(true),
@@ -941,6 +951,10 @@ export const bankProductAppetite = pgTable("bank_product_appetite", {
   interestRateMin: decimal("interest_rate_min", { precision: 5, scale: 2 }),
   interestRateMax: decimal("interest_rate_max", { precision: 5, scale: 2 }),
   maxTenureMonths: integer("max_tenure_months"),
+  specialConditions: text("special_conditions"),
+  minTrackRecordProjects: integer("min_track_record_projects"),
+  yieldExpectationMin: decimal("yield_expectation_min", { precision: 5, scale: 2 }),
+  yieldExpectationMax: decimal("yield_expectation_max", { precision: 5, scale: 2 }),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

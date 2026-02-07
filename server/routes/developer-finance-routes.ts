@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { db } from "../db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, gte, lte } from "drizzle-orm";
 import {
   dsaLoanApplications,
   developerProjects,
@@ -323,6 +323,240 @@ router.patch("/bank-appetite/:id", creditManagerAccess, async (req: Request, res
     res.json({ success: true, data: updated });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// ============== INTELLIGENT LENDER MATCHING ENGINE ==============
+
+router.post("/match-lenders", readAccess, async (req: Request, res: Response) => {
+  try {
+    const {
+      loanSubType,
+      projectStage,
+      ticketSize,
+      city,
+      dscr,
+      ltv,
+      ltc,
+      promoterContribution,
+      trackRecordProjects,
+      isStressedDeal,
+    } = req.body;
+
+    const allAppetite = await db.select({
+      appetite: bankProductAppetite,
+      bank: {
+        bankCode: bankConnectors.bankCode,
+        bankName: bankConnectors.bankName,
+        lenderCategory: bankConnectors.lenderCategory,
+        priority: bankConnectors.priority,
+      },
+    })
+      .from(bankProductAppetite)
+      .leftJoin(bankConnectors, eq(bankProductAppetite.bankCode, bankConnectors.bankCode))
+      .where(eq(bankProductAppetite.isActive, true));
+
+    const matched = allAppetite.map((item) => {
+      const a = item.appetite;
+      const b = item.bank;
+      let score = 0;
+      let maxScore = 0;
+      const flags: string[] = [];
+      const disqualified: string[] = [];
+
+      // 1. Loan sub-type match (mandatory)
+      maxScore += 20;
+      if (loanSubType && a.loanSubType === loanSubType) {
+        score += 20;
+      } else if (loanSubType) {
+        disqualified.push(`Does not support ${loanSubType}`);
+      }
+
+      // 2. Project stage match
+      maxScore += 15;
+      if (projectStage && a.allowedProjectStages && a.allowedProjectStages.length > 0) {
+        if (a.allowedProjectStages.includes(projectStage)) {
+          score += 15;
+        } else {
+          disqualified.push(`Stage ${projectStage} not allowed`);
+        }
+      } else {
+        score += 10;
+      }
+
+      // 3. Ticket size match
+      maxScore += 15;
+      if (ticketSize) {
+        const minT = Number(a.minTicketSize) || 0;
+        const maxT = Number(a.maxTicketSize) || Infinity;
+        if (ticketSize >= minT && ticketSize <= maxT) {
+          score += 15;
+        } else if (ticketSize < minT) {
+          flags.push('Below minimum ticket size');
+          score += 5;
+        } else {
+          flags.push('Exceeds maximum ticket size');
+          score += 3;
+        }
+      } else {
+        score += 10;
+      }
+
+      // 4. City match
+      maxScore += 10;
+      if (city && a.allowedCities && a.allowedCities.length > 0) {
+        if (a.allowedCities.some(c => c.toLowerCase() === city.toLowerCase())) {
+          score += 10;
+        } else {
+          flags.push('City not in preferred list');
+          score += 3;
+        }
+      } else {
+        score += 7;
+      }
+
+      // 5. DSCR match
+      maxScore += 15;
+      if (dscr !== undefined && dscr !== null) {
+        const minDscr = Number(a.minDscr) || 0;
+        if (dscr >= minDscr) {
+          score += 15;
+        } else {
+          const gap = minDscr - dscr;
+          if (gap <= 0.1) {
+            flags.push(`DSCR ${dscr.toFixed(2)} marginally below ${minDscr} requirement`);
+            score += 8;
+          } else {
+            disqualified.push(`DSCR ${dscr.toFixed(2)} below ${minDscr} minimum`);
+          }
+        }
+      } else {
+        score += 8;
+      }
+
+      // 6. LTV check
+      maxScore += 5;
+      if (ltv !== undefined && ltv !== null && a.maxLtv) {
+        if (ltv <= Number(a.maxLtv)) {
+          score += 5;
+        } else {
+          flags.push(`LTV ${ltv}% exceeds ${a.maxLtv}% cap`);
+        }
+      } else {
+        score += 3;
+      }
+
+      // 7. Promoter contribution
+      maxScore += 5;
+      if (promoterContribution !== undefined && promoterContribution !== null && a.minPromoterContribution) {
+        if (promoterContribution >= Number(a.minPromoterContribution)) {
+          score += 5;
+        } else {
+          flags.push(`Promoter contribution ${promoterContribution}% below ${a.minPromoterContribution}% min`);
+        }
+      } else {
+        score += 3;
+      }
+
+      // 8. Track record
+      maxScore += 10;
+      if (trackRecordProjects !== undefined && trackRecordProjects !== null && a.minTrackRecordProjects) {
+        if (trackRecordProjects >= a.minTrackRecordProjects) {
+          score += 10;
+        } else {
+          flags.push(`Track record ${trackRecordProjects} projects below ${a.minTrackRecordProjects} required`);
+          score += 3;
+        }
+      } else {
+        score += 7;
+      }
+
+      // 9. Credit desk rules from the document
+      // PSU banks: only if project_stage >= Under Construction AND city in Tier-1
+      if (b?.lenderCategory === 'PSU_BANK') {
+        if (projectStage === 'LAND_ACQUISITION' || projectStage === 'APPROVALS') {
+          disqualified.push('PSU banks do not fund early-stage projects');
+        }
+      }
+      // Private banks: require developer_track_record >= 2
+      if (b?.lenderCategory === 'PRIVATE_BANK') {
+        if (trackRecordProjects !== undefined && trackRecordProjects < 2) {
+          flags.push('Private banks prefer developers with 2+ completed projects');
+          score = Math.max(0, score - 5);
+        }
+      }
+      // Land finance: NBFCs + AIFs only
+      if (loanSubType === 'LAND_FINANCE') {
+        if (b?.lenderCategory === 'PSU_BANK' || b?.lenderCategory === 'PRIVATE_BANK' || b?.lenderCategory === 'HFC') {
+          disqualified.push('Land finance: only NBFCs and AIFs accepted');
+        }
+      }
+      // Low DSCR: hide PSU banks
+      if (dscr !== undefined && dscr < 1.2) {
+        if (b?.lenderCategory === 'PSU_BANK') {
+          disqualified.push('PSU banks require DSCR >= 1.2');
+        }
+      }
+      // Near completion: prioritize LRD specialists
+      if (projectStage === 'NEAR_COMPLETION' || projectStage === 'COMPLETED') {
+        if (a.loanSubType === 'LRD') {
+          score += 5;
+        }
+      }
+      // Large ticket: prioritize PSU + Large NBFCs
+      if (ticketSize && ticketSize > 20000000000) {
+        if (b?.lenderCategory === 'PSU_BANK' || b?.lenderCategory === 'AIF_PLATFORM') {
+          score += 3;
+        }
+      }
+
+      const matchScore = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
+      const isQualified = disqualified.length === 0;
+      const matchLevel = matchScore >= 80 ? 'STRONG' : matchScore >= 60 ? 'MODERATE' : matchScore >= 40 ? 'WEAK' : 'POOR';
+
+      return {
+        bank: b,
+        appetite: a,
+        matchScore,
+        matchLevel,
+        isQualified,
+        flags,
+        disqualified,
+      };
+    });
+
+    const qualified = matched
+      .filter(m => m.isQualified)
+      .sort((a, b) => b.matchScore - a.matchScore);
+
+    const disqualified = matched
+      .filter(m => !m.isQualified)
+      .sort((a, b) => b.matchScore - a.matchScore);
+
+    const categoryGroups: Record<string, typeof qualified> = {};
+    for (const m of qualified) {
+      const cat = m.bank?.lenderCategory || 'OTHER';
+      if (!categoryGroups[cat]) categoryGroups[cat] = [];
+      categoryGroups[cat].push(m);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        qualified,
+        disqualified,
+        categoryGroups,
+        summary: {
+          totalLenders: matched.length,
+          qualifiedCount: qualified.length,
+          disqualifiedCount: disqualified.length,
+          strongMatches: qualified.filter(m => m.matchLevel === 'STRONG').length,
+          moderateMatches: qualified.filter(m => m.matchLevel === 'MODERATE').length,
+        },
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
