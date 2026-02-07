@@ -25439,9 +25439,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       }
       if (search) {
         filters.push(or(
-          like(schema.manualKycSubmissions.fullName, `%${search}%`),
+          like(schema.manualKycSubmissions.firstName, `%${search}%`),
+          like(schema.manualKycSubmissions.lastName, `%${search}%`),
           like(schema.manualKycSubmissions.email, `%${search}%`),
-          like(schema.manualKycSubmissions.panNumber, `%${search}%`)
+          like(schema.manualKycSubmissions.pan, `%${search}%`)
         ));
       }
 
@@ -25450,7 +25451,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       let query = db.select({
         id: schema.manualKycSubmissions.id,
         userId: schema.manualKycSubmissions.userId,
-        userName: schema.manualKycSubmissions.fullName,
+        firstName: schema.manualKycSubmissions.firstName,
+        lastName: schema.manualKycSubmissions.lastName,
         userEmail: schema.manualKycSubmissions.email,
         type: schema.manualKycSubmissions.applicantType,
         status: schema.manualKycSubmissions.status,
