@@ -25482,7 +25482,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
 
       res.json({
         success: true,
-        data: submissions.map(s => ({
+        data: submissions.map((s: any) => ({
+          userName: [s.firstName, s.lastName].filter(Boolean).join(' ') || 'N/A',
           ...s,
           tier: 'tier1', // Default tier since users table has no kycStatus
           submittedAt: s.submittedAt?.toISOString() || null,
