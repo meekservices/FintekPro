@@ -32,10 +32,10 @@ interface DiversificationScoreWidgetProps {
 }
 
 const gradeConfig = {
-  EXCELLENT: { color: "text-green-600", bg: "bg-green-50", border: "border-green-200", icon: CheckCircle2 },
-  GOOD: { color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200", icon: Shield },
-  FAIR: { color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-200", icon: AlertTriangle },
-  POOR: { color: "text-red-600", bg: "bg-red-50", border: "border-red-200", icon: TrendingDown },
+  EXCELLENT: { color: "text-green-600", bg: "bg-green-50 dark:bg-green-950/30", border: "border-green-200 dark:border-green-800", icon: CheckCircle2 },
+  GOOD: { color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/30", border: "border-blue-200 dark:border-blue-800", icon: Shield },
+  FAIR: { color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/30", border: "border-amber-200 dark:border-amber-800", icon: AlertTriangle },
+  POOR: { color: "text-red-600", bg: "bg-red-50 dark:bg-red-950/30", border: "border-red-200 dark:border-red-800", icon: TrendingDown },
 };
 
 export function DiversificationScoreWidget({ data, compact = false }: DiversificationScoreWidgetProps) {
@@ -180,9 +180,9 @@ export function DiversificationScoreWidget({ data, compact = false }: Diversific
                   <div className="flex items-center gap-2 flex-1">
                     <Badge variant="outline" className={cn(
                       "text-xs px-1.5",
-                      penalty.type === "STOCK_OVERLAP" ? "bg-red-50 text-red-700 border-red-200" :
-                      penalty.type === "SECTOR_CONCENTRATION" ? "bg-purple-50 text-purple-700 border-purple-200" :
-                      "bg-amber-50 text-amber-700 border-amber-200"
+                      penalty.type === "STOCK_OVERLAP" ? "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800" :
+                      penalty.type === "SECTOR_CONCENTRATION" ? "bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800" :
+                      "bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
                     )}>
                       {penalty.type === "STOCK_OVERLAP" ? "Stock" :
                        penalty.type === "SECTOR_CONCENTRATION" ? "Sector" : "Crowding"}

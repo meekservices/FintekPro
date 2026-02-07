@@ -166,7 +166,7 @@ export function OverlapRiskHeatmap({
                       <TooltipTrigger asChild>
                         <div
                           className={cn(
-                            "w-16 h-8 flex items-center justify-center border border-white/50 cursor-pointer transition-transform hover:scale-105",
+                            "w-16 h-8 flex items-center justify-center border border-white/50 dark:border-gray-700/50 cursor-pointer transition-transform hover:scale-105",
                             getHeatmapColor(value)
                           )}
                         >
@@ -196,15 +196,15 @@ export function OverlapRiskHeatmap({
         <div className="flex items-center justify-center gap-2 mt-4 pt-3 border-t">
           <span className="text-xs text-muted-foreground">Exposure:</span>
           <div className="flex items-center gap-1">
-            <div className="w-4 h-4 bg-green-100 border" />
+            <div className="w-4 h-4 bg-green-100 dark:bg-green-900/30 border" />
             <span className="text-xs">Low</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-4 h-4 bg-amber-300 border" />
+            <div className="w-4 h-4 bg-amber-300 dark:bg-amber-800/50 border" />
             <span className="text-xs">Medium</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-4 h-4 bg-red-500 border" />
+            <div className="w-4 h-4 bg-red-500 dark:bg-red-700/70 border" />
             <span className="text-xs">High</span>
           </div>
         </div>

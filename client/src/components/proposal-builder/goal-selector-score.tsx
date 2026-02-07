@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Target, TrendingUp, Briefcase, GraduationCap, Wallet, RefreshCw } from "lucide-react";
+import { AlertTriangle, Target, TrendingUp, Briefcase, GraduationCap, Wallet, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PortfolioFund {
@@ -63,10 +63,10 @@ const goalConfig: Record<InvestmentGoal, { label: string; icon: typeof Target; d
 };
 
 const gradeColors = {
-  EXCELLENT: "text-green-600 bg-green-50 border-green-200",
-  GOOD: "text-blue-600 bg-blue-50 border-blue-200",
-  FAIR: "text-amber-600 bg-amber-50 border-amber-200",
-  POOR: "text-red-600 bg-red-50 border-red-200",
+  EXCELLENT: "text-green-600 bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800",
+  GOOD: "text-blue-600 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800",
+  FAIR: "text-amber-600 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800",
+  POOR: "text-red-600 bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800",
 };
 
 export function GoalSelectorScore({
@@ -77,7 +77,7 @@ export function GoalSelectorScore({
 }: GoalSelectorScoreProps) {
   const [selectedGoal, setSelectedGoal] = useState<InvestmentGoal>(initialGoal);
 
-  const { data: scoreData, isLoading, isFetching } = useQuery<GoalBasedScore>({
+  const { data: scoreData, isLoading, isFetching, error } = useQuery<GoalBasedScore>({
     queryKey: ["/api/portfolio/goal-based-score", selectedGoal, funds.map(f => f.mfIsin).join(",")],
     queryFn: async () => {
       const response = await fetch("/api/portfolio/goal-based-score", {
@@ -148,6 +148,13 @@ export function GoalSelectorScore({
         {isLoading ? (
           <div className="flex items-center justify-center p-6">
             <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : error ? (
+          <div className="p-4 bg-red-50 dark:bg-red-950/30 rounded-lg">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-red-500" />
+              <p className="text-sm text-red-600 dark:text-red-400">Failed to calculate goal-based score.</p>
+            </div>
           </div>
         ) : scoreData ? (
           <div className="space-y-4">

@@ -46,11 +46,11 @@ interface AdvisorTrainingPanelProps {
 }
 
 const categoryConfig = {
-  OVERLAP: { color: "bg-red-100 text-red-700 border-red-200", icon: "🔄" },
-  DIVERSIFICATION: { color: "bg-blue-100 text-blue-700 border-blue-200", icon: "📊" },
-  SIP: { color: "bg-green-100 text-green-700 border-green-200", icon: "💰" },
-  REPLACEMENT: { color: "bg-amber-100 text-amber-700 border-amber-200", icon: "🔀" },
-  GOAL: { color: "bg-purple-100 text-purple-700 border-purple-200", icon: "🎯" },
+  OVERLAP: { color: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800", icon: "🔄" },
+  DIVERSIFICATION: { color: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800", icon: "📊" },
+  SIP: { color: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800", icon: "💰" },
+  REPLACEMENT: { color: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800", icon: "🔀" },
+  GOAL: { color: "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800", icon: "🎯" },
   GENERAL: { color: "bg-muted text-muted-foreground border-border", icon: "💬" },
 };
 
@@ -120,7 +120,7 @@ function TrainingPromptCard({ prompt }: { prompt: TrainingPrompt }) {
                   Copy
                 </Button>
               </div>
-              <p className="text-sm p-2 bg-green-50 dark:bg-green-950/30 rounded border border-green-200">
+              <p className="text-sm p-2 bg-green-50 dark:bg-green-950/30 rounded border border-green-200 dark:border-green-800">
                 {prompt.suggestedApproach}
               </p>
             </div>
@@ -155,7 +155,7 @@ export function AdvisorTrainingPanel({
 }: AdvisorTrainingPanelProps) {
   const [isVisible, setIsVisible] = useState(true);
 
-  const { data: trainingData, isLoading, refetch } = useQuery<{ prompts: TrainingPrompt[]; totalPrompts: number }>({
+  const { data: trainingData, isLoading, refetch, error } = useQuery<{ prompts: TrainingPrompt[]; totalPrompts: number }>({
     queryKey: ["/api/sip/training-prompts", diversificationScore.score],
     queryFn: async () => {
       const response = await fetch("/api/sip/training-prompts", {
@@ -218,6 +218,13 @@ export function AdvisorTrainingPanel({
               <Skeleton className="h-16 w-full" />
               <Skeleton className="h-16 w-full" />
               <Skeleton className="h-16 w-full" />
+            </div>
+          ) : error ? (
+            <div className="p-4 bg-red-50 dark:bg-red-950/30 rounded-lg">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-red-500" />
+                <p className="text-sm text-red-600 dark:text-red-400">Failed to generate training prompts.</p>
+              </div>
             </div>
           ) : trainingData?.prompts.length ? (
             <div className="space-y-3">

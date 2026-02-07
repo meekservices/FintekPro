@@ -63,7 +63,7 @@ function RiskBar({
               variant="outline"
               className={cn(
                 "text-xs",
-                isImproved ? "bg-green-50 text-green-700 border-green-200" : "bg-red-50 text-red-700 border-red-200"
+                isImproved ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800" : "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800"
               )}
             >
               {isImproved ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
@@ -107,7 +107,7 @@ export function BeforeAfterRiskBars({ current, proposed, changesApplied }: Befor
   return (
     <Card className={cn(
       "border-2",
-      isOverallImproved ? "border-green-200" : netImprovement < 0 ? "border-red-200" : "border-border"
+      isOverallImproved ? "border-green-200 dark:border-green-800" : netImprovement < 0 ? "border-red-200 dark:border-red-800" : "border-border"
     )}>
       <CardHeader className={cn(
         "pb-3",
@@ -162,9 +162,9 @@ export function BeforeAfterRiskBars({ current, proposed, changesApplied }: Befor
               variant="outline"
               className={cn(
                 proposed.fundCrowding < current.fundCrowding
-                  ? "bg-green-50 text-green-700"
+                  ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300"
                   : proposed.fundCrowding > current.fundCrowding
-                  ? "bg-red-50 text-red-700"
+                  ? "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300"
                   : ""
               )}
             >
@@ -196,7 +196,7 @@ export function BeforeAfterRiskBars({ current, proposed, changesApplied }: Befor
         )}>
           <p className={cn(
             "text-lg font-bold",
-            isOverallImproved ? "text-green-700" : netImprovement < 0 ? "text-red-700" : "text-muted-foreground"
+            isOverallImproved ? "text-green-700 dark:text-green-300" : netImprovement < 0 ? "text-red-700 dark:text-red-300" : "text-muted-foreground"
           )}>
             {isOverallImproved ? `+${netImprovement}` : netImprovement} Point{Math.abs(netImprovement) !== 1 ? "s" : ""}
           </p>

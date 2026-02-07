@@ -32,16 +32,16 @@ interface AdvisorTalkingPointsProps {
 }
 
 const typeConfig = {
-  OVERLAP_RISK: { icon: AlertTriangle, color: "text-red-600", bg: "bg-red-50" },
-  REPLACE_FUND: { icon: RefreshCw, color: "text-amber-600", bg: "bg-amber-50" },
-  DIVERSIFICATION: { icon: Shield, color: "text-blue-600", bg: "bg-blue-50" },
-  SECTOR_CONCENTRATION: { icon: Building2, color: "text-purple-600", bg: "bg-purple-50" },
+  OVERLAP_RISK: { icon: AlertTriangle, color: "text-red-600", bg: "bg-red-50 dark:bg-red-950/30" },
+  REPLACE_FUND: { icon: RefreshCw, color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/30" },
+  DIVERSIFICATION: { icon: Shield, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/30" },
+  SECTOR_CONCENTRATION: { icon: Building2, color: "text-purple-600", bg: "bg-purple-50 dark:bg-purple-950/30" },
 };
 
 const priorityConfig = {
-  HIGH: { color: "bg-red-100 text-red-700 border-red-200" },
-  MEDIUM: { color: "bg-amber-100 text-amber-700 border-amber-200" },
-  LOW: { color: "bg-green-100 text-green-700 border-green-200" },
+  HIGH: { color: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800" },
+  MEDIUM: { color: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800" },
+  LOW: { color: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800" },
 };
 
 function TalkingPointCard({

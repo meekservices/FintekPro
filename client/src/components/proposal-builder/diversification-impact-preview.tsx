@@ -17,7 +17,7 @@ interface DiversificationImpactPreviewProps {
 
 function ScoreDisplay({ score, label }: { score: number; label: string }) {
   const color = score >= 75 ? "text-green-600" : score >= 60 ? "text-blue-600" : score >= 40 ? "text-amber-600" : "text-red-600";
-  const bg = score >= 75 ? "bg-green-50" : score >= 60 ? "bg-blue-50" : score >= 40 ? "bg-amber-50" : "bg-red-50";
+  const bg = score >= 75 ? "bg-green-50 dark:bg-green-950/30" : score >= 60 ? "bg-blue-50 dark:bg-blue-950/30" : score >= 40 ? "bg-amber-50 dark:bg-amber-950/30" : "bg-red-50 dark:bg-red-950/30";
   
   return (
     <div className={cn("p-4 rounded-lg text-center", bg)}>
@@ -31,9 +31,9 @@ export function DiversificationImpactPreview({ impact, compact = false }: Divers
   const { currentScore, projectedScore, netImprovement, changesApplied } = impact;
   
   const improvementColor = netImprovement > 0 
-    ? "text-green-600 bg-green-50" 
+    ? "text-green-600 bg-green-50 dark:bg-green-950/30" 
     : netImprovement < 0 
-    ? "text-red-600 bg-red-50" 
+    ? "text-red-600 bg-red-50 dark:bg-red-950/30" 
     : "text-muted-foreground bg-muted";
   
   const ImprovementIcon = netImprovement > 0 ? TrendingUp : netImprovement < 0 ? TrendingDown : Minus;

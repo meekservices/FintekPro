@@ -49,7 +49,7 @@ function NarrativeCard({ narrative }: { narrative: SEBINarrative }) {
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-2">
-            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+            <Badge variant="outline" className="text-xs bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">
               {narrative.type.replace(/_/g, " ")}
             </Badge>
             <Badge variant="outline" className="text-xs">
@@ -152,7 +152,7 @@ export function SEBIExplanationLock({
             <div className="flex items-center gap-2">
               <Edit3 className="h-4 w-4 text-green-600" />
               <h4 className="text-sm font-medium">Advisor Comments</h4>
-              <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+              <Badge variant="outline" className="text-xs bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800">
                 Editable
               </Badge>
             </div>
@@ -169,7 +169,7 @@ export function SEBIExplanationLock({
           </div>
 
           {isAddingComment && (
-            <div className="space-y-2 p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200">
+            <div className="space-y-2 p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
               <Textarea
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
@@ -230,11 +230,11 @@ export function SEBIExplanationLock({
         {showDisclaimer && uniqueDisclaimers.length > 0 && (
           <>
             <Separator />
-            <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200">
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
               <div className="flex items-start gap-2">
                 <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
                 <div className="space-y-2">
-                  <p className="text-xs font-medium text-amber-700">Mandatory Disclaimer{uniqueDisclaimers.length > 1 ? "s" : ""}</p>
+                  <p className="text-xs font-medium text-amber-700 dark:text-amber-300">Mandatory Disclaimer{uniqueDisclaimers.length > 1 ? "s" : ""}</p>
                   {uniqueDisclaimers.map((disclaimer, idx) => (
                     <p key={idx} className="text-xs text-amber-600">{disclaimer}</p>
                   ))}

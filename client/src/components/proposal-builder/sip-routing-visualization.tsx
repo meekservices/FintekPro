@@ -12,7 +12,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ArrowRight, HelpCircle, IndianRupee, PieChart, RefreshCw } from "lucide-react";
+import { AlertTriangle, ArrowRight, HelpCircle, IndianRupee, PieChart, RefreshCw } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 interface PortfolioFund {
@@ -48,7 +49,7 @@ export function SIPRoutingVisualization({
   const [sipAmount, setSipAmount] = useState<number>(25000);
   const [isOptimizing, setIsOptimizing] = useState(false);
 
-  const { data: routingResult, refetch, isFetching } = useQuery<SIPRoutingResult>({
+  const { data: routingResult, refetch, isFetching, error, isLoading } = useQuery<SIPRoutingResult>({
     queryKey: ["/api/portfolio/optimize-sip", sipAmount, candidateFunds.join(",")],
     queryFn: async () => {
       const response = await fetch("/api/portfolio/optimize-sip", {
@@ -148,7 +149,19 @@ export function SIPRoutingVisualization({
           </Button>
         </div>
 
-        {routingResult && routingResult.sipRouting.length > 0 && (
+        {isLoading ? (
+          <div className="space-y-3">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </div>
+        ) : error ? (
+          <div className="p-4 bg-red-50 dark:bg-red-950/30 rounded-lg">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-red-500" />
+              <p className="text-sm text-red-600 dark:text-red-400">Failed to optimize SIP allocation.</p>
+            </div>
+          </div>
+        ) : routingResult && routingResult.sipRouting.length > 0 && (
           <>
             <div className="space-y-3">
               <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -167,9 +180,9 @@ export function SIPRoutingVisualization({
                           variant="outline"
                           className={cn(
                             "text-xs",
-                            routing.overlapScore < 4 ? "bg-green-50 text-green-700 border-green-200" :
-                            routing.overlapScore < 8 ? "bg-amber-50 text-amber-700 border-amber-200" :
-                            "bg-red-50 text-red-700 border-red-200"
+                            routing.overlapScore < 4 ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800" :
+                            routing.overlapScore < 8 ? "bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800" :
+                            "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800"
                           )}
                         >
                           {getOverlapLabel(routing.overlapScore)}

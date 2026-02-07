@@ -58,7 +58,7 @@ export function SIPSimulatorUI({
   const [sipAmount, setSipAmount] = useState<number>(25000);
   const [horizonMonths, setHorizonMonths] = useState<"6" | "12" | "24">("12");
 
-  const { data: simulation, isLoading, isFetching, refetch } = useQuery<SIPSimulationResult>({
+  const { data: simulation, isLoading, isFetching, refetch, error } = useQuery<SIPSimulationResult>({
     queryKey: ["/api/sip/simulate", sipAmount, horizonMonths, candidateFunds.join(",")],
     queryFn: async () => {
       const response = await fetch("/api/sip/simulate", {
@@ -165,6 +165,13 @@ export function SIPSimulatorUI({
           <div className="space-y-3">
             <Skeleton className="h-20 w-full" />
             <Skeleton className="h-32 w-full" />
+          </div>
+        ) : error ? (
+          <div className="p-4 bg-red-50 dark:bg-red-950/30 rounded-lg">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-red-500" />
+              <p className="text-sm text-red-600 dark:text-red-400">Failed to run simulation. Please try again.</p>
+            </div>
           </div>
         ) : simulation ? (
           <div className="space-y-4">

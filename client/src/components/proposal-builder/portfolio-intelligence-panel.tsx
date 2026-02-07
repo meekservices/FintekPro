@@ -160,6 +160,13 @@ export function PortfolioIntelligencePanel({
     onSuccess: (data) => {
       setImpactPreview(data);
     },
+    onError: (error: any) => {
+      toast({
+        title: "Impact Simulation Failed",
+        description: error.message || "Could not simulate the diversification impact.",
+        variant: "destructive",
+      });
+    },
   });
 
   const handleViewImpact = (suggestion: ReplaceFundSuggestion, alternative?: AlternativeFund) => {
