@@ -793,8 +793,24 @@ export function setupAuth(app: Express) {
       // Determine OTP type based on identifier
       const otpType = identifier.includes("@") ? "email" : "mobile";
 
-      // Verify OTP
-      const isValid = await storage.verifyOtp(identifier, otpType, otp);
+      // Try verifying OTP directly with the provided identifier
+      let isValid = await storage.verifyOtp(identifier, otpType, otp);
+
+      // If email identifier failed, the OTP may have been stored under the user's mobile number
+      // (login always prefers mobile for OTP delivery). Look up user and try mobile identifier.
+      let resolvedIdentifier = identifier;
+      let resolvedOtpType = otpType;
+      if (!isValid && otpType === "email") {
+        const userByEmail = await storage.getUserByEmail(identifier);
+        if (userByEmail?.mobile) {
+          console.log("🔄 OTP not found by email, trying mobile:", userByEmail.mobile);
+          isValid = await storage.verifyOtp(userByEmail.mobile, "mobile", otp);
+          if (isValid) {
+            resolvedIdentifier = userByEmail.mobile;
+            resolvedOtpType = "mobile";
+          }
+        }
+      }
 
       if (!isValid) {
         return apiResponse.badRequest(res, "Invalid or expired OTP");
@@ -802,10 +818,10 @@ export function setupAuth(app: Express) {
 
       // OTP is valid - find user and complete login
       let user;
-      if (otpType === "email") {
-        user = await storage.getUserByEmail(identifier);
+      if (resolvedOtpType === "email") {
+        user = await storage.getUserByEmail(resolvedIdentifier);
       } else {
-        user = await storage.getUserByMobile(identifier);
+        user = await storage.getUserByMobile(resolvedIdentifier);
       }
 
       if (!user) {

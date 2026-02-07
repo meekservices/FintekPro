@@ -913,7 +913,25 @@ export function registerRoleRoutes(app: Express) {
     }
   });
 
-  app.get('/api/partner/stats', async (req: any, res: Response) => {
+  const requirePartnerAuth = (req: any, res: Response, next: any) => {
+    if (!req.user) {
+      const isDevelopment = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.REPL_ID;
+      if (isDevelopment) {
+        req.user = { id: 'demo-user-1', roles: ['partner'], firstName: 'Demo', lastName: 'Partner', email: 'demo@partner.com' };
+      } else {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+    }
+    const hasPartnerRole = req.user.roles?.includes('partner') || 
+                           req.user.roles?.includes('admin') || 
+                           req.user.roles?.includes('superadmin');
+    if (!hasPartnerRole) {
+      return res.status(403).json({ error: "Partner access required" });
+    }
+    next();
+  };
+
+  app.get('/api/partner/stats', requirePartnerAuth, async (req: any, res: Response) => {
     try {
       res.json({
         totalAgents: 0,
@@ -935,7 +953,7 @@ export function registerRoleRoutes(app: Express) {
     }
   });
 
-  app.get('/api/partner/agents', async (req: any, res: Response) => {
+  app.get('/api/partner/agents', requirePartnerAuth, async (req: any, res: Response) => {
     try {
       res.json([]);
     } catch (error: any) {
@@ -947,7 +965,7 @@ export function registerRoleRoutes(app: Express) {
     }
   });
 
-  app.get('/api/partner/teams', async (req: any, res: Response) => {
+  app.get('/api/partner/teams', requirePartnerAuth, async (req: any, res: Response) => {
     try {
       res.json([]);
     } catch (error: any) {
@@ -959,7 +977,7 @@ export function registerRoleRoutes(app: Express) {
     }
   });
 
-  app.get('/api/partner/commissions', async (req: any, res: Response) => {
+  app.get('/api/partner/commissions', requirePartnerAuth, async (req: any, res: Response) => {
     try {
       res.json([]);
     } catch (error: any) {

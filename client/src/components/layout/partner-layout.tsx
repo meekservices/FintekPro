@@ -169,16 +169,10 @@ const partnerNavSections: NavSection[] = [
         description: "Your support requests"
       },
       {
-        title: "Settings",
-        href: "/partner-portal?tab=settings",
-        icon: Settings,
-        description: "Account preferences"
-      },
-      {
-        title: "Theme & Accessibility",
+        title: "Settings & Theme",
         href: "/theme-settings",
-        icon: Palette,
-        description: "Visual customization"
+        icon: Settings,
+        description: "Preferences & visual customization"
       }
     ]
   }
