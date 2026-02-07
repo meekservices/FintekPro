@@ -9,26 +9,15 @@ import {
   LogOut,
   Menu,
   X,
-  Package,
   Settings,
   Users,
-  AlertCircle,
   HelpCircle,
   BarChart3,
   UserCheck,
   Wallet,
-  UserPlus,
-  TrendingUp,
-  ClipboardList,
-  FileText,
-  PieChart,
-  Target,
-  Building2,
   ChevronDown,
   ChevronRight,
-  IndianRupee,
-  Briefcase,
-  Palette
+  AlertCircle
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -58,26 +47,9 @@ const partnerNavSections: NavSection[] = [
     items: [
       {
         title: "Dashboard",
-        href: "/",
+        href: "/partner-portal",
         icon: Home,
         description: "Key metrics & overview"
-      }
-    ]
-  },
-  {
-    section: "Clients & Leads",
-    items: [
-      {
-        title: "Client Invitations",
-        href: "/partner-portal?tab=referrals",
-        icon: UserPlus,
-        description: "Invite clients & track progress"
-      },
-      {
-        title: "Proposals",
-        href: "/partner/proposals",
-        icon: ClipboardList,
-        description: "Client investment proposals"
       }
     ]
   },
@@ -88,57 +60,19 @@ const partnerNavSections: NavSection[] = [
         title: "My Agents",
         href: "/partner/agents",
         icon: Users,
-        description: "Agent network & performance"
+        description: "Recruit & manage agents"
       },
       {
         title: "Agent Performance",
         href: "/partner/agent-performance",
         icon: BarChart3,
-        description: "P&L and metrics"
+        description: "Track agent metrics & P&L"
       },
       {
         title: "Agent Payouts",
         href: "/partner/payouts",
         icon: Wallet,
-        description: "Commission payouts"
-      }
-    ]
-  },
-  {
-    section: "Products & Services",
-    items: [
-      {
-        title: "Product Catalog",
-        href: "/partner-portal?tab=products",
-        icon: Package,
-        description: "Manage your offerings"
-      },
-      {
-        title: "Investment Products",
-        icon: Briefcase,
-        description: "Available products",
-        children: [
-          { title: "Mutual Funds", href: "/mutual-funds", description: "MF schemes" },
-          { title: "Bonds & NCDs", href: "/bonds", description: "Fixed income" },
-          { title: "Unlisted Shares", href: "/unlisted", description: "Pre-IPO securities" }
-        ]
-      }
-    ]
-  },
-  {
-    section: "Analytics & Revenue",
-    items: [
-      {
-        title: "Revenue Dashboard",
-        href: "/partner-portal?tab=dashboard",
-        icon: IndianRupee,
-        description: "Earnings & commissions"
-      },
-      {
-        title: "Performance Analytics",
-        href: "/partner-portal?tab=analytics",
-        icon: TrendingUp,
-        description: "Growth metrics"
+        description: "Commission payouts & settlements"
       }
     ]
   },
@@ -155,7 +89,7 @@ const partnerNavSections: NavSection[] = [
         title: "CA Support Tickets",
         href: "/partner/ca-support",
         icon: HelpCircle,
-        description: "Client assistance requests"
+        description: "CA assistance requests"
       }
     ]
   },
@@ -273,7 +207,7 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
           <div className="flex items-center gap-4">
             <Link href="/theme-settings">
               <Button variant="ghost" size="icon" className="text-indigo-300 hover:text-foreground" data-testid="btn-theme-settings" title="Theme & Accessibility">
-                <Palette className="h-5 w-5" />
+                <Settings className="h-5 w-5" />
               </Button>
             </Link>
             <Button variant="ghost" size="icon" className="text-indigo-300 hover:text-foreground relative">

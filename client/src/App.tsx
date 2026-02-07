@@ -438,13 +438,6 @@ function UserProtectedRoutes() {
             </Suspense>
           )}
         </Route>
-        <Route path="/partner/proposals">
-          {() => (
-            <Suspense fallback={<LoadingState variant="partner-dashboard" />}>
-              <AgentProspectProposals />
-            </Suspense>
-          )}
-        </Route>
         <Route path="/partner/ca-management" component={PartnerCAManagement} />
         <Route path="/partner/ca-support" component={CASupportDashboard} />
         <Route path="/partner/ca-support/:id" component={CASupportDetail} />
@@ -1569,15 +1562,6 @@ function PartnerRoutes() {
         {() => (
           <PartnerLayout>
             <CASupportDetail />
-          </PartnerLayout>
-        )}
-      </Route>
-      <Route path="/partner/proposals">
-        {() => (
-          <PartnerLayout>
-            <Suspense fallback={<LoadingState variant="partner-dashboard" />}>
-              <AgentProspectProposals />
-            </Suspense>
           </PartnerLayout>
         )}
       </Route>
