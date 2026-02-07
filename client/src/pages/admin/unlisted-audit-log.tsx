@@ -105,7 +105,7 @@ export default function UnlistedAuditLog() {
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Card className="bg-card border-border max-w-md">
           <CardHeader>
-            <CardTitle className="text-white text-center">Access Denied</CardTitle>
+            <CardTitle className="text-foreground text-center">Access Denied</CardTitle>
             <CardDescription className="text-muted-foreground text-center">
               Admin privileges required to access this page.
             </CardDescription>
@@ -137,7 +137,7 @@ export default function UnlistedAuditLog() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-bold text-white">Audit Log</h1>
+            <h1 className="text-3xl font-bold text-foreground">Audit Log</h1>
             <p className="text-muted-foreground mt-1">Track all marketplace activities and changes</p>
           </div>
         </div>
@@ -212,7 +212,7 @@ export default function UnlistedAuditLog() {
                     className="flex items-start gap-4 p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
                     data-testid={`audit-entry-${entry.id}`}
                   >
-                    <div className={`p-2 rounded-full bg-gray-700/50 ${config.color}`}>
+                    <div className={`p-2 rounded-full bg-muted/50 ${config.color}`}>
                       <Icon className="h-5 w-5" />
                     </div>
                     <div className="flex-1 min-w-0">

@@ -362,14 +362,14 @@ export default function ITRTaxServices() {
   return (
     <div className="container mx-auto px-4 py-8 space-y-8">
       {/* Hero Section */}
-      <div className="relative bg-gradient-to-br from-green-600 via-blue-600 to-purple-600 rounded-3xl p-8 md:p-12 text-white overflow-hidden">
+      <div className="relative bg-gradient-to-br from-green-600 via-blue-600 to-purple-600 rounded-3xl p-8 md:p-12 text-foreground overflow-hidden">
         <div className="absolute inset-0 bg-black/10"></div>
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 bg-white/10 backdrop-blur-sm rounded-xl">
+            <div className="p-3 bg-card/10 backdrop-blur-sm rounded-xl">
               <FileText className="h-8 w-8" />
             </div>
-            <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
+            <Badge variant="secondary" className="bg-card/20 text-foreground border-white/30">
               Tax Services
             </Badge>
           </div>
@@ -382,26 +382,26 @@ export default function ITRTaxServices() {
           </p>
           
           <div className="grid md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+            <div className="bg-card/10 backdrop-blur-sm rounded-xl p-4">
               <div className="text-3xl font-bold mb-1">₹{taxSavings.toLocaleString()}+</div>
               <div className="text-sm text-blue-100">Potential Tax Savings</div>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+            <div className="bg-card/10 backdrop-blur-sm rounded-xl p-4">
               <div className="text-3xl font-bold mb-1">24hrs</div>
               <div className="text-sm text-blue-100">Quick Filing Service</div>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+            <div className="bg-card/10 backdrop-blur-sm rounded-xl p-4">
               <div className="text-3xl font-bold mb-1">500+</div>
               <div className="text-sm text-blue-100">Expert CAs</div>
             </div>
           </div>
           
           <div className="flex flex-wrap gap-4">
-            <Button size="lg" className="bg-white text-green-600 hover:bg-blue-50" data-testid="button-file-itr">
+            <Button size="lg" className="bg-card text-green-600 hover:bg-blue-50" data-testid="button-file-itr">
               File ITR Now
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
-            <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10" data-testid="button-ca-consultation">
+            <Button size="lg" variant="outline" className="border-white/30 text-foreground hover:bg-card/10" data-testid="button-ca-consultation">
               <Users className="mr-2 h-5 w-5" />
               CA Consultation
             </Button>
@@ -523,7 +523,7 @@ export default function ITRTaxServices() {
                   </div>
                 )}
                 {service.isPopular && (
-                  <div className="absolute top-0 left-0 bg-gradient-to-r from-blue-500 to-green-600 text-white px-3 py-1 text-xs font-semibold rounded-br-lg">
+                  <div className="absolute top-0 left-0 bg-gradient-to-r from-blue-500 to-green-600 text-foreground px-3 py-1 text-xs font-semibold rounded-br-lg">
                     <Star className="h-3 w-3 inline mr-1" />
                     POPULAR
                   </div>

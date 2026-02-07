@@ -86,7 +86,7 @@ const getRecommendationBadge = (rec: string) => {
     'sell': 'bg-red-500 text-white',
     'strong_sell': 'bg-red-600 text-white',
   };
-  return colors[rec] || 'bg-gray-500 text-white';
+  return colors[rec] || 'bg-muted text-foreground';
 };
 
 const getRecommendationIcon = (rec: string) => {
@@ -107,7 +107,7 @@ const StarRating = ({ rating }: { rating: number }) => {
   return (
     <div className="flex">
       {[1, 2, 3, 4, 5].map((star) => (
-        <span key={star} className={star <= rating ? 'text-yellow-400' : 'text-gray-300'}>
+        <span key={star} className={star <= rating ? 'text-yellow-400' : 'text-muted-foreground'}>
           ★
         </span>
       ))}

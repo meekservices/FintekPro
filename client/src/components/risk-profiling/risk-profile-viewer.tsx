@@ -262,7 +262,7 @@ export function RiskProfileViewer() {
                   <div className="flex items-center gap-2">
                     <Badge
                       variant="outline"
-                      className={`${getRiskLevel(selectedProfile.riskScore).color} text-white`}
+                      className={`${getRiskLevel(selectedProfile.riskScore).color} text-foreground`}
                       data-testid="badge-risk-level"
                     >
                       {getRiskLevel(selectedProfile.riskScore).level}

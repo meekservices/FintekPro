@@ -175,7 +175,7 @@ export default function BajajFinance() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+          <h1 className="text-4xl font-bold text-foreground mb-4">
             Bajaj Finance Services
           </h1>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">

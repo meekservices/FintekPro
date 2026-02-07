@@ -54,7 +54,7 @@ export function PortfolioNews({ portfolioId }: PortfolioNewsProps) {
       case 'fund_analysis':
         return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300';
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
+        return 'bg-muted text-foreground';
     }
   };
 
@@ -67,7 +67,7 @@ export function PortfolioNews({ portfolioId }: PortfolioNewsProps) {
         <CardContent>
           <div className="space-y-4">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="border-b border-gray-200 pb-4 last:border-b-0">
+              <div key={i} className="border-b border-border pb-4 last:border-b-0">
                 <div className="flex items-start space-x-3">
                   <Skeleton className="h-4 w-4 rounded-full" />
                   <div className="flex-1">
@@ -92,14 +92,14 @@ export function PortfolioNews({ portfolioId }: PortfolioNewsProps) {
     return (
       <Card data-testid="portfolio-news-error">
         <CardHeader>
-          <CardTitle className="text-xl font-bold text-gray-900 dark:text-gray-100">
+          <CardTitle className="text-xl font-bold text-foreground">
             Portfolio News
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8">
             <p className="text-red-500 mb-2">Error loading portfolio news</p>
-            <p className="text-gray-500 text-sm">Please check your connection and try again</p>
+            <p className="text-muted-foreground text-sm">Please check your connection and try again</p>
           </div>
         </CardContent>
       </Card>
@@ -110,14 +110,14 @@ export function PortfolioNews({ portfolioId }: PortfolioNewsProps) {
     return (
       <Card data-testid="portfolio-news-empty">
         <CardHeader>
-          <CardTitle className="text-xl font-bold text-gray-900 dark:text-gray-100">
+          <CardTitle className="text-xl font-bold text-foreground">
             Portfolio News
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8">
-            <p className="text-gray-500 mb-2">No personalized news available</p>
-            <p className="text-gray-400 text-sm">Add holdings to your portfolio to see relevant news</p>
+            <p className="text-muted-foreground mb-2">No personalized news available</p>
+            <p className="text-muted-foreground text-sm">Add holdings to your portfolio to see relevant news</p>
           </div>
         </CardContent>
       </Card>
@@ -127,9 +127,9 @@ export function PortfolioNews({ portfolioId }: PortfolioNewsProps) {
   return (
     <Card data-testid="portfolio-news">
       <CardHeader>
-        <CardTitle className="text-xl font-bold text-gray-900 dark:text-gray-100">
+        <CardTitle className="text-xl font-bold text-foreground">
           Portfolio News
-          <span className="ml-2 text-sm font-normal text-gray-500">
+          <span className="ml-2 text-sm font-normal text-muted-foreground">
             Personalized for your holdings
           </span>
         </CardTitle>
@@ -139,7 +139,7 @@ export function PortfolioNews({ portfolioId }: PortfolioNewsProps) {
           {news.map((article) => (
             <div 
               key={article.id} 
-              className="border-b border-gray-200 dark:border-gray-700 pb-4 last:border-b-0"
+              className="border-b border-border pb-4 last:border-b-0"
               data-testid={`news-item-${article.category}`}
             >
               <div className="flex items-start space-x-3">
@@ -148,7 +148,7 @@ export function PortfolioNews({ portfolioId }: PortfolioNewsProps) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between mb-2">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 leading-tight">
+                    <h3 className="text-sm font-semibold text-foreground leading-tight">
                       {article.headline}
                     </h3>
                     <Badge 
@@ -159,11 +159,11 @@ export function PortfolioNews({ portfolioId }: PortfolioNewsProps) {
                     </Badge>
                   </div>
                   
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-3">
+                  <p className="text-sm text-muted-foreground mb-3 line-clamp-3">
                     {article.summary}
                   </p>
                   
-                  <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span className="flex items-center">
                       <Clock className="h-3 w-3 mr-1" />
                       {formatTimeAgo(article.datetime)}
@@ -185,11 +185,11 @@ export function PortfolioNews({ portfolioId }: PortfolioNewsProps) {
                   
                   {article.relevanceScore && (
                     <div className="mt-2">
-                      <div className="flex items-center justify-between text-xs text-gray-500">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span>Relevance to your portfolio</span>
                         <span className="font-semibold">{article.relevanceScore}%</span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
+                      <div className="w-full bg-muted rounded-full h-1.5 mt-1">
                         <div 
                           className="bg-blue-600 h-1.5 rounded-full" 
                           style={{ width: `${article.relevanceScore}%` }}
@@ -204,8 +204,8 @@ export function PortfolioNews({ portfolioId }: PortfolioNewsProps) {
         </div>
         
         {news.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <p className="text-xs text-gray-500 text-center">
+          <div className="mt-4 pt-4 border-t border-border">
+            <p className="text-xs text-muted-foreground text-center">
               News personalized based on your portfolio holdings and risk profile
             </p>
           </div>

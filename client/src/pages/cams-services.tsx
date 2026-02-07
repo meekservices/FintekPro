@@ -226,7 +226,7 @@ export default function CamsServices() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900" data-testid="page-title">CAMS Services</h1>
+          <h1 className="text-3xl font-bold text-foreground" data-testid="page-title">CAMS Services</h1>
           <p className="text-muted-foreground mt-2" data-testid="page-description">
             Complete mutual fund registrar services and portfolio management
           </p>
@@ -429,7 +429,7 @@ export default function CamsServices() {
               <Card>
                 <CardContent className="p-8 text-center">
                   <Wallet className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No Portfolio Data</h3>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No Portfolio Data</h3>
                   <p className="text-muted-foreground">No mutual fund holdings found for this PAN.</p>
                 </CardContent>
               </Card>
@@ -496,7 +496,7 @@ export default function CamsServices() {
               <Card>
                 <CardContent className="p-8 text-center">
                   <BarChart3 className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No Transactions</h3>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No Transactions</h3>
                   <p className="text-muted-foreground">No transaction history found for this PAN.</p>
                 </CardContent>
               </Card>
@@ -927,7 +927,7 @@ export default function CamsServices() {
                 ) : (
                   <div className="text-center py-8">
                     <DollarSign className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Schemes Available</h3>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">No Schemes Available</h3>
                     <p className="text-muted-foreground">Unable to load scheme data at this time.</p>
                   </div>
                 )}
@@ -945,7 +945,7 @@ export default function CamsServices() {
               <CardContent className="space-y-4">
                 <div className="text-center py-8">
                   <Download className="h-16 w-16 text-blue-600 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Generate Statement</h3>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">Generate Statement</h3>
                   <p className="text-muted-foreground mb-4">
                     Generate your CAMS account statement for the last 12 months
                   </p>

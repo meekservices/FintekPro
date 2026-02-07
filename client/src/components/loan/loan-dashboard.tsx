@@ -64,7 +64,7 @@ export function LoanDashboard() {
       case "disbursed":
         return "bg-blue-100 text-blue-800";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-muted text-foreground";
     }
   };
 
@@ -160,19 +160,19 @@ export function LoanDashboard() {
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <p className="text-sm text-gray-600">Application Number</p>
+                <p className="text-sm text-muted-foreground">Application Number</p>
                 <p className="font-semibold">{activeLoan.applicationNumber}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Loan Amount</p>
+                <p className="text-sm text-muted-foreground">Loan Amount</p>
                 <p className="font-semibold text-lg">₹{(activeLoan.approvedAmount || activeLoan.requestedAmount).toLocaleString()}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Interest Rate</p>
+                <p className="text-sm text-muted-foreground">Interest Rate</p>
                 <p className="font-semibold">{activeLoan.interestRate || '10.25'}% p.a.</p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Status</p>
+                <p className="text-sm text-muted-foreground">Status</p>
                 <Badge className={getStatusColor(activeLoan.status)}>
                   {getStatusIcon(activeLoan.status)}
                   <span className="ml-1 capitalize">{activeLoan.status}</span>
@@ -198,9 +198,9 @@ export function LoanDashboard() {
           {pendingApplications.length === 0 ? (
             <Card>
               <CardContent className="text-center py-12">
-                <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No Pending Applications</h3>
-                <p className="text-gray-600 mb-4">You don't have any loan applications pending review.</p>
+                <p className="text-muted-foreground mb-4">You don't have any loan applications pending review.</p>
                 <Dialog open={showApplicationForm} onOpenChange={setShowApplicationForm}>
                   <DialogTrigger asChild>
                     <Button data-testid="button-apply-first-loan">
@@ -222,7 +222,7 @@ export function LoanDashboard() {
                     <div className="flex justify-between items-start mb-4">
                       <div>
                         <h3 className="font-semibold text-lg">{loan.applicationNumber}</h3>
-                        <p className="text-sm text-gray-600">Applied on {formatDate(loan.createdAt)}</p>
+                        <p className="text-sm text-muted-foreground">Applied on {formatDate(loan.createdAt)}</p>
                       </div>
                       <Badge className={getStatusColor(loan.status)}>
                         {getStatusIcon(loan.status)}
@@ -232,19 +232,19 @@ export function LoanDashboard() {
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
-                        <p className="text-gray-600">Loan Amount</p>
+                        <p className="text-muted-foreground">Loan Amount</p>
                         <p className="font-semibold">₹{loan.requestedAmount.toLocaleString()}</p>
                       </div>
                       <div>
-                        <p className="text-gray-600">Purpose</p>
+                        <p className="text-muted-foreground">Purpose</p>
                         <p className="font-semibold capitalize">{loan.purpose}</p>
                       </div>
                       <div>
-                        <p className="text-gray-600">Tenure</p>
+                        <p className="text-muted-foreground">Tenure</p>
                         <p className="font-semibold">{loan.tenure} months</p>
                       </div>
                       <div>
-                        <p className="text-gray-600">Applicant</p>
+                        <p className="text-muted-foreground">Applicant</p>
                         <p className="font-semibold">{loan.applicantName}</p>
                       </div>
                     </div>
@@ -259,9 +259,9 @@ export function LoanDashboard() {
           {completedApplications.length === 0 ? (
             <Card>
               <CardContent className="text-center py-12">
-                <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No Application History</h3>
-                <p className="text-gray-600">Your completed loan applications will appear here.</p>
+                <p className="text-muted-foreground">Your completed loan applications will appear here.</p>
               </CardContent>
             </Card>
           ) : (
@@ -272,7 +272,7 @@ export function LoanDashboard() {
                     <div className="flex justify-between items-start mb-4">
                       <div>
                         <h3 className="font-semibold text-lg">{loan.applicationNumber}</h3>
-                        <p className="text-sm text-gray-600">Applied on {formatDate(loan.createdAt)}</p>
+                        <p className="text-sm text-muted-foreground">Applied on {formatDate(loan.createdAt)}</p>
                         {loan.approvalDate && (
                           <p className="text-sm text-green-600">Approved on {formatDate(loan.approvalDate)}</p>
                         )}
@@ -288,21 +288,21 @@ export function LoanDashboard() {
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
-                        <p className="text-gray-600">Requested Amount</p>
+                        <p className="text-muted-foreground">Requested Amount</p>
                         <p className="font-semibold">₹{loan.requestedAmount.toLocaleString()}</p>
                       </div>
                       {loan.approvedAmount && (
                         <div>
-                          <p className="text-gray-600">Approved Amount</p>
+                          <p className="text-muted-foreground">Approved Amount</p>
                           <p className="font-semibold text-green-600">₹{loan.approvedAmount.toLocaleString()}</p>
                         </div>
                       )}
                       <div>
-                        <p className="text-gray-600">Purpose</p>
+                        <p className="text-muted-foreground">Purpose</p>
                         <p className="font-semibold capitalize">{loan.purpose}</p>
                       </div>
                       <div>
-                        <p className="text-gray-600">Tenure</p>
+                        <p className="text-muted-foreground">Tenure</p>
                         <p className="font-semibold">{loan.tenure} months</p>
                       </div>
                     </div>
@@ -311,15 +311,15 @@ export function LoanDashboard() {
                       <div className="mt-4 pt-4 border-t">
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                           <div>
-                            <p className="text-gray-600">Interest Rate</p>
+                            <p className="text-muted-foreground">Interest Rate</p>
                             <p className="font-semibold">{loan.interestRate || '10.25'}% p.a.</p>
                           </div>
                           <div>
-                            <p className="text-gray-600">Next EMI Due</p>
+                            <p className="text-muted-foreground">Next EMI Due</p>
                             <p className="font-semibold">15th Next Month</p>
                           </div>
                           <div>
-                            <p className="text-gray-600">Outstanding Balance</p>
+                            <p className="text-muted-foreground">Outstanding Balance</p>
                             <p className="font-semibold text-red-600">₹{(loan.approvedAmount || loan.requestedAmount).toLocaleString()}</p>
                           </div>
                         </div>
@@ -340,7 +340,7 @@ export function LoanDashboard() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Total Applications</p>
+                  <p className="text-sm text-muted-foreground">Total Applications</p>
                   <p className="text-2xl font-bold">{loans.length}</p>
                 </div>
                 <FileText className="h-8 w-8 text-blue-600" />
@@ -352,7 +352,7 @@ export function LoanDashboard() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Active Loans</p>
+                  <p className="text-sm text-muted-foreground">Active Loans</p>
                   <p className="text-2xl font-bold">
                     {loans.filter((loan: LoanApplication) => loan.status === 'disbursed').length}
                   </p>
@@ -366,7 +366,7 @@ export function LoanDashboard() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Total Borrowed</p>
+                  <p className="text-sm text-muted-foreground">Total Borrowed</p>
                   <p className="text-2xl font-bold">
                     ₹{loans
                       .filter((loan: LoanApplication) => loan.status === 'disbursed')

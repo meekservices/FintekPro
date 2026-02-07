@@ -125,10 +125,10 @@ const statusColors: Record<string, string> = {
   paid: "bg-emerald-500/20 text-emerald-400",
   sent: "bg-blue-500/20 text-blue-400",
   overdue: "bg-red-500/20 text-red-400",
-  draft: "bg-gray-500/20 text-muted-foreground",
+  draft: "bg-muted/20 text-muted-foreground",
   open: "bg-yellow-500/20 text-yellow-400",
   partially_paid: "bg-orange-500/20 text-orange-400",
-  void: "bg-slate-500/20 text-slate-400",
+  void: "bg-muted/20 text-muted-foreground",
   unpaid: "bg-amber-500/20 text-amber-400",
 };
 

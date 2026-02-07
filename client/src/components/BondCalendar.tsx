@@ -105,15 +105,15 @@ const sourceConfig: Record<string, { label: string; color: string; icon: string 
   nse_external: { label: "NSE", color: "bg-orange-600", icon: "NSE" },
   bse: { label: "BSE", color: "bg-red-600", icon: "BSE" },
   bse_external: { label: "BSE", color: "bg-red-600", icon: "BSE" },
-  internal: { label: "Internal", color: "bg-gray-500", icon: "INT" },
+  internal: { label: "Internal", color: "bg-muted", icon: "INT" },
 };
 
 function SourceBadge({ source }: { source: string }) {
-  const srcConfig = sourceConfig[source] || { label: source, color: "bg-gray-500", icon: source };
+  const srcConfig = sourceConfig[source] || { label: source, color: "bg-muted", icon: source };
   const isExternal = source.includes('external');
   
   return (
-    <Badge className={`${srcConfig.color} text-white text-xs flex items-center gap-1`}>
+    <Badge className={`${srcConfig.color} text-foreground text-xs flex items-center gap-1`}>
       {isExternal && <Globe className="h-2.5 w-2.5" />}
       {srcConfig.label}
     </Badge>
@@ -128,7 +128,7 @@ function EventCard({ event, compact = false }: { event: BondCalendarEvent; compa
     bgColor: "bg-muted" 
   };
   const Icon = config.icon;
-  const instrConfig = instrumentTypeConfig[event.instrumentType] || { label: event.instrumentType, color: "bg-gray-500" };
+  const instrConfig = instrumentTypeConfig[event.instrumentType] || { label: event.instrumentType, color: "bg-muted" };
 
   if (compact) {
     return (
@@ -157,7 +157,7 @@ function EventCard({ event, compact = false }: { event: BondCalendarEvent; compa
             <p className="text-xs text-muted-foreground mb-2">{event.instrumentName}</p>
             <div className="flex flex-wrap gap-1.5">
               <Badge variant="outline" className="text-xs">{config.label}</Badge>
-              <Badge className={`${instrConfig.color} text-white text-xs`}>{instrConfig.label}</Badge>
+              <Badge className={`${instrConfig.color} text-foreground text-xs`}>{instrConfig.label}</Badge>
               {event.creditRating && (
                 <Badge variant="secondary" className="text-xs">{event.creditRating}</Badge>
               )}

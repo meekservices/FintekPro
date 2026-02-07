@@ -138,7 +138,7 @@ export default function PremiumInvestments() {
       <div className="min-h-screen bg-muted p-6">
         <div className="max-w-7xl mx-auto space-y-8">
           <div className="text-center space-y-2">
-            <h1 className="text-4xl font-bold text-gray-900">FintekPro Premium Investments</h1>
+            <h1 className="text-4xl font-bold text-foreground">FintekPro Premium Investments</h1>
             <p className="text-xl text-muted-foreground">Elite investment opportunities for sophisticated investors</p>
           </div>
           <Alert className="border-yellow-500 bg-yellow-50">
@@ -159,7 +159,7 @@ export default function PremiumInvestments() {
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
         <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold text-gray-900">FintekPro Premium Investments</h1>
+          <h1 className="text-4xl font-bold text-foreground">FintekPro Premium Investments</h1>
           <p className="text-xl text-muted-foreground">
             Access REITs, InvITs, PMS & AIF with your {formatCurrency(financialAnalysis.additionalCapacity)} monthly surplus - Elite investment opportunities for sophisticated investors
           </p>
@@ -205,19 +205,19 @@ export default function PremiumInvestments() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="text-center p-4 bg-white rounded-lg border border-green-200">
+                  <div className="text-center p-4 bg-card rounded-lg border border-green-200">
                     <div className="text-3xl font-bold text-green-600 mb-2">{formatCurrency(financialAnalysis.additionalCapacity)}</div>
                     <p className="text-sm font-medium text-green-800">Available for New Investments</p>
                     <p className="text-xs text-green-600 mt-1">Monthly surplus after obligations</p>
                   </div>
                   
-                  <div className="text-center p-4 bg-white rounded-lg border border-blue-200">
+                  <div className="text-center p-4 bg-card rounded-lg border border-blue-200">
                     <div className="text-3xl font-bold text-blue-600 mb-2">{financialAnalysis.obligationRatio}%</div>
                     <p className="text-sm font-medium text-blue-800">Obligation Ratio</p>
                     <p className="text-xs text-blue-600 mt-1">Healthy debt-to-income ratio</p>
                   </div>
                   
-                  <div className="text-center p-4 bg-white rounded-lg border border-purple-200">
+                  <div className="text-center p-4 bg-card rounded-lg border border-purple-200">
                     <div className="text-3xl font-bold text-purple-600 mb-2">{financialAnalysis.creditScore}</div>
                     <p className="text-sm font-medium text-purple-800">Credit Score</p>
                     <p className="text-xs text-purple-600 mt-1">Excellent for investment loans</p>
@@ -227,7 +227,7 @@ export default function PremiumInvestments() {
                 <div className="mt-6 text-center">
                   <Button 
                     size="lg"
-                    className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+                    className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-foreground"
                     onClick={() => setActiveTab("recommendations")}
                     data-testid="button-start-investing"
                   >
@@ -335,11 +335,11 @@ export default function PremiumInvestments() {
                           data-testid={`holding-${holding.symbol}`}
                         >
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center text-white font-semibold text-sm">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center text-foreground font-semibold text-sm">
                               {holding.symbol.slice(0, 2).toUpperCase()}
                             </div>
                             <div>
-                              <p className="font-semibold text-gray-900">{holding.symbol}</p>
+                              <p className="font-semibold text-foreground">{holding.symbol}</p>
                               <div className="flex items-center gap-2">
                                 <Badge variant="outline" className="text-xs">
                                   {holding.assetType}
@@ -360,7 +360,7 @@ export default function PremiumInvestments() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-semibold text-gray-900">{formatCurrency(investedValue)}</p>
+                            <p className="font-semibold text-foreground">{formatCurrency(investedValue)}</p>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                               <span>{quantity.toFixed(2)} units</span>
                               <span>@</span>
@@ -376,7 +376,7 @@ export default function PremiumInvestments() {
                     <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
                       <BarChart3 className="w-8 h-8 text-muted-foreground" />
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Holdings Yet</h3>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">No Holdings Yet</h3>
                     <p className="text-muted-foreground mb-4">
                       Start building your investment portfolio today
                     </p>
@@ -601,7 +601,7 @@ export default function PremiumInvestments() {
                       </div>
                     </div>
                     <div className="space-y-3">
-                      <div className="bg-white p-3 rounded border">
+                      <div className="bg-card p-3 rounded border">
                         <p className="text-sm text-muted-foreground">Current Progress: 17%</p>
                         <div className="w-full bg-muted rounded-full h-2 mt-1">
                           <div className="bg-blue-600 h-2 rounded-full" style={{ width: '17%' }}></div>
@@ -626,7 +626,7 @@ export default function PremiumInvestments() {
                       </div>
                     </div>
                     <div className="space-y-3">
-                      <div className="bg-white p-3 rounded border">
+                      <div className="bg-card p-3 rounded border">
                         <p className="text-sm text-muted-foreground">Current Progress: 13%</p>
                         <div className="w-full bg-muted rounded-full h-2 mt-1">
                           <div className="bg-green-600 h-2 rounded-full" style={{ width: '13%' }}></div>
@@ -651,7 +651,7 @@ export default function PremiumInvestments() {
                       </div>
                     </div>
                     <div className="space-y-3">
-                      <div className="bg-white p-3 rounded border">
+                      <div className="bg-card p-3 rounded border">
                         <p className="text-sm text-muted-foreground">Current Progress: 4%</p>
                         <div className="w-full bg-muted rounded-full h-2 mt-1">
                           <div className="bg-purple-600 h-2 rounded-full" style={{ width: '4%' }}></div>
@@ -666,7 +666,7 @@ export default function PremiumInvestments() {
                   </div>
                 </div>
 
-                <div className="mt-6 p-6 bg-gradient-to-r from-emerald-600 to-green-600 rounded-lg text-white">
+                <div className="mt-6 p-6 bg-gradient-to-r from-emerald-600 to-green-600 rounded-lg text-foreground">
                   <div className="text-center space-y-4">
                     <h3 className="text-xl font-bold">💰 Start Your Wealth Acceleration Today!</h3>
                     <p className="text-emerald-100">Your excellent credit profile and surplus income make this the perfect time to invest</p>
@@ -676,7 +676,7 @@ export default function PremiumInvestments() {
                         variant="secondary"
                         onClick={() => setActiveTab("goals")}
                         data-testid="button-set-investment-goals"
-                        className="bg-white text-green-700 hover:bg-muted"
+                        className="bg-card text-green-700 hover:bg-muted"
                       >
                         <Target className="w-4 h-4 mr-2" />
                         Set Investment Goals
@@ -686,7 +686,7 @@ export default function PremiumInvestments() {
                         variant="secondary"
                         onClick={() => setActiveTab("recommendations")}
                         data-testid="button-get-recommendations"
-                        className="bg-white text-green-700 hover:bg-muted"
+                        className="bg-card text-green-700 hover:bg-muted"
                       >
                         <Lightbulb className="w-4 h-4 mr-2" />
                         Get AI Recommendations
@@ -696,7 +696,7 @@ export default function PremiumInvestments() {
                         variant="secondary"
                         onClick={() => setActiveTab("risk")}
                         data-testid="button-assess-risk-profile"
-                        className="bg-white text-green-700 hover:bg-muted"
+                        className="bg-card text-green-700 hover:bg-muted"
                       >
                         <PieChart className="w-4 h-4 mr-2" />
                         Assess Risk Profile
@@ -837,14 +837,14 @@ export default function PremiumInvestments() {
                 </div>
 
                 {/* Allocation Strategy */}
-                <div className="bg-white rounded-lg p-6 border border-amber-200">
+                <div className="bg-card rounded-lg p-6 border border-amber-200">
                   <h4 className="font-semibold text-amber-900 mb-4 flex items-center gap-2">
                     <Calculator className="w-5 h-5" />
                     Optimal Allocation for ₹72,000 Monthly Surplus
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-3">
-                      <h5 className="font-medium text-gray-900">Immediate Allocation (Available Now)</h5>
+                      <h5 className="font-medium text-foreground">Immediate Allocation (Available Now)</h5>
                       <div className="space-y-2">
                         <div className="flex justify-between items-center p-2 bg-blue-50 rounded">
                           <span className="text-sm">REITs & InvITs (15%)</span>
@@ -861,7 +861,7 @@ export default function PremiumInvestments() {
                       </div>
                     </div>
                     <div className="space-y-3">
-                      <h5 className="font-medium text-gray-900">Future Goals (Accumulation Strategy)</h5>
+                      <h5 className="font-medium text-foreground">Future Goals (Accumulation Strategy)</h5>
                       <div className="space-y-2">
                         <div className="flex justify-between items-center p-2 bg-purple-50 rounded">
                           <span className="text-sm">PMS Target (₹50L)</span>
@@ -882,7 +882,7 @@ export default function PremiumInvestments() {
                   <div className="mt-6 text-center">
                     <Button 
                       size="lg"
-                      className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white"
+                      className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-foreground"
                       onClick={() => setActiveTab("recommendations")}
                       data-testid="button-start-premium-investing"
                     >
@@ -904,26 +904,26 @@ export default function PremiumInvestments() {
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="p-4 bg-white rounded-lg border border-red-200">
+                    <div className="p-4 bg-card rounded-lg border border-red-200">
                       <h4 className="font-bold text-red-800 mb-2">Delaying 1 Year</h4>
                       <div className="text-2xl font-bold text-red-600">-₹18 Lakhs</div>
                       <p className="text-sm text-red-600">Lost compound growth</p>
                     </div>
                     
-                    <div className="p-4 bg-white rounded-lg border border-orange-200">
+                    <div className="p-4 bg-card rounded-lg border border-orange-200">
                       <h4 className="font-bold text-orange-800 mb-2">Delaying 3 Years</h4>
                       <div className="text-2xl font-bold text-orange-600">-₹65 Lakhs</div>
                       <p className="text-sm text-orange-600">Massive opportunity loss</p>
                     </div>
                     
-                    <div className="p-4 bg-white rounded-lg border border-green-200">
+                    <div className="p-4 bg-card rounded-lg border border-green-200">
                       <h4 className="font-bold text-green-800 mb-2">Starting Today</h4>
                       <div className="text-2xl font-bold text-green-600">+₹2.4 Cr</div>
                       <p className="text-sm text-green-600">Extra wealth in 10 years</p>
                     </div>
                   </div>
                   
-                  <div className="mt-6 p-4 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-lg">
+                  <div className="mt-6 p-4 bg-gradient-to-r from-emerald-600 to-green-600 text-foreground rounded-lg">
                     <p className="text-lg font-bold mb-2">🎯 Your CIBIL Profile is Perfect for Wealth Building!</p>
                     <p className="text-emerald-100 mb-4">
                       With 785 credit score and only 35% obligation ratio, you're in the top 5% of investors. 
@@ -932,7 +932,7 @@ export default function PremiumInvestments() {
                     <Button 
                       size="lg"
                       variant="secondary"
-                      className="bg-white text-green-700 hover:bg-muted font-bold"
+                      className="bg-card text-green-700 hover:bg-muted font-bold"
                       onClick={() => setActiveTab("recommendations")}
                       data-testid="button-start-investing-now"
                     >

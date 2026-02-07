@@ -58,7 +58,7 @@ const loanApplicationSchema = z.object({
 type LoanApplicationForm = z.infer<typeof loanApplicationSchema>;
 
 const statusColors: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-800",
+  draft: "bg-muted text-foreground",
   submitted: "bg-blue-100 text-blue-800",
   eligibility_check: "bg-purple-100 text-purple-800",
   routed: "bg-indigo-100 text-indigo-800",
@@ -169,13 +169,13 @@ export default function LoanApplyPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-background dark:to-card">
       <div className="container mx-auto py-8 px-4 max-w-5xl">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+          <h1 className="text-3xl font-bold text-foreground mb-2">
             Multi-Bank Loan Application
           </h1>
-          <p className="text-gray-600 dark:text-gray-300">
+          <p className="text-muted-foreground">
             Apply once, get offers from multiple partner banks instantly
           </p>
         </div>
@@ -248,7 +248,7 @@ export default function LoanApplyPage() {
                                 <FormLabel>Loan Amount (₹)</FormLabel>
                                 <FormControl>
                                   <div className="relative">
-                                    <IndianRupee className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <IndianRupee className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                     <Input {...field} type="number" placeholder="500000" className="pl-10" />
                                   </div>
                                 </FormControl>
@@ -321,7 +321,7 @@ export default function LoanApplyPage() {
                                 <FormLabel>Full Name (as per PAN)</FormLabel>
                                 <FormControl>
                                   <div className="relative">
-                                    <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                     <Input {...field} placeholder="John Doe" className="pl-10" />
                                   </div>
                                 </FormControl>
@@ -338,7 +338,7 @@ export default function LoanApplyPage() {
                                 <FormLabel>PAN Number</FormLabel>
                                 <FormControl>
                                   <div className="relative">
-                                    <CreditCard className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <CreditCard className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                     <Input {...field} placeholder="ABCDE1234F" className="pl-10 uppercase" />
                                   </div>
                                 </FormControl>
@@ -355,7 +355,7 @@ export default function LoanApplyPage() {
                                 <FormLabel>Email Address</FormLabel>
                                 <FormControl>
                                   <div className="relative">
-                                    <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                     <Input {...field} type="email" placeholder="john@example.com" className="pl-10" />
                                   </div>
                                 </FormControl>
@@ -372,7 +372,7 @@ export default function LoanApplyPage() {
                                 <FormLabel>Mobile Number</FormLabel>
                                 <FormControl>
                                   <div className="relative">
-                                    <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                     <Input {...field} placeholder="9876543210" className="pl-10" />
                                   </div>
                                 </FormControl>
@@ -389,7 +389,7 @@ export default function LoanApplyPage() {
                                 <FormLabel>Date of Birth</FormLabel>
                                 <FormControl>
                                   <div className="relative">
-                                    <Calendar className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                     <Input {...field} type="date" className="pl-10" />
                                   </div>
                                 </FormControl>
@@ -429,7 +429,7 @@ export default function LoanApplyPage() {
                                 <FormLabel>Monthly Income (₹)</FormLabel>
                                 <FormControl>
                                   <div className="relative">
-                                    <Briefcase className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <Briefcase className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                     <Input {...field} type="number" placeholder="75000" className="pl-10" />
                                   </div>
                                 </FormControl>
@@ -446,7 +446,7 @@ export default function LoanApplyPage() {
                                 <FormLabel>Credit Score (Optional)</FormLabel>
                                 <FormControl>
                                   <div className="relative">
-                                    <TrendingUp className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <TrendingUp className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                     <Input {...field} type="number" placeholder="750" className="pl-10" />
                                   </div>
                                 </FormControl>
@@ -496,7 +496,7 @@ export default function LoanApplyPage() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {["ICICI Bank", "HDFC Bank", "Axis Bank", "Kotak Mahindra", "SBI", "Bajaj Finance", "Tata Capital"].map((bank, i) => (
-                      <div key={bank} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div key={bank} className="flex items-center justify-between p-2 bg-muted rounded-lg">
                         <span className="font-medium text-sm">{bank}</span>
                         <Badge variant="outline" className="text-xs">
                           {8.5 + i * 0.5}% - {12 + i * 0.5}%
@@ -575,27 +575,27 @@ export default function LoanApplyPage() {
                                   {app.status.replace(/_/g, " ")}
                                 </Badge>
                               </div>
-                              <p className="text-sm text-gray-500">
+                              <p className="text-sm text-muted-foreground">
                                 Application ID: {app.applicationNumber || app.id}
                               </p>
                             </div>
                             <div className="text-right">
                               <p className="font-bold text-lg">{formatCurrency(app.requestedAmount)}</p>
-                              <p className="text-sm text-gray-500">{app.requestedTenure} months</p>
+                              <p className="text-sm text-muted-foreground">{app.requestedTenure} months</p>
                             </div>
                           </div>
 
                           <div className="grid grid-cols-3 gap-4 text-sm mb-3">
                             <div>
-                              <p className="text-gray-500">Applied On</p>
+                              <p className="text-muted-foreground">Applied On</p>
                               <p className="font-medium">{formatDate(app.createdAt)}</p>
                             </div>
                             <div>
-                              <p className="text-gray-500">Banks Routed</p>
+                              <p className="text-muted-foreground">Banks Routed</p>
                               <p className="font-medium">{app.routedBanks?.length || 0} banks</p>
                             </div>
                             <div>
-                              <p className="text-gray-500">Strategy</p>
+                              <p className="text-muted-foreground">Strategy</p>
                               <p className="font-medium capitalize">{app.routingStrategy}</p>
                             </div>
                           </div>
@@ -612,7 +612,7 @@ export default function LoanApplyPage() {
                           )}
 
                           <div className="mt-4 pt-4 border-t">
-                            <p className="text-xs text-gray-500 mb-3">Application Progress</p>
+                            <p className="text-xs text-muted-foreground mb-3">Application Progress</p>
                             <LoanProgressStepper status={app.status} />
                           </div>
                         </div>
@@ -621,11 +621,11 @@ export default function LoanApplyPage() {
                   </div>
                 ) : (
                   <div className="text-center py-12">
-                    <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">
+                    <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-foreground mb-1">
                       No Applications Yet
                     </h3>
-                    <p className="text-gray-500 mb-4">
+                    <p className="text-muted-foreground mb-4">
                       Start by applying for a loan to see your applications here
                     </p>
                     <Button onClick={() => setActiveTab("apply")}>

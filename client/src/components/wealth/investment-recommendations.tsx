@@ -135,7 +135,7 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
       case 'high':
         return 'text-red-600 bg-red-50';
       default:
-        return 'text-gray-600 bg-gray-50';
+        return 'text-muted-foreground bg-muted';
     }
   };
 
@@ -246,7 +246,7 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
                   {aiActionables.actionables.map((actionable: string, index: number) => (
                     <div 
                       key={index} 
-                      className="flex items-start gap-3 p-4 border rounded-lg hover:bg-gray-50"
+                      className="flex items-start gap-3 p-4 border rounded-lg hover:bg-muted"
                       data-testid={`actionable-${selectedCategory}-${index}`}
                     >
                       <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -862,7 +862,7 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
                     </div>
                     <div className="flex items-center justify-between p-2 bg-amber-100 rounded">
                       <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                        <div className="w-2 h-2 bg-muted-foreground rounded-full"></div>
                         <span className="text-xs font-medium text-amber-800">Silver ETF</span>
                       </div>
                       <div className="text-right">
@@ -1047,11 +1047,11 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
       {/* AI Timeline & Milestones */}
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-gray-900">
-            <Clock className="w-5 h-5 text-gray-600" />
+          <CardTitle className="flex items-center gap-2 text-foreground">
+            <Clock className="w-5 h-5 text-muted-foreground" />
             AI Investment Timeline & Milestones
           </CardTitle>
-          <CardDescription className="text-gray-700">
+          <CardDescription className="text-muted-foreground">
             Strategic milestones in your premium investment journey
           </CardDescription>
         </CardHeader>
@@ -1184,11 +1184,11 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
       {(!goalRecommendations?.length && !rebalanceRecommendations?.length) && (
         <Card data-testid="card-no-recommendations">
           <CardContent className="p-6 text-center space-y-4">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
-              <Target className="w-8 h-8 text-gray-400" />
+            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto">
+              <Target className="w-8 h-8 text-muted-foreground" />
             </div>
             <div>
-              <h3 className="font-medium text-gray-900">No Recommendations Available</h3>
+              <h3 className="font-medium text-foreground">No Recommendations Available</h3>
               <p className="text-sm text-muted-foreground mt-1">
                 Set up your financial goals and portfolio to get personalized investment recommendations
               </p>

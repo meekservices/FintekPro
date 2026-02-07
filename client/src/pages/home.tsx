@@ -299,10 +299,10 @@ export default function Home() {
         </div>
         
         {/* Hero Section with Enhanced Design */}
-        <section className="relative bg-gradient-to-r from-blue-900 via-blue-800 to-purple-900 text-white py-20 overflow-hidden">
+        <section className="relative bg-gradient-to-r from-blue-900 via-blue-800 to-purple-900 text-foreground py-20 overflow-hidden">
           {/* Animated background elements */}
           <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-20 left-10 w-72 h-72 rounded-full bg-white/20 animate-pulse"></div>
+            <div className="absolute top-20 left-10 w-72 h-72 rounded-full bg-card/20 animate-pulse"></div>
             <div className="absolute bottom-20 right-10 w-96 h-96 rounded-full bg-purple-300/30 animate-bounce slow"></div>
           </div>
           
@@ -312,7 +312,7 @@ export default function Home() {
               <div className="space-y-8">
                 {/* Personalized Greeting */}
                 {isAuthenticated && currentUser && (
-                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20" data-testid="user-greeting">
+                  <div className="bg-card/10 backdrop-blur-sm rounded-xl p-4 border border-white/20" data-testid="user-greeting">
                     <p className="text-lg text-blue-100">
                       {getGreeting()}, <span className="font-semibold text-yellow-400">{getUserDisplayName()}</span>! 👋
                     </p>
@@ -341,13 +341,13 @@ export default function Home() {
                 {/* CTA Buttons */}
                 <div className="flex flex-col sm:flex-row gap-4 w-full">
                   <Link href="/wealth-management" className="w-full sm:w-auto">
-                    <Button size="lg" className="w-full sm:w-auto bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 text-white font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-xl shadow-2xl transform hover:scale-105 transition-all">
+                    <Button size="lg" className="w-full sm:w-auto bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 text-foreground font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-xl shadow-2xl transform hover:scale-105 transition-all">
                       <Target className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                       <span className="text-sm sm:text-base">Start Smart Investing</span>
                       <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />
                     </Button>
                   </Link>
-                  <Button size="lg" variant="outline" className="w-full sm:w-auto border-2 border-white/30 text-white hover:bg-white/10 font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-xl backdrop-blur-sm">
+                  <Button size="lg" variant="outline" className="w-full sm:w-auto border-2 border-white/30 text-foreground hover:bg-card/10 font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-xl backdrop-blur-sm">
                     <PlayCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                     <span className="text-sm sm:text-base">Watch Demo</span>
                   </Button>
@@ -360,7 +360,7 @@ export default function Home() {
                       <div className="flex items-center justify-center mb-2">
                         <stat.icon className="w-6 h-6 text-yellow-400" />
                       </div>
-                      <div className="text-2xl font-bold text-white">{stat.value}</div>
+                      <div className="text-2xl font-bold text-foreground">{stat.value}</div>
                       <div className="text-sm text-blue-200">{stat.label}</div>
                     </div>
                   ))}
@@ -376,10 +376,10 @@ export default function Home() {
         </section>
 
         {/* Platform Features Section */}
-        <section className="py-20 bg-white">
+        <section className="py-20 bg-card">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
-              <h2 className="text-4xl font-bold text-gray-900 mb-4">
+              <h2 className="text-4xl font-bold text-foreground mb-4">
                 Why Choose FintekPro?
               </h2>
               <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
@@ -431,7 +431,7 @@ export default function Home() {
                           <FeatureIcon className="w-6 h-6" />
                         </div>
                         <div className="flex-1">
-                          <h3 className="text-lg font-semibold text-gray-900 mb-2">{feature.title}</h3>
+                          <h3 className="text-lg font-semibold text-foreground mb-2">{feature.title}</h3>
                           <p className="text-muted-foreground mb-3">{feature.description}</p>
                           <Badge variant="secondary" className="text-xs">
                             {feature.stats}
@@ -446,7 +446,7 @@ export default function Home() {
               {/* Feature Showcase */}
               <div className="relative">
                 <div 
-                  className="bg-gradient-to-br from-blue-900 to-purple-900 rounded-2xl p-8 text-white shadow-2xl"
+                  className="bg-gradient-to-br from-blue-900 to-purple-900 rounded-2xl p-8 text-foreground shadow-2xl"
                   role="tabpanel"
                   id="feature-showcase-panel"
                   aria-labelledby={`feature-tab-${activeFeature}`}
@@ -460,7 +460,7 @@ export default function Home() {
                     <h3 className="text-2xl font-bold">{platformFeatures[activeFeature].title}</h3>
                   </div>
                   <p className="text-blue-100 text-lg mb-6">{platformFeatures[activeFeature].description}</p>
-                  <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+                  <div className="bg-card/10 backdrop-blur-sm rounded-lg p-4">
                     <div className="text-3xl font-bold text-yellow-400 mb-2">
                       {platformFeatures[activeFeature].stats}
                     </div>
@@ -476,7 +476,7 @@ export default function Home() {
         <section className="py-20 bg-muted" data-testid="investment-products-section">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
-              <h2 className="text-4xl font-bold text-gray-900 mb-4">Investment Products</h2>
+              <h2 className="text-4xl font-bold text-foreground mb-4">Investment Products</h2>
               <p className="text-xl text-muted-foreground">Complete suite of investment solutions for wealth creation</p>
             </div>
 
@@ -493,7 +493,7 @@ export default function Home() {
                           </div>
                           <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
                         </div>
-                        <CardTitle className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                        <CardTitle className="text-xl font-bold text-foreground group-hover:text-blue-600 transition-colors">
                           {product.name}
                         </CardTitle>
                         <p className="text-muted-foreground">{product.description}</p>
@@ -508,7 +508,7 @@ export default function Home() {
                           ))}
                         </div>
                         <div className="pt-3 border-t border-border">
-                          <p className="text-sm font-semibold text-gray-900">{product.volume}</p>
+                          <p className="text-sm font-semibold text-foreground">{product.volume}</p>
                         </div>
                       </CardContent>
                     </Card>
@@ -520,17 +520,17 @@ export default function Home() {
         </section>
 
         {/* Financial Services Categories */}
-        <section className="py-20 bg-white">
+        <section className="py-20 bg-card">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
-              <h2 className="text-4xl font-bold text-gray-900 mb-4">Financial Services</h2>
+              <h2 className="text-4xl font-bold text-foreground mb-4">Financial Services</h2>
               <p className="text-xl text-muted-foreground">Comprehensive financial services ecosystem</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {financialServices.map((category, index) => (
                 <div key={index} className="space-y-4">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                  <h3 className="text-2xl font-bold text-foreground mb-6 flex items-center">
                     <div className="w-3 h-8 bg-gradient-to-b from-blue-500 to-purple-600 rounded-full mr-3"></div>
                     {category.category}
                   </h3>
@@ -544,7 +544,7 @@ export default function Home() {
                               <div className="flex items-center space-x-3">
                                 <ServiceIcon className="w-5 h-5 text-muted-foreground group-hover:text-blue-600 transition-colors" />
                                 <div className="flex-1">
-                                  <h4 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                                  <h4 className="font-semibold text-foreground group-hover:text-blue-600 transition-colors">
                                     {service.name}
                                   </h4>
                                   <p className="text-sm text-muted-foreground">{service.desc}</p>
@@ -564,10 +564,10 @@ export default function Home() {
         </section>
 
         {/* Government Securities Yield Curve Section */}
-        <section className="py-16 bg-white" data-testid="yield-curve-section">
+        <section className="py-16 bg-card" data-testid="yield-curve-section">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-10">
-              <h2 className="text-3xl font-bold text-gray-900 mb-3">Fixed Income Market Insights</h2>
+              <h2 className="text-3xl font-bold text-foreground mb-3">Fixed Income Market Insights</h2>
               <p className="text-lg text-muted-foreground">Track government securities yields and compare historical trends</p>
             </div>
             <YieldCurveChart />
@@ -584,7 +584,7 @@ export default function Home() {
         </section>
 
         {/* Live Market Data Section */}
-        <section className="py-20 bg-gradient-to-r from-gray-900 to-blue-900 text-white">
+        <section className="py-20 bg-gradient-to-r from-gray-900 to-blue-900 text-foreground">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <h2 className="text-4xl font-bold mb-4">Live Market Intelligence</h2>
@@ -602,7 +602,7 @@ export default function Home() {
 
             <div className="mt-12 text-center">
               <Link href="/markets">
-                <Button size="lg" className="bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 text-white font-semibold px-8 py-4 rounded-xl">
+                <Button size="lg" className="bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 text-foreground font-semibold px-8 py-4 rounded-xl">
                   <Activity className="w-5 h-5 mr-2" />
                   Explore Full Market Data
                   <ArrowRight className="w-5 h-5 ml-2" />
@@ -616,7 +616,7 @@ export default function Home() {
         <section className="py-20 bg-muted">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
-              <h2 className="text-4xl font-bold text-gray-900 mb-4">Security & Trust</h2>
+              <h2 className="text-4xl font-bold text-foreground mb-4">Security & Trust</h2>
               <p className="text-xl text-muted-foreground">Your security is our top priority</p>
             </div>
 
@@ -647,7 +647,7 @@ export default function Home() {
                   <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                     <item.icon className="w-8 h-8 text-blue-600" />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{item.title}</h3>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">{item.title}</h3>
                   <p className="text-muted-foreground">{item.description}</p>
                 </div>
               ))}

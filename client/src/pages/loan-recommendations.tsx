@@ -115,7 +115,7 @@ function LoanRecommendationCard({ recommendation, onApplyClick }: {
               <LoanIcon className="w-6 h-6 text-blue-600" />
             </div>
             <div>
-              <CardTitle className="text-xl font-bold text-gray-900 capitalize">
+              <CardTitle className="text-xl font-bold text-foreground capitalize">
                 {recommendation.loanType.replace('_', ' ')} Loan
               </CardTitle>
               <CardDescription className="text-muted-foreground font-medium">
@@ -140,25 +140,25 @@ function LoanRecommendationCard({ recommendation, onApplyClick }: {
       <CardContent className="relative space-y-6">
         {/* Loan Details Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="text-center p-3 bg-white rounded-lg border border-gray-100">
+          <div className="text-center p-3 bg-card rounded-lg border border-border">
             <div className="text-2xl font-bold text-blue-600">
               {formatCurrency(recommendation.recommendedAmount)}
             </div>
             <div className="text-xs text-muted-foreground font-medium">Loan Amount</div>
           </div>
-          <div className="text-center p-3 bg-white rounded-lg border border-gray-100">
+          <div className="text-center p-3 bg-card rounded-lg border border-border">
             <div className="text-2xl font-bold text-green-600">
               {recommendation.interestRate.toFixed(2)}%
             </div>
             <div className="text-xs text-muted-foreground font-medium">Interest Rate</div>
           </div>
-          <div className="text-center p-3 bg-white rounded-lg border border-gray-100">
+          <div className="text-center p-3 bg-card rounded-lg border border-border">
             <div className="text-2xl font-bold text-purple-600">
               {formatCurrency(recommendation.emi)}
             </div>
             <div className="text-xs text-muted-foreground font-medium">Monthly EMI</div>
           </div>
-          <div className="text-center p-3 bg-white rounded-lg border border-gray-100">
+          <div className="text-center p-3 bg-card rounded-lg border border-border">
             <div className="text-2xl font-bold text-orange-600">
               {recommendation.tenure} months
             </div>
@@ -177,7 +177,7 @@ function LoanRecommendationCard({ recommendation, onApplyClick }: {
 
         {/* Key Benefits */}
         <div>
-          <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+          <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2">
             <CheckCircle className="w-4 h-4 text-green-600" />
             Key Benefits
           </h4>
@@ -235,7 +235,7 @@ function LoanRecommendationCard({ recommendation, onApplyClick }: {
         </div>
         
         {/* Processing Info */}
-        <div className="text-xs text-muted-foreground text-center pt-2 border-t border-gray-100">
+        <div className="text-xs text-muted-foreground text-center pt-2 border-t border-border">
           Expected approval time: {recommendation.expectedApprovalTime} • 
           Processing fee: {formatCurrency(recommendation.processingFee)}
         </div>
@@ -259,7 +259,7 @@ function FinancialProfileOverview() {
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="space-y-4">
-            <h4 className="font-semibold text-gray-900">Credit Health</h4>
+            <h4 className="font-semibold text-foreground">Credit Health</h4>
             <div className="space-y-3">
               <div>
                 <div className="flex justify-between items-center mb-1">
@@ -279,7 +279,7 @@ function FinancialProfileOverview() {
           </div>
           
           <div className="space-y-4">
-            <h4 className="font-semibold text-gray-900">Income & EMIs</h4>
+            <h4 className="font-semibold text-foreground">Income & EMIs</h4>
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Monthly Income</span>
@@ -297,7 +297,7 @@ function FinancialProfileOverview() {
           </div>
           
           <div className="space-y-4">
-            <h4 className="font-semibold text-gray-900">Assets & Liabilities</h4>
+            <h4 className="font-semibold text-foreground">Assets & Liabilities</h4>
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Net Worth</span>
@@ -432,7 +432,7 @@ export default function LoanRecommendationsPage() {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">
+              <h1 className="text-4xl font-bold text-foreground mb-2">
                 Personalized Loan Recommendations
               </h1>
               <p className="text-xl text-muted-foreground">
@@ -542,7 +542,7 @@ export default function LoanRecommendationsPage() {
               <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
                 <FileText className="w-8 h-8 text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-lg font-semibold text-foreground mb-2">
                 No recommendations found
               </h3>
               <p className="text-muted-foreground">

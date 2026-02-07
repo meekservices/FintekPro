@@ -435,13 +435,13 @@ export default function ReplitSuggestions() {
       case "critical": return "bg-red-500 text-white";
       case "high": return "bg-orange-500 text-white";
       case "medium": return "bg-yellow-500 text-black";
-      case "low": return "bg-gray-500 text-white";
+      case "low": return "bg-muted text-foreground";
     }
   };
 
   const getStatusColor = (status: SuggestionStatus) => {
     switch (status) {
-      case "pending": return "bg-muted dark:bg-muted text-foreground dark:bg-muted dark:text-muted-foreground";
+      case "pending": return "bg-muted text-foreground";
       case "in_progress": return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
       case "completed": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
       case "deferred": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
@@ -510,7 +510,7 @@ export default function ReplitSuggestions() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
               <Lightbulb className="h-8 w-8 text-yellow-500" />
               Replit Suggestions
             </h1>
@@ -538,7 +538,7 @@ export default function ReplitSuggestions() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-muted-foreground text-sm">Total Suggestions</p>
-                  <p className="text-2xl font-bold text-white">{stats.total}</p>
+                  <p className="text-2xl font-bold text-foreground">{stats.total}</p>
                 </div>
                 <Lightbulb className="h-8 w-8 text-yellow-500 opacity-50" />
               </div>
@@ -660,7 +660,7 @@ export default function ReplitSuggestions() {
                     <div className={`p-2 rounded-lg ${getCategoryColor(category as SuggestionCategory)}`}>
                       {getCategoryIcon(category as SuggestionCategory)}
                     </div>
-                    <h2 className="text-xl font-semibold text-white">{categoryLabel}</h2>
+                    <h2 className="text-xl font-semibold text-foreground">{categoryLabel}</h2>
                     <Badge variant="secondary">{items.length}</Badge>
                   </div>
                   
@@ -671,7 +671,7 @@ export default function ReplitSuggestions() {
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex-1 space-y-2">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <h3 className="text-lg font-medium text-white">{suggestion.title}</h3>
+                                <h3 className="text-lg font-medium text-foreground">{suggestion.title}</h3>
                                 <Badge className={getPriorityColor(suggestion.priority)}>
                                   {suggestion.priority}
                                 </Badge>
@@ -697,7 +697,7 @@ export default function ReplitSuggestions() {
                               </div>
 
                               {suggestion.notes && (
-                                <div className="mt-2 p-2 bg-gray-700 rounded text-sm">
+                                <div className="mt-2 p-2 bg-muted rounded text-sm">
                                   <p className="text-muted-foreground">Notes: {suggestion.notes}</p>
                                 </div>
                               )}
@@ -860,7 +860,7 @@ export default function ReplitSuggestions() {
 
             <Card className="bg-muted border-border">
               <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
+                <CardTitle className="text-foreground flex items-center gap-2">
                   <Bug className="h-5 w-5" />
                   Error Log Priority Matrix
                 </CardTitle>
@@ -881,8 +881,8 @@ export default function ReplitSuggestions() {
                         key={error.id}
                         className={`p-4 rounded-lg border ${
                           error.resolved 
-                            ? 'bg-gray-700/50 border-border opacity-60' 
-                            : 'bg-gray-700 border-border'
+                            ? 'bg-muted/50 border-border opacity-60' 
+                            : 'bg-muted border-border'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-4">
@@ -902,7 +902,7 @@ export default function ReplitSuggestions() {
                                 {format(new Date(error.lastOccurrence), 'MMM d, yyyy HH:mm')}
                               </span>
                             </div>
-                            <p className="text-white font-medium">{error.message}</p>
+                            <p className="text-foreground font-medium">{error.message}</p>
                             <p className="text-sm text-muted-foreground">Source: {error.source}</p>
                             {error.suggestedFix && (
                               <div className="mt-2 p-2 bg-blue-900/30 border border-blue-800 rounded">
@@ -948,7 +948,7 @@ export default function ReplitSuggestions() {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Enter your notes here..."
-              className="min-h-[100px] bg-gray-700 border-border"
+              className="min-h-[100px] bg-muted border-border"
               data-testid="input-notes"
             />
             <DialogFooter>

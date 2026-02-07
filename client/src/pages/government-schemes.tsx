@@ -468,7 +468,7 @@ export default function GovernmentSchemes() {
 
     return (
       <div className="space-y-6">
-        <Card className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+        <Card className="bg-gradient-to-r from-blue-600 to-blue-700 text-foreground">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>

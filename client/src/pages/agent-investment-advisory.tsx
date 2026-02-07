@@ -741,10 +741,10 @@ export default function AgentInvestmentAdvisory() {
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white" data-testid="page-title">
+          <h1 className="text-2xl font-bold text-foreground" data-testid="page-title">
             AI Investment Advisory
           </h1>
-          <p className="text-muted-foreground dark:text-muted-foreground">
+          <p className="text-muted-foreground">
             Analyze portfolios and generate intelligent investment recommendations
           </p>
         </div>
@@ -1297,7 +1297,7 @@ export default function AgentInvestmentAdvisory() {
                     className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
                       isDragActive 
                         ? 'border-primary bg-primary/5' 
-                        : 'border-border dark:border-border hover:border-primary'
+                        : 'border-border hover:border-primary'
                     }`}
                     data-testid="dropzone-csv"
                   >
@@ -1997,25 +1997,25 @@ TCS     Tata Consultancy        25      3850.00"
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="p-4 bg-muted dark:bg-muted rounded-lg">
+                      <div className="p-4 bg-muted rounded-lg">
                         <p className="text-sm text-muted-foreground">Avg P/E Ratio</p>
                         <p className="text-xl font-bold" data-testid="text-avg-pe">
                           {analysis.fundamentalRatios.avgPE.toFixed(2)}
                         </p>
                       </div>
-                      <div className="p-4 bg-muted dark:bg-muted rounded-lg">
+                      <div className="p-4 bg-muted rounded-lg">
                         <p className="text-sm text-muted-foreground">Avg P/B Ratio</p>
                         <p className="text-xl font-bold" data-testid="text-avg-pb">
                           {analysis.fundamentalRatios.avgPB.toFixed(2)}
                         </p>
                       </div>
-                      <div className="p-4 bg-muted dark:bg-muted rounded-lg">
+                      <div className="p-4 bg-muted rounded-lg">
                         <p className="text-sm text-muted-foreground">Avg ROE</p>
                         <p className="text-xl font-bold" data-testid="text-avg-roe">
                           {analysis.fundamentalRatios.avgROE.toFixed(2)}%
                         </p>
                       </div>
-                      <div className="p-4 bg-muted dark:bg-muted rounded-lg">
+                      <div className="p-4 bg-muted rounded-lg">
                         <p className="text-sm text-muted-foreground">Avg Debt/Equity</p>
                         <p className="text-xl font-bold" data-testid="text-avg-de">
                           {analysis.fundamentalRatios.avgDebtEquity.toFixed(2)}
@@ -2169,7 +2169,7 @@ TCS     Tata Consultancy        25      3850.00"
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-3 gap-2 text-sm">
-                      <div className="text-center p-2 bg-muted dark:bg-muted rounded">
+                      <div className="text-center p-2 bg-muted rounded">
                         <p className="text-muted-foreground">Current</p>
                         <p className="font-bold">{formatCurrency(pick.currentPrice)}</p>
                       </div>
@@ -2270,7 +2270,7 @@ TCS     Tata Consultancy        25      3850.00"
                       <AlertDescription className="mt-1">
                         {alert.message}
                         {alert.benchmarkComparison && (
-                          <div className="mt-2 p-2 bg-white/50 dark:bg-black/20 rounded text-sm">
+                          <div className="mt-2 p-2 bg-card/50 dark:bg-black/20 rounded text-sm">
                             <p>
                               <strong>{alert.benchmarkComparison.benchmark}:</strong>{' '}
                               Portfolio {formatPercent(alert.benchmarkComparison.portfolioReturn)} vs{' '}
@@ -2337,7 +2337,7 @@ TCS     Tata Consultancy        25      3850.00"
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">{point.content}</p>
+                      <p className="text-sm text-muted-foreground">{point.content}</p>
                       {point.supportingData && (
                         <p className="text-xs text-muted-foreground mt-2 italic">{point.supportingData}</p>
                       )}
@@ -2380,7 +2380,7 @@ TCS     Tata Consultancy        25      3850.00"
             <CardContent className="space-y-4">
               {filteredProfitPicks?.length ? (
                 <>
-                  <div className="bg-muted dark:bg-muted rounded-lg p-4">
+                  <div className="bg-muted rounded-lg p-4">
                     <h4 className="font-medium mb-3">Selected AI Recommendations</h4>
                     <Table>
                       <TableHeader>
@@ -2889,7 +2889,7 @@ function ItrServicesTab({ clientId }: { clientId: string }) {
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      initiated: "bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground",
+      initiated: "bg-muted text-muted-foreground",
       documents_pending: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
       documents_received: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
       under_review: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
@@ -3248,7 +3248,7 @@ function ItrServicesTab({ clientId }: { clientId: string }) {
                     return (
                       <div 
                         key={doc.value}
-                        className={`flex items-center gap-2 p-2 rounded ${isReceived ? 'bg-green-50 dark:bg-green-950' : 'bg-muted dark:bg-card'}`}
+                        className={`flex items-center gap-2 p-2 rounded ${isReceived ? 'bg-green-50 dark:bg-green-950' : 'bg-muted'}`}
                       >
                         {isReceived ? (
                           <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -3281,7 +3281,7 @@ const GOAL_TYPES = [
   { id: 'vacation', label: 'Vacation', icon: Plane, color: 'bg-pink-500', description: 'Plan a trip' },
   { id: 'wealth', label: 'Wealth Creation', icon: TrendingUp, color: 'bg-emerald-500', description: 'Grow your wealth' },
   { id: 'emergency', label: 'Emergency Fund', icon: Heart, color: 'bg-red-500', description: '6 months expenses' },
-  { id: 'other', label: 'Other Goal', icon: Goal, color: 'bg-gray-500', description: 'Custom goal' },
+  { id: 'other', label: 'Other Goal', icon: Goal, color: 'bg-muted', description: 'Custom goal' },
 ];
 
 interface InvestmentGoal {
@@ -3436,7 +3436,7 @@ function GoalPlanningTab({ clientId, clientName }: { clientId: string; clientNam
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className={`p-2 rounded-full ${goalType.color} text-white`}>
+                      <div className={`p-2 rounded-full ${goalType.color} text-foreground`}>
                         <Icon className="h-4 w-4" />
                       </div>
                       <CardTitle className="text-base">{goal.name}</CardTitle>
@@ -3493,7 +3493,7 @@ function GoalPlanningTab({ clientId, clientName }: { clientId: string; clientNam
                     onClick={() => setSelectedGoalType(type.id)}
                     className="flex flex-col items-center gap-2 p-4 rounded-lg border hover:border-primary hover:bg-accent transition-colors"
                   >
-                    <div className={`p-3 rounded-full ${type.color} text-white`}>
+                    <div className={`p-3 rounded-full ${type.color} text-foreground`}>
                       <Icon className="h-5 w-5" />
                     </div>
                     <span className="text-sm font-medium">{type.label}</span>
@@ -3913,7 +3913,7 @@ function RiskProfilerTab({ clientId, clientName }: { clientId: string; clientNam
                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                     answers[question.id] === option.value ? 'border-primary bg-primary' : 'border-muted-foreground'
                   }`}>
-                    {answers[question.id] === option.value && <Check className="h-3 w-3 text-white" />}
+                    {answers[question.id] === option.value && <Check className="h-3 w-3 text-foreground" />}
                   </div>
                   <span>{option.label}</span>
                 </div>

@@ -137,7 +137,7 @@ export function GDPRConsent() {
                 </Button>
               </div>
 
-              <p className="text-xs text-muted-foreground dark:text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 By continuing, you agree to our{" "}
                 <Link href="/privacy" className="text-blue-600 hover:underline">
                   Privacy Policy
@@ -161,10 +161,10 @@ export function GDPRConsent() {
                   <CardContent>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <p className="text-sm text-muted-foreground dark:text-muted-foreground mb-2">
+                        <p className="text-sm text-muted-foreground mb-2">
                           Required for core platform functionality, security, and regulatory compliance.
                         </p>
-                        <ul className="text-xs text-muted-foreground dark:text-muted-foreground list-disc list-inside space-y-1">
+                        <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1">
                           <li>User authentication and session management</li>
                           <li>KYC verification and compliance monitoring</li>
                           <li>Transaction processing and portfolio management</li>
@@ -191,10 +191,10 @@ export function GDPRConsent() {
                   <CardContent>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <p className="text-sm text-muted-foreground dark:text-muted-foreground mb-2">
+                        <p className="text-sm text-muted-foreground mb-2">
                           Advanced portfolio analysis, risk assessment, and personalized recommendations.
                         </p>
-                        <ul className="text-xs text-muted-foreground dark:text-muted-foreground list-disc list-inside space-y-1">
+                        <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1">
                           <li>Investment performance analysis</li>
                           <li>Risk profiling and asset allocation</li>
                           <li>Market trend analysis and insights</li>
@@ -220,10 +220,10 @@ export function GDPRConsent() {
                   <CardContent>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <p className="text-sm text-muted-foreground dark:text-muted-foreground mb-2">
+                        <p className="text-sm text-muted-foreground mb-2">
                           Help us understand how you use our platform to improve services.
                         </p>
-                        <ul className="text-xs text-muted-foreground dark:text-muted-foreground list-disc list-inside space-y-1">
+                        <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1">
                           <li>Page views and user interactions</li>
                           <li>Feature usage statistics</li>
                           <li>Performance monitoring</li>
@@ -249,10 +249,10 @@ export function GDPRConsent() {
                   <CardContent>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <p className="text-sm text-muted-foreground dark:text-muted-foreground mb-2">
+                        <p className="text-sm text-muted-foreground mb-2">
                           Personalized investment opportunities and market updates.
                         </p>
-                        <ul className="text-xs text-muted-foreground dark:text-muted-foreground list-disc list-inside space-y-1">
+                        <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1">
                           <li>Investment opportunity notifications</li>
                           <li>Market analysis and research reports</li>
                           <li>Product updates and new features</li>
@@ -288,7 +288,7 @@ export function GDPRConsent() {
             </div>
           )}
 
-          <div className="text-xs text-muted-foreground dark:text-muted-foreground pt-4 border-t">
+          <div className="text-xs text-muted-foreground pt-4 border-t">
             <p className="mb-2">
               <strong>Your Rights:</strong> You can change these preferences anytime in your account settings. 
               You also have the right to access, correct, or delete your data.

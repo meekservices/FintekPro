@@ -277,7 +277,7 @@ export default function AdminReportsHub() {
       case 'compliance': return 'bg-emerald-500/20 text-emerald-400';
       case 'revenue': return 'bg-amber-500/20 text-amber-400';
       case 'operations': return 'bg-purple-500/20 text-purple-400';
-      default: return 'bg-slate-500/20 text-slate-400';
+      default: return 'bg-muted/20 text-muted-foreground';
     }
   };
 
@@ -287,7 +287,7 @@ export default function AdminReportsHub() {
       case 'generating': return { color: 'bg-blue-500/20 text-blue-400 border-blue-500/30', label: 'Generating', icon: Loader2 };
       case 'scheduled': return { color: 'bg-amber-500/20 text-amber-400 border-amber-500/30', label: 'Scheduled', icon: Clock };
       case 'failed': return { color: 'bg-red-500/20 text-red-400 border-red-500/30', label: 'Failed', icon: AlertTriangle };
-      default: return { color: 'bg-slate-500/20 text-slate-400 border-slate-500/30', label: status, icon: FileText };
+      default: return { color: 'bg-muted/20 text-muted-foreground border-border/30', label: status, icon: FileText };
     }
   };
 
@@ -301,26 +301,26 @@ export default function AdminReportsHub() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2" data-testid="text-page-title">
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2" data-testid="text-page-title">
             <BarChart3 className="h-7 w-7 text-blue-500" />
             Platform Reports
           </h1>
-          <p className="text-slate-400 mt-1">Aggregated platform analytics and compliance reports</p>
+          <p className="text-muted-foreground mt-1">Aggregated platform analytics and compliance reports</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search reports..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 w-64 bg-slate-800 border-slate-700 text-white"
+              className="pl-10 w-64 bg-card border-border text-foreground"
               data-testid="input-search-reports"
             />
           </div>
           <Button
             variant="outline"
-            className="border-slate-700 text-slate-300 hover:bg-slate-800"
+            className="border-border text-muted-foreground hover:bg-card"
             onClick={handleRefreshAll}
             disabled={isRefreshing}
             data-testid="button-refresh-reports"
@@ -342,13 +342,13 @@ export default function AdminReportsHub() {
           };
           const Icon = categoryIcons[category];
           return (
-            <Card key={category} className="bg-slate-800/50 border-slate-700" data-testid={`stat-${category}`}>
+            <Card key={category} className="bg-card/50 border-border" data-testid={`stat-${category}`}>
               <CardContent className="p-4">
                 <div className="flex justify-between items-start">
                   <div>
-                    <p className="text-slate-400 text-sm capitalize">{category}</p>
-                    <p className="text-2xl font-bold text-white">{stats.ready}/{stats.total}</p>
-                    <p className="text-xs text-slate-500">Reports Ready</p>
+                    <p className="text-muted-foreground text-sm capitalize">{category}</p>
+                    <p className="text-2xl font-bold text-foreground">{stats.ready}/{stats.total}</p>
+                    <p className="text-xs text-muted-foreground">Reports Ready</p>
                   </div>
                   <div className={`p-2 rounded-lg ${getCategoryColor(category)}`}>
                     <Icon className="h-5 w-5" />
@@ -362,11 +362,11 @@ export default function AdminReportsHub() {
 
       <div className="flex flex-col md:flex-row gap-4">
         <Select value={dateRange} onValueChange={setDateRange}>
-          <SelectTrigger className="w-48 bg-slate-800 border-slate-700" data-testid="select-date-range">
-            <Calendar className="h-4 w-4 mr-2 text-slate-400" />
+          <SelectTrigger className="w-48 bg-card border-border" data-testid="select-date-range">
+            <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
             <SelectValue placeholder="Date Range" />
           </SelectTrigger>
-          <SelectContent className="bg-slate-800 border-slate-700">
+          <SelectContent className="bg-card border-border">
             <SelectItem value="today">Today</SelectItem>
             <SelectItem value="last_7_days">Last 7 Days</SelectItem>
             <SelectItem value="last_30_days">Last 30 Days</SelectItem>
@@ -376,10 +376,10 @@ export default function AdminReportsHub() {
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-48 bg-slate-800 border-slate-700" data-testid="select-status-filter">
+          <SelectTrigger className="w-48 bg-card border-border" data-testid="select-status-filter">
             <SelectValue placeholder="Filter by Status" />
           </SelectTrigger>
-          <SelectContent className="bg-slate-800 border-slate-700">
+          <SelectContent className="bg-card border-border">
             <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="ready">Ready</SelectItem>
             <SelectItem value="generating">Generating</SelectItem>
@@ -390,7 +390,7 @@ export default function AdminReportsHub() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-slate-800 border-slate-700">
+        <TabsList className="bg-card border-border">
           <TabsTrigger value="business" className="data-[state=active]:bg-blue-600" data-testid="tab-business">
             <Briefcase className="h-4 w-4 mr-2" />
             Business Analytics
@@ -417,7 +417,7 @@ export default function AdminReportsHub() {
                 const statusConfig = getStatusConfig(report.status);
                 const StatusIcon = statusConfig.icon;
                 return (
-                  <Card key={report.id} className="bg-slate-800/50 border-slate-700 hover:border-slate-600 transition-colors" data-testid={`report-card-${report.id}`}>
+                  <Card key={report.id} className="bg-card/50 border-border hover:border-border transition-colors" data-testid={`report-card-${report.id}`}>
                     <CardHeader className="pb-2">
                       <div className="flex items-start justify-between">
                         <div className={`p-3 rounded-lg ${getCategoryColor(report.category)}`}>
@@ -428,11 +428,11 @@ export default function AdminReportsHub() {
                           {statusConfig.label}
                         </Badge>
                       </div>
-                      <CardTitle className="text-white text-lg mt-3">{report.name}</CardTitle>
-                      <CardDescription className="text-slate-400">{report.description}</CardDescription>
+                      <CardTitle className="text-foreground text-lg mt-3">{report.name}</CardTitle>
+                      <CardDescription className="text-muted-foreground">{report.description}</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="flex items-center justify-between text-sm text-slate-400 mb-4">
+                      <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
                         <div className="flex items-center gap-4">
                           <span className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
@@ -444,11 +444,11 @@ export default function AdminReportsHub() {
                           </span>
                         </div>
                         {report.size && (
-                          <span className="text-slate-500">{report.size}</span>
+                          <span className="text-muted-foreground">{report.size}</span>
                         )}
                       </div>
                       <Button
-                        className={`w-full ${report.status === 'ready' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-700 cursor-not-allowed'}`}
+                        className={`w-full ${report.status === 'ready' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-muted cursor-not-allowed'}`}
                         onClick={() => handleDownloadReport(report)}
                         disabled={report.status !== 'ready'}
                         data-testid={`button-download-${report.id}`}
@@ -464,7 +464,7 @@ export default function AdminReportsHub() {
               })}
             </div>
             {filteredReports.length === 0 && (
-              <div className="text-center py-12 text-slate-400">
+              <div className="text-center py-12 text-muted-foreground">
                 <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>No reports found matching your criteria</p>
               </div>

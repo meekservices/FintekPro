@@ -102,16 +102,16 @@ export function RecommendationFooter({ mode, className = "" }: RecommendationFoo
 
   return (
     <div
-      className={`mt-4 p-3 rounded-md bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 ${className}`}
+      className={`mt-4 p-3 rounded-md bg-background border border-border ${className}`}
       data-testid="recommendation-footer"
     >
       <div className="flex items-start gap-2">
-        <Shield className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+        <Shield className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
         <div className="space-y-1">
-          <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">
+          <p className="text-xs text-muted-foreground font-medium">
             Important Disclosure
           </p>
-          <p className="text-xs text-gray-500 dark:text-gray-500">
+          <p className="text-xs text-muted-foreground">
             {DISCLOSURE_TEXT.footer}
           </p>
         </div>
@@ -167,7 +167,7 @@ export function ScoringExplanation({
               <span className="text-muted-foreground">Suitability Score</span>
               <span className="font-medium">{suitabilityScore}/100 × {weightings.suitability}%</span>
             </div>
-            <div className="h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+            <div className="h-2 bg-muted rounded-full overflow-hidden">
               <div
                 className="h-full bg-blue-500 rounded-full"
                 style={{ width: `${suitabilityScore}%` }}
@@ -180,7 +180,7 @@ export function ScoringExplanation({
               <span className="text-muted-foreground">Upside Score</span>
               <span className="font-medium">{upsideScore}/100 × {weightings.upside}%</span>
             </div>
-            <div className="h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+            <div className="h-2 bg-muted rounded-full overflow-hidden">
               <div
                 className="h-full bg-green-500 rounded-full"
                 style={{ width: `${upsideScore}%` }}

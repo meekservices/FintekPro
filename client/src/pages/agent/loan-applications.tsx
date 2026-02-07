@@ -57,7 +57,7 @@ interface Bank {
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
-  draft: { label: "Draft", color: "bg-gray-100 text-gray-800", icon: FileText },
+  draft: { label: "Draft", color: "bg-muted text-foreground", icon: FileText },
   submitted: { label: "Submitted", color: "bg-blue-100 text-blue-800", icon: Clock },
   eligibility_check: { label: "Eligibility Check", color: "bg-yellow-100 text-yellow-800", icon: AlertCircle },
   routed: { label: "Routed to Banks", color: "bg-purple-100 text-purple-800", icon: Building2 },

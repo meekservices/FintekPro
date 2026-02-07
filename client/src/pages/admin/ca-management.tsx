@@ -455,12 +455,12 @@ export default function CAManagement() {
                           {ca.city}, {ca.state}
                         </TableCell>
                         <TableCell>
-                          <Badge className={VERIFICATION_STATUS_COLORS[ca.verificationStatus] || 'bg-muted dark:bg-muted'}>
+                          <Badge className={VERIFICATION_STATUS_COLORS[ca.verificationStatus] || 'bg-muted'}>
                             {ca.verificationStatus}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge className={AVAILABILITY_COLORS[ca.availability] || 'bg-muted dark:bg-muted'}>
+                          <Badge className={AVAILABILITY_COLORS[ca.availability] || 'bg-muted'}>
                             {ca.availability?.replace(/_/g, ' ')}
                           </Badge>
                         </TableCell>
@@ -528,7 +528,7 @@ export default function CAManagement() {
                           <p className="font-medium">{ca.name}</p>
                         </TableCell>
                         <TableCell>
-                          <Badge className={AVAILABILITY_COLORS[ca.availability] || 'bg-muted dark:bg-muted'}>
+                          <Badge className={AVAILABILITY_COLORS[ca.availability] || 'bg-muted'}>
                             {ca.availability?.replace(/_/g, ' ')}
                           </Badge>
                         </TableCell>
@@ -574,7 +574,7 @@ export default function CAManagement() {
           
           {selectedCA && (
             <div className="space-y-4">
-              <div className="p-4 bg-muted dark:bg-muted dark:bg-muted rounded-lg space-y-2">
+              <div className="p-4 bg-muted rounded-lg space-y-2">
                 <p className="font-medium">{selectedCA.name}</p>
                 <p className="text-sm text-muted-foreground">{selectedCA.email}</p>
                 <div className="flex items-center gap-2 text-sm">

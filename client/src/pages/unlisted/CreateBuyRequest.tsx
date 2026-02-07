@@ -135,14 +135,14 @@ export default function CreateBuyRequest() {
 
   if (isLoadingCompanies) {
     return (
-      <div className="min-h-screen bg-background dark:bg-gray-950 p-6">
+      <div className="min-h-screen bg-background p-6">
         <LoadingState variant="form" count={6} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background dark:bg-gray-950 p-4 md:p-6" data-testid="create-buy-request">
+    <div className="min-h-screen bg-background p-4 md:p-6" data-testid="create-buy-request">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <Button 
@@ -155,7 +155,7 @@ export default function CreateBuyRequest() {
           Back to Marketplace
         </Button>
 
-        <Card className="bg-white dark:bg-gray-900">
+        <Card className="bg-background">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ShoppingCart className="h-6 w-6" />
@@ -168,7 +168,7 @@ export default function CreateBuyRequest() {
           <CardContent>
             {/* KYC Status */}
             <div className="mb-6">
-              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                 <div className="flex items-center gap-2">
                   <Shield className="h-5 w-5 text-primary" />
                   <span className="font-medium">KYC Tier:</span>
@@ -217,7 +217,7 @@ export default function CreateBuyRequest() {
               <TabsContent value="browse" className="space-y-4">
                 {/* Company Filter */}
                 <div className="flex items-center gap-4">
-                  <Filter className="h-4 w-4 text-gray-500" />
+                  <Filter className="h-4 w-4 text-muted-foreground" />
                   <Select value={selectedCompanyFilter} onValueChange={setSelectedCompanyFilter}>
                     <SelectTrigger className="w-64" data-testid="select-company-filter">
                       <SelectValue placeholder="All Companies" />
@@ -237,7 +237,7 @@ export default function CreateBuyRequest() {
                 {isLoadingListings ? (
                   <LoadingState variant="table" count={5} />
                 ) : filteredListings.length > 0 ? (
-                  <div className="rounded-lg border border-gray-200 dark:border-gray-800">
+                  <div className="rounded-lg border border-border">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -299,7 +299,7 @@ export default function CreateBuyRequest() {
                 ) : (
                   <Card>
                     <CardContent className="py-12 text-center">
-                      <p className="text-gray-600 dark:text-gray-400">
+                      <p className="text-muted-foreground">
                         No sell listings available for the selected company
                       </p>
                     </CardContent>

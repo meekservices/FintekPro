@@ -906,7 +906,7 @@ export default function FestivalGreetingPreview() {
                       border: `1px solid ${selectedFestival.primaryColor}40`,
                     }}
                   >
-                    <div className="text-white font-semibold text-lg mb-1">
+                    <div className="text-foreground font-semibold text-lg mb-1">
                       {agentInfo.name || 'Your Name'}
                     </div>
                     <div 

@@ -133,7 +133,7 @@ export default function UnlistedNegotiations() {
     const colors = {
       high: 'bg-green-500/20 text-green-400 border-green-500/30',
       medium: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-      low: 'bg-gray-500/20 text-muted-foreground border-gray-500/30',
+      low: 'bg-muted/20 text-muted-foreground border-border',
     };
     return colors[confidence as keyof typeof colors] || colors.low;
   };

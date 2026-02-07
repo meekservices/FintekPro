@@ -246,7 +246,7 @@ export function CapitalGainsReportViewer() {
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-green-600" />
                 <div>
-                  <p className="text-sm text-gray-600">Total Long Term Gains</p>
+                  <p className="text-sm text-muted-foreground">Total Long Term Gains</p>
                   <p className="font-semibold text-green-600">
                     {formatCurrency(reports.reduce((sum: number, report: CapitalGainsReport) => 
                       sum + parseFloat(report.totalLongTermGains || '0'), 0))}
@@ -261,7 +261,7 @@ export function CapitalGainsReportViewer() {
               <div className="flex items-center gap-2">
                 <TrendingDown className="h-4 w-4 text-orange-600" />
                 <div>
-                  <p className="text-sm text-gray-600">Total Short Term Gains</p>
+                  <p className="text-sm text-muted-foreground">Total Short Term Gains</p>
                   <p className="font-semibold text-orange-600">
                     {formatCurrency(reports.reduce((sum: number, report: CapitalGainsReport) => 
                       sum + parseFloat(report.totalShortTermGains || '0'), 0))}
@@ -276,7 +276,7 @@ export function CapitalGainsReportViewer() {
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-blue-600" />
                 <div>
-                  <p className="text-sm text-gray-600">Total Dividend</p>
+                  <p className="text-sm text-muted-foreground">Total Dividend</p>
                   <p className="font-semibold text-blue-600">
                     {formatCurrency(reports.reduce((sum: number, report: CapitalGainsReport) => 
                       sum + parseFloat(report.totalDividend || '0'), 0))}
@@ -291,7 +291,7 @@ export function CapitalGainsReportViewer() {
               <div className="flex items-center gap-2">
                 <TrendingDown className="h-4 w-4 text-red-600" />
                 <div>
-                  <p className="text-sm text-gray-600">Total TDS Deducted</p>
+                  <p className="text-sm text-muted-foreground">Total TDS Deducted</p>
                   <p className="font-semibold text-red-600">
                     {formatCurrency(reports.reduce((sum: number, report: CapitalGainsReport) => 
                       sum + parseFloat(report.totalTdsDeducted || '0'), 0))}
@@ -377,9 +377,9 @@ export function CapitalGainsReportViewer() {
             </Table>
           ) : (
             <div className="text-center py-8">
-              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">No capital gains reports found for the selected criteria.</p>
-              <p className="text-sm text-gray-400 mt-2">
+              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No capital gains reports found for the selected criteria.</p>
+              <p className="text-sm text-muted-foreground mt-2">
                 Try fetching reports from external sources using the buttons above.
               </p>
             </div>

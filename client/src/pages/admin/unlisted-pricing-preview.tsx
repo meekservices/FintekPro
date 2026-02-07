@@ -113,7 +113,7 @@ const getPricingStatusBadge = (status: string | undefined) => {
       return <Badge className="bg-yellow-600 text-white" data-testid="badge-pricing-pending"><Clock className="w-3 h-3 mr-1" />Pending Review</Badge>;
     case 'draft':
     default:
-      return <Badge className="bg-gray-600 text-white" data-testid="badge-pricing-draft"><FileText className="w-3 h-3 mr-1" />Draft</Badge>;
+      return <Badge className="bg-muted text-foreground" data-testid="badge-pricing-draft"><FileText className="w-3 h-3 mr-1" />Draft</Badge>;
   }
 };
 
@@ -294,7 +294,7 @@ export default function UnlistedPricingPreviewPage() {
     return (
       <div className="p-8 text-center" data-testid="not-found-state">
         <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-        <h2 className="text-xl font-bold text-white mb-2">Company Not Found</h2>
+        <h2 className="text-xl font-bold text-foreground mb-2">Company Not Found</h2>
         <p className="text-muted-foreground mb-4">The company you're looking for doesn't exist.</p>
         <Button onClick={() => navigate('/admin/store/seed-unlisted')} variant="outline" data-testid="button-back-not-found">
           <ArrowLeft className="w-4 h-4 mr-2" />
@@ -314,7 +314,7 @@ export default function UnlistedPricingPreviewPage() {
               variant="ghost" 
               size="sm" 
               onClick={() => navigate('/admin/store/seed-unlisted')}
-              className="text-muted-foreground hover:text-white"
+              className="text-muted-foreground hover:text-foreground"
               data-testid="button-back"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -324,7 +324,7 @@ export default function UnlistedPricingPreviewPage() {
             <div>
               <div className="flex items-center gap-3">
                 <Building2 className="w-6 h-6 text-blue-400" />
-                <h1 className="text-xl font-bold text-white" data-testid="text-company-name">{company.name}</h1>
+                <h1 className="text-xl font-bold text-foreground" data-testid="text-company-name">{company.name}</h1>
               </div>
               {company.cin && (
                 <p className="text-sm text-muted-foreground mt-1" data-testid="text-company-cin">CIN: {company.cin}</p>
@@ -360,7 +360,7 @@ export default function UnlistedPricingPreviewPage() {
         {/* Price Preview Card */}
         <Card className="bg-card border-border" data-testid="card-price-preview">
           <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
+            <CardTitle className="text-foreground flex items-center gap-2">
               <DollarSign className="w-5 h-5 text-green-400" />
               Price Preview
             </CardTitle>
@@ -466,7 +466,7 @@ export default function UnlistedPricingPreviewPage() {
         {/* Client View Simulation */}
         <Card className="bg-card border-border" data-testid="card-client-view">
           <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
+            <CardTitle className="text-foreground flex items-center gap-2">
               <Eye className="w-5 h-5 text-purple-400" />
               Client View Simulation
             </CardTitle>
@@ -480,7 +480,7 @@ export default function UnlistedPricingPreviewPage() {
               <div className="bg-gradient-to-br from-gray-800 to-gray-900 p-6">
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <h3 className="text-lg font-bold text-white" data-testid="client-view-name">{company.name}</h3>
+                    <h3 className="text-lg font-bold text-foreground" data-testid="client-view-name">{company.name}</h3>
                     <p className="text-sm text-muted-foreground">{company.sector || 'Unlisted'} • {company.industry || 'N/A'}</p>
                   </div>
                   <Badge variant="outline" className="border-blue-500 text-blue-400">
@@ -503,16 +503,16 @@ export default function UnlistedPricingPreviewPage() {
                   </div>
                 </div>
 
-                <Separator className="bg-gray-700 my-4" />
+                <Separator className="bg-muted my-4" />
 
                 <div className="grid grid-cols-3 gap-4 text-center text-sm">
                   <div>
                     <p className="text-muted-foreground">Face Value</p>
-                    <p className="text-white font-medium">{company.faceValue ? `₹${company.faceValue}` : '—'}</p>
+                    <p className="text-foreground font-medium">{company.faceValue ? `₹${company.faceValue}` : '—'}</p>
                   </div>
                   <div>
                     <p className="text-muted-foreground">Shares</p>
-                    <p className="text-white font-medium">{company.totalShares?.toLocaleString() || '—'}</p>
+                    <p className="text-foreground font-medium">{company.totalShares?.toLocaleString() || '—'}</p>
                   </div>
                   <div>
                     <p className="text-muted-foreground">Spread</p>
@@ -547,7 +547,7 @@ export default function UnlistedPricingPreviewPage() {
         {/* Compliance Summary */}
         <Card className="bg-card border-border" data-testid="card-compliance-summary">
           <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
+            <CardTitle className="text-foreground flex items-center gap-2">
               <Shield className="w-5 h-5 text-blue-400" />
               Compliance Summary
             </CardTitle>
@@ -560,7 +560,7 @@ export default function UnlistedPricingPreviewPage() {
             <div>
               <div className="flex justify-between items-center mb-2">
                 <span className="text-muted-foreground">Risk Score</span>
-                <span className="text-lg font-semibold text-white" data-testid="text-risk-score">{company.riskScore ?? 0}/100</span>
+                <span className="text-lg font-semibold text-foreground" data-testid="text-risk-score">{company.riskScore ?? 0}/100</span>
               </div>
               <Progress 
                 value={company.riskScore ?? 0} 
@@ -651,7 +651,7 @@ export default function UnlistedPricingPreviewPage() {
         {/* Audit Trail */}
         <Card className="bg-card border-border" data-testid="card-audit-trail">
           <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
+            <CardTitle className="text-foreground flex items-center gap-2">
               <Activity className="w-5 h-5 text-orange-400" />
               Audit Trail
             </CardTitle>
@@ -672,11 +672,11 @@ export default function UnlistedPricingPreviewPage() {
                     className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg"
                     data-testid={`audit-entry-${entry.id}`}
                   >
-                    <div className="p-2 bg-gray-700 rounded-full">
+                    <div className="p-2 bg-muted rounded-full">
                       <FileText className="w-4 h-4 text-muted-foreground" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white">{entry.action}</p>
+                      <p className="text-sm font-medium text-foreground">{entry.action}</p>
                       {entry.details && (entry.details.oldBuyPrice || entry.details.newBuyPrice) && (
                         <p className="text-xs text-muted-foreground mt-1">
                           Price: {entry.details.oldBuyPrice || '—'} → {entry.details.newBuyPrice || '—'}

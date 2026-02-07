@@ -223,7 +223,7 @@ function EnhancedInsuranceMarketplace({ selectedInsurance, age, coverage, city }
         <Card>
           <CardContent className="text-center py-12">
             <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Ready to Compare Insurance Plans?</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-2">Ready to Compare Insurance Plans?</h3>
             <p className="text-muted-foreground mb-4">
               Get quotes from 15+ top insurers and find the best coverage for your needs
             </p>
@@ -268,7 +268,7 @@ function MarketplaceCard({ quote, isSelected, onSelection }: any) {
                 {quote.insurerName.substring(0, 2)}
               </div>
               <div>
-                <h3 className="font-semibold text-gray-900">{quote.insurerName}</h3>
+                <h3 className="font-semibold text-foreground">{quote.insurerName}</h3>
                 <p className="text-sm text-muted-foreground">{quote.planName}</p>
               </div>
             </div>
@@ -381,7 +381,7 @@ function ComparisonTable({ quotes, onQuoteSelection }: any) {
             </thead>
             <tbody>
               {quotes.map((quote: any, index: number) => (
-                <tr key={quote.insurerId} className={index % 2 === 0 ? 'bg-muted' : 'bg-white'}>
+                <tr key={quote.insurerId} className={index % 2 === 0 ? 'bg-muted' : 'bg-card'}>
                   <td className="p-4">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 bg-finance-blue rounded-full flex items-center justify-center text-white text-sm font-bold">
@@ -476,7 +476,7 @@ function ComparisonMatrix({ data }: any) {
           <div className="space-y-6">
             {comparisonMatrix?.map((criterion: any, index: number) => (
               <div key={index}>
-                <h4 className="font-medium text-gray-900 mb-3">{criterion.criterion}</h4>
+                <h4 className="font-medium text-foreground mb-3">{criterion.criterion}</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {criterion.values.map((value: any, idx: number) => (
                     <div key={idx} className="flex items-center justify-between p-3 bg-muted rounded">
@@ -679,7 +679,7 @@ export default function PolicyBazaar() {
               >
                 <CardContent className="p-6 text-center">
                   <IconComponent className={`h-8 w-8 mx-auto mb-3 ${type.color}`} />
-                  <h3 className="font-semibold text-gray-900">{type.label}</h3>
+                  <h3 className="font-semibold text-foreground">{type.label}</h3>
                 </CardContent>
               </Card>
             );
@@ -982,11 +982,11 @@ export default function PolicyBazaar() {
                       {/* Plan Options */}
                       {currentCalculation.data.planOptions && (
                         <div className="space-y-4">
-                          <h4 className="font-semibold text-gray-900">Available Plans</h4>
+                          <h4 className="font-semibold text-foreground">Available Plans</h4>
                           {currentCalculation.data.planOptions.map((plan: any, index: number) => (
                             <div key={index} className="p-4 border rounded-lg">
                               <div className="flex justify-between items-start mb-2">
-                                <h5 className="font-medium text-gray-900">{plan.plan}</h5>
+                                <h5 className="font-medium text-foreground">{plan.plan}</h5>
                                 <span className="font-bold text-finance-blue">
                                   ₹{plan.premium?.toLocaleString() || plan.monthlyPremium?.toLocaleString()}
                                 </span>
@@ -1007,11 +1007,11 @@ export default function PolicyBazaar() {
                       {/* Plan Recommendations */}
                       {currentCalculation.data.planRecommendations && (
                         <div className="space-y-4">
-                          <h4 className="font-semibold text-gray-900">Plan Recommendations</h4>
+                          <h4 className="font-semibold text-foreground">Plan Recommendations</h4>
                           {currentCalculation.data.planRecommendations.map((plan: any, index: number) => (
                             <div key={index} className="p-4 border rounded-lg">
                               <div className="flex justify-between items-start mb-2">
-                                <h5 className="font-medium text-gray-900">{plan.plan}</h5>
+                                <h5 className="font-medium text-foreground">{plan.plan}</h5>
                                 <span className="font-bold text-finance-blue">
                                   ₹{plan.premium?.toLocaleString()}
                                 </span>
@@ -1056,7 +1056,7 @@ export default function PolicyBazaar() {
             <Card className="border-dashed border-2 border-border">
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <Shield className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No Policies Found</h3>
+                <h3 className="text-lg font-semibold text-foreground mb-2">No Policies Found</h3>
                 <p className="text-muted-foreground text-center mb-4">
                   Your purchased insurance policies will appear here
                 </p>

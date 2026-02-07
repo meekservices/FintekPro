@@ -66,18 +66,18 @@ export function NotificationPermissionBanner({
   return (
     <div 
       className={cn(
-        "bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-4 py-3",
+        "bg-gradient-to-r from-emerald-600 to-teal-600 text-foreground px-4 py-3",
         "flex items-center justify-between gap-4 animate-in slide-in-from-top duration-300"
       )}
       data-testid="notification-permission-banner"
     >
       <div className="flex items-center gap-3">
-        <div className="p-2 bg-white/20 rounded-full">
+        <div className="p-2 bg-card/20 rounded-full">
           <Bell className="h-4 w-4" />
         </div>
         <div>
           <p className="text-sm font-medium">Stay updated with notifications</p>
-          <p className="text-xs text-white/80">
+          <p className="text-xs text-foreground/80">
             Get alerts for new leads, tasks, and client updates
           </p>
         </div>
@@ -89,7 +89,7 @@ export function NotificationPermissionBanner({
           size="sm"
           onClick={handleEnable}
           disabled={enabling}
-          className="bg-white text-emerald-700 hover:bg-white/90"
+          className="bg-card text-emerald-700 hover:bg-card/90"
           data-testid="button-enable-notifications"
         >
           {enabling ? 'Enabling...' : 'Enable Notifications'}
@@ -98,7 +98,7 @@ export function NotificationPermissionBanner({
           variant="ghost"
           size="icon"
           onClick={handleDismiss}
-          className="text-white hover:bg-white/20 h-8 w-8"
+          className="text-foreground hover:bg-card/20 h-8 w-8"
           data-testid="button-dismiss-notification-banner"
         >
           <X className="h-4 w-4" />

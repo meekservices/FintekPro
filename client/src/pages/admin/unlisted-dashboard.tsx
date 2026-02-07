@@ -110,7 +110,7 @@ const MetricCard = ({
         <Icon className={`h-5 w-5 ${iconColors[variant]}`} />
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold text-white">{value}</div>
+        <div className="text-2xl font-bold text-foreground">{value}</div>
         {description && (
           <p className="text-xs text-muted-foreground mt-1">{description}</p>
         )}
@@ -147,7 +147,7 @@ const AlertItem = ({ alert }: { alert: ComplianceAlert }) => {
     <div className={`flex items-start gap-3 p-3 rounded-lg border ${bgColors[alert.type]}`} data-testid={`alert-${alert.id}`}>
       {icons[alert.type]}
       <div className="flex-1">
-        <p className="text-sm font-medium text-white">{alert.title}</p>
+        <p className="text-sm font-medium text-foreground">{alert.title}</p>
         <p className="text-xs text-muted-foreground mt-0.5">{alert.description}</p>
       </div>
       {alert.companyId && (
@@ -178,7 +178,7 @@ export default function UnlistedDashboard() {
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Card className="bg-card border-border max-w-md">
           <CardHeader>
-            <CardTitle className="text-white text-center">Access Denied</CardTitle>
+            <CardTitle className="text-foreground text-center">Access Denied</CardTitle>
             <CardDescription className="text-muted-foreground text-center">
               Admin privileges required to access this page.
             </CardDescription>
@@ -212,7 +212,7 @@ export default function UnlistedDashboard() {
     <div className="space-y-6 p-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-white">Unlisted Marketplace Dashboard</h1>
+          <h1 className="text-3xl font-bold text-foreground">Unlisted Marketplace Dashboard</h1>
           <p className="text-muted-foreground mt-1">Overview of marketplace activity and compliance status</p>
         </div>
         <Button 
@@ -307,7 +307,7 @@ export default function UnlistedDashboard() {
             {complianceAlerts.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center">
                 <CheckCircle className="h-12 w-12 text-green-500 mb-3" />
-                <p className="text-white font-medium">All Clear</p>
+                <p className="text-foreground font-medium">All Clear</p>
                 <p className="text-muted-foreground text-sm">No compliance issues detected</p>
               </div>
             ) : (
@@ -362,7 +362,7 @@ export default function UnlistedDashboard() {
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
-            <Separator className="my-2 bg-gray-700" />
+            <Separator className="my-2 bg-muted" />
             <Link href="/admin/unlisted/seed">
               <Button variant="outline" className="w-full justify-between border-border text-green-400 hover:text-green-300" data-testid="button-seed-data">
                 <span className="flex items-center gap-2">
@@ -388,7 +388,7 @@ export default function UnlistedDashboard() {
                 <CheckCircle className="h-5 w-5 text-green-400" />
               </div>
               <div>
-                <p className="text-sm font-medium text-white">{metrics.activeCompanies}</p>
+                <p className="text-sm font-medium text-foreground">{metrics.activeCompanies}</p>
                 <p className="text-xs text-muted-foreground">Active Trading</p>
               </div>
             </div>
@@ -397,7 +397,7 @@ export default function UnlistedDashboard() {
                 <Clock className="h-5 w-5 text-yellow-400" />
               </div>
               <div>
-                <p className="text-sm font-medium text-white">{metrics.companiesWithDraftPrices}</p>
+                <p className="text-sm font-medium text-foreground">{metrics.companiesWithDraftPrices}</p>
                 <p className="text-xs text-muted-foreground">Pending Review</p>
               </div>
             </div>
@@ -406,7 +406,7 @@ export default function UnlistedDashboard() {
                 <Ban className="h-5 w-5 text-orange-400" />
               </div>
               <div>
-                <p className="text-sm font-medium text-white">{metrics.suspendedCompanies}</p>
+                <p className="text-sm font-medium text-foreground">{metrics.suspendedCompanies}</p>
                 <p className="text-xs text-muted-foreground">Suspended</p>
               </div>
             </div>
@@ -415,7 +415,7 @@ export default function UnlistedDashboard() {
                 <XCircle className="h-5 w-5 text-red-400" />
               </div>
               <div>
-                <p className="text-sm font-medium text-white">{metrics.highRiskCompanies}</p>
+                <p className="text-sm font-medium text-foreground">{metrics.highRiskCompanies}</p>
                 <p className="text-xs text-muted-foreground">Blocked</p>
               </div>
             </div>

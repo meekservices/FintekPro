@@ -232,12 +232,12 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
   if (!isPartner) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-950 dark:to-orange-950 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl p-8 max-w-md w-full text-center">
+        <div className="bg-background rounded-lg shadow-xl p-8 max-w-md w-full text-center">
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+          <h1 className="text-2xl font-bold text-foreground mb-2">
             Access Denied
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
+          <p className="text-muted-foreground mb-6">
             This partner portal is restricted to registered partners only. Please sign in with a partner account.
           </p>
           <div className="space-y-3">
@@ -254,7 +254,7 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-indigo-950 text-gray-100">
+    <div className="min-h-screen bg-indigo-950 text-white">
       <header className="bg-indigo-900 border-b border-indigo-800 sticky top-0 z-50">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-4">
@@ -262,30 +262,30 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
               variant="ghost"
               size="icon"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="text-indigo-300 hover:text-white"
+              className="text-indigo-300 hover:text-foreground"
             >
               {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
             <div>
-              <h1 className="text-xl font-bold text-white">FintekPro Partner</h1>
+              <h1 className="text-xl font-bold text-foreground">FintekPro Partner</h1>
               <p className="text-xs text-indigo-300">Business Partner Portal</p>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
             <Link href="/theme-settings">
-              <Button variant="ghost" size="icon" className="text-indigo-300 hover:text-white" data-testid="btn-theme-settings" title="Theme & Accessibility">
+              <Button variant="ghost" size="icon" className="text-indigo-300 hover:text-foreground" data-testid="btn-theme-settings" title="Theme & Accessibility">
                 <Palette className="h-5 w-5" />
               </Button>
             </Link>
-            <Button variant="ghost" size="icon" className="text-indigo-300 hover:text-white relative">
+            <Button variant="ghost" size="icon" className="text-indigo-300 hover:text-foreground relative">
               <Bell className="h-5 w-5" />
               <span className="absolute top-1 right-1 w-2 h-2 bg-violet-500 rounded-full" />
             </Button>
 
             <div className="flex items-center gap-3 border-l border-indigo-800 pl-4">
               <div className="text-right">
-                <p className="text-sm font-medium text-white">{user?.email}</p>
+                <p className="text-sm font-medium text-foreground">{user?.email}</p>
                 <p className="text-xs text-indigo-300 capitalize">Partner</p>
               </div>
               <Button
@@ -334,7 +334,7 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
                               )}
                             >
                               <Icon className="h-4 w-4 flex-shrink-0" />
-                              <span className="flex-1 text-sm font-medium text-indigo-200 group-hover:text-white">
+                              <span className="flex-1 text-sm font-medium text-indigo-200 group-hover:text-foreground">
                                 {item.title}
                               </span>
                               {isExpanded ? (
@@ -386,7 +386,7 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
                           <Icon className="h-4 w-4 flex-shrink-0" />
                           <span className={cn(
                             "text-sm font-medium",
-                            isActive ? "text-white" : "text-indigo-200 group-hover:text-white"
+                            isActive ? "text-foreground" : "text-indigo-200 group-hover:text-foreground"
                           )}>
                             {item.title}
                           </span>

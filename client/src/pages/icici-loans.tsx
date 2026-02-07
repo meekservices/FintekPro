@@ -212,17 +212,17 @@ export default function ICICILoans() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-100 dark:from-gray-900 dark:to-gray-800 p-4" data-testid="icici-loans-page">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-100 dark:from-background dark:to-card p-4" data-testid="icici-loans-page">
       <div className="container mx-auto max-w-7xl space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="p-2 bg-orange-600 rounded-lg">
-              <Building2 className="w-6 h-6 text-white" />
+              <Building2 className="w-6 h-6 text-foreground" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">ICICI Bank Loans</h1>
-              <p className="text-muted-foreground dark:text-muted-foreground">Personal, Home & Business Loan Solutions</p>
+              <h1 className="text-3xl font-bold text-foreground">ICICI Bank Loans</h1>
+              <p className="text-muted-foreground">Personal, Home & Business Loan Solutions</p>
             </div>
           </div>
         </div>

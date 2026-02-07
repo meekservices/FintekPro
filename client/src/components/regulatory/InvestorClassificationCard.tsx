@@ -142,7 +142,7 @@ export function InvestorClassificationCard() {
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg ${investorTypeColors[classification?.classificationType || 'retail']?.split(' ')[0] || 'bg-gray-100'}`}>
+            <div className={`p-2 rounded-lg ${investorTypeColors[classification?.classificationType || 'retail']?.split(' ')[0] || 'bg-muted'}`}>
               <Icon className="h-5 w-5" />
             </div>
             <div>
@@ -274,11 +274,11 @@ export function InvestorClassificationCard() {
               return (
                 <div 
                   key={type.type}
-                  className={`p-4 rounded-lg border ${isCurrentType ? 'border-primary bg-primary/5' : 'border-gray-200'}`}
+                  className={`p-4 rounded-lg border ${isCurrentType ? 'border-primary bg-primary/5' : 'border-border'}`}
                   data-testid={`card-investor-type-${type.type}`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className={`p-2 rounded-lg ${investorTypeColors[type.type]?.split(' ')[0] || 'bg-gray-100'}`}>
+                    <div className={`p-2 rounded-lg ${investorTypeColors[type.type]?.split(' ')[0] || 'bg-muted'}`}>
                       <TypeIcon className="h-5 w-5" />
                     </div>
                     <div className="flex-1">

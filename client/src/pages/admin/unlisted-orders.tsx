@@ -151,7 +151,7 @@ export default function UnlistedOrders() {
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Card className="bg-card border-border max-w-md">
           <CardHeader>
-            <CardTitle className="text-white text-center">Access Denied</CardTitle>
+            <CardTitle className="text-foreground text-center">Access Denied</CardTitle>
             <CardDescription className="text-muted-foreground text-center">
               Admin privileges required to access this page.
             </CardDescription>
@@ -221,7 +221,7 @@ export default function UnlistedOrders() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-bold text-white">Order Management</h1>
+            <h1 className="text-3xl font-bold text-foreground">Order Management</h1>
             <p className="text-muted-foreground mt-1">Manage sell listings and buy requests</p>
           </div>
         </div>
@@ -242,7 +242,7 @@ export default function UnlistedOrders() {
             <div className="flex items-center gap-3">
               <Package className="h-8 w-8 text-green-400" />
               <div>
-                <p className="text-2xl font-bold text-white">{activeListingsCount}</p>
+                <p className="text-2xl font-bold text-foreground">{activeListingsCount}</p>
                 <p className="text-xs text-muted-foreground">Active Listings</p>
               </div>
             </div>
@@ -253,7 +253,7 @@ export default function UnlistedOrders() {
             <div className="flex items-center gap-3">
               <Clock className="h-8 w-8 text-yellow-400" />
               <div>
-                <p className="text-2xl font-bold text-white">{pendingListingsCount}</p>
+                <p className="text-2xl font-bold text-foreground">{pendingListingsCount}</p>
                 <p className="text-xs text-muted-foreground">Pending Listings</p>
               </div>
             </div>
@@ -264,7 +264,7 @@ export default function UnlistedOrders() {
             <div className="flex items-center gap-3">
               <ShoppingCart className="h-8 w-8 text-blue-400" />
               <div>
-                <p className="text-2xl font-bold text-white">{activeBuyCount}</p>
+                <p className="text-2xl font-bold text-foreground">{activeBuyCount}</p>
                 <p className="text-xs text-muted-foreground">Active Buy Requests</p>
               </div>
             </div>
@@ -275,7 +275,7 @@ export default function UnlistedOrders() {
             <div className="flex items-center gap-3">
               <Clock className="h-8 w-8 text-orange-400" />
               <div>
-                <p className="text-2xl font-bold text-white">{pendingBuyCount}</p>
+                <p className="text-2xl font-bold text-foreground">{pendingBuyCount}</p>
                 <p className="text-xs text-muted-foreground">Pending Requests</p>
               </div>
             </div>
@@ -316,11 +316,11 @@ export default function UnlistedOrders() {
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-2 bg-muted">
-              <TabsTrigger value="listings" className="data-[state=active]:bg-gray-700" data-testid="tab-listings">
+              <TabsTrigger value="listings" className="data-[state=active]:bg-muted" data-testid="tab-listings">
                 <Package className="h-4 w-4 mr-2" />
                 Sell Listings ({filteredListings.length})
               </TabsTrigger>
-              <TabsTrigger value="requests" className="data-[state=active]:bg-gray-700" data-testid="tab-requests">
+              <TabsTrigger value="requests" className="data-[state=active]:bg-muted" data-testid="tab-requests">
                 <ShoppingCart className="h-4 w-4 mr-2" />
                 Buy Requests ({filteredBuyRequests.length})
               </TabsTrigger>
@@ -357,13 +357,13 @@ export default function UnlistedOrders() {
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <Building2 className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-white font-medium">{listing.companyName || 'Unknown'}</span>
+                              <span className="text-foreground font-medium">{listing.companyName || 'Unknown'}</span>
                             </div>
                           </TableCell>
                           <TableCell className="text-muted-foreground text-sm">
                             {listing.sellerUserId.substring(0, 8)}...
                           </TableCell>
-                          <TableCell className="text-right text-white">
+                          <TableCell className="text-right text-foreground">
                             {listing.quantityRemaining}/{listing.quantity}
                           </TableCell>
                           <TableCell className="text-right text-green-400 font-medium">
@@ -448,13 +448,13 @@ export default function UnlistedOrders() {
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <Building2 className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-white font-medium">{request.companyName || 'Unknown'}</span>
+                              <span className="text-foreground font-medium">{request.companyName || 'Unknown'}</span>
                             </div>
                           </TableCell>
                           <TableCell className="text-muted-foreground text-sm">
                             {request.buyerUserId.substring(0, 8)}...
                           </TableCell>
-                          <TableCell className="text-right text-white">
+                          <TableCell className="text-right text-foreground">
                             {request.quantity}
                           </TableCell>
                           <TableCell className="text-right text-blue-400 font-medium">
@@ -526,15 +526,15 @@ export default function UnlistedOrders() {
             {(selectedListing || selectedBuyRequest) && (
               <div className="space-y-2 text-sm">
                 <p className="text-muted-foreground">
-                  <span className="text-white font-medium">Company:</span>{' '}
+                  <span className="text-foreground font-medium">Company:</span>{' '}
                   {selectedListing?.companyName || selectedBuyRequest?.companyName || 'Unknown'}
                 </p>
                 <p className="text-muted-foreground">
-                  <span className="text-white font-medium">Quantity:</span>{' '}
+                  <span className="text-foreground font-medium">Quantity:</span>{' '}
                   {selectedListing?.quantity || selectedBuyRequest?.quantity}
                 </p>
                 <p className="text-muted-foreground">
-                  <span className="text-white font-medium">Price:</span>{' '}
+                  <span className="text-foreground font-medium">Price:</span>{' '}
                   {formatCurrency(selectedListing?.askPrice || selectedBuyRequest?.maxPrice)}
                 </p>
               </div>

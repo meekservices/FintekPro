@@ -44,7 +44,7 @@ export function MarketNews() {
         <CardContent>
           <div className="space-y-4">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="border-b border-gray-200 pb-4 last:border-b-0">
+              <div key={i} className="border-b border-border pb-4 last:border-b-0">
                 <Skeleton className="h-5 w-full mb-2" />
                 <Skeleton className="h-4 w-full mb-2" />
                 <Skeleton className="h-4 w-3/4 mb-2" />
@@ -64,12 +64,12 @@ export function MarketNews() {
     return (
       <Card data-testid="market-news-error">
         <CardHeader>
-          <CardTitle className="text-xl font-bold text-gray-900">Market News</CardTitle>
+          <CardTitle className="text-xl font-bold text-foreground">Market News</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8">
             <p className="text-red-500 mb-2">Error loading news</p>
-            <p className="text-gray-500 text-sm">Please check your connection and try again</p>
+            <p className="text-muted-foreground text-sm">Please check your connection and try again</p>
           </div>
         </CardContent>
       </Card>
@@ -83,32 +83,32 @@ export function MarketNews() {
   return (
     <Card data-testid="market-news">
       <CardHeader>
-        <CardTitle className="text-xl font-bold text-gray-900" data-testid="news-title">
+        <CardTitle className="text-xl font-bold text-foreground" data-testid="news-title">
           Market News
         </CardTitle>
       </CardHeader>
       <CardContent>
         {displayNews.length === 0 ? (
           <div className="text-center py-8">
-            <p className="text-gray-500">No news available</p>
+            <p className="text-muted-foreground">No news available</p>
           </div>
         ) : (
           <div className="space-y-4" data-testid="news-list">
             {displayNews.map((item: NewsItem, index: number) => (
               <div 
                 key={`news-item-${item.id || index}`} 
-                className="border-b border-gray-200 pb-4 last:border-b-0 group cursor-pointer"
+                className="border-b border-border pb-4 last:border-b-0 group cursor-pointer"
                 onClick={() => window.open(item.url, '_blank')}
                 data-testid={`news-item-${item.id || index}`}
               >
-                <h4 className="font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-finance-blue transition-colors" data-testid={`news-headline-${item.id}`}>
+                <h4 className="font-semibold text-foreground mb-2 line-clamp-2 group-hover:text-finance-blue transition-colors" data-testid={`news-headline-${item.id}`}>
                   {item.headline}
                 </h4>
-                <p className="text-sm text-gray-600 mb-2 line-clamp-2" data-testid={`news-summary-${item.id}`}>
+                <p className="text-sm text-muted-foreground mb-2 line-clamp-2" data-testid={`news-summary-${item.id}`}>
                   {item.summary}
                 </p>
                 <div className="flex justify-between items-center">
-                  <div className="flex items-center text-xs text-gray-500">
+                  <div className="flex items-center text-xs text-muted-foreground">
                     <Clock className="h-3 w-3 mr-1" />
                     <span data-testid={`news-time-${item.id}`}>
                       {formatTimeAgo(item.datetime)}
@@ -118,7 +118,7 @@ export function MarketNews() {
                     <span className="text-xs text-finance-blue font-medium" data-testid={`news-source-${item.id}`}>
                       {item.source}
                     </span>
-                    <ExternalLink className="h-3 w-3 text-gray-400 group-hover:text-finance-blue transition-colors" />
+                    <ExternalLink className="h-3 w-3 text-muted-foreground group-hover:text-finance-blue transition-colors" />
                   </div>
                 </div>
               </div>

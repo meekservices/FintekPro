@@ -214,14 +214,14 @@ export default function CARegistrationPage() {
   const progress = (currentStep / STEPS.length) * 100;
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50/30 to-indigo-100/30 dark:from-background dark:to-card py-8 px-4">
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-2">
             <Shield className="h-8 w-8 text-blue-600" />
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">CA Partner Registration</h1>
+            <h1 className="text-3xl font-bold text-foreground">CA Partner Registration</h1>
           </div>
-          <p className="text-muted-foreground dark:text-muted-foreground">
+          <p className="text-muted-foreground">
             Join FintekPro as a Chartered Accountant partner and grow your practice
           </p>
         </div>
@@ -245,7 +245,7 @@ export default function CARegistrationPage() {
                       ? 'border-blue-600 bg-blue-50'
                       : step.id < currentStep
                       ? 'border-green-600 bg-green-50'
-                      : 'border-border bg-white'
+                      : 'border-border bg-card'
                   }`}
                 >
                   {step.id < currentStep ? (
@@ -488,7 +488,7 @@ export default function CARegistrationPage() {
                                 control={form.control}
                                 name="specializations"
                                 render={({ field }) => (
-                                  <FormItem className="flex items-center space-x-3 space-y-0 p-3 border rounded-lg hover:bg-muted dark:hover:bg-muted">
+                                  <FormItem className="flex items-center space-x-3 space-y-0 p-3 border rounded-lg hover:bg-muted">
                                     <FormControl>
                                       <Checkbox
                                         checked={field.value?.includes(spec.value)}
@@ -741,7 +741,7 @@ export default function CARegistrationPage() {
                 
                 {currentStep === 6 && (
                   <div className="space-y-6">
-                    <div className="bg-muted dark:bg-muted p-4 rounded-lg space-y-4">
+                    <div className="bg-muted p-4 rounded-lg space-y-4">
                       <h4 className="font-medium flex items-center gap-2">
                         <User className="h-4 w-4" />
                         Personal Details
@@ -756,7 +756,7 @@ export default function CARegistrationPage() {
                       </div>
                     </div>
                     
-                    <div className="bg-muted dark:bg-muted p-4 rounded-lg space-y-4">
+                    <div className="bg-muted p-4 rounded-lg space-y-4">
                       <h4 className="font-medium flex items-center gap-2">
                         <Award className="h-4 w-4" />
                         Professional Details
@@ -773,7 +773,7 @@ export default function CARegistrationPage() {
                       </div>
                     </div>
                     
-                    <div className="bg-muted dark:bg-muted p-4 rounded-lg space-y-4">
+                    <div className="bg-muted p-4 rounded-lg space-y-4">
                       <h4 className="font-medium flex items-center gap-2">
                         <Briefcase className="h-4 w-4" />
                         Specializations

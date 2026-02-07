@@ -26,7 +26,7 @@ export default function NotFound() {
           <CardContent className="pt-6">
             <div className="flex mb-4 gap-2">
               <AlertCircle className="h-8 w-8 text-red-500" data-testid="icon-error" />
-              <h1 className="text-2xl font-bold text-gray-900" data-testid="title-404">404 Page Not Found</h1>
+              <h1 className="text-2xl font-bold text-foreground" data-testid="title-404">404 Page Not Found</h1>
             </div>
 
             <p className="mt-4 text-sm text-muted-foreground" data-testid="text-description">

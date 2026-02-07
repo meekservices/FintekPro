@@ -89,7 +89,7 @@ export function UnlistedOrderTracker({
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Order Status</span>
+          <span className="text-sm font-medium text-muted-foreground">Order Status</span>
           {getStatusBadge()}
         </div>
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
@@ -108,12 +108,12 @@ export function UnlistedOrderTracker({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Order Progress</span>
+        <span className="text-sm font-medium text-muted-foreground">Order Progress</span>
         {getStatusBadge()}
       </div>
 
       <div className="relative">
-        <div className="absolute top-5 left-0 right-0 h-1 bg-muted dark:bg-gray-700 rounded-full" />
+        <div className="absolute top-5 left-0 right-0 h-1 bg-muted rounded-full" />
         <div 
           className="absolute top-5 left-0 h-1 bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full transition-all duration-500"
           style={{ width: `${(currentIndex / (stages.length - 1)) * 100}%` }}
@@ -133,7 +133,7 @@ export function UnlistedOrderTracker({
                       ? 'bg-emerald-500 text-white'
                       : isCurrent
                       ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 border-2 border-blue-500 animate-pulse'
-                      : 'bg-muted dark:bg-muted text-muted-foreground border border-border dark:border-border'
+                      : 'bg-muted text-muted-foreground border border-border'
                   }`}
                 >
                   <StageIcon className="w-5 h-5" />
@@ -156,7 +156,7 @@ export function UnlistedOrderTracker({
       </div>
 
       {expectedSettlement && currentIndex < 4 && (
-        <div className="text-sm text-muted-foreground dark:text-muted-foreground text-center mt-4 p-2 bg-muted dark:bg-muted rounded-lg">
+        <div className="text-sm text-muted-foreground text-center mt-4 p-2 bg-muted rounded-lg">
           <Clock className="w-4 h-4 inline mr-1" />
           Expected settlement: {new Date(expectedSettlement).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })}
         </div>

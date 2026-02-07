@@ -139,7 +139,7 @@ export default function TaxITRPage() {
                     </Badge>
                   )}
                 </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground dark:text-muted-foreground">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span>PAN: {panContext?.pan || "---"}</span>
                   <span>•</span>
                   <span className="capitalize">{panContext?.panType?.replace("_", " ") || "Individual"}</span>
@@ -157,7 +157,7 @@ export default function TaxITRPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Income Tax Return Filing</h1>
-          <p className="text-muted-foreground dark:text-muted-foreground">AY 2024-25 | Due Date: July 31, 2024</p>
+          <p className="text-muted-foreground">AY 2024-25 | Due Date: July 31, 2024</p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="text-orange-600 border-orange-300">
@@ -302,31 +302,31 @@ export default function TaxITRPage() {
                   const features = FORM_FEATURES[form.form] || [];
                   const complexity = FORM_COMPLEXITY[form.form] || "moderate";
                   return (
-                    <Card key={form.form} className="border hover:shadow-md transition-shadow dark:border-border" data-testid={`form-${form.form.toLowerCase()}`}>
+                    <Card key={form.form} className="border hover:shadow-md transition-shadow" data-testid={`form-${form.form.toLowerCase()}`}>
                       <CardHeader className="pb-2">
                         <div className="flex items-center justify-between">
-                          <CardTitle className="text-lg dark:text-white">{form.form}</CardTitle>
+                          <CardTitle className="text-lg">{form.form}</CardTitle>
                           {getComplexityBadge(complexity)}
                         </div>
-                        <CardDescription className="font-medium dark:text-muted-foreground">{form.name}</CardDescription>
+                        <CardDescription className="font-medium">{form.name}</CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-3">
-                        <p className="text-sm text-muted-foreground dark:text-muted-foreground">{form.description}</p>
+                        <p className="text-sm text-muted-foreground">{form.description}</p>
                         <div className="space-y-1">
                           {features.slice(0, 3).map((feature, idx) => (
-                            <p key={idx} className="text-xs flex items-center gap-1 text-muted-foreground dark:text-muted-foreground">
+                            <p key={idx} className="text-xs flex items-center gap-1 text-muted-foreground">
                               <CheckCircle className="h-3 w-3 text-green-500" /> {feature}
                             </p>
                           ))}
                         </div>
-                        <div className="flex items-center justify-between pt-2 border-t dark:border-border text-sm">
+                        <div className="flex items-center justify-between pt-2 border-t text-sm">
                           <div>
-                            <span className="text-muted-foreground dark:text-muted-foreground">Self: </span>
-                            <span className="font-semibold dark:text-white">₹{formPricing.selfFile}</span>
+                            <span className="text-muted-foreground">Self: </span>
+                            <span className="font-semibold">₹{formPricing.selfFile}</span>
                           </div>
                           <div>
-                            <span className="text-muted-foreground dark:text-muted-foreground">Expert: </span>
-                            <span className="font-semibold dark:text-white">₹{formPricing.expert}</span>
+                            <span className="text-muted-foreground">Expert: </span>
+                            <span className="font-semibold">₹{formPricing.expert}</span>
                           </div>
                         </div>
                       </CardContent>
@@ -589,7 +589,7 @@ export default function TaxITRPage() {
       </Tabs>
 
       {/* Help Section */}
-      <Card className="bg-muted dark:bg-card">
+      <Card className="bg-muted">
         <CardContent className="py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">

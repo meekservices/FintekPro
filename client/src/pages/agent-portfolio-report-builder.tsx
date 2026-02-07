@@ -372,15 +372,15 @@ export default function AgentPortfolioReportBuilder() {
   const templates = (templatesData as any)?.templates || [];
 
   return (
-    <div className="min-h-screen bg-muted dark:bg-card" data-testid="portfolio-report-builder">
+    <div className="min-h-screen bg-muted" data-testid="portfolio-report-builder">
       <div className="max-w-6xl mx-auto p-6">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
               <FileText className="h-8 w-8 text-blue-600" />
               Portfolio Report Builder
             </h1>
-            <p className="text-muted-foreground dark:text-muted-foreground mt-1">
+            <p className="text-muted-foreground mt-1">
               Create professional, SEBI-compliant portfolio analysis reports
             </p>
           </div>
@@ -404,12 +404,12 @@ export default function AgentPortfolioReportBuilder() {
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                   isCompleted ? 'bg-green-500 text-white' :
                   isActive ? 'bg-blue-600 text-white' :
-                  'bg-muted dark:bg-gray-700 text-muted-foreground'
+                  'bg-muted text-muted-foreground'
                 }`}>
                   {isCompleted ? <Check className="h-5 w-5" /> : <StepIcon className="h-5 w-5" />}
                 </div>
                 <div className="hidden lg:block">
-                  <p className={`text-sm font-medium ${isActive ? 'text-blue-600' : 'text-muted-foreground dark:text-muted-foreground'}`}>
+                  <p className={`text-sm font-medium ${isActive ? 'text-blue-600' : 'text-muted-foreground'}`}>
                     {step.title}
                   </p>
                   <p className="text-xs text-muted-foreground">{step.description}</p>
@@ -552,7 +552,7 @@ export default function AgentPortfolioReportBuilder() {
                           <div className="flex items-start justify-between">
                             <div className="flex items-start gap-3">
                               <div className={`p-2 rounded-lg ${
-                                isEnabled ? 'bg-blue-600 text-white' : 'bg-muted dark:bg-muted'
+                                isEnabled ? 'bg-blue-600 text-white' : 'bg-muted'
                               }`}>
                                 <SectionIcon className="h-5 w-5" />
                               </div>

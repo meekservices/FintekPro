@@ -79,7 +79,7 @@ const syncStatusColors: Record<string, string> = {
   matched: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
   pending: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
   failed: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-  skipped: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
+  skipped: "bg-muted text-muted-foreground",
   pass_through: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
 };
 
@@ -252,7 +252,7 @@ export function CommissionReconciliation() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Total Transactions</p>
+                <p className="text-sm text-muted-foreground">Total Transactions</p>
                 <p className="text-2xl font-bold">{reconciliationData?.summary?.totalTransactions || 0}</p>
               </div>
               <Receipt className="h-8 w-8 text-blue-500" />
@@ -264,7 +264,7 @@ export function CommissionReconciliation() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Synced to Zoho</p>
+                <p className="text-sm text-muted-foreground">Synced to Zoho</p>
                 <p className="text-2xl font-bold text-green-600">{reconciliationData?.summary?.matched || 0}</p>
               </div>
               <CheckCircle className="h-8 w-8 text-green-500" />
@@ -276,7 +276,7 @@ export function CommissionReconciliation() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Pending Sync</p>
+                <p className="text-sm text-muted-foreground">Pending Sync</p>
                 <p className="text-2xl font-bold text-yellow-600">{reconciliationData?.summary?.pending || 0}</p>
               </div>
               <Clock className="h-8 w-8 text-yellow-500" />
@@ -288,7 +288,7 @@ export function CommissionReconciliation() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Total Amount</p>
+                <p className="text-sm text-muted-foreground">Total Amount</p>
                 <p className="text-2xl font-bold">{formatCurrency(reconciliationData?.summary?.totalAmount || '0')}</p>
               </div>
               <IndianRupee className="h-8 w-8 text-purple-500" />
@@ -372,7 +372,7 @@ export function CommissionReconciliation() {
                   ))}
                 </div>
               ) : reconciliationData?.items?.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-muted-foreground">
                   No transactions found matching the selected filters.
                 </div>
               ) : (
@@ -394,7 +394,7 @@ export function CommissionReconciliation() {
                         <TableCell>
                           <div>
                             <span className="font-medium">{item.transactionType}</span>
-                            <span className="text-xs text-gray-500 block">
+                            <span className="text-xs text-muted-foreground block">
                               {item.id.substring(0, 8)}...
                             </span>
                           </div>
@@ -402,7 +402,7 @@ export function CommissionReconciliation() {
                         <TableCell>
                           <Badge variant="outline">{item.productType}</Badge>
                           {item.productName && (
-                            <span className="text-xs text-gray-500 block mt-1">
+                            <span className="text-xs text-muted-foreground block mt-1">
                               {item.productName.substring(0, 25)}...
                             </span>
                           )}
@@ -433,7 +433,7 @@ export function CommissionReconciliation() {
                               <span>BILL: {item.zohoBillId.substring(0, 10)}...</span>
                             </div>
                           ) : (
-                            <span className="text-gray-400 flex items-center gap-1 text-xs">
+                            <span className="text-muted-foreground flex items-center gap-1 text-xs">
                               <Unlink className="h-3 w-3" /> Not linked
                             </span>
                           )}
@@ -470,7 +470,7 @@ export function CommissionReconciliation() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-500">Pending Payouts</p>
+                    <p className="text-sm text-muted-foreground">Pending Payouts</p>
                     <p className="text-xl font-bold text-yellow-600">
                       {formatCurrency(payoutsData?.summary?.totalPending || '0')}
                     </p>
@@ -484,7 +484,7 @@ export function CommissionReconciliation() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-500">Approved</p>
+                    <p className="text-sm text-muted-foreground">Approved</p>
                     <p className="text-xl font-bold text-blue-600">
                       {formatCurrency(payoutsData?.summary?.totalApproved || '0')}
                     </p>
@@ -498,7 +498,7 @@ export function CommissionReconciliation() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-500">Total Paid</p>
+                    <p className="text-sm text-muted-foreground">Total Paid</p>
                     <p className="text-xl font-bold text-green-600">
                       {formatCurrency(payoutsData?.summary?.totalPaid || '0')}
                     </p>
@@ -512,7 +512,7 @@ export function CommissionReconciliation() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-500">Pending Count</p>
+                    <p className="text-sm text-muted-foreground">Pending Count</p>
                     <p className="text-xl font-bold">{payoutsData?.summary?.pendingCount || 0}</p>
                   </div>
                   <Users className="h-6 w-6 text-purple-500" />
@@ -534,7 +534,7 @@ export function CommissionReconciliation() {
                   ))}
                 </div>
               ) : payoutsData?.payouts?.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-muted-foreground">
                   No commission payouts found.
                 </div>
               ) : (
@@ -557,7 +557,7 @@ export function CommissionReconciliation() {
                         <TableCell>
                           <div>
                             <span className="font-medium">{payout.agentName}</span>
-                            <span className="text-xs text-gray-500 block">{payout.agentRole}</span>
+                            <span className="text-xs text-muted-foreground block">{payout.agentRole}</span>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -582,7 +582,7 @@ export function CommissionReconciliation() {
                               <span>{payout.zohoBillId.substring(0, 10)}...</span>
                             </div>
                           ) : (
-                            <span className="text-gray-400 text-xs">Not created</span>
+                            <span className="text-muted-foreground text-xs">Not created</span>
                           )}
                         </TableCell>
                         <TableCell>

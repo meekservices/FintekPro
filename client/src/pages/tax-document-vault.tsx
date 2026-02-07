@@ -117,7 +117,7 @@ export default function TaxDocumentVaultPage() {
             <Folder className="h-8 w-8 text-blue-500" />
             Tax Document Vault
           </h1>
-          <p className="text-muted-foreground dark:text-muted-foreground">Securely store and access all your tax documents</p>
+          <p className="text-muted-foreground">Securely store and access all your tax documents</p>
         </div>
         <Button className="gap-2" data-testid="button-upload-document">
           <Upload className="h-4 w-4" /> Upload Document
@@ -218,7 +218,7 @@ export default function TaxDocumentVaultPage() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {docs.map((doc) => (
-                  <div key={doc.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted dark:hover:bg-muted transition-colors" data-testid={`document-${doc.id}`}>
+                  <div key={doc.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted transition-colors" data-testid={`document-${doc.id}`}>
                     <div className="flex items-center gap-3">
                       <div className={`p-2 rounded-lg ${DOCUMENT_CATEGORIES.find(c => c.type === doc.type)?.color.split(" ")[1] || "bg-muted"}`}>
                         {getDocumentIcon(doc.type)}

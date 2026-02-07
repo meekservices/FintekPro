@@ -233,17 +233,17 @@ export default function HDFCBanking() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-100 dark:from-gray-900 dark:to-gray-800 p-4" data-testid="hdfc-banking-page">
+    <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-100 dark:from-background dark:to-card p-4" data-testid="hdfc-banking-page">
       <div className="container mx-auto max-w-7xl space-y-6">
         {/* Header */}
         <div className="text-center space-y-4">
           <div className="flex items-center justify-center gap-3">
             <div className="w-8 h-8 bg-gradient-to-r from-red-600 to-orange-600 rounded-full flex items-center justify-center">
-              <Building2 className="h-5 w-5 text-white" />
+              <Building2 className="h-5 w-5 text-foreground" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">HDFC Bank Services</h1>
+            <h1 className="text-3xl font-bold text-foreground">HDFC Bank Services</h1>
           </div>
-          <p className="text-muted-foreground dark:text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-muted-foreground max-w-2xl mx-auto">
             Access comprehensive banking services with OAuth-secured API integration including payments, account management, and transaction history
           </p>
         </div>
@@ -340,8 +340,8 @@ export default function HDFCBanking() {
                         </Badge>
                       </p>
                     </div>
-                    <div className="text-center p-4 bg-muted dark:bg-muted rounded-lg">
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Last Updated</p>
+                    <div className="text-center p-4 bg-muted rounded-lg">
+                      <p className="text-sm text-muted-foreground">Last Updated</p>
                       <p className="text-sm font-medium" data-testid="last-updated">
                         {accountBalance.data?.lastUpdated ? format(new Date(accountBalance.data.lastUpdated), 'MMM dd, HH:mm') : 'N/A'}
                       </p>

@@ -60,7 +60,7 @@ export function PortfolioSuggestions({ portfolioId }: PortfolioSuggestionsProps)
         <CardContent>
           <div className="space-y-4">
             {Array.from({ length: 2 }).map((_, i) => (
-              <div key={i} className="border border-gray-200 rounded-lg p-4">
+              <div key={i} className="border border-border rounded-lg p-4">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center space-x-2">
                     <Skeleton className="h-4 w-4 rounded-full" />
@@ -86,14 +86,14 @@ export function PortfolioSuggestions({ portfolioId }: PortfolioSuggestionsProps)
     return (
       <Card data-testid="portfolio-suggestions-error">
         <CardHeader>
-          <CardTitle className="text-xl font-bold text-gray-900 dark:text-gray-100">
+          <CardTitle className="text-xl font-bold text-foreground">
             Portfolio Suggestions
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8">
             <p className="text-red-500 mb-2">Error loading suggestions</p>
-            <p className="text-gray-500 text-sm">Please check your connection and try again</p>
+            <p className="text-muted-foreground text-sm">Please check your connection and try again</p>
           </div>
         </CardContent>
       </Card>
@@ -104,14 +104,14 @@ export function PortfolioSuggestions({ portfolioId }: PortfolioSuggestionsProps)
     return (
       <Card data-testid="portfolio-suggestions-empty">
         <CardHeader>
-          <CardTitle className="text-xl font-bold text-gray-900 dark:text-gray-100">
+          <CardTitle className="text-xl font-bold text-foreground">
             Portfolio Suggestions
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8">
-            <p className="text-gray-500 mb-2">No suggestions available</p>
-            <p className="text-gray-400 text-sm">Add holdings to get personalized recommendations</p>
+            <p className="text-muted-foreground mb-2">No suggestions available</p>
+            <p className="text-muted-foreground text-sm">Add holdings to get personalized recommendations</p>
           </div>
         </CardContent>
       </Card>
@@ -121,9 +121,9 @@ export function PortfolioSuggestions({ portfolioId }: PortfolioSuggestionsProps)
   return (
     <Card data-testid="portfolio-suggestions">
       <CardHeader>
-        <CardTitle className="text-xl font-bold text-gray-900 dark:text-gray-100">
+        <CardTitle className="text-xl font-bold text-foreground">
           Portfolio Suggestions
-          <span className="ml-2 text-sm font-normal text-gray-500">
+          <span className="ml-2 text-sm font-normal text-muted-foreground">
             Personalized for your holdings
           </span>
         </CardTitle>
@@ -133,13 +133,13 @@ export function PortfolioSuggestions({ portfolioId }: PortfolioSuggestionsProps)
           {suggestions.map((suggestion) => (
             <div 
               key={suggestion.id} 
-              className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow"
+              className="border border-border rounded-lg p-4 hover:shadow-md transition-shadow"
               data-testid={`suggestion-${suggestion.type}`}
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center space-x-2">
                   {getPriorityIcon(suggestion.priority)}
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                  <h3 className="font-semibold text-foreground">
                     {suggestion.title}
                   </h3>
                 </div>
@@ -161,22 +161,22 @@ export function PortfolioSuggestions({ portfolioId }: PortfolioSuggestionsProps)
                 </div>
               </div>
               
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+              <p className="text-sm text-muted-foreground mb-3">
                 {suggestion.description}
               </p>
               
               {suggestion.expectedImpact && (
-                <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-md">
-                  <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                <div className="mb-3 p-3 bg-muted rounded-md">
+                  <h4 className="text-xs font-semibold text-foreground mb-2">
                     Expected Impact:
                   </h4>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     {Object.entries(suggestion.expectedImpact).map(([key, value]) => (
                       <div key={key} className="flex justify-between">
-                        <span className="text-gray-600 dark:text-gray-400 capitalize">
+                        <span className="text-muted-foreground capitalize">
                           {key.replace('_', ' ')}:
                         </span>
-                        <span className="font-medium text-gray-900 dark:text-gray-100">
+                        <span className="font-medium text-foreground">
                           {String(value)}
                         </span>
                       </div>
@@ -187,14 +187,14 @@ export function PortfolioSuggestions({ portfolioId }: PortfolioSuggestionsProps)
               
               {suggestion.actions && suggestion.actions.length > 0 && (
                 <div className="mb-3">
-                  <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  <h4 className="text-xs font-semibold text-foreground mb-2">
                     Recommended Actions:
                   </h4>
                   <div className="space-y-1">
                     {suggestion.actions.map((action: any, index: number) => (
                       <div 
                         key={index} 
-                        className="flex items-center text-xs text-gray-600 dark:text-gray-400"
+                        className="flex items-center text-xs text-muted-foreground"
                         data-testid={`action-${action.action}`}
                       >
                         <ChevronRight className="h-3 w-3 mr-1" />
@@ -217,10 +217,10 @@ export function PortfolioSuggestions({ portfolioId }: PortfolioSuggestionsProps)
               )}
               
               <div className="flex items-center justify-between">
-                <div className="flex items-center text-xs text-gray-500">
+                <div className="flex items-center text-xs text-muted-foreground">
                   <span>Confidence Score:</span>
                   <span className="ml-1 font-semibold">{suggestion.confidenceScore}%</span>
-                  <div className="ml-2 w-16 bg-gray-200 rounded-full h-1.5">
+                  <div className="ml-2 w-16 bg-muted rounded-full h-1.5">
                     <div 
                       className="bg-blue-600 h-1.5 rounded-full" 
                       style={{ width: `${suggestion.confidenceScore}%` }}
@@ -244,8 +244,8 @@ export function PortfolioSuggestions({ portfolioId }: PortfolioSuggestionsProps)
         </div>
         
         {suggestions.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <p className="text-xs text-gray-500 text-center">
+          <div className="mt-4 pt-4 border-t border-border">
+            <p className="text-xs text-muted-foreground text-center">
               Suggestions are generated based on your portfolio composition and risk profile
             </p>
           </div>

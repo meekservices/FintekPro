@@ -149,7 +149,7 @@ export default function SupplierDashboard() {
       case "high": return "bg-red-100 text-red-800";
       case "medium": return "bg-yellow-100 text-yellow-800";
       case "low": return "bg-green-100 text-green-800";
-      default: return "bg-muted dark:bg-muted text-foreground";
+      default: return "bg-muted text-foreground";
     }
   };
 
@@ -158,7 +158,7 @@ export default function SupplierDashboard() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Supplier Dashboard</h2>
+          <h2 className="text-2xl font-bold text-foreground">Supplier Dashboard</h2>
           <p className="text-muted-foreground">Optimize product performance and profit margins</p>
         </div>
         <div className="flex gap-2">
@@ -193,7 +193,7 @@ export default function SupplierDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
-                <p className="text-2xl font-bold text-gray-900">₹{totalRevenue.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-foreground">₹{totalRevenue.toLocaleString()}</p>
               </div>
               <IndianRupee className="h-8 w-8 text-green-600" />
             </div>
@@ -205,7 +205,7 @@ export default function SupplierDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Avg Profit Margin</p>
-                <p className="text-2xl font-bold text-gray-900">{averageMargin.toFixed(1)}%</p>
+                <p className="text-2xl font-bold text-foreground">{averageMargin.toFixed(1)}%</p>
               </div>
               <BarChart3 className="h-8 w-8 text-blue-600" />
             </div>
@@ -217,7 +217,7 @@ export default function SupplierDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">High Margin Products</p>
-                <p className="text-2xl font-bold text-gray-900">{highMarginProducts}</p>
+                <p className="text-2xl font-bold text-foreground">{highMarginProducts}</p>
               </div>
               <TrendingUp className="h-8 w-8 text-green-600" />
             </div>
@@ -229,7 +229,7 @@ export default function SupplierDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Promoted Products</p>
-                <p className="text-2xl font-bold text-gray-900">{promotedProducts}</p>
+                <p className="text-2xl font-bold text-foreground">{promotedProducts}</p>
               </div>
               <Megaphone className="h-8 w-8 text-purple-600" />
             </div>
@@ -384,7 +384,7 @@ export default function SupplierDashboard() {
                     {optimizationSuggestions?.map((suggestion, index) => (
                       <div key={index} className="border rounded-lg p-4">
                         <div className="flex justify-between items-start mb-2">
-                          <h4 className="font-semibold text-gray-900">{suggestion.productName}</h4>
+                          <h4 className="font-semibold text-foreground">{suggestion.productName}</h4>
                           <Badge className={getPriorityBadge(suggestion.priority)}>
                             {(suggestion.priority || 'medium').toUpperCase()}
                           </Badge>

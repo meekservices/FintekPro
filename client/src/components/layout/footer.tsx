@@ -118,14 +118,14 @@ export function Footer() {
             <h3 className="text-xl font-bold mb-4" data-testid="footer-company-name">
               FintekPro
             </h3>
-            <p className="text-gray-300 mb-4 text-sm" data-testid="footer-company-description">
+            <p className="text-muted-foreground mb-4 text-sm" data-testid="footer-company-description">
               Complete financial services platform for investments, trading, loans, tax filing, and wealth management.
             </p>
             <div className="flex space-x-4">
-              <Facebook className="text-gray-300 hover:text-white cursor-pointer h-5 w-5" data-testid="social-facebook" />
-              <Twitter className="text-gray-300 hover:text-white cursor-pointer h-5 w-5" data-testid="social-twitter" />
-              <Linkedin className="text-gray-300 hover:text-white cursor-pointer h-5 w-5" data-testid="social-linkedin" />
-              <Instagram className="text-gray-300 hover:text-white cursor-pointer h-5 w-5" data-testid="social-instagram" />
+              <Facebook className="text-muted-foreground hover:text-foreground cursor-pointer h-5 w-5" data-testid="social-facebook" />
+              <Twitter className="text-muted-foreground hover:text-foreground cursor-pointer h-5 w-5" data-testid="social-twitter" />
+              <Linkedin className="text-muted-foreground hover:text-foreground cursor-pointer h-5 w-5" data-testid="social-linkedin" />
+              <Instagram className="text-muted-foreground hover:text-foreground cursor-pointer h-5 w-5" data-testid="social-instagram" />
             </div>
           </div>
           
@@ -135,7 +135,7 @@ export function Footer() {
               <Home className="h-4 w-4 text-blue-400" />
               Getting Started
             </h4>
-            <ul className="space-y-2 text-gray-300 text-sm">
+            <ul className="space-y-2 text-muted-foreground text-sm">
               {gettingStartedLinks.map((link) => (
                 <li key={link.name}>
                   <Link href={link.href}>
@@ -154,7 +154,7 @@ export function Footer() {
               <Briefcase className="h-4 w-4 text-green-400" />
               Research & Planning
             </h4>
-            <ul className="space-y-2 text-gray-300 text-sm">
+            <ul className="space-y-2 text-muted-foreground text-sm">
               {researchLinks.map((link) => (
                 <li key={link.name}>
                   <Link href={link.href}>
@@ -173,7 +173,7 @@ export function Footer() {
               <Store className="h-4 w-4 text-purple-400" />
               Products
             </h4>
-            <ul className="space-y-2 text-gray-300 text-sm">
+            <ul className="space-y-2 text-muted-foreground text-sm">
               {productsLinks.map((link) => (
                 <li key={link.name}>
                   <Link href={link.href}>
@@ -192,7 +192,7 @@ export function Footer() {
               <Crown className="h-4 w-4 text-yellow-400" />
               Premium
             </h4>
-            <ul className="space-y-2 text-gray-300 text-sm">
+            <ul className="space-y-2 text-muted-foreground text-sm">
               {premiumLinks.map((link) => (
                 <li key={link.name}>
                   <Link href={link.href}>
@@ -207,7 +207,7 @@ export function Footer() {
               <Sparkles className="h-4 w-4 text-violet-400" />
               AI Features
             </h4>
-            <ul className="space-y-2 text-gray-300 text-sm">
+            <ul className="space-y-2 text-muted-foreground text-sm">
               {aiLinks.map((link) => (
                 <li key={link.name}>
                   <Link href={link.href}>
@@ -226,7 +226,7 @@ export function Footer() {
               <TrendingUp className="h-4 w-4 text-cyan-400" />
               Investing
             </h4>
-            <ul className="space-y-2 text-gray-300 text-sm">
+            <ul className="space-y-2 text-muted-foreground text-sm">
               {investingLinks.map((link) => (
                 <li key={link.name}>
                   <Link href={link.href}>
@@ -245,7 +245,7 @@ export function Footer() {
               <CreditCard className="h-4 w-4 text-orange-400" />
               Services
             </h4>
-            <ul className="space-y-2 text-gray-300 text-sm">
+            <ul className="space-y-2 text-muted-foreground text-sm">
               {servicesLinks.map((link) => (
                 <li key={link.name}>
                   <Link href={link.href}>
@@ -264,7 +264,7 @@ export function Footer() {
               <Receipt className="h-4 w-4 text-indigo-400" />
               Tax & Family
             </h4>
-            <ul className="space-y-2 text-gray-300 text-sm">
+            <ul className="space-y-2 text-muted-foreground text-sm">
               {taxLinks.map((link) => (
                 <li key={link.name}>
                   <Link href={link.href}>
@@ -292,7 +292,7 @@ export function Footer() {
               <Settings className="h-4 w-4 text-pink-400" />
               Support
             </h4>
-            <ul className="space-y-2 text-gray-300 text-sm">
+            <ul className="space-y-2 text-muted-foreground text-sm">
               {supportLinks.map((link) => (
                 <li key={link.name}>
                   <Link href={link.href}>
@@ -308,18 +308,18 @@ export function Footer() {
         
         {/* Credit Score Widget */}
         {isAuthenticated && creditScore && (
-          <div className="border-t border-gray-600 mt-8 pt-6">
+          <div className="border-t border-border mt-8 pt-6">
             <div className="flex flex-col md:flex-row justify-between items-center">
               <div className="flex items-center space-x-4 mb-4 md:mb-0">
                 <div className="flex items-center space-x-2">
                   <Shield className="h-5 w-5 text-blue-400" />
-                  <span className="text-gray-300 font-medium">Your Credit Score:</span>
+                  <span className="text-muted-foreground font-medium">Your Credit Score:</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <span className={`text-2xl font-bold ${getCreditScoreColor(creditScore)}`}>
                     {creditScore}
                   </span>
-                  <span className="text-gray-400">({getCreditGrade(creditScore)})</span>
+                  <span className="text-muted-foreground">({getCreditGrade(creditScore)})</span>
                 </div>
               </div>
               <Link href="/credit-report">
@@ -331,26 +331,26 @@ export function Footer() {
           </div>
         )}
 
-        <div className="border-t border-gray-600 mt-8 pt-6">
+        <div className="border-t border-border mt-8 pt-6">
           <div className="flex flex-col md:flex-row justify-between items-center mb-4">
             <div className="flex flex-wrap justify-center md:justify-start gap-4 mb-4 md:mb-0">
               {legalLinks.map((link, index) => (
                 <span key={link.name} className="flex items-center">
                   <Link href={link.href}>
-                    <span className="text-gray-300 hover:text-blue-400 transition-colors cursor-pointer text-sm" data-testid={`footer-legal-${link.name.toLowerCase().replace(/\s+/g, "-")}`}>
+                    <span className="text-muted-foreground hover:text-blue-400 transition-colors cursor-pointer text-sm" data-testid={`footer-legal-${link.name.toLowerCase().replace(/\s+/g, "-")}`}>
                       {link.name}
                     </span>
                   </Link>
-                  {index < legalLinks.length - 1 && <span className="text-gray-600 ml-4">|</span>}
+                  {index < legalLinks.length - 1 && <span className="text-muted-foreground ml-4">|</span>}
                 </span>
               ))}
             </div>
           </div>
-          <div className="text-center text-gray-300 text-sm">
+          <div className="text-center text-muted-foreground text-sm">
             <p data-testid="footer-copyright">
               &copy; 2026 FintekPro Financial Services Pvt. Ltd. All rights reserved. | SEBI Registered Investment Advisor | AMFI Registered Mutual Fund Distributor
             </p>
-            <p className="text-xs text-gray-500 mt-2">
+            <p className="text-xs text-muted-foreground mt-2">
               Investments are subject to market risks. Read all related documents carefully before investing.
             </p>
           </div>

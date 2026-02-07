@@ -326,7 +326,7 @@ export function TransactionReportViewer() {
               <div className="flex items-center gap-2">
                 <ArrowUpCircle className="h-4 w-4 text-green-600" />
                 <div>
-                  <p className="text-sm text-gray-600">Total Purchases</p>
+                  <p className="text-sm text-muted-foreground">Total Purchases</p>
                   <p className="font-semibold text-green-600">
                     {formatCurrency(filteredReports.reduce((sum: number, report: TransactionReport) => 
                       sum + parseFloat(report.totalPurchases || '0'), 0))}
@@ -341,7 +341,7 @@ export function TransactionReportViewer() {
               <div className="flex items-center gap-2">
                 <ArrowDownCircle className="h-4 w-4 text-red-600" />
                 <div>
-                  <p className="text-sm text-gray-600">Total Redemptions</p>
+                  <p className="text-sm text-muted-foreground">Total Redemptions</p>
                   <p className="font-semibold text-red-600">
                     {formatCurrency(filteredReports.reduce((sum: number, report: TransactionReport) => 
                       sum + parseFloat(report.totalRedemptions || '0'), 0))}
@@ -356,7 +356,7 @@ export function TransactionReportViewer() {
               <div className="flex items-center gap-2">
                 <IndianRupee className="h-4 w-4 text-blue-600" />
                 <div>
-                  <p className="text-sm text-gray-600">Total Dividend</p>
+                  <p className="text-sm text-muted-foreground">Total Dividend</p>
                   <p className="font-semibold text-blue-600">
                     {formatCurrency(filteredReports.reduce((sum: number, report: TransactionReport) => 
                       sum + parseFloat(report.totalDividendReceived || '0'), 0))}
@@ -371,7 +371,7 @@ export function TransactionReportViewer() {
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-purple-600" />
                 <div>
-                  <p className="text-sm text-gray-600">Total Transactions</p>
+                  <p className="text-sm text-muted-foreground">Total Transactions</p>
                   <p className="font-semibold text-purple-600">
                     {filteredReports.reduce((sum: number, report: TransactionReport) => 
                       sum + (report.transactionCount || 0), 0)}
@@ -463,9 +463,9 @@ export function TransactionReportViewer() {
             </Table>
           ) : (
             <div className="text-center py-8">
-              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">No transaction reports found for the selected criteria.</p>
-              <p className="text-sm text-gray-400 mt-2">
+              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No transaction reports found for the selected criteria.</p>
+              <p className="text-sm text-muted-foreground mt-2">
                 Try fetching reports from external sources using the buttons above.
               </p>
             </div>

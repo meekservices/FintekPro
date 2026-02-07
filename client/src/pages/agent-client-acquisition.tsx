@@ -109,7 +109,7 @@ interface AcquisitionMetrics {
 }
 
 const STATE_BADGES: Record<string, { label: string; color: string }> = {
-  prospect: { label: "Prospect", color: "bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground" },
+  prospect: { label: "Prospect", color: "bg-muted text-muted-foreground" },
   onboarded: { label: "Onboarded", color: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" },
   active_client: { label: "Active Client", color: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" },
 };
@@ -408,7 +408,7 @@ export default function AgentClientAcquisitionPage() {
         </AlertDescription>
       </Alert>
 
-      <Card className="border-2 border-dashed border-indigo-200 dark:border-indigo-800 bg-gradient-to-r from-slate-50 to-indigo-50 dark:from-slate-950 dark:to-indigo-950">
+      <Card className="border-2 border-dashed border-indigo-200 dark:border-indigo-800 bg-gradient-to-r from-slate-50 to-indigo-50 dark:from-background dark:to-indigo-950">
         <CardContent className="py-4">
           <div className="flex items-center gap-2 mb-3">
             <Sparkles className="h-5 w-5 text-indigo-600" />

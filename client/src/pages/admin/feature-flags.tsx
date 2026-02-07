@@ -96,7 +96,7 @@ export default function FeatureFlags() {
       case 'running': return 'bg-emerald-100 text-emerald-800';
       case 'paused': return 'bg-amber-100 text-amber-800';
       case 'completed': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-muted dark:bg-muted text-foreground';
+      default: return 'bg-muted text-foreground';
     }
   };
 
@@ -104,7 +104,7 @@ export default function FeatureFlags() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Feature Flags & A/B Testing</h1>
+          <h1 className="text-2xl font-bold text-foreground">Feature Flags & A/B Testing</h1>
           <p className="text-sm text-muted-foreground">
             Control feature rollouts and run experiments
           </p>
@@ -207,7 +207,7 @@ export default function FeatureFlags() {
                           />
                           <div>
                             <p className="font-medium">{flag.name}</p>
-                            <code className="text-xs bg-muted dark:bg-muted dark:bg-muted px-2 py-0.5 rounded">
+                            <code className="text-xs bg-muted px-2 py-0.5 rounded">
                               {flag.key}
                             </code>
                           </div>

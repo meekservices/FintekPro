@@ -291,13 +291,13 @@ export default function ListedStocksSeed() {
   const totalCount = stocks?.length || 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 text-white p-6">
+    <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 text-foreground p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <Link href="/admin/store-management">
-              <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white" data-testid="button-back">
+              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" data-testid="button-back">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Store
               </Button>
@@ -307,7 +307,7 @@ export default function ListedStocksSeed() {
                 <TrendingUp className="h-6 w-6 text-green-400" />
                 Listed Stocks - Exchange Sync
               </h1>
-              <p className="text-slate-400 text-sm">Sync stock data from NSE and BSE exchanges</p>
+              <p className="text-muted-foreground text-sm">Sync stock data from NSE and BSE exchanges</p>
             </div>
           </div>
           <Button onClick={() => refetch()} variant="outline" size="sm" data-testid="button-refresh">
@@ -319,7 +319,7 @@ export default function ListedStocksSeed() {
         {/* Exchange Sync Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           {/* NSE Sync Card */}
-          <Card className="bg-slate-800 border-slate-700">
+          <Card className="bg-card border-border">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -327,8 +327,8 @@ export default function ListedStocksSeed() {
                     <Building2 className="h-5 w-5 text-blue-400" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg text-white">NSE Exchange</CardTitle>
-                    <CardDescription className="text-slate-400">National Stock Exchange</CardDescription>
+                    <CardTitle className="text-lg text-foreground">NSE Exchange</CardTitle>
+                    <CardDescription className="text-muted-foreground">National Stock Exchange</CardDescription>
                   </div>
                 </div>
                 <Button 
@@ -350,7 +350,7 @@ export default function ListedStocksSeed() {
               {nseProgress && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-400">Status:</span>
+                    <span className="text-muted-foreground">Status:</span>
                     <Badge variant={nseProgress.status === 'complete' ? 'default' : nseProgress.status === 'error' ? 'destructive' : 'secondary'}>
                       {nseProgress.status === 'complete' ? 'Complete' : 
                        nseProgress.status === 'error' ? 'Error' :
@@ -361,7 +361,7 @@ export default function ListedStocksSeed() {
                   {isSyncing(nseProgress) && (
                     <>
                       <Progress value={getProgressPercent(nseProgress)} className="h-2" />
-                      <div className="flex justify-between text-xs text-slate-400">
+                      <div className="flex justify-between text-xs text-muted-foreground">
                         <span>Processing: {nseProgress.processed}/{nseProgress.total}</span>
                         <span>{getProgressPercent(nseProgress)}%</span>
                       </div>
@@ -371,20 +371,20 @@ export default function ListedStocksSeed() {
                     <div className="grid grid-cols-3 gap-2 text-center">
                       <div className="p-2 rounded bg-green-500/20">
                         <div className="text-green-400 font-semibold">{nseProgress.added}</div>
-                        <div className="text-xs text-slate-400">Synced</div>
+                        <div className="text-xs text-muted-foreground">Synced</div>
                       </div>
                       <div className="p-2 rounded bg-yellow-500/20">
                         <div className="text-yellow-400 font-semibold">{nseProgress.updated}</div>
-                        <div className="text-xs text-slate-400">Updated</div>
+                        <div className="text-xs text-muted-foreground">Updated</div>
                       </div>
                       <div className="p-2 rounded bg-red-500/20">
                         <div className="text-red-400 font-semibold">{nseProgress.errors}</div>
-                        <div className="text-xs text-slate-400">Errors</div>
+                        <div className="text-xs text-muted-foreground">Errors</div>
                       </div>
                     </div>
                   )}
                   {nseProgress.completedAt && (
-                    <div className="flex items-center gap-1 text-xs text-slate-500">
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Clock className="h-3 w-3" />
                       Last sync: {new Date(nseProgress.completedAt).toLocaleString()}
                     </div>
@@ -395,7 +395,7 @@ export default function ListedStocksSeed() {
           </Card>
 
           {/* BSE Sync Card */}
-          <Card className="bg-slate-800 border-slate-700">
+          <Card className="bg-card border-border">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -403,8 +403,8 @@ export default function ListedStocksSeed() {
                     <BarChart3 className="h-5 w-5 text-orange-400" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg text-white">BSE Exchange</CardTitle>
-                    <CardDescription className="text-slate-400">Bombay Stock Exchange</CardDescription>
+                    <CardTitle className="text-lg text-foreground">BSE Exchange</CardTitle>
+                    <CardDescription className="text-muted-foreground">Bombay Stock Exchange</CardDescription>
                   </div>
                 </div>
                 <Button 
@@ -426,7 +426,7 @@ export default function ListedStocksSeed() {
               {bseProgress && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-400">Status:</span>
+                    <span className="text-muted-foreground">Status:</span>
                     <Badge variant={bseProgress.status === 'complete' ? 'default' : bseProgress.status === 'error' ? 'destructive' : 'secondary'}>
                       {bseProgress.status === 'complete' ? 'Complete' : 
                        bseProgress.status === 'error' ? 'Error' :
@@ -437,7 +437,7 @@ export default function ListedStocksSeed() {
                   {isSyncing(bseProgress) && (
                     <>
                       <Progress value={getProgressPercent(bseProgress)} className="h-2" />
-                      <div className="flex justify-between text-xs text-slate-400">
+                      <div className="flex justify-between text-xs text-muted-foreground">
                         <span>Processing: {bseProgress.processed}/{bseProgress.total}</span>
                         <span>{getProgressPercent(bseProgress)}%</span>
                       </div>
@@ -447,20 +447,20 @@ export default function ListedStocksSeed() {
                     <div className="grid grid-cols-3 gap-2 text-center">
                       <div className="p-2 rounded bg-green-500/20">
                         <div className="text-green-400 font-semibold">{bseProgress.added}</div>
-                        <div className="text-xs text-slate-400">Synced</div>
+                        <div className="text-xs text-muted-foreground">Synced</div>
                       </div>
                       <div className="p-2 rounded bg-yellow-500/20">
                         <div className="text-yellow-400 font-semibold">{bseProgress.updated}</div>
-                        <div className="text-xs text-slate-400">Updated</div>
+                        <div className="text-xs text-muted-foreground">Updated</div>
                       </div>
                       <div className="p-2 rounded bg-red-500/20">
                         <div className="text-red-400 font-semibold">{bseProgress.errors}</div>
-                        <div className="text-xs text-slate-400">Errors</div>
+                        <div className="text-xs text-muted-foreground">Errors</div>
                       </div>
                     </div>
                   )}
                   {bseProgress.completedAt && (
-                    <div className="flex items-center gap-1 text-xs text-slate-500">
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Clock className="h-3 w-3" />
                       Last sync: {new Date(bseProgress.completedAt).toLocaleString()}
                     </div>
@@ -473,46 +473,46 @@ export default function ListedStocksSeed() {
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-card/50 border-border">
             <CardContent className="pt-4">
               <div className="flex items-center gap-3">
                 <Package className="h-8 w-8 text-blue-400" />
                 <div>
-                  <div className="text-2xl font-bold text-white">{totalCount}</div>
-                  <div className="text-sm text-slate-400">Total Stocks</div>
+                  <div className="text-2xl font-bold text-foreground">{totalCount}</div>
+                  <div className="text-sm text-muted-foreground">Total Stocks</div>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-card/50 border-border">
             <CardContent className="pt-4">
               <div className="flex items-center gap-3">
                 <CheckCircle className="h-8 w-8 text-green-400" />
                 <div>
-                  <div className="text-2xl font-bold text-white">{publishedCount}</div>
-                  <div className="text-sm text-slate-400">Published</div>
+                  <div className="text-2xl font-bold text-foreground">{publishedCount}</div>
+                  <div className="text-sm text-muted-foreground">Published</div>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-card/50 border-border">
             <CardContent className="pt-4">
               <div className="flex items-center gap-3">
                 <AlertCircle className="h-8 w-8 text-yellow-400" />
                 <div>
-                  <div className="text-2xl font-bold text-white">{totalCount - publishedCount}</div>
-                  <div className="text-sm text-slate-400">Unpublished</div>
+                  <div className="text-2xl font-bold text-foreground">{totalCount - publishedCount}</div>
+                  <div className="text-sm text-muted-foreground">Unpublished</div>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-card/50 border-border">
             <CardContent className="pt-4">
               <div className="flex items-center gap-3">
                 <TrendingUp className="h-8 w-8 text-purple-400" />
                 <div>
-                  <div className="text-2xl font-bold text-white">{filteredStocks.length}</div>
-                  <div className="text-sm text-slate-400">Filtered</div>
+                  <div className="text-2xl font-bold text-foreground">{filteredStocks.length}</div>
+                  <div className="text-sm text-muted-foreground">Filtered</div>
                 </div>
               </div>
             </CardContent>
@@ -520,7 +520,7 @@ export default function ListedStocksSeed() {
         </div>
 
         {/* Data Enrichment Card */}
-        <Card className="bg-slate-800 border-slate-700 mb-6">
+        <Card className="bg-card border-border mb-6">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -528,8 +528,8 @@ export default function ListedStocksSeed() {
                   <BarChart3 className="h-5 w-5 text-purple-400" />
                 </div>
                 <div>
-                  <CardTitle className="text-lg text-white">Data Enrichment</CardTitle>
-                  <CardDescription className="text-slate-400">
+                  <CardTitle className="text-lg text-foreground">Data Enrichment</CardTitle>
+                  <CardDescription className="text-muted-foreground">
                     Fill missing PE ratios, CIN, PAN, and BSE codes using external APIs
                   </CardDescription>
                 </div>
@@ -552,24 +552,24 @@ export default function ListedStocksSeed() {
           <CardContent>
             {enrichmentStats && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-slate-700/50 rounded-lg p-3">
-                  <div className="text-sm text-slate-400">With Broad Sector</div>
-                  <div className="text-xl font-bold text-white">{enrichmentStats.withBroadSector}/{enrichmentStats.total}</div>
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <div className="text-sm text-muted-foreground">With Broad Sector</div>
+                  <div className="text-xl font-bold text-foreground">{enrichmentStats.withBroadSector}/{enrichmentStats.total}</div>
                   <Progress value={(enrichmentStats.withBroadSector / enrichmentStats.total) * 100} className="h-1 mt-2" />
                 </div>
-                <div className="bg-slate-700/50 rounded-lg p-3">
-                  <div className="text-sm text-slate-400">With PE Ratio</div>
-                  <div className="text-xl font-bold text-white">{enrichmentStats.withPe}/{enrichmentStats.total}</div>
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <div className="text-sm text-muted-foreground">With PE Ratio</div>
+                  <div className="text-xl font-bold text-foreground">{enrichmentStats.withPe}/{enrichmentStats.total}</div>
                   <Progress value={(enrichmentStats.withPe / enrichmentStats.total) * 100} className="h-1 mt-2" />
                 </div>
-                <div className="bg-slate-700/50 rounded-lg p-3">
-                  <div className="text-sm text-slate-400">With CIN</div>
-                  <div className="text-xl font-bold text-white">{enrichmentStats.withCin}/{enrichmentStats.total}</div>
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <div className="text-sm text-muted-foreground">With CIN</div>
+                  <div className="text-xl font-bold text-foreground">{enrichmentStats.withCin}/{enrichmentStats.total}</div>
                   <Progress value={(enrichmentStats.withCin / enrichmentStats.total) * 100} className="h-1 mt-2" />
                 </div>
-                <div className="bg-slate-700/50 rounded-lg p-3">
-                  <div className="text-sm text-slate-400">With PAN</div>
-                  <div className="text-xl font-bold text-white">{enrichmentStats.withPan}/{enrichmentStats.total}</div>
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <div className="text-sm text-muted-foreground">With PAN</div>
+                  <div className="text-xl font-bold text-foreground">{enrichmentStats.withPan}/{enrichmentStats.total}</div>
                   <Progress value={(enrichmentStats.withPan / enrichmentStats.total) * 100} className="h-1 mt-2" />
                 </div>
               </div>
@@ -578,21 +578,21 @@ export default function ListedStocksSeed() {
         </Card>
 
         {/* Filters and Bulk Actions */}
-        <Card className="bg-slate-800 border-slate-700 mb-6">
+        <Card className="bg-card border-border mb-6">
           <CardContent className="pt-4">
             <div className="flex flex-wrap items-center gap-4">
               <div className="relative flex-1 min-w-[200px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search by symbol or company name..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 bg-slate-700 border-slate-600 text-white"
+                  className="pl-10 bg-muted border-border text-foreground"
                   data-testid="input-search"
                 />
               </div>
               <Select value={exchangeFilter} onValueChange={setExchangeFilter}>
-                <SelectTrigger className="w-[150px] bg-slate-700 border-slate-600 text-white" data-testid="select-exchange">
+                <SelectTrigger className="w-[150px] bg-muted border-border text-foreground" data-testid="select-exchange">
                   <SelectValue placeholder="Exchange" />
                 </SelectTrigger>
                 <SelectContent>
@@ -602,7 +602,7 @@ export default function ListedStocksSeed() {
                 </SelectContent>
               </Select>
               <Select value={sectorFilter} onValueChange={setSectorFilter}>
-                <SelectTrigger className="w-[180px] bg-slate-700 border-slate-600 text-white" data-testid="select-sector">
+                <SelectTrigger className="w-[180px] bg-muted border-border text-foreground" data-testid="select-sector">
                   <SelectValue placeholder="Sector" />
                 </SelectTrigger>
                 <SelectContent>
@@ -613,7 +613,7 @@ export default function ListedStocksSeed() {
                 </SelectContent>
               </Select>
               <Select value={broadSectorFilter} onValueChange={setBroadSectorFilter}>
-                <SelectTrigger className="w-[200px] bg-slate-700 border-slate-600 text-white" data-testid="select-broad-sector">
+                <SelectTrigger className="w-[200px] bg-muted border-border text-foreground" data-testid="select-broad-sector">
                   <SelectValue placeholder="Broad Sector" />
                 </SelectTrigger>
                 <SelectContent>
@@ -624,7 +624,7 @@ export default function ListedStocksSeed() {
                 </SelectContent>
               </Select>
               <Select value={marketCapFilter} onValueChange={setMarketCapFilter}>
-                <SelectTrigger className="w-[150px] bg-slate-700 border-slate-600 text-white" data-testid="select-marketcap">
+                <SelectTrigger className="w-[150px] bg-muted border-border text-foreground" data-testid="select-marketcap">
                   <SelectValue placeholder="Market Cap" />
                 </SelectTrigger>
                 <SelectContent>
@@ -637,7 +637,7 @@ export default function ListedStocksSeed() {
 
               {selectedStocks.size > 0 && (
                 <div className="flex items-center gap-2 ml-auto">
-                  <span className="text-sm text-slate-400">{selectedStocks.size} selected</span>
+                  <span className="text-sm text-muted-foreground">{selectedStocks.size} selected</span>
                   <Button 
                     size="sm" 
                     onClick={() => bulkPublishMutation.mutate({ ids: Array.from(selectedStocks), isPublished: true })}
@@ -653,7 +653,7 @@ export default function ListedStocksSeed() {
                     variant="outline"
                     onClick={() => bulkPublishMutation.mutate({ ids: Array.from(selectedStocks), isPublished: false })}
                     disabled={bulkPublishMutation.isPending}
-                    className="border-slate-600"
+                    className="border-border"
                     data-testid="button-bulk-unpublish"
                   >
                     <EyeOff className="h-4 w-4 mr-1" />
@@ -666,10 +666,10 @@ export default function ListedStocksSeed() {
         </Card>
 
         {/* Stocks Table */}
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-card border-border">
           <CardHeader>
             <CardTitle className="text-foreground">Synced Stocks</CardTitle>
-            <CardDescription className="text-slate-400">
+            <CardDescription className="text-muted-foreground">
               Manage stocks synced from NSE and BSE exchanges
             </CardDescription>
           </CardHeader>
@@ -679,7 +679,7 @@ export default function ListedStocksSeed() {
                 <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
               </div>
             ) : filteredStocks.length === 0 ? (
-              <div className="text-center py-12 text-slate-400">
+              <div className="text-center py-12 text-muted-foreground">
                 <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>No stocks found. Click "Sync NSE" or "Sync BSE" to fetch stocks.</p>
               </div>
@@ -687,7 +687,7 @@ export default function ListedStocksSeed() {
               <ScrollArea className="h-[600px]">
                 <Table>
                   <TableHeader>
-                    <TableRow className="border-slate-700">
+                    <TableRow className="border-border">
                       <TableHead className="w-[50px]">
                         <Checkbox 
                           checked={selectedStocks.size === filteredStocks.length && filteredStocks.length > 0}
@@ -695,29 +695,29 @@ export default function ListedStocksSeed() {
                           data-testid="checkbox-select-all"
                         />
                       </TableHead>
-                      <TableHead className="text-slate-300">Symbol</TableHead>
-                      <TableHead className="text-slate-300">Company</TableHead>
-                      <TableHead className="text-slate-300">Exchange</TableHead>
-                      <TableHead className="text-slate-300">Sector</TableHead>
-                      <TableHead className="text-slate-300">Market Cap</TableHead>
-                      <TableHead className="text-slate-300 text-right">Price</TableHead>
-                      <TableHead className="text-slate-300 text-right">P/E</TableHead>
-                      <TableHead className="text-slate-300 text-right">1Y Return</TableHead>
-                      <TableHead className="text-slate-300">Status</TableHead>
-                      <TableHead className="text-slate-300 w-[100px]">Action</TableHead>
+                      <TableHead className="text-muted-foreground">Symbol</TableHead>
+                      <TableHead className="text-muted-foreground">Company</TableHead>
+                      <TableHead className="text-muted-foreground">Exchange</TableHead>
+                      <TableHead className="text-muted-foreground">Sector</TableHead>
+                      <TableHead className="text-muted-foreground">Market Cap</TableHead>
+                      <TableHead className="text-muted-foreground text-right">Price</TableHead>
+                      <TableHead className="text-muted-foreground text-right">P/E</TableHead>
+                      <TableHead className="text-muted-foreground text-right">1Y Return</TableHead>
+                      <TableHead className="text-muted-foreground">Status</TableHead>
+                      <TableHead className="text-muted-foreground w-[100px]">Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredStocks.map((stock) => (
-                      <TableRow key={stock.id} className="border-slate-700 hover:bg-slate-700/50" data-testid={`row-stock-${stock.id}`}>
+                      <TableRow key={stock.id} className="border-border hover:bg-muted/50" data-testid={`row-stock-${stock.id}`}>
                         <TableCell>
                           <Checkbox 
                             checked={selectedStocks.has(stock.id)}
                             onCheckedChange={() => handleSelectStock(stock.id)}
                           />
                         </TableCell>
-                        <TableCell className="font-medium text-white">{stock.symbol}</TableCell>
-                        <TableCell className="text-slate-300 max-w-[200px] truncate">
+                        <TableCell className="font-medium text-foreground">{stock.symbol}</TableCell>
+                        <TableCell className="text-muted-foreground max-w-[200px] truncate">
                           {stock.companyName}
                         </TableCell>
                         <TableCell>
@@ -726,7 +726,7 @@ export default function ListedStocksSeed() {
                             {stock.bseCode && <Badge variant="outline" className="text-orange-400 border-orange-400">BSE</Badge>}
                           </div>
                         </TableCell>
-                        <TableCell className="text-slate-400">{stock.sector || '-'}</TableCell>
+                        <TableCell className="text-muted-foreground">{stock.sector || '-'}</TableCell>
                         <TableCell>
                           {stock.marketCap && (
                             <Badge variant="secondary" className={
@@ -738,7 +738,7 @@ export default function ListedStocksSeed() {
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell className="text-right font-mono text-white">
+                        <TableCell className="text-right font-mono text-foreground">
                           {stock.currentPrice ? `₹${parseFloat(stock.currentPrice).toLocaleString()}` : '-'}
                         </TableCell>
                         <TableCell className="text-right font-mono">
@@ -768,7 +768,7 @@ export default function ListedStocksSeed() {
                             data-testid={`button-toggle-${stock.id}`}
                           >
                             {stock.isPublished ? (
-                              <EyeOff className="h-4 w-4 text-slate-400" />
+                              <EyeOff className="h-4 w-4 text-muted-foreground" />
                             ) : (
                               <Eye className="h-4 w-4 text-green-400" />
                             )}

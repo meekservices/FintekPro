@@ -11,9 +11,9 @@ export function MarketTicker() {
         <div className="flex space-x-8 whitespace-nowrap">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="flex items-center space-x-2">
-              <Skeleton className="h-4 w-16 bg-gray-600" />
-              <Skeleton className="h-4 w-20 bg-gray-600" />
-              <Skeleton className="h-4 w-12 bg-gray-600" />
+              <Skeleton className="h-4 w-16 bg-muted" />
+              <Skeleton className="h-4 w-20 bg-muted" />
+              <Skeleton className="h-4 w-12 bg-muted" />
             </div>
           ))}
         </div>

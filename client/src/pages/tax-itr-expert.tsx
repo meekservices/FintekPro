@@ -234,8 +234,8 @@ export default function TaxITRExpertPage() {
   const renderIncomeSourcesStep = () => (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold mb-2 dark:text-white">Select Your Income Sources</h3>
-        <p className="text-muted-foreground dark:text-muted-foreground text-sm">
+        <h3 className="text-lg font-semibold mb-2">Select Your Income Sources</h3>
+        <p className="text-muted-foreground text-sm">
           This helps us determine the right ITR form and assign the appropriate expert.
         </p>
       </div>
@@ -259,12 +259,12 @@ export default function TaxITRExpertPage() {
               data-testid={`card-${source.key}`}
             >
               <CardContent className="p-4 flex items-start gap-3">
-                <div className={`p-2 rounded-lg ${isChecked ? "bg-primary/10" : "bg-muted dark:bg-muted"}`}>
+                <div className={`p-2 rounded-lg ${isChecked ? "bg-primary/10" : "bg-muted"}`}>
                   <Icon className={`h-5 w-5 ${isChecked ? "text-primary" : "text-muted-foreground"}`} />
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium dark:text-white">{source.label}</p>
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">{source.desc}</p>
+                  <p className="font-medium">{source.label}</p>
+                  <p className="text-sm text-muted-foreground">{source.desc}</p>
                 </div>
                 <Checkbox checked={isChecked} className="mt-1" />
               </CardContent>
@@ -277,8 +277,8 @@ export default function TaxITRExpertPage() {
         <CardContent className="p-4 flex items-center gap-3">
           <FileText className="h-6 w-6 text-blue-600 dark:text-blue-400" />
           <div>
-            <p className="font-medium dark:text-white">Recommended Form: {getRecommendedForm()}</p>
-            <p className="text-sm text-muted-foreground dark:text-muted-foreground">Based on your income sources</p>
+            <p className="font-medium">Recommended Form: {getRecommendedForm()}</p>
+            <p className="text-sm text-muted-foreground">Based on your income sources</p>
           </div>
         </CardContent>
       </Card>
@@ -288,8 +288,8 @@ export default function TaxITRExpertPage() {
   const renderCaseDetailsStep = () => (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold mb-2 dark:text-white">Case Details</h3>
-        <p className="text-muted-foreground dark:text-muted-foreground text-sm">
+        <h3 className="text-lg font-semibold mb-2">Case Details</h3>
+        <p className="text-muted-foreground text-sm">
           Provide additional details to help our experts prepare your return accurately.
         </p>
       </div>
@@ -385,15 +385,15 @@ export default function TaxITRExpertPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h3 className="text-lg font-semibold mb-2 dark:text-white">Upload Documents</h3>
-          <p className="text-muted-foreground dark:text-muted-foreground text-sm">
+          <h3 className="text-lg font-semibold mb-2">Upload Documents</h3>
+          <p className="text-muted-foreground text-sm">
             Upload the required documents for your return. You can also upload later.
           </p>
         </div>
 
         <div className="flex items-center gap-4">
           <Progress value={uploadProgress} className="flex-1" />
-          <span className="text-sm font-medium dark:text-white">{uploadedDocs.length}/{requiredDocs.length}</span>
+          <span className="text-sm font-medium">{uploadedDocs.length}/{requiredDocs.length}</span>
         </div>
 
         <div className="space-y-3">
@@ -407,7 +407,7 @@ export default function TaxITRExpertPage() {
                 data-testid={`doc-${doc.id}`}
               >
                 <CardContent className="p-4 flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${isUploaded ? "bg-green-100 dark:bg-green-900" : "bg-muted dark:bg-muted"}`}>
+                  <div className={`p-2 rounded-lg ${isUploaded ? "bg-green-100 dark:bg-green-900" : "bg-muted"}`}>
                     {isUploaded ? (
                       <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
                     ) : (
@@ -415,8 +415,8 @@ export default function TaxITRExpertPage() {
                     )}
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium dark:text-white">{doc.name}</p>
-                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">{doc.desc}</p>
+                    <p className="font-medium">{doc.name}</p>
+                    <p className="text-sm text-muted-foreground">{doc.desc}</p>
                   </div>
                   <Button 
                     variant={isUploaded ? "outline" : "default"} 
@@ -444,8 +444,8 @@ export default function TaxITRExpertPage() {
   const renderExpertSelectionStep = () => (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold mb-2 dark:text-white">Choose Your Expert</h3>
-        <p className="text-muted-foreground dark:text-muted-foreground text-sm">
+        <h3 className="text-lg font-semibold mb-2">Choose Your Expert</h3>
+        <p className="text-muted-foreground text-sm">
           Select the type of expert and service level that suits your needs.
         </p>
       </div>
@@ -472,8 +472,8 @@ export default function TaxITRExpertPage() {
                   <div className="flex justify-center mb-2">
                     <opt.icon className={`h-8 w-8 ${expertPrefs.preferredExpertType === opt.value ? "text-primary" : "text-muted-foreground"}`} />
                   </div>
-                  <p className="font-medium dark:text-white">{opt.label}</p>
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">{opt.desc}</p>
+                  <p className="font-medium">{opt.label}</p>
+                  <p className="text-sm text-muted-foreground">{opt.desc}</p>
                   <Badge variant="secondary" className="mt-2">{opt.badge}</Badge>
                 </CardContent>
               </Card>
@@ -502,8 +502,8 @@ export default function TaxITRExpertPage() {
               >
                 <CardContent className="p-4 text-center">
                   <Clock className={`h-6 w-6 mx-auto mb-2 ${expertPrefs.urgency === opt.value ? "text-primary" : "text-muted-foreground"}`} />
-                  <p className="font-medium dark:text-white">{opt.label}</p>
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">{opt.desc}</p>
+                  <p className="font-medium">{opt.label}</p>
+                  <p className="text-sm text-muted-foreground">{opt.desc}</p>
                   <p className="text-lg font-bold text-primary mt-2">₹{opt.price.toLocaleString()}</p>
                 </CardContent>
               </Card>
@@ -521,8 +521,8 @@ export default function TaxITRExpertPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h3 className="text-lg font-semibold mb-2 dark:text-white">Review & Submit</h3>
-          <p className="text-muted-foreground dark:text-muted-foreground text-sm">
+          <h3 className="text-lg font-semibold mb-2">Review & Submit</h3>
+          <p className="text-muted-foreground text-sm">
             Please review your case details before submitting.
           </p>
         </div>
@@ -534,20 +534,20 @@ export default function TaxITRExpertPage() {
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground dark:text-muted-foreground">Assessment Year</span>
-                <span className="font-medium dark:text-white">{assessmentYear}</span>
+                <span className="text-muted-foreground">Assessment Year</span>
+                <span className="font-medium">{assessmentYear}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground dark:text-muted-foreground">ITR Form</span>
-                <span className="font-medium dark:text-white">{getRecommendedForm()}</span>
+                <span className="text-muted-foreground">ITR Form</span>
+                <span className="font-medium">{getRecommendedForm()}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground dark:text-muted-foreground">PAN</span>
-                <span className="font-medium dark:text-white">{panContext?.pan || "N/A"}</span>
+                <span className="text-muted-foreground">PAN</span>
+                <span className="font-medium">{panContext?.pan || "N/A"}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground dark:text-muted-foreground">Documents Uploaded</span>
-                <span className="font-medium dark:text-white">{uploadedDocs.length}/{requiredDocs.length}</span>
+                <span className="text-muted-foreground">Documents Uploaded</span>
+                <span className="font-medium">{uploadedDocs.length}/{requiredDocs.length}</span>
               </div>
             </CardContent>
           </Card>
@@ -558,16 +558,16 @@ export default function TaxITRExpertPage() {
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground dark:text-muted-foreground">Expert Type</span>
-                <span className="font-medium dark:text-white capitalize">{expertPrefs.preferredExpertType.replace("_", " ")}</span>
+                <span className="text-muted-foreground">Expert Type</span>
+                <span className="font-medium capitalize">{expertPrefs.preferredExpertType.replace("_", " ")}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground dark:text-muted-foreground">Service Level</span>
-                <span className="font-medium dark:text-white capitalize">{expertPrefs.urgency}</span>
+                <span className="text-muted-foreground">Service Level</span>
+                <span className="font-medium capitalize">{expertPrefs.urgency}</span>
               </div>
               <Separator className="my-2" />
               <div className="flex justify-between text-base">
-                <span className="font-medium dark:text-white">Total Amount</span>
+                <span className="font-medium">Total Amount</span>
                 <span className="font-bold text-primary">₹{price.toLocaleString()}</span>
               </div>
             </CardContent>
@@ -588,7 +588,7 @@ export default function TaxITRExpertPage() {
                   </Badge>
                 ))}
               {Object.values(incomeSources).every(v => !v) && (
-                <span className="text-muted-foreground dark:text-muted-foreground text-sm">No income sources selected</span>
+                <span className="text-muted-foreground text-sm">No income sources selected</span>
               )}
             </div>
           </CardContent>
@@ -603,7 +603,7 @@ export default function TaxITRExpertPage() {
 
         <div className="flex items-start gap-2">
           <Checkbox id="terms" className="mt-1" data-testid="checkbox-terms" />
-          <Label htmlFor="terms" className="text-sm text-muted-foreground dark:text-muted-foreground">
+          <Label htmlFor="terms" className="text-sm text-muted-foreground">
             I agree to the Terms of Service and authorize FintekPro to share my documents with the assigned expert for ITR preparation.
           </Label>
         </div>
@@ -638,7 +638,7 @@ export default function TaxITRExpertPage() {
       <div className="container mx-auto p-6 flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <Clock className="h-8 w-8 animate-spin mx-auto text-primary" />
-          <p className="mt-2 text-muted-foreground dark:text-muted-foreground">Loading your details...</p>
+          <p className="mt-2 text-muted-foreground">Loading your details...</p>
         </div>
       </div>
     );
@@ -651,8 +651,8 @@ export default function TaxITRExpertPage() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>
-          <h1 className="text-2xl font-bold dark:text-white">Hire Tax Expert</h1>
-          <p className="text-muted-foreground dark:text-muted-foreground">Let our experts prepare and file your ITR</p>
+          <h1 className="text-2xl font-bold">Hire Tax Expert</h1>
+          <p className="text-muted-foreground">Let our experts prepare and file your ITR</p>
         </div>
       </div>
 
@@ -675,7 +675,7 @@ export default function TaxITRExpertPage() {
                 <span className="hidden sm:inline">{step.label}</span>
               </Button>
               {idx < STEPS.length - 1 && (
-                <ArrowRight className="h-4 w-4 mx-2 text-muted-foreground dark:text-muted-foreground" />
+                <ArrowRight className="h-4 w-4 mx-2 text-muted-foreground" />
               )}
             </div>
           );
@@ -725,24 +725,24 @@ export default function TaxITRExpertPage() {
         )}
       </div>
 
-      <Card className="bg-muted dark:bg-card">
+      <Card className="bg-muted">
         <CardContent className="p-4">
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4 text-primary" />
-              <span className="text-sm dark:text-white">Live Chat Support</span>
+              <span className="text-sm">Live Chat Support</span>
             </div>
             <div className="flex items-center gap-2">
               <Phone className="h-4 w-4 text-primary" />
-              <span className="text-sm dark:text-white">1800-XXX-XXXX</span>
+              <span className="text-sm">1800-XXX-XXXX</span>
             </div>
             <div className="flex items-center gap-2">
               <Mail className="h-4 w-4 text-primary" />
-              <span className="text-sm dark:text-white">tax@fintekpro.com</span>
+              <span className="text-sm">tax@fintekpro.com</span>
             </div>
             <div className="flex items-center gap-2 ml-auto">
               <Star className="h-4 w-4 text-amber-500" />
-              <span className="text-sm dark:text-white">4.8/5 Expert Rating</span>
+              <span className="text-sm">4.8/5 Expert Rating</span>
             </div>
           </div>
         </CardContent>

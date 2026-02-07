@@ -630,7 +630,7 @@ export default function AdminAiRecommendationTracking() {
                   <div className="text-2xl font-bold text-amber-600">{metrics?.stoppedOut || 0}</div>
                   <p className="text-sm text-muted-foreground">Stopped Out</p>
                 </div>
-                <div className="text-center p-4 bg-muted dark:bg-card rounded-lg">
+                <div className="text-center p-4 bg-muted rounded-lg">
                   <Clock className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                   <div className="text-2xl font-bold text-muted-foreground">{metrics?.expired || 0}</div>
                   <p className="text-sm text-muted-foreground">Expired</p>

@@ -131,7 +131,7 @@ export function LivePerformanceTicker({ portfolioId }: { portfolioId?: string })
 
   if (isLoading) {
     return (
-      <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900 border-blue-200 dark:border-blue-800" data-testid="widget-live-performance-loading">
+      <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-card dark:to-background border-blue-200 dark:border-blue-800" data-testid="widget-live-performance-loading">
         <CardHeader className="pb-2">
           <Skeleton className="h-6 w-40" />
         </CardHeader>
@@ -146,12 +146,12 @@ export function LivePerformanceTicker({ portfolioId }: { portfolioId?: string })
   const isPositive = displayData.dayChange >= 0;
 
   return (
-    <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900 border-blue-200 dark:border-blue-800 overflow-hidden" data-testid="widget-live-performance">
+    <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-card dark:to-background border-blue-200 dark:border-blue-800 overflow-hidden" data-testid="widget-live-performance">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Activity className="h-5 w-5 text-blue-600 animate-pulse" />
-            <CardTitle className="text-lg text-gray-900 dark:text-white" data-testid="text-live-performance-title">
+            <CardTitle className="text-lg text-foreground" data-testid="text-live-performance-title">
               Live Portfolio Value
             </CardTitle>
           </div>
@@ -176,7 +176,7 @@ export function LivePerformanceTicker({ portfolioId }: { portfolioId?: string })
       <CardContent className="space-y-4">
         <div className="flex items-end justify-between">
           <div>
-            <div className="text-3xl font-bold text-gray-900 dark:text-white" data-testid="text-total-portfolio-value">
+            <div className="text-3xl font-bold text-foreground" data-testid="text-total-portfolio-value">
               ₹{displayData.totalValue.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
             </div>
             <div className={cn(
@@ -191,10 +191,10 @@ export function LivePerformanceTicker({ portfolioId }: { portfolioId?: string })
               <span>
                 {isPositive ? "+" : ""}₹{Math.abs(displayData.dayChange).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
               </span>
-              <span className="text-gray-500 dark:text-gray-400">
+              <span className="text-muted-foreground">
                 ({isPositive ? "+" : ""}{displayData.dayChangePercent.toFixed(2)}%)
               </span>
-              <span className="text-gray-400 dark:text-gray-500 text-xs ml-1">today</span>
+              <span className="text-muted-foreground text-xs ml-1">today</span>
             </div>
           </div>
           <div className="h-16 w-32" data-testid="chart-sparkline">
@@ -218,7 +218,7 @@ export function LivePerformanceTicker({ portfolioId }: { portfolioId?: string })
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+        <div className="grid grid-cols-4 gap-3 pt-2 border-t border-border">
           {[
             { label: "1W", value: displayData.weekChangePercent, testId: "text-change-1w" },
             { label: "1M", value: displayData.monthChangePercent, testId: "text-change-1m" },
@@ -226,7 +226,7 @@ export function LivePerformanceTicker({ portfolioId }: { portfolioId?: string })
             { label: "All", value: displayData.allTimeReturnPercent, testId: "text-change-all" },
           ].map((item) => (
             <div key={item.label} className="text-center">
-              <div className="text-xs text-gray-500 dark:text-gray-400">{item.label}</div>
+              <div className="text-xs text-muted-foreground">{item.label}</div>
               <div className={cn(
                 "text-sm font-semibold",
                 (item.value || 0) >= 0 ? "text-green-600" : "text-red-600"
@@ -237,7 +237,7 @@ export function LivePerformanceTicker({ portfolioId }: { portfolioId?: string })
           ))}
         </div>
 
-        <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 pt-2 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border">
           <div className="flex items-center gap-3">
             <Tooltip>
               <TooltipTrigger className="flex items-center gap-1" data-testid="tooltip-xirr">
@@ -320,7 +320,7 @@ export function TopMoversWidget({ portfolioId }: { portfolioId?: string }) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Flame className="h-5 w-5 text-orange-500" />
-            <CardTitle className="text-lg text-gray-900 dark:text-white" data-testid="text-top-movers-title">Top Movers</CardTitle>
+            <CardTitle className="text-lg text-foreground" data-testid="text-top-movers-title">Top Movers</CardTitle>
           </div>
           <div className="flex gap-1">
             <Button
@@ -356,7 +356,7 @@ export function TopMoversWidget({ portfolioId }: { portfolioId?: string }) {
         {currentMovers.map((mover, index) => (
           <div
             key={mover.symbol}
-            className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+            className="flex items-center justify-between p-2 rounded-lg hover:bg-muted transition-colors cursor-pointer"
             data-testid={`row-mover-${mover.symbol.toLowerCase()}`}
           >
             <div className="flex items-center gap-3">
@@ -369,16 +369,16 @@ export function TopMoversWidget({ portfolioId }: { portfolioId?: string }) {
                 {index + 1}
               </div>
               <div>
-                <div className="font-semibold text-gray-900 dark:text-white text-sm" data-testid={`text-mover-symbol-${mover.symbol.toLowerCase()}`}>
+                <div className="font-semibold text-foreground text-sm" data-testid={`text-mover-symbol-${mover.symbol.toLowerCase()}`}>
                   {mover.symbol}
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[120px]" data-testid={`text-mover-name-${mover.symbol.toLowerCase()}`}>
+                <div className="text-xs text-muted-foreground truncate max-w-[120px]" data-testid={`text-mover-name-${mover.symbol.toLowerCase()}`}>
                   {mover.name}
                 </div>
               </div>
             </div>
             <div className="text-right">
-              <div className="font-medium text-gray-900 dark:text-white text-sm" data-testid={`text-mover-price-${mover.symbol.toLowerCase()}`}>
+              <div className="font-medium text-foreground text-sm" data-testid={`text-mover-price-${mover.symbol.toLowerCase()}`}>
                 ₹{mover.currentPrice.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
               </div>
               <div className={cn(
@@ -469,7 +469,7 @@ export function MarketPulseWidget() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Zap className="h-5 w-5 text-yellow-500" />
-            <CardTitle className="text-lg text-gray-900 dark:text-white" data-testid="text-market-pulse-title">Market Pulse</CardTitle>
+            <CardTitle className="text-lg text-foreground" data-testid="text-market-pulse-title">Market Pulse</CardTitle>
           </div>
           <Badge variant="outline" className="text-xs" data-testid="badge-nse-live">
             <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse mr-1" />
@@ -487,11 +487,11 @@ export function MarketPulseWidget() {
             return (
               <div
                 key={index.name}
-                className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+                className="p-3 rounded-lg bg-muted hover:bg-muted transition-colors cursor-pointer"
                 data-testid={`card-index-${indexId}`}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-medium text-gray-600 dark:text-gray-400" data-testid={`text-index-name-${indexId}`}>
+                  <span className="text-xs font-medium text-muted-foreground" data-testid={`text-index-name-${indexId}`}>
                     {index.name}
                   </span>
                   <div className="h-6 w-12" data-testid={`chart-index-${indexId}`}>
@@ -508,7 +508,7 @@ export function MarketPulseWidget() {
                     </ResponsiveContainer>
                   </div>
                 </div>
-                <div className="font-bold text-gray-900 dark:text-white" data-testid={`text-index-value-${indexId}`}>
+                <div className="font-bold text-foreground" data-testid={`text-index-value-${indexId}`}>
                   {index.value.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
                 </div>
                 <div className={cn(
@@ -604,7 +604,7 @@ export function PortfolioAlertsWidget({ portfolioId }: { portfolioId?: string })
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Bell className="h-5 w-5 text-purple-500" />
-            <CardTitle className="text-lg text-gray-900 dark:text-white" data-testid="text-alerts-title">Portfolio Alerts</CardTitle>
+            <CardTitle className="text-lg text-foreground" data-testid="text-alerts-title">Portfolio Alerts</CardTitle>
           </div>
           <Badge variant="secondary" className="text-xs" data-testid="badge-active-alerts-count">
             {displayAlerts.length} Active
@@ -615,7 +615,7 @@ export function PortfolioAlertsWidget({ portfolioId }: { portfolioId?: string })
         {displayAlerts.slice(0, 4).map((alert) => (
           <div
             key={alert.id}
-            className="flex items-start gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer group"
+            className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted transition-colors cursor-pointer group"
             data-testid={`row-alert-${alert.id}`}
           >
             <div className={cn(
@@ -626,18 +626,18 @@ export function PortfolioAlertsWidget({ portfolioId }: { portfolioId?: string })
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-sm text-gray-900 dark:text-white" data-testid={`text-alert-symbol-${alert.id}`}>
+                <span className="font-semibold text-sm text-foreground" data-testid={`text-alert-symbol-${alert.id}`}>
                   {alert.symbol}
                 </span>
-                <span className="text-xs text-gray-500 dark:text-gray-400" data-testid={`text-alert-time-${alert.id}`}>
+                <span className="text-xs text-muted-foreground" data-testid={`text-alert-time-${alert.id}`}>
                   {formatTime(alert.timestamp)}
                 </span>
               </div>
-              <p className="text-xs text-gray-600 dark:text-gray-300 truncate" data-testid={`text-alert-message-${alert.id}`}>
+              <p className="text-xs text-muted-foreground truncate" data-testid={`text-alert-message-${alert.id}`}>
                 {alert.message}
               </p>
             </div>
-            <ChevronRight className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
         ))}
         {displayAlerts.length > 4 && (
@@ -698,7 +698,7 @@ export function AssetPerformanceWidget({ portfolioId }: { portfolioId?: string }
       <CardHeader className="pb-2">
         <div className="flex items-center gap-2">
           <BarChart3 className="h-5 w-5 text-indigo-500" />
-          <CardTitle className="text-lg text-gray-900 dark:text-white" data-testid="text-asset-performance-title">Asset Performance</CardTitle>
+          <CardTitle className="text-lg text-foreground" data-testid="text-asset-performance-title">Asset Performance</CardTitle>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -711,12 +711,12 @@ export function AssetPerformanceWidget({ portfolioId }: { portfolioId?: string }
                   style={{ backgroundColor: asset.color }}
                   data-testid={`indicator-asset-${asset.assetType}`}
                 />
-                <span className="text-sm font-medium text-gray-900 dark:text-white" data-testid={`text-asset-name-${asset.assetType}`}>
+                <span className="text-sm font-medium text-foreground" data-testid={`text-asset-name-${asset.assetType}`}>
                   {asset.name}
                 </span>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-sm text-gray-600 dark:text-gray-400" data-testid={`text-asset-value-${asset.assetType}`}>
+                <span className="text-sm text-muted-foreground" data-testid={`text-asset-value-${asset.assetType}`}>
                   ₹{asset.value.toLocaleString("en-IN")}
                 </span>
                 <span className={cn(
@@ -734,7 +734,7 @@ export function AssetPerformanceWidget({ portfolioId }: { portfolioId?: string }
                 data-testid={`progress-asset-${asset.assetType}`}
               />
             </div>
-            <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span data-testid={`text-asset-allocation-${asset.assetType}`}>{asset.allocation}% of portfolio</span>
               <span data-testid={`text-asset-week-change-${asset.assetType}`}>1W: {asset.weekChange >= 0 ? "+" : ""}{asset.weekChange.toFixed(1)}%</span>
             </div>

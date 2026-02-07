@@ -406,7 +406,7 @@ export default function DocumentWorkflowDashboard() {
           <CardContent>
             <div className="space-y-3">
               {(pendingApprovals as any)?.pending?.map((item: any) => (
-                <div key={item.participant.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-900 rounded-lg border">
+                <div key={item.participant.id} className="flex items-center justify-between p-3 bg-background rounded-lg border">
                   <div>
                     <div className="font-medium">{item.workflow.documentName}</div>
                     <div className="text-sm text-muted-foreground">

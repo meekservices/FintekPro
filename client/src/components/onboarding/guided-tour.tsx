@@ -193,7 +193,7 @@ export function GuidedTour() {
           </p>
 
           {/* Progress bar */}
-          <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mb-4 overflow-hidden">
+          <div className="h-1.5 bg-muted rounded-full mb-4 overflow-hidden">
             <div 
               className="h-full bg-blue-600 transition-all duration-300 rounded-full"
               style={{ width: `${progress}%` }}

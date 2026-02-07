@@ -157,7 +157,7 @@ export function ProfileCompletionReminder() {
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center space-x-2">
                   <User className="h-4 w-4 text-muted-foreground" />
-                  <h3 className="font-semibold text-gray-900 text-sm">
+                  <h3 className="font-semibold text-foreground text-sm">
                     Complete Your Profile
                   </h3>
                   <span className={`text-xs px-2 py-1 rounded-full font-medium ${

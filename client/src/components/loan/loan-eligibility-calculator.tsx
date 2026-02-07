@@ -157,25 +157,25 @@ export function LoanEligibilityCalculator() {
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center">
-                  <p className="text-sm text-gray-600">Portfolio Value</p>
+                  <p className="text-sm text-muted-foreground">Portfolio Value</p>
                   <p className="text-lg font-semibold text-blue-600">
                     ₹{result.portfolioValue.toLocaleString()}
                   </p>
                 </div>
                 <div className="text-center">
-                  <p className="text-sm text-gray-600">Max Loan Amount</p>
+                  <p className="text-sm text-muted-foreground">Max Loan Amount</p>
                   <p className="text-lg font-semibold text-green-600">
                     ₹{result.maxLoanAmount.toLocaleString()}
                   </p>
                 </div>
                 <div className="text-center">
-                  <p className="text-sm text-gray-600">Interest Rate</p>
+                  <p className="text-sm text-muted-foreground">Interest Rate</p>
                   <p className="text-lg font-semibold text-blue-600">
                     {result.interestRate}% p.a.
                   </p>
                 </div>
                 <div className="text-center">
-                  <p className="text-sm text-gray-600">LTV Ratio</p>
+                  <p className="text-sm text-muted-foreground">LTV Ratio</p>
                   <p className="text-lg font-semibold text-purple-600">
                     {result.loanToValue}%
                   </p>
@@ -187,19 +187,19 @@ export function LoanEligibilityCalculator() {
                   <h4 className="font-semibold mb-3">Loan Breakdown</h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
-                      <p className="text-gray-600">Monthly EMI</p>
+                      <p className="text-muted-foreground">Monthly EMI</p>
                       <p className="font-semibold text-lg">₹{result.emi.toLocaleString()}</p>
                     </div>
                     <div>
-                      <p className="text-gray-600">Total Interest</p>
+                      <p className="text-muted-foreground">Total Interest</p>
                       <p className="font-semibold">₹{result.totalInterest.toLocaleString()}</p>
                     </div>
                     <div>
-                      <p className="text-gray-600">Total Payment</p>
+                      <p className="text-muted-foreground">Total Payment</p>
                       <p className="font-semibold">₹{result.totalPayment.toLocaleString()}</p>
                     </div>
                     <div>
-                      <p className="text-gray-600">Processing Fee</p>
+                      <p className="text-muted-foreground">Processing Fee</p>
                       <p className="font-semibold">₹{result.processingFee.toLocaleString()}</p>
                     </div>
                   </div>

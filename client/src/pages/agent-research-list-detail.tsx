@@ -146,7 +146,7 @@ export default function AgentResearchListDetail() {
   if (isLoading) {
     return (
       <AgentLayout>
-        <div className="p-6 text-center text-slate-400">Loading...</div>
+        <div className="p-6 text-center text-muted-foreground">Loading...</div>
       </AgentLayout>
     );
   }
@@ -154,7 +154,7 @@ export default function AgentResearchListDetail() {
   if (!list) {
     return (
       <AgentLayout>
-        <div className="p-6 text-center text-slate-400">Research list not found</div>
+        <div className="p-6 text-center text-muted-foreground">Research list not found</div>
       </AgentLayout>
     );
   }
@@ -169,55 +169,55 @@ export default function AgentResearchListDetail() {
             </Button>
           </Link>
           <div className="flex-1">
-            <h1 className="text-2xl font-bold text-white">{list.name}</h1>
-            {list.description && <p className="text-slate-400 mt-1">{list.description}</p>}
+            <h1 className="text-2xl font-bold text-foreground">{list.name}</h1>
+            {list.description && <p className="text-muted-foreground mt-1">{list.description}</p>}
           </div>
           <div className="flex items-center gap-2">
             <Badge className="bg-blue-500 text-white">{list.universeType}</Badge>
-            <Badge variant="outline" className="border-slate-600 text-slate-300">
+            <Badge variant="outline" className="border-border text-muted-foreground">
               {list.visibility}
             </Badge>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-card/50 border-border">
             <CardContent className="pt-6">
-              <div className="text-2xl font-bold text-white">{items.length}</div>
-              <p className="text-sm text-slate-400">Total Instruments</p>
+              <div className="text-2xl font-bold text-foreground">{items.length}</div>
+              <p className="text-sm text-muted-foreground">Total Instruments</p>
             </CardContent>
           </Card>
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-card/50 border-border">
             <CardContent className="pt-6">
               <div className="text-2xl font-bold text-green-400">
                 {list.cachedMetrics?.avgReturn3y?.toFixed(1) || "—"}%
               </div>
-              <p className="text-sm text-slate-400">Avg 3Y Return</p>
+              <p className="text-sm text-muted-foreground">Avg 3Y Return</p>
             </CardContent>
           </Card>
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-card/50 border-border">
             <CardContent className="pt-6">
               <div className="text-2xl font-bold text-amber-400">
                 {list.cachedMetrics?.avgExpenseRatio?.toFixed(2) || "—"}%
               </div>
-              <p className="text-sm text-slate-400">Avg Expense Ratio</p>
+              <p className="text-sm text-muted-foreground">Avg Expense Ratio</p>
             </CardContent>
           </Card>
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-card/50 border-border">
             <CardContent className="pt-6">
               <div className="text-2xl font-bold text-blue-400">
                 {list.cachedMetrics?.avgRating?.toFixed(1) || "—"}
               </div>
-              <p className="text-sm text-slate-400">Avg Rating</p>
+              <p className="text-sm text-muted-foreground">Avg Rating</p>
             </CardContent>
           </Card>
         </div>
 
-        <Card className="bg-slate-800/50 border-slate-700">
+        <Card className="bg-card/50 border-border">
           <CardHeader className="pb-4">
             <div className="flex flex-col sm:flex-row justify-between gap-4">
               <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="bg-slate-900">
+                <TabsList className="bg-background">
                   <TabsTrigger value="basics" className="gap-2">
                     <FileText className="h-4 w-4" />
                     Basics
@@ -234,12 +234,12 @@ export default function AgentResearchListDetail() {
               </Tabs>
               <div className="flex items-center gap-2">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search instruments..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 w-[200px] bg-slate-900 border-slate-600"
+                    className="pl-10 w-[200px] bg-background border-border"
                   />
                 </div>
                 {list.isEditable && (
@@ -248,7 +248,7 @@ export default function AgentResearchListDetail() {
                     Add Instrument
                   </Button>
                 )}
-                <Button variant="outline" className="gap-2 border-slate-600">
+                <Button variant="outline" className="gap-2 border-border">
                   <Download className="h-4 w-4" />
                   Export
                 </Button>
@@ -257,7 +257,7 @@ export default function AgentResearchListDetail() {
           </CardHeader>
           <CardContent>
             {filteredItems.length === 0 ? (
-              <div className="text-center py-12 text-slate-400">
+              <div className="text-center py-12 text-muted-foreground">
                 <p>No instruments in this list yet.</p>
                 {list.isEditable && (
                   <Button onClick={() => setIsAddDialogOpen(true)} className="mt-4 gap-2">
@@ -270,52 +270,52 @@ export default function AgentResearchListDetail() {
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="border-slate-700">
-                      <TableHead className="text-slate-300">Instrument</TableHead>
-                      <TableHead className="text-slate-300">Symbol</TableHead>
+                    <TableRow className="border-border">
+                      <TableHead className="text-muted-foreground">Instrument</TableHead>
+                      <TableHead className="text-muted-foreground">Symbol</TableHead>
                       {activeTab === "basics" && (
                         <>
-                          <TableHead className="text-slate-300 text-right">NAV/Price</TableHead>
-                          <TableHead className="text-slate-300">Source</TableHead>
+                          <TableHead className="text-muted-foreground text-right">NAV/Price</TableHead>
+                          <TableHead className="text-muted-foreground">Source</TableHead>
                         </>
                       )}
                       {activeTab === "performance" && (
                         <>
-                          <TableHead className="text-slate-300 text-right">1Y Return</TableHead>
-                          <TableHead className="text-slate-300 text-right">3Y Return</TableHead>
-                          <TableHead className="text-slate-300 text-right">5Y Return</TableHead>
+                          <TableHead className="text-muted-foreground text-right">1Y Return</TableHead>
+                          <TableHead className="text-muted-foreground text-right">3Y Return</TableHead>
+                          <TableHead className="text-muted-foreground text-right">5Y Return</TableHead>
                         </>
                       )}
                       {activeTab === "risk" && (
                         <>
-                          <TableHead className="text-slate-300">Risk Level</TableHead>
-                          <TableHead className="text-slate-300 text-right">Expense Ratio</TableHead>
-                          <TableHead className="text-slate-300 text-right">AUM (Cr)</TableHead>
+                          <TableHead className="text-muted-foreground">Risk Level</TableHead>
+                          <TableHead className="text-muted-foreground text-right">Expense Ratio</TableHead>
+                          <TableHead className="text-muted-foreground text-right">AUM (Cr)</TableHead>
                         </>
                       )}
-                      <TableHead className="text-slate-300">Rating</TableHead>
-                      <TableHead className="text-slate-300 text-right">Actions</TableHead>
+                      <TableHead className="text-muted-foreground">Rating</TableHead>
+                      <TableHead className="text-muted-foreground text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredItems.map((item) => {
                       const metrics = item.snapshotMetrics || {};
                       return (
-                        <TableRow key={item.id} className="border-slate-700 hover:bg-slate-700/50">
+                        <TableRow key={item.id} className="border-border hover:bg-muted/50">
                           <TableCell>
-                            <div className="font-medium text-white">{item.instrumentName || "Unknown"}</div>
+                            <div className="font-medium text-foreground">{item.instrumentName || "Unknown"}</div>
                             {item.instrumentIsin && (
-                              <div className="text-xs text-slate-400">{item.instrumentIsin}</div>
+                              <div className="text-xs text-muted-foreground">{item.instrumentIsin}</div>
                             )}
                           </TableCell>
-                          <TableCell className="text-slate-300">{item.instrumentSymbol || "—"}</TableCell>
+                          <TableCell className="text-muted-foreground">{item.instrumentSymbol || "—"}</TableCell>
                           {activeTab === "basics" && (
                             <>
-                              <TableCell className="text-right text-slate-300">
+                              <TableCell className="text-right text-muted-foreground">
                                 ₹{(metrics.nav || metrics.currentPrice)?.toFixed(2) || "—"}
                               </TableCell>
                               <TableCell>
-                                <Badge variant="outline" className="border-slate-600 text-slate-300 text-xs">
+                                <Badge variant="outline" className="border-border text-muted-foreground text-xs">
                                   {item.addedSource}
                                 </Badge>
                               </TableCell>
@@ -349,10 +349,10 @@ export default function AgentResearchListDetail() {
                                   {metrics.riskLevel || "—"}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="text-right text-slate-300">
+                              <TableCell className="text-right text-muted-foreground">
                                 {metrics.expenseRatio?.toFixed(2) || "—"}%
                               </TableCell>
-                              <TableCell className="text-right text-slate-300">
+                              <TableCell className="text-right text-muted-foreground">
                                 {metrics.aum ? (metrics.aum / 10000000).toFixed(0) : "—"}
                               </TableCell>
                             </>
@@ -363,7 +363,7 @@ export default function AgentResearchListDetail() {
                                 <Star
                                   key={star}
                                   className={`h-3 w-3 ${
-                                    star <= (item.rating || 0) ? "text-amber-400 fill-amber-400" : "text-slate-600"
+                                    star <= (item.rating || 0) ? "text-amber-400 fill-amber-400" : "text-muted-foreground"
                                   }`}
                                 />
                               ))}

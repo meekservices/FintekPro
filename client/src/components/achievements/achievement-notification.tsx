@@ -123,12 +123,12 @@ export function AchievementNotification({
               onClick={(e) => e.stopPropagation()}
             >
               <Card className="overflow-hidden border-0 shadow-2xl">
-                <div className={`bg-gradient-to-r ${getDifficultyColor(achievement.difficulty)} p-6 text-white relative`}>
+                <div className={`bg-gradient-to-r ${getDifficultyColor(achievement.difficulty)} p-6 text-foreground relative`}>
                   {/* Close Button */}
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="absolute top-2 right-2 text-white hover:bg-white/20"
+                    className="absolute top-2 right-2 text-foreground hover:bg-card/20"
                     onClick={onClose}
                   >
                     <X className="h-4 w-4" />
@@ -154,7 +154,7 @@ export function AchievementNotification({
                           delay: Math.random() * 2,
                         }}
                       >
-                        <Sparkles className="h-4 w-4 text-white/60" />
+                        <Sparkles className="h-4 w-4 text-foreground/60" />
                       </motion.div>
                     ))}
                   </div>
@@ -166,7 +166,7 @@ export function AchievementNotification({
                       transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
                       className="mb-4"
                     >
-                      <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto backdrop-blur-sm border border-white/30">
+                      <div className="w-20 h-20 bg-card/20 rounded-full flex items-center justify-center mx-auto backdrop-blur-sm border border-white/30">
                         {getDifficultyIcon(achievement.difficulty)}
                       </div>
                     </motion.div>
@@ -178,7 +178,7 @@ export function AchievementNotification({
                     >
                       <h2 className="text-2xl font-bold mb-2">🎉 Achievement Unlocked!</h2>
                       <h3 className="text-xl font-semibold mb-2">{achievement.name}</h3>
-                      <Badge className="bg-white/20 text-white border-white/30">
+                      <Badge className="bg-card/20 text-foreground border-white/30">
                         +{achievement.points} points
                       </Badge>
                     </motion.div>
@@ -192,7 +192,7 @@ export function AchievementNotification({
                     transition={{ delay: 0.6 }}
                     className="text-center space-y-4"
                   >
-                    <p className="text-gray-600">{achievement.description}</p>
+                    <p className="text-muted-foreground">{achievement.description}</p>
                     
                     <div className="flex items-center justify-center space-x-2">
                       {getDifficultyIcon(achievement.difficulty)}
@@ -266,8 +266,8 @@ export function AchievementToast({ achievement, onClose }: {
                 <Trophy className="h-4 w-4 text-yellow-600" />
               </div>
               <div>
-                <p className="font-semibold text-sm text-gray-900">Achievement Progress!</p>
-                <p className="text-xs text-gray-600">{achievement.name}</p>
+                <p className="font-semibold text-sm text-foreground">Achievement Progress!</p>
+                <p className="text-xs text-muted-foreground">{achievement.name}</p>
               </div>
             </div>
             <Button

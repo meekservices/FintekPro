@@ -160,7 +160,7 @@ export default function DocumentUploader({
     const ext = fileName.split('.').pop()?.toLowerCase();
     if (ext === 'pdf') return <FileText className="h-8 w-8 text-red-500" />;
     if (ext === 'docx' || ext === 'doc') return <FileType className="h-8 w-8 text-blue-500" />;
-    return <File className="h-8 w-8 text-gray-500" />;
+    return <File className="h-8 w-8 text-muted-foreground" />;
   };
 
   const formatFileSize = (bytes: number) => {

@@ -72,7 +72,7 @@ export function KeyFactsStatement({ kfs, onAcknowledge, showAcknowledgement = tr
               </CardDescription>
             </div>
           </div>
-          <Badge variant="outline" className="bg-white dark:bg-gray-800">
+          <Badge variant="outline" className="bg-card">
             Version {kfs.kfsVersion}
           </Badge>
         </div>
@@ -102,7 +102,7 @@ export function KeyFactsStatement({ kfs, onAcknowledge, showAcknowledgement = tr
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
-                <Building2 className="h-5 w-5 text-gray-600" />
+                <Building2 className="h-5 w-5 text-muted-foreground" />
                 Lender Details
               </CardTitle>
             </CardHeader>
@@ -248,7 +248,7 @@ export function KeyFactsStatement({ kfs, onAcknowledge, showAcknowledgement = tr
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Alert className="bg-white dark:bg-gray-800">
+            <Alert className="bg-card">
               <Info className="h-4 w-4" />
               <AlertDescription>
                 <strong>You have {kfs.coolingOffPeriod?.lookUpPeriodDays} days</strong> from the date of disbursement to exit this loan without any penalty. 
@@ -320,7 +320,7 @@ export function KeyFactsStatement({ kfs, onAcknowledge, showAcknowledgement = tr
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div className="p-4 bg-muted rounded-lg">
                 <div className="font-medium mb-2">Level 1: Customer Care</div>
                 <div className="text-sm space-y-1 text-muted-foreground">
                   <div className="flex items-center gap-2">
@@ -335,7 +335,7 @@ export function KeyFactsStatement({ kfs, onAcknowledge, showAcknowledgement = tr
                 </div>
               </div>
               
-              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div className="p-4 bg-muted rounded-lg">
                 <div className="font-medium mb-2">Level 2: Nodal Officer</div>
                 <div className="text-sm space-y-1 text-muted-foreground">
                   <div className="flex items-center gap-2">
@@ -408,7 +408,7 @@ export function KeyFactsStatement({ kfs, onAcknowledge, showAcknowledgement = tr
                 </div>
               </div>
               
-              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm">
+              <div className="p-4 bg-muted rounded-lg text-sm">
                 {kfs.acknowledgementRequired?.declarationText}
               </div>
               

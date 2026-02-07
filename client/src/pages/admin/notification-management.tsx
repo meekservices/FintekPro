@@ -98,14 +98,14 @@ export default function NotificationManagement() {
   });
 
   const getChannelStatusColor = (enabled: boolean) => {
-    return enabled ? 'bg-emerald-100 text-emerald-800' : 'bg-muted dark:bg-muted text-foreground';
+    return enabled ? 'bg-emerald-100 text-emerald-800' : 'bg-muted text-white';
   };
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Notification Management</h1>
+          <h1 className="text-2xl font-bold text-foreground">Notification Management</h1>
           <p className="text-sm text-muted-foreground">
             Configure email, SMS, WhatsApp alerts and notification templates
           </p>
@@ -190,7 +190,7 @@ export default function NotificationManagement() {
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-lg ${channel.enabled ? 'bg-blue-100' : 'bg-muted dark:bg-muted'}`}>
+                          <div className={`p-2 rounded-lg ${channel.enabled ? 'bg-blue-100' : 'bg-muted'}`}>
                             <IconComponent className={`w-5 h-5 ${channel.enabled ? 'text-blue-600' : 'text-muted-foreground'}`} />
                           </div>
                           <div>
@@ -262,7 +262,7 @@ export default function NotificationManagement() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge className={template.active ? 'bg-emerald-100 text-emerald-800' : 'bg-muted dark:bg-muted'}>
+                      <Badge className={template.active ? 'bg-emerald-100 text-emerald-800' : 'bg-muted'}>
                         {template.active ? 'Active' : 'Inactive'}
                       </Badge>
                       <Button size="sm" variant="ghost">

@@ -794,10 +794,10 @@ export default function PublicProposalPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-background dark:to-card">
         <div className="text-center">
           <div className="animate-spin w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-muted-foreground dark:text-muted-foreground">Loading your personalized proposal...</p>
+          <p className="text-muted-foreground">Loading your personalized proposal...</p>
         </div>
       </div>
     );
@@ -809,7 +809,7 @@ export default function PublicProposalPage() {
     const isNotFound = proposalError?.errorType === 'not_found';
     
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-background dark:to-card">
         <Card className="max-w-md">
           <CardContent className="pt-6 text-center">
             <div className={`w-16 h-16 ${isExpired ? 'bg-amber-100' : 'bg-red-100'} rounded-full flex items-center justify-center mx-auto mb-4`}>
@@ -822,7 +822,7 @@ export default function PublicProposalPage() {
             <h2 className="text-xl font-bold mb-2">
               {isExpired ? 'Proposal Expired' : isNotFound ? 'Proposal Not Found' : 'Unable to Load Proposal'}
             </h2>
-            <p className="text-muted-foreground dark:text-muted-foreground mb-4">
+            <p className="text-muted-foreground mb-4">
               {isExpired 
                 ? "This investment proposal has expired. Please contact your financial advisor for an updated proposal."
                 : isNotFound 
@@ -847,15 +847,15 @@ export default function PublicProposalPage() {
   const analysis = parseAnalysis(proposal.currentAnalysis);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 dark:from-background dark:via-card dark:to-background">
       {/* Header */}
-      <header className="bg-white/80 dark:bg-card/80 backdrop-blur-sm border-b sticky top-0 z-10">
+      <header className="bg-card/80/80 backdrop-blur-sm border-b sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-blue-600 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-white" />
+              <TrendingUp className="w-6 h-6 text-foreground" />
             </div>
-            <span className="font-bold text-xl text-gray-900 dark:text-white">FintekPro</span>
+            <span className="font-bold text-xl text-foreground">FintekPro</span>
           </div>
           <div className="flex items-center gap-2">
             <Button 
@@ -872,7 +872,7 @@ export default function PublicProposalPage() {
               Download PDF
             </Button>
             <Button 
-              className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md"
+              className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-foreground shadow-md"
               onClick={handleGetStarted}
               data-testid="btn-get-started-header"
             >
@@ -889,11 +889,11 @@ export default function PublicProposalPage() {
             <Sparkles className="w-3 h-3 mr-1" />
             Personalized for You
           </Badge>
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
+          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
             {proposal.proposalTitle}
           </h1>
           {proposal.executiveSummary && (
-            <p className="text-lg text-muted-foreground dark:text-muted-foreground max-w-3xl mx-auto">
+            <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
               {proposal.executiveSummary}
             </p>
           )}
@@ -901,10 +901,10 @@ export default function PublicProposalPage() {
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-12">
-          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0">
+          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-foreground border-0">
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                <div className="w-12 h-12 bg-card/20 rounded-lg flex items-center justify-center">
                   <Wallet className="w-6 h-6" />
                 </div>
                 <div>
@@ -917,10 +917,10 @@ export default function PublicProposalPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-indigo-500 to-indigo-600 text-white border-0">
+          <Card className="bg-gradient-to-br from-indigo-500 to-indigo-600 text-foreground border-0">
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                <div className="w-12 h-12 bg-card/20 rounded-lg flex items-center justify-center">
                   <ArrowRight className="w-6 h-6" />
                 </div>
                 <div>
@@ -934,10 +934,10 @@ export default function PublicProposalPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0">
+          <Card className="bg-gradient-to-br from-green-500 to-green-600 text-foreground border-0">
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                <div className="w-12 h-12 bg-card/20 rounded-lg flex items-center justify-center">
                   <TrendingUp className="w-6 h-6" />
                 </div>
                 <div>
@@ -948,10 +948,10 @@ export default function PublicProposalPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0">
+          <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-foreground border-0">
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                <div className="w-12 h-12 bg-card/20 rounded-lg flex items-center justify-center">
                   <Target className="w-6 h-6" />
                 </div>
                 <div>
@@ -972,7 +972,7 @@ export default function PublicProposalPage() {
               1
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Where You Are Now</h2>
+              <h2 className="text-xl font-bold text-foreground">Where You Are Now</h2>
               <p className="text-sm text-muted-foreground">Your current portfolio analysis and health assessment</p>
             </div>
           </div>
@@ -988,20 +988,20 @@ export default function PublicProposalPage() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-muted dark:bg-muted rounded-lg p-4">
+                  <div className="bg-muted rounded-lg p-4">
                     <p className="text-xs text-muted-foreground mb-1">Goal</p>
                     <p className="font-medium">{GOAL_TYPE_LABELS[proposal.investmentGoals.goalType] || proposal.investmentGoals.goalType}</p>
                   </div>
-                  <div className="bg-muted dark:bg-muted rounded-lg p-4">
+                  <div className="bg-muted rounded-lg p-4">
                     <p className="text-xs text-muted-foreground mb-1">Time Horizon</p>
                     <p className="font-medium capitalize">{proposal.investmentGoals.timeHorizon?.replace('_', ' ')}</p>
                   </div>
-                  <div className="bg-muted dark:bg-muted rounded-lg p-4">
+                  <div className="bg-muted rounded-lg p-4">
                     <p className="text-xs text-muted-foreground mb-1">Risk Tolerance</p>
                     <p className="font-medium capitalize">{proposal.investmentGoals.riskTolerance}</p>
                   </div>
                   {proposal.investmentGoals.targetAmount && (
-                    <div className="bg-muted dark:bg-muted rounded-lg p-4">
+                    <div className="bg-muted rounded-lg p-4">
                       <p className="text-xs text-muted-foreground mb-1">Target Amount</p>
                       <p className="font-medium">₹{parseFloat(proposal.investmentGoals.targetAmount).toLocaleString('en-IN')}</p>
                     </div>
@@ -1098,7 +1098,7 @@ export default function PublicProposalPage() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Risk Score */}
-                  <div className="bg-muted/50 dark:bg-muted/30 rounded-xl p-6" data-testid="card-risk-score">
+                  <div className="bg-muted/50/30 rounded-xl p-6" data-testid="card-risk-score">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <AlertTriangle className="w-5 h-5 text-orange-500" />
@@ -1115,7 +1115,7 @@ export default function PublicProposalPage() {
                   </div>
 
                   {/* Diversification Score */}
-                  <div className="bg-muted/50 dark:bg-muted/30 rounded-xl p-6" data-testid="card-diversification-score">
+                  <div className="bg-muted/50/30 rounded-xl p-6" data-testid="card-diversification-score">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <PieChart className="w-5 h-5 text-blue-500" />
@@ -1188,7 +1188,7 @@ export default function PublicProposalPage() {
                           <Lightbulb className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                         )}
                         <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white" data-testid={`text-insight-message-${idx}`}>{rec.message}</p>
+                          <p className="text-sm font-medium text-foreground" data-testid={`text-insight-message-${idx}`}>{rec.message}</p>
                           {rec.action && (
                             <Badge variant="outline" className="mt-2" data-testid={`badge-insight-action-${idx}`}>
                               Recommended: {rec.action}
@@ -1297,7 +1297,7 @@ export default function PublicProposalPage() {
                   2
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">What We Recommend</h2>
+                  <h2 className="text-xl font-bold text-foreground">What We Recommend</h2>
                   <p className="text-sm text-muted-foreground">Optimized portfolio strategy tailored to your goals</p>
                 </div>
               </div>
@@ -1318,8 +1318,8 @@ export default function PublicProposalPage() {
                 <CardContent>
                   {/* Summary Cards */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border">
-                      <h4 className="font-medium text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
+                    <div className="bg-muted rounded-lg p-4 border">
+                      <h4 className="font-medium text-muted-foreground mb-3 flex items-center gap-2">
                         <Clock className="w-4 h-4" />
                         Current Portfolio
                       </h4>
@@ -1411,9 +1411,9 @@ export default function PublicProposalPage() {
                             .map(([asset, val]) => (
                               <div key={asset} className="flex items-center gap-2">
                                 <span className="w-16 text-xs capitalize">{asset}</span>
-                                <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                <div className="flex-1 bg-muted rounded-full h-2">
                                   <div 
-                                    className="bg-gray-500 h-2 rounded-full" 
+                                    className="bg-muted h-2 rounded-full" 
                                     style={{ width: `${Math.min(val, 100)}%` }}
                                   />
                                 </div>
@@ -1638,7 +1638,7 @@ export default function PublicProposalPage() {
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <h4 className="font-semibold text-gray-900 dark:text-white">{rec.productName}</h4>
+                            <h4 className="font-semibold text-foreground">{rec.productName}</h4>
                             {rec.riskRating && (
                               <Badge className={RISK_COLORS[rec.riskRating] || "bg-muted text-muted-foreground"} variant="outline">
                                 {rec.riskRating}
@@ -1651,7 +1651,7 @@ export default function PublicProposalPage() {
                           {rec.isin && (
                             <p className="text-xs font-mono text-muted-foreground">ISIN: {rec.isin}</p>
                           )}
-                          <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">{rec.selectionReason}</p>
+                          <p className="text-sm text-muted-foreground mt-1">{rec.selectionReason}</p>
                         </div>
                         <div className="flex items-center gap-6">
                           <div className="text-center">
@@ -1699,7 +1699,7 @@ export default function PublicProposalPage() {
                             {rec.ter && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded cursor-help">
+                                  <div className="text-center p-2 bg-muted rounded cursor-help">
                                     <p className="text-xs text-muted-foreground">TER</p>
                                     <p className="font-semibold text-sm">{typeof rec.ter === 'number' ? rec.ter.toFixed(2) : rec.ter}%</p>
                                   </div>
@@ -1710,7 +1710,7 @@ export default function PublicProposalPage() {
                             {rec.aum && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded cursor-help">
+                                  <div className="text-center p-2 bg-muted rounded cursor-help">
                                     <p className="text-xs text-muted-foreground">AUM</p>
                                     <p className="font-semibold text-sm">
                                       {typeof rec.aum === 'number' 
@@ -1728,7 +1728,7 @@ export default function PublicProposalPage() {
                             )}
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded cursor-help">
+                                <div className="text-center p-2 bg-muted rounded cursor-help">
                                   <p className="text-xs text-muted-foreground">Sharpe</p>
                                   <p className="font-semibold text-sm">{rec.sharpeRatio != null ? (typeof rec.sharpeRatio === 'number' ? rec.sharpeRatio.toFixed(2) : rec.sharpeRatio) : '—'}</p>
                                 </div>
@@ -1737,7 +1737,7 @@ export default function PublicProposalPage() {
                             </Tooltip>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded cursor-help">
+                                <div className="text-center p-2 bg-muted rounded cursor-help">
                                   <p className="text-xs text-muted-foreground">Alpha</p>
                                   <p className={`font-semibold text-sm ${rec.alpha != null && rec.alpha > 0 ? 'text-green-600' : rec.alpha != null ? 'text-red-600' : 'text-muted-foreground'}`}>
                                     {rec.alpha != null ? (typeof rec.alpha === 'number' ? rec.alpha.toFixed(2) : rec.alpha) : '—'}
@@ -1748,7 +1748,7 @@ export default function PublicProposalPage() {
                             </Tooltip>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded cursor-help">
+                                <div className="text-center p-2 bg-muted rounded cursor-help">
                                   <p className="text-xs text-muted-foreground">Beta</p>
                                   <p className="font-semibold text-sm">{rec.beta != null ? (typeof rec.beta === 'number' ? rec.beta.toFixed(2) : rec.beta) : '—'}</p>
                                 </div>
@@ -1757,7 +1757,7 @@ export default function PublicProposalPage() {
                             </Tooltip>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded cursor-help">
+                                <div className="text-center p-2 bg-muted rounded cursor-help">
                                   <p className="text-xs text-muted-foreground">Treynor</p>
                                   <p className="font-semibold text-sm">{rec.treynorRatio != null ? (typeof rec.treynorRatio === 'number' ? rec.treynorRatio.toFixed(2) : rec.treynorRatio) : '—'}</p>
                                 </div>
@@ -1766,7 +1766,7 @@ export default function PublicProposalPage() {
                             </Tooltip>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded cursor-help">
+                                <div className="text-center p-2 bg-muted rounded cursor-help">
                                   <p className="text-xs text-muted-foreground">Info Ratio</p>
                                   <p className="font-semibold text-sm">{rec.informationRatio != null ? (typeof rec.informationRatio === 'number' ? rec.informationRatio.toFixed(2) : rec.informationRatio) : '—'}</p>
                                 </div>
@@ -1775,7 +1775,7 @@ export default function PublicProposalPage() {
                             </Tooltip>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded cursor-help">
+                                <div className="text-center p-2 bg-muted rounded cursor-help">
                                   <p className="text-xs text-muted-foreground">Std Dev</p>
                                   <p className="font-semibold text-sm">{rec.standardDeviation != null ? (typeof rec.standardDeviation === 'number' ? rec.standardDeviation.toFixed(2) : rec.standardDeviation) + '%' : '—'}</p>
                                 </div>
@@ -1785,7 +1785,7 @@ export default function PublicProposalPage() {
                             {rec.maxDrawdown && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded cursor-help">
+                                  <div className="text-center p-2 bg-muted rounded cursor-help">
                                     <p className="text-xs text-muted-foreground">Max DD</p>
                                     <p className="font-semibold text-sm text-red-600">-{typeof rec.maxDrawdown === 'number' ? rec.maxDrawdown.toFixed(1) : rec.maxDrawdown}%</p>
                                   </div>
@@ -1924,7 +1924,7 @@ export default function PublicProposalPage() {
                         {Object.keys(components).length > 0 && (
                           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                             {Object.entries(components).map(([key, value]) => (
-                              <div key={key} className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                              <div key={key} className="text-center p-3 bg-muted rounded-lg">
                                 <p className="text-xs text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</p>
                                 <Progress value={value as number} className="h-2 mt-2" />
                                 <p className="text-sm font-semibold mt-1">{value as number}/100</p>
@@ -2042,7 +2042,7 @@ export default function PublicProposalPage() {
                         <div className="flex items-center justify-between mb-6">
                           <div>
                             <p className="text-sm text-muted-foreground">Overall Risk Level</p>
-                            <Badge className={RISK_COLORS[overallRisk] || RISK_COLORS[overallRisk.charAt(0).toUpperCase() + overallRisk.slice(1)] || 'bg-gray-100'}>
+                            <Badge className={RISK_COLORS[overallRisk] || RISK_COLORS[overallRisk.charAt(0).toUpperCase() + overallRisk.slice(1)] || 'bg-muted'}>
                               {overallRisk.charAt(0).toUpperCase() + overallRisk.slice(1)}
                             </Badge>
                           </div>
@@ -2058,7 +2058,7 @@ export default function PublicProposalPage() {
                             <p className="text-sm font-semibold mb-3">Sector Allocation</p>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                               {sectors.slice(0, 9).map((item: any, idx: number) => (
-                                <div key={idx} className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                                <div key={idx} className="p-3 rounded-lg border border-border bg-muted">
                                   <p className="text-sm font-medium">{item.sector}</p>
                                   <p className="text-lg font-bold">{(item.percentage || 0).toFixed(1)}%</p>
                                   <p className="text-xs text-muted-foreground">₹{(item.value || 0).toLocaleString('en-IN')}</p>
@@ -2118,7 +2118,7 @@ export default function PublicProposalPage() {
                             <p className="text-sm text-muted-foreground">Within Exit Period</p>
                             <p className="text-xl font-bold text-orange-600">{summary.withinExitLoadPeriod || 0}</p>
                           </div>
-                          <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                          <div className="p-4 bg-muted rounded-lg">
                             <p className="text-sm text-muted-foreground">Total Holdings</p>
                             <p className="text-xl font-bold">{summary.totalHoldings || holdings.length}</p>
                           </div>
@@ -2207,7 +2207,7 @@ export default function PublicProposalPage() {
                             <p className="text-sm font-semibold mb-3">Top Dividend Holdings</p>
                             <div className="space-y-2">
                               {holdings.slice(0, 5).map((payer: any, idx: number) => (
-                                <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                <div key={idx} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                                   <span className="font-medium">{payer.name}</span>
                                   <div className="text-right">
                                     <p className="font-semibold text-green-600">₹{(payer.estimatedAnnualDividend || payer.annualDividend || 0).toLocaleString('en-IN')}</p>
@@ -2247,13 +2247,13 @@ export default function PublicProposalPage() {
                     return (
                       <>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                          <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
+                          <div className="p-4 bg-muted rounded-lg text-center">
                             <p className="text-sm text-muted-foreground">Alpha</p>
                             <p className={`text-2xl font-bold ${alpha >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                               {alpha >= 0 ? '+' : ''}{alpha.toFixed(2)}%
                             </p>
                           </div>
-                          <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
+                          <div className="p-4 bg-muted rounded-lg text-center">
                             <p className="text-sm text-muted-foreground">Beta</p>
                             <p className="text-2xl font-bold">{beta.toFixed(2)}</p>
                           </div>
@@ -2373,19 +2373,19 @@ export default function PublicProposalPage() {
                             <h4 className="font-semibold mb-2">{scenario.name || scenario.scenario || 'Market Scenario'}</h4>
                             {scenario.description && <p className="text-sm text-muted-foreground mb-3">{scenario.description}</p>}
                             <div className="grid grid-cols-3 gap-4">
-                              <div className="text-center p-2 bg-white dark:bg-gray-800 rounded">
+                              <div className="text-center p-2 bg-card rounded">
                                 <p className="text-xs text-muted-foreground">Market Change</p>
                                 <p className={`font-semibold ${(scenario.marketChange || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                   {(scenario.marketChange || 0) >= 0 ? '+' : ''}{(scenario.marketChange || 0)}%
                                 </p>
                               </div>
-                              <div className="text-center p-2 bg-white dark:bg-gray-800 rounded">
+                              <div className="text-center p-2 bg-card rounded">
                                 <p className="text-xs text-muted-foreground">Portfolio Impact</p>
                                 <p className={`font-semibold ${(scenario.portfolioImpact || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                   {(scenario.portfolioImpact || 0) >= 0 ? '+' : ''}{(scenario.portfolioImpact || 0)}%
                                 </p>
                               </div>
-                              <div className="text-center p-2 bg-white dark:bg-gray-800 rounded">
+                              <div className="text-center p-2 bg-card rounded">
                                 <p className="text-xs text-muted-foreground">New Value</p>
                                 <p className="font-semibold">₹{(scenario.newValue || scenario.impact?.portfolioValue || 0).toLocaleString('en-IN')}</p>
                               </div>
@@ -2408,7 +2408,7 @@ export default function PublicProposalPage() {
               3
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Expected Impact</h2>
+              <h2 className="text-xl font-bold text-foreground">Expected Impact</h2>
               <p className="text-sm text-muted-foreground">Projected outcomes and next steps</p>
             </div>
           </div>
@@ -2436,7 +2436,7 @@ export default function PublicProposalPage() {
                   1
                 </div>
                 <div className="flex-1 pt-1">
-                  <h4 className="font-semibold text-gray-900 dark:text-white">Review & Approve</h4>
+                  <h4 className="font-semibold text-foreground">Review & Approve</h4>
                   <p className="text-sm text-muted-foreground mt-1">Review this proposal and connect with your advisor for any questions</p>
                   <Badge variant="outline" className="mt-2">Today</Badge>
                 </div>
@@ -2448,7 +2448,7 @@ export default function PublicProposalPage() {
                   2
                 </div>
                 <div className="flex-1 pt-1">
-                  <h4 className="font-semibold text-gray-900 dark:text-white">Complete KYC & Setup</h4>
+                  <h4 className="font-semibold text-foreground">Complete KYC & Setup</h4>
                   <p className="text-sm text-muted-foreground mt-1">Quick digital onboarding process with e-KYC verification</p>
                   <Badge variant="outline" className="mt-2">Day 1-2</Badge>
                 </div>
@@ -2460,7 +2460,7 @@ export default function PublicProposalPage() {
                   3
                 </div>
                 <div className="flex-1 pt-1">
-                  <h4 className="font-semibold text-gray-900 dark:text-white">Execute Investments</h4>
+                  <h4 className="font-semibold text-foreground">Execute Investments</h4>
                   <p className="text-sm text-muted-foreground mt-1">Fund your account and execute the recommended investments</p>
                   <Badge variant="outline" className="mt-2">Day 3-5</Badge>
                 </div>
@@ -2472,7 +2472,7 @@ export default function PublicProposalPage() {
                   <CheckCircle2 className="w-5 h-5" />
                 </div>
                 <div className="flex-1 pt-1">
-                  <h4 className="font-semibold text-gray-900 dark:text-white">Monitor & Grow</h4>
+                  <h4 className="font-semibold text-foreground">Monitor & Grow</h4>
                   <p className="text-sm text-muted-foreground mt-1">Track your portfolio performance and receive regular updates</p>
                   <Badge variant="outline" className="mt-2 bg-green-50 text-green-700 border-green-200">Ongoing</Badge>
                 </div>
@@ -2482,7 +2482,7 @@ export default function PublicProposalPage() {
         </Card>
 
         {/* CTA Section */}
-        <Card className="bg-gradient-to-br from-indigo-600 to-blue-600 text-white border-0 mb-8">
+        <Card className="bg-gradient-to-br from-indigo-600 to-blue-600 text-foreground border-0 mb-8">
           <CardContent className="py-12 text-center">
             <h2 className="text-2xl md:text-3xl font-bold mb-4">Ready to Start Your Investment Journey?</h2>
             <p className="text-indigo-100 mb-6 max-w-xl mx-auto">
@@ -2491,7 +2491,7 @@ export default function PublicProposalPage() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button 
                 size="lg"
-                className="bg-white text-indigo-600 hover:bg-indigo-50 shadow-lg"
+                className="bg-card text-indigo-600 hover:bg-indigo-50 shadow-lg"
                 onClick={handleGetStarted}
                 data-testid="btn-get-started-cta"
               >
@@ -2517,7 +2517,7 @@ export default function PublicProposalPage() {
                 </div>
                 <div>
                   <h4 className="font-semibold text-lg">{proposal.agentName || "Your Advisor"}</h4>
-                  <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground dark:text-muted-foreground mt-1">
+                  <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mt-1">
                     {proposal.agentEmail && (
                       <a href={`mailto:${proposal.agentEmail}`} className="flex items-center gap-1 hover:text-indigo-600">
                         <Mail className="w-4 h-4" /> {proposal.agentEmail}
@@ -2542,21 +2542,21 @@ export default function PublicProposalPage() {
               <Shield className="w-6 h-6 text-indigo-600" />
             </div>
             <h4 className="font-semibold mb-1">SEBI Registered</h4>
-            <p className="text-sm text-muted-foreground dark:text-muted-foreground">Fully compliant with regulatory guidelines</p>
+            <p className="text-sm text-muted-foreground">Fully compliant with regulatory guidelines</p>
           </div>
           <div className="text-center">
             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
               <CheckCircle2 className="w-6 h-6 text-green-600" />
             </div>
             <h4 className="font-semibold mb-1">Secure Platform</h4>
-            <p className="text-sm text-muted-foreground dark:text-muted-foreground">Bank-grade security for your investments</p>
+            <p className="text-sm text-muted-foreground">Bank-grade security for your investments</p>
           </div>
           <div className="text-center">
             <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
               <TrendingUp className="w-6 h-6 text-purple-600" />
             </div>
             <h4 className="font-semibold mb-1">Expert Guidance</h4>
-            <p className="text-sm text-muted-foreground dark:text-muted-foreground">Personalized advice from certified professionals</p>
+            <p className="text-sm text-muted-foreground">Personalized advice from certified professionals</p>
           </div>
         </div>
       </section>
@@ -2611,7 +2611,7 @@ export default function PublicProposalPage() {
                 <input 
                   type="checkbox" 
                   id="client-acknowledgement"
-                  className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  className="w-4 h-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
                 />
               </div>
               <label htmlFor="client-acknowledgement" className="text-sm text-muted-foreground cursor-pointer">
@@ -2623,8 +2623,8 @@ export default function PublicProposalPage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-muted dark:bg-card border-t py-8">
-        <div className="max-w-5xl mx-auto px-4 text-center text-sm text-muted-foreground dark:text-muted-foreground">
+      <footer className="bg-muted border-t py-8">
+        <div className="max-w-5xl mx-auto px-4 text-center text-sm text-muted-foreground">
           <p className="mb-2">This proposal is generated for informational purposes only and does not constitute investment advice.</p>
           <p>Past performance is not indicative of future results. Please read all scheme-related documents carefully before investing.</p>
           <p className="mt-4 text-xs">Mutual fund investments are subject to market risks. Please read scheme information documents carefully.</p>

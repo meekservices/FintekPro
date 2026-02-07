@@ -282,7 +282,7 @@ export function OneClickBondInvest({
         <Button
           onClick={handleQuickInvest}
           size={size}
-          className={`bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white ${className}`}
+          className={`bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-foreground ${className}`}
           data-testid={`quick-invest-${bond.isin}`}
         >
           <Zap className="h-4 w-4 mr-2" />
@@ -307,7 +307,7 @@ export function OneClickBondInvest({
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle className="h-10 w-10 text-green-600" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Order Placed Successfully!</h3>
+              <h3 className="text-xl font-semibold text-foreground mb-2">Order Placed Successfully!</h3>
               <p className="text-muted-foreground">Your bond order has been submitted for processing.</p>
             </div>
           ) : (
@@ -327,7 +327,7 @@ export function OneClickBondInvest({
                   <CardContent className="p-4">
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900 line-clamp-2">{bondName}</h4>
+                        <h4 className="font-semibold text-foreground line-clamp-2">{bondName}</h4>
                         <p className="text-sm text-muted-foreground">{bond.isin}</p>
                       </div>
                       <Badge className={getRatingColor(bond.rating || bond.creditRating || "")}>

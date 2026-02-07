@@ -390,16 +390,16 @@ export function BankingTab() {
                   {ifscDetails && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
                       <div>
-                        <label className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Bank Name</label>
-                        <p className="text-base font-semibold text-gray-900 dark:text-gray-100 mt-1">{ifscDetails.bank}</p>
+                        <label className="text-sm font-medium text-muted-foreground">Bank Name</label>
+                        <p className="text-base font-semibold text-foreground mt-1">{ifscDetails.bank}</p>
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Branch Name</label>
-                        <p className="text-base font-semibold text-gray-900 dark:text-gray-100 mt-1">{ifscDetails.branch}</p>
+                        <label className="text-sm font-medium text-muted-foreground">Branch Name</label>
+                        <p className="text-base font-semibold text-foreground mt-1">{ifscDetails.branch}</p>
                       </div>
                       <div className="md:col-span-2">
-                        <label className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Branch Address</label>
-                        <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
+                        <label className="text-sm font-medium text-muted-foreground">Branch Address</label>
+                        <p className="text-sm text-muted-foreground mt-1">
                           {ifscDetails.address}, {ifscDetails.city}, {ifscDetails.state}
                         </p>
                       </div>

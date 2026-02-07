@@ -660,7 +660,7 @@ export default function UnlistedPreviewPage() {
     return (
       <div className="p-8 text-center">
         <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-        <h2 className="text-xl font-bold text-white mb-2">Company Not Found</h2>
+        <h2 className="text-xl font-bold text-foreground mb-2">Company Not Found</h2>
         <p className="text-muted-foreground mb-4">The company you're looking for doesn't exist.</p>
         <Button onClick={handleBack} variant="outline" data-testid="button-back-not-found">
           <ArrowLeft className="w-4 h-4 mr-2" />
@@ -688,14 +688,14 @@ export default function UnlistedPreviewPage() {
               variant="ghost" 
               size="sm" 
               onClick={handleBack}
-              className="text-muted-foreground hover:text-white"
+              className="text-muted-foreground hover:text-foreground"
               data-testid="button-back"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Pricing
             </Button>
             <div>
-              <h1 className="text-xl font-bold text-white flex items-center gap-2">
+              <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
                 Preview: {company.name}
               </h1>
               <p className="text-sm text-muted-foreground">
@@ -805,7 +805,7 @@ export default function UnlistedPreviewPage() {
                       ? 'bg-blue-600/20 text-blue-400' 
                       : company.listingStage === 'growth'
                       ? 'bg-purple-600/20 text-purple-400'
-                      : 'bg-gray-600/20 text-muted-foreground'
+                      : 'bg-muted/20 text-muted-foreground'
                   }`}
                 >
                   {company.listingStage === 'pre_ipo' ? 'Pre-IPO' : 
@@ -818,7 +818,7 @@ export default function UnlistedPreviewPage() {
                 {company.cin ? (
                   <div>
                     <span className="text-muted-foreground">CIN</span>
-                    <p className="text-white font-mono text-xs">{company.cin}</p>
+                    <p className="text-foreground font-mono text-xs">{company.cin}</p>
                   </div>
                 ) : (
                   <div className="col-span-2">
@@ -828,7 +828,7 @@ export default function UnlistedPreviewPage() {
                         value={manualCIN}
                         onChange={(e) => setManualCIN(e.target.value.toUpperCase())}
                         placeholder="U12345AB1234ABC123456"
-                        className="bg-muted border-border text-white font-mono text-xs h-8"
+                        className="bg-muted border-border text-foreground font-mono text-xs h-8"
                         maxLength={21}
                         data-testid="input-manual-cin"
                       />
@@ -854,7 +854,7 @@ export default function UnlistedPreviewPage() {
                 {company.isin && (
                   <div>
                     <span className="text-muted-foreground">ISIN</span>
-                    <p className="text-white font-mono">{company.isin}</p>
+                    <p className="text-foreground font-mono">{company.isin}</p>
                   </div>
                 )}
                 {company.faceValue && (
@@ -875,7 +875,7 @@ export default function UnlistedPreviewPage() {
 
           <Card className="bg-card border-border">
             <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
+              <CardTitle className="text-foreground flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-green-400" />
                 Financial Performance
                 {latestFinancials?.dataSource && (
@@ -947,7 +947,7 @@ export default function UnlistedPreviewPage() {
           {latestFinancials && (
             <Card className="bg-card border-border">
               <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
+                <CardTitle className="text-foreground flex items-center gap-2">
                   <IndianRupee className="w-5 h-5 text-amber-400" />
                   Financial Highlights ({latestFinancials.financialYear})
                 </CardTitle>
@@ -956,7 +956,7 @@ export default function UnlistedPreviewPage() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                   <div className="p-3 bg-muted rounded-lg">
                     <div className="text-xs text-muted-foreground">Revenue</div>
-                    <div className="text-lg font-bold text-white">
+                    <div className="text-lg font-bold text-foreground">
                       {formatCurrency(latestFinancials.revenue)}
                     </div>
                   </div>
@@ -990,7 +990,7 @@ export default function UnlistedPreviewPage() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="p-3 bg-muted rounded-lg">
                     <div className="text-xs text-muted-foreground">Total Assets</div>
-                    <div className="text-lg font-bold text-white">
+                    <div className="text-lg font-bold text-foreground">
                       {formatCurrency(latestFinancials.totalAssets)}
                     </div>
                   </div>
@@ -1009,7 +1009,7 @@ export default function UnlistedPreviewPage() {
                     <div className={`text-lg font-bold ${
                       latestRatios && parseFloat(latestRatios.marginEbitda?.toString() || '0') >= 0.15 
                         ? 'text-green-400' 
-                        : 'text-white'
+                        : 'text-foreground'
                     }`}>
                       {latestRatios?.marginEbitda ? `${(parseFloat(latestRatios.marginEbitda.toString()) * 100).toFixed(1)}%` : '—'}
                     </div>
@@ -1019,7 +1019,7 @@ export default function UnlistedPreviewPage() {
                     <div className={`text-lg font-bold ${
                       latestRatios && parseFloat(latestRatios.marginPat?.toString() || '0') >= 0.08 
                         ? 'text-green-400' 
-                        : 'text-white'
+                        : 'text-foreground'
                     }`}>
                       {latestRatios?.marginPat ? `${(parseFloat(latestRatios.marginPat.toString()) * 100).toFixed(1)}%` : '—'}
                     </div>
@@ -1033,7 +1033,7 @@ export default function UnlistedPreviewPage() {
           {latestRatios && (latestRatios.revenueGrowth || latestRatios.profitGrowth) && (
             <Card className="bg-card border-border">
               <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
+                <CardTitle className="text-foreground flex items-center gap-2">
                   <TrendingUp className="w-5 h-5 text-purple-400" />
                   Year-on-Year Growth
                 </CardTitle>
@@ -1073,7 +1073,7 @@ export default function UnlistedPreviewPage() {
         <div className="space-y-6">
           <Card className="bg-card border-border">
             <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
+              <CardTitle className="text-foreground flex items-center gap-2">
                 <DollarSign className="w-5 h-5 text-emerald-400" />
                 Store Pricing
               </CardTitle>
@@ -1100,7 +1100,7 @@ export default function UnlistedPreviewPage() {
 
           <Card className="bg-card border-border">
             <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
+              <CardTitle className="text-foreground flex items-center gap-2">
                 <Activity className="w-5 h-5 text-purple-400" />
                 Key Ratios
                 {latestRatios?.dataSource && (
@@ -1116,7 +1116,7 @@ export default function UnlistedPreviewPage() {
                     <span className={`font-medium ${
                       (parseFloat(latestRatios.roe?.toString() || '0') >= 0.15) 
                         ? 'text-green-400' 
-                        : 'text-white'
+                        : 'text-foreground'
                     }`}>
                       {latestRatios.roe ? `${(parseFloat(latestRatios.roe.toString()) * 100).toFixed(1)}%` : '—'}
                     </span>
@@ -1126,7 +1126,7 @@ export default function UnlistedPreviewPage() {
                     <span className={`font-medium ${
                       (parseFloat(latestRatios.roce?.toString() || '0') >= 0.15) 
                         ? 'text-green-400' 
-                        : 'text-white'
+                        : 'text-foreground'
                     }`}>
                       {latestRatios.roce ? `${(parseFloat(latestRatios.roce.toString()) * 100).toFixed(1)}%` : '—'}
                     </span>
@@ -1180,7 +1180,7 @@ export default function UnlistedPreviewPage() {
 
           <Card className="bg-card border-border">
             <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
+              <CardTitle className="text-foreground flex items-center gap-2">
                 <Zap className="w-5 h-5 text-yellow-400" />
                 Valuation Metrics
               </CardTitle>
@@ -1189,19 +1189,19 @@ export default function UnlistedPreviewPage() {
               {latestRatios?.peRatio && (
                 <div className="flex justify-between items-center p-2 bg-muted rounded">
                   <span className="text-muted-foreground text-sm">P/E Ratio</span>
-                  <span className="text-white font-medium">{latestRatios.peRatio}</span>
+                  <span className="text-foreground font-medium">{latestRatios.peRatio}</span>
                 </div>
               )}
               {latestRatios?.pbRatio && (
                 <div className="flex justify-between items-center p-2 bg-muted rounded">
                   <span className="text-muted-foreground text-sm">P/B Ratio</span>
-                  <span className="text-white font-medium">{latestRatios.pbRatio}</span>
+                  <span className="text-foreground font-medium">{latestRatios.pbRatio}</span>
                 </div>
               )}
               {latestRatios?.evEbitda && (
                 <div className="flex justify-between items-center p-2 bg-muted rounded">
                   <span className="text-muted-foreground text-sm">EV/EBITDA</span>
-                  <span className="text-white font-medium">{latestRatios.evEbitda}</span>
+                  <span className="text-foreground font-medium">{latestRatios.evEbitda}</span>
                 </div>
               )}
               {!latestRatios?.peRatio && !latestRatios?.pbRatio && !latestRatios?.evEbitda && (
@@ -1234,7 +1234,7 @@ export default function UnlistedPreviewPage() {
       {company?.directors && Array.isArray(company.directors) && (company.directors as Array<{name?: string; din?: string; designation?: string}>).length > 0 && (
         <Card className="bg-card border-border mb-6">
           <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
+            <CardTitle className="text-foreground flex items-center gap-2">
               <Users className="w-5 h-5 text-cyan-400" />
               Board of Directors
             </CardTitle>
@@ -1243,7 +1243,7 @@ export default function UnlistedPreviewPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {(company.directors as Array<{name?: string; din?: string; designation?: string}>).map((director, index) => (
                 <div key={index} className="p-4 bg-muted rounded-lg">
-                  <div className="text-white font-medium">{director.name || 'Unknown'}</div>
+                  <div className="text-foreground font-medium">{director.name || 'Unknown'}</div>
                   <div className="text-sm text-muted-foreground">{director.designation || 'Director'}</div>
                   {director.din && (
                     <div className="text-xs text-muted-foreground mt-1">DIN: {director.din}</div>
@@ -1271,7 +1271,7 @@ export default function UnlistedPreviewPage() {
       }>).length > 0 && latestRatios && (
         <Card className="bg-card border-border mb-6">
           <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
+            <CardTitle className="text-foreground flex items-center gap-2">
               <Scale className="w-5 h-5 text-blue-400" />
               Comparison with Listed Peers
             </CardTitle>
@@ -1325,7 +1325,7 @@ export default function UnlistedPreviewPage() {
                   {/* P/E Ratio */}
                   <TableRow className="border-border hover:bg-muted/50">
                     <TableCell className="text-muted-foreground">P/E Ratio</TableCell>
-                    <TableCell className="text-white font-medium">
+                    <TableCell className="text-foreground font-medium">
                       {latestRatios.peRatio ? parseFloat(latestRatios.peRatio.toString()).toFixed(1) : 'N/A'}
                     </TableCell>
                     {(company.listedPeers as Array<{peRatio?: number}>).map((peer, index) => {
@@ -1350,7 +1350,7 @@ export default function UnlistedPreviewPage() {
                   {/* P/B Ratio */}
                   <TableRow className="border-border hover:bg-muted/50">
                     <TableCell className="text-muted-foreground">P/B Ratio</TableCell>
-                    <TableCell className="text-white font-medium">
+                    <TableCell className="text-foreground font-medium">
                       {latestRatios.pbRatio ? parseFloat(latestRatios.pbRatio.toString()).toFixed(2) : 'N/A'}
                     </TableCell>
                     {(company.listedPeers as Array<{pbRatio?: number}>).map((peer, index) => {
@@ -1375,7 +1375,7 @@ export default function UnlistedPreviewPage() {
                   {/* EV/EBITDA */}
                   <TableRow className="border-border hover:bg-muted/50">
                     <TableCell className="text-muted-foreground">EV/EBITDA</TableCell>
-                    <TableCell className="text-white font-medium">
+                    <TableCell className="text-foreground font-medium">
                       {latestRatios.evEbitda ? parseFloat(latestRatios.evEbitda.toString()).toFixed(1) : 'N/A'}
                     </TableCell>
                     {(company.listedPeers as Array<{evEbitda?: number}>).map((peer, index) => {
@@ -1400,7 +1400,7 @@ export default function UnlistedPreviewPage() {
                   {/* ROE */}
                   <TableRow className="border-border hover:bg-muted/50">
                     <TableCell className="text-muted-foreground">ROE (%)</TableCell>
-                    <TableCell className="text-white font-medium">
+                    <TableCell className="text-foreground font-medium">
                       {latestRatios.roe ? (parseFloat(latestRatios.roe.toString()) * 100).toFixed(1) : 'N/A'}
                     </TableCell>
                     {(company.listedPeers as Array<{roe?: number}>).map((peer, index) => {
@@ -1425,7 +1425,7 @@ export default function UnlistedPreviewPage() {
                   {/* ROCE */}
                   <TableRow className="border-border hover:bg-muted/50">
                     <TableCell className="text-muted-foreground">ROCE (%)</TableCell>
-                    <TableCell className="text-white font-medium">
+                    <TableCell className="text-foreground font-medium">
                       {latestRatios.roce ? (parseFloat(latestRatios.roce.toString()) * 100).toFixed(1) : 'N/A'}
                     </TableCell>
                     {(company.listedPeers as Array<{roce?: number}>).map((peer, index) => {
@@ -1450,7 +1450,7 @@ export default function UnlistedPreviewPage() {
                   {/* Debt/Equity */}
                   <TableRow className="border-border hover:bg-muted/50">
                     <TableCell className="text-muted-foreground">Debt/Equity</TableCell>
-                    <TableCell className="text-white font-medium">
+                    <TableCell className="text-foreground font-medium">
                       {latestRatios.debtEquity || 'N/A'}
                     </TableCell>
                     {(company.listedPeers as Array<{debtEquity?: number}>).map((peer, index) => {
@@ -1475,7 +1475,7 @@ export default function UnlistedPreviewPage() {
                   {/* Revenue Growth */}
                   <TableRow className="border-border hover:bg-muted/50">
                     <TableCell className="text-muted-foreground">Revenue Growth (%)</TableCell>
-                    <TableCell className="text-white font-medium">
+                    <TableCell className="text-foreground font-medium">
                       {latestRatios.revenueGrowth ? (parseFloat(latestRatios.revenueGrowth.toString()) * 100).toFixed(1) : 'N/A'}
                     </TableCell>
                     {(company.listedPeers as Array<{revenueGrowth?: number}>).map((peer, index) => {
@@ -1528,7 +1528,7 @@ export default function UnlistedPreviewPage() {
       {latestRatios && (!company?.listedPeers || !Array.isArray(company.listedPeers) || (company.listedPeers as ListedPeer[]).length === 0) && (
         <Card className="bg-card border-border mb-6">
           <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
+            <CardTitle className="text-foreground flex items-center gap-2">
               <Scale className="w-5 h-5 text-blue-400" />
               Comparison with Listed Peers
             </CardTitle>
@@ -1580,7 +1580,7 @@ export default function UnlistedPreviewPage() {
       {latestFinancials && latestRatios && (
         <Card className="bg-card border-border mb-6">
           <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
+            <CardTitle className="text-foreground flex items-center gap-2">
               <Lightbulb className="w-5 h-5 text-yellow-400" />
               Investment Thesis
             </CardTitle>
@@ -1681,7 +1681,7 @@ export default function UnlistedPreviewPage() {
           <div className="flex items-center gap-4">
             <CheckCircle className="w-5 h-5 text-emerald-400" />
             <span className="text-muted-foreground">
-              Ready to publish <span className="font-medium text-white">{company.name}</span> at 
+              Ready to publish <span className="font-medium text-foreground">{company.name}</span> at 
               <span className="text-green-400 ml-1">₹{buyPrice}</span> / 
               <span className="text-red-400 ml-1">₹{sellPrice}</span>
             </span>
@@ -1716,7 +1716,7 @@ export default function UnlistedPreviewPage() {
 
       {/* Manual Financials Dialog */}
       <Dialog open={isManualFinancialsOpen} onOpenChange={setIsManualFinancialsOpen}>
-        <DialogContent className="bg-card border-border text-white max-w-lg">
+        <DialogContent className="bg-card border-border text-foreground max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <IndianRupee className="w-5 h-5 text-amber-400" />
@@ -1844,7 +1844,7 @@ export default function UnlistedPreviewPage() {
 
       {/* Peer Management Dialog */}
       <Dialog open={isPeerDialogOpen} onOpenChange={setIsPeerDialogOpen}>
-        <DialogContent className="bg-card border-border text-white max-w-2xl">
+        <DialogContent className="bg-card border-border text-foreground max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Scale className="w-5 h-5 text-blue-400" />
@@ -1864,7 +1864,7 @@ export default function UnlistedPreviewPage() {
                   value={currentPeer.name}
                   onChange={(e) => setCurrentPeer({ ...currentPeer, name: e.target.value })}
                   placeholder="e.g., HDFC Bank"
-                  className="bg-muted border-border text-white"
+                  className="bg-muted border-border text-foreground"
                   data-testid="input-peer-name"
                 />
               </div>
@@ -1875,7 +1875,7 @@ export default function UnlistedPreviewPage() {
                   value={currentPeer.ticker}
                   onChange={(e) => setCurrentPeer({ ...currentPeer, ticker: e.target.value.toUpperCase() })}
                   placeholder="e.g., HDFCBANK"
-                  className="bg-muted border-border text-white"
+                  className="bg-muted border-border text-foreground"
                   data-testid="input-peer-ticker"
                 />
               </div>
@@ -1888,7 +1888,7 @@ export default function UnlistedPreviewPage() {
                   value={currentPeer.exchange}
                   onValueChange={(value) => setCurrentPeer({ ...currentPeer, exchange: value })}
                 >
-                  <SelectTrigger className="bg-muted border-border text-white" data-testid="select-peer-exchange">
+                  <SelectTrigger className="bg-muted border-border text-foreground" data-testid="select-peer-exchange">
                     <SelectValue placeholder="Select exchange" />
                   </SelectTrigger>
                   <SelectContent className="bg-muted border-border">
@@ -1906,7 +1906,7 @@ export default function UnlistedPreviewPage() {
                   value={currentPeer.peRatio || ''}
                   onChange={(e) => setCurrentPeer({ ...currentPeer, peRatio: e.target.value ? parseFloat(e.target.value) : undefined })}
                   placeholder="e.g., 25.5"
-                  className="bg-muted border-border text-white"
+                  className="bg-muted border-border text-foreground"
                   data-testid="input-peer-pe"
                 />
               </div>
@@ -1922,7 +1922,7 @@ export default function UnlistedPreviewPage() {
                   value={currentPeer.pbRatio || ''}
                   onChange={(e) => setCurrentPeer({ ...currentPeer, pbRatio: e.target.value ? parseFloat(e.target.value) : undefined })}
                   placeholder="e.g., 3.2"
-                  className="bg-muted border-border text-white"
+                  className="bg-muted border-border text-foreground"
                   data-testid="input-peer-pb"
                 />
               </div>
@@ -1935,7 +1935,7 @@ export default function UnlistedPreviewPage() {
                   value={currentPeer.evEbitda || ''}
                   onChange={(e) => setCurrentPeer({ ...currentPeer, evEbitda: e.target.value ? parseFloat(e.target.value) : undefined })}
                   placeholder="e.g., 15.8"
-                  className="bg-muted border-border text-white"
+                  className="bg-muted border-border text-foreground"
                   data-testid="input-peer-ev"
                 />
               </div>
@@ -1948,7 +1948,7 @@ export default function UnlistedPreviewPage() {
                   value={currentPeer.debtEquity || ''}
                   onChange={(e) => setCurrentPeer({ ...currentPeer, debtEquity: e.target.value ? parseFloat(e.target.value) : undefined })}
                   placeholder="e.g., 0.5"
-                  className="bg-muted border-border text-white"
+                  className="bg-muted border-border text-foreground"
                   data-testid="input-peer-de"
                 />
               </div>
@@ -1964,7 +1964,7 @@ export default function UnlistedPreviewPage() {
                   value={currentPeer.roe || ''}
                   onChange={(e) => setCurrentPeer({ ...currentPeer, roe: e.target.value ? parseFloat(e.target.value) : undefined })}
                   placeholder="e.g., 18.5"
-                  className="bg-muted border-border text-white"
+                  className="bg-muted border-border text-foreground"
                   data-testid="input-peer-roe"
                 />
               </div>
@@ -1977,7 +1977,7 @@ export default function UnlistedPreviewPage() {
                   value={currentPeer.roce || ''}
                   onChange={(e) => setCurrentPeer({ ...currentPeer, roce: e.target.value ? parseFloat(e.target.value) : undefined })}
                   placeholder="e.g., 22.3"
-                  className="bg-muted border-border text-white"
+                  className="bg-muted border-border text-foreground"
                   data-testid="input-peer-roce"
                 />
               </div>
@@ -1990,7 +1990,7 @@ export default function UnlistedPreviewPage() {
                   value={currentPeer.revenueGrowth || ''}
                   onChange={(e) => setCurrentPeer({ ...currentPeer, revenueGrowth: e.target.value ? parseFloat(e.target.value) : undefined })}
                   placeholder="e.g., 15.2"
-                  className="bg-muted border-border text-white"
+                  className="bg-muted border-border text-foreground"
                   data-testid="input-peer-growth"
                 />
               </div>

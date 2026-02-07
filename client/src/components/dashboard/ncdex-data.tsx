@@ -68,9 +68,9 @@ export function NCDEXData() {
           </CardHeader>
           <CardContent>
             <div className="animate-pulse space-y-4">
-              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-              <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+              <div className="h-4 bg-muted rounded w-3/4"></div>
+              <div className="h-4 bg-muted rounded w-1/2"></div>
+              <div className="h-4 bg-muted rounded w-2/3"></div>
             </div>
           </CardContent>
         </Card>
@@ -103,7 +103,7 @@ export function NCDEXData() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {statusData.tradingSegments.map((segment) => (
                 <div key={segment.segment} className="text-center">
-                  <p className="text-sm font-medium text-gray-900">{segment.segment}</p>
+                  <p className="text-sm font-medium text-foreground">{segment.segment}</p>
                   <Badge 
                     className={segment.status === 'Open' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}
                   >
@@ -112,7 +112,7 @@ export function NCDEXData() {
                 </div>
               ))}
             </div>
-            <div className="mt-4 text-xs text-gray-500">
+            <div className="mt-4 text-xs text-muted-foreground">
               <p>Next Session: {statusData.nextSession}</p>
               <p>Last Updated: {new Date(statusData.lastUpdated).toLocaleTimeString()}</p>
             </div>
@@ -164,11 +164,11 @@ export function NCDEXData() {
                   </thead>
                   <tbody>
                     {commoditiesData.map((commodity) => (
-                      <tr key={commodity.symbol} className="border-b hover:bg-gray-50" data-testid={`commodity-row-${commodity.symbol}`}>
+                      <tr key={commodity.symbol} className="border-b hover:bg-muted" data-testid={`commodity-row-${commodity.symbol}`}>
                         <td className="py-2">
                           <div>
                             <p className="font-medium">{commodity.name}</p>
-                            <p className="text-xs text-gray-500">{commodity.symbol} • {commodity.expiry}</p>
+                            <p className="text-xs text-muted-foreground">{commodity.symbol} • {commodity.expiry}</p>
                           </div>
                         </td>
                         <td className="py-2">
@@ -176,7 +176,7 @@ export function NCDEXData() {
                             {commodity.category}
                           </Badge>
                         </td>
-                        <td className="py-2 text-gray-600">{commodity.unit}</td>
+                        <td className="py-2 text-muted-foreground">{commodity.unit}</td>
                         <td className="py-2 text-right font-medium" data-testid={`price-${commodity.symbol}`}>
                           {formatPrice(commodity.ltp)}
                         </td>
@@ -186,10 +186,10 @@ export function NCDEXData() {
                         <td className={`py-2 text-right ${commodity.pchange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                           {commodity.pchange >= 0 ? '+' : ''}{formatPercentage(commodity.pchange)}
                         </td>
-                        <td className="py-2 text-right text-gray-600">
+                        <td className="py-2 text-right text-muted-foreground">
                           {commodity.volume.toLocaleString()}
                         </td>
-                        <td className="py-2 text-right text-gray-600">
+                        <td className="py-2 text-right text-muted-foreground">
                           {commodity.openInterest.toLocaleString()}
                         </td>
                       </tr>
@@ -218,12 +218,12 @@ export function NCDEXData() {
                         <span className="text-sm font-bold text-green-700">#{index + 1}</span>
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">{commodity.name}</p>
-                        <p className="text-sm text-gray-600">{commodity.category} • {commodity.unit}</p>
+                        <p className="font-medium text-foreground">{commodity.name}</p>
+                        <p className="text-sm text-muted-foreground">{commodity.category} • {commodity.unit}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-gray-900">{formatPrice(commodity.ltp)}</p>
+                      <p className="font-bold text-foreground">{formatPrice(commodity.ltp)}</p>
                       <p className="text-sm text-green-600">
                         +{formatChange(commodity.change)} (+{formatPercentage(commodity.pchange)})
                       </p>
@@ -252,12 +252,12 @@ export function NCDEXData() {
                         <span className="text-sm font-bold text-red-700">#{index + 1}</span>
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">{commodity.name}</p>
-                        <p className="text-sm text-gray-600">{commodity.category} • {commodity.unit}</p>
+                        <p className="font-medium text-foreground">{commodity.name}</p>
+                        <p className="text-sm text-muted-foreground">{commodity.category} • {commodity.unit}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-gray-900">{formatPrice(commodity.ltp)}</p>
+                      <p className="font-bold text-foreground">{formatPrice(commodity.ltp)}</p>
                       <p className="text-sm text-red-600">
                         {formatChange(commodity.change)} ({formatPercentage(commodity.pchange)})
                       </p>
@@ -282,19 +282,19 @@ export function NCDEXData() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="text-center p-4 bg-blue-50 rounded-lg">
               <p className="text-2xl font-bold text-blue-600">{commoditiesData.length}</p>
-              <p className="text-sm text-gray-600">Active Commodities</p>
+              <p className="text-sm text-muted-foreground">Active Commodities</p>
             </div>
             <div className="text-center p-4 bg-green-50 rounded-lg">
               <p className="text-2xl font-bold text-green-600">
                 {commoditiesData.filter(c => c.change > 0).length}
               </p>
-              <p className="text-sm text-gray-600">Advancing</p>
+              <p className="text-sm text-muted-foreground">Advancing</p>
             </div>
             <div className="text-center p-4 bg-red-50 rounded-lg">
               <p className="text-2xl font-bold text-red-600">
                 {commoditiesData.filter(c => c.change < 0).length}
               </p>
-              <p className="text-sm text-gray-600">Declining</p>
+              <p className="text-sm text-muted-foreground">Declining</p>
             </div>
           </div>
         </CardContent>

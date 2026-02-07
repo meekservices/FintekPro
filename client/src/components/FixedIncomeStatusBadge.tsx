@@ -27,7 +27,7 @@ export function FixedIncomeStatusBadge({ status, showLabel = true }: FixedIncome
       );
     case 'HIDDEN':
       return (
-        <Badge variant="outline" className="bg-slate-100 text-slate-500 gap-1">
+        <Badge variant="outline" className="bg-muted text-muted-foreground gap-1">
           <EyeOff className="h-3 w-3" />
           {showLabel && 'Hidden'}
         </Badge>
@@ -112,7 +112,7 @@ export function InstrumentActionControls({
       {onViewDetails && (
         <button 
           onClick={onViewDetails}
-          className="px-4 py-2 border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50 transition-colors text-sm"
+          className="px-4 py-2 border border-border text-muted-foreground rounded-md hover:bg-muted transition-colors text-sm"
         >
           Details
         </button>
@@ -123,18 +123,18 @@ export function InstrumentActionControls({
 
 export function FixedIncomeStatusLegend() {
   return (
-    <div className="flex flex-wrap gap-4 p-3 bg-slate-50 rounded-lg text-sm">
+    <div className="flex flex-wrap gap-4 p-3 bg-muted rounded-lg text-sm">
       <div className="flex items-center gap-2">
         <FixedIncomeStatusBadge status="SELLABLE" />
-        <span className="text-slate-600">Can buy/recommend</span>
+        <span className="text-muted-foreground">Can buy/recommend</span>
       </div>
       <div className="flex items-center gap-2">
         <FixedIncomeStatusBadge status="VISIBLE" />
-        <span className="text-slate-600">Reference only</span>
+        <span className="text-muted-foreground">Reference only</span>
       </div>
       <div className="flex items-center gap-2">
         <ShieldCheck className="h-4 w-4 text-emerald-600" />
-        <span className="text-slate-600">SEBI compliant classification</span>
+        <span className="text-muted-foreground">SEBI compliant classification</span>
       </div>
     </div>
   );

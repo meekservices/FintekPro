@@ -116,7 +116,7 @@ export default function ReportBuilder() {
       case 'generating': return 'bg-blue-100 text-blue-800';
       case 'pending': return 'bg-amber-100 text-amber-800';
       case 'failed': return 'bg-red-100 text-red-800';
-      default: return 'bg-muted dark:bg-muted text-foreground';
+      default: return 'bg-muted text-foreground';
     }
   };
 
@@ -131,7 +131,7 @@ export default function ReportBuilder() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Report Builder</h1>
+          <h1 className="text-2xl font-bold text-foreground">Report Builder</h1>
           <p className="text-sm text-muted-foreground">
             Create custom reports with scheduling and export options
           </p>
@@ -222,7 +222,7 @@ export default function ReportBuilder() {
                   return (
                     <div 
                       key={template.id} 
-                      className="p-4 border rounded-lg hover:bg-muted dark:bg-muted dark:hover:bg-muted"
+                      className="p-4 border rounded-lg hover:bg-muted"
                       data-testid={`template-${template.id}`}
                     >
                       <div className="flex items-start justify-between">

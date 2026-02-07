@@ -184,7 +184,7 @@ export default function DemoProposalsTracking() {
       return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">Pending</Badge>;
     }
     if (status === 'expired') {
-      return <Badge className="bg-gray-500/20 text-muted-foreground border-gray-500/30">Expired</Badge>;
+      return <Badge className="bg-muted/20 text-muted-foreground border-border">Expired</Badge>;
     }
     return <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">{status}</Badge>;
   };
@@ -212,7 +212,7 @@ export default function DemoProposalsTracking() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white" data-testid="heading-demo-proposals">Demo Proposal Tracking</h1>
+          <h1 className="text-2xl font-bold text-foreground" data-testid="heading-demo-proposals">Demo Proposal Tracking</h1>
           <p className="text-muted-foreground mt-1">Track demo proposals and facilitate conversion to real investments</p>
         </div>
         <div className="flex gap-2">
@@ -229,20 +229,20 @@ export default function DemoProposalsTracking() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-slate-900 border-slate-800">
+        <Card className="bg-background border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Demo Proposals</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <div className="text-2xl font-bold text-white" data-testid="text-total-demos">{calculatedStats.totalDemos}</div>
+              <div className="text-2xl font-bold text-foreground" data-testid="text-total-demos">{calculatedStats.totalDemos}</div>
               <FileText className="h-8 w-8 text-blue-500" />
             </div>
             <p className="text-xs text-muted-foreground mt-2">Value: {formatCurrency(calculatedStats.totalDemoValue)}</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-900 border-slate-800">
+        <Card className="bg-background border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Converted</CardTitle>
           </CardHeader>
@@ -255,13 +255,13 @@ export default function DemoProposalsTracking() {
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-900 border-slate-800">
+        <Card className="bg-background border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Conversion Rate</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <div className="text-2xl font-bold text-white" data-testid="text-conversion-rate">{calculatedStats.conversionRate.toFixed(1)}%</div>
+              <div className="text-2xl font-bold text-foreground" data-testid="text-conversion-rate">{calculatedStats.conversionRate.toFixed(1)}%</div>
               <Target className="h-8 w-8 text-purple-500" />
             </div>
             <div className="flex items-center mt-2">
@@ -271,13 +271,13 @@ export default function DemoProposalsTracking() {
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-900 border-slate-800">
+        <Card className="bg-background border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Avg. Time to Convert</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <div className="text-2xl font-bold text-white" data-testid="text-avg-time">{calculatedStats.avgTimeToConvert.toFixed(1)} days</div>
+              <div className="text-2xl font-bold text-foreground" data-testid="text-avg-time">{calculatedStats.avgTimeToConvert.toFixed(1)} days</div>
               <Clock className="h-8 w-8 text-amber-500" />
             </div>
             <p className="text-xs text-muted-foreground mt-2">Pending: {calculatedStats.pending} demos</p>
@@ -287,9 +287,9 @@ export default function DemoProposalsTracking() {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="bg-slate-900 border-slate-800">
+        <Card className="bg-background border-border">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-white">
+            <CardTitle className="flex items-center gap-2 text-foreground">
               <BarChart3 className="h-5 w-5" />
               Conversion Funnel
             </CardTitle>
@@ -317,9 +317,9 @@ export default function DemoProposalsTracking() {
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-900 border-slate-800">
+        <Card className="bg-background border-border">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-white">
+            <CardTitle className="flex items-center gap-2 text-foreground">
               <Sparkles className="h-5 w-5" />
               Demo Source Distribution
             </CardTitle>
@@ -358,7 +358,7 @@ export default function DemoProposalsTracking() {
       </div>
 
       {/* Demo Proposals Table */}
-      <Card className="bg-slate-900 border-slate-800">
+      <Card className="bg-background border-border">
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
@@ -372,12 +372,12 @@ export default function DemoProposalsTracking() {
                   placeholder="Search demos..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 w-[200px] bg-slate-800 border-slate-700"
+                  className="pl-9 w-[200px] bg-card border-border"
                   data-testid="input-search-demos"
                 />
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[140px] bg-slate-800 border-slate-700" data-testid="select-status-filter">
+                <SelectTrigger className="w-[140px] bg-card border-border" data-testid="select-status-filter">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -388,7 +388,7 @@ export default function DemoProposalsTracking() {
                 </SelectContent>
               </Select>
               <Select value={sourceFilter} onValueChange={setSourceFilter}>
-                <SelectTrigger className="w-[140px] bg-slate-800 border-slate-700" data-testid="select-source-filter">
+                <SelectTrigger className="w-[140px] bg-card border-border" data-testid="select-source-filter">
                   <SelectValue placeholder="Source" />
                 </SelectTrigger>
                 <SelectContent>
@@ -405,7 +405,7 @@ export default function DemoProposalsTracking() {
           <ScrollArea className="h-[500px]">
             <Table>
               <TableHeader>
-                <TableRow className="border-slate-700">
+                <TableRow className="border-border">
                   <TableHead className="text-muted-foreground">Proposal</TableHead>
                   <TableHead className="text-muted-foreground">Client</TableHead>
                   <TableHead className="text-muted-foreground">Agent</TableHead>
@@ -433,10 +433,10 @@ export default function DemoProposalsTracking() {
                   </TableRow>
                 ) : (
                   filteredDemos.map((demo) => (
-                    <TableRow key={demo.id} className="border-slate-700 hover:bg-slate-800/50">
+                    <TableRow key={demo.id} className="border-border hover:bg-card/50">
                       <TableCell>
                         <div>
-                          <div className="font-medium text-white">{demo.title}</div>
+                          <div className="font-medium text-foreground">{demo.title}</div>
                           <div className="text-xs text-muted-foreground">{demo.id}</div>
                         </div>
                       </TableCell>
@@ -448,7 +448,7 @@ export default function DemoProposalsTracking() {
                       </TableCell>
                       <TableCell className="text-muted-foreground">{demo.agentName}</TableCell>
                       <TableCell>{getSourceBadge(demo.proposalSource)}</TableCell>
-                      <TableCell className="text-right font-mono text-white">
+                      <TableCell className="text-right font-mono text-foreground">
                         {formatCurrency(parseFloat(demo.totalInvestmentAmount || '0'))}
                       </TableCell>
                       <TableCell className="text-center">
@@ -488,7 +488,7 @@ export default function DemoProposalsTracking() {
 
       {/* Convert Dialog */}
       <Dialog open={convertDialog.open} onOpenChange={(open) => setConvertDialog({ open, proposal: open ? convertDialog.proposal : null })}>
-        <DialogContent className="bg-slate-900 border-slate-700">
+        <DialogContent className="bg-background border-border">
           <DialogHeader>
             <DialogTitle className="text-foreground">Convert Demo to Investment</DialogTitle>
             <DialogDescription>
@@ -501,19 +501,19 @@ export default function DemoProposalsTracking() {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">Proposal:</span>
-                  <p className="text-white font-medium">{convertDialog.proposal.title}</p>
+                  <p className="text-foreground font-medium">{convertDialog.proposal.title}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Client:</span>
-                  <p className="text-white font-medium">{convertDialog.proposal.clientName}</p>
+                  <p className="text-foreground font-medium">{convertDialog.proposal.clientName}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Investment Amount:</span>
-                  <p className="text-white font-medium">{formatCurrency(parseFloat(convertDialog.proposal.totalInvestmentAmount || '0'))}</p>
+                  <p className="text-foreground font-medium">{formatCurrency(parseFloat(convertDialog.proposal.totalInvestmentAmount || '0'))}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Demo Views:</span>
-                  <p className="text-white font-medium">{convertDialog.proposal.demoViewCount}</p>
+                  <p className="text-foreground font-medium">{convertDialog.proposal.demoViewCount}</p>
                 </div>
               </div>
               <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">

@@ -317,7 +317,7 @@ export default function VideoKYC() {
                 
                 {!isStreaming && (
                   <div className="absolute inset-0 flex items-center justify-center bg-card">
-                    <Loader2 className="h-8 w-8 text-white animate-spin" />
+                    <Loader2 className="h-8 w-8 text-foreground animate-spin" />
                   </div>
                 )}
                 
@@ -344,7 +344,7 @@ export default function VideoKYC() {
                         ? 'bg-green-500' 
                         : idx === currentChallengeIndex 
                         ? 'bg-blue-500 animate-pulse' 
-                        : 'bg-gray-300 dark:bg-gray-600'
+                        : 'bg-muted'
                     }`}
                   />
                 ))}
@@ -382,7 +382,7 @@ export default function VideoKYC() {
                   />
                 </div>
               ) : (
-                <div className="aspect-video bg-muted dark:bg-muted rounded-xl flex items-center justify-center">
+                <div className="aspect-video bg-muted rounded-xl flex items-center justify-center">
                   <User className="h-16 w-16 text-muted-foreground" />
                 </div>
               )}

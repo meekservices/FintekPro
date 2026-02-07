@@ -349,7 +349,7 @@ export default function MarketingDashboard() {
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                             lead.status === 'converted' ? 'bg-green-100 text-green-700' :
                             lead.status === 'contacted' ? 'bg-blue-100 text-blue-700' :
-                            'bg-muted dark:bg-muted text-muted-foreground'
+                            'bg-muted text-muted-foreground'
                           }`}>
                             {lead.status}
                           </span>

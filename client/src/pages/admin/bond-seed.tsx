@@ -147,7 +147,7 @@ const STATUS_COLORS: Record<string, string> = {
   draft: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
   published: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
   suspended: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  archived: 'bg-muted dark:bg-muted text-foreground dark:bg-card dark:text-foreground',
+  archived: 'bg-muted text-foreground',
 };
 
 const KYC_TIER_COLORS: Record<string, string> = {
@@ -808,12 +808,12 @@ export default function BondSeedAdmin() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Badge className={KYC_TIER_COLORS[bond.kycTierRequired] || 'bg-muted dark:bg-muted'}>
+                        <Badge className={KYC_TIER_COLORS[bond.kycTierRequired] || 'bg-muted'}>
                           {bond.kycTierRequired}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge className={STATUS_COLORS[bond.status] || 'bg-muted dark:bg-muted'}>
+                        <Badge className={STATUS_COLORS[bond.status] || 'bg-muted'}>
                           {bond.status}
                         </Badge>
                       </TableCell>
@@ -2027,25 +2027,25 @@ export default function BondSeedAdmin() {
                     Net Yield Preview (with overrides)
                   </h5>
                   <div className="grid grid-cols-4 gap-4 text-sm">
-                    <div className="bg-white dark:bg-muted p-2 rounded">
+                    <div className="bg-card p-2 rounded">
                       <p className="text-muted-foreground text-xs">Gross YTM</p>
                       <p className="font-mono text-lg font-semibold text-green-600 dark:text-green-400">
                         {overrideNetYield.grossYield.toFixed(2)}%
                       </p>
                     </div>
-                    <div className="bg-white dark:bg-muted p-2 rounded">
+                    <div className="bg-card p-2 rounded">
                       <p className="text-muted-foreground text-xs">Fee Impact</p>
                       <p className="font-mono text-lg font-semibold text-amber-600 dark:text-amber-400">
                         -{overrideNetYield.feeImpactBps} bps
                       </p>
                     </div>
-                    <div className="bg-white dark:bg-muted p-2 rounded">
+                    <div className="bg-card p-2 rounded">
                       <p className="text-muted-foreground text-xs">Net Yield</p>
                       <p className="font-mono text-lg font-semibold text-blue-600 dark:text-blue-400">
                         {overrideNetYield.netYield.toFixed(2)}%
                       </p>
                     </div>
-                    <div className="bg-white dark:bg-muted p-2 rounded">
+                    <div className="bg-card p-2 rounded">
                       <p className="text-muted-foreground text-xs">After Tax (30%)</p>
                       <p className="font-mono text-lg font-semibold">
                         {overrideNetYield.netYieldAfterTax.toFixed(2)}%

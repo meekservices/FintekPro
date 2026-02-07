@@ -749,7 +749,7 @@ export default function Cart() {
               Back to Store
             </Button>
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Cart & Proposals</h1>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Cart & Proposals</h1>
           <p className="text-muted-foreground">Manage your cart items and review investment proposals</p>
         </div>
 
@@ -775,7 +775,7 @@ export default function Cart() {
               <Card>
                 <CardContent className="text-center py-12">
                   <ShoppingCart className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                  <h2 className="text-xl font-semibold text-gray-900 mb-2">Your cart is empty</h2>
+                  <h2 className="text-xl font-semibold text-foreground mb-2">Your cart is empty</h2>
                   <p className="text-muted-foreground mb-6">Add financial products or proposals to get started</p>
                   <div className="flex gap-4 justify-center">
                     <Link href="/store">
@@ -970,7 +970,7 @@ export default function Cart() {
                     <div className="mt-6 space-y-3">
                       <Label className="text-base font-semibold">Select Payment Method</Label>
                       <RadioGroup value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as "cashfree" | "phonepe")}>
-                        <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-muted dark:hover:bg-muted cursor-pointer">
+                        <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-muted cursor-pointer">
                           <RadioGroupItem value="cashfree" id="cashfree" data-testid="radio-cashfree" />
                           <Label htmlFor="cashfree" className="flex-1 cursor-pointer">
                             <div className="flex items-center gap-2">
@@ -980,7 +980,7 @@ export default function Cart() {
                             <div className="text-xs text-muted-foreground">UPI, Cards & more payment options</div>
                           </Label>
                         </div>
-                        <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-muted dark:hover:bg-muted cursor-pointer">
+                        <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-muted cursor-pointer">
                           <RadioGroupItem value="phonepe" id="phonepe" data-testid="radio-phonepe" />
                           <Label htmlFor="phonepe" className="flex-1 cursor-pointer">
                             <div className="flex items-center gap-2">
@@ -1045,7 +1045,7 @@ export default function Cart() {
               <Card>
                 <CardContent className="text-center py-12">
                   <TrendingUp className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                  <h2 className="text-xl font-semibold text-gray-900 mb-2">No investment items</h2>
+                  <h2 className="text-xl font-semibold text-foreground mb-2">No investment items</h2>
                   <p className="text-muted-foreground mb-6">Add investments from mutual funds, bonds, NCDs, IPOs, or unlisted shares</p>
                   <div className="flex gap-4 justify-center flex-wrap">
                     <Link href="/mutual-funds">
@@ -1125,7 +1125,7 @@ export default function Cart() {
                           {categoryItems.map((item) => (
                             <div 
                               key={item.id}
-                              className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted dark:hover:bg-muted"
+                              className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted"
                               data-testid={`unified-cart-item-${item.id}`}
                             >
                               <div className="flex-1">

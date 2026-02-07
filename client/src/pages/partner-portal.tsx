@@ -533,11 +533,11 @@ export default function PartnerPortal() {
   return (
     <div className="min-h-screen bg-muted">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <div className="bg-card shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900" data-testid="partner-portal-title">
+              <h1 className="text-2xl font-bold text-foreground" data-testid="partner-portal-title">
                 Partner Portal
               </h1>
               <p className="text-sm text-muted-foreground">
@@ -573,7 +573,7 @@ export default function PartnerPortal() {
                       <Package className="h-8 w-8 text-blue-600" />
                       <div className="ml-4">
                         <p className="text-sm font-medium text-muted-foreground">Total Products</p>
-                        <p className="text-2xl font-bold text-gray-900">
+                        <p className="text-2xl font-bold text-foreground">
                           {dashboardData.stats.totalProducts}
                         </p>
                         <p className="text-xs text-green-600">
@@ -590,7 +590,7 @@ export default function PartnerPortal() {
                       <MessageCircle className="h-8 w-8 text-orange-600" />
                       <div className="ml-4">
                         <p className="text-sm font-medium text-muted-foreground">Support Tickets</p>
-                        <p className="text-2xl font-bold text-gray-900">
+                        <p className="text-2xl font-bold text-foreground">
                           {dashboardData.stats.totalTickets}
                         </p>
                         <p className="text-xs text-orange-600">
@@ -607,7 +607,7 @@ export default function PartnerPortal() {
                       <IndianRupee className="h-8 w-8 text-green-600" />
                       <div className="ml-4">
                         <p className="text-sm font-medium text-muted-foreground">Revenue</p>
-                        <p className="text-2xl font-bold text-gray-900">
+                        <p className="text-2xl font-bold text-foreground">
                           ₹{dashboardData.stats.revenue.toLocaleString()}
                         </p>
                         <p className="text-xs text-green-600">
@@ -624,7 +624,7 @@ export default function PartnerPortal() {
                       <Target className="h-8 w-8 text-purple-600" />
                       <div className="ml-4">
                         <p className="text-sm font-medium text-muted-foreground">Commission</p>
-                        <p className="text-2xl font-bold text-gray-900">
+                        <p className="text-2xl font-bold text-foreground">
                           ₹{dashboardData.stats.commission.toLocaleString()}
                         </p>
                         <p className="text-xs text-purple-600">
@@ -686,7 +686,7 @@ export default function PartnerPortal() {
           {/* Products Tab */}
           <TabsContent value="products" className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">Product Management</h2>
+              <h2 className="text-xl font-bold text-foreground">Product Management</h2>
               <Dialog>
                 <DialogTrigger asChild>
                   <Button data-testid="button-add-product">
@@ -960,7 +960,7 @@ export default function PartnerPortal() {
           <TabsContent value="referrals" className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Client Invitations</h2>
+                <h2 className="text-xl font-bold text-foreground">Client Invitations</h2>
                 <p className="text-sm text-muted-foreground">Invite clients and track onboarding progress</p>
               </div>
               <Button 
@@ -1009,7 +1009,7 @@ export default function PartnerPortal() {
               <Card>
                 <CardContent className="py-12 text-center">
                   <UserPlus className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-1">No Invitations Yet</h3>
+                  <h3 className="text-lg font-medium text-foreground mb-1">No Invitations Yet</h3>
                   <p className="text-muted-foreground mb-4">Start inviting clients to track their onboarding progress</p>
                   <Button onClick={() => { resetInviteForm(); setShowInviteDialog(true); }}>
                     Create First Invitation
@@ -1099,7 +1099,7 @@ export default function PartnerPortal() {
           <TabsContent value="support" className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Client Support</h2>
+                <h2 className="text-xl font-bold text-foreground">Client Support</h2>
                 <p className="text-sm text-muted-foreground">Manage client support requests with step-by-step workflows</p>
               </div>
               <a href="/partner/ca-support">
@@ -1173,7 +1173,7 @@ export default function PartnerPortal() {
 
           {/* Analytics Tab */}
           <TabsContent value="analytics" className="space-y-6">
-            <h2 className="text-xl font-bold text-gray-900">Analytics & Insights</h2>
+            <h2 className="text-xl font-bold text-foreground">Analytics & Insights</h2>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>

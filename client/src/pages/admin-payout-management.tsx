@@ -193,11 +193,11 @@ export default function AdminPayoutManagement() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600">
-              <Wallet className="w-6 h-6 text-white" />
+              <Wallet className="w-6 h-6 text-foreground" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Payout Management</h1>
-              <p className="text-muted-foreground dark:text-muted-foreground">Approve, process, and track all payouts</p>
+              <h1 className="text-2xl font-bold text-foreground">Payout Management</h1>
+              <p className="text-muted-foreground">Approve, process, and track all payouts</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -216,7 +216,7 @@ export default function AdminPayoutManagement() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Pending Approval</p>
+                <p className="text-xs text-muted-foreground">Pending Approval</p>
                 <p className="text-xl font-bold text-yellow-600">{formatCurrency(metrics.pendingAmount)}</p>
               </div>
               <Clock className="w-8 h-8 text-yellow-400" />
@@ -229,7 +229,7 @@ export default function AdminPayoutManagement() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Approved</p>
+                <p className="text-xs text-muted-foreground">Approved</p>
                 <p className="text-xl font-bold text-blue-600">{formatCurrency(metrics.approvedAmount)}</p>
               </div>
               <CheckCircle className="w-8 h-8 text-blue-400" />
@@ -242,7 +242,7 @@ export default function AdminPayoutManagement() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Processing</p>
+                <p className="text-xs text-muted-foreground">Processing</p>
                 <p className="text-xl font-bold text-purple-600">{formatCurrency(metrics.processingAmount)}</p>
               </div>
               <RefreshCw className="w-8 h-8 text-purple-400" />
@@ -255,7 +255,7 @@ export default function AdminPayoutManagement() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Completed</p>
+                <p className="text-xs text-muted-foreground">Completed</p>
                 <p className="text-xl font-bold text-green-600">{formatCurrency(metrics.completedAmount)}</p>
               </div>
               <CheckCircle className="w-8 h-8 text-green-400" />
@@ -268,7 +268,7 @@ export default function AdminPayoutManagement() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Total Outflow</p>
+                <p className="text-xs text-muted-foreground">Total Outflow</p>
                 <p className="text-xl font-bold">{formatCurrency(metrics.totalThisMonth)}</p>
               </div>
               <IndianRupee className="w-8 h-8 text-muted-foreground" />
@@ -334,7 +334,7 @@ export default function AdminPayoutManagement() {
                 <Button variant="outline" size="sm" onClick={selectAllPending}>
                   Select All Pending
                 </Button>
-                <span className="text-sm text-muted-foreground dark:text-muted-foreground">
+                <span className="text-sm text-muted-foreground">
                   {selectedPayouts.length} selected ({formatCurrency(selectedTotal)})
                 </span>
               </div>
@@ -364,7 +364,7 @@ export default function AdminPayoutManagement() {
           
           {activeTab === 'approved' && payouts.filter(p => p.status === 'approved').length > 0 && (
             <div className="flex items-center justify-between mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <span className="text-sm text-muted-foreground dark:text-muted-foreground">
+              <span className="text-sm text-muted-foreground">
                 {payouts.filter(p => p.status === 'approved').length} payouts ready for processing
               </span>
               <Button 
@@ -485,11 +485,11 @@ export default function AdminPayoutManagement() {
           </DialogHeader>
           <div className="py-4">
             <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg mb-4">
-              <p className="text-sm text-muted-foreground dark:text-muted-foreground">Selected Payouts</p>
+              <p className="text-sm text-muted-foreground">Selected Payouts</p>
               <p className="text-2xl font-bold text-green-600">{selectedPayouts.length} requests</p>
               <p className="font-medium">{formatCurrency(selectedTotal)}</p>
             </div>
-            <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               Approved payouts will be queued for bank transfer processing.
             </p>
           </div>
@@ -510,7 +510,7 @@ export default function AdminPayoutManagement() {
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
-              <p className="text-sm text-muted-foreground dark:text-muted-foreground">Rejecting</p>
+              <p className="text-sm text-muted-foreground">Rejecting</p>
               <p className="text-xl font-bold text-red-600">{selectedPayouts.length} requests</p>
               <p className="font-medium">{formatCurrency(selectedTotal)}</p>
             </div>
@@ -541,13 +541,13 @@ export default function AdminPayoutManagement() {
           </DialogHeader>
           <div className="py-4">
             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg mb-4">
-              <p className="text-sm text-muted-foreground dark:text-muted-foreground">Ready for Transfer</p>
+              <p className="text-sm text-muted-foreground">Ready for Transfer</p>
               <p className="text-2xl font-bold text-blue-600">
                 {payouts.filter(p => p.status === 'approved').length} payouts
               </p>
               <p className="font-medium">{formatCurrency(metrics.approvedAmount)}</p>
             </div>
-            <div className="space-y-2 text-sm text-muted-foreground dark:text-muted-foreground">
+            <div className="space-y-2 text-sm text-muted-foreground">
               <p>• Transfers will be initiated via Cashfree Payout API</p>
               <p>• Processing typically takes 1-3 business days</p>
               <p>• Status will update automatically upon completion</p>

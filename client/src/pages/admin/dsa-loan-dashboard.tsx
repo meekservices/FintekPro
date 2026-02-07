@@ -69,7 +69,7 @@ interface LoanApplication {
 }
 
 const statusColors: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-800",
+  draft: "bg-muted text-foreground",
   submitted: "bg-blue-100 text-blue-800",
   eligibility_check: "bg-yellow-100 text-yellow-800",
   routed: "bg-purple-100 text-purple-800",
@@ -172,12 +172,12 @@ export default function AdminDsaLoanDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-muted p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">DSA Loan Dashboard</h1>
-            <p className="text-gray-500 mt-1">Multi-Financier Loan Routing System</p>
+            <h1 className="text-3xl font-bold text-foreground">DSA Loan Dashboard</h1>
+            <p className="text-muted-foreground mt-1">Multi-Financier Loan Routing System</p>
           </div>
           <Button onClick={handleRefresh} variant="outline">
             <RefreshCw className="w-4 h-4 mr-2" />
@@ -239,9 +239,9 @@ export default function AdminDsaLoanDashboard() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-3 gap-4">
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                  <div className="text-2xl font-bold text-gray-700">{stats?.funnel.draft || 0}</div>
-                  <div className="text-sm text-gray-500">Draft</div>
+                <div className="text-center p-4 bg-muted rounded-lg">
+                  <div className="text-2xl font-bold text-muted-foreground">{stats?.funnel.draft || 0}</div>
+                  <div className="text-sm text-muted-foreground">Draft</div>
                 </div>
                 <div className="text-center p-4 bg-blue-50 rounded-lg">
                   <div className="text-2xl font-bold text-blue-700">{stats?.funnel.submitted || 0}</div>
@@ -276,12 +276,12 @@ export default function AdminDsaLoanDashboard() {
               <div className="space-y-3">
                 {Object.entries(stats?.byLoanType || {}).map(([type, count]) => (
                   <div key={type} className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">{loanTypeLabels[type] || type}</span>
+                    <span className="text-sm text-muted-foreground">{loanTypeLabels[type] || type}</span>
                     <Badge variant="secondary">{count}</Badge>
                   </div>
                 ))}
                 {Object.keys(stats?.byLoanType || {}).length === 0 && (
-                  <p className="text-sm text-gray-400 text-center py-4">No data available</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">No data available</p>
                 )}
               </div>
             </CardContent>
@@ -326,7 +326,7 @@ export default function AdminDsaLoanDashboard() {
                 ))}
                 {(stats?.bankWiseStats || []).length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-gray-400 py-8">
+                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                       No bank data available
                     </TableCell>
                   </TableRow>
@@ -397,7 +397,7 @@ export default function AdminDsaLoanDashboard() {
           </CardHeader>
           <CardContent>
             {applicationsLoading ? (
-              <div className="text-center py-8 text-gray-400">Loading applications...</div>
+              <div className="text-center py-8 text-muted-foreground">Loading applications...</div>
             ) : (
               <Table>
                 <TableHeader>
@@ -421,7 +421,7 @@ export default function AdminDsaLoanDashboard() {
                       <TableCell>
                         <div>
                           <div className="font-medium">{app.applicantName}</div>
-                          <div className="text-sm text-gray-500">{app.applicantPhone}</div>
+                          <div className="text-sm text-muted-foreground">{app.applicantPhone}</div>
                         </div>
                       </TableCell>
                       <TableCell>{loanTypeLabels[app.loanType] || app.loanType}</TableCell>
@@ -429,7 +429,7 @@ export default function AdminDsaLoanDashboard() {
                       <TableCell>{app.requestedTenure} months</TableCell>
                       <TableCell>{app.creditScore || '-'}</TableCell>
                       <TableCell>
-                        <Badge className={statusColors[app.status] || "bg-gray-100"}>
+                        <Badge className={statusColors[app.status] || "bg-muted"}>
                           {app.status.replace(/_/g, ' ')}
                         </Badge>
                       </TableCell>
@@ -442,7 +442,7 @@ export default function AdminDsaLoanDashboard() {
                           </div>
                         ) : '-'}
                       </TableCell>
-                      <TableCell className="text-sm text-gray-500">{formatDate(app.createdAt)}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{formatDate(app.createdAt)}</TableCell>
                       <TableCell>
                         <Button variant="ghost" size="sm">
                           <Eye className="w-4 h-4" />
@@ -452,7 +452,7 @@ export default function AdminDsaLoanDashboard() {
                   ))}
                   {applications.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={10} className="text-center text-gray-400 py-8">
+                      <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
                         No applications found
                       </TableCell>
                     </TableRow>
@@ -541,7 +541,7 @@ export default function AdminDsaLoanDashboard() {
                         {rule.isActive ? (
                           <Badge className="bg-green-100 text-green-800">Active</Badge>
                         ) : (
-                          <Badge className="bg-gray-100 text-gray-800">Inactive</Badge>
+                          <Badge className="bg-muted text-foreground">Inactive</Badge>
                         )}
                       </TableCell>
                     </TableRow>

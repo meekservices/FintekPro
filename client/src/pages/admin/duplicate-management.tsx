@@ -86,7 +86,7 @@ export default function DuplicateManagementPage() {
       case 'low':
         return 'bg-yellow-600 text-white border-yellow-500';
       default:
-        return 'bg-gray-600 text-white';
+        return 'bg-muted text-foreground';
     }
   };
 
@@ -130,15 +130,15 @@ export default function DuplicateManagementPage() {
   }
 
   const renderDuplicateCard = (match: DuplicateMatch, index: number) => (
-    <Card key={`${match.user1.id}-${match.user2.id}`} className="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 shadow-lg">
-      <CardHeader className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
+    <Card key={`${match.user1.id}-${match.user2.id}`} className="bg-card border-2 border-border shadow-lg">
+      <CardHeader className="bg-muted/50 border-b border-border">
         <div className="flex items-start justify-between flex-wrap gap-3">
           <div className="space-y-3">
             <div className="flex items-center gap-3 flex-wrap">
               <Badge className={`${getRiskBadgeColor(match.riskLevel)} text-sm px-3 py-1`}>
                 {(match.riskLevel || 'medium').toUpperCase()} RISK
               </Badge>
-              <span className="text-gray-700 dark:text-gray-300 text-sm font-medium" data-testid={`risk-score-${index}`}>
+              <span className="text-foreground text-sm font-medium" data-testid={`risk-score-${index}`}>
                 Risk Score: <span className="font-bold">{match.riskScore}/100</span>
               </span>
               {match.autoMergeRecommended && (
@@ -150,7 +150,7 @@ export default function DuplicateManagementPage() {
             </div>
             <div className="flex flex-wrap gap-2">
               {match.reasons.map((reason, idx) => (
-                <span key={idx} className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-3 py-1.5 rounded-full font-medium">
+                <span key={idx} className="text-xs bg-muted text-foreground px-3 py-1.5 rounded-full font-medium">
                   {reason}
                 </span>
               ))}
@@ -164,7 +164,7 @@ export default function DuplicateManagementPage() {
           <div className="space-y-4 p-5 bg-blue-50 dark:bg-blue-950/30 rounded-xl border-2 border-blue-200 dark:border-blue-800">
             <div className="flex items-center justify-between">
               <h4 className="font-bold text-lg text-blue-900 dark:text-blue-100">Account 1</h4>
-              <span className="text-sm text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 px-2 py-1 rounded">
+              <span className="text-sm text-muted-foreground bg-card px-2 py-1 rounded">
                 {match.user1.createdAt 
                   ? format(new Date(match.user1.createdAt), 'MMM dd, yyyy')
                   : 'Unknown date'
@@ -173,31 +173,31 @@ export default function DuplicateManagementPage() {
             </div>
             <div className="space-y-3 text-sm">
               <div className="flex items-center gap-2">
-                <span className="text-gray-600 dark:text-gray-400 font-medium w-20">User ID:</span>
-                <span className="text-gray-900 dark:text-white font-mono bg-white dark:bg-gray-800 px-2 py-1 rounded" data-testid={`user1-id-${index}`}>
+                <span className="text-muted-foreground font-medium w-20">User ID:</span>
+                <span className="text-foreground font-mono bg-card px-2 py-1 rounded" data-testid={`user1-id-${index}`}>
                   {match.user1.userId}
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-gray-600 dark:text-gray-400 font-medium w-20">Name:</span>
-                <span className="text-gray-900 dark:text-white font-semibold">{getFullName(match.user1)}</span>
+                <span className="text-muted-foreground font-medium w-20">Name:</span>
+                <span className="text-foreground font-semibold">{getFullName(match.user1)}</span>
               </div>
               {match.user1.email && (
                 <div className="flex items-center gap-2">
                   <Mail className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  <span className="text-gray-800 dark:text-gray-200">{match.user1.email}</span>
+                  <span className="text-foreground">{match.user1.email}</span>
                 </div>
               )}
               {match.user1.mobile && (
                 <div className="flex items-center gap-2">
                   <Phone className="h-4 w-4 text-green-600 dark:text-green-400" />
-                  <span className="text-gray-800 dark:text-gray-200">{match.user1.mobile}</span>
+                  <span className="text-foreground">{match.user1.mobile}</span>
                 </div>
               )}
               {match.user1.panNumber && (
                 <div className="flex items-center gap-2">
                   <CreditCard className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                  <span className="text-gray-800 dark:text-gray-200 font-mono">{match.user1.panNumber}</span>
+                  <span className="text-foreground font-mono">{match.user1.panNumber}</span>
                 </div>
               )}
             </div>
@@ -207,7 +207,7 @@ export default function DuplicateManagementPage() {
           <div className="space-y-4 p-5 bg-orange-50 dark:bg-orange-950/30 rounded-xl border-2 border-orange-200 dark:border-orange-800">
             <div className="flex items-center justify-between">
               <h4 className="font-bold text-lg text-orange-900 dark:text-orange-100">Account 2</h4>
-              <span className="text-sm text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 px-2 py-1 rounded">
+              <span className="text-sm text-muted-foreground bg-card px-2 py-1 rounded">
                 {match.user2.createdAt 
                   ? format(new Date(match.user2.createdAt), 'MMM dd, yyyy')
                   : 'Unknown date'
@@ -216,31 +216,31 @@ export default function DuplicateManagementPage() {
             </div>
             <div className="space-y-3 text-sm">
               <div className="flex items-center gap-2">
-                <span className="text-gray-600 dark:text-gray-400 font-medium w-20">User ID:</span>
-                <span className="text-gray-900 dark:text-white font-mono bg-white dark:bg-gray-800 px-2 py-1 rounded" data-testid={`user2-id-${index}`}>
+                <span className="text-muted-foreground font-medium w-20">User ID:</span>
+                <span className="text-foreground font-mono bg-card px-2 py-1 rounded" data-testid={`user2-id-${index}`}>
                   {match.user2.userId}
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-gray-600 dark:text-gray-400 font-medium w-20">Name:</span>
-                <span className="text-gray-900 dark:text-white font-semibold">{getFullName(match.user2)}</span>
+                <span className="text-muted-foreground font-medium w-20">Name:</span>
+                <span className="text-foreground font-semibold">{getFullName(match.user2)}</span>
               </div>
               {match.user2.email && (
                 <div className="flex items-center gap-2">
                   <Mail className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  <span className="text-gray-800 dark:text-gray-200">{match.user2.email}</span>
+                  <span className="text-foreground">{match.user2.email}</span>
                 </div>
               )}
               {match.user2.mobile && (
                 <div className="flex items-center gap-2">
                   <Phone className="h-4 w-4 text-green-600 dark:text-green-400" />
-                  <span className="text-gray-800 dark:text-gray-200">{match.user2.mobile}</span>
+                  <span className="text-foreground">{match.user2.mobile}</span>
                 </div>
               )}
               {match.user2.panNumber && (
                 <div className="flex items-center gap-2">
                   <CreditCard className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                  <span className="text-gray-800 dark:text-gray-200 font-mono">{match.user2.panNumber}</span>
+                  <span className="text-foreground font-mono">{match.user2.panNumber}</span>
                 </div>
               )}
             </div>
@@ -274,8 +274,8 @@ export default function DuplicateManagementPage() {
         </div>
 
         {match.nameSimilarity > 0 && (
-          <div className="mt-4 text-sm text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-lg inline-block">
-            Name similarity: <span className="font-bold text-gray-900 dark:text-white">{match.nameSimilarity}%</span>
+          <div className="mt-4 text-sm text-muted-foreground bg-muted px-3 py-2 rounded-lg inline-block">
+            Name similarity: <span className="font-bold text-foreground">{match.nameSimilarity}%</span>
           </div>
         )}
       </CardContent>
@@ -291,10 +291,10 @@ export default function DuplicateManagementPage() {
             <Users className="h-8 w-8 text-red-600 dark:text-red-400" />
           </div>
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white" data-testid="heading-page-title">
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground" data-testid="heading-page-title">
               Duplicate Account Management
             </h1>
-            <p className="text-gray-600 dark:text-gray-300 mt-1 text-base">
+            <p className="text-muted-foreground mt-1 text-base">
               Intelligent duplicate detection with risk scoring and fuzzy name matching
             </p>
           </div>
@@ -303,20 +303,20 @@ export default function DuplicateManagementPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 border-2 border-gray-200 dark:border-gray-700 shadow-lg">
+        <Card className="bg-gradient-to-br from-muted to-background border-2 border-border shadow-lg">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
+            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
               Total Duplicates
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-gray-900 dark:text-white" data-testid="stat-total">
+            <div className="text-3xl font-bold text-foreground" data-testid="stat-total">
               {statsData?.totalDuplicates || 0}
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-red-50 to-white dark:from-red-950/40 dark:to-gray-900 border-2 border-red-200 dark:border-red-800 shadow-lg">
+        <Card className="bg-gradient-to-br from-red-50 to-white dark:from-red-950/40 dark:to-background border-2 border-red-200 dark:border-red-800 shadow-lg">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-red-700 dark:text-red-300 flex items-center gap-2 uppercase tracking-wide">
               <AlertTriangle className="h-4 w-4" />
@@ -330,7 +330,7 @@ export default function DuplicateManagementPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-orange-50 to-white dark:from-orange-950/40 dark:to-gray-900 border-2 border-orange-200 dark:border-orange-800 shadow-lg">
+        <Card className="bg-gradient-to-br from-orange-50 to-white dark:from-orange-950/40 dark:to-background border-2 border-orange-200 dark:border-orange-800 shadow-lg">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-orange-700 dark:text-orange-300 uppercase tracking-wide">
               Medium Risk
@@ -343,7 +343,7 @@ export default function DuplicateManagementPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-yellow-50 to-white dark:from-yellow-950/40 dark:to-gray-900 border-2 border-yellow-200 dark:border-yellow-800 shadow-lg">
+        <Card className="bg-gradient-to-br from-yellow-50 to-white dark:from-yellow-950/40 dark:to-background border-2 border-yellow-200 dark:border-yellow-800 shadow-lg">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-yellow-700 dark:text-yellow-300 uppercase tracking-wide">
               Low Risk
@@ -356,7 +356,7 @@ export default function DuplicateManagementPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-purple-50 to-white dark:from-purple-950/40 dark:to-gray-900 border-2 border-purple-200 dark:border-purple-800 shadow-lg">
+        <Card className="bg-gradient-to-br from-purple-50 to-white dark:from-purple-950/40 dark:to-background border-2 border-purple-200 dark:border-purple-800 shadow-lg">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-purple-700 dark:text-purple-300 flex items-center gap-2 uppercase tracking-wide">
               <TrendingUp className="h-4 w-4" />
@@ -372,7 +372,7 @@ export default function DuplicateManagementPage() {
       </div>
 
       {duplicates.length === 0 ? (
-        <Card className="bg-gradient-to-br from-green-50 to-white dark:from-green-950/30 dark:to-gray-900 border-2 border-green-200 dark:border-green-800">
+        <Card className="bg-gradient-to-br from-green-50 to-white dark:from-green-950/30 dark:to-background border-2 border-green-200 dark:border-green-800">
           <CardContent className="py-16">
             <EmptyState
               icon={Shield}
@@ -383,7 +383,7 @@ export default function DuplicateManagementPage() {
         </Card>
       ) : (
         <Tabs defaultValue="high" className="w-full">
-          <TabsList className="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 p-1">
+          <TabsList className="bg-card border-2 border-border p-1">
             <TabsTrigger 
               value="high" 
               className="data-[state=active]:bg-red-100 data-[state=active]:text-red-800 dark:data-[state=active]:bg-red-900/50 dark:data-[state=active]:text-red-200"
@@ -407,7 +407,7 @@ export default function DuplicateManagementPage() {
             </TabsTrigger>
             <TabsTrigger 
               value="all"
-              className="data-[state=active]:bg-gray-200 data-[state=active]:text-gray-800 dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-gray-100"
+              className="data-[state=active]:bg-muted data-[state=active]:text-foreground dark:data-[state=active]:bg-muted dark:data-[state=active]:text-foreground"
               data-testid="tab-all"
             >
               All ({duplicates.length})
@@ -416,7 +416,7 @@ export default function DuplicateManagementPage() {
 
           <TabsContent value="high" className="space-y-4 mt-6">
             {highRiskDuplicates.length === 0 ? (
-              <Card className="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700">
+              <Card className="bg-card border-2 border-border">
                 <CardContent className="py-12">
                   <EmptyState
                     icon={CheckCircle}
@@ -432,7 +432,7 @@ export default function DuplicateManagementPage() {
 
           <TabsContent value="medium" className="space-y-4 mt-6">
             {mediumRiskDuplicates.length === 0 ? (
-              <Card className="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700">
+              <Card className="bg-card border-2 border-border">
                 <CardContent className="py-12">
                   <EmptyState
                     icon={CheckCircle}
@@ -448,7 +448,7 @@ export default function DuplicateManagementPage() {
 
           <TabsContent value="low" className="space-y-4 mt-6">
             {lowRiskDuplicates.length === 0 ? (
-              <Card className="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700">
+              <Card className="bg-card border-2 border-border">
                 <CardContent className="py-12">
                   <EmptyState
                     icon={CheckCircle}

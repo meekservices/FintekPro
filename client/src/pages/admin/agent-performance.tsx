@@ -184,7 +184,7 @@ export default function AgentPerformanceDashboard() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white" data-testid="text-page-title">Agent Performance Dashboard</h1>
+          <h1 className="text-3xl font-bold text-foreground" data-testid="text-page-title">Agent Performance Dashboard</h1>
           <p className="text-muted-foreground mt-1">Monitor and analyze all agents' performance metrics</p>
         </div>
         <div className="flex gap-2">
@@ -213,9 +213,9 @@ export default function AgentPerformanceDashboard() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <Skeleton className="h-8 w-16 bg-gray-700" />
+              <Skeleton className="h-8 w-16 bg-muted" />
             ) : (
-              <div className="text-2xl font-bold text-white" data-testid="text-total-agents">{totalAgents}</div>
+              <div className="text-2xl font-bold text-foreground" data-testid="text-total-agents">{totalAgents}</div>
             )}
             <p className="text-xs text-muted-foreground mt-1">Real-time count</p>
           </CardContent>
@@ -228,9 +228,9 @@ export default function AgentPerformanceDashboard() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <Skeleton className="h-8 w-24 bg-gray-700" />
+              <Skeleton className="h-8 w-24 bg-muted" />
             ) : (
-              <div className="text-2xl font-bold text-white" data-testid="text-total-aum">{formatCurrency(totalAUM)}</div>
+              <div className="text-2xl font-bold text-foreground" data-testid="text-total-aum">{formatCurrency(totalAUM)}</div>
             )}
             <p className="text-xs text-muted-foreground mt-1">Based on commissions</p>
           </CardContent>
@@ -243,9 +243,9 @@ export default function AgentPerformanceDashboard() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <Skeleton className="h-8 w-24 bg-gray-700" />
+              <Skeleton className="h-8 w-24 bg-muted" />
             ) : (
-              <div className="text-2xl font-bold text-white" data-testid="text-total-revenue">{formatCurrency(totalRevenue)}</div>
+              <div className="text-2xl font-bold text-foreground" data-testid="text-total-revenue">{formatCurrency(totalRevenue)}</div>
             )}
             <p className="text-xs text-muted-foreground mt-1">Total commissions</p>
           </CardContent>
@@ -258,9 +258,9 @@ export default function AgentPerformanceDashboard() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <Skeleton className="h-8 w-16 bg-gray-700" />
+              <Skeleton className="h-8 w-16 bg-muted" />
             ) : (
-              <div className="text-2xl font-bold text-white" data-testid="text-avg-conversion">{avgConversionRate.toFixed(1)}%</div>
+              <div className="text-2xl font-bold text-foreground" data-testid="text-avg-conversion">{avgConversionRate.toFixed(1)}%</div>
             )}
             <p className="text-xs text-amber-400 mt-1">Target: 60%</p>
           </CardContent>
@@ -300,7 +300,7 @@ export default function AgentPerformanceDashboard() {
 
         <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
+            <CardTitle className="text-foreground flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-400" />
               Agents Needing Attention
             </CardTitle>
@@ -330,7 +330,7 @@ export default function AgentPerformanceDashboard() {
                         )}
                       </div>
                       <div>
-                        <p className="font-medium text-white">{agent.name}</p>
+                        <p className="font-medium text-foreground">{agent.name}</p>
                         <p className="text-sm text-muted-foreground">Last active: {agent.lastActive}</p>
                       </div>
                     </div>
@@ -366,12 +366,12 @@ export default function AgentPerformanceDashboard() {
                   placeholder="Search agents..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-muted border-border text-white w-48"
+                  className="pl-10 bg-muted border-border text-foreground w-48"
                   data-testid="input-search-agents"
                 />
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-32 bg-muted border-border text-white" data-testid="select-status-filter">
+                <SelectTrigger className="w-32 bg-muted border-border text-foreground" data-testid="select-status-filter">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent className="bg-muted border-border">
@@ -382,7 +382,7 @@ export default function AgentPerformanceDashboard() {
                 </SelectContent>
               </Select>
               <Select value={performanceFilter} onValueChange={setPerformanceFilter}>
-                <SelectTrigger className="w-40 bg-muted border-border text-white" data-testid="select-performance-filter">
+                <SelectTrigger className="w-40 bg-muted border-border text-foreground" data-testid="select-performance-filter">
                   <SelectValue placeholder="Performance" />
                 </SelectTrigger>
                 <SelectContent className="bg-muted border-border">
@@ -416,7 +416,7 @@ export default function AgentPerformanceDashboard() {
                     className="border-border hover:bg-muted/50"
                     data-testid={`row-agent-${agent.id}`}
                   >
-                    <TableCell className="font-medium text-white">{agent.name}</TableCell>
+                    <TableCell className="font-medium text-foreground">{agent.name}</TableCell>
                     <TableCell className="text-right text-muted-foreground">{formatCurrency(agent.aum)}</TableCell>
                     <TableCell className="text-right text-muted-foreground">{formatCurrency(agent.revenueMTD)}</TableCell>
                     <TableCell className="text-right text-muted-foreground">{agent.clients}</TableCell>

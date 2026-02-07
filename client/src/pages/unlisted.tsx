@@ -76,7 +76,7 @@ function UnlistedCategoriesSection() {
 
   return (
     <section>
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Unlisted Securities Categories</h2>
+      <h2 className="text-2xl font-bold text-foreground mb-6">Unlisted Securities Categories</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {unlistedCategories.map((category) => {
           const IconComponent = getIcon(category.icon);
@@ -86,7 +86,7 @@ function UnlistedCategoriesSection() {
                 <div className={`w-12 h-12 bg-${category.color}-100 rounded-lg flex items-center justify-center mb-4`}>
                   <IconComponent className={`h-6 w-6 text-${category.color === 'blue' ? 'finance-blue' : category.color === 'green' ? 'finance-green' : category.color}-600`} />
                 </div>
-                <h3 className="font-bold text-gray-900 mb-2">{category.name}</h3>
+                <h3 className="font-bold text-foreground mb-2">{category.name}</h3>
                 <p className="text-muted-foreground text-sm mb-4">
                   {category.description}
                 </p>
@@ -514,7 +514,7 @@ export default function Unlisted() {
           <div className="flex items-center gap-3 mb-4">
             <Gem className="w-8 h-8 text-finance-blue" />
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Unlisted Securities</h1>
+              <h1 className="text-3xl font-bold text-foreground">Unlisted Securities</h1>
               <p className="text-muted-foreground">Exclusive access to pre-IPO and unlisted equity investments</p>
             </div>
           </div>

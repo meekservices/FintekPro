@@ -142,7 +142,7 @@ export default function TaxCADeskPage() {
             <Users className="h-8 w-8 text-purple-500" />
             CA Desk
           </h1>
-          <p className="text-muted-foreground dark:text-muted-foreground">Get expert assistance from qualified Chartered Accountants</p>
+          <p className="text-muted-foreground">Get expert assistance from qualified Chartered Accountants</p>
         </div>
         <Button variant="outline" className="gap-2" data-testid="button-contact-support">
           <Phone className="h-4 w-4" /> Contact Support
@@ -150,7 +150,7 @@ export default function TaxCADeskPage() {
       </div>
 
       {/* Hero Banner */}
-      <Card className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-0">
+      <Card className="bg-gradient-to-r from-purple-600 to-indigo-600 text-foreground border-0">
         <CardContent className="py-8">
           <div className="flex items-center justify-between">
             <div className="space-y-4">
@@ -175,8 +175,8 @@ export default function TaxCADeskPage() {
               </div>
             </div>
             <div className="hidden md:block">
-              <div className="p-6 bg-white/10 rounded-2xl backdrop-blur">
-                <Users className="h-24 w-24 text-white/80" />
+              <div className="p-6 bg-card/10 rounded-2xl backdrop-blur">
+                <Users className="h-24 w-24 text-foreground/80" />
               </div>
             </div>
           </div>

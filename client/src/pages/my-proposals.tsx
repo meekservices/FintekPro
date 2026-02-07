@@ -80,17 +80,17 @@ const sourceConfig: Record<ProposalSource, { label: string; icon: any; color: st
   ai_retirement: { label: "AI Retirement", icon: Target, color: "text-blue-700", bgColor: "bg-blue-100 dark:bg-blue-900" },
   ai_goals: { label: "AI Goals", icon: Briefcase, color: "text-green-700", bgColor: "bg-green-100 dark:bg-green-900" },
   agent: { label: "Agent", icon: User, color: "text-orange-700", bgColor: "bg-orange-100 dark:bg-orange-900" },
-  self: { label: "Self Requested", icon: FileText, color: "text-muted-foreground", bgColor: "bg-muted dark:bg-gray-700" },
+  self: { label: "Self Requested", icon: FileText, color: "text-muted-foreground", bgColor: "bg-muted" },
 };
 
 const statusConfig: Record<ProposalStatus, { label: string; icon: any; color: string }> = {
-  draft: { label: "Draft", icon: Clock, color: "bg-muted text-foreground dark:bg-gray-700 dark:text-foreground" },
+  draft: { label: "Draft", icon: Clock, color: "bg-muted text-foreground" },
   sent: { label: "Sent", icon: FileText, color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" },
   pending_review: { label: "Pending Review", icon: Clock, color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200" },
   viewed: { label: "Viewed", icon: Eye, color: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200" },
   accepted: { label: "Accepted", icon: CheckCircle, color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
   rejected: { label: "Rejected", icon: AlertCircle, color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" },
-  expired: { label: "Expired", icon: AlertCircle, color: "bg-muted text-muted-foreground dark:bg-gray-700 dark:text-muted-foreground" },
+  expired: { label: "Expired", icon: AlertCircle, color: "bg-muted text-muted-foreground" },
   partially_approved: { label: "Partial", icon: CheckCircle, color: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200" },
   executed: { label: "Executed", icon: CheckCircle, color: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200" },
 };
@@ -481,7 +481,7 @@ export default function MyProposalsPage() {
   return (
     <div className="container mx-auto py-6 px-4 max-w-7xl">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">My Proposals</h1>
+        <h1 className="text-2xl font-bold text-foreground">My Proposals</h1>
         <p className="text-muted-foreground">Review and manage investment recommendations from AI, your advisor, and your own requests.</p>
       </div>
 

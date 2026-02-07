@@ -40,7 +40,7 @@ export function NetworkStatusBanner({ className, showWhenOnline = false }: Netwo
         return {
           icon: WifiOff,
           bgColor: 'bg-red-500 dark:bg-red-600',
-          textColor: 'text-white',
+          textColor: 'text-foreground',
           title: 'You are offline',
           message: 'Some features are unavailable. Changes will sync when connected.',
           dismissible: false,
@@ -49,7 +49,7 @@ export function NetworkStatusBanner({ className, showWhenOnline = false }: Netwo
         return {
           icon: Server,
           bgColor: 'bg-orange-500 dark:bg-orange-600',
-          textColor: 'text-white',
+          textColor: 'text-foreground',
           title: 'Server temporarily unavailable',
           message: retryCount > 0 ? `Retrying... (attempt ${retryCount}/3)` : 'Reconnecting automatically...',
           dismissible: true,
@@ -58,7 +58,7 @@ export function NetworkStatusBanner({ className, showWhenOnline = false }: Netwo
         return {
           icon: AlertTriangle,
           bgColor: 'bg-amber-500 dark:bg-amber-600',
-          textColor: 'text-white',
+          textColor: 'text-foreground',
           title: 'Slow connection detected',
           message: 'Low data mode activated. Some features may be limited.',
           dismissible: true,
@@ -67,7 +67,7 @@ export function NetworkStatusBanner({ className, showWhenOnline = false }: Netwo
         return {
           icon: Wifi,
           bgColor: 'bg-green-500 dark:bg-green-600',
-          textColor: 'text-white',
+          textColor: 'text-foreground',
           title: 'Connected',
           message: 'All features available.',
           dismissible: true,
@@ -106,7 +106,7 @@ export function NetworkStatusBanner({ className, showWhenOnline = false }: Netwo
         <Button
           variant="ghost"
           size="sm"
-          className="h-8 px-2 text-white hover:bg-white/20"
+          className="h-8 px-2 text-foreground hover:bg-card/20"
           onClick={handleRefresh}
           disabled={isChecking || (isServerError && retryCount > 0)}
           data-testid="button-check-connection"
@@ -119,7 +119,7 @@ export function NetworkStatusBanner({ className, showWhenOnline = false }: Netwo
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0 text-white hover:bg-white/20"
+            className="h-8 w-8 p-0 text-foreground hover:bg-card/20"
             onClick={() => setDismissed(true)}
             data-testid="button-dismiss-banner"
           >

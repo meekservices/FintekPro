@@ -136,7 +136,7 @@ function TransactionTimeline({ errors, onViewError }: { errors: ErrorEntry[]; on
               >
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <code className="text-sm font-mono bg-muted dark:bg-muted dark:bg-muted px-2 py-1 rounded">
+                    <code className="text-sm font-mono bg-muted px-2 py-1 rounded">
                       {transactionId}
                     </code>
                     <Badge variant={hasCritical ? "destructive" : "secondary"}>
@@ -148,10 +148,10 @@ function TransactionTimeline({ errors, onViewError }: { errors: ErrorEntry[]; on
                   </span>
                 </div>
                 
-                <div className="relative pl-4 border-l-2 border-border dark:border-border space-y-3">
+                <div className="relative pl-4 border-l-2 border-border space-y-3">
                   {errors.map((error, idx) => (
                     <div key={error.id} className="relative">
-                      <div className={`absolute -left-[17px] w-3 h-3 rounded-full ${SEVERITY_COLORS[error.severity] || 'bg-gray-400'}`} />
+                      <div className={`absolute -left-[17px] w-3 h-3 rounded-full ${SEVERITY_COLORS[error.severity] || 'bg-muted-foreground'}`} />
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
@@ -577,7 +577,7 @@ function AIInsightsPanel() {
       engagement: "text-blue-500",
       security: "text-orange-500"
     };
-    return colors[category] || "text-gray-500";
+    return colors[category] || "text-muted-foreground";
   };
 
   return (
@@ -953,7 +953,7 @@ export default function ActivityCentre() {
                 {criticalErrors?.slice(0, 3).map(error => (
                   <div 
                     key={error.id} 
-                    className="flex items-center justify-between p-3 bg-white dark:bg-card rounded-lg border border-red-200"
+                    className="flex items-center justify-between p-3 bg-card rounded-lg border border-red-200"
                   >
                     <div className="flex items-center gap-3">
                       <AlertTriangle className="h-4 w-4 text-red-500" />

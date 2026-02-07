@@ -267,7 +267,7 @@ export default function DividendCalendar() {
                     className={`p-2 min-h-[80px] border rounded-lg cursor-pointer transition-colors ${
                       isToday(day) ? 'bg-blue-50 dark:bg-blue-950 border-blue-300' :
                       hasEvents ? 'bg-green-50 dark:bg-green-950 border-green-300' :
-                      'hover:bg-muted dark:hover:bg-muted'
+                      'hover:bg-muted'
                     }`}
                     onClick={() => setSelectedDate(day)}
                     data-testid={`calendar-day-${format(day, 'yyyy-MM-dd')}`}
@@ -312,11 +312,11 @@ export default function DividendCalendar() {
                 filteredDividends.map(dividend => (
                   <div 
                     key={dividend.id}
-                    className="flex items-center justify-between p-4 bg-muted dark:bg-muted rounded-lg hover:bg-muted dark:hover:bg-gray-700 transition-colors"
+                    className="flex items-center justify-between p-4 bg-muted rounded-lg hover:bg-muted transition-colors"
                     data-testid={`dividend-item-${dividend.id}`}
                   >
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-white dark:bg-card rounded-lg flex items-center justify-center font-bold text-sm">
+                      <div className="w-12 h-12 bg-card rounded-lg flex items-center justify-center font-bold text-sm">
                         {dividend.symbol.slice(0, 4)}
                       </div>
                       <div>

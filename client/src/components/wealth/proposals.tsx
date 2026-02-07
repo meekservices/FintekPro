@@ -112,7 +112,7 @@ export function Proposals({ portfolioId }: ProposalsProps) {
       case 'failed':
         return 'bg-red-50 text-red-700 border-red-200';
       default:
-        return 'bg-gray-50 text-gray-700 border-gray-200';
+        return 'bg-muted text-muted-foreground border-border';
     }
   };
 
@@ -164,8 +164,8 @@ export function Proposals({ portfolioId }: ProposalsProps) {
           <div className="space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="animate-pulse">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+                <div className="h-3 bg-muted rounded w-1/2"></div>
               </div>
             ))}
           </div>
@@ -238,7 +238,7 @@ export function Proposals({ portfolioId }: ProposalsProps) {
                 onClick={handleExecuteSelected}
                 disabled={executeProposalsMutation.isPending}
                 size="lg"
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-foreground"
                 data-testid="button-execute-proposals"
               >
                 <Send className="w-4 h-4 mr-2" />
@@ -268,14 +268,14 @@ export function Proposals({ portfolioId }: ProposalsProps) {
                 className={`border rounded-lg p-4 space-y-3 cursor-pointer transition-colors ${
                   selectedProposals.includes(proposal.id) 
                     ? 'border-blue-500 bg-blue-50' 
-                    : 'border-gray-200 hover:border-gray-300'
+                    : 'border-border hover:border-border'
                 }`}
                 onClick={() => handleProposalSelect(proposal.id)}
                 data-testid={`proposal-${index}`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded ${selectedProposals.includes(proposal.id) ? 'bg-blue-200' : 'bg-gray-100'}`}>
+                    <div className={`p-2 rounded ${selectedProposals.includes(proposal.id) ? 'bg-blue-200' : 'bg-muted'}`}>
                       {getTypeIcon(proposal.type)}
                     </div>
                     <div>

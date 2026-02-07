@@ -149,7 +149,7 @@ function getAlertIcon(type: PortfolioAlert["type"]) {
     case "dividend":
       return <Coins className="h-4 w-4 text-purple-500" />;
     default:
-      return <Bell className="h-4 w-4 text-slate-500" />;
+      return <Bell className="h-4 w-4 text-muted-foreground" />;
   }
 }
 
@@ -160,9 +160,9 @@ function getPriorityColor(priority: PortfolioAlert["priority"]) {
     case "medium":
       return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
     case "low":
-      return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400";
+      return "bg-muted text-muted-foreground";
     default:
-      return "bg-slate-100 text-slate-700";
+      return "bg-muted text-muted-foreground";
   }
 }
 
@@ -175,7 +175,7 @@ function getStatusColor(status: SIPSchedule["status"]) {
     case "upcoming":
       return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
     default:
-      return "bg-slate-100 text-slate-700";
+      return "bg-muted text-muted-foreground";
   }
 }
 
@@ -190,7 +190,7 @@ export function QuickInsights({
     return (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4" data-testid="quick-insights-loading">
         {[1, 2, 3].map((i) => (
-          <Card key={i} className="border-slate-200 dark:border-slate-800">
+          <Card key={i} className="border-border">
             <CardHeader className="pb-2">
               <Skeleton className="h-5 w-32" />
             </CardHeader>
@@ -209,7 +209,7 @@ export function QuickInsights({
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4" data-testid="quick-insights">
-      <Card className="border-slate-200 dark:border-slate-800" data-testid="upcoming-sips-card">
+      <Card className="border-border" data-testid="upcoming-sips-card">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -225,30 +225,30 @@ export function QuickInsights({
           <ScrollArea className="h-[180px] pr-2">
             <div className="space-y-3">
               {upcomingSIPs.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-6 text-slate-500">
-                  <PiggyBank className="h-8 w-8 mb-2 text-slate-300" />
+                <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
+                  <PiggyBank className="h-8 w-8 mb-2 text-muted-foreground" />
                   <p className="text-sm">No upcoming SIPs</p>
                 </div>
               ) : (
                 upcomingSIPs.map((sip) => (
                   <div
                     key={sip.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50"
+                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
                     data-testid={`sip-item-${sip.id}`}
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-slate-900 dark:text-white text-sm truncate">
+                      <p className="font-medium text-foreground text-sm truncate">
                         {sip.name}
                       </p>
                       <div className="flex items-center gap-2 mt-1">
-                        <Clock className="h-3 w-3 text-slate-400" />
-                        <span className="text-xs text-slate-500">
+                        <Clock className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">
                           {formatDistanceToNow(new Date(sip.dueDate), { addSuffix: true })}
                         </span>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold text-slate-900 dark:text-white text-sm">
+                      <p className="font-semibold text-foreground text-sm">
                         ₹{sip.amount.toLocaleString("en-IN")}
                       </p>
                       <Badge className={cn("text-xs mt-1", getStatusColor(sip.status))}>
@@ -275,7 +275,7 @@ export function QuickInsights({
         </CardContent>
       </Card>
 
-      <Card className="border-slate-200 dark:border-slate-800" data-testid="upcoming-dividends-card">
+      <Card className="border-border" data-testid="upcoming-dividends-card">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -291,26 +291,26 @@ export function QuickInsights({
           <ScrollArea className="h-[180px] pr-2">
             <div className="space-y-3">
               {upcomingDividends.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-6 text-slate-500">
-                  <Coins className="h-8 w-8 mb-2 text-slate-300" />
+                <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
+                  <Coins className="h-8 w-8 mb-2 text-muted-foreground" />
                   <p className="text-sm">No upcoming dividends</p>
                 </div>
               ) : (
                 upcomingDividends.map((dividend) => (
                   <div
                     key={dividend.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50"
+                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
                     data-testid={`dividend-item-${dividend.id}`}
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-slate-900 dark:text-white text-sm truncate">
+                      <p className="font-medium text-foreground text-sm truncate">
                         {dividend.stockName}
                       </p>
                       <div className="flex items-center gap-2 mt-1">
                         <Badge variant="outline" className="text-xs">
                           {dividend.symbol}
                         </Badge>
-                        <span className="text-xs text-slate-500">
+                        <span className="text-xs text-muted-foreground">
                           Ex: {new Date(dividend.exDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                         </span>
                       </div>
@@ -343,7 +343,7 @@ export function QuickInsights({
         </CardContent>
       </Card>
 
-      <Card className="border-slate-200 dark:border-slate-800" data-testid="alerts-card">
+      <Card className="border-border" data-testid="alerts-card">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -361,7 +361,7 @@ export function QuickInsights({
           <ScrollArea className="h-[180px] pr-2">
             <div className="space-y-3">
               {alerts.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-6 text-slate-500">
+                <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
                   <CheckCircle2 className="h-8 w-8 mb-2 text-green-400" />
                   <p className="text-sm">All caught up!</p>
                 </div>
@@ -372,7 +372,7 @@ export function QuickInsights({
                     className={cn(
                       "flex items-start gap-3 p-3 rounded-lg",
                       alert.read
-                        ? "bg-slate-50 dark:bg-slate-800/30"
+                        ? "bg-muted/30"
                         : "bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30"
                     )}
                     data-testid={`alert-item-${alert.id}`}
@@ -380,17 +380,17 @@ export function QuickInsights({
                     <div className="mt-0.5">{getAlertIcon(alert.type)}</div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="font-medium text-slate-900 dark:text-white text-sm truncate">
+                        <p className="font-medium text-foreground text-sm truncate">
                           {alert.title}
                         </p>
                         {!alert.read && (
                           <div className="w-2 h-2 rounded-full bg-blue-500" />
                         )}
                       </div>
-                      <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
                         {alert.message}
                       </p>
-                      <p className="text-xs text-slate-400 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         {formatDistanceToNow(new Date(alert.timestamp), { addSuffix: true })}
                       </p>
                     </div>

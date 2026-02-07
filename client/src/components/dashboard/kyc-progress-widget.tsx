@@ -82,12 +82,12 @@ export function KYCProgressWidget() {
     if (kycStatusValue === 'rejected') {
       return <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">Action Required</Badge>;
     }
-    return <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200">Not Started</Badge>;
+    return <Badge className="bg-muted text-foreground">Not Started</Badge>;
   };
 
   const getLevelBadge = () => {
     const levels: Record<string, { label: string; color: string }> = {
-      'basic': { label: 'Basic KYC', color: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200' },
+      'basic': { label: 'Basic KYC', color: 'bg-muted text-foreground' },
       'enhanced': { label: 'Enhanced KYC', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
       'accredited': { label: 'Accredited Investor', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' },
     };
@@ -96,7 +96,7 @@ export function KYCProgressWidget() {
   };
 
   return (
-    <Card className="border-0 shadow-lg bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800" data-testid="kyc-progress-widget">
+    <Card className="border-0 shadow-lg bg-gradient-to-br from-background to-muted" data-testid="kyc-progress-widget">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-lg">
@@ -125,7 +125,7 @@ export function KYCProgressWidget() {
               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors ${
                 step.completed 
                   ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                  : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                  : 'bg-muted text-muted-foreground'
               }`}
               data-testid={`kyc-step-${step.id}`}
             >

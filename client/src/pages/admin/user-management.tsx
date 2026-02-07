@@ -363,7 +363,7 @@ export default function UserManagement() {
         </div>
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md" data-testid="button-add-user">
+            <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-foreground shadow-md" data-testid="button-add-user">
               <Plus className="w-4 h-4 mr-2" />
               Add User
             </Button>
@@ -455,10 +455,10 @@ export default function UserManagement() {
                 </Select>
               </div>
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" className="border-border text-muted-foreground hover:bg-muted dark:bg-muted dark:border-border dark:text-muted-foreground dark:hover:bg-muted" onClick={() => setIsAddOpen(false)} data-testid="button-cancel">
+                <Button type="button" variant="outline" className="border-border text-muted-foreground hover:bg-muted" onClick={() => setIsAddOpen(false)} data-testid="button-cancel">
                   Cancel
                 </Button>
-                <Button type="submit" className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white" disabled={createUserMutation.isPending} data-testid="button-submit">
+                <Button type="submit" className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-foreground" disabled={createUserMutation.isPending} data-testid="button-submit">
                   {createUserMutation.isPending ? 'Creating...' : 'Create User'}
                 </Button>
               </div>
@@ -690,10 +690,10 @@ export default function UserManagement() {
                 </Select>
               </div>
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" className="border-border text-muted-foreground hover:bg-muted dark:bg-muted dark:border-border dark:text-muted-foreground dark:hover:bg-muted" onClick={() => setEditingUser(null)} data-testid="button-edit-cancel">
+                <Button type="button" variant="outline" className="border-border text-muted-foreground hover:bg-muted" onClick={() => setEditingUser(null)} data-testid="button-edit-cancel">
                   Cancel
                 </Button>
-                <Button type="submit" className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white" disabled={updateUserMutation.isPending} data-testid="button-edit-submit">
+                <Button type="submit" className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-foreground" disabled={updateUserMutation.isPending} data-testid="button-edit-submit">
                   {updateUserMutation.isPending ? 'Updating...' : 'Update User'}
                 </Button>
               </div>

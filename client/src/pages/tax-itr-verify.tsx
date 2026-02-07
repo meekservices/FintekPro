@@ -240,30 +240,30 @@ export default function TaxITRVerifyPage() {
             <CardDescription>Your Income Tax Return has been verified and submitted</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="bg-muted dark:bg-muted rounded-lg p-6 text-center space-y-4">
+            <div className="bg-muted rounded-lg p-6 text-center space-y-4">
               <div>
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Acknowledgement Number</p>
-                <p className="text-2xl font-mono font-bold text-gray-900 dark:text-white" data-testid="text-acknowledgement">
+                <p className="text-sm text-muted-foreground">Acknowledgement Number</p>
+                <p className="text-2xl font-mono font-bold text-foreground" data-testid="text-acknowledgement">
                   {acknowledgementNumber}
                 </p>
               </div>
               <Separator />
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <p className="text-muted-foreground dark:text-muted-foreground">Assessment Year</p>
-                  <p className="font-medium text-gray-900 dark:text-white">2024-25</p>
+                  <p className="text-muted-foreground">Assessment Year</p>
+                  <p className="font-medium text-foreground">2024-25</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground dark:text-muted-foreground">Filing Date</p>
-                  <p className="font-medium text-gray-900 dark:text-white">{new Date().toLocaleDateString("en-IN")}</p>
+                  <p className="text-muted-foreground">Filing Date</p>
+                  <p className="font-medium text-foreground">{new Date().toLocaleDateString("en-IN")}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground dark:text-muted-foreground">ITR Form</p>
-                  <p className="font-medium text-gray-900 dark:text-white">{draftData?.itrForm || "ITR-1"}</p>
+                  <p className="text-muted-foreground">ITR Form</p>
+                  <p className="font-medium text-foreground">{draftData?.itrForm || "ITR-1"}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground dark:text-muted-foreground">Verification Method</p>
-                  <p className="font-medium text-gray-900 dark:text-white capitalize">
+                  <p className="text-muted-foreground">Verification Method</p>
+                  <p className="font-medium text-foreground capitalize">
                     {verificationMethod.replace("-", " via ")}
                   </p>
                 </div>
@@ -331,8 +331,8 @@ export default function TaxITRVerifyPage() {
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Verify & Submit ITR</h1>
-          <p className="text-muted-foreground dark:text-muted-foreground">Complete verification to file your return</p>
+          <h1 className="text-2xl font-bold text-foreground">Verify & Submit ITR</h1>
+          <p className="text-muted-foreground">Complete verification to file your return</p>
         </div>
       </div>
 
@@ -353,7 +353,7 @@ export default function TaxITRVerifyPage() {
                     className={`relative p-4 rounded-lg border-2 cursor-pointer transition-all ${
                       verificationMethod === method.id
                         ? "border-primary bg-primary/5"
-                        : "border-border dark:border-border hover:border-primary/50"
+                        : "border-border hover:border-primary/50"
                     }`}
                     onClick={() => {
                       setVerificationMethod(method.id);
@@ -371,15 +371,15 @@ export default function TaxITRVerifyPage() {
                       <div className={`p-2 rounded-lg ${
                         verificationMethod === method.id
                           ? "bg-primary text-white"
-                          : "bg-muted dark:bg-muted text-muted-foreground dark:text-muted-foreground"
+                          : "bg-muted text-muted-foreground"
                       }`}>
                         <method.icon className="w-5 h-5" />
                       </div>
                       <div>
-                        <h4 className="font-medium text-gray-900 dark:text-white">
+                        <h4 className="font-medium text-foreground">
                           {method.name}
                         </h4>
-                        <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+                        <p className="text-sm text-muted-foreground">
                           {method.description}
                         </p>
                       </div>
@@ -574,26 +574,26 @@ export default function TaxITRVerifyPage() {
             <CardContent className="space-y-4">
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground dark:text-muted-foreground">Assessment Year</span>
-                  <span className="font-medium text-gray-900 dark:text-white">2024-25</span>
+                  <span className="text-muted-foreground">Assessment Year</span>
+                  <span className="font-medium text-foreground">2024-25</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground dark:text-muted-foreground">ITR Form</span>
-                  <span className="font-medium text-gray-900 dark:text-white">
+                  <span className="text-muted-foreground">ITR Form</span>
+                  <span className="font-medium text-foreground">
                     {draftData?.itrForm || "ITR-1"}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground dark:text-muted-foreground">Filing Type</span>
+                  <span className="text-muted-foreground">Filing Type</span>
                   <Badge variant="secondary">Self-File</Badge>
                 </div>
                 <Separator />
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground dark:text-muted-foreground">Payment Status</span>
+                  <span className="text-muted-foreground">Payment Status</span>
                   <Badge className="bg-green-500">Paid</Badge>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground dark:text-muted-foreground">Draft Status</span>
+                  <span className="text-muted-foreground">Draft Status</span>
                   <Badge className="bg-blue-500">Locked</Badge>
                 </div>
               </div>
@@ -608,7 +608,7 @@ export default function TaxITRVerifyPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-2 text-sm text-muted-foreground dark:text-muted-foreground">
+              <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 mt-0.5 text-green-500 flex-shrink-0" />
                   <span>Aadhaar OTP is the fastest verification method</span>

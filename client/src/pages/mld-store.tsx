@@ -134,7 +134,7 @@ const getDaysToMaturity = (maturityDate?: string) => {
 
 const MldCard = ({ mld }: { mld: MldMaster }) => {
   const [, navigate] = useLocation();
-  const payoffInfo = PAYOFF_TYPE_LABELS[mld.payoffType] || { label: mld.payoffType, color: "bg-gray-500", description: "" };
+  const payoffInfo = PAYOFF_TYPE_LABELS[mld.payoffType] || { label: mld.payoffType, color: "bg-muted", description: "" };
   const underlyingIcon = UNDERLYING_ICONS[mld.underlying] || "📊";
   
   return (
@@ -157,7 +157,7 @@ const MldCard = ({ mld }: { mld: MldMaster }) => {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger>
-                <Badge className={`${payoffInfo.color} text-white`}>
+                <Badge className={`${payoffInfo.color} text-foreground`}>
                   {payoffInfo.label}
                 </Badge>
               </TooltipTrigger>

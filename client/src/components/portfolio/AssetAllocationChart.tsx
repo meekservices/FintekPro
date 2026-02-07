@@ -87,7 +87,7 @@ const renderActiveShape = (props: any) => {
         x={cx}
         y={cy + 5}
         textAnchor="middle"
-        className="fill-slate-600 dark:fill-slate-400 text-xs"
+        className="fill-muted-foreground text-xs"
       >
         ₹{value.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
       </text>
@@ -95,7 +95,7 @@ const renderActiveShape = (props: any) => {
         x={cx}
         y={cy + 25}
         textAnchor="middle"
-        className="fill-slate-500 dark:fill-slate-500 text-xs"
+        className="fill-muted-foreground text-xs"
       >
         {(percent * 100).toFixed(1)}%
       </text>
@@ -109,32 +109,32 @@ function CustomTooltip({ active, payload }: any) {
     const isPositive = (data.changePercent || 0) >= 0;
 
     return (
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 shadow-xl">
+      <div className="bg-background border border-border rounded-lg p-3 shadow-xl">
         <div className="flex items-center gap-2 mb-2">
           <div
             className="w-3 h-3 rounded-full"
             style={{ backgroundColor: data.color }}
           />
-          <span className="font-semibold text-slate-900 dark:text-white">
+          <span className="font-semibold text-foreground">
             {data.name}
           </span>
         </div>
         <div className="space-y-1">
           <div className="flex justify-between gap-4">
-            <span className="text-slate-500 text-sm">Value:</span>
-            <span className="font-semibold text-slate-900 dark:text-white">
+            <span className="text-muted-foreground text-sm">Value:</span>
+            <span className="font-semibold text-foreground">
               ₹{data.value.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
             </span>
           </div>
           <div className="flex justify-between gap-4">
-            <span className="text-slate-500 text-sm">Allocation:</span>
-            <span className="text-slate-700 dark:text-slate-300">
+            <span className="text-muted-foreground text-sm">Allocation:</span>
+            <span className="text-muted-foreground">
               {data.percentage.toFixed(1)}%
             </span>
           </div>
           {data.changePercent !== undefined && (
-            <div className="flex justify-between gap-4 pt-1 border-t border-slate-100 dark:border-slate-700">
-              <span className="text-slate-500 text-sm">Returns:</span>
+            <div className="flex justify-between gap-4 pt-1 border-t border-border">
+              <span className="text-muted-foreground text-sm">Returns:</span>
               <span
                 className={cn(
                   "font-semibold",
@@ -177,7 +177,7 @@ export function AssetAllocationChart({
 
   if (isLoading) {
     return (
-      <Card className="border-slate-200 dark:border-slate-800" data-testid="asset-allocation-loading">
+      <Card className="border-border" data-testid="asset-allocation-loading">
         <CardHeader>
           <Skeleton className="h-6 w-48" />
         </CardHeader>
@@ -197,7 +197,7 @@ export function AssetAllocationChart({
 
   if (!assets || assets.length === 0) {
     return (
-      <Card className="border-slate-200 dark:border-slate-800" data-testid="asset-allocation-empty">
+      <Card className="border-border" data-testid="asset-allocation-empty">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <PieChartIcon className="h-5 w-5 text-blue-600" />
@@ -205,8 +205,8 @@ export function AssetAllocationChart({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col items-center justify-center py-12 text-slate-500">
-            <PieChartIcon className="h-12 w-12 mb-4 text-slate-300" />
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <PieChartIcon className="h-12 w-12 mb-4 text-muted-foreground" />
             <p>No asset allocation data available</p>
           </div>
         </CardContent>
@@ -215,7 +215,7 @@ export function AssetAllocationChart({
   }
 
   return (
-    <Card className="border-slate-200 dark:border-slate-800" data-testid="asset-allocation-chart">
+    <Card className="border-border" data-testid="asset-allocation-chart">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-lg">
@@ -268,8 +268,8 @@ export function AssetAllocationChart({
                   className={cn(
                     "flex items-center justify-between p-3 rounded-lg transition-colors cursor-pointer",
                     activeIndex === index
-                      ? "bg-slate-100 dark:bg-slate-800"
-                      : "hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                      ? "bg-muted"
+                      : "hover:bg-muted dark:hover:bg-card/50"
                   )}
                   onMouseEnter={() => setActiveIndex(index)}
                   onMouseLeave={() => setActiveIndex(undefined)}
@@ -281,16 +281,16 @@ export function AssetAllocationChart({
                       style={{ backgroundColor: asset.color }}
                     />
                     <div>
-                      <p className="font-medium text-slate-900 dark:text-white text-sm">
+                      <p className="font-medium text-foreground text-sm">
                         {asset.name}
                       </p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-muted-foreground">
                         {asset.percentage.toFixed(1)}% of portfolio
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-slate-900 dark:text-white text-sm">
+                    <p className="font-semibold text-foreground text-sm">
                       ₹{asset.value.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
                     </p>
                     {asset.changePercent !== undefined && (
@@ -317,10 +317,10 @@ export function AssetAllocationChart({
           </div>
         </div>
 
-        <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
+        <div className="mt-6 pt-4 border-t border-border">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-slate-600 dark:text-slate-400">Total Portfolio Value</span>
-            <span className="text-lg font-bold text-slate-900 dark:text-white">
+            <span className="text-sm text-muted-foreground">Total Portfolio Value</span>
+            <span className="text-lg font-bold text-foreground">
               ₹{totalValue.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
             </span>
           </div>

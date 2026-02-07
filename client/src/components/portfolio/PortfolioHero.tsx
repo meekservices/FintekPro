@@ -64,14 +64,14 @@ export function PortfolioHero({
 
   if (isLoading) {
     return (
-      <Card className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white border-0 shadow-2xl" data-testid="portfolio-hero-loading">
+      <Card className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-foreground border-0 shadow-2xl" data-testid="portfolio-hero-loading">
         <CardContent className="p-6 md:p-8">
           <div className="space-y-4">
-            <Skeleton className="h-6 w-32 bg-slate-700" />
-            <Skeleton className="h-14 w-64 bg-slate-700" />
+            <Skeleton className="h-6 w-32 bg-muted" />
+            <Skeleton className="h-14 w-64 bg-muted" />
             <div className="flex gap-4">
-              <Skeleton className="h-8 w-32 bg-slate-700" />
-              <Skeleton className="h-8 w-32 bg-slate-700" />
+              <Skeleton className="h-8 w-32 bg-muted" />
+              <Skeleton className="h-8 w-32 bg-muted" />
             </div>
           </div>
         </CardContent>
@@ -80,7 +80,7 @@ export function PortfolioHero({
   }
 
   return (
-    <Card className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white border-0 shadow-2xl overflow-hidden relative" data-testid="portfolio-hero">
+    <Card className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-foreground border-0 shadow-2xl overflow-hidden relative" data-testid="portfolio-hero">
       <div className="absolute inset-0 bg-grid-white/[0.02] pointer-events-none" />
       <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
       <div className="absolute bottom-0 left-0 w-64 h-64 bg-green-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
@@ -98,7 +98,7 @@ export function PortfolioHero({
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-slate-400 hover:text-white hover:bg-slate-700/50"
+                className="text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 onClick={() => setIsValueHidden(!isValueHidden)}
                 data-testid="toggle-value-visibility"
               >
@@ -111,7 +111,7 @@ export function PortfolioHero({
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-slate-400 hover:text-white hover:bg-slate-700/50"
+                className="text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 onClick={handleRefresh}
                 disabled={isRefreshing}
                 data-testid="refresh-portfolio"
@@ -121,7 +121,7 @@ export function PortfolioHero({
             </div>
 
             <div>
-              <p className="text-slate-400 text-sm font-medium mb-1">Total Portfolio Value</p>
+              <p className="text-muted-foreground text-sm font-medium mb-1">Total Portfolio Value</p>
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight" data-testid="portfolio-total-value">
                 {formatCurrency(totalValue)}
               </h1>
@@ -146,7 +146,7 @@ export function PortfolioHero({
                 <span className={cn("text-sm", isDayPositive ? "text-green-400/80" : "text-red-400/80")}>
                   ({isDayPositive ? "+" : ""}{dayChangePercent.toFixed(2)}%)
                 </span>
-                <span className="text-slate-500 text-sm ml-1">Today</span>
+                <span className="text-muted-foreground text-sm ml-1">Today</span>
               </div>
 
               <div
@@ -167,40 +167,40 @@ export function PortfolioHero({
                 <span className={cn("text-sm", isTotalPositive ? "text-green-400/80" : "text-red-400/80")}>
                   ({isTotalPositive ? "+" : ""}{totalGainPercent.toFixed(2)}%)
                 </span>
-                <span className="text-slate-500 text-sm ml-1">Total</span>
+                <span className="text-muted-foreground text-sm ml-1">Total</span>
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4 lg:gap-6">
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-4 border border-slate-700/50" data-testid="invested-value-card">
-              <p className="text-slate-400 text-xs font-medium mb-1">Invested Value</p>
-              <p className="text-xl md:text-2xl font-bold text-white">
+            <div className="bg-card/50 backdrop-blur-sm rounded-xl p-4 border border-border/50" data-testid="invested-value-card">
+              <p className="text-muted-foreground text-xs font-medium mb-1">Invested Value</p>
+              <p className="text-xl md:text-2xl font-bold text-foreground">
                 {formatCurrency(investedValue)}
               </p>
-              <p className="text-slate-500 text-xs mt-1">Cost basis</p>
+              <p className="text-muted-foreground text-xs mt-1">Cost basis</p>
             </div>
 
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-4 border border-slate-700/50" data-testid="current-value-card">
-              <p className="text-slate-400 text-xs font-medium mb-1">Current Value</p>
-              <p className="text-xl md:text-2xl font-bold text-white">
+            <div className="bg-card/50 backdrop-blur-sm rounded-xl p-4 border border-border/50" data-testid="current-value-card">
+              <p className="text-muted-foreground text-xs font-medium mb-1">Current Value</p>
+              <p className="text-xl md:text-2xl font-bold text-foreground">
                 {formatCurrency(totalValue)}
               </p>
-              <p className="text-slate-500 text-xs mt-1">Market value</p>
+              <p className="text-muted-foreground text-xs mt-1">Market value</p>
             </div>
 
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-4 border border-slate-700/50" data-testid="total-returns-card">
-              <p className="text-slate-400 text-xs font-medium mb-1">Total Returns</p>
+            <div className="bg-card/50 backdrop-blur-sm rounded-xl p-4 border border-border/50" data-testid="total-returns-card">
+              <p className="text-muted-foreground text-xs font-medium mb-1">Total Returns</p>
               <p className={cn("text-xl md:text-2xl font-bold", isTotalPositive ? "text-green-400" : "text-red-400")}>
                 {isTotalPositive ? "+" : ""}{totalGainPercent.toFixed(2)}%
               </p>
-              <p className="text-slate-500 text-xs mt-1">Since inception</p>
+              <p className="text-muted-foreground text-xs mt-1">Since inception</p>
             </div>
 
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-4 border border-slate-700/50" data-testid="holdings-count-card">
-              <p className="text-slate-400 text-xs font-medium mb-1">Holdings</p>
-              <p className="text-xl md:text-2xl font-bold text-white">{holdingsCount}</p>
-              <p className="text-slate-500 text-xs mt-1">Active assets</p>
+            <div className="bg-card/50 backdrop-blur-sm rounded-xl p-4 border border-border/50" data-testid="holdings-count-card">
+              <p className="text-muted-foreground text-xs font-medium mb-1">Holdings</p>
+              <p className="text-xl md:text-2xl font-bold text-foreground">{holdingsCount}</p>
+              <p className="text-muted-foreground text-xs mt-1">Active assets</p>
             </div>
           </div>
         </div>

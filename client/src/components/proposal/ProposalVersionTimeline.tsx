@@ -76,7 +76,7 @@ export function ProposalVersionTimeline({
               <CardTitle className="text-base">Version History</CardTitle>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-white dark:bg-gray-800">
+              <Badge variant="outline" className="bg-card">
                 v{proposalVersion}
               </Badge>
               {isLatestVersion && (
@@ -146,7 +146,7 @@ export function ProposalVersionTimeline({
                           ? 'bg-indigo-600 border-indigo-600'
                           : version.isLatestVersion
                             ? 'bg-green-500 border-green-500'
-                            : 'bg-white border-gray-300 dark:bg-gray-800 dark:border-gray-600'
+                            : 'bg-card border-border'
                       }`} />
                       
                       <Card className={`transition-all ${

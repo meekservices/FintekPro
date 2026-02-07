@@ -163,7 +163,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   <summary className="cursor-pointer font-medium mb-2 text-muted-foreground">
                     Technical Details (Development Only)
                   </summary>
-                  <div className="p-3 bg-muted dark:bg-muted rounded-md space-y-2">
+                  <div className="p-3 bg-muted rounded-md space-y-2">
                     <p className="text-sm font-mono text-red-600 dark:text-red-400">
                       {this.state.error.message}
                     </p>

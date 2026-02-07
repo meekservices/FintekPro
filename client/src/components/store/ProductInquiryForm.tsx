@@ -90,15 +90,15 @@ export function ProductInquiryForm({
 
   if (submitted) {
     return (
-      <Card className="bg-gray-900 border-gray-800 max-w-lg mx-auto">
+      <Card className="bg-background border-border max-w-lg mx-auto">
         <CardContent className="pt-8 pb-8 text-center">
           <CheckCircle className="w-16 h-16 mx-auto text-green-400 mb-4" />
-          <h3 className="text-xl font-semibold text-white mb-2">Thank You!</h3>
-          <p className="text-gray-400 mb-6">
-            Your inquiry about <strong className="text-white">{itemName}</strong> has been submitted successfully.
+          <h3 className="text-xl font-semibold text-foreground mb-2">Thank You!</h3>
+          <p className="text-muted-foreground mb-6">
+            Your inquiry about <strong className="text-foreground">{itemName}</strong> has been submitted successfully.
             Our team will contact you within 24-48 hours.
           </p>
-          <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
+          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
             <Clock className="w-4 h-4" />
             Expected response time: 24-48 hours
           </div>
@@ -116,7 +116,7 @@ export function ProductInquiryForm({
   }
 
   return (
-    <Card className="bg-gray-900 border-gray-800">
+    <Card className="bg-background border-border">
       <CardHeader>
         <div className="flex items-center gap-3 mb-2">
           <div className={`p-2 rounded-lg ${
@@ -133,13 +133,13 @@ export function ProductInquiryForm({
             )}
           </div>
           <div>
-            <CardTitle className="text-white">{itemName}</CardTitle>
+            <CardTitle className="text-foreground">{itemName}</CardTitle>
             {(categoryName || subcategoryName) && (
-              <div className="flex items-center gap-1 text-sm text-gray-400 mt-1">
+              <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
                 {categoryName && <span>{categoryName}</span>}
                 {subcategoryName && (
                   <>
-                    <span className="text-gray-600">→</span>
+                    <span className="text-muted-foreground">→</span>
                     <span>{subcategoryName}</span>
                   </>
                 )}
@@ -147,7 +147,7 @@ export function ProductInquiryForm({
             )}
           </div>
         </div>
-        <CardDescription className="text-gray-400">
+        <CardDescription className="text-muted-foreground">
           {description || `This ${type} is currently not available for direct access. Submit an inquiry and our team will assist you.`}
         </CardDescription>
       </CardHeader>
@@ -163,7 +163,7 @@ export function ProductInquiryForm({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name" className="text-gray-300 flex items-center gap-2">
+            <Label htmlFor="name" className="text-muted-foreground flex items-center gap-2">
               <User className="w-4 h-4" />
               Full Name <span className="text-red-400">*</span>
             </Label>
@@ -172,14 +172,14 @@ export function ProductInquiryForm({
               placeholder="Enter your full name"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="bg-gray-800 border-gray-700 text-white"
+              className="bg-card border-border text-foreground"
               required
               data-testid="input-inquiry-name"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-gray-300 flex items-center gap-2">
+            <Label htmlFor="email" className="text-muted-foreground flex items-center gap-2">
               <Mail className="w-4 h-4" />
               Email Address <span className="text-red-400">*</span>
             </Label>
@@ -189,16 +189,16 @@ export function ProductInquiryForm({
               placeholder="your.email@example.com"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="bg-gray-800 border-gray-700 text-white"
+              className="bg-card border-border text-foreground"
               required
               data-testid="input-inquiry-email"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="mobile" className="text-gray-300 flex items-center gap-2">
+            <Label htmlFor="mobile" className="text-muted-foreground flex items-center gap-2">
               <Phone className="w-4 h-4" />
-              Mobile Number <span className="text-gray-500">(Optional)</span>
+              Mobile Number <span className="text-muted-foreground">(Optional)</span>
             </Label>
             <Input
               id="mobile"
@@ -206,13 +206,13 @@ export function ProductInquiryForm({
               placeholder="+91 9876543210"
               value={formData.mobile}
               onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
-              className="bg-gray-800 border-gray-700 text-white"
+              className="bg-card border-border text-foreground"
               data-testid="input-inquiry-mobile"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="message" className="text-gray-300 flex items-center gap-2">
+            <Label htmlFor="message" className="text-muted-foreground flex items-center gap-2">
               <MessageSquare className="w-4 h-4" />
               Your Message <span className="text-red-400">*</span>
             </Label>
@@ -221,7 +221,7 @@ export function ProductInquiryForm({
               placeholder="Tell us about your requirements, investment goals, or any questions you have..."
               value={formData.message}
               onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-              className="bg-gray-800 border-gray-700 text-white min-h-[120px]"
+              className="bg-card border-border text-foreground min-h-[120px]"
               required
               data-testid="textarea-inquiry-message"
             />
@@ -248,9 +248,9 @@ export function ProductInquiryForm({
         </form>
       </CardContent>
 
-      <CardFooter className="border-t border-gray-800 bg-gray-900/50">
+      <CardFooter className="border-t border-border bg-background/50">
         <div className="w-full text-center">
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted-foreground">
             By submitting this form, you agree to be contacted by our team regarding your inquiry.
             We respect your privacy and will never share your information.
           </p>
@@ -274,23 +274,23 @@ export function DisabledProductCard({
   onInquiry?: () => void;
 }) {
   return (
-    <Card className="bg-gray-900/50 border-gray-800 border-dashed">
+    <Card className="bg-background/50 border-border border-dashed">
       <CardContent className="p-6 text-center">
-        <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-gray-800 flex items-center justify-center">
-          <Package className="w-6 h-6 text-gray-500" />
+        <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-card flex items-center justify-center">
+          <Package className="w-6 h-6 text-muted-foreground" />
         </div>
-        <h3 className="text-lg font-medium text-gray-400 mb-1">{productName}</h3>
+        <h3 className="text-lg font-medium text-muted-foreground mb-1">{productName}</h3>
         {productType && (
-          <Badge variant="outline" className="mb-3 text-gray-500 border-gray-700">
+          <Badge variant="outline" className="mb-3 text-muted-foreground border-border">
             {productType}
           </Badge>
         )}
-        <p className="text-sm text-gray-500 mb-4">
+        <p className="text-sm text-muted-foreground mb-4">
           This product is currently unavailable. Click below to express your interest.
         </p>
         <Button 
           variant="outline" 
-          className="border-gray-700 hover:bg-gray-800"
+          className="border-border hover:bg-card"
           onClick={onInquiry}
           data-testid="button-express-interest"
         >

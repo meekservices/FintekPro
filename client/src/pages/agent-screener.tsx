@@ -187,7 +187,7 @@ export default function AgentScreener() {
     const justifyClass = align === "right" ? "justify-end" : align === "center" ? "justify-center" : "";
     return (
       <th 
-        className={`${alignClass} py-3 px-3 font-medium whitespace-nowrap cursor-pointer hover:bg-slate-700 select-none transition-colors`}
+        className={`${alignClass} py-3 px-3 font-medium whitespace-nowrap cursor-pointer hover:bg-muted select-none transition-colors`}
         onClick={() => handleSort(sortKey)}
       >
         <div className={`flex items-center gap-1 ${justifyClass}`}>
@@ -332,7 +332,7 @@ export default function AgentScreener() {
                   <div className="border rounded-lg overflow-hidden">
                     <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
                       <table className="w-full text-sm min-w-[1800px]">
-                        <thead className="bg-slate-800 dark:bg-slate-900 text-white sticky top-0 z-10">
+                        <thead className="bg-card text-foreground sticky top-0 z-10">
                           <tr>
                             <SortableHeader label="Name" sortKey="name" />
                             <SortableHeader label="Symbol" sortKey="symbol" />

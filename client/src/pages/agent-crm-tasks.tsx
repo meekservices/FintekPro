@@ -58,7 +58,7 @@ const taskTypeIcons: Record<string, any> = {
 };
 
 const priorityColors: Record<string, string> = {
-  low: "bg-slate-500",
+  low: "bg-muted",
   medium: "bg-blue-500",
   high: "bg-orange-500",
   urgent: "bg-red-500",

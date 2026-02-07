@@ -122,9 +122,9 @@ export default function Contact() {
   return (
     <div className="space-y-8">
         {/* Hero Section */}
-        <div className="bg-white py-16">
+        <div className="bg-card py-16">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h1 className="text-4xl font-bold text-gray-900 mb-4" data-testid="contact-title">
+            <h1 className="text-4xl font-bold text-foreground mb-4" data-testid="contact-title">
               Contact FintekPro
             </h1>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
@@ -331,7 +331,7 @@ export default function Contact() {
                         <method.icon className="h-5 w-5 text-finance-blue" />
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900">{method.title}</h3>
+                        <h3 className="font-semibold text-foreground">{method.title}</h3>
                         <p className="text-sm text-muted-foreground mb-2">{method.description}</p>
                         <div className="space-y-1">
                           <p className="text-sm">
@@ -385,7 +385,7 @@ export default function Contact() {
           {/* Office Locations */}
           <div className="mt-16">
             <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold text-gray-900 mb-4" data-testid="office-locations-title">
+              <h2 className="text-3xl font-bold text-foreground mb-4" data-testid="office-locations-title">
                 Our Office Locations
               </h2>
               <p className="text-lg text-muted-foreground">
@@ -426,7 +426,7 @@ export default function Contact() {
           </div>
 
           {/* Quick Response Section */}
-          <div className="mt-16 bg-gradient-to-r from-finance-blue to-blue-600 rounded-2xl text-white p-8">
+          <div className="mt-16 bg-gradient-to-r from-finance-blue to-blue-600 rounded-2xl text-foreground p-8">
             <div className="text-center">
               <h2 className="text-3xl font-bold mb-4" data-testid="quick-response-title">
                 Need Immediate Assistance?
@@ -438,7 +438,7 @@ export default function Contact() {
                 <Button 
                   size="lg" 
                   variant="secondary"
-                  className="bg-white text-finance-blue hover:bg-muted"
+                  className="bg-card text-finance-blue hover:bg-muted"
                   data-testid="button-whatsapp-now"
                 >
                   <SiWhatsapp className="h-5 w-5 mr-2" />
@@ -447,7 +447,7 @@ export default function Contact() {
                 <Button 
                   size="lg" 
                   variant="outline"
-                  className="border-white text-white hover:bg-white hover:text-finance-blue"
+                  className="border-white text-foreground hover:bg-card hover:text-finance-blue"
                   data-testid="button-schedule-callback"
                 >
                   <Clock className="h-5 w-5 mr-2" />
@@ -460,7 +460,7 @@ export default function Contact() {
           {/* FAQ Section */}
           <div className="mt-16">
             <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold text-gray-900 mb-4" data-testid="faq-title">
+              <h2 className="text-3xl font-bold text-foreground mb-4" data-testid="faq-title">
                 Frequently Asked Questions
               </h2>
               <p className="text-lg text-muted-foreground">

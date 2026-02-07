@@ -195,18 +195,18 @@ export default function TataCapital() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50/30 to-indigo-100/30 dark:from-background dark:to-card">
       <div className="container mx-auto px-4 py-8">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
             <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
-              <Building className="w-6 h-6 text-white" />
+              <Building className="w-6 h-6 text-foreground" />
             </div>
             <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
               Tata Capital
             </h1>
           </div>
-          <p className="text-muted-foreground dark:text-muted-foreground text-lg max-w-2xl mx-auto">
+          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             Comprehensive financial services with advanced loan calculators, credit analysis, and digital banking solutions
           </p>
         </div>
@@ -224,27 +224,27 @@ export default function TataCapital() {
             <CardContent className="pt-6">
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="text-center p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
-                  <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Personal Loan</p>
+                  <p className="text-sm font-medium text-muted-foreground">Personal Loan</p>
                   <p className="text-lg font-bold text-blue-600">{interestRates.data.personalLoan.min}% - {interestRates.data.personalLoan.max}%</p>
                 </div>
                 <div className="text-center p-3 rounded-lg bg-green-50 dark:bg-green-900/20">
-                  <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Home Loan</p>
+                  <p className="text-sm font-medium text-muted-foreground">Home Loan</p>
                   <p className="text-lg font-bold text-green-600">{interestRates.data.homeLoan.min}% - {interestRates.data.homeLoan.max}%</p>
                 </div>
                 <div className="text-center p-3 rounded-lg bg-purple-50 dark:bg-purple-900/20">
-                  <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Business Loan</p>
+                  <p className="text-sm font-medium text-muted-foreground">Business Loan</p>
                   <p className="text-lg font-bold text-purple-600">{interestRates.data.businessLoan.min}% - {interestRates.data.businessLoan.max}%</p>
                 </div>
                 <div className="text-center p-3 rounded-lg bg-orange-50 dark:bg-orange-900/20">
-                  <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Used Car Loan</p>
+                  <p className="text-sm font-medium text-muted-foreground">Used Car Loan</p>
                   <p className="text-lg font-bold text-orange-600">{interestRates.data.usedCarLoan.min}% - {interestRates.data.usedCarLoan.max}%</p>
                 </div>
                 <div className="text-center p-3 rounded-lg bg-red-50 dark:bg-red-900/20">
-                  <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Loan Against Property</p>
+                  <p className="text-sm font-medium text-muted-foreground">Loan Against Property</p>
                   <p className="text-lg font-bold text-red-600">{interestRates.data.loanAgainstProperty.min}% - {interestRates.data.loanAgainstProperty.max}%</p>
                 </div>
                 <div className="text-center p-3 rounded-lg bg-indigo-50 dark:bg-indigo-900/20">
-                  <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Loan Against Securities</p>
+                  <p className="text-sm font-medium text-muted-foreground">Loan Against Securities</p>
                   <p className="text-lg font-bold text-indigo-600">{interestRates.data.loanAgainstSecurities.min}% - {interestRates.data.loanAgainstSecurities.max}%</p>
                 </div>
               </div>
@@ -253,7 +253,7 @@ export default function TataCapital() {
         )}
 
         <Tabs defaultValue="personal-loan" className="space-y-6">
-          <ScrollableTabsList className="grid w-full grid-cols-5 bg-white dark:bg-muted border border-border dark:border-border">
+          <ScrollableTabsList className="grid w-full grid-cols-5 bg-card border border-border">
             <TabsTrigger value="personal-loan" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-800">
               <CreditCard className="w-4 h-4 mr-2" />
               Personal Loan
@@ -336,19 +336,19 @@ export default function TataCapital() {
                 {personalLoanResult && (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                     <div className="text-center">
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Monthly EMI</p>
+                      <p className="text-sm text-muted-foreground">Monthly EMI</p>
                       <p className="text-xl font-bold text-blue-600" data-testid="text-personal-loan-emi">{formatCurrency(personalLoanResult.emi)}</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Interest Rate</p>
+                      <p className="text-sm text-muted-foreground">Interest Rate</p>
                       <p className="text-xl font-bold text-blue-600" data-testid="text-personal-loan-rate">{personalLoanResult.interestRate}%</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Processing Fee</p>
+                      <p className="text-sm text-muted-foreground">Processing Fee</p>
                       <p className="text-xl font-bold text-blue-600" data-testid="text-personal-loan-fee">{formatCurrency(personalLoanResult.processingFee)}</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Total Amount</p>
+                      <p className="text-sm text-muted-foreground">Total Amount</p>
                       <p className="text-xl font-bold text-blue-600" data-testid="text-personal-loan-total">{formatCurrency(personalLoanResult.totalAmount)}</p>
                     </div>
                     <div className="col-span-2 md:col-span-4 flex items-center justify-center gap-2">
@@ -430,23 +430,23 @@ export default function TataCapital() {
                 {homeLoanResult && (
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
                     <div className="text-center">
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Monthly EMI</p>
+                      <p className="text-sm text-muted-foreground">Monthly EMI</p>
                       <p className="text-xl font-bold text-green-600" data-testid="text-home-loan-emi">{formatCurrency(homeLoanResult.emi)}</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Interest Rate</p>
+                      <p className="text-sm text-muted-foreground">Interest Rate</p>
                       <p className="text-xl font-bold text-green-600" data-testid="text-home-loan-rate">{homeLoanResult.interestRate}%</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Processing Fee</p>
+                      <p className="text-sm text-muted-foreground">Processing Fee</p>
                       <p className="text-xl font-bold text-green-600" data-testid="text-home-loan-fee">{formatCurrency(homeLoanResult.processingFee)}</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Total Amount</p>
+                      <p className="text-sm text-muted-foreground">Total Amount</p>
                       <p className="text-xl font-bold text-green-600" data-testid="text-home-loan-total">{formatCurrency(homeLoanResult.totalAmount)}</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Max Loan Amount</p>
+                      <p className="text-sm text-muted-foreground">Max Loan Amount</p>
                       <p className="text-xl font-bold text-green-600" data-testid="text-home-loan-max">{formatCurrency(homeLoanResult.maxLoanAmount)}</p>
                     </div>
                   </div>
@@ -526,15 +526,15 @@ export default function TataCapital() {
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
                       <div className="text-center">
-                        <p className="text-sm text-muted-foreground dark:text-muted-foreground">Monthly EMI</p>
+                        <p className="text-sm text-muted-foreground">Monthly EMI</p>
                         <p className="text-xl font-bold text-purple-600" data-testid="text-business-loan-emi">{formatCurrency(businessLoanResult.emi)}</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-sm text-muted-foreground dark:text-muted-foreground">Interest Rate</p>
+                        <p className="text-sm text-muted-foreground">Interest Rate</p>
                         <p className="text-xl font-bold text-purple-600" data-testid="text-business-loan-rate">{businessLoanResult.interestRate}%</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-sm text-muted-foreground dark:text-muted-foreground">Processing Fee</p>
+                        <p className="text-sm text-muted-foreground">Processing Fee</p>
                         <p className="text-xl font-bold text-purple-600" data-testid="text-business-loan-fee">{formatCurrency(businessLoanResult.processingFee)}</p>
                       </div>
                     </div>
@@ -634,27 +634,27 @@ export default function TataCapital() {
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
                       <div className="text-center">
-                        <p className="text-sm text-muted-foreground dark:text-muted-foreground">Monthly EMI</p>
+                        <p className="text-sm text-muted-foreground">Monthly EMI</p>
                         <p className="text-xl font-bold text-orange-600" data-testid="text-car-loan-emi">{formatCurrency(carLoanResult.emi)}</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-sm text-muted-foreground dark:text-muted-foreground">Interest Rate</p>
+                        <p className="text-sm text-muted-foreground">Interest Rate</p>
                         <p className="text-xl font-bold text-orange-600" data-testid="text-car-loan-rate">{carLoanResult.interestRate}%</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-sm text-muted-foreground dark:text-muted-foreground">Loan Amount</p>
+                        <p className="text-sm text-muted-foreground">Loan Amount</p>
                         <p className="text-xl font-bold text-orange-600" data-testid="text-car-loan-amount">{formatCurrency(carLoanResult.loanAmount)}</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-sm text-muted-foreground dark:text-muted-foreground">Vehicle Valuation</p>
+                        <p className="text-sm text-muted-foreground">Vehicle Valuation</p>
                         <p className="text-xl font-bold text-orange-600" data-testid="text-car-loan-valuation">{formatCurrency(carLoanResult.vehicleValuation)}</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-sm text-muted-foreground dark:text-muted-foreground">LTV Ratio</p>
+                        <p className="text-sm text-muted-foreground">LTV Ratio</p>
                         <p className="text-xl font-bold text-orange-600" data-testid="text-car-loan-ltv">{carLoanResult.maxLoanToValue}%</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-sm text-muted-foreground dark:text-muted-foreground">Processing Fee</p>
+                        <p className="text-sm text-muted-foreground">Processing Fee</p>
                         <p className="text-xl font-bold text-orange-600" data-testid="text-car-loan-fee">{formatCurrency(carLoanResult.processingFee)}</p>
                       </div>
                     </div>
@@ -735,23 +735,23 @@ export default function TataCapital() {
                 {lapResult && (
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
                     <div className="text-center">
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Monthly EMI</p>
+                      <p className="text-sm text-muted-foreground">Monthly EMI</p>
                       <p className="text-xl font-bold text-red-600" data-testid="text-lap-emi">{formatCurrency(lapResult.emi)}</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Interest Rate</p>
+                      <p className="text-sm text-muted-foreground">Interest Rate</p>
                       <p className="text-xl font-bold text-red-600" data-testid="text-lap-rate">{lapResult.interestRate}%</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Max Loan Amount</p>
+                      <p className="text-sm text-muted-foreground">Max Loan Amount</p>
                       <p className="text-xl font-bold text-red-600" data-testid="text-lap-max-amount">{formatCurrency(lapResult.maxLoanAmount)}</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">LTV Ratio</p>
+                      <p className="text-sm text-muted-foreground">LTV Ratio</p>
                       <p className="text-xl font-bold text-red-600" data-testid="text-lap-ltv">{lapResult.loanToValue}%</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Processing Fee</p>
+                      <p className="text-sm text-muted-foreground">Processing Fee</p>
                       <p className="text-xl font-bold text-red-600" data-testid="text-lap-fee">{formatCurrency(lapResult.processingFee)}</p>
                     </div>
                   </div>
@@ -771,7 +771,7 @@ export default function TataCapital() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-2 text-sm text-muted-foreground dark:text-muted-foreground">
+              <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-green-500" />
                   Personal & Business Loans
@@ -800,7 +800,7 @@ export default function TataCapital() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-2 text-sm text-muted-foreground dark:text-muted-foreground">
+              <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-green-500" />
                   CKYC Integration
@@ -829,7 +829,7 @@ export default function TataCapital() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-2 text-sm text-muted-foreground dark:text-muted-foreground">
+              <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-green-500" />
                   Credit Eligibility Check
@@ -854,7 +854,7 @@ export default function TataCapital() {
         {/* API Information */}
         <Card className="mt-8">
           <CardHeader>
-            <CardTitle className="text-center text-foreground dark:text-foreground">Tata Capital API Integration</CardTitle>
+            <CardTitle className="text-center text-foreground">Tata Capital API Integration</CardTitle>
             <CardDescription className="text-center">
               Comprehensive financial services API with real-time data processing and advanced analytics
             </CardDescription>
@@ -863,7 +863,7 @@ export default function TataCapital() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <h3 className="font-semibold mb-3 text-blue-800 dark:text-blue-200">Available API Endpoints:</h3>
-                <ul className="space-y-1 text-sm text-muted-foreground dark:text-muted-foreground">
+                <ul className="space-y-1 text-sm text-muted-foreground">
                   <li>• Personal Loan Calculator</li>
                   <li>• Home Loan Calculator</li>
                   <li>• Business Loan Calculator</li>
@@ -878,7 +878,7 @@ export default function TataCapital() {
               </div>
               <div>
                 <h3 className="font-semibold mb-3 text-purple-800 dark:text-purple-200">Key Features:</h3>
-                <ul className="space-y-1 text-sm text-muted-foreground dark:text-muted-foreground">
+                <ul className="space-y-1 text-sm text-muted-foreground">
                   <li>• Real-time interest rate calculations</li>
                   <li>• Automated eligibility checking</li>
                   <li>• Document upload and verification</li>

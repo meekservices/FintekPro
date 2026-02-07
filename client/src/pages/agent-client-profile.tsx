@@ -236,19 +236,19 @@ export default function AgentClientProfile() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-950 p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-background p-6 flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
-        <span className="ml-2 text-slate-400">Loading client profile...</span>
+        <span className="ml-2 text-muted-foreground">Loading client profile...</span>
       </div>
     );
   }
 
   if (!clientData) {
     return (
-      <div className="min-h-screen bg-slate-950 p-6 flex flex-col items-center justify-center">
-        <User className="h-16 w-16 text-slate-600 mb-4" />
-        <h3 className="text-xl font-semibold text-white mb-2">Client Not Found</h3>
-        <p className="text-slate-400">The client profile you're looking for doesn't exist.</p>
+      <div className="min-h-screen bg-background p-6 flex flex-col items-center justify-center">
+        <User className="h-16 w-16 text-muted-foreground mb-4" />
+        <h3 className="text-xl font-semibold text-foreground mb-2">Client Not Found</h3>
+        <p className="text-muted-foreground">The client profile you're looking for doesn't exist.</p>
         <Link href="/clients">
           <Button className="mt-4" variant="outline">
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -297,7 +297,7 @@ export default function AgentClientProfile() {
       case 'document': return 'bg-amber-500/20 text-amber-400';
       case 'alert': return 'bg-orange-500/20 text-orange-400';
       case 'kyc': return 'bg-indigo-500/20 text-indigo-400';
-      default: return 'bg-slate-500/20 text-slate-400';
+      default: return 'bg-muted/20 text-muted-foreground';
     }
   };
 
@@ -306,7 +306,7 @@ export default function AgentClientProfile() {
       case 'conservative': return 'bg-blue-500/20 text-blue-400';
       case 'moderate': return 'bg-amber-500/20 text-amber-400';
       case 'aggressive': return 'bg-red-500/20 text-red-400';
-      default: return 'bg-slate-500/20 text-slate-400';
+      default: return 'bg-muted/20 text-muted-foreground';
     }
   };
 
@@ -315,17 +315,17 @@ export default function AgentClientProfile() {
       case 'verified': return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
       case 'pending': return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
       case 'expired': return 'bg-red-500/20 text-red-400 border-red-500/30';
-      default: return 'bg-slate-500/20 text-slate-400 border-slate-500/30';
+      default: return 'bg-muted/20 text-muted-foreground border-border/30';
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 p-6">
+    <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
           <Link href="/clients">
-            <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
+            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Clients
             </Button>
@@ -333,7 +333,7 @@ export default function AgentClientProfile() {
         </div>
 
         {/* Client Header Card */}
-        <Card className="bg-slate-800/50 border-slate-700">
+        <Card className="bg-card/50 border-border">
           <CardContent className="p-6">
             <div className="flex flex-col md:flex-row gap-6">
               <Avatar className="h-24 w-24 border-2 border-emerald-500">
@@ -344,20 +344,20 @@ export default function AgentClientProfile() {
               <div className="flex-1">
                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                   <div>
-                    <h1 className="text-2xl font-bold text-white flex items-center gap-2" data-testid="text-client-name">
+                    <h1 className="text-2xl font-bold text-foreground flex items-center gap-2" data-testid="text-client-name">
                       {client.name}
                       <Badge className={getRiskColor(client.riskProfile)}>
                         {(client.riskProfile || 'moderate').charAt(0).toUpperCase() + (client.riskProfile || 'moderate').slice(1)}
                       </Badge>
                     </h1>
-                    <div className="flex flex-wrap gap-4 mt-2 text-sm text-slate-400">
+                    <div className="flex flex-wrap gap-4 mt-2 text-sm text-muted-foreground">
                       <span className="flex items-center gap-1"><Mail className="h-4 w-4" />{client.email}</span>
                       <span className="flex items-center gap-1"><Phone className="h-4 w-4" />{client.phone}</span>
                       <span className="flex items-center gap-1"><MapPin className="h-4 w-4" />{client.address}</span>
                     </div>
                     <div className="flex flex-wrap gap-2 mt-3">
                       {client.tags.map((tag, i) => (
-                        <Badge key={i} variant="outline" className="text-xs border-slate-600 text-slate-300">
+                        <Badge key={i} variant="outline" className="text-xs border-border text-muted-foreground">
                           {tag}
                         </Badge>
                       ))}
@@ -368,11 +368,11 @@ export default function AgentClientProfile() {
                       <Phone className="h-4 w-4 mr-2" />
                       Call
                     </Button>
-                    <Button size="sm" variant="outline" className="border-slate-600" data-testid="button-email-client">
+                    <Button size="sm" variant="outline" className="border-border" data-testid="button-email-client">
                       <Mail className="h-4 w-4 mr-2" />
                       Email
                     </Button>
-                    <Button size="sm" variant="outline" className="border-slate-600" data-testid="button-schedule-meeting">
+                    <Button size="sm" variant="outline" className="border-border" data-testid="button-schedule-meeting">
                       <Video className="h-4 w-4 mr-2" />
                       Meet
                     </Button>
@@ -385,45 +385,45 @@ export default function AgentClientProfile() {
 
         {/* Key Metrics */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-card/50 border-border">
             <CardContent className="p-4">
-              <p className="text-slate-400 text-sm">Total Portfolio</p>
-              <p className="text-xl font-bold text-white" data-testid="text-total-portfolio">{formatCurrency(client.totalPortfolio)}</p>
+              <p className="text-muted-foreground text-sm">Total Portfolio</p>
+              <p className="text-xl font-bold text-foreground" data-testid="text-total-portfolio">{formatCurrency(client.totalPortfolio)}</p>
               <p className="text-sm text-emerald-400 flex items-center gap-1">
                 <TrendingUp className="h-3 w-3" />+{client.portfolioGrowth}%
               </p>
             </CardContent>
           </Card>
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-card/50 border-border">
             <CardContent className="p-4">
-              <p className="text-slate-400 text-sm">Invested Since</p>
-              <p className="text-xl font-bold text-white">{(formatDate(client.investedSince) || 'N/A').split(' ')[1] || ''} {(formatDate(client.investedSince) || 'N/A').split(' ')[2] || ''}</p>
-              <p className="text-sm text-slate-400">{Math.floor((Date.now() - new Date(client.investedSince).getTime()) / (365 * 24 * 60 * 60 * 1000))} years</p>
+              <p className="text-muted-foreground text-sm">Invested Since</p>
+              <p className="text-xl font-bold text-foreground">{(formatDate(client.investedSince) || 'N/A').split(' ')[1] || ''} {(formatDate(client.investedSince) || 'N/A').split(' ')[2] || ''}</p>
+              <p className="text-sm text-muted-foreground">{Math.floor((Date.now() - new Date(client.investedSince).getTime()) / (365 * 24 * 60 * 60 * 1000))} years</p>
             </CardContent>
           </Card>
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-card/50 border-border">
             <CardContent className="p-4">
-              <p className="text-slate-400 text-sm">KYC Status</p>
+              <p className="text-muted-foreground text-sm">KYC Status</p>
               <Badge className={`mt-1 ${getKycStatusColor(client.kycStatus)}`}>
                 {client.kycStatus === 'verified' && <CheckCircle className="h-3 w-3 mr-1" />}
                 {client.kycStatus === 'pending' && <Clock className="h-3 w-3 mr-1" />}
                 {client.kycStatus === 'expired' && <XCircle className="h-3 w-3 mr-1" />}
                 {(client.kycStatus || 'pending').charAt(0).toUpperCase() + (client.kycStatus || 'pending').slice(1)}
               </Badge>
-              <p className="text-sm text-slate-400 mt-1">Expires: {formatDate(client.kycExpiry)}</p>
+              <p className="text-sm text-muted-foreground mt-1">Expires: {formatDate(client.kycExpiry)}</p>
             </CardContent>
           </Card>
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-card/50 border-border">
             <CardContent className="p-4">
-              <p className="text-slate-400 text-sm">Last Contact</p>
-              <p className="text-xl font-bold text-white">{formatDate(client.lastContact)}</p>
-              <p className="text-sm text-slate-400">{client.preferredContact}</p>
+              <p className="text-muted-foreground text-sm">Last Contact</p>
+              <p className="text-xl font-bold text-foreground">{formatDate(client.lastContact)}</p>
+              <p className="text-sm text-muted-foreground">{client.preferredContact}</p>
             </CardContent>
           </Card>
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-card/50 border-border">
             <CardContent className="p-4">
-              <p className="text-slate-400 text-sm">Next Review</p>
-              <p className="text-xl font-bold text-white">{formatDate(client.nextReview)}</p>
+              <p className="text-muted-foreground text-sm">Next Review</p>
+              <p className="text-xl font-bold text-foreground">{formatDate(client.nextReview)}</p>
               <p className="text-sm text-amber-400 flex items-center gap-1">
                 <Calendar className="h-3 w-3" />In {Math.ceil((new Date(client.nextReview).getTime() - Date.now()) / (24 * 60 * 60 * 1000))} days
               </p>
@@ -433,7 +433,7 @@ export default function AgentClientProfile() {
 
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="bg-slate-800 border-slate-700">
+          <TabsList className="bg-card border-border">
             <TabsTrigger value="overview" className="data-[state=active]:bg-emerald-600">Overview</TabsTrigger>
             <TabsTrigger value="goals" className="data-[state=active]:bg-emerald-600">Financial Goals</TabsTrigger>
             <TabsTrigger value="holdings" className="data-[state=active]:bg-emerald-600">Holdings</TabsTrigger>
@@ -445,46 +445,46 @@ export default function AgentClientProfile() {
           <TabsContent value="overview" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Client Details */}
-              <Card className="bg-slate-800/50 border-slate-700">
+              <Card className="bg-card/50 border-border">
                 <CardHeader>
-                  <CardTitle className="text-white flex items-center gap-2">
+                  <CardTitle className="text-foreground flex items-center gap-2">
                     <User className="h-5 w-5 text-emerald-400" />
                     Client Details
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex justify-between">
-                    <span className="text-slate-400">PAN</span>
-                    <span className="text-white font-mono">{client.pan}</span>
+                    <span className="text-muted-foreground">PAN</span>
+                    <span className="text-foreground font-mono">{client.pan}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Date of Birth</span>
-                    <span className="text-white">{formatDate(client.dateOfBirth)}</span>
+                    <span className="text-muted-foreground">Date of Birth</span>
+                    <span className="text-foreground">{formatDate(client.dateOfBirth)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Occupation</span>
-                    <span className="text-white">{client.occupation}</span>
+                    <span className="text-muted-foreground">Occupation</span>
+                    <span className="text-foreground">{client.occupation}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Annual Income</span>
-                    <span className="text-white">{formatCurrency(client.annualIncome)}</span>
+                    <span className="text-muted-foreground">Annual Income</span>
+                    <span className="text-foreground">{formatCurrency(client.annualIncome)}</span>
                   </div>
-                  <div className="pt-3 border-t border-slate-700">
-                    <p className="text-slate-400 text-sm mb-2">Notes</p>
-                    <p className="text-white text-sm">{client.notes}</p>
+                  <div className="pt-3 border-t border-border">
+                    <p className="text-muted-foreground text-sm mb-2">Notes</p>
+                    <p className="text-foreground text-sm">{client.notes}</p>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Goals Summary */}
-              <Card className="bg-slate-800/50 border-slate-700">
+              <Card className="bg-card/50 border-border">
                 <CardHeader>
-                  <CardTitle className="text-white flex items-center justify-between">
+                  <CardTitle className="text-foreground flex items-center justify-between">
                     <span className="flex items-center gap-2">
                       <Target className="h-5 w-5 text-emerald-400" />
                       Financial Goals
                     </span>
-                    <Badge variant="outline" className="border-slate-600 text-slate-300">
+                    <Badge variant="outline" className="border-border text-muted-foreground">
                       {goals.length} goals
                     </Badge>
                   </CardTitle>
@@ -496,18 +496,18 @@ export default function AgentClientProfile() {
                         const Icon = GOAL_ICONS[goal.category];
                         const progress = (goal.currentAmount / goal.targetAmount) * 100;
                         return (
-                          <div key={goal.id} className="p-3 bg-slate-900/50 rounded-lg">
+                          <div key={goal.id} className="p-3 bg-background/50 rounded-lg">
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center gap-2">
                                 <Icon className="h-4 w-4 text-emerald-400" />
-                                <span className="text-white text-sm font-medium">{goal.name}</span>
+                                <span className="text-foreground text-sm font-medium">{goal.name}</span>
                               </div>
                               <Badge className={goal.priority === 'high' ? 'bg-red-500/20 text-red-400' : goal.priority === 'medium' ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400'}>
                                 {goal.priority}
                               </Badge>
                             </div>
                             <Progress value={progress} className="h-2 mb-2" />
-                            <div className="flex justify-between text-xs text-slate-400">
+                            <div className="flex justify-between text-xs text-muted-foreground">
                               <span>{formatCurrency(goal.currentAmount)} / {formatCurrency(goal.targetAmount)}</span>
                               <span>{progress.toFixed(0)}%</span>
                             </div>
@@ -520,9 +520,9 @@ export default function AgentClientProfile() {
               </Card>
 
               {/* Recent Activity */}
-              <Card className="bg-slate-800/50 border-slate-700">
+              <Card className="bg-card/50 border-border">
                 <CardHeader>
-                  <CardTitle className="text-white flex items-center justify-between">
+                  <CardTitle className="text-foreground flex items-center justify-between">
                     <span className="flex items-center gap-2">
                       <Activity className="h-5 w-5 text-emerald-400" />
                       Recent Activity
@@ -538,14 +538,14 @@ export default function AgentClientProfile() {
                       {activities.slice(0, 5).map((activity) => {
                         const Icon = getActivityIcon(activity.type);
                         return (
-                          <div key={activity.id} className="flex gap-3 p-2 rounded-lg hover:bg-slate-900/50">
+                          <div key={activity.id} className="flex gap-3 p-2 rounded-lg hover:bg-background/50">
                             <div className={`p-2 rounded-lg ${getActivityColor(activity.type)}`}>
                               <Icon className="h-4 w-4" />
                             </div>
                             <div className="flex-1">
-                              <p className="text-white text-sm font-medium">{activity.title}</p>
-                              <p className="text-slate-400 text-xs">{activity.description}</p>
-                              <p className="text-slate-500 text-xs mt-1">{formatDate(activity.date)}</p>
+                              <p className="text-foreground text-sm font-medium">{activity.title}</p>
+                              <p className="text-muted-foreground text-xs">{activity.description}</p>
+                              <p className="text-muted-foreground text-xs mt-1">{formatDate(activity.date)}</p>
                             </div>
                           </div>
                         );
@@ -560,7 +560,7 @@ export default function AgentClientProfile() {
           {/* Financial Goals Tab */}
           <TabsContent value="goals" className="space-y-4">
             <div className="flex justify-between items-center">
-              <h2 className="text-xl font-bold text-white">Financial Goals</h2>
+              <h2 className="text-xl font-bold text-foreground">Financial Goals</h2>
               <Button className="bg-emerald-600 hover:bg-emerald-700" data-testid="button-add-goal">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Goal
@@ -572,14 +572,14 @@ export default function AgentClientProfile() {
                 const progress = (goal.currentAmount / goal.targetAmount) * 100;
                 const isComplete = progress >= 100;
                 return (
-                  <Card key={goal.id} className={`bg-slate-800/50 border-slate-700 ${isComplete ? 'border-emerald-500/50' : ''}`}>
+                  <Card key={goal.id} className={`bg-card/50 border-border ${isComplete ? 'border-emerald-500/50' : ''}`}>
                     <CardHeader className="pb-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <div className={`p-2 rounded-lg ${isComplete ? 'bg-emerald-500/20' : 'bg-slate-700'}`}>
-                            <Icon className={`h-5 w-5 ${isComplete ? 'text-emerald-400' : 'text-slate-400'}`} />
+                          <div className={`p-2 rounded-lg ${isComplete ? 'bg-emerald-500/20' : 'bg-muted'}`}>
+                            <Icon className={`h-5 w-5 ${isComplete ? 'text-emerald-400' : 'text-muted-foreground'}`} />
                           </div>
-                          <CardTitle className="text-white text-lg">{goal.name}</CardTitle>
+                          <CardTitle className="text-foreground text-lg">{goal.name}</CardTitle>
                         </div>
                         {isComplete && <CheckCircle className="h-5 w-5 text-emerald-400" />}
                       </div>
@@ -587,26 +587,26 @@ export default function AgentClientProfile() {
                     <CardContent>
                       <div className="mb-4">
                         <div className="flex justify-between text-sm mb-2">
-                          <span className="text-slate-400">Progress</span>
-                          <span className={isComplete ? 'text-emerald-400' : 'text-white'}>{progress.toFixed(0)}%</span>
+                          <span className="text-muted-foreground">Progress</span>
+                          <span className={isComplete ? 'text-emerald-400' : 'text-foreground'}>{progress.toFixed(0)}%</span>
                         </div>
                         <Progress value={Math.min(progress, 100)} className="h-3" />
                       </div>
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
-                          <span className="text-slate-400">Current</span>
-                          <span className="text-white font-medium">{formatCurrency(goal.currentAmount)}</span>
+                          <span className="text-muted-foreground">Current</span>
+                          <span className="text-foreground font-medium">{formatCurrency(goal.currentAmount)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-slate-400">Target</span>
-                          <span className="text-white font-medium">{formatCurrency(goal.targetAmount)}</span>
+                          <span className="text-muted-foreground">Target</span>
+                          <span className="text-foreground font-medium">{formatCurrency(goal.targetAmount)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-slate-400">Target Date</span>
-                          <span className="text-white">{formatDate(goal.targetDate)}</span>
+                          <span className="text-muted-foreground">Target Date</span>
+                          <span className="text-foreground">{formatDate(goal.targetDate)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-slate-400">Priority</span>
+                          <span className="text-muted-foreground">Priority</span>
                           <Badge className={goal.priority === 'high' ? 'bg-red-500/20 text-red-400' : goal.priority === 'medium' ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400'}>
                             {goal.priority.charAt(0).toUpperCase() + goal.priority.slice(1)}
                           </Badge>
@@ -622,7 +622,7 @@ export default function AgentClientProfile() {
           {/* Holdings Tab */}
           <TabsContent value="holdings" className="space-y-4">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <h2 className="text-xl font-bold text-white">Portfolio Holdings</h2>
+              <h2 className="text-xl font-bold text-foreground">Portfolio Holdings</h2>
               <div className="flex gap-2">
                 <Button 
                   onClick={() => autoFetchMutation.mutate()}
@@ -646,7 +646,7 @@ export default function AgentClientProfile() {
 
             {/* Auto-Fetch Status */}
             {autoFetchResult && (
-              <Card className="bg-slate-800/50 border-slate-700">
+              <Card className="bg-card/50 border-border">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -660,11 +660,11 @@ export default function AgentClientProfile() {
                         )}
                       </div>
                       <div>
-                        <p className="text-white font-medium">
+                        <p className="text-foreground font-medium">
                           {autoFetchResult.status === 'completed' ? 'Portfolio Data Synced' : 
                            autoFetchResult.status === 'partial_success' ? 'Partial Data Synced' : 'Sync Failed'}
                         </p>
-                        <p className="text-slate-400 text-sm">
+                        <p className="text-muted-foreground text-sm">
                           {autoFetchResult.summary.totalRecordsFetched} records from {autoFetchResult.summary.successfulSources}/{autoFetchResult.summary.totalDataSources} sources
                           {autoFetchResult.summary.totalHoldingsValue > 0 && ` • Total Value: ${formatCurrency(autoFetchResult.summary.totalHoldingsValue)}`}
                         </p>
@@ -691,11 +691,11 @@ export default function AgentClientProfile() {
             {showAIAnalysis && autoFetchResult?.aiAnalysis && (
               <Card className="bg-gradient-to-br from-purple-900/30 to-slate-800/50 border-purple-500/30">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-white">
+                  <CardTitle className="flex items-center gap-2 text-foreground">
                     <Sparkles className="h-5 w-5 text-purple-400" />
                     AI Portfolio Analysis
                   </CardTitle>
-                  <CardDescription className="text-slate-400">
+                  <CardDescription className="text-muted-foreground">
                     Generated on {new Date(autoFetchResult.aiAnalysis.generatedAt).toLocaleString()}
                   </CardDescription>
                 </CardHeader>
@@ -703,13 +703,13 @@ export default function AgentClientProfile() {
                   {/* Recommendations */}
                   {autoFetchResult.aiAnalysis.recommendations.length > 0 && (
                     <div className="space-y-3">
-                      <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                      <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
                         <Lightbulb className="h-5 w-5 text-amber-400" />
                         Rebalancing Recommendations
                       </h3>
                       <div className="grid gap-3">
                         {autoFetchResult.aiAnalysis.recommendations.slice(0, 5).map((rec) => (
-                          <Card key={rec.id} className="bg-slate-800/50 border-slate-700">
+                          <Card key={rec.id} className="bg-card/50 border-border">
                             <CardContent className="p-4">
                               <div className="flex items-start justify-between gap-4">
                                 <div className="flex-1">
@@ -721,13 +721,13 @@ export default function AgentClientProfile() {
                                     }>
                                       {rec.priority.toUpperCase()}
                                     </Badge>
-                                    <Badge variant="outline" className="border-slate-600 text-slate-300">
+                                    <Badge variant="outline" className="border-border text-muted-foreground">
                                       {rec.timeframe}
                                     </Badge>
                                   </div>
-                                  <p className="text-white font-medium">{rec.title}</p>
-                                  <p className="text-slate-400 text-sm mt-1">{rec.recommendation}</p>
-                                  <p className="text-slate-500 text-sm mt-2 italic">{rec.reasoning}</p>
+                                  <p className="text-foreground font-medium">{rec.title}</p>
+                                  <p className="text-muted-foreground text-sm mt-1">{rec.recommendation}</p>
+                                  <p className="text-muted-foreground text-sm mt-2 italic">{rec.reasoning}</p>
                                 </div>
                                 <Badge className={
                                   rec.riskLevel === 'low' ? 'bg-emerald-500/20 text-emerald-400' :
@@ -746,12 +746,12 @@ export default function AgentClientProfile() {
 
                   {/* Investment Proposal Summary */}
                   {autoFetchResult.aiAnalysis.proposal && (
-                    <div className="mt-6 pt-4 border-t border-slate-700">
-                      <h3 className="text-lg font-semibold text-white mb-3">Investment Proposal Summary</h3>
-                      <p className="text-slate-300">{autoFetchResult.aiAnalysis.proposal.summary}</p>
+                    <div className="mt-6 pt-4 border-t border-border">
+                      <h3 className="text-lg font-semibold text-foreground mb-3">Investment Proposal Summary</h3>
+                      <p className="text-muted-foreground">{autoFetchResult.aiAnalysis.proposal.summary}</p>
                       {autoFetchResult.aiAnalysis.proposal.riskAssessment && (
                         <div className="mt-4 flex items-center gap-2">
-                          <span className="text-slate-400">Overall Risk:</span>
+                          <span className="text-muted-foreground">Overall Risk:</span>
                           <Badge className={
                             autoFetchResult.aiAnalysis.proposal.riskAssessment.overallRisk === 'low' ? 'bg-emerald-500/20 text-emerald-400' :
                             autoFetchResult.aiAnalysis.proposal.riskAssessment.overallRisk === 'medium' ? 'bg-amber-500/20 text-amber-400' :
@@ -766,31 +766,31 @@ export default function AgentClientProfile() {
                 </CardContent>
               </Card>
             )}
-            <Card className="bg-slate-800/50 border-slate-700">
+            <Card className="bg-card/50 border-border">
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-slate-700">
-                        <th className="text-left p-4 text-slate-400 text-sm font-medium">Investment</th>
-                        <th className="text-left p-4 text-slate-400 text-sm font-medium">Type</th>
-                        <th className="text-right p-4 text-slate-400 text-sm font-medium">Invested</th>
-                        <th className="text-right p-4 text-slate-400 text-sm font-medium">Current</th>
-                        <th className="text-right p-4 text-slate-400 text-sm font-medium">Returns</th>
-                        <th className="text-right p-4 text-slate-400 text-sm font-medium">Returns %</th>
+                      <tr className="border-b border-border">
+                        <th className="text-left p-4 text-muted-foreground text-sm font-medium">Investment</th>
+                        <th className="text-left p-4 text-muted-foreground text-sm font-medium">Type</th>
+                        <th className="text-right p-4 text-muted-foreground text-sm font-medium">Invested</th>
+                        <th className="text-right p-4 text-muted-foreground text-sm font-medium">Current</th>
+                        <th className="text-right p-4 text-muted-foreground text-sm font-medium">Returns</th>
+                        <th className="text-right p-4 text-muted-foreground text-sm font-medium">Returns %</th>
                       </tr>
                     </thead>
                     <tbody>
                       {holdings.map((holding) => (
-                        <tr key={holding.id} className="border-b border-slate-700/50 hover:bg-slate-900/50">
+                        <tr key={holding.id} className="border-b border-border/50 hover:bg-background/50">
                           <td className="p-4">
-                            <span className="text-white font-medium">{holding.name}</span>
+                            <span className="text-foreground font-medium">{holding.name}</span>
                           </td>
                           <td className="p-4">
-                            <Badge variant="outline" className="border-slate-600 text-slate-300">{holding.type}</Badge>
+                            <Badge variant="outline" className="border-border text-muted-foreground">{holding.type}</Badge>
                           </td>
-                          <td className="p-4 text-right text-slate-300">{formatCurrency(holding.invested)}</td>
-                          <td className="p-4 text-right text-white font-medium">{formatCurrency(holding.current)}</td>
+                          <td className="p-4 text-right text-muted-foreground">{formatCurrency(holding.invested)}</td>
+                          <td className="p-4 text-right text-foreground font-medium">{formatCurrency(holding.current)}</td>
                           <td className="p-4 text-right">
                             <span className={holding.returns >= 0 ? 'text-emerald-400' : 'text-red-400'}>
                               {holding.returns >= 0 ? '+' : ''}{formatCurrency(holding.returns)}
@@ -806,10 +806,10 @@ export default function AgentClientProfile() {
                       ))}
                     </tbody>
                     <tfoot>
-                      <tr className="bg-slate-900/50">
-                        <td colSpan={2} className="p-4 text-white font-bold">Total</td>
-                        <td className="p-4 text-right text-slate-300 font-medium">{formatCurrency(holdings.reduce((s, h) => s + h.invested, 0))}</td>
-                        <td className="p-4 text-right text-white font-bold">{formatCurrency(holdings.reduce((s, h) => s + h.current, 0))}</td>
+                      <tr className="bg-background/50">
+                        <td colSpan={2} className="p-4 text-foreground font-bold">Total</td>
+                        <td className="p-4 text-right text-muted-foreground font-medium">{formatCurrency(holdings.reduce((s, h) => s + h.invested, 0))}</td>
+                        <td className="p-4 text-right text-foreground font-bold">{formatCurrency(holdings.reduce((s, h) => s + h.current, 0))}</td>
                         <td className="p-4 text-right text-emerald-400 font-bold">+{formatCurrency(holdings.reduce((s, h) => s + h.returns, 0))}</td>
                         <td className="p-4 text-right text-emerald-400 font-bold">+{((holdings.reduce((s, h) => s + h.returns, 0) / holdings.reduce((s, h) => s + h.invested, 0)) * 100).toFixed(1)}%</td>
                       </tr>
@@ -823,7 +823,7 @@ export default function AgentClientProfile() {
           {/* Meeting Notes Tab */}
           <TabsContent value="notes" className="space-y-4">
             <div className="flex justify-between items-center">
-              <h2 className="text-xl font-bold text-white">Meeting Notes</h2>
+              <h2 className="text-xl font-bold text-foreground">Meeting Notes</h2>
               <Dialog open={showAddNote} onOpenChange={setShowAddNote}>
                 <DialogTrigger asChild>
                   <Button className="bg-emerald-600 hover:bg-emerald-700" data-testid="button-add-note">
@@ -831,14 +831,14 @@ export default function AgentClientProfile() {
                     Add Note
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-lg">
+                <DialogContent className="bg-background border-border text-foreground max-w-lg">
                   <DialogHeader>
                     <DialogTitle>Add Meeting Note</DialogTitle>
-                    <DialogDescription className="text-slate-400">Record notes from your client interaction</DialogDescription>
+                    <DialogDescription className="text-muted-foreground">Record notes from your client interaction</DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 mt-4">
                     <div>
-                      <Label className="text-slate-300">Meeting Type</Label>
+                      <Label className="text-muted-foreground">Meeting Type</Label>
                       <div className="flex gap-2 mt-2">
                         {['call', 'meeting', 'video'].map((type) => (
                           <Button
@@ -846,7 +846,7 @@ export default function AgentClientProfile() {
                             variant={newNote.type === type ? 'default' : 'outline'}
                             size="sm"
                             onClick={() => setNewNote({ ...newNote, type: type as any })}
-                            className={newNote.type === type ? 'bg-emerald-600' : 'border-slate-600'}
+                            className={newNote.type === type ? 'bg-emerald-600' : 'border-border'}
                           >
                             {type === 'call' && <PhoneCall className="h-4 w-4 mr-1" />}
                             {type === 'meeting' && <User className="h-4 w-4 mr-1" />}
@@ -857,39 +857,39 @@ export default function AgentClientProfile() {
                       </div>
                     </div>
                     <div>
-                      <Label htmlFor="summary" className="text-slate-300">Summary</Label>
+                      <Label htmlFor="summary" className="text-muted-foreground">Summary</Label>
                       <Textarea
                         id="summary"
                         value={newNote.summary}
                         onChange={(e) => setNewNote({ ...newNote, summary: e.target.value })}
-                        className="mt-1 bg-slate-800 border-slate-700"
+                        className="mt-1 bg-card border-border"
                         placeholder="Key discussion points..."
                         rows={3}
                       />
                     </div>
                     <div>
-                      <Label htmlFor="actions" className="text-slate-300">Action Items (one per line)</Label>
+                      <Label htmlFor="actions" className="text-muted-foreground">Action Items (one per line)</Label>
                       <Textarea
                         id="actions"
                         value={newNote.actionItems}
                         onChange={(e) => setNewNote({ ...newNote, actionItems: e.target.value })}
-                        className="mt-1 bg-slate-800 border-slate-700"
+                        className="mt-1 bg-card border-border"
                         placeholder="- Action 1&#10;- Action 2"
                         rows={2}
                       />
                     </div>
                     <div>
-                      <Label htmlFor="next" className="text-slate-300">Next Steps</Label>
+                      <Label htmlFor="next" className="text-muted-foreground">Next Steps</Label>
                       <Input
                         id="next"
                         value={newNote.nextSteps}
                         onChange={(e) => setNewNote({ ...newNote, nextSteps: e.target.value })}
-                        className="mt-1 bg-slate-800 border-slate-700"
+                        className="mt-1 bg-card border-border"
                         placeholder="Follow-up plan..."
                       />
                     </div>
                     <div className="flex justify-end gap-3 pt-4">
-                      <Button variant="outline" onClick={() => setShowAddNote(false)} className="border-slate-600">Cancel</Button>
+                      <Button variant="outline" onClick={() => setShowAddNote(false)} className="border-border">Cancel</Button>
                       <Button className="bg-emerald-600 hover:bg-emerald-700">Save Note</Button>
                     </div>
                   </div>
@@ -898,7 +898,7 @@ export default function AgentClientProfile() {
             </div>
             <div className="space-y-4">
               {notes.map((note) => (
-                <Card key={note.id} className="bg-slate-800/50 border-slate-700">
+                <Card key={note.id} className="bg-card/50 border-border">
                   <CardContent className="p-4">
                     <div className="flex items-start gap-4">
                       <div className={`p-2 rounded-lg ${note.type === 'call' ? 'bg-blue-500/20' : note.type === 'meeting' ? 'bg-purple-500/20' : 'bg-cyan-500/20'}`}>
@@ -908,16 +908,16 @@ export default function AgentClientProfile() {
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-2">
-                          <Badge variant="outline" className="border-slate-600 text-slate-300">
+                          <Badge variant="outline" className="border-border text-muted-foreground">
                             {note.type.charAt(0).toUpperCase() + note.type.slice(1)}
                           </Badge>
-                          <span className="text-slate-400 text-sm">{formatDate(note.date)}</span>
+                          <span className="text-muted-foreground text-sm">{formatDate(note.date)}</span>
                         </div>
-                        <p className="text-white mb-3">{note.summary}</p>
+                        <p className="text-foreground mb-3">{note.summary}</p>
                         {note.actionItems.length > 0 && (
                           <div className="mb-3">
-                            <p className="text-slate-400 text-sm mb-1">Action Items:</p>
-                            <ul className="list-disc list-inside text-sm text-slate-300">
+                            <p className="text-muted-foreground text-sm mb-1">Action Items:</p>
+                            <ul className="list-disc list-inside text-sm text-muted-foreground">
                               {note.actionItems.map((item, i) => (
                                 <li key={i}>{item}</li>
                               ))}
@@ -926,7 +926,7 @@ export default function AgentClientProfile() {
                         )}
                         <div className="flex items-center gap-2 text-sm">
                           <ChevronRight className="h-4 w-4 text-emerald-400" />
-                          <span className="text-slate-300">{note.nextSteps}</span>
+                          <span className="text-muted-foreground">{note.nextSteps}</span>
                         </div>
                       </div>
                     </div>
@@ -938,8 +938,8 @@ export default function AgentClientProfile() {
 
           {/* Activity Timeline Tab */}
           <TabsContent value="activity" className="space-y-4">
-            <h2 className="text-xl font-bold text-white">Activity Timeline</h2>
-            <Card className="bg-slate-800/50 border-slate-700">
+            <h2 className="text-xl font-bold text-foreground">Activity Timeline</h2>
+            <Card className="bg-card/50 border-border">
               <CardContent className="p-4">
                 <div className="space-y-4">
                   {activities.map((activity, index) => {
@@ -951,14 +951,14 @@ export default function AgentClientProfile() {
                             <Icon className="h-4 w-4" />
                           </div>
                           {index < activities.length - 1 && (
-                            <div className="w-0.5 flex-1 bg-slate-700 my-2" />
+                            <div className="w-0.5 flex-1 bg-muted my-2" />
                           )}
                         </div>
                         <div className="flex-1 pb-4">
                           <div className="flex items-start justify-between">
                             <div>
-                              <p className="text-white font-medium">{activity.title}</p>
-                              <p className="text-slate-400 text-sm">{activity.description}</p>
+                              <p className="text-foreground font-medium">{activity.title}</p>
+                              <p className="text-muted-foreground text-sm">{activity.description}</p>
                               {activity.amount && (
                                 <p className="text-emerald-400 text-sm mt-1">
                                   {formatCurrency(activity.amount)}
@@ -966,7 +966,7 @@ export default function AgentClientProfile() {
                               )}
                             </div>
                             <div className="text-right">
-                              <p className="text-slate-500 text-sm">{formatDate(activity.date)}</p>
+                              <p className="text-muted-foreground text-sm">{formatDate(activity.date)}</p>
                               {activity.status && (
                                 <Badge className={`mt-1 ${activity.status === 'completed' ? 'bg-emerald-500/20 text-emerald-400' : activity.status === 'action_needed' ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400'}`}>
                                   {activity.status.replace('_', ' ')}

@@ -170,13 +170,13 @@ export default function BondCategoryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-muted dark:bg-card">
+    <div className="min-h-screen bg-muted">
       {/* Header */}
-      <div className={`${config.headerClass} text-white`}>
+      <div className={`${config.headerClass} text-foreground`}>
         <div className="max-w-7xl mx-auto px-4 py-8">
           <Button
             variant="ghost"
-            className="text-white hover:bg-white/20 mb-4"
+            className="text-foreground hover:bg-card/20 mb-4"
             onClick={() => navigate("/bonds")}
             data-testid="back-to-bonds"
           >
@@ -185,20 +185,20 @@ export default function BondCategoryPage() {
           </Button>
           
           <div className="flex items-center gap-4">
-            <div className="p-4 rounded-xl bg-white/20">
+            <div className="p-4 rounded-xl bg-card/20">
               <Icon className="h-8 w-8" />
             </div>
             <div>
               <h1 className="text-3xl font-bold">{config.title}</h1>
-              <p className="text-white/80 mt-1">{config.description}</p>
+              <p className="text-foreground/80 mt-1">{config.description}</p>
             </div>
           </div>
           
           <div className="mt-6 flex flex-wrap gap-4">
-            <Badge className="bg-white/20 text-white border-0">
+            <Badge className="bg-card/20 text-foreground border-0">
               {filteredBonds.length} Bonds Available
             </Badge>
-            <Badge className="bg-white/20 text-white border-0">
+            <Badge className="bg-card/20 text-foreground border-0">
               <Percent className="h-3 w-3 mr-1" />
               Avg Yield: {(filteredBonds.reduce((sum: number, b: any) => 
                 sum + parseFloat(b.yieldToMaturity || b.ytm || b.currentYield || 0), 0) / (filteredBonds.length || 1)
@@ -210,7 +210,7 @@ export default function BondCategoryPage() {
 
       {/* Filters */}
       <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="flex flex-wrap gap-4 items-center bg-white dark:bg-muted p-4 rounded-lg shadow-sm">
+        <div className="flex flex-wrap gap-4 items-center bg-card p-4 rounded-lg shadow-sm">
           <div className="flex-1 min-w-[200px]">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -313,7 +313,7 @@ export default function BondCategoryPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors">
+                        <h3 className="text-lg font-semibold text-foreground group-hover:text-blue-600 transition-colors">
                           {bond.name || bond.bondName || bond.issuer || bond.securityName || "Unknown Bond"}
                         </h3>
                         <Badge className={getRatingColor(bond.rating || bond.creditRating)}>

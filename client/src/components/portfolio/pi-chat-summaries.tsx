@@ -67,8 +67,8 @@ export function PiChatSummaries({ portfolioId }: PiChatSummariesProps) {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8 text-gray-500">
-            <Bot className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+          <div className="text-center py-8 text-muted-foreground">
+            <Bot className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
             <p>No asset class insights available</p>
           </div>
         </CardContent>
@@ -83,7 +83,7 @@ export function PiChatSummaries({ portfolioId }: PiChatSummariesProps) {
       commodity: "bg-yellow-100 text-yellow-800",
       alternative: "bg-purple-100 text-purple-800",
     };
-    return colors[assetClass] || "bg-gray-100 text-gray-800";
+    return colors[assetClass] || "bg-muted text-foreground";
   };
 
   const getAssetClassIcon = (assetClass: string) => {
@@ -122,7 +122,7 @@ export function PiChatSummaries({ portfolioId }: PiChatSummariesProps) {
             Refresh
           </Button>
         </div>
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-muted-foreground">
           AI-generated insights and recommendations for each asset class in your portfolio
         </p>
       </CardHeader>
@@ -148,16 +148,16 @@ export function PiChatSummaries({ portfolioId }: PiChatSummariesProps) {
                       </Badge>
                     )}
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-muted-foreground">
                     Updated {new Date(summary.lastAnalyzed).toLocaleDateString()}
                   </div>
                 </div>
 
                 {/* Summary Text */}
-                <div className="bg-gray-50 p-3 rounded-lg">
+                <div className="bg-muted p-3 rounded-lg">
                   <div className="flex items-start space-x-2">
                     <MessageCircle className="h-4 w-4 text-blue-600 mt-1 flex-shrink-0" />
-                    <p className="text-sm text-gray-700 leading-relaxed">
+                    <p className="text-sm text-muted-foreground leading-relaxed">
                       {summary.summary}
                     </p>
                   </div>
@@ -198,11 +198,11 @@ export function PiChatSummaries({ portfolioId }: PiChatSummariesProps) {
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
                       <Lightbulb className="h-4 w-4 text-yellow-600" />
-                      <span className="text-sm font-medium text-gray-900">AI Recommendations</span>
+                      <span className="text-sm font-medium text-foreground">AI Recommendations</span>
                     </div>
                     <div className="space-y-1 pl-6">
                       {summary.recommendations.slice(0, 3).map((rec: string, index: number) => (
-                        <div key={index} className="text-xs text-gray-600 flex items-start">
+                        <div key={index} className="text-xs text-muted-foreground flex items-start">
                           <span className="text-yellow-500 mr-2">•</span>
                           <span>{rec}</span>
                         </div>
@@ -212,7 +212,7 @@ export function PiChatSummaries({ portfolioId }: PiChatSummariesProps) {
                 )}
 
                 {/* Performance Indicator */}
-                <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t">
+                <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
                   <div className="flex items-center space-x-1">
                     <TrendingUp className="h-3 w-3" />
                     <span>AI Confidence: High</span>

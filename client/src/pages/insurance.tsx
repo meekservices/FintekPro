@@ -62,7 +62,7 @@ export default function Insurance() {
     <div className="space-y-8" data-testid="insurance-page">
       <div className="space-y-6">
         <div className="mb-8" data-testid="insurance-header">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Insurance Hub</h1>
+          <h1 className="text-3xl font-bold text-foreground mb-4">Insurance Hub</h1>
           <p className="text-muted-foreground text-lg">
             Comprehensive insurance solutions for life, health, motor, and more
           </p>
@@ -82,7 +82,7 @@ export default function Insurance() {
                   <div className={`w-12 h-12 bg-${type.color}-100 rounded-lg flex items-center justify-center mb-4`}>
                     <IconComponent className={`h-6 w-6 text-finance-${type.color}`} />
                   </div>
-                  <h3 className="font-bold text-gray-900 mb-2">{type.name}</h3>
+                  <h3 className="font-bold text-foreground mb-2">{type.name}</h3>
                   <p className="text-muted-foreground text-sm mb-4">{type.description}</p>
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground">Available Plans:</span>

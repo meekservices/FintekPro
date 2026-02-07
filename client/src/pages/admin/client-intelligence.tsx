@@ -245,7 +245,7 @@ export default function ClientIntelligence() {
                             <div className={`p-2 rounded-full ${
                               intel.investmentPotential === 'high' ? 'bg-green-100' :
                               intel.investmentPotential === 'medium' ? 'bg-yellow-100' :
-                              'bg-muted dark:bg-muted'
+                              'bg-muted'
                             }`}>
                               {intel.probe42Score && intel.probe42Score >= 4 ? (
                                 <TrendingUp className="h-5 w-5 text-green-600" />

@@ -348,8 +348,8 @@ export default function Orders() {
             Back to Cart
           </Button>
         </Link>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Order Tracking</h1>
-        <p className="text-muted-foreground dark:text-muted-foreground">Track your investments and orders across all categories</p>
+        <h1 className="text-3xl font-bold text-foreground mb-2">Order Tracking</h1>
+        <p className="text-muted-foreground">Track your investments and orders across all categories</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -489,8 +489,8 @@ export default function Orders() {
             <Card>
               <CardContent className="text-center py-12">
                 <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No orders found</h2>
-                <p className="text-muted-foreground dark:text-muted-foreground mb-6">
+                <h2 className="text-xl font-semibold text-foreground mb-2">No orders found</h2>
+                <p className="text-muted-foreground mb-6">
                   {activeTab === 'all' 
                     ? 'Start investing to see your orders here' 
                     : `No ${categoryLabels[activeTab as ProductCategory] || activeTab} orders found`}

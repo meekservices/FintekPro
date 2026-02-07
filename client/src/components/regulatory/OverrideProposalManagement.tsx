@@ -78,7 +78,7 @@ const statusColors: Record<string, string> = {
   under_review: "bg-blue-100 text-blue-700 border-blue-200",
   approved: "bg-green-100 text-green-700 border-green-200",
   rejected: "bg-red-100 text-red-700 border-red-200",
-  expired: "bg-gray-100 text-gray-700 border-gray-200",
+  expired: "bg-muted text-muted-foreground border-border",
   revoked: "bg-orange-100 text-orange-700 border-orange-200",
 };
 

@@ -27,7 +27,7 @@ const categoryColors = {
   weather: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
   trading: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
   history: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-  technology: "bg-muted text-foreground dark:bg-card dark:text-foreground",
+  technology: "bg-muted text-foreground",
   equity: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
   bonds: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200",
   debt: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
@@ -144,14 +144,14 @@ export function AgriculturalTooltip({
           }}
           data-testid={`agricultural-tooltip-content-${trivia.id}`}
         >
-          <Card className="w-80 shadow-lg border-2 bg-white dark:bg-muted animate-in fade-in-0 zoom-in-95 duration-200">
+          <Card className="w-80 shadow-lg border-2 bg-card animate-in fade-in-0 zoom-in-95 duration-200">
             <CardHeader className="pb-2">
               <div className="flex items-start justify-between gap-2">
-                <CardTitle className="text-sm font-semibold text-gray-900 dark:text-gray-100 leading-tight">
+                <CardTitle className="text-sm font-semibold text-foreground leading-tight">
                   {trivia.title}
                 </CardTitle>
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  <IconComponent className="h-4 w-4 text-muted-foreground dark:text-muted-foreground" />
+                  <IconComponent className="h-4 w-4 text-muted-foreground" />
                   <Badge 
                     variant="secondary" 
                     className={`text-xs ${categoryColors[trivia.category]}`}
@@ -162,7 +162,7 @@ export function AgriculturalTooltip({
               </div>
             </CardHeader>
             <CardContent className="pt-0">
-              <p className="text-xs text-muted-foreground dark:text-muted-foreground leading-relaxed mb-3">
+              <p className="text-xs text-muted-foreground leading-relaxed mb-3">
                 {trivia.content}
               </p>
               

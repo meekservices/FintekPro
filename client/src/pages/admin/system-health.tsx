@@ -100,7 +100,7 @@ function getStatusColor(status: string) {
     case 'critical':
       return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
     default:
-      return 'bg-muted dark:bg-muted text-foreground dark:bg-muted dark:text-muted-foreground';
+      return 'bg-muted text-foreground';
   }
 }
 
@@ -163,7 +163,7 @@ export default function SystemHealthMonitor() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">System Health Monitor</h1>
+          <h1 className="text-2xl font-bold text-foreground">System Health Monitor</h1>
           <p className="text-sm text-muted-foreground">
             Real-time monitoring of APIs, databases, and background jobs
           </p>
@@ -180,7 +180,7 @@ export default function SystemHealthMonitor() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className={`${overallStatusColor[healthData?.overallStatus || 'healthy']} text-white`}>
+        <Card className={`${overallStatusColor[healthData?.overallStatus || 'healthy']} text-foreground`}>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
               <Activity className="w-5 h-5" />
@@ -267,7 +267,7 @@ export default function SystemHealthMonitor() {
                 {healthData?.services?.map((service) => (
                   <div 
                     key={service.name} 
-                    className="p-4 border rounded-lg bg-white dark:bg-card space-y-3"
+                    className="p-4 border rounded-lg bg-card space-y-3"
                     data-testid={`card-service-${service.name.toLowerCase().replace(/\s+/g, '-')}`}
                   >
                     <div className="flex items-center justify-between">

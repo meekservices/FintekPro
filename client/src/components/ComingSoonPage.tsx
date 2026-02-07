@@ -31,7 +31,7 @@ export function ComingSoonPage({
   const displayFeatures = features.length > 0 ? features : defaultFeatures;
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted p-6">
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="flex items-center gap-4">
           <Link href="/store">
@@ -42,12 +42,12 @@ export function ComingSoonPage({
           </Link>
         </div>
         
-        <Card className="border-0 shadow-xl bg-white/80 dark:bg-muted/80 backdrop-blur-sm" data-testid="card-coming-soon">
+        <Card className="border-0 shadow-xl bg-card/80/80 backdrop-blur-sm" data-testid="card-coming-soon">
           <CardHeader className="text-center pb-4">
             <div className="mx-auto w-20 h-20 bg-gradient-to-br from-finance-blue/20 to-finance-blue/5 rounded-full flex items-center justify-center mb-4">
               <Clock className="h-10 w-10 text-finance-blue animate-pulse" />
             </div>
-            <CardTitle className="text-3xl font-bold text-gray-900 dark:text-white">
+            <CardTitle className="text-3xl font-bold text-foreground">
               {categoryName}
             </CardTitle>
             <Badge variant="outline" className="mx-auto text-orange-600 border-orange-300 bg-orange-50 dark:bg-orange-900/20 mt-2">
@@ -62,27 +62,27 @@ export function ComingSoonPage({
           <CardContent className="space-y-8">
             {expectedLaunchDate && (
               <div className="text-center p-4 bg-finance-blue/5 rounded-xl border border-finance-blue/20">
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground mb-1">Expected Launch</p>
+                <p className="text-sm text-muted-foreground mb-1">Expected Launch</p>
                 <p className="text-xl font-bold text-finance-blue">{expectedLaunchDate}</p>
               </div>
             )}
             
             <div className="space-y-4">
-              <h3 className="font-semibold text-gray-900 dark:text-white text-center">
+              <h3 className="font-semibold text-foreground text-center">
                 What to Expect
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {displayFeatures.map((feature, index) => (
                   <div
                     key={index}
-                    className="flex items-center gap-3 p-3 bg-muted dark:bg-muted rounded-lg"
+                    className="flex items-center gap-3 p-3 bg-muted rounded-lg"
                     data-testid={`feature-item-${index}`}
                   >
                     {index === 0 && <Shield className="h-5 w-5 text-green-600" />}
                     {index === 1 && <TrendingUp className="h-5 w-5 text-blue-600" />}
                     {index === 2 && <Building2 className="h-5 w-5 text-purple-600" />}
                     {index >= 3 && <Sparkles className="h-5 w-5 text-orange-600" />}
-                    <span className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
+                    <span className="text-sm font-medium text-muted-foreground">
                       {feature}
                     </span>
                   </div>
@@ -100,13 +100,13 @@ export function ComingSoonPage({
                   <Bell className="h-4 w-4 mr-2" />
                   Notify Me When Available
                 </Button>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-2">
+                <p className="text-xs text-muted-foreground mt-2">
                   We'll send you an email when this category is available
                 </p>
               </div>
             )}
             
-            <div className="text-center text-sm text-muted-foreground dark:text-muted-foreground pt-4 border-t border-border dark:border-border">
+            <div className="text-center text-sm text-muted-foreground pt-4 border-t border-border">
               <p>Have questions? Contact our support team for more information.</p>
             </div>
           </CardContent>

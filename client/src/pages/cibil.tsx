@@ -298,7 +298,7 @@ export default function Cibil() {
                       </div>
 
                       <div className="space-y-3">
-                        <h4 className="font-semibold text-gray-900">Credit Summary</h4>
+                        <h4 className="font-semibold text-foreground">Credit Summary</h4>
                         <div className="grid grid-cols-2 gap-4 text-sm">
                           <div>
                             <span className="text-muted-foreground">Total Accounts:</span>
@@ -320,7 +320,7 @@ export default function Cibil() {
                       </div>
 
                       <div className="space-y-2">
-                        <h4 className="font-semibold text-gray-900">Recommendations</h4>
+                        <h4 className="font-semibold text-foreground">Recommendations</h4>
                         <ul className="text-sm text-muted-foreground space-y-1">
                           {creditData.data.recommendations.map((rec: string, idx: number) => (
                             <li key={idx} className="flex items-start gap-2">
@@ -384,7 +384,7 @@ export default function Cibil() {
                         <div key={idx} className="p-3 border rounded-lg">
                           <div className="flex justify-between items-start mb-2">
                             <div>
-                              <h4 className="font-medium text-gray-900">{account.accountType}</h4>
+                              <h4 className="font-medium text-foreground">{account.accountType}</h4>
                               <p className="text-sm text-muted-foreground">{account.bank}</p>
                             </div>
                             <Badge variant={account.paymentStatus === "Current" ? "default" : "destructive"}>
@@ -494,7 +494,7 @@ export default function Cibil() {
                         <div key={idx} className="p-3 border rounded-lg">
                           <div className="flex justify-between items-start">
                             <div>
-                              <h4 className="font-medium text-gray-900">{enquiry.enquiryType}</h4>
+                              <h4 className="font-medium text-foreground">{enquiry.enquiryType}</h4>
                               <p className="text-sm text-muted-foreground">{enquiry.company}</p>
                             </div>
                             <span className="text-xs text-muted-foreground">
@@ -515,7 +515,7 @@ export default function Cibil() {
               <Card className="border-dashed border-2 border-border">
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Generate Detailed Report</h3>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">Generate Detailed Report</h3>
                   <p className="text-muted-foreground text-center mb-4">
                     First check your credit score, then get a detailed credit report
                   </p>
@@ -648,7 +648,7 @@ export default function Cibil() {
                             <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-2" />
                           )}
                         </div>
-                        <h3 className="text-lg font-bold text-gray-900 mb-2">
+                        <h3 className="text-lg font-bold text-foreground mb-2">
                           {loanEligibility.data.eligible ? "Congratulations! You're Eligible" : "Not Eligible"}
                         </h3>
                         <p className="text-sm text-muted-foreground">
@@ -678,11 +678,11 @@ export default function Cibil() {
                       {/* Bank Recommendations */}
                       {loanEligibility.data.bankRecommendations && (
                         <div className="space-y-3">
-                          <h4 className="font-semibold text-gray-900">Bank Recommendations</h4>
+                          <h4 className="font-semibold text-foreground">Bank Recommendations</h4>
                           {loanEligibility.data.bankRecommendations.map((bank: any, idx: number) => (
                             <div key={idx} className="p-3 border rounded-lg">
                               <div className="flex justify-between items-start mb-2">
-                                <h5 className="font-medium text-gray-900">{bank.bank}</h5>
+                                <h5 className="font-medium text-foreground">{bank.bank}</h5>
                                 <span className="text-sm font-bold text-finance-blue">{bank.interestRate}%</span>
                               </div>
                               <div className="text-sm text-muted-foreground mb-2">
@@ -760,14 +760,14 @@ export default function Cibil() {
 
                     {cardEligibility.data.recommendedCards && cardEligibility.data.recommendedCards.length > 0 && (
                       <div className="space-y-4">
-                        <h4 className="font-semibold text-gray-900">Recommended Credit Cards</h4>
+                        <h4 className="font-semibold text-foreground">Recommended Credit Cards</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {cardEligibility.data.recommendedCards.map((card: any, idx: number) => (
                             <Card key={idx} className="hover:shadow-md transition-shadow">
                               <CardContent className="p-4">
                                 <div className="flex justify-between items-start mb-3">
                                   <div>
-                                    <h5 className="font-bold text-gray-900">{card.cardName}</h5>
+                                    <h5 className="font-bold text-foreground">{card.cardName}</h5>
                                     <p className="text-sm text-muted-foreground">{card.bank}</p>
                                   </div>
                                   <Badge variant="secondary">{card.category}</Badge>
@@ -834,7 +834,7 @@ export default function Cibil() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <h4 className="font-medium text-gray-900 mb-2">Alert Types</h4>
+                        <h4 className="font-medium text-foreground mb-2">Alert Types</h4>
                         <ul className="text-sm text-muted-foreground space-y-1">
                           {monitoringSetup.data.alertTypes.map((alert: string, idx: number) => (
                             <li key={idx} className="flex items-center gap-2">
@@ -846,7 +846,7 @@ export default function Cibil() {
                       </div>
                       
                       <div>
-                        <h4 className="font-medium text-gray-900 mb-2">Features</h4>
+                        <h4 className="font-medium text-foreground mb-2">Features</h4>
                         <ul className="text-sm text-muted-foreground space-y-1">
                           {monitoringSetup.data.features.map((feature: string, idx: number) => (
                             <li key={idx} className="flex items-center gap-2">
@@ -864,7 +864,7 @@ export default function Cibil() {
               <Card className="border-dashed border-2 border-border">
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <Monitor className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Setup Credit Monitoring</h3>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">Setup Credit Monitoring</h3>
                   <p className="text-muted-foreground text-center mb-4">
                     Get alerts when your credit score changes or suspicious activity is detected
                   </p>

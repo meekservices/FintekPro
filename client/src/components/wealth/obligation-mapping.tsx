@@ -81,7 +81,7 @@ export function ObligationMapping() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">My Obligations</h2>
+        <h2 className="text-2xl font-bold text-foreground">My Obligations</h2>
         <p className="text-muted-foreground">Your EMIs, loans, and recurring financial commitments</p>
       </div>
 
@@ -134,7 +134,7 @@ export function ObligationMapping() {
         <Card>
           <CardContent className="p-8 text-center">
             <CreditCard className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white">No Active Obligations</h3>
+            <h3 className="text-lg font-semibold mb-2 text-foreground">No Active Obligations</h3>
             <p className="text-muted-foreground">
               You don't have any active EMIs, loans, or recurring financial commitments.
             </p>
@@ -143,7 +143,7 @@ export function ObligationMapping() {
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+            <CardTitle className="flex items-center gap-2 text-foreground">
               <CreditCard className="w-5 h-5 text-blue-600" />
               Your Obligations
             </CardTitle>
@@ -160,7 +160,7 @@ export function ObligationMapping() {
                 return (
                   <div 
                     key={obligation.id} 
-                    className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
+                    className="flex items-center justify-between p-4 bg-muted rounded-lg border border-border"
                     data-testid={`obligation-${obligation.id}`}
                   >
                     <div className="flex items-center gap-4">
@@ -168,7 +168,7 @@ export function ObligationMapping() {
                         <Icon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-gray-900 dark:text-white">
+                        <h3 className="font-semibold text-foreground">
                           {obligation.institutionName || obligation.obligationType?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                         </h3>
                         <div className="flex items-center gap-2 mt-1">
@@ -183,7 +183,7 @@ export function ObligationMapping() {
                     </div>
                     
                     <div className="text-right">
-                      <p className="text-xl font-bold text-gray-900 dark:text-white">{formatCurrency(Number(obligation.monthlyAmount))}</p>
+                      <p className="text-xl font-bold text-foreground">{formatCurrency(Number(obligation.monthlyAmount))}</p>
                       <p className="text-xs text-muted-foreground">per month</p>
                       {remainingMonths > 0 && (
                         <div className="flex items-center justify-end gap-1 mt-1">

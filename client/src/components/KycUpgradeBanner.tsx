@@ -98,10 +98,10 @@ export function KycUpgradeBanner() {
             
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3 flex-wrap">
-                <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100">
+                <h4 className="font-semibold text-sm text-foreground">
                   {getTitle()}
                 </h4>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-muted dark:bg-gray-700 text-muted-foreground dark:text-muted-foreground">
+                <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
                   {currentTier.toUpperCase()} Tier
                 </span>
               </div>
@@ -110,13 +110,13 @@ export function KycUpgradeBanner() {
                 <div className="flex-1 max-w-xs">
                   <Progress value={percentComplete} className="h-2" />
                 </div>
-                <span className="text-xs text-muted-foreground dark:text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   {percentComplete}% Complete
                 </span>
               </div>
 
               {missingSteps.length > 0 && (
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Next: {missingSteps[0]}
                 </p>
               )}
@@ -125,7 +125,7 @@ export function KycUpgradeBanner() {
 
           <div className="flex items-center gap-2">
             {blockedProducts.length > 0 && (
-              <div className="hidden md:flex items-center gap-1 text-xs text-muted-foreground dark:text-muted-foreground">
+              <div className="hidden md:flex items-center gap-1 text-xs text-muted-foreground">
                 <Lock className="h-3 w-3" />
                 <span>{blockedProducts.length} products locked</span>
               </div>
@@ -193,10 +193,10 @@ export function KycProgressWidget() {
 
   if (isLoading) {
     return (
-      <div className="p-4 border rounded-lg bg-muted dark:bg-card animate-pulse">
-        <div className="h-4 bg-muted dark:bg-gray-700 rounded w-3/4 mb-2"></div>
-        <div className="h-2 bg-muted dark:bg-gray-700 rounded w-full mb-2"></div>
-        <div className="h-3 bg-muted dark:bg-gray-700 rounded w-1/2"></div>
+      <div className="p-4 border rounded-lg bg-muted animate-pulse">
+        <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+        <div className="h-2 bg-muted rounded w-full mb-2"></div>
+        <div className="h-3 bg-muted rounded w-1/2"></div>
       </div>
     );
   }
@@ -222,11 +222,11 @@ export function KycProgressWidget() {
 
   return (
     <div 
-      className="p-4 border rounded-lg bg-white dark:bg-card"
+      className="p-4 border rounded-lg bg-card"
       data-testid="kyc-progress-widget"
     >
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold text-gray-900 dark:text-gray-100">KYC Progress</h3>
+        <h3 className="font-semibold text-foreground">KYC Progress</h3>
         <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
           {currentTier.toUpperCase()}
         </span>
@@ -234,7 +234,7 @@ export function KycProgressWidget() {
 
       <div className="mb-3">
         <div className="flex items-center justify-between text-sm mb-1">
-          <span className="text-muted-foreground dark:text-muted-foreground">Verification Progress</span>
+          <span className="text-muted-foreground">Verification Progress</span>
           <span className="font-medium">{percentComplete}%</span>
         </div>
         <Progress value={percentComplete} className="h-2" />
@@ -242,13 +242,13 @@ export function KycProgressWidget() {
 
       {missingSteps.length > 0 && (
         <div className="space-y-2 mb-4">
-          <p className="text-xs text-muted-foreground dark:text-muted-foreground font-medium">Remaining Steps:</p>
+          <p className="text-xs text-muted-foreground font-medium">Remaining Steps:</p>
           {missingSteps.slice(0, 3).map((step, index) => (
             <div 
               key={index}
-              className="flex items-center gap-2 text-sm text-muted-foreground dark:text-muted-foreground"
+              className="flex items-center gap-2 text-sm text-muted-foreground"
             >
-              <div className="w-5 h-5 rounded-full border-2 border-border dark:border-border flex items-center justify-center text-xs">
+              <div className="w-5 h-5 rounded-full border-2 border-border flex items-center justify-center text-xs">
                 {index + 1}
               </div>
               {step}
@@ -261,7 +261,7 @@ export function KycProgressWidget() {
       )}
 
       {blockedProducts.length > 0 && (
-        <div className="text-xs text-muted-foreground dark:text-muted-foreground mb-3">
+        <div className="text-xs text-muted-foreground mb-3">
           <Lock className="h-3 w-3 inline mr-1" />
           {blockedProducts.length} products blocked until KYC complete
         </div>

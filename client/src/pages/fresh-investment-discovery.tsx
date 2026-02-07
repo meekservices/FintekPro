@@ -150,7 +150,7 @@ export default function FreshInvestmentDiscovery() {
     if (score >= 90) return { label: 'Excellent Match', color: 'bg-green-500' };
     if (score >= 80) return { label: 'Great Match', color: 'bg-blue-500' };
     if (score >= 70) return { label: 'Good Match', color: 'bg-yellow-500' };
-    return { label: 'Potential Match', color: 'bg-gray-500' };
+    return { label: 'Potential Match', color: 'bg-muted' };
   };
 
   return (
@@ -159,11 +159,11 @@ export default function FreshInvestmentDiscovery() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600">
-              <Sparkles className="w-6 h-6 text-white" />
+              <Sparkles className="w-6 h-6 text-foreground" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Fresh Investment Opportunities</h1>
-              <p className="text-muted-foreground dark:text-muted-foreground">AI-curated investments personalized for your profile</p>
+              <h1 className="text-2xl font-bold text-foreground">Fresh Investment Opportunities</h1>
+              <p className="text-muted-foreground">AI-curated investments personalized for your profile</p>
             </div>
           </div>
           <Button variant="outline" data-testid="button-refresh">
@@ -177,7 +177,7 @@ export default function FreshInvestmentDiscovery() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground">For You</p>
+                <p className="text-xs text-muted-foreground">For You</p>
                 <p className="text-2xl font-bold">{opportunities.length}</p>
               </div>
               <Sparkles className="w-8 h-8 text-purple-400" />
@@ -190,7 +190,7 @@ export default function FreshInvestmentDiscovery() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Trending</p>
+                <p className="text-xs text-muted-foreground">Trending</p>
                 <p className="text-2xl font-bold">{opportunities.filter(o => o.isTrending).length}</p>
               </div>
               <Flame className="w-8 h-8 text-orange-400" />
@@ -203,7 +203,7 @@ export default function FreshInvestmentDiscovery() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground">New Arrivals</p>
+                <p className="text-xs text-muted-foreground">New Arrivals</p>
                 <p className="text-2xl font-bold">{opportunities.filter(o => o.isNew).length}</p>
               </div>
               <Zap className="w-8 h-8 text-yellow-400" />
@@ -216,7 +216,7 @@ export default function FreshInvestmentDiscovery() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Closing Soon</p>
+                <p className="text-xs text-muted-foreground">Closing Soon</p>
                 <p className="text-2xl font-bold text-red-600">{opportunities.filter(o => o.closingDate).length}</p>
               </div>
               <Clock className="w-8 h-8 text-red-400" />
@@ -294,9 +294,9 @@ export default function FreshInvestmentDiscovery() {
           {filteredOpportunities.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
-                <Search className="w-16 h-16 mx-auto text-muted-foreground dark:text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No opportunities found</h3>
-                <p className="text-muted-foreground dark:text-muted-foreground">
+                <Search className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">No opportunities found</h3>
+                <p className="text-muted-foreground">
                   Try adjusting your filters or search criteria
                 </p>
               </CardContent>
@@ -370,15 +370,15 @@ export default function FreshInvestmentDiscovery() {
                       </div>
                       
                       <div className="grid grid-cols-3 gap-3 mb-3">
-                        <div className="text-center p-2 bg-muted dark:bg-muted rounded">
+                        <div className="text-center p-2 bg-muted rounded">
                           <p className="text-xs text-muted-foreground">Min. Investment</p>
                           <p className="font-semibold">{formatCurrency(opportunity.minInvestment)}</p>
                         </div>
-                        <div className="text-center p-2 bg-muted dark:bg-muted rounded">
+                        <div className="text-center p-2 bg-muted rounded">
                           <p className="text-xs text-muted-foreground">Expected Return</p>
                           <p className="font-semibold text-green-600">{opportunity.expectedReturn || 'Varies'}</p>
                         </div>
-                        <div className="text-center p-2 bg-muted dark:bg-muted rounded">
+                        <div className="text-center p-2 bg-muted rounded">
                           <p className="text-xs text-muted-foreground">Rating</p>
                           <p className="font-semibold flex items-center justify-center gap-1">
                             {opportunity.rating} <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />

@@ -302,7 +302,7 @@ export function AgentOverrideControls({
             {isLoading ? (
               <div className="animate-pulse space-y-2">
                 {[1, 2].map((i) => (
-                  <div key={i} className="h-16 bg-gray-100 rounded"></div>
+                  <div key={i} className="h-16 bg-muted rounded"></div>
                 ))}
               </div>
             ) : overridesData?.overrides && overridesData.overrides.length > 0 ? (

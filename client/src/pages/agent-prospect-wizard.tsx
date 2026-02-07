@@ -3469,7 +3469,7 @@ export default function AgentProspectWizard() {
                                         taxSummary.taxStatus === 'All LTCG' ? 'bg-green-100 text-green-800' :
                                         taxSummary.taxStatus === 'All STCG' ? 'bg-amber-100 text-amber-800' :
                                         taxSummary.taxStatus === 'Mixed' ? 'bg-purple-100 text-purple-800' :
-                                        'bg-gray-100 text-gray-800'
+                                        'bg-muted text-foreground'
                                       }`}>
                                         {taxSummary.taxStatus}
                                       </span>
@@ -3588,7 +3588,7 @@ export default function AgentProspectWizard() {
                                                       Exit load
                                                     </span>
                                                   ) : (
-                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-muted text-muted-foreground">
                                                       No exit load
                                                     </span>
                                                   )}
@@ -4019,7 +4019,7 @@ export default function AgentProspectWizard() {
                           setSipLots([{ purchaseDate: '', units: 0 }]);
                         }
                       }}
-                      className="h-4 w-4 rounded border-gray-300"
+                      className="h-4 w-4 rounded border-border"
                     />
                     <span className="text-sm font-medium">SIP Mode</span>
                   </label>
@@ -4796,7 +4796,7 @@ export default function AgentProspectWizard() {
                           <span className="text-sm">{s.sector}</span>
                           <span className="text-sm font-bold text-green-600 dark:text-green-400 whitespace-nowrap">{(s.percentage ?? 0).toFixed(1)}%</span>
                         </div>
-                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div className="w-full bg-muted rounded-full h-2">
                           <div 
                             className="bg-green-500 h-2 rounded-full transition-all duration-300" 
                             style={{ width: `${Math.min(s.percentage || 0, 100)}%` }}
@@ -5434,7 +5434,7 @@ export default function AgentProspectWizard() {
                   { key: 'debt', label: 'Debt', color: 'bg-green-500' },
                   { key: 'hybrid', label: 'Hybrid', color: 'bg-purple-500' },
                   { key: 'gold', label: 'Gold', color: 'bg-yellow-500' },
-                  { key: 'silver', label: 'Silver', color: 'bg-gray-400' },
+                  { key: 'silver', label: 'Silver', color: 'bg-muted-foreground' },
                   { key: 'index', label: 'Index', color: 'bg-indigo-500' },
                   { key: 'international', label: 'International', color: 'bg-cyan-500' },
                   { key: 'reit', label: 'REITs', color: 'bg-orange-500' },
@@ -5517,7 +5517,7 @@ export default function AgentProspectWizard() {
                       { key: 'debt', label: 'Debt', color: 'bg-green-500' },
                       { key: 'hybrid', label: 'Hybrid', color: 'bg-purple-500' },
                       { key: 'gold', label: 'Gold', color: 'bg-yellow-500' },
-                      { key: 'silver', label: 'Silver', color: 'bg-gray-400' },
+                      { key: 'silver', label: 'Silver', color: 'bg-muted-foreground' },
                       { key: 'index', label: 'Index', color: 'bg-indigo-500' },
                       { key: 'international', label: 'International', color: 'bg-cyan-500' },
                       { key: 'reit', label: 'REITs', color: 'bg-orange-500' },
@@ -5546,7 +5546,7 @@ export default function AgentProspectWizard() {
                       { key: 'debt', color: 'bg-green-500' },
                       { key: 'hybrid', color: 'bg-purple-500' },
                       { key: 'gold', color: 'bg-yellow-500' },
-                      { key: 'silver', color: 'bg-gray-400' },
+                      { key: 'silver', color: 'bg-muted-foreground' },
                       { key: 'index', color: 'bg-indigo-500' },
                       { key: 'international', color: 'bg-cyan-500' },
                       { key: 'reit', color: 'bg-orange-500' },
@@ -5750,7 +5750,7 @@ export default function AgentProspectWizard() {
                               placeholder={`Auto: ₹${Math.round(freshInvestmentAmount * (customAllocations.global_advisory / 100)).toLocaleString()}`}
                               value={globalAdvisoryBudget || ''}
                               onChange={(e) => setGlobalAdvisoryBudget(Number(e.target.value) || 0)}
-                              className="max-w-[200px] bg-white dark:bg-gray-800"
+                              className="max-w-[200px] bg-card"
                               data-testid="global-advisory-budget"
                             />
                             <span className="text-xs text-muted-foreground">
@@ -6045,32 +6045,32 @@ export default function AgentProspectWizard() {
                     <CardContent className="space-y-4">
                       {/* Tax Breakdown */}
                       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                        <div className="p-2 bg-white dark:bg-gray-800 rounded-lg">
+                        <div className="p-2 bg-card rounded-lg">
                           <p className="text-xs text-muted-foreground">Short-Term Gains</p>
                           <p className="font-semibold text-amber-700 dark:text-amber-300">{formatCurrency(taxSummary.totalSTCG)}</p>
                           <p className="text-xs text-muted-foreground">Tax: {formatCurrency(taxSummary.stcgTax)}</p>
                         </div>
-                        <div className="p-2 bg-white dark:bg-gray-800 rounded-lg">
+                        <div className="p-2 bg-card rounded-lg">
                           <p className="text-xs text-muted-foreground">Long-Term Gains</p>
                           <p className="font-semibold text-amber-700 dark:text-amber-300">{formatCurrency(taxSummary.totalLTCG)}</p>
                           <p className="text-xs text-muted-foreground">Tax: {formatCurrency(taxSummary.ltcgTax)}</p>
                         </div>
                         {taxSummary.totalSlabGains > 0 && (
-                          <div className="p-2 bg-white dark:bg-gray-800 rounded-lg border border-orange-200 dark:border-orange-700">
+                          <div className="p-2 bg-card rounded-lg border border-orange-200 dark:border-orange-700">
                             <p className="text-xs text-muted-foreground">Debt Fund Gains</p>
                             <p className="font-semibold text-orange-600 dark:text-orange-400">{formatCurrency(taxSummary.totalSlabGains)}</p>
                             <p className="text-xs text-muted-foreground">Tax (30%): {formatCurrency(taxSummary.slabTax)}</p>
                           </div>
                         )}
-                        <div className="p-2 bg-white dark:bg-gray-800 rounded-lg">
+                        <div className="p-2 bg-card rounded-lg">
                           <p className="text-xs text-muted-foreground">H&E Cess (4%)</p>
                           <p className="font-semibold text-purple-600 dark:text-purple-400">{formatCurrency(taxSummary.cess || 0)}</p>
                         </div>
-                        <div className="p-2 bg-white dark:bg-gray-800 rounded-lg">
+                        <div className="p-2 bg-card rounded-lg">
                           <p className="text-xs text-muted-foreground">Exit Loads</p>
                           <p className="font-semibold text-red-600">{formatCurrency(taxSummary.totalExitLoad)}</p>
                         </div>
-                        <div className="p-2 bg-white dark:bg-gray-800 rounded-lg border-2 border-amber-300">
+                        <div className="p-2 bg-card rounded-lg border-2 border-amber-300">
                           <p className="text-xs text-muted-foreground">Net Rebalancing Cost</p>
                           <p className="font-bold text-lg text-amber-800 dark:text-amber-200">{formatCurrency(taxSummary.netRebalancingCost)}</p>
                           <p className="text-xs text-muted-foreground">(Tax + Cess + Exit Load)</p>
@@ -6119,7 +6119,7 @@ export default function AgentProspectWizard() {
 
                       {/* Disclosure */}
                       {taxSummary.disclosure && (
-                        <div className="text-xs text-muted-foreground bg-gray-50 dark:bg-gray-800/50 p-2 rounded-lg border">
+                        <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-lg border">
                           <p className="font-medium mb-1">Tax Calculation Disclosure:</p>
                           <p>{taxSummary.disclosure}</p>
                         </div>
@@ -6233,7 +6233,7 @@ export default function AgentProspectWizard() {
 
                 {/* Disclosure */}
                 {taxSummary.disclosure && (
-                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-xs text-muted-foreground">
+                  <div className="p-3 bg-muted rounded-lg text-xs text-muted-foreground">
                     <p className="font-medium mb-1">Tax Calculation Disclosure:</p>
                     <p>{taxSummary.disclosure}</p>
                   </div>
@@ -6455,7 +6455,7 @@ export default function AgentProspectWizard() {
                 <p className="text-sm text-muted-foreground mb-4">Suggested SIP portfolio based on {riskProfile.riskTolerance} risk profile</p>
                 <div className="space-y-3">
                   {sipRecommendations.map((sip, idx) => (
-                    <div key={idx} className="p-3 bg-white dark:bg-gray-800 rounded-lg border">
+                    <div key={idx} className="p-3 bg-card rounded-lg border">
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-medium text-sm">{sip.fundName}</span>
                         <Badge variant="outline" className="text-cyan-600 border-cyan-300">{formatCurrency(sip.suggestedAmount)}/mo</Badge>

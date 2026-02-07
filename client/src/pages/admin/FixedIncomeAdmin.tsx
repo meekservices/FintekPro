@@ -1496,7 +1496,7 @@ export default function FixedIncomeAdmin({ defaultTab = 'bonds' }: FixedIncomeAd
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Fixed Income Administration</h1>
+          <h1 className="text-2xl font-bold text-foreground">Fixed Income Administration</h1>
           <p className="text-muted-foreground">Manage bonds, NCDs, SGBs, and monitor marketplace activity</p>
         </div>
       </div>

@@ -123,7 +123,7 @@ export default function PreIPOPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900" data-testid="page-title">Pre-IPO Investments</h1>
+          <h1 className="text-3xl font-bold text-foreground" data-testid="page-title">Pre-IPO Investments</h1>
           <p className="text-muted-foreground mt-2">Invest in promising companies before they go public</p>
         </div>
         <div className="flex gap-2">

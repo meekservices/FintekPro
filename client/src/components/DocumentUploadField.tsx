@@ -211,9 +211,9 @@ export function DocumentUploadField({
       </label>
       
       {/* Upload Zone */}
-      <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-gray-400 transition-colors relative">
+      <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-muted-foreground transition-colors relative">
         {isUploading && (
-          <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg">
+          <div className="absolute inset-0 bg-card/80 flex items-center justify-center rounded-lg">
             <div className="flex items-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin" />
               <span className="text-sm">Uploading...</span>

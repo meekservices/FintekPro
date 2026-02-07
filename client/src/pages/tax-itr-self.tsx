@@ -407,15 +407,15 @@ export default function TaxITRSelfPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
           <Label>PAN</Label>
-          <Input value={panContext?.pan || "Loading..."} disabled className="bg-muted dark:bg-muted" data-testid="input-pan" />
+          <Input value={panContext?.pan || "Loading..."} disabled className="bg-muted" data-testid="input-pan" />
         </div>
         <div className="space-y-2">
           <Label>Name</Label>
-          <Input value={panContext?.name || "Loading..."} disabled className="bg-muted dark:bg-muted" data-testid="input-name" />
+          <Input value={panContext?.name || "Loading..."} disabled className="bg-muted" data-testid="input-name" />
         </div>
         <div className="space-y-2">
           <Label>Entity Type</Label>
-          <Input value={panContext?.entityDescription || panContext?.panType?.toUpperCase() || "Individual"} disabled className="bg-muted dark:bg-muted" data-testid="input-entity-type" />
+          <Input value={panContext?.entityDescription || panContext?.panType?.toUpperCase() || "Individual"} disabled className="bg-muted" data-testid="input-entity-type" />
         </div>
         <div className="space-y-2">
           <Label>Assessment Year</Label>
@@ -441,7 +441,7 @@ export default function TaxITRSelfPage() {
 
   const renderIncomeSourcesStep = () => (
     <div className="space-y-6">
-      <p className="text-muted-foreground dark:text-muted-foreground">Select all sources of income you have for this assessment year:</p>
+      <p className="text-muted-foreground">Select all sources of income you have for this assessment year:</p>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {[
@@ -457,7 +457,7 @@ export default function TaxITRSelfPage() {
           return (
             <Card 
               key={source.key} 
-              className={`cursor-pointer transition-all ${isChecked ? 'border-primary bg-primary/5' : 'hover:border-gray-400 dark:hover:border-border'}`}
+              className={`cursor-pointer transition-all ${isChecked ? 'border-primary bg-primary/5' : 'hover:border-muted-foreground'}`}
               onClick={() => setIncomeSources(prev => ({ ...prev, [source.key]: !prev[source.key as keyof IncomeSource] }))}
               data-testid={`card-source-${source.key}`}
             >
@@ -466,9 +466,9 @@ export default function TaxITRSelfPage() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <Icon className="h-4 w-4 text-primary" />
-                    <span className="font-medium dark:text-white">{source.label}</span>
+                    <span className="font-medium">{source.label}</span>
                   </div>
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">{source.desc}</p>
+                  <p className="text-sm text-muted-foreground mt-1">{source.desc}</p>
                 </div>
               </CardContent>
             </Card>
@@ -550,15 +550,15 @@ export default function TaxITRSelfPage() {
         </div>
       </div>
 
-      <div className="p-4 bg-muted dark:bg-muted rounded-lg">
+      <div className="p-4 bg-muted rounded-lg">
         <div className="flex justify-between items-center">
-          <span className="text-muted-foreground dark:text-muted-foreground">Standard Deduction (Auto-applied)</span>
-          <span className="font-semibold dark:text-white">{formatCurrency(salaryDetails.standardDeduction)}</span>
+          <span className="text-muted-foreground">Standard Deduction (Auto-applied)</span>
+          <span className="font-semibold">{formatCurrency(salaryDetails.standardDeduction)}</span>
         </div>
         <Separator className="my-2" />
         <div className="flex justify-between items-center">
-          <span className="font-medium dark:text-white">Net Salary Income</span>
-          <span className="font-bold text-lg dark:text-white">{formatCurrency(totals.salaryIncome)}</span>
+          <span className="font-medium">Net Salary Income</span>
+          <span className="font-bold text-lg">{formatCurrency(totals.salaryIncome)}</span>
         </div>
       </div>
     </div>
@@ -625,9 +625,9 @@ export default function TaxITRSelfPage() {
         </div>
       </div>
 
-      <div className="p-4 bg-muted dark:bg-muted rounded-lg">
+      <div className="p-4 bg-muted rounded-lg">
         <div className="flex justify-between items-center">
-          <span className="font-medium dark:text-white">Income/Loss from House Property</span>
+          <span className="font-medium">Income/Loss from House Property</span>
           <span className={`font-bold text-lg ${totals.housePropertyIncome < 0 ? 'text-red-600' : 'text-green-600'}`}>
             {formatCurrency(totals.housePropertyIncome)}
           </span>
@@ -686,10 +686,10 @@ export default function TaxITRSelfPage() {
         </div>
       </div>
 
-      <div className="p-4 bg-muted dark:bg-muted rounded-lg">
+      <div className="p-4 bg-muted rounded-lg">
         <div className="flex justify-between items-center">
-          <span className="font-medium dark:text-white">Net Capital Gains</span>
-          <span className="font-bold text-lg dark:text-white">{formatCurrency(totals.capitalGains)}</span>
+          <span className="font-medium">Net Capital Gains</span>
+          <span className="font-bold text-lg">{formatCurrency(totals.capitalGains)}</span>
         </div>
       </div>
     </div>
@@ -745,10 +745,10 @@ export default function TaxITRSelfPage() {
         </div>
       </div>
 
-      <div className="p-4 bg-muted dark:bg-muted rounded-lg">
+      <div className="p-4 bg-muted rounded-lg">
         <div className="flex justify-between items-center">
-          <span className="font-medium dark:text-white">Total Other Income</span>
-          <span className="font-bold text-lg dark:text-white">{formatCurrency(totals.otherIncome)}</span>
+          <span className="font-medium">Total Other Income</span>
+          <span className="font-bold text-lg">{formatCurrency(totals.otherIncome)}</span>
         </div>
       </div>
     </div>
@@ -834,9 +834,9 @@ export default function TaxITRSelfPage() {
         </div>
       </div>
 
-      <div className="p-4 bg-muted dark:bg-muted rounded-lg">
+      <div className="p-4 bg-muted rounded-lg">
         <div className="flex justify-between items-center">
-          <span className="font-medium dark:text-white">Total Deductions</span>
+          <span className="font-medium">Total Deductions</span>
           <span className="font-bold text-lg text-green-600">{formatCurrency(totals.totalDeductions)}</span>
         </div>
       </div>
@@ -848,64 +848,64 @@ export default function TaxITRSelfPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="dark:border-border">
           <CardHeader>
-            <CardTitle className="text-lg dark:text-white">Income Summary</CardTitle>
+            <CardTitle className="text-lg">Income Summary</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {incomeSources.hasSalary && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground dark:text-muted-foreground">Salary Income</span>
-                <span className="font-medium dark:text-white">{formatCurrency(totals.salaryIncome)}</span>
+                <span className="text-muted-foreground">Salary Income</span>
+                <span className="font-medium">{formatCurrency(totals.salaryIncome)}</span>
               </div>
             )}
             {incomeSources.hasHouseProperty && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground dark:text-muted-foreground">House Property</span>
-                <span className={`font-medium ${totals.housePropertyIncome < 0 ? 'text-red-600' : 'dark:text-white'}`}>
+                <span className="text-muted-foreground">House Property</span>
+                <span className={`font-medium ${totals.housePropertyIncome < 0 ? 'text-red-600' : 'dark:text-foreground'}`}>
                   {formatCurrency(totals.housePropertyIncome)}
                 </span>
               </div>
             )}
             {incomeSources.hasCapitalGains && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground dark:text-muted-foreground">Capital Gains</span>
-                <span className="font-medium dark:text-white">{formatCurrency(totals.capitalGains)}</span>
+                <span className="text-muted-foreground">Capital Gains</span>
+                <span className="font-medium">{formatCurrency(totals.capitalGains)}</span>
               </div>
             )}
             {incomeSources.hasOtherIncome && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground dark:text-muted-foreground">Other Income</span>
-                <span className="font-medium dark:text-white">{formatCurrency(totals.otherIncome)}</span>
+                <span className="text-muted-foreground">Other Income</span>
+                <span className="font-medium">{formatCurrency(totals.otherIncome)}</span>
               </div>
             )}
             <Separator />
             <div className="flex justify-between font-semibold">
-              <span className="dark:text-white">Gross Total Income</span>
-              <span className="dark:text-white">{formatCurrency(totals.grossTotalIncome)}</span>
+              <span className="dark:text-foreground">Gross Total Income</span>
+              <span className="dark:text-foreground">{formatCurrency(totals.grossTotalIncome)}</span>
             </div>
           </CardContent>
         </Card>
 
         <Card className="dark:border-border">
           <CardHeader>
-            <CardTitle className="text-lg dark:text-white">Tax Computation</CardTitle>
+            <CardTitle className="text-lg">Tax Computation</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between">
-              <span className="text-muted-foreground dark:text-muted-foreground">Gross Total Income</span>
-              <span className="font-medium dark:text-white">{formatCurrency(totals.grossTotalIncome)}</span>
+              <span className="text-muted-foreground">Gross Total Income</span>
+              <span className="font-medium">{formatCurrency(totals.grossTotalIncome)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground dark:text-muted-foreground">Total Deductions</span>
+              <span className="text-muted-foreground">Total Deductions</span>
               <span className="font-medium text-green-600">- {formatCurrency(totals.totalDeductions)}</span>
             </div>
             <Separator />
             <div className="flex justify-between">
-              <span className="font-medium dark:text-white">Taxable Income</span>
-              <span className="font-semibold dark:text-white">{formatCurrency(totals.taxableIncome)}</span>
+              <span className="font-medium">Taxable Income</span>
+              <span className="font-semibold">{formatCurrency(totals.taxableIncome)}</span>
             </div>
             <Separator />
             <div className="flex justify-between text-lg">
-              <span className="font-bold dark:text-white">Tax Payable</span>
+              <span className="font-bold">Tax Payable</span>
               <span className="font-bold text-primary">{formatCurrency(totals.taxPayable)}</span>
             </div>
           </CardContent>
@@ -918,8 +918,8 @@ export default function TaxITRSelfPage() {
             <div className="flex items-center gap-3">
               <FileText className="h-6 w-6 text-primary" />
               <div>
-                <p className="font-semibold dark:text-white">Recommended Form: {recommendedForm}</p>
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Based on your income sources and details</p>
+                <p className="font-semibold">Recommended Form: {recommendedForm}</p>
+                <p className="text-sm text-muted-foreground">Based on your income sources and details</p>
               </div>
             </div>
             <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
@@ -946,7 +946,7 @@ export default function TaxITRSelfPage() {
       return (
         <div className="text-center py-8">
           <Clock className="h-8 w-8 animate-spin mx-auto text-primary" />
-          <p className="mt-2 text-muted-foreground dark:text-muted-foreground">Loading step...</p>
+          <p className="mt-2 text-muted-foreground">Loading step...</p>
         </div>
       );
     }
@@ -969,7 +969,7 @@ export default function TaxITRSelfPage() {
       <div className="container mx-auto p-6 flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <Clock className="h-8 w-8 animate-spin mx-auto text-primary" />
-          <p className="mt-2 text-muted-foreground dark:text-muted-foreground">Loading your details...</p>
+          <p className="mt-2 text-muted-foreground">Loading your details...</p>
         </div>
       </div>
     );
@@ -982,8 +982,8 @@ export default function TaxITRSelfPage() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>
-          <h1 className="text-2xl font-bold dark:text-white">Self-File ITR</h1>
-          <p className="text-muted-foreground dark:text-muted-foreground">Assessment Year {assessmentYear} | Form {recommendedForm}</p>
+          <h1 className="text-2xl font-bold">Self-File ITR</h1>
+          <p className="text-muted-foreground">Assessment Year {assessmentYear} | Form {recommendedForm}</p>
         </div>
       </div>
 
@@ -1015,7 +1015,7 @@ export default function TaxITRSelfPage() {
 
       <Card className="dark:border-border">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 dark:text-white">
+          <CardTitle className="flex items-center gap-2">
             {(() => { const Icon = activeSteps[safeCurrentStep]?.icon || FileText; return <Icon className="h-5 w-5" />; })()}
             {activeSteps[safeCurrentStep]?.title}
           </CardTitle>

@@ -86,7 +86,7 @@ interface ProposalItem {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground",
+  draft: "bg-muted text-muted-foreground",
   pending_review: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
   shared: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
   client_viewed: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300",
@@ -249,7 +249,7 @@ export default function AgentProposalsPage() {
 
   if (proposalsLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950">
+      <div className="min-h-screen bg-gradient-to-br from-background via-blue-50/30 to-indigo-50/30 dark:from-background dark:via-blue-950/30 dark:to-indigo-950/30">
         <div className="container mx-auto p-6">
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3"></div>
@@ -261,15 +261,15 @@ export default function AgentProposalsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950" data-testid="agent-proposals-page">
+    <div className="min-h-screen bg-gradient-to-br from-background via-blue-50/30 to-indigo-50/30 dark:from-background dark:via-blue-950/30 dark:to-indigo-950/30" data-testid="agent-proposals-page">
       <div className="container mx-auto p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
               <FileText className="h-8 w-8 text-primary" />
               Investment Proposals
             </h1>
-            <p className="text-muted-foreground dark:text-muted-foreground">
+            <p className="text-muted-foreground">
               Manage AI-generated proposals and client recommendations
             </p>
           </div>
@@ -503,7 +503,7 @@ export default function AgentProposalsPage() {
                               key={step.key}
                               className={`flex-1 h-8 flex items-center justify-center rounded ${
                                 isCompleted ? 'bg-green-100 dark:bg-green-900' :
-                                isCurrent ? 'bg-primary/20' : 'bg-muted dark:bg-muted'
+                                isCurrent ? 'bg-primary/20' : 'bg-muted'
                               }`}
                               title={step.label}
                             >

@@ -34,7 +34,7 @@ export function DiversificationImpactPreview({ impact, compact = false }: Divers
     ? "text-green-600 bg-green-50" 
     : netImprovement < 0 
     ? "text-red-600 bg-red-50" 
-    : "text-gray-600 bg-gray-50";
+    : "text-muted-foreground bg-muted";
   
   const ImprovementIcon = netImprovement > 0 ? TrendingUp : netImprovement < 0 ? TrendingDown : Minus;
 

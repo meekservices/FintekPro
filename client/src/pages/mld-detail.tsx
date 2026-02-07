@@ -251,7 +251,7 @@ export default function MldDetailPage() {
   }
 
   const { mld, priceHistory = [], monthlyPerformance = [], scenarioPayoffs = [] } = data;
-  const payoffInfo = PAYOFF_TYPE_LABELS[mld.payoffType] || { label: mld.payoffType, color: "bg-gray-500" };
+  const payoffInfo = PAYOFF_TYPE_LABELS[mld.payoffType] || { label: mld.payoffType, color: "bg-muted" };
   const daysToMaturity = mld.maturityDate ? differenceInDays(parseISO(mld.maturityDate), new Date()) : 0;
   const yearsToMaturity = mld.maturityDate ? differenceInYears(parseISO(mld.maturityDate), new Date()) : 0;
 
@@ -279,7 +279,7 @@ export default function MldDetailPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <Badge className={`${payoffInfo.color} text-white`}>{payoffInfo.label}</Badge>
+        <Badge className={`${payoffInfo.color} text-foreground`}>{payoffInfo.label}</Badge>
         {getRatingBadge(mld.creditRating)}
         {getRiskBadge(mld.riskScore)}
         <Badge variant="outline">{mld.listingType === "listed" ? "Listed" : "Unlisted"}</Badge>

@@ -159,7 +159,7 @@ export default function UnlistedRegulatoryCompliance() {
     <div className="container mx-auto p-6 space-y-6" data-testid="regulatory-compliance-page">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white flex items-center gap-2">
+          <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
             <Shield className="h-8 w-8 text-blue-500" />
             Regulatory Compliance Dashboard
           </h1>
@@ -184,7 +184,7 @@ export default function UnlistedRegulatoryCompliance() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-white">{overview.investorLimits.companiesAtLimit}</div>
+                <div className="text-2xl font-bold text-foreground">{overview.investorLimits.companiesAtLimit}</div>
                 <p className="text-xs text-blue-300 mt-1">Companies at limit</p>
                 {overview.investorLimits.companiesNearLimit > 0 && (
                   <Alert className="mt-2 bg-yellow-900/30 border-yellow-700">
@@ -205,7 +205,7 @@ export default function UnlistedRegulatoryCompliance() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-white">{overview.lockIns.activeRecords.toLocaleString()}</div>
+                <div className="text-2xl font-bold text-foreground">{overview.lockIns.activeRecords.toLocaleString()}</div>
                 <p className="text-xs text-purple-300 mt-1">Active lock-in records</p>
                 <div className="flex items-center gap-2 mt-2">
                   <Badge variant="outline" className="border-purple-500 text-purple-300">
@@ -229,7 +229,7 @@ export default function UnlistedRegulatoryCompliance() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-white">{overview.strFlags.pending}</div>
+                <div className="text-2xl font-bold text-foreground">{overview.strFlags.pending}</div>
                 <p className={`text-xs mt-1 ${overview.strFlags.overdue > 0 ? 'text-red-300' : 'text-orange-300'}`}>Pending review</p>
                 {overview.strFlags.overdue > 0 && (
                   <Alert className="mt-2 bg-red-900/50 border-red-600">
@@ -256,7 +256,7 @@ export default function UnlistedRegulatoryCompliance() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-white">{overview.statusChanges.suspended}</div>
+                <div className="text-2xl font-bold text-foreground">{overview.statusChanges.suspended}</div>
                 <p className="text-xs text-emerald-300 mt-1">Trading suspended</p>
                 {overview.statusChanges.listedThisMonth > 0 && (
                   <Badge className="mt-2 bg-green-700">
@@ -506,7 +506,7 @@ export default function UnlistedRegulatoryCompliance() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card className="bg-muted/30">
                   <CardContent className="pt-4 text-center">
-                    <div className="text-3xl font-bold text-white">{overview?.investorLimits.companiesAtLimit || 0}</div>
+                    <div className="text-3xl font-bold text-foreground">{overview?.investorLimits.companiesAtLimit || 0}</div>
                     <p className="text-sm text-red-400">At Limit (200)</p>
                     <p className="text-xs text-muted-foreground mt-1">New investors blocked</p>
                   </CardContent>
@@ -514,7 +514,7 @@ export default function UnlistedRegulatoryCompliance() {
                 
                 <Card className="bg-muted/30">
                   <CardContent className="pt-4 text-center">
-                    <div className="text-3xl font-bold text-white">{overview?.investorLimits.companiesNearLimit || 0}</div>
+                    <div className="text-3xl font-bold text-foreground">{overview?.investorLimits.companiesNearLimit || 0}</div>
                     <p className="text-sm text-yellow-400">Near Limit (180-199)</p>
                     <p className="text-xs text-muted-foreground mt-1">Requires monitoring</p>
                   </CardContent>
@@ -522,7 +522,7 @@ export default function UnlistedRegulatoryCompliance() {
                 
                 <Card className="bg-muted/30">
                   <CardContent className="pt-4 text-center">
-                    <div className="text-3xl font-bold text-white">200</div>
+                    <div className="text-3xl font-bold text-foreground">200</div>
                     <p className="text-sm text-green-400">Max Investors/FY</p>
                     <p className="text-xs text-muted-foreground mt-1">Per company limit</p>
                   </CardContent>
@@ -556,7 +556,7 @@ export default function UnlistedRegulatoryCompliance() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card className="bg-muted/30">
                   <CardContent className="pt-4 text-center">
-                    <div className="text-3xl font-bold text-white">{overview?.lockIns.activeRecords?.toLocaleString() || 0}</div>
+                    <div className="text-3xl font-bold text-foreground">{overview?.lockIns.activeRecords?.toLocaleString() || 0}</div>
                     <p className="text-sm text-purple-400">Active Lock-Ins</p>
                     <p className="text-xs text-muted-foreground mt-1">Currently enforced</p>
                   </CardContent>
@@ -564,7 +564,7 @@ export default function UnlistedRegulatoryCompliance() {
                 
                 <Card className="bg-muted/30">
                   <CardContent className="pt-4 text-center">
-                    <div className="text-3xl font-bold text-white">{overview?.lockIns.sharesLocked?.toLocaleString() || 0}</div>
+                    <div className="text-3xl font-bold text-foreground">{overview?.lockIns.sharesLocked?.toLocaleString() || 0}</div>
                     <p className="text-sm text-blue-400">Shares Locked</p>
                     <p className="text-xs text-muted-foreground mt-1">Cannot be sold yet</p>
                   </CardContent>
@@ -572,7 +572,7 @@ export default function UnlistedRegulatoryCompliance() {
                 
                 <Card className="bg-muted/30">
                   <CardContent className="pt-4 text-center">
-                    <div className="text-3xl font-bold text-white">{overview?.lockIns.unlockingThisMonth || 0}</div>
+                    <div className="text-3xl font-bold text-foreground">{overview?.lockIns.unlockingThisMonth || 0}</div>
                     <p className="text-sm text-green-400">Unlocking This Month</p>
                     <p className="text-xs text-muted-foreground mt-1">Will become tradeable</p>
                   </CardContent>

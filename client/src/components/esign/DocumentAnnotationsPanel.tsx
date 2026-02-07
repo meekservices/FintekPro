@@ -77,7 +77,7 @@ const CATEGORY_CONFIG = {
   correction: { icon: Edit3, label: 'Corrections', color: 'text-amber-600' },
   missing_clause: { icon: Scale, label: 'Missing Clauses', color: 'text-purple-600' },
   compliance: { icon: Shield, label: 'Compliance', color: 'text-red-600' },
-  general: { icon: Info, label: 'General', color: 'text-slate-600' },
+  general: { icon: Info, label: 'General', color: 'text-muted-foreground' },
 };
 
 const SEVERITY_STYLES = {

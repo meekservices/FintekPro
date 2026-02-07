@@ -177,29 +177,29 @@ export function InvestmentModal({ fund, isOpen, onClose }: InvestmentModalProps)
 
         <div className="space-y-6">
           {/* Fund Details */}
-          <div className="bg-gradient-to-br from-finance-blue/10 to-blue-50 dark:from-finance-blue/20 dark:to-gray-800 rounded-lg p-4 border border-finance-blue/20">
+          <div className="bg-gradient-to-br from-finance-blue/10 to-blue-50 dark:from-finance-blue/20 dark:to-card rounded-lg p-4 border border-finance-blue/20">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 bg-finance-blue rounded-lg flex items-center justify-center flex-shrink-0">
-                <Building2 className="h-5 w-5 text-white" />
+                <Building2 className="h-5 w-5 text-foreground" />
               </div>
               <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-1" data-testid="modal-fund-name">
+                <h3 className="font-semibold text-foreground mb-1" data-testid="modal-fund-name">
                   {fund.schemeName}
                 </h3>
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground" data-testid="modal-fund-house">
+                <p className="text-sm text-muted-foreground" data-testid="modal-fund-house">
                   {fund.fundHouse}
                 </p>
                 <div className="flex items-center gap-4 mt-2">
                   <div>
-                    <p className="text-xs text-muted-foreground dark:text-muted-foreground">Current NAV</p>
+                    <p className="text-xs text-muted-foreground">Current NAV</p>
                     <p className="text-lg font-bold text-finance-blue" data-testid="modal-nav-value">
                       ₹{navValue.toFixed(2)}
                     </p>
                   </div>
                   {fund.category && (
                     <div>
-                      <p className="text-xs text-muted-foreground dark:text-muted-foreground">Category</p>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      <p className="text-xs text-muted-foreground">Category</p>
+                      <p className="text-sm font-medium text-foreground">
                         {fund.category}
                       </p>
                     </div>
@@ -226,13 +226,13 @@ export function InvestmentModal({ fund, isOpen, onClose }: InvestmentModalProps)
                 />
                 <Label
                   htmlFor="sip"
-                  className="flex flex-col items-center gap-2 rounded-lg border-2 border-border dark:border-border bg-white dark:bg-muted p-4 cursor-pointer hover:bg-muted dark:hover:bg-gray-700 peer-data-[state=checked]:border-finance-blue peer-data-[state=checked]:bg-finance-blue/5 transition-all"
+                  className="flex flex-col items-center gap-2 rounded-lg border-2 border-border bg-card p-4 cursor-pointer hover:bg-muted peer-data-[state=checked]:border-finance-blue peer-data-[state=checked]:bg-finance-blue/5 transition-all"
                 >
                   <Repeat className="h-8 w-8 text-finance-blue" />
                   <div className="text-center">
                     <p className="font-semibold">SIP</p>
-                    <p className="text-xs text-muted-foreground dark:text-muted-foreground">Systematic Investment Plan</p>
-                    <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">Min ₹{minSipAmount}/month</p>
+                    <p className="text-xs text-muted-foreground">Systematic Investment Plan</p>
+                    <p className="text-xs text-muted-foreground mt-1">Min ₹{minSipAmount}/month</p>
                   </div>
                 </Label>
               </div>
@@ -246,13 +246,13 @@ export function InvestmentModal({ fund, isOpen, onClose }: InvestmentModalProps)
                 />
                 <Label
                   htmlFor="lumpsum"
-                  className="flex flex-col items-center gap-2 rounded-lg border-2 border-border dark:border-border bg-white dark:bg-muted p-4 cursor-pointer hover:bg-muted dark:hover:bg-gray-700 peer-data-[state=checked]:border-finance-blue peer-data-[state=checked]:bg-finance-blue/5 transition-all"
+                  className="flex flex-col items-center gap-2 rounded-lg border-2 border-border bg-card p-4 cursor-pointer hover:bg-muted peer-data-[state=checked]:border-finance-blue peer-data-[state=checked]:bg-finance-blue/5 transition-all"
                 >
                   <DollarSign className="h-8 w-8 text-finance-blue" />
                   <div className="text-center">
                     <p className="font-semibold">Lumpsum</p>
-                    <p className="text-xs text-muted-foreground dark:text-muted-foreground">One-time Investment</p>
-                    <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">Min ₹{minLumpsumAmount}</p>
+                    <p className="text-xs text-muted-foreground">One-time Investment</p>
+                    <p className="text-xs text-muted-foreground mt-1">Min ₹{minLumpsumAmount}</p>
                   </div>
                 </Label>
               </div>
@@ -276,7 +276,7 @@ export function InvestmentModal({ fund, isOpen, onClose }: InvestmentModalProps)
                 data-testid="input-amount"
               />
             </div>
-            <p className="text-xs text-muted-foreground dark:text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               {investmentType === "SIP"
                 ? `Minimum ₹${minSipAmount} per month`
                 : `Minimum ₹${minLumpsumAmount} for one-time investment`}
@@ -318,7 +318,7 @@ export function InvestmentModal({ fund, isOpen, onClose }: InvestmentModalProps)
                     data-testid="input-duration"
                   />
                 </div>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Recommended: 12 months or more for better returns
                 </p>
               </div>
@@ -343,27 +343,27 @@ export function InvestmentModal({ fund, isOpen, onClose }: InvestmentModalProps)
               <h4 className="font-semibold text-green-800 dark:text-green-300 mb-2">Investment Summary</h4>
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground dark:text-muted-foreground">Type:</span>
-                  <span className="font-medium text-gray-900 dark:text-white">{investmentType}</span>
+                  <span className="text-muted-foreground">Type:</span>
+                  <span className="font-medium text-foreground">{investmentType}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground dark:text-muted-foreground">
+                  <span className="text-muted-foreground">
                     {investmentType === "SIP" ? "Monthly Amount:" : "Investment Amount:"}
                   </span>
-                  <span className="font-medium text-gray-900 dark:text-white">₹{parseFloat(amount).toLocaleString()}</span>
+                  <span className="font-medium text-foreground">₹{parseFloat(amount).toLocaleString()}</span>
                 </div>
                 {investmentType === "SIP" && (
                   <>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground dark:text-muted-foreground">Frequency:</span>
-                      <span className="font-medium text-gray-900 dark:text-white">{frequency}</span>
+                      <span className="text-muted-foreground">Frequency:</span>
+                      <span className="font-medium text-foreground">{frequency}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground dark:text-muted-foreground">Duration:</span>
-                      <span className="font-medium text-gray-900 dark:text-white">{duration} months</span>
+                      <span className="text-muted-foreground">Duration:</span>
+                      <span className="font-medium text-foreground">{duration} months</span>
                     </div>
                     <div className="flex justify-between border-t border-green-300 dark:border-green-700 pt-2 mt-2">
-                      <span className="text-foreground dark:text-foreground font-semibold">Total Investment:</span>
+                      <span className="text-foreground font-semibold">Total Investment:</span>
                       <span className="font-bold text-green-600 dark:text-green-400">
                         ₹{(parseFloat(amount) * parseInt(duration)).toLocaleString()}
                       </span>
@@ -380,7 +380,7 @@ export function InvestmentModal({ fund, isOpen, onClose }: InvestmentModalProps)
             <div className="mt-4 border-t pt-4">
               <details className="group">
                 <summary className="flex items-center justify-between cursor-pointer list-none">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <span className="text-sm font-medium text-foreground">
                     View Monthly Performance
                   </span>
                   <span className="text-muted-foreground text-xs group-open:rotate-180 transition-transform">▼</span>

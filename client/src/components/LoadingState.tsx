@@ -284,65 +284,65 @@ export function LoadingState({ variant = 'card', count = 1, className = '' }: Lo
       <div className={`space-y-6 ${className}`} data-testid="loading-agent-dashboard" style={{ minHeight: '600px' }}>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i} className="bg-slate-800/50 border-slate-700">
+            <Card key={i} className="bg-card/50 border-border">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div className="space-y-2">
-                    <Skeleton className="h-4 w-20 bg-slate-700" />
-                    <Skeleton className="h-8 w-28 bg-slate-700" />
+                    <Skeleton className="h-4 w-20 bg-muted" />
+                    <Skeleton className="h-8 w-28 bg-muted" />
                   </div>
-                  <Skeleton className="h-10 w-10 rounded-lg bg-slate-700" />
+                  <Skeleton className="h-10 w-10 rounded-lg bg-muted" />
                 </div>
-                <Skeleton className="h-3 w-16 mt-3 bg-slate-700" />
+                <Skeleton className="h-3 w-16 mt-3 bg-muted" />
               </CardContent>
             </Card>
           ))}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Card className="lg:col-span-2 bg-slate-800/50 border-slate-700">
+          <Card className="lg:col-span-2 bg-card/50 border-border">
             <CardHeader>
-              <Skeleton className="h-6 w-32 bg-slate-700" />
+              <Skeleton className="h-6 w-32 bg-muted" />
             </CardHeader>
             <CardContent>
               <div className="h-64 flex items-end justify-between gap-2">
                 {[45, 72, 58, 35, 68, 42, 55, 78].map((height, i) => (
-                  <Skeleton key={i} className="flex-1 rounded-t bg-slate-700" style={{ height: `${height}%` }} />
+                  <Skeleton key={i} className="flex-1 rounded-t bg-muted" style={{ height: `${height}%` }} />
                 ))}
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-card/50 border-border">
             <CardHeader>
-              <Skeleton className="h-6 w-28 bg-slate-700" />
+              <Skeleton className="h-6 w-28 bg-muted" />
             </CardHeader>
             <CardContent className="space-y-3">
               {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-3">
-                  <Skeleton className="h-8 w-8 rounded-full bg-slate-700" />
+                  <Skeleton className="h-8 w-8 rounded-full bg-muted" />
                   <div className="flex-1 space-y-1">
-                    <Skeleton className="h-4 w-24 bg-slate-700" />
-                    <Skeleton className="h-3 w-16 bg-slate-700" />
+                    <Skeleton className="h-4 w-24 bg-muted" />
+                    <Skeleton className="h-3 w-16 bg-muted" />
                   </div>
-                  <Skeleton className="h-5 w-12 bg-slate-700" />
+                  <Skeleton className="h-5 w-12 bg-muted" />
                 </div>
               ))}
             </CardContent>
           </Card>
         </div>
-        <Card className="bg-slate-800/50 border-slate-700">
+        <Card className="bg-card/50 border-border">
           <CardHeader>
-            <Skeleton className="h-6 w-40 bg-slate-700" />
+            <Skeleton className="h-6 w-40 bg-muted" />
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-4 p-3 border border-slate-700 rounded-lg">
-                  <Skeleton className="h-10 w-10 rounded bg-slate-700" />
+                <div key={i} className="flex items-center gap-4 p-3 border border-border rounded-lg">
+                  <Skeleton className="h-10 w-10 rounded bg-muted" />
                   <div className="flex-1 space-y-2">
-                    <Skeleton className="h-4 w-32 bg-slate-700" />
-                    <Skeleton className="h-3 w-20 bg-slate-700" />
+                    <Skeleton className="h-4 w-32 bg-muted" />
+                    <Skeleton className="h-3 w-20 bg-muted" />
                   </div>
-                  <Skeleton className="h-8 w-20 bg-slate-700" />
+                  <Skeleton className="h-8 w-20 bg-muted" />
                 </div>
               ))}
             </div>

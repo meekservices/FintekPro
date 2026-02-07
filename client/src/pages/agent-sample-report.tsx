@@ -218,12 +218,12 @@ export default function AgentSampleReport() {
   const report = data.report;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Portfolio Analysis Report</h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-1">Sample Report - {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            <h1 className="text-3xl font-bold text-foreground">Portfolio Analysis Report</h1>
+            <p className="text-muted-foreground mt-1">Sample Report - {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
           </div>
           <div className="flex gap-2">
             <Sheet>
@@ -328,13 +328,13 @@ export default function AgentSampleReport() {
               </div>
               <div>
                 <h3 className="font-semibold text-lg" data-testid="text-client-name">{report.client.name}</h3>
-                <p className="text-sm text-gray-500" data-testid="text-client-pan">PAN: {report.client.pan} | Risk Profile: {report.client.riskProfile}</p>
+                <p className="text-sm text-muted-foreground" data-testid="text-client-pan">PAN: {report.client.pan} | Risk Profile: {report.client.riskProfile}</p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-500">Prepared by</p>
+              <p className="text-sm text-muted-foreground">Prepared by</p>
               <p className="font-medium" data-testid="text-agent-name">{report.agent.name}</p>
-              <p className="text-sm text-gray-500" data-testid="text-agent-code">{report.agent.code}</p>
+              <p className="text-sm text-muted-foreground" data-testid="text-agent-code">{report.agent.code}</p>
             </div>
           </CardContent>
         </Card>
@@ -344,8 +344,8 @@ export default function AgentSampleReport() {
             <Card data-testid="card-total-value">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Total Value</span>
-                  <Wallet className="h-4 w-4 text-gray-400" />
+                  <span className="text-sm text-muted-foreground">Total Value</span>
+                  <Wallet className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <p className="text-2xl font-bold mt-2" data-testid="text-total-value">{formatCurrency(report.portfolio.totalValue)}</p>
                 <div className={`flex items-center text-sm mt-1 ${report.portfolio.dayChangePercent >= 0 ? 'text-green-600' : 'text-red-600'}`} data-testid="text-day-change">
@@ -357,8 +357,8 @@ export default function AgentSampleReport() {
             <Card data-testid="card-overall-gain">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Overall Gain</span>
-                  <TrendingUp className="h-4 w-4 text-gray-400" />
+                  <span className="text-sm text-muted-foreground">Overall Gain</span>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <p className="text-2xl font-bold mt-2 text-green-600" data-testid="text-overall-gain">+{formatCurrency(report.portfolio.overallGain)}</p>
                 <p className="text-sm text-green-600">+{report.portfolio.overallGainPercent}%</p>
@@ -367,18 +367,18 @@ export default function AgentSampleReport() {
             <Card data-testid="card-xirr">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">XIRR</span>
-                  <BarChart3 className="h-4 w-4 text-gray-400" />
+                  <span className="text-sm text-muted-foreground">XIRR</span>
+                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <p className="text-2xl font-bold mt-2" data-testid="text-xirr">{report.portfolio.xirr}%</p>
-                <p className="text-sm text-gray-500">Annualized return</p>
+                <p className="text-sm text-muted-foreground">Annualized return</p>
               </CardContent>
             </Card>
             <Card data-testid="card-risk-score">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Risk Score</span>
-                  <Activity className="h-4 w-4 text-gray-400" />
+                  <span className="text-sm text-muted-foreground">Risk Score</span>
+                  <Activity className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <p className="text-2xl font-bold mt-2" data-testid="text-risk-score">{report.riskMetrics.riskScore}/100</p>
                 <Badge variant="secondary" data-testid="badge-risk-category">{report.riskMetrics.riskCategory}</Badge>
@@ -439,7 +439,7 @@ export default function AgentSampleReport() {
                           </div>
                           <div className="text-right">
                             <span className="font-medium" data-testid={`text-allocation-percentage-${index}`}>{item.percentage}%</span>
-                            <span className="text-gray-500 ml-2" data-testid={`text-allocation-value-${index}`}>({formatCurrency(item.value)})</span>
+                            <span className="text-muted-foreground ml-2" data-testid={`text-allocation-value-${index}`}>({formatCurrency(item.value)})</span>
                           </div>
                         </div>
                       ))}
@@ -513,7 +513,7 @@ export default function AgentSampleReport() {
                 <CardContent>
                   <div className="space-y-4" data-testid="list-holdings">
                     {report.topHoldings.map((holding: any, index: number) => (
-                      <div key={index} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800" data-testid={`row-holding-${index}`}>
+                      <div key={index} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted" data-testid={`row-holding-${index}`}>
                         <div className="flex items-center gap-4">
                           <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary">
                             {index + 1}
@@ -534,7 +534,7 @@ export default function AgentSampleReport() {
                         </div>
                         <div className="text-right">
                           <p className="font-bold" data-testid={`text-holding-value-${index}`}>{formatCurrency(holding.value)}</p>
-                          <p className="text-sm text-gray-500" data-testid={`text-holding-percentage-${index}`}>{holding.percentage}% of portfolio</p>
+                          <p className="text-sm text-muted-foreground" data-testid={`text-holding-percentage-${index}`}>{holding.percentage}% of portfolio</p>
                           <p className={`text-sm ${holding.returns1Y >= 0 ? 'text-green-600' : 'text-red-600'}`} data-testid={`text-holding-returns-${index}`}>
                             1Y: {holding.returns1Y >= 0 ? '+' : ''}{holding.returns1Y}%
                           </p>
@@ -579,25 +579,25 @@ export default function AgentSampleReport() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <Card>
                   <CardContent className="p-4 text-center">
-                    <p className="text-sm text-gray-500">Beta</p>
+                    <p className="text-sm text-muted-foreground">Beta</p>
                     <p className="text-2xl font-bold">{report.riskMetrics.beta}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-4 text-center">
-                    <p className="text-sm text-gray-500">Sharpe Ratio</p>
+                    <p className="text-sm text-muted-foreground">Sharpe Ratio</p>
                     <p className="text-2xl font-bold">{report.riskMetrics.sharpeRatio}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-4 text-center">
-                    <p className="text-sm text-gray-500">Std Deviation</p>
+                    <p className="text-sm text-muted-foreground">Std Deviation</p>
                     <p className="text-2xl font-bold">{report.riskMetrics.standardDeviation}%</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-4 text-center">
-                    <p className="text-sm text-gray-500">Max Drawdown</p>
+                    <p className="text-sm text-muted-foreground">Max Drawdown</p>
                     <p className="text-2xl font-bold text-red-600">{report.riskMetrics.maxDrawdown}%</p>
                   </CardContent>
                 </Card>
@@ -620,7 +620,7 @@ export default function AgentSampleReport() {
                         <div className="flex items-center justify-between mb-2">
                           <div>
                             <h4 className="font-semibold" data-testid={`text-goal-name-${index}`}>{goal.name}</h4>
-                            <p className="text-sm text-gray-500" data-testid={`text-goal-date-${index}`}>Target: {new Date(goal.targetDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</p>
+                            <p className="text-sm text-muted-foreground" data-testid={`text-goal-date-${index}`}>Target: {new Date(goal.targetDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</p>
                           </div>
                           <Badge variant={goal.onTrack ? 'default' : 'destructive'} data-testid={`badge-goal-status-${index}`}>
                             {goal.onTrack ? <CheckCircle className="h-3 w-3 mr-1" /> : <AlertTriangle className="h-3 w-3 mr-1" />}
@@ -652,11 +652,11 @@ export default function AgentSampleReport() {
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="font-semibold">Investable Surplus Detected</h3>
-                        <p className="text-gray-500">Based on income and expense analysis</p>
+                        <p className="text-muted-foreground">Based on income and expense analysis</p>
                       </div>
                       <div className="text-right">
                         <p className="text-2xl font-bold text-green-600" data-testid="text-investable-surplus">{formatCurrency(report.freshInvestments.investableSurplus)}</p>
-                        <p className="text-sm text-gray-500" data-testid="text-suggested-allocation">Suggested: {formatCurrency(report.freshInvestments.suggestedAllocation.lumpsum)} Lumpsum + {formatCurrency(report.freshInvestments.suggestedAllocation.sipMonthly)}/mo SIP</p>
+                        <p className="text-sm text-muted-foreground" data-testid="text-suggested-allocation">Suggested: {formatCurrency(report.freshInvestments.suggestedAllocation.lumpsum)} Lumpsum + {formatCurrency(report.freshInvestments.suggestedAllocation.sipMonthly)}/mo SIP</p>
                       </div>
                     </div>
                   </CardContent>
@@ -682,15 +682,15 @@ export default function AgentSampleReport() {
                             </div>
                             <div className="grid grid-cols-3 gap-2 text-sm mt-2">
                               <div>
-                                <p className="text-gray-500">Expected Return</p>
+                                <p className="text-muted-foreground">Expected Return</p>
                                 <p className="font-medium text-green-600" data-testid={`text-lumpsum-return-${index}`}>{fund.expectedReturn}%</p>
                               </div>
                               <div>
-                                <p className="text-gray-500">Risk</p>
+                                <p className="text-muted-foreground">Risk</p>
                                 <p className="font-medium" data-testid={`text-lumpsum-risk-${index}`}>{fund.riskLevel}</p>
                               </div>
                               <div>
-                                <p className="text-gray-500">Rating</p>
+                                <p className="text-muted-foreground">Rating</p>
                                 <div className="flex" data-testid={`stars-lumpsum-rating-${index}`}>
                                   {[...Array(fund.rating)].map((_, i) => (
                                     <Star key={i} className="h-3 w-3 fill-yellow-400 text-yellow-400" />
@@ -698,7 +698,7 @@ export default function AgentSampleReport() {
                                 </div>
                               </div>
                             </div>
-                            <p className="text-sm text-gray-600 mt-2 italic" data-testid={`text-lumpsum-reason-${index}`}>"{fund.reason}"</p>
+                            <p className="text-sm text-muted-foreground mt-2 italic" data-testid={`text-lumpsum-reason-${index}`}>"{fund.reason}"</p>
                             <Button size="sm" className="mt-2 w-full" data-testid={`button-invest-lumpsum-${index}`}>
                               Invest Now
                             </Button>
@@ -727,19 +727,19 @@ export default function AgentSampleReport() {
                             </div>
                             <div className="grid grid-cols-3 gap-2 text-sm mt-2">
                               <div>
-                                <p className="text-gray-500">Suggested SIP</p>
+                                <p className="text-muted-foreground">Suggested SIP</p>
                                 <p className="font-medium" data-testid={`text-sip-suggested-${index}`}>{formatCurrency(fund.suggestedSIP)}/mo</p>
                               </div>
                               <div>
-                                <p className="text-gray-500">Expected</p>
+                                <p className="text-muted-foreground">Expected</p>
                                 <p className="font-medium text-green-600" data-testid={`text-sip-return-${index}`}>{fund.expectedReturn}%</p>
                               </div>
                               <div>
-                                <p className="text-gray-500">Min SIP</p>
+                                <p className="text-muted-foreground">Min SIP</p>
                                 <p className="font-medium" data-testid={`text-sip-min-${index}`}>{formatCurrency(fund.minSIP)}</p>
                               </div>
                             </div>
-                            <p className="text-sm text-gray-600 mt-2 italic" data-testid={`text-sip-reason-${index}`}>"{fund.reason}"</p>
+                            <p className="text-sm text-muted-foreground mt-2 italic" data-testid={`text-sip-reason-${index}`}>"{fund.reason}"</p>
                             <Button size="sm" variant="outline" className="mt-2 w-full" data-testid={`button-start-sip-${index}`}>
                               Start SIP
                             </Button>
@@ -778,7 +778,7 @@ export default function AgentSampleReport() {
                           {insight.type === 'goal' && <Target className="h-4 w-4 text-purple-600" />}
                           <h4 className="font-semibold" data-testid={`text-insight-title-${index}`}>{insight.title}</h4>
                         </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1" data-testid={`text-insight-description-${index}`}>{insight.description}</p>
+                        <p className="text-sm text-muted-foreground mt-1" data-testid={`text-insight-description-${index}`}>{insight.description}</p>
                       </div>
                       {insight.actionable && (
                         <Button size="sm" variant="outline" data-testid={`button-action-${index}`}>Take Action</Button>
@@ -791,12 +791,12 @@ export default function AgentSampleReport() {
           </Card>
         )}
 
-        <Card className="bg-gray-100 dark:bg-gray-800" data-testid="card-disclaimers">
+        <Card className="bg-muted" data-testid="card-disclaimers">
           <CardContent className="p-4">
             <h4 className="font-semibold mb-2 flex items-center gap-2">
               <Shield className="h-4 w-4" /> Disclaimers
             </h4>
-            <ul className="text-xs text-gray-500 space-y-1" data-testid="list-disclaimers">
+            <ul className="text-xs text-muted-foreground space-y-1" data-testid="list-disclaimers">
               {report.disclaimers.map((disclaimer: string, index: number) => (
                 <li key={index} data-testid={`text-disclaimer-${index}`}>• {disclaimer}</li>
               ))}

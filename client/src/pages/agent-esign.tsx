@@ -146,7 +146,7 @@ const STATUS_COLORS: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
   signed: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
   expired: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-  declined: "bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground",
+  declined: "bg-muted text-muted-foreground",
   partial: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
 };
 
@@ -527,7 +527,7 @@ export default function AgentESignPage() {
               <FileText className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
-              <div className="font-medium text-gray-900 dark:text-white">{request.documentName}</div>
+              <div className="font-medium text-foreground">{request.documentName}</div>
               <div className="text-sm text-muted-foreground">{request.documentType}</div>
             </div>
           </div>
@@ -586,7 +586,7 @@ export default function AgentESignPage() {
 
   if (requestsLoading || clientsLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50/30 to-teal-50/30 dark:from-slate-950 dark:via-emerald-950/30 dark:to-teal-950/30">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50/30 to-teal-50/30 dark:from-background dark:via-emerald-950/30 dark:to-teal-950/30">
         <div className="container mx-auto p-6">
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mr-3"></div>
@@ -598,15 +598,15 @@ export default function AgentESignPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50/30 to-teal-50/30 dark:from-slate-950 dark:via-emerald-950/30 dark:to-teal-950/30" data-testid="agent-esign-page">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50/30 to-teal-50/30 dark:from-background dark:via-emerald-950/30 dark:to-teal-950/30" data-testid="agent-esign-page">
       <div className="container mx-auto p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
               <FileSignature className="h-8 w-8 text-emerald-600" />
               Document E-Sign
             </h1>
-            <p className="text-muted-foreground dark:text-muted-foreground">
+            <p className="text-muted-foreground">
               Send documents for electronic signature to your clients
             </p>
           </div>
@@ -881,7 +881,7 @@ export default function AgentESignPage() {
                             <FileText className="h-8 w-8 text-red-600" />
                           )}
                           {uploadedDocumentData && (
-                            <CheckCircle2 className="h-4 w-4 text-emerald-600 absolute -bottom-1 -right-1 bg-white dark:bg-slate-900 rounded-full" />
+                            <CheckCircle2 className="h-4 w-4 text-emerald-600 absolute -bottom-1 -right-1 bg-background rounded-full" />
                           )}
                         </div>
                         <div className="text-left">
@@ -1192,7 +1192,7 @@ export default function AgentESignPage() {
                             <CardContent className="pt-0">
                               <div className="space-y-2">
                                 {signerFields.map((field, fieldIdx) => (
-                                  <div key={field.id} className="flex items-center gap-3 p-2 bg-white dark:bg-slate-900 rounded border">
+                                  <div key={field.id} className="flex items-center gap-3 p-2 bg-background rounded border">
                                     <Badge variant="outline" className="text-xs capitalize">
                                       {field.type}
                                     </Badge>
@@ -1409,7 +1409,7 @@ export default function AgentESignPage() {
                   </div>
                 </div>
 
-                <div className="rounded-lg border p-4 bg-muted dark:bg-card h-64 flex items-center justify-center">
+                <div className="rounded-lg border p-4 bg-muted h-64 flex items-center justify-center">
                   <div className="text-center text-muted-foreground">
                     <FileText className="h-16 w-16 mx-auto mb-4 opacity-50" />
                     <p className="font-medium">Document Preview</p>
@@ -1533,7 +1533,7 @@ export default function AgentESignPage() {
             </DialogHeader>
             <div className={cn("flex gap-4", showAIPanel && "flex-row")}>
               <div className={cn("flex-1", showAIPanel && "w-1/2")}>
-                <div className="h-[55vh] overflow-auto border rounded-lg bg-white dark:bg-slate-900">
+                <div className="h-[55vh] overflow-auto border rounded-lg bg-background">
                   {uploadedDocumentData?.convertedFormat === 'html' && uploadedDocumentData?.htmlContent ? (
                     <div 
                       className="p-6 prose dark:prose-invert max-w-none"

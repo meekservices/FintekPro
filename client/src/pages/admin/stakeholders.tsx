@@ -724,10 +724,10 @@ export default function StakeholdersPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+        <h1 className="text-3xl font-bold text-foreground">
           Stakeholder Management
         </h1>
-        <p className="text-muted-foreground dark:text-muted-foreground mt-2">
+        <p className="text-muted-foreground mt-2">
           Manage clients, partners, agents, and suppliers across your platform
         </p>
       </div>
@@ -736,13 +736,13 @@ export default function StakeholdersPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card data-testid="card-clients-summary">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
               Total Clients
             </CardTitle>
             <Users className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            <div className="text-2xl font-bold text-foreground">
               {loadingStats ? '...' : stats.clients.total}
             </div>
             <p className={`text-xs flex items-center mt-1 ${stats.clients.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -754,13 +754,13 @@ export default function StakeholdersPage() {
 
         <Card data-testid="card-partners-summary">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
               Total Partners
             </CardTitle>
             <Building2 className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            <div className="text-2xl font-bold text-foreground">
               {loadingStats ? '...' : stats.partners.total}
             </div>
             <p className={`text-xs flex items-center mt-1 ${stats.partners.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -772,13 +772,13 @@ export default function StakeholdersPage() {
 
         <Card data-testid="card-agents-summary">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
               Total Agents
             </CardTitle>
             <Headphones className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            <div className="text-2xl font-bold text-foreground">
               {loadingStats ? '...' : stats.agents.total}
             </div>
             <p className={`text-xs flex items-center mt-1 ${stats.agents.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -790,13 +790,13 @@ export default function StakeholdersPage() {
 
         <Card data-testid="card-suppliers-summary">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
               Total Suppliers
             </CardTitle>
             <Package className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            <div className="text-2xl font-bold text-foreground">
               {loadingStats ? '...' : stats.suppliers.total}
             </div>
             <p className={`text-xs flex items-center mt-1 ${stats.suppliers.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -970,12 +970,12 @@ export default function StakeholdersPage() {
                         <TableCell className="font-medium">{user.fullName}</TableCell>
                         <TableCell>
                           <div className="space-y-1 text-sm">
-                            <div className="flex items-center text-muted-foreground dark:text-muted-foreground">
+                            <div className="flex items-center text-muted-foreground">
                               <Mail className="h-3 w-3 mr-2" />
                               {user.email}
                             </div>
                             {user.mobile && (
-                              <div className="flex items-center text-muted-foreground dark:text-muted-foreground">
+                              <div className="flex items-center text-muted-foreground">
                                 <Phone className="h-3 w-3 mr-2" />
                                 {user.mobile}
                               </div>
@@ -1006,7 +1006,7 @@ export default function StakeholdersPage() {
                             className={
                               user.kycStatus === "approved" ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100" :
                               user.kycStatus === "pending" ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100" :
-                              "bg-muted dark:bg-muted text-foreground dark:bg-muted dark:text-gray-100"
+                              "bg-muted text-foreground"
                             }
                           >
                             {user.kycStatus || "Not Started"}
@@ -1101,12 +1101,12 @@ export default function StakeholdersPage() {
                         <TableCell className="font-medium">{partner.companyName}</TableCell>
                         <TableCell>
                           <div className="space-y-1 text-sm">
-                            <div className="flex items-center text-muted-foreground dark:text-muted-foreground">
+                            <div className="flex items-center text-muted-foreground">
                               <Mail className="h-3 w-3 mr-2" />
                               {partner.contactEmail}
                             </div>
                             {partner.contactPhone && (
-                              <div className="flex items-center text-muted-foreground dark:text-muted-foreground">
+                              <div className="flex items-center text-muted-foreground">
                                 <Phone className="h-3 w-3 mr-2" />
                                 {partner.contactPhone}
                               </div>
@@ -1199,12 +1199,12 @@ export default function StakeholdersPage() {
                         <TableCell className="font-medium">{agent.fullName}</TableCell>
                         <TableCell>
                           <div className="space-y-1 text-sm">
-                            <div className="flex items-center text-muted-foreground dark:text-muted-foreground">
+                            <div className="flex items-center text-muted-foreground">
                               <Mail className="h-3 w-3 mr-2" />
                               {agent.email}
                             </div>
                             {agent.phone && (
-                              <div className="flex items-center text-muted-foreground dark:text-muted-foreground">
+                              <div className="flex items-center text-muted-foreground">
                                 <Phone className="h-3 w-3 mr-2" />
                                 {agent.phone}
                               </div>
@@ -1312,13 +1312,13 @@ export default function StakeholdersPage() {
                         <TableCell>
                           <div className="space-y-1 text-sm">
                             {supplier.contactEmail && (
-                              <div className="flex items-center text-muted-foreground dark:text-muted-foreground">
+                              <div className="flex items-center text-muted-foreground">
                                 <Mail className="h-3 w-3 mr-2" />
                                 {supplier.contactEmail}
                               </div>
                             )}
                             {supplier.contactPhone && (
-                              <div className="flex items-center text-muted-foreground dark:text-muted-foreground">
+                              <div className="flex items-center text-muted-foreground">
                                 <Phone className="h-3 w-3 mr-2" />
                                 {supplier.contactPhone}
                               </div>
@@ -1390,7 +1390,7 @@ export default function StakeholdersPage() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Showing page {currentPage} of {totalPages} ({totalCount} total)
           </p>
           <div className="flex gap-2">

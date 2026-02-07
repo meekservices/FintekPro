@@ -193,7 +193,7 @@ function OtherFundsByManager({
           {otherFunds.map((fund) => (
             <div
               key={fund.id}
-              className="p-4 border rounded-lg hover:shadow-md transition-shadow cursor-pointer bg-muted hover:bg-white"
+              className="p-4 border rounded-lg hover:shadow-md transition-shadow cursor-pointer bg-muted hover:bg-card"
               onClick={() => navigate(`/${fund.fundType}/${fund.id}`)}
               data-testid={`other-fund-${fund.id}`}
             >

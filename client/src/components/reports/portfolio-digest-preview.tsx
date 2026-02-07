@@ -52,13 +52,13 @@ export function PortfolioDigestPreview({ userName = 'Investor', period = 'weekly
 
   return (
     <Card className="max-w-2xl mx-auto border-2" data-testid="portfolio-digest-preview">
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 rounded-t-lg">
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-foreground p-6 rounded-t-lg">
         <div className="flex items-center justify-between mb-4">
           <div>
             <p className="text-blue-100">Your {period === 'weekly' ? 'Weekly' : 'Monthly'} Portfolio Digest</p>
             <h2 className="text-2xl font-bold">Hello, {userName}!</h2>
           </div>
-          <Badge variant="secondary" className="bg-white/20 text-white border-0">
+          <Badge variant="secondary" className="bg-card/20 text-foreground border-0">
             <Calendar className="h-3 w-3 mr-1" />
             Dec 26, 2024
           </Badge>
@@ -83,7 +83,7 @@ export function PortfolioDigestPreview({ userName = 'Investor', period = 'weekly
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+          <div className="p-4 bg-muted rounded-lg">
             <div className="flex items-center gap-2 mb-3">
               <TrendingUp className="h-5 w-5 text-green-600" />
               <h3 className="font-semibold">Top Gainers</h3>
@@ -98,7 +98,7 @@ export function PortfolioDigestPreview({ userName = 'Investor', period = 'weekly
             </div>
           </div>
 
-          <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+          <div className="p-4 bg-muted rounded-lg">
             <div className="flex items-center gap-2 mb-3">
               <TrendingDown className="h-5 w-5 text-red-600" />
               <h3 className="font-semibold">Top Losers</h3>

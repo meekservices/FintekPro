@@ -126,17 +126,17 @@ export default function TaxReminderDashboard() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div data-testid="subscription-plan-info">
-              <div className="text-sm text-muted-foreground dark:text-muted-foreground">Plan Type</div>
+              <div className="text-sm text-muted-foreground">Plan Type</div>
               <div className="text-lg font-semibold">{subscription.itrFormType}</div>
             </div>
             <div data-testid="subscription-validity-info">
-              <div className="text-sm text-muted-foreground dark:text-muted-foreground">Valid Until</div>
+              <div className="text-sm text-muted-foreground">Valid Until</div>
               <div className="text-lg font-semibold">
                 {new Date(subscription.validUntil).toLocaleDateString()}
               </div>
             </div>
             <div data-testid="subscription-channels-info">
-              <div className="text-sm text-muted-foreground dark:text-muted-foreground">Notification Channels</div>
+              <div className="text-sm text-muted-foreground">Notification Channels</div>
               <div className="flex gap-2 mt-1">
                 {subscription.reminderChannels.includes('email') && (
                   <Badge variant="outline" className="text-xs">
@@ -174,13 +174,13 @@ export default function TaxReminderDashboard() {
             {upcomingReminder ? (
               <div className="space-y-4">
                 <div>
-                  <div className="text-sm text-muted-foreground dark:text-muted-foreground">Quarter</div>
+                  <div className="text-sm text-muted-foreground">Quarter</div>
                   <div className="text-2xl font-bold text-blue-600">
                     {upcomingReminder.quarter} - FY {upcomingReminder.financialYear}
                   </div>
                 </div>
                 <div>
-                  <div className="text-sm text-muted-foreground dark:text-muted-foreground">Due Date</div>
+                  <div className="text-sm text-muted-foreground">Due Date</div>
                   <div className="text-lg font-semibold">
                     {new Date(upcomingReminder.dueDate).toLocaleDateString('en-IN', { 
                       day: 'numeric', 
@@ -196,7 +196,7 @@ export default function TaxReminderDashboard() {
                   )}
                 </div>
                 <div className="pt-4 border-t">
-                  <div className="text-sm text-muted-foreground dark:text-muted-foreground mb-2">Estimated Tax Liability</div>
+                  <div className="text-sm text-muted-foreground mb-2">Estimated Tax Liability</div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <div className="text-xs text-muted-foreground">STCG (20%)</div>
@@ -297,7 +297,7 @@ export default function TaxReminderDashboard() {
               {pastReminders.map((reminder) => (
                 <div 
                   key={reminder.id}
-                  className="flex items-center justify-between p-4 bg-muted dark:bg-muted rounded-lg"
+                  className="flex items-center justify-between p-4 bg-muted rounded-lg"
                   data-testid={`past-reminder-${reminder.id}`}
                 >
                   <div className="flex items-center gap-4">
@@ -317,13 +317,13 @@ export default function TaxReminderDashboard() {
                       <div className="font-medium">
                         {reminder.quarter} - FY {reminder.financialYear}
                       </div>
-                      <div className="text-sm text-muted-foreground dark:text-muted-foreground">
+                      <div className="text-sm text-muted-foreground">
                         Due: {new Date(reminder.dueDate).toLocaleDateString()}
                       </div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-semibold text-gray-900 dark:text-gray-100">
+                    <div className="font-semibold text-foreground">
                       ₹{parseFloat(reminder.totalTaxLiability).toLocaleString()}
                     </div>
                     <Badge variant={reminder.status === 'paid' ? 'default' : 'secondary'} className="text-xs">

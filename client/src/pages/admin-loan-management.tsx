@@ -241,7 +241,7 @@ export default function AdminLoanManagement() {
     <div className="space-y-6" data-testid="admin-loan-management">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Loan Marketplace Management</h1>
+          <h1 className="text-3xl font-bold text-foreground">Loan Marketplace Management</h1>
           <p className="text-muted-foreground">Manage partner lenders, staff, commissions, and revenue</p>
         </div>
         <Button variant="outline" onClick={() => queryClient.invalidateQueries()} data-testid="refresh-btn">

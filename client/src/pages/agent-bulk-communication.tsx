@@ -378,8 +378,8 @@ export default function AgentBulkCommunication() {
     <div className="space-y-6 p-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">Bulk Communication Hub</h1>
-          <p className="text-slate-400">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Bulk Communication Hub</h1>
+          <p className="text-muted-foreground">
             Create and manage SMS, Email, and WhatsApp campaigns
           </p>
         </div>
@@ -390,10 +390,10 @@ export default function AgentBulkCommunication() {
               Create Campaign
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden bg-slate-900 border-slate-800">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden bg-background border-border">
             <DialogHeader>
-              <DialogTitle className="text-white">Create New Campaign</DialogTitle>
-              <DialogDescription className="text-slate-400">
+              <DialogTitle className="text-foreground">Create New Campaign</DialogTitle>
+              <DialogDescription className="text-muted-foreground">
                 Step {wizardStep} of 5 - {
                   wizardStep === 1 ? 'Channel Selection' :
                   wizardStep === 2 ? 'Recipient Selection' :
@@ -404,25 +404,25 @@ export default function AgentBulkCommunication() {
               </DialogDescription>
             </DialogHeader>
 
-            <Progress value={wizardStep * 20} className="h-2 bg-slate-800" />
+            <Progress value={wizardStep * 20} className="h-2 bg-card" />
 
             <ScrollArea className="max-h-[60vh] pr-4">
               {wizardStep === 1 && (
                 <div className="space-y-6 py-4">
                   <div className="space-y-2">
-                    <Label htmlFor="campaignName" className="text-slate-300">Campaign Name</Label>
+                    <Label htmlFor="campaignName" className="text-muted-foreground">Campaign Name</Label>
                     <Input
                       id="campaignName"
                       value={campaignName}
                       onChange={(e) => setCampaignName(e.target.value)}
                       placeholder="Q4 Investment Updates"
-                      className="bg-slate-800 border-slate-700 text-white"
+                      className="bg-card border-border text-foreground"
                       data-testid="input-campaign-name"
                     />
                   </div>
 
                   <div className="space-y-3">
-                    <Label className="text-slate-300">Select Channel</Label>
+                    <Label className="text-muted-foreground">Select Channel</Label>
                     <div className="grid grid-cols-3 gap-4">
                       {[
                         { id: 'sms', label: 'SMS', icon: Phone, description: 'Direct text messages' },
@@ -435,13 +435,13 @@ export default function AgentBulkCommunication() {
                           className={`cursor-pointer rounded-lg border-2 p-4 transition-all ${
                             selectedChannel === channel.id 
                               ? 'border-emerald-500 bg-emerald-500/10' 
-                              : 'border-slate-700 hover:border-slate-600 bg-slate-800'
+                              : 'border-border hover:border-border bg-card'
                           }`}
                           data-testid={`channel-${channel.id}`}
                         >
-                          <channel.icon className={`h-8 w-8 mb-2 ${selectedChannel === channel.id ? 'text-emerald-500' : 'text-slate-400'}`} />
-                          <h3 className="font-semibold text-white">{channel.label}</h3>
-                          <p className="text-xs text-slate-400">{channel.description}</p>
+                          <channel.icon className={`h-8 w-8 mb-2 ${selectedChannel === channel.id ? 'text-emerald-500' : 'text-muted-foreground'}`} />
+                          <h3 className="font-semibold text-foreground">{channel.label}</h3>
+                          <p className="text-xs text-muted-foreground">{channel.description}</p>
                         </div>
                       ))}
                     </div>
@@ -453,15 +453,15 @@ export default function AgentBulkCommunication() {
                 <div className="space-y-6 py-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-slate-300">KYC Status</Label>
+                      <Label className="text-muted-foreground">KYC Status</Label>
                       <Select 
                         value={recipientFilter.kycStatus || 'all'} 
                         onValueChange={(v) => setRecipientFilter(prev => ({ ...prev, kycStatus: v === 'all' ? undefined : v }))}
                       >
-                        <SelectTrigger className="bg-slate-800 border-slate-700 text-white" data-testid="select-kyc-status">
+                        <SelectTrigger className="bg-card border-border text-foreground" data-testid="select-kyc-status">
                           <SelectValue placeholder="All statuses" />
                         </SelectTrigger>
-                        <SelectContent className="bg-slate-800 border-slate-700">
+                        <SelectContent className="bg-card border-border">
                           <SelectItem value="all">All Statuses</SelectItem>
                           <SelectItem value="verified">Verified</SelectItem>
                           <SelectItem value="pending">Pending</SelectItem>
@@ -471,15 +471,15 @@ export default function AgentBulkCommunication() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-slate-300">Last Interaction (days)</Label>
+                      <Label className="text-muted-foreground">Last Interaction (days)</Label>
                       <Select 
                         value={recipientFilter.lastInteractionDays?.toString() || 'all'}
                         onValueChange={(v) => setRecipientFilter(prev => ({ ...prev, lastInteractionDays: v === 'all' ? undefined : parseInt(v) }))}
                       >
-                        <SelectTrigger className="bg-slate-800 border-slate-700 text-white" data-testid="select-interaction">
+                        <SelectTrigger className="bg-card border-border text-foreground" data-testid="select-interaction">
                           <SelectValue placeholder="Any time" />
                         </SelectTrigger>
-                        <SelectContent className="bg-slate-800 border-slate-700">
+                        <SelectContent className="bg-card border-border">
                           <SelectItem value="all">Any Time</SelectItem>
                           <SelectItem value="7">Last 7 days</SelectItem>
                           <SelectItem value="30">Last 30 days</SelectItem>
@@ -490,31 +490,31 @@ export default function AgentBulkCommunication() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-slate-300">Min Investment Value (₹)</Label>
+                      <Label className="text-muted-foreground">Min Investment Value (₹)</Label>
                       <Input
                         type="number"
                         placeholder="0"
                         value={recipientFilter.minInvestmentValue || ''}
                         onChange={(e) => setRecipientFilter(prev => ({ ...prev, minInvestmentValue: e.target.value ? parseInt(e.target.value) : undefined }))}
-                        className="bg-slate-800 border-slate-700 text-white"
+                        className="bg-card border-border text-foreground"
                         data-testid="input-min-investment"
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-slate-300">Max Investment Value (₹)</Label>
+                      <Label className="text-muted-foreground">Max Investment Value (₹)</Label>
                       <Input
                         type="number"
                         placeholder="No limit"
                         value={recipientFilter.maxInvestmentValue || ''}
                         onChange={(e) => setRecipientFilter(prev => ({ ...prev, maxInvestmentValue: e.target.value ? parseInt(e.target.value) : undefined }))}
-                        className="bg-slate-800 border-slate-700 text-white"
+                        className="bg-card border-border text-foreground"
                         data-testid="input-max-investment"
                       />
                     </div>
                   </div>
 
-                  <Separator className="bg-slate-700" />
+                  <Separator className="bg-muted" />
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -522,24 +522,24 @@ export default function AgentBulkCommunication() {
                         id="selectAll"
                         checked={selectAll}
                         onCheckedChange={handleSelectAll}
-                        className="border-slate-600"
+                        className="border-border"
                         data-testid="checkbox-select-all"
                       />
-                      <Label htmlFor="selectAll" className="text-slate-300">Select All ({filteredClients.length} recipients)</Label>
+                      <Label htmlFor="selectAll" className="text-muted-foreground">Select All ({filteredClients.length} recipients)</Label>
                     </div>
                     <Badge variant="outline" className="text-emerald-400 border-emerald-500/50">
                       {selectedRecipients.length} selected
                     </Badge>
                   </div>
 
-                  <ScrollArea className="h-64 rounded border border-slate-700">
+                  <ScrollArea className="h-64 rounded border border-border">
                     <div className="p-2 space-y-2">
                       {clientsLoading ? (
                         <div className="flex items-center justify-center py-8">
-                          <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                         </div>
                       ) : filteredClients.length === 0 ? (
-                        <div className="text-center py-8 text-slate-400">
+                        <div className="text-center py-8 text-muted-foreground">
                           <Users className="h-8 w-8 mx-auto mb-2" />
                           <p>No clients match your filters</p>
                         </div>
@@ -550,18 +550,18 @@ export default function AgentBulkCommunication() {
                             className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
                               selectedRecipients.includes(client.id) 
                                 ? 'bg-emerald-500/10 border border-emerald-500/30' 
-                                : 'bg-slate-800 hover:bg-slate-750'
+                                : 'bg-card hover:bg-muted'
                             }`}
                             onClick={() => handleRecipientToggle(client.id)}
                             data-testid={`recipient-${client.id}`}
                           >
                             <Checkbox 
                               checked={selectedRecipients.includes(client.id)}
-                              className="border-slate-600"
+                              className="border-border"
                             />
                             <div className="flex-1">
-                              <p className="font-medium text-white">{client.firstName} {client.lastName}</p>
-                              <p className="text-xs text-slate-400">
+                              <p className="font-medium text-foreground">{client.firstName} {client.lastName}</p>
+                              <p className="text-xs text-muted-foreground">
                                 {client.email} • {client.phone}
                               </p>
                             </div>
@@ -581,12 +581,12 @@ export default function AgentBulkCommunication() {
                   {selectedChannel === 'whatsapp' ? (
                     <>
                       <div className="space-y-2">
-                        <Label className="text-slate-300">Select Template</Label>
+                        <Label className="text-muted-foreground">Select Template</Label>
                         <Select onValueChange={handleTemplateSelect} data-testid="select-template">
-                          <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
+                          <SelectTrigger className="bg-card border-border text-foreground">
                             <SelectValue placeholder="Choose a WhatsApp template" />
                           </SelectTrigger>
-                          <SelectContent className="bg-slate-800 border-slate-700">
+                          <SelectContent className="bg-card border-border">
                             {whatsappTemplates?.filter(t => t.status === 'APPROVED').map(template => (
                               <SelectItem key={template.id} value={template.name}>
                                 <div className="flex items-center gap-2">
@@ -601,25 +601,25 @@ export default function AgentBulkCommunication() {
 
                       {selectedTemplate && (
                         <>
-                          <div className="p-4 bg-slate-800 rounded-lg border border-slate-700">
-                            <h4 className="font-medium text-white mb-2">Template Preview</h4>
-                            <p className="text-slate-300 whitespace-pre-wrap">{selectedTemplate.bodyText}</p>
+                          <div className="p-4 bg-card rounded-lg border border-border">
+                            <h4 className="font-medium text-foreground mb-2">Template Preview</h4>
+                            <p className="text-muted-foreground whitespace-pre-wrap">{selectedTemplate.bodyText}</p>
                             {selectedTemplate.footerText && (
-                              <p className="text-xs text-slate-500 mt-2">{selectedTemplate.footerText}</p>
+                              <p className="text-xs text-muted-foreground mt-2">{selectedTemplate.footerText}</p>
                             )}
                           </div>
 
                           {selectedTemplate.variables.length > 0 && (
                             <div className="space-y-4">
-                              <Label className="text-slate-300">Variable Substitution</Label>
+                              <Label className="text-muted-foreground">Variable Substitution</Label>
                               {selectedTemplate.variables.map((variable, index) => (
                                 <div key={index} className="space-y-1">
-                                  <Label className="text-xs text-slate-400">{`{{${index + 1}}}`} - {variable}</Label>
+                                  <Label className="text-xs text-muted-foreground">{`{{${index + 1}}}`} - {variable}</Label>
                                   <Input
                                     placeholder={`Value for ${variable}`}
                                     value={templateVariables[`var${index + 1}`] || ''}
                                     onChange={(e) => setTemplateVariables(prev => ({ ...prev, [`var${index + 1}`]: e.target.value }))}
-                                    className="bg-slate-800 border-slate-700 text-white"
+                                    className="bg-card border-border text-foreground"
                                     data-testid={`input-var-${index + 1}`}
                                   />
                                 </div>
@@ -629,7 +629,7 @@ export default function AgentBulkCommunication() {
 
                           {selectedTemplate.headerType && selectedTemplate.headerType !== 'TEXT' && (
                             <div className="space-y-2">
-                              <Label className="text-slate-300 flex items-center gap-2">
+                              <Label className="text-muted-foreground flex items-center gap-2">
                                 <Image className="h-4 w-4" />
                                 Media URL ({selectedTemplate.headerType.toLowerCase()})
                               </Label>
@@ -638,7 +638,7 @@ export default function AgentBulkCommunication() {
                                 placeholder="https://example.com/media.jpg"
                                 value={mediaUrl}
                                 onChange={(e) => setMediaUrl(e.target.value)}
-                                className="bg-slate-800 border-slate-700 text-white"
+                                className="bg-card border-border text-foreground"
                                 data-testid="input-media-url"
                               />
                             </div>
@@ -649,42 +649,42 @@ export default function AgentBulkCommunication() {
                   ) : selectedChannel === 'email' ? (
                     <>
                       <div className="space-y-2">
-                        <Label className="text-slate-300">Email Subject</Label>
+                        <Label className="text-muted-foreground">Email Subject</Label>
                         <Input
                           value={emailSubject}
                           onChange={(e) => setEmailSubject(e.target.value)}
                           placeholder="Important Update: Your Investment Portfolio"
-                          className="bg-slate-800 border-slate-700 text-white"
+                          className="bg-card border-border text-foreground"
                           data-testid="input-email-subject"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-slate-300">Email Content (HTML)</Label>
+                        <Label className="text-muted-foreground">Email Content (HTML)</Label>
                         <Textarea
                           value={messageContent}
                           onChange={(e) => setMessageContent(e.target.value)}
                           placeholder="<html><body><h1>Hello {{firstName}},</h1><p>Your message here...</p></body></html>"
                           rows={12}
-                          className="bg-slate-800 border-slate-700 text-white font-mono text-sm"
+                          className="bg-card border-border text-foreground font-mono text-sm"
                           data-testid="textarea-email-content"
                         />
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-muted-foreground">
                           Variables: {"{{firstName}}"}, {"{{lastName}}"}, {"{{email}}"}
                         </p>
                       </div>
                     </>
                   ) : (
                     <div className="space-y-2">
-                      <Label className="text-slate-300">SMS Message</Label>
+                      <Label className="text-muted-foreground">SMS Message</Label>
                       <Textarea
                         value={messageContent}
                         onChange={(e) => setMessageContent(e.target.value)}
                         placeholder="Hi {{firstName}}, your investment portfolio has grown by 12% this month! View details at fintekpro.com/portfolio"
                         rows={6}
-                        className="bg-slate-800 border-slate-700 text-white"
+                        className="bg-card border-border text-foreground"
                         data-testid="textarea-sms-content"
                       />
-                      <div className="flex justify-between text-xs text-slate-500">
+                      <div className="flex justify-between text-xs text-muted-foreground">
                         <span>Variables: {"{{firstName}}"}, {"{{lastName}}"}</span>
                         <span>{messageContent.length}/160 characters</span>
                       </div>
@@ -696,33 +696,33 @@ export default function AgentBulkCommunication() {
               {wizardStep === 4 && (
                 <div className="space-y-6 py-4">
                   <div className="space-y-3">
-                    <Label className="text-slate-300">When to send?</Label>
+                    <Label className="text-muted-foreground">When to send?</Label>
                     <div className="grid grid-cols-2 gap-4">
                       <div
                         onClick={() => setScheduleType('now')}
                         className={`cursor-pointer rounded-lg border-2 p-4 transition-all ${
                           scheduleType === 'now' 
                             ? 'border-emerald-500 bg-emerald-500/10' 
-                            : 'border-slate-700 hover:border-slate-600 bg-slate-800'
+                            : 'border-border hover:border-border bg-card'
                         }`}
                         data-testid="schedule-now"
                       >
-                        <Send className={`h-8 w-8 mb-2 ${scheduleType === 'now' ? 'text-emerald-500' : 'text-slate-400'}`} />
-                        <h3 className="font-semibold text-white">Send Immediately</h3>
-                        <p className="text-xs text-slate-400">Campaign will be sent right away</p>
+                        <Send className={`h-8 w-8 mb-2 ${scheduleType === 'now' ? 'text-emerald-500' : 'text-muted-foreground'}`} />
+                        <h3 className="font-semibold text-foreground">Send Immediately</h3>
+                        <p className="text-xs text-muted-foreground">Campaign will be sent right away</p>
                       </div>
                       <div
                         onClick={() => setScheduleType('schedule')}
                         className={`cursor-pointer rounded-lg border-2 p-4 transition-all ${
                           scheduleType === 'schedule' 
                             ? 'border-emerald-500 bg-emerald-500/10' 
-                            : 'border-slate-700 hover:border-slate-600 bg-slate-800'
+                            : 'border-border hover:border-border bg-card'
                         }`}
                         data-testid="schedule-later"
                       >
-                        <Calendar className={`h-8 w-8 mb-2 ${scheduleType === 'schedule' ? 'text-emerald-500' : 'text-slate-400'}`} />
-                        <h3 className="font-semibold text-white">Schedule for Later</h3>
-                        <p className="text-xs text-slate-400">Choose date and time</p>
+                        <Calendar className={`h-8 w-8 mb-2 ${scheduleType === 'schedule' ? 'text-emerald-500' : 'text-muted-foreground'}`} />
+                        <h3 className="font-semibold text-foreground">Schedule for Later</h3>
+                        <p className="text-xs text-muted-foreground">Choose date and time</p>
                       </div>
                     </div>
                   </div>
@@ -730,22 +730,22 @@ export default function AgentBulkCommunication() {
                   {scheduleType === 'schedule' && (
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label className="text-slate-300">Date</Label>
+                        <Label className="text-muted-foreground">Date</Label>
                         <Input
                           type="date"
                           value={scheduledDate}
                           onChange={(e) => setScheduledDate(e.target.value)}
-                          className="bg-slate-800 border-slate-700 text-white"
+                          className="bg-card border-border text-foreground"
                           data-testid="input-schedule-date"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-slate-300">Time</Label>
+                        <Label className="text-muted-foreground">Time</Label>
                         <Input
                           type="time"
                           value={scheduledTime}
                           onChange={(e) => setScheduledTime(e.target.value)}
-                          className="bg-slate-800 border-slate-700 text-white"
+                          className="bg-card border-border text-foreground"
                           data-testid="input-schedule-time"
                         />
                       </div>
@@ -756,9 +756,9 @@ export default function AgentBulkCommunication() {
 
               {wizardStep === 5 && (
                 <div className="space-y-6 py-4">
-                  <Card className="bg-slate-800 border-slate-700">
+                  <Card className="bg-card border-border">
                     <CardHeader className="pb-3">
-                      <CardTitle className="text-lg text-white flex items-center gap-2">
+                      <CardTitle className="text-lg text-foreground flex items-center gap-2">
                         <Eye className="h-5 w-5 text-emerald-500" />
                         Campaign Summary
                       </CardTitle>
@@ -766,36 +766,36 @@ export default function AgentBulkCommunication() {
                     <CardContent className="space-y-4">
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
-                          <span className="text-slate-400">Campaign Name:</span>
-                          <p className="font-medium text-white">{campaignName}</p>
+                          <span className="text-muted-foreground">Campaign Name:</span>
+                          <p className="font-medium text-foreground">{campaignName}</p>
                         </div>
                         <div>
-                          <span className="text-slate-400">Channel:</span>
-                          <p className="font-medium text-white capitalize flex items-center gap-2">
+                          <span className="text-muted-foreground">Channel:</span>
+                          <p className="font-medium text-foreground capitalize flex items-center gap-2">
                             {getChannelIcon(selectedChannel)} {selectedChannel}
                           </p>
                         </div>
                         <div>
-                          <span className="text-slate-400">Recipients:</span>
-                          <p className="font-medium text-white">{selectedRecipients.length} clients</p>
+                          <span className="text-muted-foreground">Recipients:</span>
+                          <p className="font-medium text-foreground">{selectedRecipients.length} clients</p>
                         </div>
                         <div>
-                          <span className="text-slate-400">Schedule:</span>
-                          <p className="font-medium text-white">
+                          <span className="text-muted-foreground">Schedule:</span>
+                          <p className="font-medium text-foreground">
                             {scheduleType === 'now' ? 'Send Immediately' : `${scheduledDate} at ${scheduledTime}`}
                           </p>
                         </div>
                       </div>
 
-                      <Separator className="bg-slate-700" />
+                      <Separator className="bg-muted" />
 
                       <div>
-                        <span className="text-slate-400 text-sm">Message Preview:</span>
-                        <div className="mt-2 p-3 bg-slate-900 rounded-lg border border-slate-700">
+                        <span className="text-muted-foreground text-sm">Message Preview:</span>
+                        <div className="mt-2 p-3 bg-background rounded-lg border border-border">
                           {selectedChannel === 'email' && emailSubject && (
-                            <p className="font-medium text-white mb-2">Subject: {emailSubject}</p>
+                            <p className="font-medium text-foreground mb-2">Subject: {emailSubject}</p>
                           )}
-                          <p className="text-slate-300 whitespace-pre-wrap text-sm">
+                          <p className="text-muted-foreground whitespace-pre-wrap text-sm">
                             {getPreviewMessage() || 'No message content'}
                           </p>
                         </div>
@@ -806,11 +806,11 @@ export default function AgentBulkCommunication() {
               )}
             </ScrollArea>
 
-            <div className="flex justify-between pt-4 border-t border-slate-800">
+            <div className="flex justify-between pt-4 border-t border-border">
               <Button
                 variant="outline"
                 onClick={() => wizardStep > 1 ? setWizardStep(wizardStep - 1) : resetWizard()}
-                className="border-slate-700 text-slate-300"
+                className="border-border text-muted-foreground"
                 data-testid="button-wizard-back"
               >
                 <ChevronLeft className="mr-2 h-4 w-4" />
@@ -854,7 +854,7 @@ export default function AgentBulkCommunication() {
       </div>
 
       <Tabs defaultValue="dashboard" className="space-y-6">
-        <TabsList className="bg-slate-800 border-slate-700">
+        <TabsList className="bg-card border-border">
           <TabsTrigger value="dashboard" className="data-[state=active]:bg-emerald-600" data-testid="tab-dashboard">
             <BarChart3 className="mr-2 h-4 w-4" />
             Dashboard
@@ -867,31 +867,31 @@ export default function AgentBulkCommunication() {
 
         <TabsContent value="dashboard" className="space-y-6">
           <div className="grid gap-4 md:grid-cols-4">
-            <Card className="bg-slate-800 border-slate-700">
+            <Card className="bg-card border-border">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-slate-400">Total Campaigns</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Campaigns</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-white" data-testid="text-total-campaigns">
+                <div className="text-2xl font-bold text-foreground" data-testid="text-total-campaigns">
                   {campaignStats.total}
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-slate-800 border-slate-700">
+            <Card className="bg-card border-border">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-slate-400">Messages Sent</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Messages Sent</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-white" data-testid="text-total-sent">
+                <div className="text-2xl font-bold text-foreground" data-testid="text-total-sent">
                   {campaignStats.sent.toLocaleString()}
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-slate-800 border-slate-700">
+            <Card className="bg-card border-border">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-slate-400">Delivery Rate</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Delivery Rate</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-emerald-500" data-testid="text-delivery-rate">
@@ -900,9 +900,9 @@ export default function AgentBulkCommunication() {
               </CardContent>
             </Card>
 
-            <Card className="bg-slate-800 border-slate-700">
+            <Card className="bg-card border-border">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-slate-400">Read Rate</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Read Rate</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-emerald-500" data-testid="text-read-rate">
@@ -913,10 +913,10 @@ export default function AgentBulkCommunication() {
           </div>
 
           <div className="grid gap-6 md:grid-cols-2">
-            <Card className="bg-slate-800 border-slate-700">
+            <Card className="bg-card border-border">
               <CardHeader>
-                <CardTitle className="text-white">Campaign Performance</CardTitle>
-                <CardDescription className="text-slate-400">Recent campaign metrics</CardDescription>
+                <CardTitle className="text-foreground">Campaign Performance</CardTitle>
+                <CardDescription className="text-muted-foreground">Recent campaign metrics</CardDescription>
               </CardHeader>
               <CardContent>
                 {performanceData.length > 0 ? (
@@ -935,7 +935,7 @@ export default function AgentBulkCommunication() {
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex items-center justify-center h-64 text-slate-400">
+                  <div className="flex items-center justify-center h-64 text-muted-foreground">
                     <div className="text-center">
                       <TrendingUp className="h-12 w-12 mx-auto mb-2 opacity-50" />
                       <p>No campaign data yet</p>
@@ -945,10 +945,10 @@ export default function AgentBulkCommunication() {
               </CardContent>
             </Card>
 
-            <Card className="bg-slate-800 border-slate-700">
+            <Card className="bg-card border-border">
               <CardHeader>
-                <CardTitle className="text-white">Channel Distribution</CardTitle>
-                <CardDescription className="text-slate-400">Campaigns by channel type</CardDescription>
+                <CardTitle className="text-foreground">Channel Distribution</CardTitle>
+                <CardDescription className="text-muted-foreground">Campaigns by channel type</CardDescription>
               </CardHeader>
               <CardContent>
                 {channelBreakdown.length > 0 ? (
@@ -974,7 +974,7 @@ export default function AgentBulkCommunication() {
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex items-center justify-center h-64 text-slate-400">
+                  <div className="flex items-center justify-center h-64 text-muted-foreground">
                     <div className="text-center">
                       <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-50" />
                       <p>No campaigns created yet</p>
@@ -987,16 +987,16 @@ export default function AgentBulkCommunication() {
         </TabsContent>
 
         <TabsContent value="campaigns" className="space-y-4">
-          <Card className="bg-slate-800 border-slate-700">
+          <Card className="bg-card border-border">
             <CardHeader>
-              <CardTitle className="text-white">All Campaigns</CardTitle>
-              <CardDescription className="text-slate-400">Manage and track your communication campaigns</CardDescription>
+              <CardTitle className="text-foreground">All Campaigns</CardTitle>
+              <CardDescription className="text-muted-foreground">Manage and track your communication campaigns</CardDescription>
             </CardHeader>
             <CardContent>
               {!campaigns || campaigns.length === 0 ? (
                 <div className="text-center py-12">
-                  <MessageSquare className="h-12 w-12 mx-auto mb-4 text-slate-500" />
-                  <p className="text-slate-400 mb-4">No campaigns yet</p>
+                  <MessageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground mb-4">No campaigns yet</p>
                   <Button 
                     onClick={() => setIsWizardOpen(true)} 
                     className="bg-emerald-600 hover:bg-emerald-700"
@@ -1011,7 +1011,7 @@ export default function AgentBulkCommunication() {
                   {campaigns.map((campaign) => (
                     <div
                       key={campaign.id}
-                      className="border border-slate-700 rounded-lg p-4 hover:bg-slate-750 transition-colors"
+                      className="border border-border rounded-lg p-4 hover:bg-muted transition-colors"
                       data-testid={`campaign-${campaign.id}`}
                     >
                       <div className="flex items-start justify-between">
@@ -1024,12 +1024,12 @@ export default function AgentBulkCommunication() {
                             }`}>
                               {getChannelIcon(campaign.channel)}
                             </span>
-                            <h3 className="font-semibold text-white" data-testid={`text-campaign-name-${campaign.id}`}>
+                            <h3 className="font-semibold text-foreground" data-testid={`text-campaign-name-${campaign.id}`}>
                               {campaign.name}
                             </h3>
                             {getStatusBadge(campaign.status)}
                           </div>
-                          <p className="text-sm text-slate-400">
+                          <p className="text-sm text-muted-foreground">
                             {campaign.recipientCount} recipients • Created {new Date(campaign.createdAt).toLocaleDateString()}
                           </p>
                         </div>
@@ -1041,7 +1041,7 @@ export default function AgentBulkCommunication() {
                               variant="outline"
                               onClick={() => syncAnalyticsMutation.mutate(campaign.id)}
                               disabled={syncAnalyticsMutation.isPending}
-                              className="border-slate-600 text-slate-300"
+                              className="border-border text-muted-foreground"
                               data-testid={`button-sync-${campaign.id}`}
                             >
                               <RefreshCw className="mr-2 h-4 w-4" />
@@ -1052,41 +1052,41 @@ export default function AgentBulkCommunication() {
                       </div>
 
                       {campaign.sentCount > 0 && (
-                        <div className="mt-4 grid grid-cols-4 gap-4 pt-4 border-t border-slate-700">
+                        <div className="mt-4 grid grid-cols-4 gap-4 pt-4 border-t border-border">
                           <div className="text-center">
-                            <Send className="h-4 w-4 mx-auto mb-1 text-slate-400" />
-                            <p className="text-lg font-semibold text-white">{campaign.sentCount}</p>
-                            <p className="text-xs text-slate-400">Sent</p>
+                            <Send className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
+                            <p className="text-lg font-semibold text-foreground">{campaign.sentCount}</p>
+                            <p className="text-xs text-muted-foreground">Sent</p>
                           </div>
                           <div className="text-center">
                             <CheckCircle className="h-4 w-4 mx-auto mb-1 text-emerald-400" />
-                            <p className="text-lg font-semibold text-white">
+                            <p className="text-lg font-semibold text-foreground">
                               {campaign.deliveredCount}
-                              <span className="text-xs text-slate-400 ml-1">
+                              <span className="text-xs text-muted-foreground ml-1">
                                 ({campaign.sentCount > 0 ? ((campaign.deliveredCount / campaign.sentCount) * 100).toFixed(1) : 0}%)
                               </span>
                             </p>
-                            <p className="text-xs text-slate-400">Delivered</p>
+                            <p className="text-xs text-muted-foreground">Delivered</p>
                           </div>
                           <div className="text-center">
                             <Eye className="h-4 w-4 mx-auto mb-1 text-blue-400" />
-                            <p className="text-lg font-semibold text-white">
+                            <p className="text-lg font-semibold text-foreground">
                               {campaign.readCount}
-                              <span className="text-xs text-slate-400 ml-1">
+                              <span className="text-xs text-muted-foreground ml-1">
                                 ({campaign.deliveredCount > 0 ? ((campaign.readCount / campaign.deliveredCount) * 100).toFixed(1) : 0}%)
                               </span>
                             </p>
-                            <p className="text-xs text-slate-400">Read</p>
+                            <p className="text-xs text-muted-foreground">Read</p>
                           </div>
                           <div className="text-center">
                             <XCircle className="h-4 w-4 mx-auto mb-1 text-red-400" />
-                            <p className="text-lg font-semibold text-white">
+                            <p className="text-lg font-semibold text-foreground">
                               {campaign.failedCount}
-                              <span className="text-xs text-slate-400 ml-1">
+                              <span className="text-xs text-muted-foreground ml-1">
                                 ({campaign.sentCount > 0 ? ((campaign.failedCount / campaign.sentCount) * 100).toFixed(1) : 0}%)
                               </span>
                             </p>
-                            <p className="text-xs text-slate-400">Failed</p>
+                            <p className="text-xs text-muted-foreground">Failed</p>
                           </div>
                         </div>
                       )}

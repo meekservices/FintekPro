@@ -138,7 +138,7 @@ export default function ApiMonitorDemo() {
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Individual API Status Monitor</h1>
+          <h1 className="text-4xl font-bold text-foreground mb-2">Individual API Status Monitor</h1>
           <p className="text-muted-foreground">Real-time monitoring of all integrated financial services</p>
         </div>
 
@@ -147,7 +147,7 @@ export default function ApiMonitorDemo() {
           <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b-2 border-blue-200">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="p-2 rounded-full bg-white bg-opacity-50">
+                <div className="p-2 rounded-full bg-card bg-opacity-50">
                   {getStatusIcon((apiStatus as ApiStatusData)?.overall || 'unknown')}
                 </div>
                 <div>
@@ -213,11 +213,11 @@ export default function ApiMonitorDemo() {
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-white bg-opacity-70 shadow-sm">
+                        <div className="p-2 rounded-lg bg-card bg-opacity-70 shadow-sm">
                           {getApiTypeIcon(api.name)}
                         </div>
                         <div className="flex-1">
-                          <CardTitle className="text-lg text-gray-900 leading-tight">
+                          <CardTitle className="text-lg text-foreground leading-tight">
                             {api.name || key}
                           </CardTitle>
                           <Badge 
@@ -239,13 +239,13 @@ export default function ApiMonitorDemo() {
                       
                       {/* Performance Metrics */}
                       <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-white bg-opacity-60 p-3 rounded-lg border">
+                        <div className="bg-card bg-opacity-60 p-3 rounded-lg border">
                           <div className="text-xs text-muted-foreground mb-1 font-medium">Response Time</div>
                           <div className={`text-sm font-bold ${getResponseTimeColor(api.responseTime)}`}>
                             {api.responseTime || 'N/A'}
                           </div>
                         </div>
-                        <div className="bg-white bg-opacity-60 p-3 rounded-lg border">
+                        <div className="bg-card bg-opacity-60 p-3 rounded-lg border">
                           <div className="text-xs text-muted-foreground mb-1 font-medium">Last Check</div>
                           <div className="text-sm font-medium text-muted-foreground">
                             {api.lastChecked ? new Date(api.lastChecked).toLocaleTimeString([], { 

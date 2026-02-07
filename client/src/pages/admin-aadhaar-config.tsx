@@ -503,7 +503,7 @@ export default function AdminAadhaarConfig() {
                           data-testid={`usage-provider-${provider.provider}`}
                         >
                           <div className="flex items-center gap-3">
-                            <div className={`w-3 h-3 rounded-full ${provider.isActive ? 'bg-green-500' : 'bg-gray-400'}`} />
+                            <div className={`w-3 h-3 rounded-full ${provider.isActive ? 'bg-green-500' : 'bg-muted-foreground'}`} />
                             <div>
                               <p className="font-medium">{provider.name}</p>
                               <p className="text-sm text-muted-foreground">

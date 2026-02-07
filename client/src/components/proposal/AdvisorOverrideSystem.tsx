@@ -171,7 +171,7 @@ export function AdvisorOverrideSystem({
                 </span>
               </div>
               
-              <div className="text-xs text-muted-foreground bg-white/50 dark:bg-gray-800/50 rounded p-2 space-y-1">
+              <div className="text-xs text-muted-foreground bg-card/50/50 rounded p-2 space-y-1">
                 <div className="flex items-center gap-1">
                   <MessageSquare className="h-3 w-3" />
                   <span className="font-medium">Override Reason:</span>

@@ -48,7 +48,7 @@ export function RebalancingAlerts({ portfolioId }: RebalancingAlertProps) {
     { assetClass: 'Small Cap', target: 15, current: 12, drift: -3, color: 'bg-purple-500' },
     { assetClass: 'Debt', target: 15, current: 17, drift: 2, color: 'bg-orange-500' },
     { assetClass: 'Gold', target: 7, current: 5, drift: -2, color: 'bg-yellow-500' },
-    { assetClass: 'Cash', target: 3, current: 3, drift: 0, color: 'bg-gray-500' },
+    { assetClass: 'Cash', target: 3, current: 3, drift: 0, color: 'bg-muted' },
   ];
 
   const driftingAssets = useMemo(() => {
@@ -104,7 +104,7 @@ export function RebalancingAlerts({ portfolioId }: RebalancingAlertProps) {
       
       <CardContent className="space-y-4">
         {showSettings && (
-          <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg space-y-4 mb-4">
+          <div className="p-4 bg-muted rounded-lg space-y-4 mb-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium">Enable Alerts</p>
@@ -166,7 +166,7 @@ export function RebalancingAlerts({ portfolioId }: RebalancingAlertProps) {
                     )}
                   </div>
                 </div>
-                <div className="relative h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div className="relative h-2 bg-muted rounded-full overflow-hidden">
                   <div 
                     className={`absolute h-full ${allocation.color} opacity-30`}
                     style={{ width: `${allocation.target}%` }}

@@ -146,7 +146,7 @@ export default function PartnerAgentDashboard() {
   const getStatusBadge = (status: string) => {
     const colors: Record<string, string> = {
       active: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
-      inactive: 'bg-muted text-muted-foreground dark:bg-gray-700 dark:text-muted-foreground',
+      inactive: 'bg-muted text-muted-foreground',
       pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300'
     };
     return colors[status] || colors.pending;
@@ -166,11 +166,11 @@ export default function PartnerAgentDashboard() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600">
-              <Building2 className="w-6 h-6 text-white" />
+              <Building2 className="w-6 h-6 text-foreground" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Agent Cost Center Dashboard</h1>
-              <p className="text-muted-foreground dark:text-muted-foreground">Manage your agents as cost centers with P&L tracking</p>
+              <h1 className="text-2xl font-bold text-foreground">Agent Cost Center Dashboard</h1>
+              <p className="text-muted-foreground">Manage your agents as cost centers with P&L tracking</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -198,7 +198,7 @@ export default function PartnerAgentDashboard() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Total Revenue</p>
+                <p className="text-xs text-muted-foreground">Total Revenue</p>
                 <p className="text-xl font-bold text-green-600">{formatCompact(aggregateMetrics.totalRevenue)}</p>
               </div>
               <TrendingUp className="w-8 h-8 text-green-400" />
@@ -211,7 +211,7 @@ export default function PartnerAgentDashboard() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Total Expenses</p>
+                <p className="text-xs text-muted-foreground">Total Expenses</p>
                 <p className="text-xl font-bold text-red-600">{formatCompact(aggregateMetrics.totalExpenses)}</p>
               </div>
               <Receipt className="w-8 h-8 text-red-400" />
@@ -224,7 +224,7 @@ export default function PartnerAgentDashboard() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Net P&L</p>
+                <p className="text-xs text-muted-foreground">Net P&L</p>
                 <p className="text-xl font-bold text-blue-600">{formatCompact(aggregateMetrics.netPL)}</p>
               </div>
               <Calculator className="w-8 h-8 text-blue-400" />
@@ -237,7 +237,7 @@ export default function PartnerAgentDashboard() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Pending Payouts</p>
+                <p className="text-xs text-muted-foreground">Pending Payouts</p>
                 <p className="text-xl font-bold text-amber-600">{formatCompact(aggregateMetrics.pendingPayouts)}</p>
               </div>
               <Wallet className="w-8 h-8 text-amber-400" />
@@ -250,7 +250,7 @@ export default function PartnerAgentDashboard() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Active Agents</p>
+                <p className="text-xs text-muted-foreground">Active Agents</p>
                 <p className="text-xl font-bold">{aggregateMetrics.activeAgents}/{aggregateMetrics.totalAgents}</p>
               </div>
               <Users className="w-8 h-8 text-purple-400" />
@@ -319,7 +319,7 @@ export default function PartnerAgentDashboard() {
                     .sort((a, b) => b.performanceScore - a.performanceScore)
                     .slice(0, 5)
                     .map((agent, index) => (
-                      <div key={agent.id} className="flex items-center justify-between p-3 bg-muted dark:bg-muted rounded-lg">
+                      <div key={agent.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                         <div className="flex items-center gap-3">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
                             index === 0 ? 'bg-yellow-100 text-yellow-700' :
@@ -357,19 +357,19 @@ export default function PartnerAgentDashboard() {
               <CardContent>
                 <div className="grid grid-cols-4 gap-4 text-center">
                   <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">Revenue Growth</p>
+                    <p className="text-sm text-muted-foreground">Revenue Growth</p>
                     <p className="text-2xl font-bold text-green-600">+18%</p>
                   </div>
                   <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">Client Growth</p>
+                    <p className="text-sm text-muted-foreground">Client Growth</p>
                     <p className="text-2xl font-bold text-blue-600">+12%</p>
                   </div>
                   <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">Avg Performance</p>
+                    <p className="text-sm text-muted-foreground">Avg Performance</p>
                     <p className="text-2xl font-bold text-purple-600">{aggregateMetrics.avgPerformance}%</p>
                   </div>
                   <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">Commission Rate</p>
+                    <p className="text-sm text-muted-foreground">Commission Rate</p>
                     <p className="text-2xl font-bold text-amber-600">30%</p>
                   </div>
                 </div>
@@ -574,7 +574,7 @@ export default function PartnerAgentDashboard() {
                     data-testid={`payout-row-${agent.id}`}
                   >
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center text-foreground font-bold">
                         {agent.name.charAt(0)}
                       </div>
                       <div>
@@ -603,14 +603,14 @@ export default function PartnerAgentDashboard() {
                 {agents.filter(a => a.pendingPayout > 0).length === 0 && (
                   <div className="text-center py-8">
                     <CheckCircle className="w-12 h-12 mx-auto text-green-500 mb-3" />
-                    <p className="text-muted-foreground dark:text-muted-foreground">All payouts are up to date</p>
+                    <p className="text-muted-foreground">All payouts are up to date</p>
                   </div>
                 )}
               </div>
             </CardContent>
             <CardFooter className="border-t pt-4">
               <div className="flex justify-between items-center w-full">
-                <p className="text-muted-foreground dark:text-muted-foreground">
+                <p className="text-muted-foreground">
                   Total pending: <span className="font-bold text-amber-600">{formatCurrency(aggregateMetrics.pendingPayouts)}</span>
                 </p>
                 <Button className="bg-gradient-to-r from-blue-600 to-indigo-600" data-testid="button-bulk-payout">
@@ -631,11 +631,11 @@ export default function PartnerAgentDashboard() {
           {selectedAgent && (
             <div className="space-y-6 py-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-muted dark:bg-muted rounded-lg">
+                <div className="p-4 bg-muted rounded-lg">
                   <p className="text-sm text-muted-foreground">Join Date</p>
                   <p className="font-medium">{format(new Date(selectedAgent.joinDate), 'dd MMM yyyy')}</p>
                 </div>
-                <div className="p-4 bg-muted dark:bg-muted rounded-lg">
+                <div className="p-4 bg-muted rounded-lg">
                   <p className="text-sm text-muted-foreground">Last Activity</p>
                   <p className="font-medium">{format(new Date(selectedAgent.lastActivityDate), 'dd MMM yyyy')}</p>
                 </div>
@@ -645,15 +645,15 @@ export default function PartnerAgentDashboard() {
               
               <div className="grid grid-cols-3 gap-4">
                 <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">Total Revenue</p>
+                  <p className="text-sm text-muted-foreground">Total Revenue</p>
                   <p className="text-2xl font-bold text-green-600">{formatCurrency(selectedAgent.totalRevenue)}</p>
                 </div>
                 <div className="text-center p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">Total Expenses</p>
+                  <p className="text-sm text-muted-foreground">Total Expenses</p>
                   <p className="text-2xl font-bold text-red-600">{formatCurrency(selectedAgent.totalExpenses)}</p>
                 </div>
                 <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">Net P&L</p>
+                  <p className="text-sm text-muted-foreground">Net P&L</p>
                   <p className="text-2xl font-bold text-blue-600">{formatCurrency(selectedAgent.netPL)}</p>
                 </div>
               </div>
@@ -661,29 +661,29 @@ export default function PartnerAgentDashboard() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 border rounded-lg">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-muted-foreground dark:text-muted-foreground">Clients Acquired</span>
+                    <span className="text-muted-foreground">Clients Acquired</span>
                     <span className="font-bold">{selectedAgent.clientsAcquired}</span>
                   </div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-muted-foreground dark:text-muted-foreground">Deals Converted</span>
+                    <span className="text-muted-foreground">Deals Converted</span>
                     <span className="font-bold">{selectedAgent.dealsConverted}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground dark:text-muted-foreground">Conversion Rate</span>
+                    <span className="text-muted-foreground">Conversion Rate</span>
                     <span className="font-bold">{Math.round((selectedAgent.dealsConverted / selectedAgent.clientsAcquired) * 100)}%</span>
                   </div>
                 </div>
                 <div className="p-4 border rounded-lg">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-muted-foreground dark:text-muted-foreground">Commission Earned</span>
+                    <span className="text-muted-foreground">Commission Earned</span>
                     <span className="font-bold text-amber-600">{formatCurrency(selectedAgent.commissionEarned)}</span>
                   </div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-muted-foreground dark:text-muted-foreground">Paid Out</span>
+                    <span className="text-muted-foreground">Paid Out</span>
                     <span className="font-bold text-green-600">{formatCurrency(selectedAgent.commissionPaid)}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground dark:text-muted-foreground">Pending</span>
+                    <span className="text-muted-foreground">Pending</span>
                     <span className="font-bold text-red-600">{formatCurrency(selectedAgent.pendingPayout)}</span>
                   </div>
                 </div>
@@ -695,7 +695,7 @@ export default function PartnerAgentDashboard() {
                   <span className="font-bold text-purple-600">{selectedAgent.performanceScore}%</span>
                 </div>
                 <Progress value={selectedAgent.performanceScore} className="h-3" />
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-2">
+                <p className="text-sm text-muted-foreground mt-2">
                   Target Achievement: {selectedAgent.targetAchievement}%
                 </p>
               </div>

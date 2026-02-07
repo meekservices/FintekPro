@@ -83,7 +83,7 @@ const getRiskBadgeColor = (risk: string) => {
     case "very_aggressive":
       return "bg-red-500/20 text-red-400 border-red-500/30";
     default:
-      return "bg-slate-500/20 text-slate-400 border-slate-500/30";
+      return "bg-muted/20 text-muted-foreground border-border/30";
   }
 };
 
@@ -117,33 +117,33 @@ export default function AgentKnowledgeProducts() {
     <div className="p-6 space-y-6">
       <div className="flex items-center gap-4">
         <Link href="/agent/knowledge-hub">
-          <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
+          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
             <ChevronLeft className="h-4 w-4 mr-1" />
             Back
           </Button>
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <FileCheck className="h-7 w-7 text-emerald-500" />
             Product Knowledge Cards
           </h1>
-          <p className="text-slate-400 mt-1">Comprehensive product information for client discussions</p>
+          <p className="text-muted-foreground mt-1">Comprehensive product information for client discussions</p>
         </div>
       </div>
 
       <div className="flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search products..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-slate-900 border-slate-700 text-white"
+            className="pl-10 bg-background border-border text-foreground"
             data-testid="input-search"
           />
         </div>
         <Select value={productType} onValueChange={setProductType}>
-          <SelectTrigger className="w-48 bg-slate-900 border-slate-700" data-testid="select-product-type">
+          <SelectTrigger className="w-48 bg-background border-border" data-testid="select-product-type">
             <Filter className="h-4 w-4 mr-2" />
             <SelectValue placeholder="Product Type" />
           </SelectTrigger>
@@ -156,7 +156,7 @@ export default function AgentKnowledgeProducts() {
           </SelectContent>
         </Select>
         <Select value={riskProfile} onValueChange={setRiskProfile}>
-          <SelectTrigger className="w-48 bg-slate-900 border-slate-700" data-testid="select-risk-profile">
+          <SelectTrigger className="w-48 bg-background border-border" data-testid="select-risk-profile">
             <SelectValue placeholder="Risk Profile" />
           </SelectTrigger>
           <SelectContent>
@@ -172,7 +172,7 @@ export default function AgentKnowledgeProducts() {
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Skeleton key={i} className="h-48 bg-slate-800" />
+            <Skeleton key={i} className="h-48 bg-card" />
           ))}
         </div>
       ) : filteredProducts && filteredProducts.length > 0 ? (
@@ -180,16 +180,16 @@ export default function AgentKnowledgeProducts() {
           {filteredProducts.map((product) => (
             <Card
               key={product.id}
-              className="bg-slate-900 border-slate-700 hover:border-slate-600 cursor-pointer transition-colors"
+              className="bg-background border-border hover:border-border cursor-pointer transition-colors"
               onClick={() => setSelectedProduct(product)}
               data-testid={`card-product-${product.id}`}
             >
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">
                   <div>
-                    <CardTitle className="text-white text-lg">{product.title}</CardTitle>
+                    <CardTitle className="text-foreground text-lg">{product.title}</CardTitle>
                     {product.productCategory && (
-                      <CardDescription className="text-slate-500 text-xs">
+                      <CardDescription className="text-muted-foreground text-xs">
                         {product.productCategory}
                       </CardDescription>
                     )}
@@ -200,12 +200,12 @@ export default function AgentKnowledgeProducts() {
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-slate-400 text-sm line-clamp-2 mb-3">{product.description}</p>
+                <p className="text-muted-foreground text-sm line-clamp-2 mb-3">{product.description}</p>
                 <div className="flex items-center justify-between">
-                  <Badge variant="outline" className="text-xs border-slate-600">
+                  <Badge variant="outline" className="text-xs border-border">
                     {product.productType.replace(/_/g, " ")}
                   </Badge>
-                  <span className="text-xs text-slate-500">v{product.version}</span>
+                  <span className="text-xs text-muted-foreground">v{product.version}</span>
                 </div>
                 {product.tags && product.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-2">
@@ -213,7 +213,7 @@ export default function AgentKnowledgeProducts() {
                       <Badge
                         key={idx}
                         variant="outline"
-                        className="text-xs border-slate-700 text-slate-400"
+                        className="text-xs border-border text-muted-foreground"
                       >
                         <Tag className="h-2 w-2 mr-1" />
                         {tag}
@@ -226,11 +226,11 @@ export default function AgentKnowledgeProducts() {
           ))}
         </div>
       ) : (
-        <Card className="bg-slate-900 border-slate-700">
+        <Card className="bg-background border-border">
           <CardContent className="p-8 text-center">
-            <BookOpen className="h-16 w-16 text-slate-600 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-white mb-2">No Products Found</h3>
-            <p className="text-slate-400">
+            <BookOpen className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-foreground mb-2">No Products Found</h3>
+            <p className="text-muted-foreground">
               {searchTerm
                 ? "Try adjusting your search or filters"
                 : "Product knowledge cards will appear here once added"}
@@ -240,16 +240,16 @@ export default function AgentKnowledgeProducts() {
       )}
 
       <Dialog open={!!selectedProduct} onOpenChange={() => setSelectedProduct(null)}>
-        <DialogContent className="max-w-3xl max-h-[90vh] bg-slate-900 border-slate-700">
+        <DialogContent className="max-w-3xl max-h-[90vh] bg-background border-border">
           {selectedProduct && (
             <>
               <DialogHeader>
                 <div className="flex items-start justify-between">
                   <div>
-                    <DialogTitle className="text-white text-xl">
+                    <DialogTitle className="text-foreground text-xl">
                       {selectedProduct.title}
                     </DialogTitle>
-                    <DialogDescription className="text-slate-400">
+                    <DialogDescription className="text-muted-foreground">
                       {selectedProduct.productCategory && `${selectedProduct.productCategory} • `}{selectedProduct.productType.replace(/_/g, " ")}
                     </DialogDescription>
                   </div>
@@ -260,7 +260,7 @@ export default function AgentKnowledgeProducts() {
               </DialogHeader>
               <ScrollArea className="max-h-[60vh]">
                 <Tabs defaultValue="overview" className="w-full">
-                  <TabsList className="bg-slate-800 mb-4">
+                  <TabsList className="bg-card mb-4">
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                     <TabsTrigger value="suitability">Suitability</TabsTrigger>
                     <TabsTrigger value="compliance">Compliance</TabsTrigger>
@@ -268,18 +268,18 @@ export default function AgentKnowledgeProducts() {
 
                   <TabsContent value="overview" className="space-y-4">
                     <div>
-                      <h4 className="text-sm font-medium text-slate-300 mb-2">Description</h4>
-                      <p className="text-slate-400">{selectedProduct.description}</p>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2">Description</h4>
+                      <p className="text-muted-foreground">{selectedProduct.description}</p>
                     </div>
 
                     <div>
-                      <h4 className="text-sm font-medium text-slate-300 mb-2 flex items-center gap-2">
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                         Key Features
                       </h4>
                       <ul className="space-y-1">
                         {selectedProduct.keyFeatures?.map((feature, idx) => (
-                          <li key={idx} className="text-slate-400 text-sm flex items-start gap-2">
+                          <li key={idx} className="text-muted-foreground text-sm flex items-start gap-2">
                             <span className="text-emerald-500 mt-1">•</span>
                             {typeof feature === 'string' ? feature : feature.feature}
                           </li>
@@ -289,13 +289,13 @@ export default function AgentKnowledgeProducts() {
 
                     {selectedProduct.contraindications && selectedProduct.contraindications.length > 0 && (
                     <div>
-                      <h4 className="text-sm font-medium text-slate-300 mb-2 flex items-center gap-2">
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
                         <AlertCircle className="h-4 w-4 text-amber-500" />
                         When Not to Recommend
                       </h4>
                       <ul className="space-y-1">
                         {selectedProduct.contraindications.map((item, idx) => (
-                          <li key={idx} className="text-slate-400 text-sm flex items-start gap-2">
+                          <li key={idx} className="text-muted-foreground text-sm flex items-start gap-2">
                             <span className="text-amber-500 mt-1">•</span>
                             {typeof item === 'string' ? item : item.scenario}
                           </li>
@@ -304,19 +304,19 @@ export default function AgentKnowledgeProducts() {
                     </div>
                     )}
 
-                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-700">
+                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
                       {selectedProduct.timeHorizon && (
                         <div>
-                          <p className="text-xs text-slate-500">Time Horizon</p>
-                          <p className="text-white font-medium">
+                          <p className="text-xs text-muted-foreground">Time Horizon</p>
+                          <p className="text-foreground font-medium">
                             {selectedProduct.timeHorizon.replace(/_/g, ' ')}
                           </p>
                         </div>
                       )}
                       {selectedProduct.riskProfile && (
                         <div>
-                          <p className="text-xs text-slate-500">Risk Profile</p>
-                          <p className="text-white font-medium">{selectedProduct.riskProfile}</p>
+                          <p className="text-xs text-muted-foreground">Risk Profile</p>
+                          <p className="text-foreground font-medium">{selectedProduct.riskProfile}</p>
                         </div>
                       )}
                     </div>
@@ -331,10 +331,10 @@ export default function AgentKnowledgeProducts() {
                       </h4>
                       <ul className="space-y-2">
                         {selectedProduct.suitabilityRules.map((item, idx) => (
-                          <li key={idx} className="text-slate-400 text-sm p-2 bg-slate-800/50 rounded">
-                            <p className="text-white">{typeof item === 'string' ? item : item.rule}</p>
+                          <li key={idx} className="text-muted-foreground text-sm p-2 bg-card/50 rounded">
+                            <p className="text-foreground">{typeof item === 'string' ? item : item.rule}</p>
                             {typeof item !== 'string' && item.applicableTo && (
-                              <p className="text-xs text-slate-500 mt-1">Applicable to: {item.applicableTo}</p>
+                              <p className="text-xs text-muted-foreground mt-1">Applicable to: {item.applicableTo}</p>
                             )}
                           </li>
                         ))}
@@ -350,8 +350,8 @@ export default function AgentKnowledgeProducts() {
                         </h4>
                         <ul className="space-y-2">
                           {selectedProduct.contraindications.map((item, idx) => (
-                            <li key={idx} className="text-slate-400 text-sm p-2 bg-red-500/10 rounded border border-red-500/20">
-                              <p className="text-white">{typeof item === 'string' ? item : item.scenario}</p>
+                            <li key={idx} className="text-muted-foreground text-sm p-2 bg-red-500/10 rounded border border-red-500/20">
+                              <p className="text-foreground">{typeof item === 'string' ? item : item.scenario}</p>
                               {typeof item !== 'string' && item.reason && (
                                 <p className="text-xs text-red-300/70 mt-1">Reason: {item.reason}</p>
                               )}
@@ -364,36 +364,36 @@ export default function AgentKnowledgeProducts() {
 
                   <TabsContent value="compliance" className="space-y-4">
                     <div>
-                      <h4 className="text-sm font-medium text-slate-300 mb-2">Product Details</h4>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2">Product Details</h4>
                       <div className="space-y-2">
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-slate-500">Product Type</span>
-                          <span className="text-slate-300">{selectedProduct.productType.replace(/_/g, ' ')}</span>
+                          <span className="text-muted-foreground">Product Type</span>
+                          <span className="text-muted-foreground">{selectedProduct.productType.replace(/_/g, ' ')}</span>
                         </div>
                         {selectedProduct.productCategory && (
                           <div className="flex items-center justify-between text-sm">
-                            <span className="text-slate-500">Category</span>
-                            <span className="text-slate-300">{selectedProduct.productCategory}</span>
+                            <span className="text-muted-foreground">Category</span>
+                            <span className="text-muted-foreground">{selectedProduct.productCategory}</span>
                           </div>
                         )}
                         {selectedProduct.productSubCategory && (
                           <div className="flex items-center justify-between text-sm">
-                            <span className="text-slate-500">Sub-Category</span>
-                            <span className="text-slate-300">{selectedProduct.productSubCategory}</span>
+                            <span className="text-muted-foreground">Sub-Category</span>
+                            <span className="text-muted-foreground">{selectedProduct.productSubCategory}</span>
                           </div>
                         )}
                       </div>
                     </div>
 
-                    <div className="pt-4 border-t border-slate-700">
+                    <div className="pt-4 border-t border-border">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-slate-500">Version</span>
-                        <span className="text-slate-300">v{selectedProduct.version}</span>
+                        <span className="text-muted-foreground">Version</span>
+                        <span className="text-muted-foreground">v{selectedProduct.version}</span>
                       </div>
                       {selectedProduct.publishedAt && (
                         <div className="flex items-center justify-between text-sm mt-1">
-                          <span className="text-slate-500">Published</span>
-                          <span className="text-slate-300">
+                          <span className="text-muted-foreground">Published</span>
+                          <span className="text-muted-foreground">
                             {format(new Date(selectedProduct.publishedAt), "MMM d, yyyy")}
                           </span>
                         </div>

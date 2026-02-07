@@ -113,7 +113,7 @@ interface OnboardingInvitation {
 }
 
 const INVITATION_STATUS_COLORS: Record<string, string> = {
-  pending: "bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground",
+  pending: "bg-muted text-muted-foreground",
   sent: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
   opened: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
   started: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300",
@@ -131,7 +131,7 @@ const ENTITY_TYPE_OPTIONS = [
 ];
 
 const KYC_STATUS_COLORS: Record<string, string> = {
-  pending: "bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground",
+  pending: "bg-muted text-muted-foreground",
   basic: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
   enhanced: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
   accredited: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300"
@@ -373,7 +373,7 @@ export default function AgentClientsPage() {
 
   if (clientsLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950">
+      <div className="min-h-screen bg-gradient-to-br from-background via-blue-50/30 to-indigo-50/30 dark:from-background dark:via-blue-950/30 dark:to-indigo-950/30">
         <div className="container mx-auto p-6">
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3"></div>
@@ -385,15 +385,15 @@ export default function AgentClientsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950" data-testid="agent-clients-page">
+    <div className="min-h-screen bg-gradient-to-br from-background via-blue-50/30 to-indigo-50/30 dark:from-background dark:via-blue-950/30 dark:to-indigo-950/30" data-testid="agent-clients-page">
       <div className="container mx-auto p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
               <Users className="h-8 w-8 text-primary" />
               Client Management
             </h1>
-            <p className="text-muted-foreground dark:text-muted-foreground">
+            <p className="text-muted-foreground">
               Manage your clients, portfolios, and advisory sessions
             </p>
           </div>
@@ -408,7 +408,7 @@ export default function AgentClientsPage() {
               Invitations ({invitationStats?.stats?.total || 0})
             </Button>
             <Button 
-              className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-200" 
+              className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-foreground shadow-md hover:shadow-lg transition-all duration-200" 
               onClick={() => { resetInviteForm(); setShowInviteDialog(true); }}
               data-testid="button-add-client"
             >
@@ -1086,13 +1086,13 @@ export default function AgentClientsPage() {
               <>
                 <Button 
                   variant="outline" 
-                  className="border-border text-muted-foreground hover:bg-muted dark:border-border dark:text-muted-foreground dark:hover:bg-muted"
+                  className="border-border text-muted-foreground hover:bg-muted"
                   onClick={() => setShowInviteDialog(false)}
                 >
                   Cancel
                 </Button>
                 <Button 
-                  className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-sm"
+                  className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-foreground shadow-sm"
                   onClick={handleCreateInvitation}
                   disabled={createInvitation.isPending || (!inviteClientEmail && !inviteClientMobile)}
                   data-testid="button-create-invitation"
@@ -1158,7 +1158,7 @@ export default function AgentClientsPage() {
               <UserPlus className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p>No invitations yet</p>
               <Button 
-                className="mt-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white"
+                className="mt-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-foreground"
                 onClick={() => { setShowInvitationsTab(false); setShowInviteDialog(true); }}
               >
                 Create First Invitation

@@ -17,7 +17,7 @@ const colorClasses = {
 export function ServicesGrid() {
   return (
     <section className="mb-8" data-testid="services-grid">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6" data-testid="services-title">
+      <h2 className="text-2xl font-bold text-foreground mb-6" data-testid="services-title">
         Our Financial Services
       </h2>
       
@@ -35,15 +35,15 @@ export function ServicesGrid() {
                 <i className={`${service.icon} text-xl`} data-testid={`service-icon-${service.id}`}></i>
               </div>
               
-              <h3 className="font-bold text-gray-900 mb-2" data-testid={`service-name-${service.id}`}>
+              <h3 className="font-bold text-foreground mb-2" data-testid={`service-name-${service.id}`}>
                 {service.name}
               </h3>
               
-              <p className="text-gray-600 text-sm mb-4" data-testid={`service-description-${service.id}`}>
+              <p className="text-muted-foreground text-sm mb-4" data-testid={`service-description-${service.id}`}>
                 {service.description}
               </p>
               
-              <div className="text-sm text-gray-500 mb-4" data-testid={`service-stats-${service.id}`}>
+              <div className="text-sm text-muted-foreground mb-4" data-testid={`service-stats-${service.id}`}>
                 {service.stats.map((stat, index) => (
                   <div key={index}>
                     <span>{stat}</span>

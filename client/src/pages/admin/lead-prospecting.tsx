@@ -798,7 +798,7 @@ export default function LeadProspecting() {
                                   {/* Incorporation Date */}
                                   {company.incorporationDate && (
                                     <div className="flex items-center gap-2 text-muted-foreground">
-                                      <Building2 className="h-4 w-4 text-gray-600" />
+                                      <Building2 className="h-4 w-4 text-muted-foreground" />
                                       <span>
                                         <strong>Since:</strong> {new Date(company.incorporationDate).toLocaleDateString('en-IN', { year: 'numeric', month: 'short' })}
                                       </span>
@@ -1071,7 +1071,7 @@ export default function LeadProspecting() {
                       </h4>
                       <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
                         {lead.directors.slice(0, 6).map((director, idx) => (
-                          <div key={idx} className="text-xs p-2 bg-white dark:bg-gray-800 rounded border">
+                          <div key={idx} className="text-xs p-2 bg-card rounded border">
                             <p className="font-medium truncate">{director.name || 'Unknown'}</p>
                             {director.designation && (
                               <p className="text-muted-foreground">{director.designation}</p>
@@ -1150,13 +1150,13 @@ export default function LeadProspecting() {
             <ScrollArea className="max-h-[60vh] pr-4">
               <div className="space-y-6">
                 {/* Quick Summary Card */}
-                <div className="p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 rounded-lg border">
+                <div className="p-4 bg-gradient-to-r from-background to-muted rounded-lg border">
                   <h3 className="font-semibold text-lg mb-3">{selectedCompany.companyName}</h3>
                   
                   {/* Key Metrics Grid */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                     {/* Enrichment Score */}
-                    <div className="text-center p-2 bg-white dark:bg-slate-950 rounded border">
+                    <div className="text-center p-2 bg-card rounded border">
                       <div className={`text-xl font-bold ${
                         (selectedCompany.enrichmentScore || 0) >= 70 ? 'text-green-600' :
                         (selectedCompany.enrichmentScore || 0) >= 40 ? 'text-yellow-600' : 'text-red-600'
@@ -1168,21 +1168,21 @@ export default function LeadProspecting() {
                     
                     {/* Total Debt/Charges */}
                     {selectedCompany.totalChargesAmount && selectedCompany.totalChargesAmount > 0 ? (
-                      <div className="text-center p-2 bg-white dark:bg-slate-950 rounded border">
+                      <div className="text-center p-2 bg-card rounded border">
                         <div className="text-xl font-bold text-amber-600">
                           ₹{(selectedCompany.totalChargesAmount / 10000000).toFixed(0)} Cr
                         </div>
                         <div className="text-xs text-muted-foreground">Total Debt</div>
                       </div>
                     ) : (
-                      <div className="text-center p-2 bg-white dark:bg-slate-950 rounded border">
+                      <div className="text-center p-2 bg-card rounded border">
                         <div className="text-xl font-bold text-green-600">₹0</div>
                         <div className="text-xs text-muted-foreground">Total Debt</div>
                       </div>
                     )}
                     
                     {/* Open Charges */}
-                    <div className="text-center p-2 bg-white dark:bg-slate-950 rounded border">
+                    <div className="text-center p-2 bg-card rounded border">
                       <div className={`text-xl font-bold ${(selectedCompany.openChargesCount || 0) > 0 ? 'text-amber-600' : 'text-green-600'}`}>
                         {selectedCompany.openChargesCount || 0}
                       </div>
@@ -1190,7 +1190,7 @@ export default function LeadProspecting() {
                     </div>
                     
                     {/* Legal Cases */}
-                    <div className="text-center p-2 bg-white dark:bg-slate-950 rounded border">
+                    <div className="text-center p-2 bg-card rounded border">
                       <div className={`text-xl font-bold ${(selectedCompany.suitFiledCasesCount || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
                         {selectedCompany.suitFiledCasesCount || 0}
                       </div>

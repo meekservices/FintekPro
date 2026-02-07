@@ -149,28 +149,28 @@ export function PANConsentModal({
                   <Lock className="h-4 w-4 text-green-600 mt-0.5" />
                   <div>
                     <p className="font-medium">AES-256 Encryption</p>
-                    <p className="text-muted-foreground dark:text-muted-foreground">Your PAN is encrypted using military-grade security</p>
+                    <p className="text-muted-foreground">Your PAN is encrypted using military-grade security</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
                   <Eye className="h-4 w-4 text-green-600 mt-0.5" />
                   <div>
                     <p className="font-medium">Audit Trail</p>
-                    <p className="text-muted-foreground dark:text-muted-foreground">All access is logged for transparency</p>
+                    <p className="text-muted-foreground">All access is logged for transparency</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
                   <Clock className="h-4 w-4 text-green-600 mt-0.5" />
                   <div>
                     <p className="font-medium">7-Year Retention</p>
-                    <p className="text-muted-foreground dark:text-muted-foreground">As per Income Tax Act requirements</p>
+                    <p className="text-muted-foreground">As per Income Tax Act requirements</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
                   <Shield className="h-4 w-4 text-green-600 mt-0.5" />
                   <div>
                     <p className="font-medium">Revocable Consent</p>
-                    <p className="text-muted-foreground dark:text-muted-foreground">You can withdraw consent anytime</p>
+                    <p className="text-muted-foreground">You can withdraw consent anytime</p>
                   </div>
                 </div>
               </div>
@@ -222,7 +222,7 @@ export function PANConsentModal({
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     I consent to the collection and secure storage of my PAN number for tax data aggregation, 
                     ITR filing, and related financial services as per the Information Technology Act, 2000.
                   </p>
@@ -248,7 +248,7 @@ export function PANConsentModal({
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     I authorize the processing of my PAN for tax calculation, government API integration, 
                     ITR generation, and compliance verification purposes.
                   </p>
@@ -274,7 +274,7 @@ export function PANConsentModal({
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     I consent to the retention of my encrypted PAN for 7 years as required by tax regulations, 
                     with the right to request deletion after this period.
                   </p>
@@ -300,7 +300,7 @@ export function PANConsentModal({
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     I have read and agree to the{" "}
                     <a href="/privacy" target="_blank" className="text-blue-600 hover:underline">
                       Privacy Policy
@@ -359,7 +359,7 @@ export function PANConsentModal({
           </div>
 
           {/* Legal Notice */}
-          <div className="text-xs text-muted-foreground bg-muted dark:bg-muted p-3 rounded-lg">
+          <div className="text-xs text-muted-foreground bg-muted p-3 rounded-lg">
             <p className="mb-2">
               <strong>Legal Notice:</strong> This consent is collected in compliance with the Information Technology Act, 2000, 
               and Income Tax Act, 1961. Your PAN will be used solely for tax-related services and government compliance.

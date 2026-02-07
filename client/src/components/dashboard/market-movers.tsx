@@ -57,7 +57,7 @@ export function MarketMovers() {
     <Card data-testid="market-movers">
       <CardHeader>
         <div className="flex justify-between items-center">
-          <CardTitle className="text-xl font-bold text-gray-900" data-testid="movers-title">
+          <CardTitle className="text-xl font-bold text-foreground" data-testid="movers-title">
             Market Movers
           </CardTitle>
           <div className="flex space-x-2">
@@ -87,19 +87,19 @@ export function MarketMovers() {
           {currentData.map((stock) => (
             <div 
               key={stock.symbol} 
-              className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+              className="flex justify-between items-center p-3 bg-muted rounded-lg hover:bg-muted transition-colors cursor-pointer"
               data-testid={`stock-${stock.symbol}`}
             >
               <div>
-                <p className="font-semibold text-gray-900" data-testid={`stock-symbol-${stock.symbol}`}>
+                <p className="font-semibold text-foreground" data-testid={`stock-symbol-${stock.symbol}`}>
                   {stock.symbol}
                 </p>
-                <p className="text-sm text-gray-600" data-testid={`stock-name-${stock.symbol}`}>
+                <p className="text-sm text-muted-foreground" data-testid={`stock-name-${stock.symbol}`}>
                   {stock.name}
                 </p>
               </div>
               <div className="text-right">
-                <p className="font-bold text-gray-900" data-testid={`stock-price-${stock.symbol}`}>
+                <p className="font-bold text-foreground" data-testid={`stock-price-${stock.symbol}`}>
                   ₹{stock.price.toLocaleString()}
                 </p>
                 <p 

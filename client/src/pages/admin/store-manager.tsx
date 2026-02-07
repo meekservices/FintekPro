@@ -973,7 +973,7 @@ export default function AdminStoreManager() {
                             </span>
                           </td>
                           <td className="p-3 text-center">
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${pricing.isActive ? "bg-green-100 text-green-700" : "bg-muted dark:bg-muted text-muted-foreground"}`}>
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${pricing.isActive ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}>
                               {pricing.isActive ? "Active" : "Inactive"}
                             </span>
                           </td>

@@ -169,7 +169,7 @@ export default function PartnerCAManagement() {
   const getStatusBadge = (status: string) => {
     const colors: Record<string, string> = {
       active: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
-      inactive: 'bg-muted text-muted-foreground dark:bg-gray-700 dark:text-muted-foreground',
+      inactive: 'bg-muted text-muted-foreground',
       pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
       unassigned: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
       assigned: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
@@ -186,11 +186,11 @@ export default function PartnerCAManagement() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600">
-              <Briefcase className="w-6 h-6 text-white" />
+              <Briefcase className="w-6 h-6 text-foreground" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">CA Management</h1>
-              <p className="text-muted-foreground dark:text-muted-foreground">Onboard CAs, assign cases, and manage revenue sharing</p>
+              <h1 className="text-2xl font-bold text-foreground">CA Management</h1>
+              <p className="text-muted-foreground">Onboard CAs, assign cases, and manage revenue sharing</p>
             </div>
           </div>
           <Button onClick={() => setShowOnboardDialog(true)} className="bg-gradient-to-r from-emerald-600 to-teal-600" data-testid="button-onboard-ca">
@@ -204,7 +204,7 @@ export default function PartnerCAManagement() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Active CAs</p>
+                <p className="text-xs text-muted-foreground">Active CAs</p>
                 <p className="text-xl font-bold">{aggregateMetrics.activeCAs}/{aggregateMetrics.totalCAs}</p>
               </div>
               <Users className="w-8 h-8 text-emerald-400" />
@@ -216,7 +216,7 @@ export default function PartnerCAManagement() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Total Revenue</p>
+                <p className="text-xs text-muted-foreground">Total Revenue</p>
                 <p className="text-xl font-bold text-green-600">{formatCurrency(aggregateMetrics.totalRevenue)}</p>
               </div>
               <IndianRupee className="w-8 h-8 text-green-400" />
@@ -228,7 +228,7 @@ export default function PartnerCAManagement() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Cases Completed</p>
+                <p className="text-xs text-muted-foreground">Cases Completed</p>
                 <p className="text-xl font-bold">{aggregateMetrics.casesCompleted}</p>
               </div>
               <CheckCircle className="w-8 h-8 text-blue-400" />
@@ -240,7 +240,7 @@ export default function PartnerCAManagement() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Pending Assignment</p>
+                <p className="text-xs text-muted-foreground">Pending Assignment</p>
                 <p className="text-xl font-bold text-amber-600">{aggregateMetrics.pendingCases}</p>
               </div>
               <Clock className="w-8 h-8 text-amber-400" />
@@ -252,7 +252,7 @@ export default function PartnerCAManagement() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Avg Rating</p>
+                <p className="text-xs text-muted-foreground">Avg Rating</p>
                 <p className="text-xl font-bold flex items-center gap-1">
                   {aggregateMetrics.avgRating} <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
                 </p>
@@ -550,7 +550,7 @@ export default function PartnerCAManagement() {
                 {cas.filter(ca => ca.status === 'active').map((ca) => (
                   <div key={ca.id} className="flex items-center justify-between p-4 border rounded-lg" data-testid={`rev-row-${ca.id}`}>
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 flex items-center justify-center text-white font-bold">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 flex items-center justify-center text-foreground font-bold">
                         {ca.name.split(' ').slice(1, 3).map(n => n[0]).join('')}
                       </div>
                       <div>
@@ -679,7 +679,7 @@ export default function PartnerCAManagement() {
           </DialogHeader>
           {selectedCase && (
             <div className="py-4">
-              <div className="p-4 bg-muted dark:bg-muted rounded-lg mb-4">
+              <div className="p-4 bg-muted rounded-lg mb-4">
                 <p className="font-medium">{selectedCase.clientName}</p>
                 <p className="text-sm text-muted-foreground">{selectedCase.caseType} - {formatCurrency(selectedCase.amount)}</p>
                 <p className="text-sm text-muted-foreground">Due: {format(new Date(selectedCase.dueDate), 'dd MMM yyyy')}</p>
@@ -688,7 +688,7 @@ export default function PartnerCAManagement() {
                 {cas.filter(ca => ca.status === 'active').map((ca) => (
                   <div 
                     key={ca.id}
-                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted dark:hover:bg-muted cursor-pointer"
+                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted cursor-pointer"
                     onClick={() => handleAssignCase(ca.id)}
                     data-testid={`assign-option-${ca.id}`}
                   >
@@ -726,7 +726,7 @@ export default function PartnerCAManagement() {
           </DialogHeader>
           {selectedCA && (
             <div className="py-4 space-y-6">
-              <div className="p-4 bg-muted dark:bg-muted rounded-lg">
+              <div className="p-4 bg-muted rounded-lg">
                 <p className="font-medium">{selectedCA.name}</p>
                 <p className="text-sm text-muted-foreground">{selectedCA.firmName || selectedCA.caNumber}</p>
                 <p className="text-sm text-muted-foreground">Total Revenue: {formatCurrency(selectedCA.totalRevenue)}</p>
@@ -750,12 +750,12 @@ export default function PartnerCAManagement() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-center">
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">CA Receives</p>
+                  <p className="text-sm text-muted-foreground">CA Receives</p>
                   <p className="text-2xl font-bold text-blue-600">{revenueShare}%</p>
                   <p className="text-sm text-muted-foreground">{formatCurrency(selectedCA.totalRevenue * revenueShare / 100)}</p>
                 </div>
                 <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">You Receive</p>
+                  <p className="text-sm text-muted-foreground">You Receive</p>
                   <p className="text-2xl font-bold text-green-600">{100 - revenueShare}%</p>
                   <p className="text-sm text-muted-foreground">{formatCurrency(selectedCA.totalRevenue * (100 - revenueShare) / 100)}</p>
                 </div>

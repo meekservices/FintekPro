@@ -245,7 +245,7 @@ export default function GlobalAdvisoryManagement() {
                     
                     return (
                       <Collapsible key={market.marketCode} open={isExpanded} onOpenChange={() => toggleMarketExpanded(market.marketCode)}>
-                        <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/30 dark:bg-muted/20 dark:border-border">
+                        <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/30/20">
                           <div className="flex items-center gap-4">
                             <CollapsibleTrigger asChild>
                               <Button variant="ghost" size="sm" data-testid={`expand-${market.marketCode}`}>
@@ -536,7 +536,7 @@ function AuditLogsSection() {
                   </TableCell>
                   <TableCell className="text-foreground">{log.marketCode || "-"}</TableCell>
                   <TableCell className="font-mono text-xs text-foreground">{log.userId || "Anonymous"}</TableCell>
-                  <TableCell className="max-w-xs truncate text-xs text-muted-foreground dark:text-muted-foreground">
+                  <TableCell className="max-w-xs truncate text-xs text-muted-foreground">
                     {log.eventData ? JSON.stringify(log.eventData) : "-"}
                   </TableCell>
                 </TableRow>

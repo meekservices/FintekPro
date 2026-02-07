@@ -65,8 +65,8 @@ const ASSET_COLORS: Record<string, string> = {
   pms: "bg-purple-500",
   aif: "bg-pink-500",
   real_estate: "bg-stone-500",
-  cash: "bg-gray-500",
-  other: "bg-gray-400",
+  cash: "bg-muted",
+  other: "bg-muted-foreground",
 };
 
 export function ProposalComparisonView({
@@ -225,7 +225,7 @@ export function ProposalComparisonView({
                   ) : riskChange < 0 ? (
                     <TrendingDown className="h-3 w-3 text-green-500" />
                   ) : (
-                    <Scale className="h-3 w-3 text-gray-500" />
+                    <Scale className="h-3 w-3 text-muted-foreground" />
                   )}
                   <span className={
                     riskChange > 10 ? 'text-red-600' :

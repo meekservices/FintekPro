@@ -187,8 +187,8 @@ export default function TaxITRPaymentPage() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>
-          <h1 className="text-2xl font-bold dark:text-white">Payment</h1>
-          <p className="text-muted-foreground dark:text-muted-foreground">Complete payment to proceed with filing</p>
+          <h1 className="text-2xl font-bold">Payment</h1>
+          <p className="text-muted-foreground">Complete payment to proceed with filing</p>
         </div>
       </div>
 
@@ -216,12 +216,12 @@ export default function TaxITRPaymentPage() {
                   >
                     <CardContent className="p-4 flex items-center gap-3">
                       <RadioGroupItem value={method.id} id={method.id} />
-                      <div className={`p-2 rounded-lg ${selectedPaymentMethod === method.id ? "bg-primary/10" : "bg-muted dark:bg-muted"}`}>
+                      <div className={`p-2 rounded-lg ${selectedPaymentMethod === method.id ? "bg-primary/10" : "bg-muted"}`}>
                         <method.icon className={`h-5 w-5 ${selectedPaymentMethod === method.id ? "text-primary" : "text-muted-foreground"}`} />
                       </div>
                       <div>
-                        <Label htmlFor={method.id} className="font-medium cursor-pointer dark:text-white">{method.label}</Label>
-                        <p className="text-sm text-muted-foreground dark:text-muted-foreground">{method.desc}</p>
+                        <Label htmlFor={method.id} className="font-medium cursor-pointer">{method.label}</Label>
+                        <p className="text-sm text-muted-foreground">{method.desc}</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -249,10 +249,10 @@ export default function TaxITRPaymentPage() {
                     </div>
                     <div className="flex items-center justify-center">
                       <div className="text-center">
-                        <div className="w-32 h-32 bg-muted dark:bg-muted rounded-lg flex items-center justify-center mb-2">
+                        <div className="w-32 h-32 bg-muted rounded-lg flex items-center justify-center mb-2">
                           <QrCode className="h-20 w-20 text-muted-foreground" />
                         </div>
-                        <p className="text-sm text-muted-foreground dark:text-muted-foreground">Or scan QR code</p>
+                        <p className="text-sm text-muted-foreground">Or scan QR code</p>
                       </div>
                     </div>
                   </div>
@@ -302,11 +302,11 @@ export default function TaxITRPaymentPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center gap-3 p-3 bg-muted dark:bg-muted rounded-lg">
+              <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
                 <FileText className="h-10 w-10 text-primary" />
                 <div>
-                  <p className="font-medium dark:text-white">{itrForm} Self-Filing</p>
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">AY 2025-26</p>
+                  <p className="font-medium">{itrForm} Self-Filing</p>
+                  <p className="text-sm text-muted-foreground">AY 2025-26</p>
                 </div>
               </div>
 
@@ -314,12 +314,12 @@ export default function TaxITRPaymentPage() {
 
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground dark:text-muted-foreground">Filing Fee</span>
-                  <span className="dark:text-white">₹{basePrice}</span>
+                  <span className="text-muted-foreground">Filing Fee</span>
+                  <span className="dark:text-foreground">₹{basePrice}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground dark:text-muted-foreground">GST (18%)</span>
-                  <span className="dark:text-white">₹{gst}</span>
+                  <span className="text-muted-foreground">GST (18%)</span>
+                  <span className="dark:text-foreground">₹{gst}</span>
                 </div>
                 {discount > 0 && (
                   <div className="flex justify-between text-green-600">
@@ -332,7 +332,7 @@ export default function TaxITRPaymentPage() {
               <Separator />
 
               <div className="flex justify-between text-lg font-bold">
-                <span className="dark:text-white">Total</span>
+                <span className="dark:text-foreground">Total</span>
                 <span className="text-primary">₹{totalAmount}</span>
               </div>
 

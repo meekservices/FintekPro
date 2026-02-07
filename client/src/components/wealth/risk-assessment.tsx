@@ -460,7 +460,7 @@ export function RiskAssessment() {
                   <Label>Key Characteristics</Label>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     {profileInfo.characteristics.map((char, index) => (
-                      <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded" data-testid={`characteristic-${index}`}>
+                      <div key={index} className="flex items-center gap-2 p-2 bg-muted rounded" data-testid={`characteristic-${index}`}>
                         <CheckCircle className="w-4 h-4 text-green-600" />
                         <span className="text-sm">{char}</span>
                       </div>
@@ -790,8 +790,8 @@ export function RiskAssessment() {
                         </>
                       )}
 
-                      <div className="flex items-start gap-2 p-3 bg-gray-50 rounded-lg">
-                        <Clock className="w-5 h-5 text-gray-600 mt-0.5" />
+                      <div className="flex items-start gap-2 p-3 bg-muted rounded-lg">
+                        <Clock className="w-5 h-5 text-muted-foreground mt-0.5" />
                         <div>
                           <p className="font-medium">Long-term Perspective</p>
                           <p className="text-sm text-muted-foreground">Stick to your strategy and avoid emotional decisions based on short-term market movements</p>

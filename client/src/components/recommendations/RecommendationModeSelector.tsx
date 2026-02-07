@@ -76,10 +76,10 @@ export function RecommendationModeSelector({
       <Card className={className}>
         <CardContent className="p-6">
           <div className="animate-pulse space-y-4">
-            <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+            <div className="h-4 bg-muted rounded w-1/3"></div>
             <div className="space-y-2">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-16 bg-gray-100 rounded"></div>
+                <div key={i} className="h-16 bg-muted rounded"></div>
               ))}
             </div>
           </div>

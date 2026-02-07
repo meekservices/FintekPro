@@ -141,8 +141,8 @@ export function GlobalAdvisoryDisclaimer({
             </div>
           </div>
           
-          <ScrollArea className="h-64 border rounded-lg p-4 bg-muted/30 dark:bg-muted/50">
-            <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed text-foreground dark:text-foreground">
+          <ScrollArea className="h-64 border rounded-lg p-4 bg-muted/30/50">
+            <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed text-foreground">
               {GLOBAL_ADVISORY_DISCLAIMER}
             </pre>
           </ScrollArea>
@@ -235,9 +235,9 @@ export function ExecutionRedirectModal({
             FintekPro provides analytics and signals only for international markets.
           </div>
           
-          <div className="p-4 bg-muted/50 dark:bg-muted/30 rounded-lg space-y-2 border border-border">
+          <div className="p-4 bg-muted/50/30 rounded-lg space-y-2 border border-border">
             <div className="font-medium text-foreground">Recommended Steps:</div>
-            <ol className="list-decimal list-inside text-sm space-y-1 text-muted-foreground dark:text-muted-foreground">
+            <ol className="list-decimal list-inside text-sm space-y-1 text-muted-foreground">
               <li>Login to your broker's trading platform</li>
               <li>Search for the instrument you wish to trade</li>
               <li>Place your order according to your investment plan</li>

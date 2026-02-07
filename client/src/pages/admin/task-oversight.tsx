@@ -100,7 +100,7 @@ const TASK_TYPE_CONFIG: Record<string, { label: string; icon: typeof Shield; col
   in_person: { label: 'In Person', icon: Users, color: 'bg-teal-500/20 text-teal-400' },
   office_visit: { label: 'Office Visit', icon: Users, color: 'bg-indigo-500/20 text-indigo-400' },
   meeting: { label: 'Meeting', icon: Video, color: 'bg-violet-500/20 text-violet-400' },
-  custom: { label: 'Other', icon: Target, color: 'bg-slate-500/20 text-slate-400' }
+  custom: { label: 'Other', icon: Target, color: 'bg-muted/20 text-muted-foreground' }
 };
 
 export default function AdminTaskOversight() {
@@ -167,7 +167,7 @@ export default function AdminTaskOversight() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white" data-testid="text-page-title">Task Oversight</h1>
+          <h1 className="text-3xl font-bold text-foreground" data-testid="text-page-title">Task Oversight</h1>
           <p className="text-muted-foreground mt-1">Monitor all agents' tasks and compliance status</p>
         </div>
         <div className="flex gap-2">
@@ -195,8 +195,8 @@ export default function AdminTaskOversight() {
             <CheckCircle className="h-4 w-4 text-blue-400" />
           </CardHeader>
           <CardContent>
-            {statsLoading ? <Skeleton className="h-8 w-16 bg-gray-700" /> : (
-              <div className="text-2xl font-bold text-white" data-testid="text-total-tasks">{stats?.totalTasks || 0}</div>
+            {statsLoading ? <Skeleton className="h-8 w-16 bg-muted" /> : (
+              <div className="text-2xl font-bold text-foreground" data-testid="text-total-tasks">{stats?.totalTasks || 0}</div>
             )}
             <p className="text-xs text-green-400 mt-1">Across {stats?.agentCount || 0} agents</p>
           </CardContent>
@@ -208,7 +208,7 @@ export default function AdminTaskOversight() {
             <AlertTriangle className="h-4 w-4 text-red-400" />
           </CardHeader>
           <CardContent>
-            {statsLoading ? <Skeleton className="h-8 w-16 bg-gray-700" /> : (
+            {statsLoading ? <Skeleton className="h-8 w-16 bg-muted" /> : (
               <div className="text-2xl font-bold text-red-400" data-testid="text-overdue-tasks">{stats?.overdueTasks || 0}</div>
             )}
             <p className="text-xs text-red-400 mt-1">Requires immediate attention</p>
@@ -221,7 +221,7 @@ export default function AdminTaskOversight() {
             <Clock className="h-4 w-4 text-amber-400" />
           </CardHeader>
           <CardContent>
-            {statsLoading ? <Skeleton className="h-8 w-16 bg-gray-700" /> : (
+            {statsLoading ? <Skeleton className="h-8 w-16 bg-muted" /> : (
               <div className="text-2xl font-bold text-amber-400" data-testid="text-due-today">{stats?.dueToday || 0}</div>
             )}
             <p className="text-xs text-amber-400 mt-1">Must be completed today</p>
@@ -234,7 +234,7 @@ export default function AdminTaskOversight() {
             <TrendingUp className="h-4 w-4 text-emerald-400" />
           </CardHeader>
           <CardContent>
-            {statsLoading ? <Skeleton className="h-8 w-16 bg-gray-700" /> : (
+            {statsLoading ? <Skeleton className="h-8 w-16 bg-muted" /> : (
               <div className="text-2xl font-bold text-emerald-400" data-testid="text-completion-rate">{stats?.completionRate?.toFixed(1) || 0}%</div>
             )}
             <p className="text-xs text-green-400 mt-1">{stats?.completedToday || 0} completed today</p>
@@ -249,12 +249,12 @@ export default function AdminTaskOversight() {
             placeholder="Search agents..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-muted border-border text-white w-56"
+            className="pl-10 bg-muted border-border text-foreground w-56"
             data-testid="input-search"
           />
         </div>
         <Select value={agentFilter} onValueChange={setAgentFilter}>
-          <SelectTrigger className="w-40 bg-muted border-border text-white" data-testid="select-agent-filter">
+          <SelectTrigger className="w-40 bg-muted border-border text-foreground" data-testid="select-agent-filter">
             <SelectValue placeholder="Agent" />
           </SelectTrigger>
           <SelectContent className="bg-muted border-border">
@@ -265,7 +265,7 @@ export default function AdminTaskOversight() {
           </SelectContent>
         </Select>
         <Select value={taskTypeFilter} onValueChange={setTaskTypeFilter}>
-          <SelectTrigger className="w-40 bg-muted border-border text-white" data-testid="select-type-filter">
+          <SelectTrigger className="w-40 bg-muted border-border text-foreground" data-testid="select-type-filter">
             <SelectValue placeholder="Task Type" />
           </SelectTrigger>
           <SelectContent className="bg-muted border-border">
@@ -276,7 +276,7 @@ export default function AdminTaskOversight() {
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40 bg-muted border-border text-white" data-testid="select-status-filter">
+          <SelectTrigger className="w-40 bg-muted border-border text-foreground" data-testid="select-status-filter">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent className="bg-muted border-border">
@@ -288,7 +288,7 @@ export default function AdminTaskOversight() {
         </Select>
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" className="border-border bg-muted text-muted-foreground hover:bg-gray-700" data-testid="button-date-range">
+            <Button variant="outline" className="border-border bg-muted text-muted-foreground hover:bg-muted" data-testid="button-date-range">
               <CalendarIcon className="h-4 w-4 mr-2" />
               {dateRange.from ? (
                 dateRange.to ? (
@@ -365,7 +365,7 @@ export default function AdminTaskOversight() {
 
         <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
+            <CardTitle className="text-foreground flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-red-400" />
               Compliance Alerts
             </CardTitle>
@@ -399,7 +399,7 @@ export default function AdminTaskOversight() {
                           <Icon className="h-4 w-4" />
                         </div>
                         <div>
-                          <p className="font-medium text-white text-sm">{alert.taskTitle}</p>
+                          <p className="font-medium text-foreground text-sm">{alert.taskTitle}</p>
                           <p className="text-xs text-muted-foreground">{alert.agentName}</p>
                           {alert.clientName && (
                             <p className="text-xs text-muted-foreground">Client: {alert.clientName}</p>
@@ -423,7 +423,7 @@ export default function AdminTaskOversight() {
 
       <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
+          <CardTitle className="text-foreground flex items-center gap-2">
             <Users className="h-5 w-5 text-blue-400" />
             Agent Task Overview
           </CardTitle>
@@ -467,7 +467,7 @@ export default function AdminTaskOversight() {
                     >
                       <TableCell>
                         <div>
-                          <p className="font-medium text-white">{agent.name}</p>
+                          <p className="font-medium text-foreground">{agent.name}</p>
                           <p className="text-xs text-muted-foreground">{agent.email}</p>
                         </div>
                       </TableCell>

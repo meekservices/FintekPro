@@ -133,7 +133,7 @@ export default function RevenueAnalytics() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Revenue Analytics</h1>
+          <h1 className="text-2xl font-bold text-foreground">Revenue Analytics</h1>
           <p className="text-sm text-muted-foreground">
             Commission tracking, revenue trends, and financial insights
           </p>
@@ -390,9 +390,9 @@ export default function RevenueAnalytics() {
                     data-testid={`row-performer-${index}`}
                   >
                     <div className="flex items-center gap-4">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-foreground font-bold ${
                         index === 0 ? 'bg-yellow-500' : 
-                        index === 1 ? 'bg-gray-400' : 
+                        index === 1 ? 'bg-muted-foreground' : 
                         index === 2 ? 'bg-amber-600' : 'bg-blue-500'
                       }`}>
                         {index + 1}

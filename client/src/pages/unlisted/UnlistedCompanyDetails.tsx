@@ -38,7 +38,7 @@ const getDataSourceLabel = (source: string | null | undefined) => {
     },
     probe42: { 
       label: 'Probe42', 
-      color: 'text-gray-500',
+      color: 'text-muted-foreground',
       description: 'Legacy data source'
     },
     moneycontrol: { 
@@ -291,7 +291,7 @@ export default function UnlistedCompanyDetails() {
   }
 
   return (
-    <div className="min-h-screen bg-background dark:bg-gray-950 p-4 md:p-6" data-testid="unlisted-company-details">
+    <div className="min-h-screen bg-background p-4 md:p-6" data-testid="unlisted-company-details">
       {/* Header */}
       <div className="max-w-7xl mx-auto mb-6">
         <Button 
@@ -305,13 +305,13 @@ export default function UnlistedCompanyDetails() {
         </Button>
 
         {/* Company Header Section */}
-        <Card className="bg-white dark:bg-gray-900">
+        <Card className="bg-background">
           <CardContent className="pt-6">
             <div className="flex flex-col md:flex-row gap-6">
               <div className="flex-1">
                 <div className="flex items-start gap-4">
                   {company.logo && (
-                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center overflow-hidden">
+                    <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center overflow-hidden">
                       <img src={company.logo} alt={company.name} className="w-full h-full object-cover" />
                     </div>
                   )}
@@ -321,7 +321,7 @@ export default function UnlistedCompanyDetails() {
                     </div>
                   )}
                   <div className="flex-1">
-                    <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-2" data-testid="text-company-name">
+                    <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2" data-testid="text-company-name">
                       {company.name}
                     </h1>
                     <div className="flex flex-wrap gap-2 mb-3">
@@ -346,7 +346,7 @@ export default function UnlistedCompanyDetails() {
                       )}
                     </div>
                     {company.description && (
-                      <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                      <p className="text-sm text-muted-foreground line-clamp-2">
                         {company.description}
                       </p>
                     )}
@@ -357,20 +357,20 @@ export default function UnlistedCompanyDetails() {
               {/* Quick Stats */}
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Market Price</p>
-                  <p className="text-lg font-bold text-gray-900 dark:text-white" data-testid="text-market-price">
+                  <p className="text-xs text-muted-foreground mb-1">Market Price</p>
+                  <p className="text-lg font-bold text-foreground" data-testid="text-market-price">
                     {formatCurrency(lastDealPrice)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Face Value</p>
-                  <p className="text-lg font-bold text-gray-900 dark:text-white" data-testid="text-face-value">
+                  <p className="text-xs text-muted-foreground mb-1">Face Value</p>
+                  <p className="text-lg font-bold text-foreground" data-testid="text-face-value">
                     {formatCurrency(company.faceValue)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Total Shares</p>
-                  <p className="text-lg font-bold text-gray-900 dark:text-white" data-testid="text-total-shares">
+                  <p className="text-xs text-muted-foreground mb-1">Total Shares</p>
+                  <p className="text-lg font-bold text-foreground" data-testid="text-total-shares">
                     {formatNumber(company.totalShares)}
                   </p>
                 </div>
@@ -387,7 +387,7 @@ export default function UnlistedCompanyDetails() {
         {/* Valuation & Ratios Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Valuation Panel */}
-          <Card className="bg-white dark:bg-gray-900">
+          <Card className="bg-background">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <DollarSign className="h-5 w-5" />
@@ -396,14 +396,14 @@ export default function UnlistedCompanyDetails() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Last Deal Price</p>
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">Last Deal Price</p>
                   <p className="text-xl font-bold text-green-600 dark:text-green-400" data-testid="text-last-deal-price">
                     {formatCurrency(lastDealPrice)}
                   </p>
                 </div>
-                <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Seller Landing Price</p>
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">Seller Landing Price</p>
                   <p className="text-xl font-bold text-blue-600 dark:text-blue-400" data-testid="text-seller-price">
                     {formatCurrency(lastSellerPrice)}
                   </p>
@@ -411,8 +411,8 @@ export default function UnlistedCompanyDetails() {
               </div>
 
               {premiumDiscount !== null && (
-                <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Premium/Discount vs Book Value</p>
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">Premium/Discount vs Book Value</p>
                   <p className={`text-xl font-bold ${premiumDiscount >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`} data-testid="text-premium-discount">
                     {premiumDiscount >= 0 ? '+' : ''}{premiumDiscount.toFixed(2)}%
                   </p>
@@ -442,7 +442,7 @@ export default function UnlistedCompanyDetails() {
           </Card>
 
           {/* Ratios Panel */}
-          <Card className="bg-white dark:bg-gray-900">
+          <Card className="bg-background">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="h-5 w-5" />
@@ -464,51 +464,51 @@ export default function UnlistedCompanyDetails() {
             <CardContent>
               {selectedYearRatios ? (
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">P/E Ratio</p>
-                    <p className="text-lg font-bold text-gray-900 dark:text-white" data-testid="text-pe-ratio">
+                  <div className="p-3 bg-muted rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">P/E Ratio</p>
+                    <p className="text-lg font-bold text-foreground" data-testid="text-pe-ratio">
                       {selectedYearRatios.peRatio ? Number(selectedYearRatios.peRatio).toFixed(2) : 'N/A'}
                     </p>
                   </div>
-                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">P/B Ratio</p>
-                    <p className="text-lg font-bold text-gray-900 dark:text-white" data-testid="text-pb-ratio">
+                  <div className="p-3 bg-muted rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">P/B Ratio</p>
+                    <p className="text-lg font-bold text-foreground" data-testid="text-pb-ratio">
                       {selectedYearRatios.pbRatio ? Number(selectedYearRatios.pbRatio).toFixed(2) : 'N/A'}
                     </p>
                   </div>
-                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">ROE %</p>
-                    <p className="text-lg font-bold text-gray-900 dark:text-white" data-testid="text-roe">
+                  <div className="p-3 bg-muted rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">ROE %</p>
+                    <p className="text-lg font-bold text-foreground" data-testid="text-roe">
                       {selectedYearRatios.roe ? (Number(selectedYearRatios.roe) * 100).toFixed(2) : 'N/A'}%
                     </p>
                   </div>
-                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">ROCE %</p>
-                    <p className="text-lg font-bold text-gray-900 dark:text-white" data-testid="text-roce">
+                  <div className="p-3 bg-muted rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">ROCE %</p>
+                    <p className="text-lg font-bold text-foreground" data-testid="text-roce">
                       {selectedYearRatios.roce ? (Number(selectedYearRatios.roce) * 100).toFixed(2) : 'N/A'}%
                     </p>
                   </div>
-                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Debt/Equity</p>
-                    <p className="text-lg font-bold text-gray-900 dark:text-white" data-testid="text-debt-equity">
+                  <div className="p-3 bg-muted rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">Debt/Equity</p>
+                    <p className="text-lg font-bold text-foreground" data-testid="text-debt-equity">
                       {selectedYearRatios.debtEquity ? Number(selectedYearRatios.debtEquity).toFixed(2) : 'N/A'}
                     </p>
                   </div>
-                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">EBITDA Margin %</p>
-                    <p className="text-lg font-bold text-gray-900 dark:text-white" data-testid="text-ebitda-margin">
+                  <div className="p-3 bg-muted rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">EBITDA Margin %</p>
+                    <p className="text-lg font-bold text-foreground" data-testid="text-ebitda-margin">
                       {selectedYearRatios.marginEbitda ? (Number(selectedYearRatios.marginEbitda) * 100).toFixed(2) : 'N/A'}%
                     </p>
                   </div>
-                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg col-span-2">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">PAT Margin %</p>
-                    <p className="text-lg font-bold text-gray-900 dark:text-white" data-testid="text-pat-margin">
+                  <div className="p-3 bg-muted rounded-lg col-span-2">
+                    <p className="text-xs text-muted-foreground mb-1">PAT Margin %</p>
+                    <p className="text-lg font-bold text-foreground" data-testid="text-pat-margin">
                       {selectedYearRatios.marginPat ? (Number(selectedYearRatios.marginPat) * 100).toFixed(2) : 'N/A'}%
                     </p>
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                <p className="text-sm text-muted-foreground text-center py-4">
                   No ratio data available
                 </p>
               )}
@@ -521,7 +521,7 @@ export default function UnlistedCompanyDetails() {
 
         {/* MCA Intelligence Financial Ratios (Official Filings) */}
         {company?.cin && (
-          <Card className="bg-white dark:bg-gray-900 border-green-200 dark:border-green-800">
+          <Card className="bg-background border-green-200 dark:border-green-800">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Database className="h-5 w-5 text-green-600" />
@@ -536,38 +536,38 @@ export default function UnlistedCompanyDetails() {
             </CardHeader>
             <CardContent>
               {isLoadingMca ? (
-                <div className="text-center py-4 text-gray-500">Loading MCA data...</div>
+                <div className="text-center py-4 text-muted-foreground">Loading MCA data...</div>
               ) : mcaFinancials?.success && mcaFinancials.data?.hasData ? (
                 <div className="space-y-4">
                   {/* Key Metrics */}
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-100 dark:border-green-800">
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Revenue</p>
-                      <p className="text-lg font-bold text-gray-900 dark:text-white" data-testid="mca-revenue">
+                      <p className="text-xs text-muted-foreground mb-1">Revenue</p>
+                      <p className="text-lg font-bold text-foreground" data-testid="mca-revenue">
                         {mcaFinancials.data.metrics?.revenue 
                           ? formatCurrency(mcaFinancials.data.metrics.revenue)
                           : 'N/A'}
                       </p>
                     </div>
                     <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-100 dark:border-green-800">
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Profit After Tax</p>
-                      <p className="text-lg font-bold text-gray-900 dark:text-white" data-testid="mca-pat">
+                      <p className="text-xs text-muted-foreground mb-1">Profit After Tax</p>
+                      <p className="text-lg font-bold text-foreground" data-testid="mca-pat">
                         {mcaFinancials.data.metrics?.profitAfterTax 
                           ? formatCurrency(mcaFinancials.data.metrics.profitAfterTax)
                           : 'N/A'}
                       </p>
                     </div>
                     <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-100 dark:border-green-800">
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Net Worth</p>
-                      <p className="text-lg font-bold text-gray-900 dark:text-white" data-testid="mca-networth">
+                      <p className="text-xs text-muted-foreground mb-1">Net Worth</p>
+                      <p className="text-lg font-bold text-foreground" data-testid="mca-networth">
                         {mcaFinancials.data.metrics?.netWorth 
                           ? formatCurrency(mcaFinancials.data.metrics.netWorth)
                           : 'N/A'}
                       </p>
                     </div>
                     <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-100 dark:border-green-800">
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Total Assets</p>
-                      <p className="text-lg font-bold text-gray-900 dark:text-white" data-testid="mca-total-assets">
+                      <p className="text-xs text-muted-foreground mb-1">Total Assets</p>
+                      <p className="text-lg font-bold text-foreground" data-testid="mca-total-assets">
                         {mcaFinancials.data.metrics?.totalAssets 
                           ? formatCurrency(mcaFinancials.data.metrics.totalAssets)
                           : 'N/A'}
@@ -577,35 +577,35 @@ export default function UnlistedCompanyDetails() {
 
                   {/* Computed Ratios */}
                   <div>
-                    <h4 className="text-sm font-semibold mb-3 text-gray-700 dark:text-gray-300">Computed Ratios</h4>
+                    <h4 className="text-sm font-semibold mb-3 text-foreground">Computed Ratios</h4>
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                      <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">PAT Margin</p>
-                        <p className="text-lg font-bold text-gray-900 dark:text-white" data-testid="mca-pat-margin">
+                      <div className="p-3 bg-muted rounded-lg">
+                        <p className="text-xs text-muted-foreground mb-1">PAT Margin</p>
+                        <p className="text-lg font-bold text-foreground" data-testid="mca-pat-margin">
                           {mcaFinancials.data.ratios?.patMargin !== null 
                             ? `${mcaFinancials.data.ratios.patMargin}%`
                             : 'N/A'}
                         </p>
                       </div>
-                      <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Return on Equity</p>
-                        <p className="text-lg font-bold text-gray-900 dark:text-white" data-testid="mca-roe">
+                      <div className="p-3 bg-muted rounded-lg">
+                        <p className="text-xs text-muted-foreground mb-1">Return on Equity</p>
+                        <p className="text-lg font-bold text-foreground" data-testid="mca-roe">
                           {mcaFinancials.data.ratios?.returnOnEquity !== null 
                             ? `${mcaFinancials.data.ratios.returnOnEquity}%`
                             : 'N/A'}
                         </p>
                       </div>
-                      <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Debt to Equity</p>
-                        <p className="text-lg font-bold text-gray-900 dark:text-white" data-testid="mca-debt-equity">
+                      <div className="p-3 bg-muted rounded-lg">
+                        <p className="text-xs text-muted-foreground mb-1">Debt to Equity</p>
+                        <p className="text-lg font-bold text-foreground" data-testid="mca-debt-equity">
                           {mcaFinancials.data.ratios?.debtToEquity !== null 
                             ? mcaFinancials.data.ratios.debtToEquity.toFixed(2)
                             : 'N/A'}
                         </p>
                       </div>
-                      <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Asset Turnover</p>
-                        <p className="text-lg font-bold text-gray-900 dark:text-white" data-testid="mca-asset-turnover">
+                      <div className="p-3 bg-muted rounded-lg">
+                        <p className="text-xs text-muted-foreground mb-1">Asset Turnover</p>
+                        <p className="text-lg font-bold text-foreground" data-testid="mca-asset-turnover">
                           {mcaFinancials.data.ratios?.assetTurnover !== null 
                             ? mcaFinancials.data.ratios.assetTurnover.toFixed(2)
                             : 'N/A'}
@@ -617,12 +617,12 @@ export default function UnlistedCompanyDetails() {
                   {/* Growth Metrics */}
                   {mcaFinancials.data.growth && mcaFinancials.data.growth.yearsOfData > 1 && (
                     <div>
-                      <h4 className="text-sm font-semibold mb-3 text-gray-700 dark:text-gray-300">
+                      <h4 className="text-sm font-semibold mb-3 text-foreground">
                         Growth Metrics ({mcaFinancials.data.growth.yearsOfData} years of data)
                       </h4>
                       <div className="grid grid-cols-2 gap-3">
                         <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Revenue CAGR</p>
+                          <p className="text-xs text-muted-foreground mb-1">Revenue CAGR</p>
                           <p className={`text-lg font-bold ${(mcaFinancials.data.growth.revenueCAGR || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`} data-testid="mca-revenue-cagr">
                             {mcaFinancials.data.growth.revenueCAGR !== null 
                               ? `${mcaFinancials.data.growth.revenueCAGR >= 0 ? '+' : ''}${mcaFinancials.data.growth.revenueCAGR}%`
@@ -630,7 +630,7 @@ export default function UnlistedCompanyDetails() {
                           </p>
                         </div>
                         <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">PAT CAGR</p>
+                          <p className="text-xs text-muted-foreground mb-1">PAT CAGR</p>
                           <p className={`text-lg font-bold ${(mcaFinancials.data.growth.patCAGR || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`} data-testid="mca-pat-cagr">
                             {mcaFinancials.data.growth.patCAGR !== null 
                               ? `${mcaFinancials.data.growth.patCAGR >= 0 ? '+' : ''}${mcaFinancials.data.growth.patCAGR}%`
@@ -642,8 +642,8 @@ export default function UnlistedCompanyDetails() {
                   )}
 
                   {/* Attribution Footer */}
-                  <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <div className="flex items-center justify-between pt-2 border-t border-border">
+                    <p className="text-xs text-muted-foreground">
                       FY: {mcaFinancials.data.latestYear} | Source: {mcaFinancials.data.source}
                     </p>
                     <TooltipProvider>
@@ -665,13 +665,13 @@ export default function UnlistedCompanyDetails() {
                 </div>
               ) : (
                 <div className="text-center py-6">
-                  <Database className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <Database className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">
                     {mcaFinancials?.data?.hasData === false 
                       ? 'No MCA financial data available for this company yet.'
                       : 'Unable to fetch MCA financial data.'}
                   </p>
-                  <p className="text-xs text-gray-400 mt-1">CIN: {company.cin}</p>
+                  <p className="text-xs text-muted-foreground mt-1">CIN: {company.cin}</p>
                 </div>
               )}
             </CardContent>
@@ -679,7 +679,7 @@ export default function UnlistedCompanyDetails() {
         )}
 
         {/* Financial Trend Charts */}
-        <Card className="bg-white dark:bg-gray-900">
+        <Card className="bg-background">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -698,7 +698,7 @@ export default function UnlistedCompanyDetails() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Revenue Growth Chart */}
               <div>
-                <h4 className="text-sm font-semibold mb-3 text-gray-700 dark:text-gray-300">Revenue Growth (₹Cr)</h4>
+                <h4 className="text-sm font-semibold mb-3 text-foreground">Revenue Growth (₹Cr)</h4>
                 <ResponsiveContainer width="100%" height={200}>
                   <LineChart data={revenueChartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -715,7 +715,7 @@ export default function UnlistedCompanyDetails() {
 
               {/* PAT Growth Chart */}
               <div>
-                <h4 className="text-sm font-semibold mb-3 text-gray-700 dark:text-gray-300">PAT Growth (₹Cr)</h4>
+                <h4 className="text-sm font-semibold mb-3 text-foreground">PAT Growth (₹Cr)</h4>
                 <ResponsiveContainer width="100%" height={200}>
                   <LineChart data={patChartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -732,7 +732,7 @@ export default function UnlistedCompanyDetails() {
 
               {/* Networth Chart */}
               <div>
-                <h4 className="text-sm font-semibold mb-3 text-gray-700 dark:text-gray-300">Networth (₹Cr)</h4>
+                <h4 className="text-sm font-semibold mb-3 text-foreground">Networth (₹Cr)</h4>
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={networthChartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -751,7 +751,7 @@ export default function UnlistedCompanyDetails() {
         </Card>
 
         {/* Transaction Insights */}
-        <Card className="bg-white dark:bg-gray-900">
+        <Card className="bg-background">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5" />
@@ -761,36 +761,36 @@ export default function UnlistedCompanyDetails() {
           <CardContent>
             {/* Summary Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Average Deal Price</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white" data-testid="text-avg-deal-price">
+              <div className="p-4 bg-muted rounded-lg">
+                <p className="text-xs text-muted-foreground mb-1">Average Deal Price</p>
+                <p className="text-xl font-bold text-foreground" data-testid="text-avg-deal-price">
                   {formatCurrency(avgDealPrice)}
                 </p>
               </div>
-              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Total Volume Traded</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white" data-testid="text-total-volume">
+              <div className="p-4 bg-muted rounded-lg">
+                <p className="text-xs text-muted-foreground mb-1">Total Volume Traded</p>
+                <p className="text-xl font-bold text-foreground" data-testid="text-total-volume">
                   {formatNumber(totalVolume)} shares
                 </p>
               </div>
-              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div className="p-4 bg-muted rounded-lg">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Demand</p>
-                    <p className="text-xl font-bold text-gray-900 dark:text-white">
+                    <p className="text-xs text-muted-foreground mb-1">Demand</p>
+                    <p className="text-xl font-bold text-foreground">
                       {dealsData.length > 5 ? 'High' : dealsData.length > 2 ? 'Medium' : 'Low'}
                     </p>
                   </div>
-                  <Zap className={`h-8 w-8 ${dealsData.length > 5 ? 'text-green-500' : dealsData.length > 2 ? 'text-yellow-500' : 'text-gray-400'}`} />
+                  <Zap className={`h-8 w-8 ${dealsData.length > 5 ? 'text-green-500' : dealsData.length > 2 ? 'text-yellow-500' : 'text-muted-foreground'}`} />
                 </div>
               </div>
             </div>
 
             {/* Last 10 Deals Table */}
             <div>
-              <h4 className="text-sm font-semibold mb-3 text-gray-700 dark:text-gray-300">Last 10 Deals</h4>
+              <h4 className="text-sm font-semibold mb-3 text-foreground">Last 10 Deals</h4>
               {dealsData.length > 0 ? (
-                <div className="rounded-lg border border-gray-200 dark:border-gray-800">
+                <div className="rounded-lg border border-border">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -821,7 +821,7 @@ export default function UnlistedCompanyDetails() {
                   </Table>
                 </div>
               ) : (
-                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                <p className="text-sm text-muted-foreground text-center py-4">
                   No transaction history available
                 </p>
               )}

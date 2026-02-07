@@ -72,7 +72,7 @@ const PRODUCT_TYPES = [
   { value: "insurance", label: "Insurance/ULIP", color: "bg-pink-500" },
   { value: "gold", label: "Gold", color: "bg-yellow-500" },
   { value: "real_estate", label: "Real Estate", color: "bg-stone-500" },
-  { value: "other", label: "Other", color: "bg-gray-500" },
+  { value: "other", label: "Other", color: "bg-muted" },
 ];
 
 interface PortfolioHolding {
@@ -161,7 +161,7 @@ interface ProposalStats {
 }
 
 const PROPOSAL_STATUS_COLORS: Record<string, string> = {
-  draft: "bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground",
+  draft: "bg-muted text-muted-foreground",
   shared: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
   viewed: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
   converted: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
@@ -839,8 +839,8 @@ const RECOMMENDATION_CATEGORIES = [
     <div className="space-y-6 p-6" data-testid="prospect-proposals-page">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Portfolio Demo Proposals</h1>
-          <p className="text-muted-foreground dark:text-muted-foreground">Create and share investment proposals to acquire new clients</p>
+          <h1 className="text-2xl font-bold text-foreground">Portfolio Demo Proposals</h1>
+          <p className="text-muted-foreground">Create and share investment proposals to acquire new clients</p>
         </div>
         <div className="flex gap-2">
           <Link href="/demo-proposal-builder">
@@ -850,7 +850,7 @@ const RECOMMENDATION_CATEGORIES = [
             </Button>
           </Link>
           <Button 
-            className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md"
+            className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-foreground shadow-md"
             onClick={() => setShowCreateDialog(true)}
             data-testid="btn-create-proposal"
           >
@@ -865,7 +865,7 @@ const RECOMMENDATION_CATEGORIES = [
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Total</p>
+                <p className="text-xs text-muted-foreground">Total</p>
                 <p className="text-2xl font-bold">{stats.total}</p>
               </div>
               <FileText className="w-8 h-8 text-muted-foreground" />
@@ -876,7 +876,7 @@ const RECOMMENDATION_CATEGORIES = [
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Draft</p>
+                <p className="text-xs text-muted-foreground">Draft</p>
                 <p className="text-2xl font-bold text-muted-foreground">{stats.draft}</p>
               </div>
               <Clock className="w-8 h-8 text-muted-foreground" />
@@ -887,7 +887,7 @@ const RECOMMENDATION_CATEGORIES = [
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Shared</p>
+                <p className="text-xs text-muted-foreground">Shared</p>
                 <p className="text-2xl font-bold text-blue-600">{stats.shared}</p>
               </div>
               <Send className="w-8 h-8 text-blue-400" />
@@ -898,7 +898,7 @@ const RECOMMENDATION_CATEGORIES = [
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Viewed</p>
+                <p className="text-xs text-muted-foreground">Viewed</p>
                 <p className="text-2xl font-bold text-green-600">{stats.viewed}</p>
               </div>
               <Eye className="w-8 h-8 text-green-400" />
@@ -909,7 +909,7 @@ const RECOMMENDATION_CATEGORIES = [
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Converted</p>
+                <p className="text-xs text-muted-foreground">Converted</p>
                 <p className="text-2xl font-bold text-purple-600">{stats.converted}</p>
               </div>
               <CheckCircle2 className="w-8 h-8 text-purple-400" />
@@ -920,7 +920,7 @@ const RECOMMENDATION_CATEGORIES = [
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Total Views</p>
+                <p className="text-xs text-muted-foreground">Total Views</p>
                 <p className="text-2xl font-bold text-indigo-600">{stats.totalViews}</p>
               </div>
               <BarChart3 className="w-8 h-8 text-indigo-400" />
@@ -962,9 +962,9 @@ const RECOMMENDATION_CATEGORIES = [
           ) : filteredProposals.length === 0 ? (
             <div className="text-center py-12">
               <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No proposals yet</h3>
-              <p className="text-muted-foreground dark:text-muted-foreground mb-4">Create your first proposal to start acquiring new clients</p>
-              <Button onClick={() => setShowCreateDialog(true)} className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white">
+              <h3 className="text-lg font-medium text-foreground mb-2">No proposals yet</h3>
+              <p className="text-muted-foreground mb-4">Create your first proposal to start acquiring new clients</p>
+              <Button onClick={() => setShowCreateDialog(true)} className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-foreground">
                 <Plus className="w-4 h-4 mr-2" />
                 Create First Proposal
               </Button>
@@ -1075,7 +1075,7 @@ const RECOMMENDATION_CATEGORIES = [
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="text-muted-foreground hover:text-foreground hover:bg-muted dark:text-muted-foreground dark:hover:bg-muted"
+                                className="text-muted-foreground hover:text-foreground hover:bg-muted"
                                 onClick={() => copyToClipboard(`${baseUrl}/proposal/${proposal.shareToken}`, "Proposal link")}
                                 data-testid={`btn-copy-${proposal.id}`}
                               >
@@ -1242,8 +1242,8 @@ const RECOMMENDATION_CATEGORIES = [
                         className={`flex items-start gap-2 p-2 rounded-lg border transition-colors ${
                           selectedCategories.includes(cat.value) 
                             ? "border-indigo-300 bg-indigo-50 dark:border-indigo-700 dark:bg-indigo-950" 
-                            : "border-border dark:border-border"
-                        } ${isDisabled ? "opacity-50" : "cursor-pointer hover:bg-muted dark:hover:bg-muted"}`}
+                            : "border-border"
+                        } ${isDisabled ? "opacity-50" : "cursor-pointer hover:bg-muted"}`}
                         onClick={() => {
                           if (isDisabled) return;
                           if (selectedCategories.includes(cat.value)) {
@@ -1366,7 +1366,7 @@ const RECOMMENDATION_CATEGORIES = [
 
               <TabsContent value="sample_portfolio" className="space-y-4 mt-0">
                 {/* Mode Toggle */}
-                <div className="flex items-center justify-between p-3 bg-muted dark:bg-card rounded-lg">
+                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                   <div className="flex items-center gap-2">
                     <Label htmlFor="advanced-toggle" className="text-sm">
                       {useAdvancedEditor ? "Advanced ISIN-based Entry" : "Quick Product Entry"}
@@ -1454,7 +1454,7 @@ const RECOMMENDATION_CATEGORIES = [
                           {quickHoldings.map((holding, idx) => (
                             <div 
                               key={holding.id} 
-                              className="border rounded-lg p-3 bg-white dark:bg-muted space-y-2"
+                              className="border rounded-lg p-3 bg-card space-y-2"
                             >
                               <div className="flex items-start gap-2">
                                 {/* Product Type */}
@@ -1545,7 +1545,7 @@ const RECOMMENDATION_CATEGORIES = [
                                           {productSearchResults.map((product) => (
                                             <div
                                               key={product.id}
-                                              className="px-3 py-2 hover:bg-muted dark:hover:bg-muted cursor-pointer border-b last:border-b-0"
+                                              className="px-3 py-2 hover:bg-muted cursor-pointer border-b last:border-b-0"
                                               onClick={() => selectProduct(holding.id, product)}
                                             >
                                               <p className="text-sm font-medium truncate">{product.name}</p>
@@ -1653,9 +1653,9 @@ const RECOMMENDATION_CATEGORIES = [
                               )}
                               {/* AI Rationale Row */}
                               {holding.aiRationale && (
-                                <div className="text-xs px-1 py-1.5 bg-muted dark:bg-card rounded mt-1">
-                                  <p className="text-muted-foreground dark:text-muted-foreground font-medium mb-1">AI Analysis:</p>
-                                  <p className="text-muted-foreground dark:text-muted-foreground">{holding.aiRationale}</p>
+                                <div className="text-xs px-1 py-1.5 bg-muted rounded mt-1">
+                                  <p className="text-muted-foreground font-medium mb-1">AI Analysis:</p>
+                                  <p className="text-muted-foreground">{holding.aiRationale}</p>
                                   {holding.aiMetrics && (
                                     <div className="flex flex-wrap gap-2 mt-1.5">
                                       {holding.aiMetrics.sharpeRatio !== undefined && (
@@ -1740,10 +1740,10 @@ const RECOMMENDATION_CATEGORIES = [
                       <Briefcase className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                     </div>
                     <div>
-                      <label htmlFor="include-existing" className="font-medium text-sm text-foreground dark:text-foreground cursor-pointer">
+                      <label htmlFor="include-existing" className="font-medium text-sm text-foreground cursor-pointer">
                         Include Existing Portfolio Analysis
                       </label>
-                      <p className="text-xs text-muted-foreground dark:text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         Analyze client's current holdings with AI recommendations (BUY/HOLD/SELL/SWITCH)
                       </p>
                     </div>
@@ -1789,22 +1789,22 @@ const RECOMMENDATION_CATEGORIES = [
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div>
-                      <h4 className="font-medium text-sm text-muted-foreground dark:text-muted-foreground">Executive Summary</h4>
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">{generatedProposal.executiveSummary}</p>
+                      <h4 className="font-medium text-sm text-muted-foreground">Executive Summary</h4>
+                      <p className="text-sm text-muted-foreground">{generatedProposal.executiveSummary}</p>
                     </div>
                     
                     <div className="grid grid-cols-3 gap-4">
-                      <div className="bg-white dark:bg-muted rounded-lg p-3">
+                      <div className="bg-card rounded-lg p-3">
                         <p className="text-xs text-muted-foreground">Total Investment</p>
                         <p className="text-lg font-bold text-indigo-600">
                           ₹{(generatedProposal.totalInvestmentAmount || 0).toLocaleString('en-IN')}
                         </p>
                       </div>
-                      <div className="bg-white dark:bg-muted rounded-lg p-3">
+                      <div className="bg-card rounded-lg p-3">
                         <p className="text-xs text-muted-foreground">Expected Returns</p>
                         <p className="text-lg font-bold text-green-600">{generatedProposal.projectedReturns}% p.a.</p>
                       </div>
-                      <div className="bg-white dark:bg-muted rounded-lg p-3">
+                      <div className="bg-card rounded-lg p-3">
                         <p className="text-xs text-muted-foreground">Projected Value (5Y)</p>
                         <p className="text-lg font-bold text-purple-600">
                           ₹{(generatedProposal.projectedValue || 0).toLocaleString('en-IN')}
@@ -1813,10 +1813,10 @@ const RECOMMENDATION_CATEGORIES = [
                     </div>
 
                     <div>
-                      <h4 className="font-medium text-sm text-muted-foreground dark:text-muted-foreground mb-2">Recommended Products ({generatedProposal.recommendations?.length || 0})</h4>
+                      <h4 className="font-medium text-sm text-muted-foreground mb-2">Recommended Products ({generatedProposal.recommendations?.length || 0})</h4>
                       <div className="space-y-3 max-h-64 overflow-y-auto">
                         {generatedProposal.recommendations?.map((rec: any, idx: number) => (
-                          <div key={idx} className="bg-white dark:bg-muted rounded-lg p-3 space-y-2">
+                          <div key={idx} className="bg-card rounded-lg p-3 space-y-2">
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
                                 <div className="flex items-center gap-2">
@@ -1843,12 +1843,12 @@ const RECOMMENDATION_CATEGORIES = [
                             </div>
                             {/* AI Rationale with Metrics */}
                             {rec.rationale && (
-                              <div className="text-xs bg-muted dark:bg-card rounded p-2 space-y-2">
-                                <p className="text-muted-foreground dark:text-muted-foreground">{rec.rationale}</p>
+                              <div className="text-xs bg-muted rounded p-2 space-y-2">
+                                <p className="text-muted-foreground">{rec.rationale}</p>
                                 {rec.metrics && (
                                   <>
                                     {/* Valuation Metrics Row */}
-                                    <div className="flex flex-wrap gap-3 pt-1.5 border-t border-border dark:border-border">
+                                    <div className="flex flex-wrap gap-3 pt-1.5 border-t border-border">
                                       {rec.metrics.pe > 0 && (
                                         <span className="bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded text-blue-700 dark:text-blue-400">
                                           P/E: {rec.metrics.pe}x {rec.metrics.peVsCat !== 0 && <span className={rec.metrics.peVsCat < 0 ? 'text-green-600' : 'text-amber-600'}>({rec.metrics.peVsCat > 0 ? '+' : ''}{rec.metrics.peVsCat}%)</span>}
@@ -1860,7 +1860,7 @@ const RECOMMENDATION_CATEGORIES = [
                                         </span>
                                       )}
                                       {rec.metrics.roe > 0 && (
-                                        <span className={`px-1.5 py-0.5 rounded ${rec.metrics.roe >= 15 ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-muted dark:bg-muted text-muted-foreground'}`}>
+                                        <span className={`px-1.5 py-0.5 rounded ${rec.metrics.roe >= 15 ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-muted text-muted-foreground'}`}>
                                           ROE: {rec.metrics.roe}%
                                         </span>
                                       )}
@@ -1878,7 +1878,7 @@ const RECOMMENDATION_CATEGORIES = [
                                     {/* Risk & Performance Metrics Row */}
                                     <div className="flex flex-wrap gap-3">
                                       {rec.metrics.sharpeRatio !== undefined && (
-                                        <span className={`text-muted-foreground dark:text-muted-foreground ${rec.metrics.sharpeRatio > 0.5 ? 'font-medium' : ''}`}>
+                                        <span className={`text-muted-foreground ${rec.metrics.sharpeRatio > 0.5 ? 'font-medium' : ''}`}>
                                           Sharpe: {rec.metrics.sharpeRatio}
                                         </span>
                                       )}
@@ -1934,7 +1934,7 @@ const RECOMMENDATION_CATEGORIES = [
                       <div className="border-t pt-4">
                         <div className="flex items-center gap-2 mb-3">
                           <Briefcase className="w-5 h-5 text-amber-600" />
-                          <h4 className="font-medium text-sm text-muted-foreground dark:text-muted-foreground">
+                          <h4 className="font-medium text-sm text-muted-foreground">
                             Existing Portfolio Analysis
                           </h4>
                         </div>
@@ -1945,7 +1945,7 @@ const RECOMMENDATION_CATEGORIES = [
 
                         {/* Summary Stats */}
                         <div className="grid grid-cols-5 gap-2 mb-3">
-                          <div className="bg-muted dark:bg-muted rounded p-2 text-center">
+                          <div className="bg-muted rounded p-2 text-center">
                             <p className="text-xs text-muted-foreground">Total Value</p>
                             <p className="font-bold text-sm">
                               ₹{(generatedProposal.existingPortfolioAnalysis.summary?.totalValue || 0).toLocaleString('en-IN')}
@@ -1972,7 +1972,7 @@ const RECOMMENDATION_CATEGORIES = [
                         {/* Existing Holdings List */}
                         <div className="space-y-2 max-h-48 overflow-y-auto">
                           {generatedProposal.existingPortfolioAnalysis.holdings?.map((holding: any, idx: number) => (
-                            <div key={idx} className="bg-white dark:bg-muted rounded-lg p-2.5 border border-border dark:border-border">
+                            <div key={idx} className="bg-card rounded-lg p-2.5 border border-border">
                               <div className="flex items-start justify-between">
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2">
@@ -2002,9 +2002,9 @@ const RECOMMENDATION_CATEGORIES = [
                               </div>
                               {/* Rationale and Metrics */}
                               {(holding.rationale || holding.metrics) && (
-                                <div className="mt-1.5 bg-muted dark:bg-card rounded p-1.5 space-y-1">
+                                <div className="mt-1.5 bg-muted rounded p-1.5 space-y-1">
                                   {holding.rationale && (
-                                    <p className="text-[10px] text-muted-foreground dark:text-muted-foreground">
+                                    <p className="text-[10px] text-muted-foreground">
                                       {holding.rationale}
                                     </p>
                                   )}
@@ -2052,14 +2052,14 @@ const RECOMMENDATION_CATEGORIES = [
             <Button 
               variant="outline" 
               onClick={() => { resetForm(); setShowCreateDialog(false); }}
-              className="border-border text-muted-foreground hover:bg-muted dark:border-border dark:text-muted-foreground dark:hover:bg-muted"
+              className="border-border text-muted-foreground hover:bg-muted"
             >
               Cancel
             </Button>
             <Button 
               onClick={handleCreate}
               disabled={!generatedProposal || createProposalMutation.isPending}
-              className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white"
+              className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-foreground"
               data-testid="btn-create-final"
             >
               {createProposalMutation.isPending ? "Creating..." : "Create & Share"}
@@ -2094,7 +2094,7 @@ const RECOMMENDATION_CATEGORIES = [
               {selectedProposal.executiveSummary && (
                 <div>
                   <h4 className="font-medium mb-1">Executive Summary</h4>
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">{selectedProposal.executiveSummary}</p>
+                  <p className="text-sm text-muted-foreground">{selectedProposal.executiveSummary}</p>
                 </div>
               )}
 
@@ -2154,10 +2154,10 @@ const RECOMMENDATION_CATEGORIES = [
                             <TableCell>{rec.allocationPercentage}%</TableCell>
                           </TableRow>
                           {rec.rationale && (
-                            <TableRow key={`${idx}-rationale`} className="bg-muted dark:bg-card">
+                            <TableRow key={`${idx}-rationale`} className="bg-muted">
                               <TableCell colSpan={5} className="text-xs py-2">
                                 <div className="space-y-1">
-                                  <p className="text-muted-foreground dark:text-muted-foreground">{rec.rationale}</p>
+                                  <p className="text-muted-foreground">{rec.rationale}</p>
                                   {(rec.exitLoadApplicable || rec.taxImplication) && (
                                     <div className="flex gap-3">
                                       {rec.exitLoadApplicable && (
@@ -2188,7 +2188,7 @@ const RECOMMENDATION_CATEGORIES = [
                 setShowPreviewDialog(false);
                 setShowShareDialog(true);
               }}
-              className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white"
+              className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-foreground"
             >
               <Send className="w-4 h-4 mr-2" />
               Share Proposal

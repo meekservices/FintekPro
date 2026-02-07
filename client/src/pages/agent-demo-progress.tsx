@@ -187,7 +187,7 @@ export default function AgentDemoProgress() {
     <div className="space-y-6 p-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white" data-testid="heading-demo-progress">My Demo Progress</h1>
+          <h1 className="text-2xl font-bold text-foreground" data-testid="heading-demo-progress">My Demo Progress</h1>
           <p className="text-muted-foreground mt-1">Track your demo proposals and conversion performance</p>
         </div>
         <div className="flex gap-2">
@@ -206,20 +206,20 @@ export default function AgentDemoProgress() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-slate-900 border-slate-800">
+        <Card className="bg-background border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">My Demos</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <div className="text-2xl font-bold text-white" data-testid="text-total-demos">{calculatedStats.totalDemos}</div>
+              <div className="text-2xl font-bold text-foreground" data-testid="text-total-demos">{calculatedStats.totalDemos}</div>
               <FileText className="h-8 w-8 text-blue-500" />
             </div>
             <p className="text-xs text-muted-foreground mt-2">Value: {formatCurrency(calculatedStats.totalDemoValue)}</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-900 border-slate-800">
+        <Card className="bg-background border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Converted</CardTitle>
           </CardHeader>
@@ -232,13 +232,13 @@ export default function AgentDemoProgress() {
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-900 border-slate-800">
+        <Card className="bg-background border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Conversion Rate</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <div className="text-2xl font-bold text-white" data-testid="text-conversion-rate">{calculatedStats.conversionRate.toFixed(1)}%</div>
+              <div className="text-2xl font-bold text-foreground" data-testid="text-conversion-rate">{calculatedStats.conversionRate.toFixed(1)}%</div>
               <Target className="h-8 w-8 text-purple-500" />
             </div>
             <div className="flex items-center mt-2">
@@ -248,7 +248,7 @@ export default function AgentDemoProgress() {
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-900 border-slate-800">
+        <Card className="bg-background border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Pending Actions</CardTitle>
           </CardHeader>
@@ -264,9 +264,9 @@ export default function AgentDemoProgress() {
 
       {/* Performance Chart */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="bg-slate-900 border-slate-800 lg:col-span-1">
+        <Card className="bg-background border-border lg:col-span-1">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-white">
+            <CardTitle className="flex items-center gap-2 text-foreground">
               <BarChart3 className="h-5 w-5" />
               Status Overview
             </CardTitle>
@@ -299,11 +299,11 @@ export default function AgentDemoProgress() {
         </Card>
 
         {/* Demo Proposals Table */}
-        <Card className="bg-slate-900 border-slate-800 lg:col-span-2">
+        <Card className="bg-background border-border lg:col-span-2">
           <CardHeader>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
-                <CardTitle className="text-white">My Demo Proposals</CardTitle>
+                <CardTitle className="text-foreground">My Demo Proposals</CardTitle>
                 <CardDescription>Track engagement and convert demos to investments</CardDescription>
               </div>
               <div className="flex gap-2">
@@ -313,12 +313,12 @@ export default function AgentDemoProgress() {
                     placeholder="Search..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9 w-[150px] bg-slate-800 border-slate-700"
+                    className="pl-9 w-[150px] bg-card border-border"
                     data-testid="input-search"
                   />
                 </div>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[120px] bg-slate-800 border-slate-700" data-testid="select-status">
+                  <SelectTrigger className="w-[120px] bg-card border-border" data-testid="select-status">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -334,7 +334,7 @@ export default function AgentDemoProgress() {
             <ScrollArea className="h-[300px]">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-slate-700">
+                  <TableRow className="border-border">
                     <TableHead className="text-muted-foreground">Client</TableHead>
                     <TableHead className="text-muted-foreground">Proposal</TableHead>
                     <TableHead className="text-muted-foreground text-right">Amount</TableHead>
@@ -358,26 +358,26 @@ export default function AgentDemoProgress() {
                     </TableRow>
                   ) : (
                     filteredDemos.map((demo) => (
-                      <TableRow key={demo.id} className="border-slate-700 hover:bg-slate-800/50">
+                      <TableRow key={demo.id} className="border-border hover:bg-card/50">
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Users className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-white">{demo.clientName}</span>
+                            <span className="text-foreground">{demo.clientName}</span>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div>
-                            <div className="text-white text-sm">{demo.title}</div>
+                            <div className="text-foreground text-sm">{demo.title}</div>
                             <div className="text-xs text-muted-foreground">{getTimeAgo(demo.createdAt)}</div>
                           </div>
                         </TableCell>
-                        <TableCell className="text-right font-mono text-white">
+                        <TableCell className="text-right font-mono text-foreground">
                           {formatCurrency(parseFloat(demo.totalInvestmentAmount || '0'))}
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-1">
                             <Eye className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-white">{demo.demoViewCount}</span>
+                            <span className="text-foreground">{demo.demoViewCount}</span>
                           </div>
                         </TableCell>
                         <TableCell>{getStatusBadge(demo.status, demo.demoConvertedAt)}</TableCell>
@@ -409,9 +409,9 @@ export default function AgentDemoProgress() {
 
       {/* Convert Dialog */}
       <Dialog open={convertDialog.open} onOpenChange={(open) => setConvertDialog({ open, proposal: open ? convertDialog.proposal : null })}>
-        <DialogContent className="bg-slate-900 border-slate-700">
+        <DialogContent className="bg-background border-border">
           <DialogHeader>
-            <DialogTitle className="text-white">Convert Demo to Investment</DialogTitle>
+            <DialogTitle className="text-foreground">Convert Demo to Investment</DialogTitle>
             <DialogDescription>
               This will convert the demo to a real investment proposal.
             </DialogDescription>
@@ -422,11 +422,11 @@ export default function AgentDemoProgress() {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">Client:</span>
-                  <p className="text-white font-medium">{convertDialog.proposal.clientName}</p>
+                  <p className="text-foreground font-medium">{convertDialog.proposal.clientName}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Amount:</span>
-                  <p className="text-white font-medium">{formatCurrency(parseFloat(convertDialog.proposal.totalInvestmentAmount || '0'))}</p>
+                  <p className="text-foreground font-medium">{formatCurrency(parseFloat(convertDialog.proposal.totalInvestmentAmount || '0'))}</p>
                 </div>
               </div>
             </div>

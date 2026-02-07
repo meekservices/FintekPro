@@ -71,7 +71,7 @@ export default function DistributionPartnerPortal() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950">
+      <div className="min-h-screen bg-gradient-to-br from-background via-blue-50/30 to-indigo-50/30 dark:from-background dark:via-blue-950/30 dark:to-indigo-950/30">
         <div className="container mx-auto p-6">
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3"></div>
@@ -109,15 +109,15 @@ export default function DistributionPartnerPortal() {
     : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950" data-testid="distribution-partner-portal">
+    <div className="min-h-screen bg-gradient-to-br from-background via-blue-50/30 to-indigo-50/30 dark:from-background dark:via-blue-950/30 dark:to-indigo-950/30" data-testid="distribution-partner-portal">
       <div className="container mx-auto p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <Briefcase className="h-8 w-8 text-primary" />
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Partner Portal</h1>
+              <h1 className="text-3xl font-bold text-foreground">Partner Portal</h1>
             </div>
-            <p className="text-muted-foreground dark:text-muted-foreground">
+            <p className="text-muted-foreground">
               Welcome back, {(partnerProfile as any)?.companyName || 'Partner'}
             </p>
           </div>
@@ -190,40 +190,40 @@ export default function DistributionPartnerPortal() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
+          <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-foreground">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-white/90">Total Commissions Earned</CardTitle>
-              <DollarSign className="h-5 w-5 text-white/80" />
+              <CardTitle className="text-sm font-medium text-foreground/90">Total Commissions Earned</CardTitle>
+              <DollarSign className="h-5 w-5 text-foreground/80" />
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">₹{(stats.totalCommissions / 1000).toFixed(2)} K</div>
-              <p className="text-sm text-white/70 mt-1">
+              <p className="text-sm text-foreground/70 mt-1">
                 Lifetime earnings
               </p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-amber-500 to-orange-600 text-white">
+          <Card className="bg-gradient-to-br from-amber-500 to-orange-600 text-foreground">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-white/90">Pending Commissions</CardTitle>
-              <Clock className="h-5 w-5 text-white/80" />
+              <CardTitle className="text-sm font-medium text-foreground/90">Pending Commissions</CardTitle>
+              <Clock className="h-5 w-5 text-foreground/80" />
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">₹{(stats.pendingCommissions / 1000).toFixed(2)} K</div>
-              <p className="text-sm text-white/70 mt-1">
+              <p className="text-sm text-foreground/70 mt-1">
                 Awaiting settlement
               </p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
+          <Card className="bg-gradient-to-br from-blue-500 to-indigo-600 text-foreground">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-white/90">Commission Rate</CardTitle>
-              <Target className="h-5 w-5 text-white/80" />
+              <CardTitle className="text-sm font-medium text-foreground/90">Commission Rate</CardTitle>
+              <Target className="h-5 w-5 text-foreground/80" />
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{(partnerProfile as any)?.commissionRate || '1.00'}%</div>
-              <p className="text-sm text-white/70 mt-1">
+              <p className="text-sm text-foreground/70 mt-1">
                 Current rate
               </p>
             </CardContent>
@@ -308,7 +308,7 @@ export default function DistributionPartnerPortal() {
                           <div className="flex items-center gap-3">
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
                               agent.rank === 1 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300' :
-                              agent.rank === 2 ? 'bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground' :
+                              agent.rank === 2 ? 'bg-muted text-muted-foreground' :
                               'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300'
                             }`}>
                               #{agent.rank}
@@ -383,7 +383,7 @@ export default function DistributionPartnerPortal() {
                         data-testid="input-search-agents"
                       />
                     </div>
-                    <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md" data-testid="button-add-agent" onClick={() => navigate("/partner-application")}>
+                    <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-foreground shadow-md" data-testid="button-add-agent" onClick={() => navigate("/partner-application")}>
                       <UserPlus className="h-4 w-4 mr-2" />
                       Add Agent
                     </Button>
@@ -448,7 +448,7 @@ export default function DistributionPartnerPortal() {
                           <Users className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
                           <p className="text-lg font-medium mb-1">No agents in your network</p>
                           <p className="text-muted-foreground mb-4">Start building your distribution network</p>
-                          <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white" data-testid="button-onboard-first-agent" onClick={() => navigate("/partner-application")}>
+                          <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-foreground" data-testid="button-onboard-first-agent" onClick={() => navigate("/partner-application")}>
                             <UserPlus className="h-4 w-4 mr-2" />
                             Onboard First Agent
                           </Button>

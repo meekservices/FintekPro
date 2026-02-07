@@ -243,7 +243,7 @@ export default function AgentBondRecommendations() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white p-6">
+    <div className="min-h-screen bg-background text-foreground p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -251,7 +251,7 @@ export default function AgentBondRecommendations() {
               <Brain className="h-8 w-8 text-blue-400" />
               AI Bond Recommendations
             </h1>
-            <p className="text-slate-400 mt-1">
+            <p className="text-muted-foreground mt-1">
               Intelligent fixed-income portfolio construction with customizable parameters
             </p>
           </div>
@@ -262,7 +262,7 @@ export default function AgentBondRecommendations() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <ScrollableTabsList className="bg-slate-900/50 border border-slate-800">
+          <ScrollableTabsList className="bg-background/50 border border-border">
             <TabsTrigger value="generator" className="data-[state=active]:bg-blue-600" data-testid="tab-generator">
               <Calculator className="h-4 w-4 mr-2" />
               Generate
@@ -280,27 +280,27 @@ export default function AgentBondRecommendations() {
           <TabsContent value="generator" className="mt-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 space-y-6">
-                <Card className="bg-slate-900 border-slate-800">
+                <Card className="bg-background border-border">
                   <CardHeader>
-                    <CardTitle className="text-white flex items-center gap-2">
+                    <CardTitle className="text-foreground flex items-center gap-2">
                       <Target className="h-5 w-5 text-blue-400" />
                       Investment Parameters
                     </CardTitle>
-                    <CardDescription className="text-slate-400">
+                    <CardDescription className="text-muted-foreground">
                       Configure your bond investment preferences
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <Label className="text-slate-300">Investment Amount</Label>
+                        <Label className="text-muted-foreground">Investment Amount</Label>
                         <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">₹</span>
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
                           <Input
                             type="number"
                             value={params.investmentAmount}
                             onChange={(e) => setParams(prev => ({ ...prev, investmentAmount: parseInt(e.target.value) || 0 }))}
-                            className="bg-slate-800 border-slate-700 text-white pl-8"
+                            className="bg-card border-border text-foreground pl-8"
                             data-testid="input-investment-amount"
                           />
                         </div>
@@ -315,12 +315,12 @@ export default function AgentBondRecommendations() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label className="text-slate-300">Investment Horizon</Label>
+                        <Label className="text-muted-foreground">Investment Horizon</Label>
                         <Select
                           value={params.investmentHorizon}
                           onValueChange={(value) => setParams(prev => ({ ...prev, investmentHorizon: value }))}
                         >
-                          <SelectTrigger className="bg-slate-800 border-slate-700 text-white" data-testid="select-investment-horizon">
+                          <SelectTrigger className="bg-card border-border text-foreground" data-testid="select-investment-horizon">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -340,12 +340,12 @@ export default function AgentBondRecommendations() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label className="text-slate-300">Risk Tolerance</Label>
+                        <Label className="text-muted-foreground">Risk Tolerance</Label>
                         <Select
                           value={params.riskTolerance}
                           onValueChange={(value) => setParams(prev => ({ ...prev, riskTolerance: value }))}
                         >
-                          <SelectTrigger className="bg-slate-800 border-slate-700 text-white" data-testid="select-risk-tolerance">
+                          <SelectTrigger className="bg-card border-border text-foreground" data-testid="select-risk-tolerance">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -359,12 +359,12 @@ export default function AgentBondRecommendations() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label className="text-slate-300">Tax Bracket</Label>
+                        <Label className="text-muted-foreground">Tax Bracket</Label>
                         <Select
                           value={params.taxBracket}
                           onValueChange={(value) => setParams(prev => ({ ...prev, taxBracket: value }))}
                         >
-                          <SelectTrigger className="bg-slate-800 border-slate-700 text-white" data-testid="select-tax-bracket">
+                          <SelectTrigger className="bg-card border-border text-foreground" data-testid="select-tax-bracket">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -380,12 +380,12 @@ export default function AgentBondRecommendations() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label className="text-slate-300">Minimum Credit Rating</Label>
+                        <Label className="text-muted-foreground">Minimum Credit Rating</Label>
                         <Select
                           value={params.minimumRating}
                           onValueChange={(value) => setParams(prev => ({ ...prev, minimumRating: value }))}
                         >
-                          <SelectTrigger className="bg-slate-800 border-slate-700 text-white" data-testid="select-minimum-rating">
+                          <SelectTrigger className="bg-card border-border text-foreground" data-testid="select-minimum-rating">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -402,12 +402,12 @@ export default function AgentBondRecommendations() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label className="text-slate-300">Yield Preference</Label>
+                        <Label className="text-muted-foreground">Yield Preference</Label>
                         <Select
                           value={params.yieldPreference}
                           onValueChange={(value) => setParams(prev => ({ ...prev, yieldPreference: value }))}
                         >
-                          <SelectTrigger className="bg-slate-800 border-slate-700 text-white" data-testid="select-yield-preference">
+                          <SelectTrigger className="bg-card border-border text-foreground" data-testid="select-yield-preference">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -419,12 +419,12 @@ export default function AgentBondRecommendations() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label className="text-slate-300">Liquidity Needs</Label>
+                        <Label className="text-muted-foreground">Liquidity Needs</Label>
                         <Select
                           value={params.liquidityNeeds}
                           onValueChange={(value) => setParams(prev => ({ ...prev, liquidityNeeds: value }))}
                         >
-                          <SelectTrigger className="bg-slate-800 border-slate-700 text-white" data-testid="select-liquidity-needs">
+                          <SelectTrigger className="bg-card border-border text-foreground" data-testid="select-liquidity-needs">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -436,10 +436,10 @@ export default function AgentBondRecommendations() {
                       </div>
                     </div>
 
-                    <Separator className="bg-slate-700" />
+                    <Separator className="bg-muted" />
 
                     <div className="space-y-4">
-                      <Label className="text-slate-300">Preferred Bond Types</Label>
+                      <Label className="text-muted-foreground">Preferred Bond Types</Label>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         {BOND_TYPES.map((bondType) => {
                           const Icon = bondType.icon;
@@ -451,7 +451,7 @@ export default function AgentBondRecommendations() {
                               className={`p-3 rounded-lg border transition-all ${
                                 isSelected
                                   ? 'bg-blue-600/20 border-blue-500 text-blue-400'
-                                  : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
+                                  : 'bg-card border-border text-muted-foreground hover:border-border'
                               }`}
                               data-testid={`bond-type-${bondType.value}`}
                             >
@@ -463,13 +463,13 @@ export default function AgentBondRecommendations() {
                       </div>
                     </div>
 
-                    <Separator className="bg-slate-700" />
+                    <Separator className="bg-muted" />
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="flex items-center justify-between p-4 rounded-lg bg-slate-800 border border-slate-700">
+                      <div className="flex items-center justify-between p-4 rounded-lg bg-card border border-border">
                         <div className="flex items-center gap-2">
                           <BadgeCheck className="h-5 w-5 text-green-400" />
-                          <Label className="text-slate-300 cursor-pointer">Tax Optimization</Label>
+                          <Label className="text-muted-foreground cursor-pointer">Tax Optimization</Label>
                         </div>
                         <Switch
                           checked={params.taxOptimization}
@@ -478,10 +478,10 @@ export default function AgentBondRecommendations() {
                         />
                       </div>
 
-                      <div className="flex items-center justify-between p-4 rounded-lg bg-slate-800 border border-slate-700">
+                      <div className="flex items-center justify-between p-4 rounded-lg bg-card border border-border">
                         <div className="flex items-center gap-2">
                           <Shield className="h-5 w-5 text-amber-400" />
-                          <Label className="text-slate-300 cursor-pointer">Inflation Protection</Label>
+                          <Label className="text-muted-foreground cursor-pointer">Inflation Protection</Label>
                         </div>
                         <Switch
                           checked={params.inflationProtection}
@@ -490,10 +490,10 @@ export default function AgentBondRecommendations() {
                         />
                       </div>
 
-                      <div className="flex items-center justify-between p-4 rounded-lg bg-slate-800 border border-slate-700">
+                      <div className="flex items-center justify-between p-4 rounded-lg bg-card border border-border">
                         <div className="flex items-center gap-2">
                           <DollarSign className="h-5 w-5 text-purple-400" />
-                          <Label className="text-slate-300 cursor-pointer">Monthly Income</Label>
+                          <Label className="text-muted-foreground cursor-pointer">Monthly Income</Label>
                         </div>
                         <Switch
                           checked={params.monthlyIncomeNeeded}
@@ -527,9 +527,9 @@ export default function AgentBondRecommendations() {
               </div>
 
               <div className="space-y-6">
-                <Card className="bg-slate-900 border-slate-800">
+                <Card className="bg-background border-border">
                   <CardHeader>
-                    <CardTitle className="text-white flex items-center gap-2 text-lg">
+                    <CardTitle className="text-foreground flex items-center gap-2 text-lg">
                       <Lightbulb className="h-5 w-5 text-amber-400" />
                       Summary
                     </CardTitle>
@@ -537,31 +537,31 @@ export default function AgentBondRecommendations() {
                   <CardContent className="space-y-4">
                     <div className="space-y-3">
                       <div className="flex justify-between">
-                        <span className="text-slate-400">Investment</span>
-                        <span className="text-white font-semibold">{formatCurrency(params.investmentAmount)}</span>
+                        <span className="text-muted-foreground">Investment</span>
+                        <span className="text-foreground font-semibold">{formatCurrency(params.investmentAmount)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-400">Horizon</span>
-                        <span className="text-white capitalize">{params.investmentHorizon} Term</span>
+                        <span className="text-muted-foreground">Horizon</span>
+                        <span className="text-foreground capitalize">{params.investmentHorizon} Term</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-400">Risk Profile</span>
+                        <span className="text-muted-foreground">Risk Profile</span>
                         <Badge variant="outline" className="capitalize">{params.riskTolerance.replace('_', ' ')}</Badge>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-400">Min. Rating</span>
+                        <span className="text-muted-foreground">Min. Rating</span>
                         <span className={`font-semibold ${getRatingColor(params.minimumRating)}`}>{params.minimumRating}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-400">Bond Types</span>
-                        <span className="text-white">{params.preferredBondTypes.length} selected</span>
+                        <span className="text-muted-foreground">Bond Types</span>
+                        <span className="text-foreground">{params.preferredBondTypes.length} selected</span>
                       </div>
                     </div>
 
-                    <Separator className="bg-slate-700" />
+                    <Separator className="bg-muted" />
 
                     <div className="space-y-2">
-                      <h4 className="text-slate-300 font-medium">Active Features</h4>
+                      <h4 className="text-muted-foreground font-medium">Active Features</h4>
                       <div className="flex flex-wrap gap-2">
                         {params.taxOptimization && (
                           <Badge className="bg-green-600/20 text-green-400 border-green-600/50">Tax Opt.</Badge>
@@ -573,7 +573,7 @@ export default function AgentBondRecommendations() {
                           <Badge className="bg-purple-600/20 text-purple-400 border-purple-600/50">Monthly Income</Badge>
                         )}
                         {!params.taxOptimization && !params.inflationProtection && !params.monthlyIncomeNeeded && (
-                          <span className="text-slate-500 text-sm">No special features</span>
+                          <span className="text-muted-foreground text-sm">No special features</span>
                         )}
                       </div>
                     </div>
@@ -582,17 +582,17 @@ export default function AgentBondRecommendations() {
 
                 <Card className="bg-gradient-to-br from-blue-900/50 to-slate-900 border-blue-800/50">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-white text-lg flex items-center gap-2">
+                    <CardTitle className="text-foreground text-lg flex items-center gap-2">
                       <Info className="h-5 w-5 text-blue-400" />
                       AI Insights
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-slate-300 text-sm">
+                    <p className="text-muted-foreground text-sm">
                       Our AI engine analyzes real-time bond data, credit ratings, yield curves, 
                       and your personal preferences to construct an optimal fixed-income portfolio.
                     </p>
-                    <ul className="mt-3 space-y-2 text-sm text-slate-400">
+                    <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
                       <li className="flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4 text-green-400" />
                         Duration matching for your horizon
@@ -623,23 +623,23 @@ export default function AgentBondRecommendations() {
                 return (
                   <Card
                     key={profile.id}
-                    className="bg-slate-900 border-slate-800 hover:border-blue-600 transition-colors cursor-pointer group"
+                    className="bg-background border-border hover:border-blue-600 transition-colors cursor-pointer group"
                     onClick={() => quickPickMutation.mutate(profile.id)}
                     data-testid={`quick-pick-${profile.id}`}
                   >
                     <CardHeader>
-                      <div className={`w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center mb-2 group-hover:bg-blue-600/20 transition-colors`}>
+                      <div className={`w-12 h-12 rounded-full bg-card flex items-center justify-center mb-2 group-hover:bg-blue-600/20 transition-colors`}>
                         <Icon className={`h-6 w-6 ${profile.color}`} />
                       </div>
-                      <CardTitle className="text-white text-lg">{profile.label}</CardTitle>
-                      <CardDescription className="text-slate-400">
+                      <CardTitle className="text-foreground text-lg">{profile.label}</CardTitle>
+                      <CardDescription className="text-muted-foreground">
                         {profile.description}
                       </CardDescription>
                     </CardHeader>
                     <CardFooter>
                       <Button
                         variant="outline"
-                        className="w-full border-slate-700 text-slate-300 group-hover:border-blue-600 group-hover:text-blue-400"
+                        className="w-full border-border text-muted-foreground group-hover:border-blue-600 group-hover:text-blue-400"
                         disabled={quickPickMutation.isPending}
                       >
                         {quickPickMutation.isPending ? (
@@ -656,9 +656,9 @@ export default function AgentBondRecommendations() {
               })}
             </div>
 
-            <Alert className="mt-6 bg-slate-900 border-slate-700">
+            <Alert className="mt-6 bg-background border-border">
               <Info className="h-4 w-4" />
-              <AlertDescription className="text-slate-300">
+              <AlertDescription className="text-muted-foreground">
                 Quick picks use pre-configured parameters optimized for common investment goals. 
                 For custom requirements, use the Generator tab.
               </AlertDescription>
@@ -667,17 +667,17 @@ export default function AgentBondRecommendations() {
 
           <TabsContent value="results" className="mt-6">
             {!recommendations ? (
-              <Card className="bg-slate-900 border-slate-800">
+              <Card className="bg-background border-border">
                 <CardContent className="py-12 text-center">
-                  <PieChart className="h-16 w-16 mx-auto text-slate-600 mb-4" />
-                  <h3 className="text-xl font-semibold text-slate-400 mb-2">No Recommendations Yet</h3>
-                  <p className="text-slate-500 mb-4">
+                  <PieChart className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-xl font-semibold text-muted-foreground mb-2">No Recommendations Yet</h3>
+                  <p className="text-muted-foreground mb-4">
                     Generate recommendations using the Generator or Quick Picks tabs
                   </p>
                   <Button
                     variant="outline"
                     onClick={() => setActiveTab("generator")}
-                    className="border-slate-700"
+                    className="border-border"
                   >
                     Go to Generator
                     <ArrowRight className="h-4 w-4 ml-2" />
@@ -687,50 +687,50 @@ export default function AgentBondRecommendations() {
             ) : (
               <div className="space-y-6">
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                  <Card className="bg-slate-900 border-slate-800">
+                  <Card className="bg-background border-border">
                     <CardContent className="pt-6">
                       <div className="text-center">
-                        <p className="text-slate-400 text-sm">Total Investment</p>
-                        <p className="text-2xl font-bold text-white">{formatCurrency(recommendations.totalInvestment)}</p>
+                        <p className="text-muted-foreground text-sm">Total Investment</p>
+                        <p className="text-2xl font-bold text-foreground">{formatCurrency(recommendations.totalInvestment)}</p>
                       </div>
                     </CardContent>
                   </Card>
-                  <Card className="bg-slate-900 border-slate-800">
+                  <Card className="bg-background border-border">
                     <CardContent className="pt-6">
                       <div className="text-center">
-                        <p className="text-slate-400 text-sm">Weighted Yield</p>
+                        <p className="text-muted-foreground text-sm">Weighted Yield</p>
                         <p className="text-2xl font-bold text-green-400">{recommendations.weightedYield.toFixed(2)}%</p>
                       </div>
                     </CardContent>
                   </Card>
-                  <Card className="bg-slate-900 border-slate-800">
+                  <Card className="bg-background border-border">
                     <CardContent className="pt-6">
                       <div className="text-center">
-                        <p className="text-slate-400 text-sm">Avg. Duration</p>
+                        <p className="text-muted-foreground text-sm">Avg. Duration</p>
                         <p className="text-2xl font-bold text-blue-400">{recommendations.weightedDuration.toFixed(1)}Y</p>
                       </div>
                     </CardContent>
                   </Card>
-                  <Card className="bg-slate-900 border-slate-800">
+                  <Card className="bg-background border-border">
                     <CardContent className="pt-6">
                       <div className="text-center">
-                        <p className="text-slate-400 text-sm">Annual Income</p>
+                        <p className="text-muted-foreground text-sm">Annual Income</p>
                         <p className="text-2xl font-bold text-amber-400">{formatCurrency(recommendations.expectedAnnualIncome)}</p>
                       </div>
                     </CardContent>
                   </Card>
-                  <Card className="bg-slate-900 border-slate-800">
+                  <Card className="bg-background border-border">
                     <CardContent className="pt-6">
                       <div className="text-center">
-                        <p className="text-slate-400 text-sm">Avg. Rating</p>
+                        <p className="text-muted-foreground text-sm">Avg. Rating</p>
                         <p className={`text-2xl font-bold ${getRatingColor(recommendations.averageRating)}`}>{recommendations.averageRating}</p>
                       </div>
                     </CardContent>
                   </Card>
-                  <Card className="bg-slate-900 border-slate-800">
+                  <Card className="bg-background border-border">
                     <CardContent className="pt-6">
                       <div className="text-center">
-                        <p className="text-slate-400 text-sm">Diversification</p>
+                        <p className="text-muted-foreground text-sm">Diversification</p>
                         <p className="text-2xl font-bold text-purple-400">{recommendations.diversificationScore}/100</p>
                       </div>
                     </CardContent>
@@ -738,46 +738,46 @@ export default function AgentBondRecommendations() {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <Card className="bg-slate-900 border-slate-800 lg:col-span-2">
+                  <Card className="bg-background border-border lg:col-span-2">
                     <CardHeader>
-                      <CardTitle className="text-white flex items-center gap-2">
+                      <CardTitle className="text-foreground flex items-center gap-2">
                         <Brain className="h-5 w-5 text-blue-400" />
                         AI Portfolio Rationale
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-slate-300">{recommendations.portfolioRationale}</p>
+                      <p className="text-muted-foreground">{recommendations.portfolioRationale}</p>
                     </CardContent>
                   </Card>
 
-                  <Card className="bg-slate-900 border-slate-800">
+                  <Card className="bg-background border-border">
                     <CardHeader>
-                      <CardTitle className="text-white flex items-center gap-2">
+                      <CardTitle className="text-foreground flex items-center gap-2">
                         <AlertTriangle className="h-5 w-5 text-amber-400" />
                         Risk Analysis
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
                       <div className="flex justify-between items-center">
-                        <span className="text-slate-400">Interest Rate Risk</span>
+                        <span className="text-muted-foreground">Interest Rate Risk</span>
                         <Badge variant={getRiskBadgeVariant(recommendations.riskAnalysis.interestRateRisk)}>
                           {recommendations.riskAnalysis.interestRateRisk}
                         </Badge>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-slate-400">Credit Risk</span>
+                        <span className="text-muted-foreground">Credit Risk</span>
                         <Badge variant={getRiskBadgeVariant(recommendations.riskAnalysis.creditRisk)}>
                           {recommendations.riskAnalysis.creditRisk}
                         </Badge>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-slate-400">Liquidity Risk</span>
+                        <span className="text-muted-foreground">Liquidity Risk</span>
                         <Badge variant={getRiskBadgeVariant(recommendations.riskAnalysis.liquidityRisk)}>
                           {recommendations.riskAnalysis.liquidityRisk}
                         </Badge>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-slate-400">Reinvestment Risk</span>
+                        <span className="text-muted-foreground">Reinvestment Risk</span>
                         <Badge variant={getRiskBadgeVariant(recommendations.riskAnalysis.reinvestmentRisk)}>
                           {recommendations.riskAnalysis.reinvestmentRisk}
                         </Badge>
@@ -787,26 +787,26 @@ export default function AgentBondRecommendations() {
                 </div>
 
                 {recommendations.ladderStrategy?.enabled && (
-                  <Card className="bg-slate-900 border-slate-800">
+                  <Card className="bg-background border-border">
                     <CardHeader>
-                      <CardTitle className="text-white flex items-center gap-2">
+                      <CardTitle className="text-foreground flex items-center gap-2">
                         <Layers className="h-5 w-5 text-purple-400" />
                         Bond Ladder Strategy
                       </CardTitle>
-                      <CardDescription className="text-slate-400">
+                      <CardDescription className="text-muted-foreground">
                         Staggered maturities to manage reinvestment risk
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {recommendations.ladderStrategy.buckets.map((bucket, index) => (
-                          <div key={index} className="p-4 rounded-lg bg-slate-800 border border-slate-700">
+                          <div key={index} className="p-4 rounded-lg bg-card border border-border">
                             <div className="flex justify-between items-center mb-2">
-                              <span className="text-slate-300 font-medium">{bucket.maturityRange}</span>
+                              <span className="text-muted-foreground font-medium">{bucket.maturityRange}</span>
                               <Badge variant="outline">{bucket.percentage}%</Badge>
                             </div>
                             <Progress value={bucket.percentage} className="h-2 mb-2" />
-                            <p className="text-slate-500 text-sm">{bucket.bonds.length} bond(s)</p>
+                            <p className="text-muted-foreground text-sm">{bucket.bonds.length} bond(s)</p>
                           </div>
                         ))}
                       </div>
@@ -814,9 +814,9 @@ export default function AgentBondRecommendations() {
                   </Card>
                 )}
 
-                <Card className="bg-slate-900 border-slate-800">
+                <Card className="bg-background border-border">
                   <CardHeader>
-                    <CardTitle className="text-white flex items-center gap-2">
+                    <CardTitle className="text-foreground flex items-center gap-2">
                       <BarChart3 className="h-5 w-5 text-green-400" />
                       Recommended Bonds ({recommendations.recommendations.length})
                     </CardTitle>
@@ -826,10 +826,10 @@ export default function AgentBondRecommendations() {
                       <div className="space-y-4">
                         {recommendations.recommendations.map((bond, index) => (
                           <Accordion type="single" collapsible key={bond.id}>
-                            <AccordionItem value={bond.id} className="border border-slate-700 rounded-lg bg-slate-800/50">
+                            <AccordionItem value={bond.id} className="border border-border rounded-lg bg-card/50">
                               <AccordionTrigger className="px-4 py-3 hover:no-underline" data-testid={`bond-item-${index}`}>
                                 <div className="flex items-center gap-4 w-full text-left">
-                                  <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center">
+                                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
                                     {bond.bondType === 'government' ? (
                                       <Landmark className="h-5 w-5 text-green-400" />
                                     ) : (
@@ -837,12 +837,12 @@ export default function AgentBondRecommendations() {
                                     )}
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <h4 className="text-white font-medium truncate">{bond.name}</h4>
-                                    <p className="text-slate-400 text-sm">{bond.issuer} • {bond.bondCategory}</p>
+                                    <h4 className="text-foreground font-medium truncate">{bond.name}</h4>
+                                    <p className="text-muted-foreground text-sm">{bond.issuer} • {bond.bondCategory}</p>
                                   </div>
                                   <div className="text-right hidden md:block">
                                     <p className="text-green-400 font-semibold">{bond.yieldToMaturity.toFixed(2)}% YTM</p>
-                                    <p className="text-slate-400 text-sm">{bond.suggestedAllocation}% allocation</p>
+                                    <p className="text-muted-foreground text-sm">{bond.suggestedAllocation}% allocation</p>
                                   </div>
                                   <Badge className={getRatingColor(bond.creditRating)} variant="outline">
                                     {bond.creditRating}
@@ -851,40 +851,40 @@ export default function AgentBondRecommendations() {
                               </AccordionTrigger>
                               <AccordionContent className="px-4 pb-4">
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                                  <div className="p-3 rounded bg-slate-700/50">
-                                    <p className="text-slate-400 text-sm">Suggested Amount</p>
-                                    <p className="text-white font-semibold">{formatCurrency(bond.suggestedAmount)}</p>
+                                  <div className="p-3 rounded bg-muted/50">
+                                    <p className="text-muted-foreground text-sm">Suggested Amount</p>
+                                    <p className="text-foreground font-semibold">{formatCurrency(bond.suggestedAmount)}</p>
                                   </div>
-                                  <div className="p-3 rounded bg-slate-700/50">
-                                    <p className="text-slate-400 text-sm">Current Price</p>
-                                    <p className="text-white font-semibold">₹{bond.currentPrice.toFixed(2)}</p>
+                                  <div className="p-3 rounded bg-muted/50">
+                                    <p className="text-muted-foreground text-sm">Current Price</p>
+                                    <p className="text-foreground font-semibold">₹{bond.currentPrice.toFixed(2)}</p>
                                   </div>
-                                  <div className="p-3 rounded bg-slate-700/50">
-                                    <p className="text-slate-400 text-sm">Coupon Rate</p>
-                                    <p className="text-white font-semibold">{bond.couponRate}%</p>
+                                  <div className="p-3 rounded bg-muted/50">
+                                    <p className="text-muted-foreground text-sm">Coupon Rate</p>
+                                    <p className="text-foreground font-semibold">{bond.couponRate}%</p>
                                   </div>
-                                  <div className="p-3 rounded bg-slate-700/50">
-                                    <p className="text-slate-400 text-sm">Annual Income</p>
+                                  <div className="p-3 rounded bg-muted/50">
+                                    <p className="text-muted-foreground text-sm">Annual Income</p>
                                     <p className="text-amber-400 font-semibold">{formatCurrency(bond.expectedAnnualIncome)}</p>
                                   </div>
                                 </div>
 
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                                  <div className="p-3 rounded bg-slate-700/50">
-                                    <p className="text-slate-400 text-sm">Maturity Date</p>
-                                    <p className="text-white font-semibold">{new Date(bond.maturityDate).toLocaleDateString()}</p>
+                                  <div className="p-3 rounded bg-muted/50">
+                                    <p className="text-muted-foreground text-sm">Maturity Date</p>
+                                    <p className="text-foreground font-semibold">{new Date(bond.maturityDate).toLocaleDateString()}</p>
                                   </div>
-                                  <div className="p-3 rounded bg-slate-700/50">
-                                    <p className="text-slate-400 text-sm">Days to Maturity</p>
-                                    <p className="text-white font-semibold">{bond.daysToMaturity}</p>
+                                  <div className="p-3 rounded bg-muted/50">
+                                    <p className="text-muted-foreground text-sm">Days to Maturity</p>
+                                    <p className="text-foreground font-semibold">{bond.daysToMaturity}</p>
                                   </div>
-                                  <div className="p-3 rounded bg-slate-700/50">
-                                    <p className="text-slate-400 text-sm">Duration</p>
-                                    <p className="text-white font-semibold">{bond.duration.toFixed(2)} yrs</p>
+                                  <div className="p-3 rounded bg-muted/50">
+                                    <p className="text-muted-foreground text-sm">Duration</p>
+                                    <p className="text-foreground font-semibold">{bond.duration.toFixed(2)} yrs</p>
                                   </div>
-                                  <div className="p-3 rounded bg-slate-700/50">
-                                    <p className="text-slate-400 text-sm">Mod. Duration</p>
-                                    <p className="text-white font-semibold">{bond.modifiedDuration.toFixed(2)}</p>
+                                  <div className="p-3 rounded bg-muted/50">
+                                    <p className="text-muted-foreground text-sm">Mod. Duration</p>
+                                    <p className="text-foreground font-semibold">{bond.modifiedDuration.toFixed(2)}</p>
                                   </div>
                                 </div>
 
@@ -893,7 +893,7 @@ export default function AgentBondRecommendations() {
                                     <Brain className="h-4 w-4" />
                                     AI Rationale
                                   </h5>
-                                  <p className="text-slate-300 text-sm">{bond.aiRationale}</p>
+                                  <p className="text-muted-foreground text-sm">{bond.aiRationale}</p>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -904,7 +904,7 @@ export default function AgentBondRecommendations() {
                                     </h5>
                                     <ul className="space-y-1">
                                       {bond.pros.map((pro, i) => (
-                                        <li key={i} className="text-slate-300 text-sm flex items-start gap-2">
+                                        <li key={i} className="text-muted-foreground text-sm flex items-start gap-2">
                                           <CheckCircle2 className="h-4 w-4 text-green-400 shrink-0 mt-0.5" />
                                           {pro}
                                         </li>
@@ -918,7 +918,7 @@ export default function AgentBondRecommendations() {
                                     </h5>
                                     <ul className="space-y-1">
                                       {bond.cons.map((con, i) => (
-                                        <li key={i} className="text-slate-300 text-sm flex items-start gap-2">
+                                        <li key={i} className="text-muted-foreground text-sm flex items-start gap-2">
                                           <AlertTriangle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
                                           {con}
                                         </li>
@@ -927,19 +927,19 @@ export default function AgentBondRecommendations() {
                                   </div>
                                 </div>
 
-                                <div className="p-3 rounded bg-slate-700/50">
-                                  <h5 className="text-slate-300 font-medium mb-1 flex items-center gap-2">
+                                <div className="p-3 rounded bg-muted/50">
+                                  <h5 className="text-muted-foreground font-medium mb-1 flex items-center gap-2">
                                     <BadgeCheck className="h-4 w-4 text-purple-400" />
                                     Tax Implications
                                   </h5>
-                                  <p className="text-slate-400 text-sm">{bond.taxImplications}</p>
+                                  <p className="text-muted-foreground text-sm">{bond.taxImplications}</p>
                                 </div>
 
                                 <div className="flex gap-2 mt-4">
                                   <div className="flex-1 flex items-center gap-2">
-                                    <span className="text-slate-400 text-sm">Suitability:</span>
+                                    <span className="text-muted-foreground text-sm">Suitability:</span>
                                     <Progress value={bond.suitabilityScore} className="flex-1 h-2" />
-                                    <span className="text-white font-medium">{bond.suitabilityScore}%</span>
+                                    <span className="text-foreground font-medium">{bond.suitabilityScore}%</span>
                                   </div>
                                   <Badge 
                                     variant="outline" 

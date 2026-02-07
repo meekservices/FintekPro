@@ -94,8 +94,8 @@ export default function BulkOperations() {
       case 'running': return 'bg-blue-100 text-blue-800';
       case 'pending': return 'bg-amber-100 text-amber-800';
       case 'failed': return 'bg-red-100 text-red-800';
-      case 'paused': return 'bg-muted dark:bg-muted text-foreground';
-      default: return 'bg-muted dark:bg-muted text-foreground';
+      case 'paused': return 'bg-muted text-foreground';
+      default: return 'bg-muted text-foreground';
     }
   };
 
@@ -114,7 +114,7 @@ export default function BulkOperations() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Bulk Operations Center</h1>
+          <h1 className="text-2xl font-bold text-foreground">Bulk Operations Center</h1>
           <p className="text-sm text-muted-foreground">
             Batch processing for users, products, and system operations
           </p>

@@ -186,53 +186,53 @@ export default function AgentCommissionCalculator() {
   const totalScenarioEarnings = scenarioCalculations.reduce((sum, s) => sum + s.totalEarnings, 0);
 
   return (
-    <div className="min-h-screen bg-slate-950 p-6">
+    <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <Calculator className="h-7 w-7 text-emerald-500" />
               Commission Calculator
             </h1>
-            <p className="text-slate-400 mt-1">Calculate your projected earnings based on AUM and product type</p>
+            <p className="text-muted-foreground mt-1">Calculate your projected earnings based on AUM and product type</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Card className="bg-slate-900/50 border-slate-700 lg:col-span-1">
+          <Card className="bg-background/50 border-border lg:col-span-1">
             <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
+              <CardTitle className="text-foreground flex items-center gap-2">
                 <Target className="h-5 w-5 text-emerald-500" />
                 Calculate Commission
               </CardTitle>
-              <CardDescription className="text-slate-400">
+              <CardDescription className="text-muted-foreground">
                 Enter investment details to see projections
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="aum" className="text-slate-300">AUM Amount</Label>
+                <Label htmlFor="aum" className="text-muted-foreground">AUM Amount</Label>
                 <div className="relative">
-                  <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="aum"
                     type="text"
                     value={formatInputCurrency(aum)}
                     onChange={handleAumChange}
                     placeholder="10,00,000"
-                    className="pl-9 bg-slate-800 border-slate-600 text-white"
+                    className="pl-9 bg-card border-border text-foreground"
                     data-testid="input-aum"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="product-type" className="text-slate-300">Product Type</Label>
+                <Label htmlFor="product-type" className="text-muted-foreground">Product Type</Label>
                 <Select value={productType} onValueChange={setProductType}>
-                  <SelectTrigger className="bg-slate-800 border-slate-600 text-white" data-testid="select-product-type">
+                  <SelectTrigger className="bg-card border-border text-foreground" data-testid="select-product-type">
                     <SelectValue placeholder="Select product" />
                   </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-700">
+                  <SelectContent className="bg-card border-border">
                     {rates.map(rate => (
                       <SelectItem key={rate.productType} value={rate.productType}>
                         {rate.productType}
@@ -243,9 +243,9 @@ export default function AgentCommissionCalculator() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="tenure" className="text-slate-300">Investment Tenure (months)</Label>
+                <Label htmlFor="tenure" className="text-muted-foreground">Investment Tenure (months)</Label>
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="tenure"
                     type="number"
@@ -254,7 +254,7 @@ export default function AgentCommissionCalculator() {
                     min="1"
                     max="120"
                     placeholder="12"
-                    className="pl-9 bg-slate-800 border-slate-600 text-white"
+                    className="pl-9 bg-card border-border text-foreground"
                     data-testid="input-tenure"
                   />
                 </div>
@@ -271,13 +271,13 @@ export default function AgentCommissionCalculator() {
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-900/50 border-slate-700 lg:col-span-2">
+          <Card className="bg-background/50 border-border lg:col-span-2">
             <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
+              <CardTitle className="text-foreground flex items-center gap-2">
                 <Wallet className="h-5 w-5 text-emerald-500" />
                 Projected Earnings
               </CardTitle>
-              <CardDescription className="text-slate-400">
+              <CardDescription className="text-muted-foreground">
                 Commission breakdown for {productType}
               </CardDescription>
             </CardHeader>
@@ -288,10 +288,10 @@ export default function AgentCommissionCalculator() {
                     <Percent className="h-4 w-4 text-emerald-400" />
                     <span className="text-sm text-emerald-300">Trail Commission</span>
                   </div>
-                  <p className="text-xl font-bold text-white" data-testid="text-trail-rate">
+                  <p className="text-xl font-bold text-foreground" data-testid="text-trail-rate">
                     {currentRate.trailCommission}% p.a.
                   </p>
-                  <p className="text-sm text-slate-400" data-testid="text-trail-amount">
+                  <p className="text-sm text-muted-foreground" data-testid="text-trail-amount">
                     {formatCurrency(calculations.trailAnnual)}/year
                   </p>
                 </div>
@@ -301,10 +301,10 @@ export default function AgentCommissionCalculator() {
                     <TrendingUp className="h-4 w-4 text-blue-400" />
                     <span className="text-sm text-blue-300">Upfront Commission</span>
                   </div>
-                  <p className="text-xl font-bold text-white" data-testid="text-upfront-rate">
+                  <p className="text-xl font-bold text-foreground" data-testid="text-upfront-rate">
                     {currentRate.upfrontCommission}%
                   </p>
-                  <p className="text-sm text-slate-400" data-testid="text-upfront-amount">
+                  <p className="text-sm text-muted-foreground" data-testid="text-upfront-amount">
                     {formatCurrency(calculations.upfront)} (one-time)
                   </p>
                 </div>
@@ -314,10 +314,10 @@ export default function AgentCommissionCalculator() {
                     <PieChart className="h-4 w-4 text-purple-400" />
                     <span className="text-sm text-purple-300">Total Earnings</span>
                   </div>
-                  <p className="text-xl font-bold text-white" data-testid="text-total-earnings">
+                  <p className="text-xl font-bold text-foreground" data-testid="text-total-earnings">
                     {formatCurrency(calculations.totalEarnings)}
                   </p>
-                  <p className="text-sm text-slate-400">Over {tenureMonths} months</p>
+                  <p className="text-sm text-muted-foreground">Over {tenureMonths} months</p>
                 </div>
 
                 <div className="bg-gradient-to-br from-amber-900/50 to-amber-800/30 p-4 rounded-lg border border-amber-700/50">
@@ -325,10 +325,10 @@ export default function AgentCommissionCalculator() {
                     <IndianRupee className="h-4 w-4 text-amber-400" />
                     <span className="text-sm text-amber-300">Monthly Average</span>
                   </div>
-                  <p className="text-xl font-bold text-white" data-testid="text-monthly-avg">
+                  <p className="text-xl font-bold text-foreground" data-testid="text-monthly-avg">
                     {formatCurrency(calculations.monthlyAverage)}
                   </p>
-                  <p className="text-sm text-slate-400">Per month</p>
+                  <p className="text-sm text-muted-foreground">Per month</p>
                 </div>
               </div>
 
@@ -374,35 +374,35 @@ export default function AgentCommissionCalculator() {
           </Card>
         </div>
 
-        <Card className="bg-slate-900/50 border-slate-700">
+        <Card className="bg-background/50 border-border">
           <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
+            <CardTitle className="text-foreground flex items-center gap-2">
               <IndianRupee className="h-5 w-5 text-emerald-500" />
               Commission Rate Reference
             </CardTitle>
-            <CardDescription className="text-slate-400">
+            <CardDescription className="text-muted-foreground">
               Standard commission rates by product category
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
-                <TableRow className="border-slate-700">
-                  <TableHead className="text-slate-300">Product Type</TableHead>
-                  <TableHead className="text-slate-300">Description</TableHead>
-                  <TableHead className="text-slate-300 text-center">Trail Commission</TableHead>
-                  <TableHead className="text-slate-300 text-center">Upfront Commission</TableHead>
-                  <TableHead className="text-slate-300 text-right">Min Investment</TableHead>
+                <TableRow className="border-border">
+                  <TableHead className="text-muted-foreground">Product Type</TableHead>
+                  <TableHead className="text-muted-foreground">Description</TableHead>
+                  <TableHead className="text-muted-foreground text-center">Trail Commission</TableHead>
+                  <TableHead className="text-muted-foreground text-center">Upfront Commission</TableHead>
+                  <TableHead className="text-muted-foreground text-right">Min Investment</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rates.map((rate) => (
                   <TableRow 
                     key={rate.productType} 
-                    className={`border-slate-700 ${rate.productType === productType ? 'bg-emerald-900/20' : ''}`}
+                    className={`border-border ${rate.productType === productType ? 'bg-emerald-900/20' : ''}`}
                     data-testid={`row-rate-${rate.productType.toLowerCase().replace(/\s+/g, '-')}`}
                   >
-                    <TableCell className="text-white font-medium">
+                    <TableCell className="text-foreground font-medium">
                       <div className="flex items-center gap-2">
                         {rate.productType}
                         {rate.productType === productType && (
@@ -410,7 +410,7 @@ export default function AgentCommissionCalculator() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-slate-400">{rate.description}</TableCell>
+                    <TableCell className="text-muted-foreground">{rate.description}</TableCell>
                     <TableCell className="text-center">
                       <Badge variant="outline" className="border-emerald-600 text-emerald-400">
                         {rate.trailCommission}% p.a.
@@ -421,7 +421,7 @@ export default function AgentCommissionCalculator() {
                         {rate.upfrontCommission}%
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right text-slate-300">
+                    <TableCell className="text-right text-muted-foreground">
                       {formatCurrency(rate.minInvestment)}
                     </TableCell>
                   </TableRow>
@@ -432,41 +432,41 @@ export default function AgentCommissionCalculator() {
         </Card>
 
         {scenarios.length > 0 && (
-          <Card className="bg-slate-900/50 border-slate-700">
+          <Card className="bg-background/50 border-border">
             <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
+              <CardTitle className="text-foreground flex items-center gap-2">
                 <Calculator className="h-5 w-5 text-emerald-500" />
                 What-If Scenario Builder
               </CardTitle>
-              <CardDescription className="text-slate-400">
+              <CardDescription className="text-muted-foreground">
                 Compare earnings across multiple product combinations
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
-                  <TableRow className="border-slate-700">
-                    <TableHead className="text-slate-300">Product</TableHead>
-                    <TableHead className="text-slate-300 text-right">AUM</TableHead>
-                    <TableHead className="text-slate-300 text-center">Tenure</TableHead>
-                    <TableHead className="text-slate-300 text-right">Upfront</TableHead>
-                    <TableHead className="text-slate-300 text-right">Trail (Annual)</TableHead>
-                    <TableHead className="text-slate-300 text-right">Total Earnings</TableHead>
-                    <TableHead className="text-slate-300 w-12"></TableHead>
+                  <TableRow className="border-border">
+                    <TableHead className="text-muted-foreground">Product</TableHead>
+                    <TableHead className="text-muted-foreground text-right">AUM</TableHead>
+                    <TableHead className="text-muted-foreground text-center">Tenure</TableHead>
+                    <TableHead className="text-muted-foreground text-right">Upfront</TableHead>
+                    <TableHead className="text-muted-foreground text-right">Trail (Annual)</TableHead>
+                    <TableHead className="text-muted-foreground text-right">Total Earnings</TableHead>
+                    <TableHead className="text-muted-foreground w-12"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {scenarioCalculations.map((scenario) => (
                     <TableRow 
                       key={scenario.id} 
-                      className="border-slate-700"
+                      className="border-border"
                       data-testid={`row-scenario-${scenario.id}`}
                     >
-                      <TableCell className="text-white font-medium">{scenario.productType}</TableCell>
-                      <TableCell className="text-right text-slate-300">
+                      <TableCell className="text-foreground font-medium">{scenario.productType}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">
                         {formatCurrency(scenario.aum)}
                       </TableCell>
-                      <TableCell className="text-center text-slate-300">
+                      <TableCell className="text-center text-muted-foreground">
                         {scenario.tenure} mo
                       </TableCell>
                       <TableCell className="text-right text-blue-400">
@@ -475,7 +475,7 @@ export default function AgentCommissionCalculator() {
                       <TableCell className="text-right text-emerald-400">
                         {formatCurrency(scenario.trailAnnual)}
                       </TableCell>
-                      <TableCell className="text-right text-white font-bold">
+                      <TableCell className="text-right text-foreground font-bold">
                         {formatCurrency(scenario.totalEarnings)}
                       </TableCell>
                       <TableCell>
@@ -491,11 +491,11 @@ export default function AgentCommissionCalculator() {
                       </TableCell>
                     </TableRow>
                   ))}
-                  <TableRow className="border-slate-700 bg-emerald-900/20">
+                  <TableRow className="border-border bg-emerald-900/20">
                     <TableCell colSpan={5} className="text-right text-emerald-300 font-medium">
                       Total Projected Earnings:
                     </TableCell>
-                    <TableCell className="text-right text-white font-bold text-lg" data-testid="text-scenario-total">
+                    <TableCell className="text-right text-foreground font-bold text-lg" data-testid="text-scenario-total">
                       {formatCurrency(totalScenarioEarnings)}
                     </TableCell>
                     <TableCell></TableCell>

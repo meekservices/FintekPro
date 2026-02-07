@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 
 const itrStatusConfig: Record<string, { label: string; color: string }> = {
-  draft: { label: "Draft", color: "bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground" },
+  draft: { label: "Draft", color: "bg-muted text-muted-foreground" },
   preview: { label: "Locked", color: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" },
   paid: { label: "Paid", color: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300" },
   filed: { label: "Filed", color: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" },
@@ -30,7 +30,7 @@ const itrStatusConfig: Record<string, { label: string; color: string }> = {
 };
 
 const form15StatusConfig: Record<string, { label: string; color: string }> = {
-  draft: { label: "Draft", color: "bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground" },
+  draft: { label: "Draft", color: "bg-muted text-muted-foreground" },
   pending_documents: { label: "Pending Docs", color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300" },
   pending_ca_review: { label: "Pending CA", color: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" },
   ca_reviewing: { label: "CA Reviewing", color: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300" },
@@ -197,8 +197,8 @@ export default function AgentTaxCasesPage() {
     <div className="container mx-auto p-6 space-y-6" data-testid="page-agent-tax-cases">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Tax Cases Management</h1>
-          <p className="text-muted-foreground dark:text-muted-foreground">Manage ITR filings, 15CA/CB cases, and tax notices for your clients</p>
+          <h1 className="text-2xl font-bold text-foreground">Tax Cases Management</h1>
+          <p className="text-muted-foreground">Manage ITR filings, 15CA/CB cases, and tax notices for your clients</p>
         </div>
       </div>
 
@@ -210,8 +210,8 @@ export default function AgentTaxCasesPage() {
                 <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalItrCases}</p>
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground">ITR Cases</p>
+                <p className="text-2xl font-bold text-foreground">{stats.totalItrCases}</p>
+                <p className="text-sm text-muted-foreground">ITR Cases</p>
               </div>
             </div>
           </CardContent>
@@ -223,8 +223,8 @@ export default function AgentTaxCasesPage() {
                 <Clock className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.pendingItrCases}</p>
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Pending ITRs</p>
+                <p className="text-2xl font-bold text-foreground">{stats.pendingItrCases}</p>
+                <p className="text-sm text-muted-foreground">Pending ITRs</p>
               </div>
             </div>
           </CardContent>
@@ -236,8 +236,8 @@ export default function AgentTaxCasesPage() {
                 <Globe className="w-5 h-5 text-purple-600 dark:text-purple-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalForm15Cases}</p>
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground">15CA/CB Cases</p>
+                <p className="text-2xl font-bold text-foreground">{stats.totalForm15Cases}</p>
+                <p className="text-sm text-muted-foreground">15CA/CB Cases</p>
               </div>
             </div>
           </CardContent>
@@ -249,8 +249,8 @@ export default function AgentTaxCasesPage() {
                 <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.urgentNotices}</p>
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Urgent Notices</p>
+                <p className="text-2xl font-bold text-foreground">{stats.urgentNotices}</p>
+                <p className="text-sm text-muted-foreground">Urgent Notices</p>
               </div>
             </div>
           </CardContent>
@@ -311,7 +311,7 @@ export default function AgentTaxCasesPage() {
                   <Loader2 className="w-6 h-6 animate-spin text-primary" />
                 </div>
               ) : filteredItrCases.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground dark:text-muted-foreground">
+                <div className="text-center py-8 text-muted-foreground">
                   <FileText className="w-12 h-12 mx-auto mb-2 opacity-50" />
                   <p>No ITR cases found</p>
                 </div>
@@ -380,7 +380,7 @@ export default function AgentTaxCasesPage() {
                   <Loader2 className="w-6 h-6 animate-spin text-primary" />
                 </div>
               ) : filteredForm15Cases.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground dark:text-muted-foreground">
+                <div className="text-center py-8 text-muted-foreground">
                   <Globe className="w-12 h-12 mx-auto mb-2 opacity-50" />
                   <p>No 15CA/CB cases found</p>
                 </div>
@@ -451,7 +451,7 @@ export default function AgentTaxCasesPage() {
                   <Loader2 className="w-6 h-6 animate-spin text-primary" />
                 </div>
               ) : notices.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground dark:text-muted-foreground">
+                <div className="text-center py-8 text-muted-foreground">
                   <AlertTriangle className="w-12 h-12 mx-auto mb-2 opacity-50" />
                   <p>No tax notices assigned</p>
                 </div>
@@ -518,26 +518,26 @@ export default function AgentTaxCasesPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">Client Name</p>
-                  <p className="font-medium text-gray-900 dark:text-white">
+                  <p className="text-sm text-muted-foreground">Client Name</p>
+                  <p className="font-medium text-foreground">
                     {selectedCase.clientName || selectedCase.client_name || "N/A"}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">PAN</p>
-                  <p className="font-mono text-gray-900 dark:text-white">
+                  <p className="text-sm text-muted-foreground">PAN</p>
+                  <p className="font-mono text-foreground">
                     {selectedCase.clientPan || selectedCase.client_pan || "N/A"}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">Status</p>
+                  <p className="text-sm text-muted-foreground">Status</p>
                   {getStatusBadge(selectedCase.status, selectedCase.type === "itr" ? "itr" : "form15")}
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     {selectedCase.type === "itr" ? "ITR Form" : "Amount"}
                   </p>
-                  <p className="font-medium text-gray-900 dark:text-white">
+                  <p className="font-medium text-foreground">
                     {selectedCase.type === "itr" ? selectedCase.itrForm : 
                      `${selectedCase.remittance_currency} ${selectedCase.remittance_amount?.toLocaleString()}`}
                   </p>
@@ -547,7 +547,7 @@ export default function AgentTaxCasesPage() {
               <Separator />
 
               <div className="space-y-2">
-                <p className="text-sm font-medium text-gray-900 dark:text-white">Add Notes</p>
+                <p className="text-sm font-medium text-foreground">Add Notes</p>
                 <Textarea
                   placeholder="Add notes or comments about this case..."
                   value={caseNotes}

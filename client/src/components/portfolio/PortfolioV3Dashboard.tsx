@@ -191,7 +191,7 @@ export function PortfolioV3Dashboard({
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Portfolio Dashboard</h1>
+            <h1 className="text-2xl font-bold text-foreground">Portfolio Dashboard</h1>
             <p className="text-sm text-muted-foreground">
               Real-time view of your investments
             </p>
@@ -209,7 +209,7 @@ export function PortfolioV3Dashboard({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0">
+          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-foreground border-0">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-blue-100 text-sm font-medium">Total Value</span>

@@ -209,7 +209,7 @@ function CartTab({ productType, onCheckout }: { productType: string; onCheckout:
                 <div><p className="font-medium text-amber-800">PMS Notice</p><p className="text-amber-700 text-xs">Minimum ₹50 Lakhs. Advisory fees apply.</p></div>
               </div>
             </div>
-            <Button className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold py-6" onClick={() => checkoutMutation.mutate()} disabled={checkoutMutation.isPending} data-testid="pms-checkout-btn">
+            <Button className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-foreground font-semibold py-6" onClick={() => checkoutMutation.mutate()} disabled={checkoutMutation.isPending} data-testid="pms-checkout-btn">
               {checkoutMutation.isPending ? <><RefreshCw className="w-5 h-5 mr-2 animate-spin" />Processing...</> : <><CreditCard className="w-5 h-5 mr-2" />Proceed to Payment</>}
             </Button>
           </CardContent>
@@ -327,7 +327,7 @@ export default function PMS() {
     <div className="min-h-screen bg-finance-light" data-testid="pms-page">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Portfolio Management Services (PMS)</h1>
+          <h1 className="text-4xl font-bold text-foreground mb-4">Portfolio Management Services (PMS)</h1>
           <p className="text-muted-foreground text-lg max-w-3xl">Professional portfolio management with customized strategies from SEBI-registered portfolio managers.</p>
         </div>
 

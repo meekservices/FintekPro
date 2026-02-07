@@ -88,14 +88,14 @@ const SEVERITY_CONFIG = {
   critical: { label: 'Critical', color: 'bg-red-600 text-white', pulse: true },
   high: { label: 'High', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30' },
   medium: { label: 'Medium', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
-  low: { label: 'Low', color: 'bg-gray-500/20 text-muted-foreground border-gray-500/30' }
+  low: { label: 'Low', color: 'bg-muted/20 text-muted-foreground border-border' }
 };
 
 const PRIORITY_CONFIG = {
   critical: { label: 'Critical', color: 'bg-red-600 text-white' },
   high: { label: 'High', color: 'bg-orange-500/20 text-orange-400' },
   medium: { label: 'Medium', color: 'bg-blue-500/20 text-blue-400' },
-  low: { label: 'Low', color: 'bg-gray-500/20 text-muted-foreground' }
+  low: { label: 'Low', color: 'bg-muted/20 text-muted-foreground' }
 };
 
 export default function AdminAIInsights() {
@@ -158,7 +158,7 @@ export default function AdminAIInsights() {
       <div className="space-y-6">
         <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
           <Brain className="h-16 w-16 text-muted-foreground/50 mb-4" />
-          <h3 className="text-xl font-semibold text-white mb-2">No AI Insights Available</h3>
+          <h3 className="text-xl font-semibold text-foreground mb-2">No AI Insights Available</h3>
           <p className="text-muted-foreground max-w-md">
             AI platform insights, risk alerts, and recommendations will appear here once the system has analyzed platform data.
           </p>
@@ -171,9 +171,9 @@ export default function AdminAIInsights() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white flex items-center gap-3" data-testid="text-page-title">
+          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3" data-testid="text-page-title">
             <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg">
-              <Brain className="h-6 w-6 text-white" />
+              <Brain className="h-6 w-6 text-foreground" />
             </div>
             AI Platform Insights
           </h1>
@@ -198,7 +198,7 @@ export default function AdminAIInsights() {
             <AlertTriangle className="h-4 w-4 text-red-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white" data-testid="text-active-alerts">{activeAlerts}</div>
+            <div className="text-2xl font-bold text-foreground" data-testid="text-active-alerts">{activeAlerts}</div>
             <p className="text-xs text-red-400 mt-1 flex items-center gap-1">
               <ArrowUpRight className="h-3 w-3" />
               +3 from yesterday
@@ -212,7 +212,7 @@ export default function AdminAIInsights() {
             <Shield className="h-4 w-4 text-orange-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white" data-testid="text-risk-score">{riskScore}/100</div>
+            <div className="text-2xl font-bold text-foreground" data-testid="text-risk-score">{riskScore}/100</div>
             <p className="text-xs text-orange-400 mt-1 flex items-center gap-1">
               <ArrowUpRight className="h-3 w-3" />
               Elevated - Monitor closely
@@ -226,7 +226,7 @@ export default function AdminAIInsights() {
             <TrendingUp className="h-4 w-4 text-blue-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white" data-testid="text-trend-signals">{trendSignals}</div>
+            <div className="text-2xl font-bold text-foreground" data-testid="text-trend-signals">{trendSignals}</div>
             <p className="text-xs text-blue-400 mt-1 flex items-center gap-1">
               <Sparkles className="h-3 w-3" />
               2 actionable today
@@ -240,7 +240,7 @@ export default function AdminAIInsights() {
             <Activity className="h-4 w-4 text-purple-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white" data-testid="text-anomalies">{anomaliesDetected}</div>
+            <div className="text-2xl font-bold text-foreground" data-testid="text-anomalies">{anomaliesDetected}</div>
             <p className="text-xs text-purple-400 mt-1 flex items-center gap-1">
               <AlertCircle className="h-3 w-3" />
               1 requires review
@@ -256,12 +256,12 @@ export default function AdminAIInsights() {
             placeholder="Search insights..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-muted border-border text-white w-64"
+            className="pl-10 bg-muted border-border text-foreground w-64"
             data-testid="input-search"
           />
         </div>
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-40 bg-muted border-border text-white" data-testid="select-category">
+          <SelectTrigger className="w-40 bg-muted border-border text-foreground" data-testid="select-category">
             <SelectValue placeholder="Category" />
           </SelectTrigger>
           <SelectContent className="bg-muted border-border">
@@ -273,7 +273,7 @@ export default function AdminAIInsights() {
           </SelectContent>
         </Select>
         <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-          <SelectTrigger className="w-36 bg-muted border-border text-white" data-testid="select-priority">
+          <SelectTrigger className="w-36 bg-muted border-border text-foreground" data-testid="select-priority">
             <SelectValue placeholder="Priority" />
           </SelectTrigger>
           <SelectContent className="bg-muted border-border">
@@ -285,7 +285,7 @@ export default function AdminAIInsights() {
           </SelectContent>
         </Select>
         <Select value={timeRange} onValueChange={setTimeRange}>
-          <SelectTrigger className="w-36 bg-muted border-border text-white" data-testid="select-time-range">
+          <SelectTrigger className="w-36 bg-muted border-border text-foreground" data-testid="select-time-range">
             <SelectValue placeholder="Time Range" />
           </SelectTrigger>
           <SelectContent className="bg-muted border-border">
@@ -299,7 +299,7 @@ export default function AdminAIInsights() {
 
       <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
+          <CardTitle className="text-foreground flex items-center gap-2">
             <LineChartIcon className="h-5 w-5 text-emerald-400" />
             AI Insights Trend
           </CardTitle>
@@ -355,12 +355,12 @@ export default function AdminAIInsights() {
           return (
             <Card key={category} className="bg-card border-border">
               <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
+                <CardTitle className="text-foreground flex items-center gap-2">
                   <div className={`p-2 rounded-lg ${config.color}`}>
                     <Icon className="h-4 w-4" />
                   </div>
                   {config.label}
-                  <Badge className="ml-auto bg-gray-700 text-muted-foreground">{categoryInsights.length}</Badge>
+                  <Badge className="ml-auto bg-muted text-muted-foreground">{categoryInsights.length}</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -378,7 +378,7 @@ export default function AdminAIInsights() {
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <h4 className="text-white font-medium text-sm">{insight.title}</h4>
+                              <h4 className="text-foreground font-medium text-sm">{insight.title}</h4>
                               <Badge className={severityConfig.color}>{severityConfig.label}</Badge>
                             </div>
                             <p className="text-muted-foreground text-xs mt-1">{insight.description}</p>
@@ -421,7 +421,7 @@ export default function AdminAIInsights() {
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <CardTitle className="text-white flex items-center gap-2">
+              <CardTitle className="text-foreground flex items-center gap-2">
                 <BarChart3 className="h-5 w-5 text-emerald-400" />
                 Agent-Specific AI Recommendations
               </CardTitle>
@@ -453,7 +453,7 @@ export default function AdminAIInsights() {
                       className="border-border hover:bg-muted/50"
                       data-testid={`row-recommendation-${rec.id}`}
                     >
-                      <TableCell className="font-medium text-white">{rec.agentName}</TableCell>
+                      <TableCell className="font-medium text-foreground">{rec.agentName}</TableCell>
                       <TableCell className="text-muted-foreground max-w-xs">
                         <p className="truncate">{rec.recommendedAction}</p>
                       </TableCell>

@@ -230,7 +230,7 @@ export default function BondDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-muted dark:bg-card p-8">
+      <div className="min-h-screen bg-muted p-8">
         <div className="max-w-7xl mx-auto space-y-6">
           <Skeleton className="h-48 w-full rounded-xl" />
           <div className="grid md:grid-cols-2 gap-6">
@@ -244,7 +244,7 @@ export default function BondDetailPage() {
 
   if (error || !bond) {
     return (
-      <div className="min-h-screen bg-muted dark:bg-card p-8">
+      <div className="min-h-screen bg-muted p-8">
         <Card>
           <CardContent className="p-8 text-center">
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
@@ -265,13 +265,13 @@ export default function BondDetailPage() {
   const yieldValue = bond.yieldToMaturity || bond.ytm || bond.currentYield || bond.indicativeYield || "N/A";
 
   return (
-    <div className="min-h-screen bg-muted dark:bg-card">
+    <div className="min-h-screen bg-muted">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-foreground">
         <div className="max-w-7xl mx-auto px-4 py-8">
           <Button
             variant="ghost"
-            className="text-white hover:bg-white/20 mb-4"
+            className="text-foreground hover:bg-card/20 mb-4"
             onClick={() => navigate("/bonds")}
             data-testid="back-to-bonds"
           >
@@ -287,31 +287,31 @@ export default function BondDetailPage() {
                   {bond.rating || bond.creditRating || "NR"}
                 </Badge>
               </div>
-              <p className="text-white/80">ISIN: {bond.isin}</p>
-              {bond.issuer && <p className="text-white/80">Issuer: {bond.issuer}</p>}
+              <p className="text-foreground/80">ISIN: {bond.isin}</p>
+              {bond.issuer && <p className="text-foreground/80">Issuer: {bond.issuer}</p>}
               
               <div className="flex flex-wrap gap-2 mt-4">
                 {bond.bondType && (
-                  <Badge className="bg-white/20 text-white border-0">
+                  <Badge className="bg-card/20 text-foreground border-0">
                     {bond.bondType || bond.type}
                   </Badge>
                 )}
                 {bond.couponFrequency && (
-                  <Badge className="bg-white/20 text-white border-0">
+                  <Badge className="bg-card/20 text-foreground border-0">
                     {bond.couponFrequency} Coupon
                   </Badge>
                 )}
                 {bond.tradingStatus && (
-                  <Badge className="bg-white/20 text-white border-0">
+                  <Badge className="bg-card/20 text-foreground border-0">
                     {bond.tradingStatus}
                   </Badge>
                 )}
               </div>
             </div>
             
-            <div className="bg-white/10 rounded-xl p-6 min-w-[280px]">
+            <div className="bg-card/10 rounded-xl p-6 min-w-[280px]">
               <div className="text-center">
-                <p className="text-white/70 text-sm">Current Price</p>
+                <p className="text-foreground/70 text-sm">Current Price</p>
                 <p className="text-4xl font-bold">₹{currentPrice.toLocaleString()}</p>
                 <p className="text-green-300 text-lg mt-1">
                   Yield: {yieldValue}%
@@ -322,11 +322,11 @@ export default function BondDetailPage() {
                 <OneClickBondInvest 
                   bond={bond} 
                   size="lg" 
-                  className="w-full bg-white text-green-600 hover:bg-muted" 
+                  className="w-full bg-card text-green-600 hover:bg-muted" 
                 />
                 <Dialog open={showOrderDialog} onOpenChange={setShowOrderDialog}>
                   <DialogTrigger asChild>
-                    <Button variant="outline" className="w-full border-white text-white hover:bg-white/10" size="lg" data-testid="buy-bond-btn">
+                    <Button variant="outline" className="w-full border-white text-foreground hover:bg-card/10" size="lg" data-testid="buy-bond-btn">
                       <ShoppingCart className="h-5 w-5 mr-2" />
                       Advanced Order
                     </Button>
@@ -342,15 +342,15 @@ export default function BondDetailPage() {
                   <div className="space-y-4 py-4">
                     <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
                       <div className="flex justify-between mb-2">
-                        <span className="text-muted-foreground dark:text-muted-foreground">Bond</span>
+                        <span className="text-muted-foreground">Bond</span>
                         <span className="font-medium">{bondName}</span>
                       </div>
                       <div className="flex justify-between mb-2">
-                        <span className="text-muted-foreground dark:text-muted-foreground">ISIN</span>
+                        <span className="text-muted-foreground">ISIN</span>
                         <span className="font-medium">{bond.isin}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground dark:text-muted-foreground">Face Value</span>
+                        <span className="text-muted-foreground">Face Value</span>
                         <span className="font-medium">₹{(bond.faceValue || 1000).toLocaleString()}</span>
                       </div>
                     </div>
@@ -453,7 +453,7 @@ export default function BondDetailPage() {
                 
                 <Button 
                   variant="outline"
-                  className="w-full border-white text-white hover:bg-white/10" 
+                  className="w-full border-white text-foreground hover:bg-card/10" 
                   size="lg" 
                   onClick={handleAddToCart}
                   disabled={isAddingItem}
@@ -834,7 +834,7 @@ export default function BondDetailPage() {
                         return (
                           <div 
                             key={doc.id} 
-                            className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted dark:hover:bg-muted transition-colors"
+                            className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted transition-colors"
                             data-testid={`document-${doc.id}`}
                           >
                             <div className="flex items-center gap-3 flex-1">

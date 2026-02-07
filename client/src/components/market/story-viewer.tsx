@@ -63,7 +63,7 @@ export function StoryViewer({ story, onRefresh, isRefreshing = false }: StoryVie
       case 'bearish':
         return <TrendingDown className="h-5 w-5 text-red-600" />;
       default:
-        return <Minus className="h-5 w-5 text-gray-600" />;
+        return <Minus className="h-5 w-5 text-muted-foreground" />;
     }
   };
 
@@ -74,7 +74,7 @@ export function StoryViewer({ story, onRefresh, isRefreshing = false }: StoryVie
       case 'bearish':
         return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
+        return 'bg-muted text-foreground';
     }
   };
 
@@ -123,7 +123,7 @@ export function StoryViewer({ story, onRefresh, isRefreshing = false }: StoryVie
               <CardTitle className="text-2xl leading-tight mb-3">{story.title}</CardTitle>
               
               {/* Metadata Row */}
-              <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+              <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <Clock className="h-4 w-4" />
                   <span>{new Date(story.generatedAt).toLocaleString()}</span>
@@ -191,7 +191,7 @@ export function StoryViewer({ story, onRefresh, isRefreshing = false }: StoryVie
             <>
               <Separator className="my-6" />
               <div>
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                <h3 className="font-semibold text-foreground mb-4 flex items-center">
                   <Target className="h-5 w-5 mr-2 text-orange-500" />
                   Key Takeaways
                 </h3>
@@ -199,7 +199,7 @@ export function StoryViewer({ story, onRefresh, isRefreshing = false }: StoryVie
                   {story.keyPoints.map((point, index) => (
                     <li key={index} className="flex items-start gap-2">
                       <div className="w-2 h-2 rounded-full bg-orange-500 mt-2 flex-shrink-0" />
-                      <span className="text-gray-700 dark:text-gray-300">{point}</span>
+                      <span className="text-foreground">{point}</span>
                     </li>
                   ))}
                 </ul>
@@ -221,9 +221,9 @@ export function StoryViewer({ story, onRefresh, isRefreshing = false }: StoryVie
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {story.marketData.slice(0, 6).map((data, index) => (
-                <div key={index} className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                <div key={index} className="bg-muted p-4 rounded-lg">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-semibold text-gray-900 dark:text-white">
+                    <span className="font-semibold text-foreground">
                       {data.symbol}
                     </span>
                     <span className={`text-sm font-medium ${
@@ -232,11 +232,11 @@ export function StoryViewer({ story, onRefresh, isRefreshing = false }: StoryVie
                       {data.change >= 0 ? '+' : ''}{data.changePercent.toFixed(2)}%
                     </span>
                   </div>
-                  <div className="text-lg font-bold text-gray-900 dark:text-white">
+                  <div className="text-lg font-bold text-foreground">
                     ₹{data.price.toFixed(2)}
                   </div>
                   {data.volume && (
-                    <div className="text-xs text-gray-500 mt-1">
+                    <div className="text-xs text-muted-foreground mt-1">
                       Vol: {data.volume.toLocaleString()}
                     </div>
                   )}

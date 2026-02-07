@@ -74,8 +74,8 @@ function ProposalsTab({ productType, onApprove }: { productType: string; onAppro
       <Card className="border-dashed border-2 border-blue-200 bg-blue-50/50 dark:bg-blue-900/10">
         <CardContent className="flex flex-col items-center justify-center py-16">
           <Bot className="w-16 h-16 text-blue-400 mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No Pending AIF Proposals</h3>
-          <p className="text-muted-foreground dark:text-muted-foreground text-center max-w-md mb-4">
+          <h3 className="text-xl font-semibold text-foreground mb-2">No Pending AIF Proposals</h3>
+          <p className="text-muted-foreground text-center max-w-md mb-4">
             AI-generated and agent recommendations for Alternative Investment Funds will appear here based on your risk profile.
           </p>
           <Button variant="outline" onClick={() => refetch()} className="border-blue-300 text-blue-600 hover:bg-blue-50">
@@ -105,11 +105,11 @@ function ProposalsTab({ productType, onApprove }: { productType: string; onAppro
                       )}
                       <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700">AIF</Badge>
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{proposal.title}</h3>
-                    <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">{proposal.description}</p>
+                    <h3 className="text-lg font-semibold text-foreground">{proposal.title}</h3>
+                    <p className="text-sm text-muted-foreground mt-1">{proposal.description}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white flex items-center justify-end">
+                    <p className="text-2xl font-bold text-foreground flex items-center justify-end">
                       <IndianRupee className="w-5 h-5" />
                       {parseFloat(proposal.totalInvestmentAmount || '0').toLocaleString('en-IN')}
                     </p>
@@ -129,17 +129,17 @@ function ProposalsTab({ productType, onApprove }: { productType: string; onAppro
                   </div>
                 )}
 
-                <div className="grid grid-cols-3 gap-4 mb-4 p-4 bg-muted dark:bg-muted rounded-lg">
+                <div className="grid grid-cols-3 gap-4 mb-4 p-4 bg-muted rounded-lg">
                   <div className="text-center">
-                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">Expected Return</p>
+                    <p className="text-sm text-muted-foreground">Expected Return</p>
                     <p className="text-lg font-bold text-emerald-600">{proposal.expectedReturns ? `${proposal.expectedReturns}%` : 'N/A'}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">Lock-in Period</p>
-                    <p className="text-lg font-bold text-gray-900 dark:text-white">{proposal.lockIn || '3 Years'}</p>
+                    <p className="text-sm text-muted-foreground">Lock-in Period</p>
+                    <p className="text-lg font-bold text-foreground">{proposal.lockIn || '3 Years'}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">Risk Level</p>
+                    <p className="text-sm text-muted-foreground">Risk Level</p>
                     <p className="text-lg font-bold text-amber-600">{proposal.riskProfile || 'High'}</p>
                   </div>
                 </div>
@@ -224,8 +224,8 @@ function CartTab({ productType, onCheckout }: { productType: string; onCheckout:
       <Card className="border-dashed border-2 border-blue-200 bg-blue-50/50 dark:bg-blue-900/10">
         <CardContent className="flex flex-col items-center justify-center py-16">
           <ShoppingCart className="w-16 h-16 text-blue-400 mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Your AIF Cart is Empty</h3>
-          <p className="text-muted-foreground dark:text-muted-foreground text-center max-w-md mb-4">
+          <h3 className="text-xl font-semibold text-foreground mb-2">Your AIF Cart is Empty</h3>
+          <p className="text-muted-foreground text-center max-w-md mb-4">
             Approve investment proposals to add them to your cart for checkout.
           </p>
         </CardContent>
@@ -243,12 +243,12 @@ function CartTab({ productType, onCheckout }: { productType: string; onCheckout:
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
                     <Package className="w-5 h-5 text-blue-600" />
-                    <h4 className="font-semibold text-gray-900 dark:text-white">{item.productName || item.schemeName || 'AIF Investment'}</h4>
+                    <h4 className="font-semibold text-foreground">{item.productName || item.schemeName || 'AIF Investment'}</h4>
                     <Badge className="bg-amber-100 text-amber-700">AIF</Badge>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-xl font-bold text-gray-900 dark:text-white flex items-center justify-end">
+                  <p className="text-xl font-bold text-foreground flex items-center justify-end">
                     <IndianRupee className="w-4 h-4" />{parseFloat(item.amount || item.quantity || '0').toLocaleString('en-IN')}
                   </p>
                   <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 mt-2"
@@ -287,7 +287,7 @@ function CartTab({ productType, onCheckout }: { productType: string; onCheckout:
                 </div>
               </div>
             </div>
-            <Button className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white font-semibold py-6"
+            <Button className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-foreground font-semibold py-6"
               onClick={() => checkoutMutation.mutate()} disabled={checkoutMutation.isPending || cartItems.length === 0} data-testid="aif-checkout-btn">
               {checkoutMutation.isPending ? <><RefreshCw className="w-5 h-5 mr-2 animate-spin" />Processing...</> : <><CreditCard className="w-5 h-5 mr-2" />Proceed to Payment</>}
             </Button>
@@ -312,7 +312,7 @@ function OrdersTab({ productType }: { productType: string }) {
       <Card className="border-dashed border-2 border-border">
         <CardContent className="flex flex-col items-center justify-center py-16">
           <FileText className="w-16 h-16 text-muted-foreground mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No AIF Orders Yet</h3>
+          <h3 className="text-xl font-semibold text-foreground mb-2">No AIF Orders Yet</h3>
           <p className="text-muted-foreground">Your AIF investment orders will appear here once placed.</p>
         </CardContent>
       </Card>
@@ -360,7 +360,7 @@ function PortfolioTab({ productType }: { productType: string }) {
       <Card className="border-dashed border-2 border-border">
         <CardContent className="flex flex-col items-center justify-center py-16">
           <Wallet className="w-16 h-16 text-muted-foreground mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No AIF Holdings</h3>
+          <h3 className="text-xl font-semibold text-foreground mb-2">No AIF Holdings</h3>
           <p className="text-muted-foreground">Your AIF investments will appear here once purchased.</p>
         </CardContent>
       </Card>
@@ -437,7 +437,7 @@ export default function AIF() {
     <div className="min-h-screen bg-finance-light" data-testid="aif-page">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Alternative Investment Funds (AIF)</h1>
+          <h1 className="text-4xl font-bold text-foreground mb-4">Alternative Investment Funds (AIF)</h1>
           <p className="text-muted-foreground text-lg max-w-3xl">
             Explore sophisticated investment opportunities with professionally managed AIF portfolios across Category I, II, and III funds.
           </p>

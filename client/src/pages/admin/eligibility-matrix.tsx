@@ -422,7 +422,7 @@ export default function EligibilityMatrixPage() {
                     {bankRules.map((rule) => (
                       <div 
                         key={rule.id} 
-                        className={`p-3 rounded-lg border ${rule.isActive ? 'bg-green-50 dark:bg-green-950/20 border-green-200' : 'bg-gray-50 dark:bg-gray-900 border-gray-200'}`}
+                        className={`p-3 rounded-lg border ${rule.isActive ? 'bg-green-50 dark:bg-green-950/20 border-green-200' : 'bg-background border-border'}`}
                       >
                         <div className="flex justify-between items-start">
                           <div>

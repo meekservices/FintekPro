@@ -306,7 +306,7 @@ export default function NotificationPreferences() {
                   </>
                 ) : (
                   <>
-                    <Badge variant="outline" className="bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground" data-testid="push-status-disabled">
+                    <Badge variant="outline" className="bg-muted text-muted-foreground" data-testid="push-status-disabled">
                       Disabled
                     </Badge>
                     <span className="text-sm text-muted-foreground">Enable to receive instant notifications</span>

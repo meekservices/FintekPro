@@ -152,7 +152,7 @@ function ClientProfileCompletion() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950">
+      <div className="min-h-screen bg-gradient-to-br from-background via-blue-50/30 to-indigo-50/30 dark:from-background dark:via-blue-950/30 dark:to-indigo-950/30">
         <div className="container mx-auto p-6">
           <div className="flex items-center justify-center h-64">
             <div className="text-lg">Loading profile...</div>
@@ -163,12 +163,12 @@ function ClientProfileCompletion() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950" data-testid="client-profile">
+    <div className="min-h-screen bg-gradient-to-br from-background via-blue-50/30 to-indigo-50/30 dark:from-background dark:via-blue-950/30 dark:to-indigo-950/30" data-testid="client-profile">
       <div className="container mx-auto p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Complete Your Profile</h1>
-            <p className="text-muted-foreground dark:text-muted-foreground">Please provide the required information to complete your profile</p>
+            <h1 className="text-3xl font-bold text-foreground">Complete Your Profile</h1>
+            <p className="text-muted-foreground">Please provide the required information to complete your profile</p>
           </div>
         </div>
 
@@ -504,7 +504,7 @@ export default function AgentPortal() {
   // Show login prompt if not authenticated (after all hooks)
   if (userError || (!userLoading && !currentUser)) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950 flex items-center justify-center" data-testid="agent-portal-login">
+      <div className="min-h-screen bg-gradient-to-br from-background via-blue-50/30 to-indigo-50/30 dark:from-background dark:via-blue-950/30 dark:to-indigo-950/30 flex items-center justify-center" data-testid="agent-portal-login">
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -568,16 +568,16 @@ export default function AgentPortal() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950" data-testid="agent-portal">
+    <div className="min-h-screen bg-gradient-to-br from-background via-blue-50/30 to-indigo-50/30 dark:from-background dark:via-blue-950/30 dark:to-indigo-950/30" data-testid="agent-portal">
       <div className="container mx-auto p-6">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white" data-testid="title-partner-portal">
+              <h1 className="text-3xl font-bold text-foreground" data-testid="title-partner-portal">
                 Partner Portal
               </h1>
-              <p className="text-muted-foreground dark:text-muted-foreground mt-1">
+              <p className="text-muted-foreground mt-1">
                 Welcome back, {agentProfile?.fullName || 'Partner'}
               </p>
               {agentProfile?.euinNumber && (
@@ -699,7 +699,7 @@ export default function AgentPortal() {
                   <CardContent>
                     <div className="space-y-4">
                       {agentStats?.recentActivity?.map((activity: any, index: number) => (
-                        <div key={index} className="flex items-center gap-3 p-3 rounded-lg bg-muted dark:bg-muted">
+                        <div key={index} className="flex items-center gap-3 p-3 rounded-lg bg-muted">
                           <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                           <div className="flex-1">
                             <p className="text-sm font-medium">{activity.description}</p>
@@ -725,7 +725,7 @@ export default function AgentPortal() {
                     <CardTitle>Partners Management</CardTitle>
                     <CardDescription>Add and manage partners with or without EUIN/ARN numbers</CardDescription>
                   </div>
-                  <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md" onClick={() => setShowAddPartnerDialog(true)} data-testid="button-add-partner">
+                  <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-foreground shadow-md" onClick={() => setShowAddPartnerDialog(true)} data-testid="button-add-partner">
                     <Plus className="w-4 h-4 mr-2" />
                     Add Partner
                   </Button>
@@ -815,7 +815,7 @@ export default function AgentPortal() {
                     <CardTitle>Clients Management</CardTitle>
                     <CardDescription>Manage client relationships and EUIN assignments</CardDescription>
                   </div>
-                  <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md" onClick={() => setShowAddClientDialog(true)} data-testid="button-add-client">
+                  <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-foreground shadow-md" onClick={() => setShowAddClientDialog(true)} data-testid="button-add-client">
                     <UserPlus className="w-4 h-4 mr-2" />
                     Add Client
                   </Button>
@@ -854,7 +854,7 @@ export default function AgentPortal() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <code className="text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
+                          <code className="text-xs bg-muted px-2 py-1 rounded">
                             {client.panNumber}
                           </code>
                         </TableCell>
@@ -1086,10 +1086,10 @@ export default function AgentPortal() {
                 )}
 
                 <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" className="border-border text-muted-foreground hover:bg-muted dark:border-border dark:text-muted-foreground dark:hover:bg-muted" onClick={() => setShowAddPartnerDialog(false)} data-testid="button-cancel-partner">
+                  <Button type="button" variant="outline" className="border-border text-muted-foreground hover:bg-muted" onClick={() => setShowAddPartnerDialog(false)} data-testid="button-cancel-partner">
                     Cancel
                   </Button>
-                  <Button type="submit" className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white" disabled={addPartnerMutation.isPending} data-testid="button-submit-partner">
+                  <Button type="submit" className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-foreground" disabled={addPartnerMutation.isPending} data-testid="button-submit-partner">
                     {addPartnerMutation.isPending ? "Adding..." : "Add Partner"}
                   </Button>
                 </div>
@@ -1205,10 +1205,10 @@ export default function AgentPortal() {
                 )}
 
                 <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" className="border-border text-muted-foreground hover:bg-muted dark:border-border dark:text-muted-foreground dark:hover:bg-muted" onClick={() => setShowAddClientDialog(false)} data-testid="button-cancel-client">
+                  <Button type="button" variant="outline" className="border-border text-muted-foreground hover:bg-muted" onClick={() => setShowAddClientDialog(false)} data-testid="button-cancel-client">
                     Cancel
                   </Button>
-                  <Button type="submit" className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white" disabled={addClientMutation.isPending} data-testid="button-submit-client">
+                  <Button type="submit" className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-foreground" disabled={addClientMutation.isPending} data-testid="button-submit-client">
                     {addClientMutation.isPending ? "Adding..." : "Add Client"}
                   </Button>
                 </div>

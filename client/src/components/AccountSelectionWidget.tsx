@@ -215,7 +215,7 @@ export function AccountSelectionWidget({
                 </SelectContent>
               </Select>
             ) : selectedBank ? (
-              <div className="flex items-center justify-between p-3 bg-white dark:bg-card rounded-lg border" data-testid="display-selected-bank">
+              <div className="flex items-center justify-between p-3 bg-card rounded-lg border" data-testid="display-selected-bank">
                 <div className="flex items-center gap-2">
                   <Building2 className="h-4 w-4 text-blue-600" />
                   <div>
@@ -261,7 +261,7 @@ export function AccountSelectionWidget({
                   </SelectContent>
                 </Select>
               ) : selectedDemat ? (
-                <div className="flex items-center justify-between p-3 bg-white dark:bg-card rounded-lg border" data-testid="display-selected-demat">
+                <div className="flex items-center justify-between p-3 bg-card rounded-lg border" data-testid="display-selected-demat">
                   <div className="flex items-center gap-2">
                     <CreditCard className="h-4 w-4 text-indigo-600" />
                     <div>

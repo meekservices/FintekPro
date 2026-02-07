@@ -296,7 +296,7 @@ export default function AifSeedPage() {
       case "Category I": return "bg-blue-500";
       case "Category II": return "bg-purple-500";
       case "Category III": return "bg-orange-500";
-      default: return "bg-gray-500";
+      default: return "bg-muted";
     }
   };
 

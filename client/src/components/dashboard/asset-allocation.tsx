@@ -80,7 +80,7 @@ export function AssetAllocation({ portfolioId }: AssetAllocationProps) {
         <CardContent>
           <div className="text-center py-8">
             <p className="text-red-500 mb-2">Error loading asset allocation</p>
-            <p className="text-gray-500 text-sm">Please try again later</p>
+            <p className="text-muted-foreground text-sm">Please try again later</p>
           </div>
         </CardContent>
       </Card>
@@ -92,18 +92,18 @@ export function AssetAllocation({ portfolioId }: AssetAllocationProps) {
     return (
       <Card className="mb-8" data-testid="asset-allocation-empty">
         <CardHeader>
-          <CardTitle className="text-2xl font-bold text-gray-900">Asset Allocation Dashboard</CardTitle>
+          <CardTitle className="text-2xl font-bold text-foreground">Asset Allocation Dashboard</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-12">
-            <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-16 h-16 mx-auto mb-4 bg-muted rounded-full flex items-center justify-center">
+              <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
               </svg>
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Asset Allocation Data</h3>
-            <p className="text-gray-500 text-sm max-w-md mx-auto">
+            <h3 className="text-lg font-medium text-foreground mb-2">No Asset Allocation Data</h3>
+            <p className="text-muted-foreground text-sm max-w-md mx-auto">
               Add investments to your portfolio to see your asset allocation breakdown and receive rebalancing suggestions.
             </p>
           </div>
@@ -116,7 +116,7 @@ export function AssetAllocation({ portfolioId }: AssetAllocationProps) {
     <Card className="mb-8" data-testid="asset-allocation">
       <CardHeader>
         <div className="flex justify-between items-center">
-          <CardTitle className="text-2xl font-bold text-gray-900" data-testid="allocation-title">
+          <CardTitle className="text-2xl font-bold text-foreground" data-testid="allocation-title">
             Asset Allocation Dashboard
           </CardTitle>
           <Dialog open={isRebalanceOpen} onOpenChange={setIsRebalanceOpen}>
@@ -142,7 +142,7 @@ export function AssetAllocation({ portfolioId }: AssetAllocationProps) {
           
           {/* Current vs Target Allocation */}
           <div>
-            <h3 className="font-bold text-gray-900 mb-4" data-testid="current-target-title">
+            <h3 className="font-bold text-foreground mb-4" data-testid="current-target-title">
               Current vs Target Allocation
             </h3>
             <div className="space-y-4" data-testid="allocation-breakdown">
@@ -160,14 +160,14 @@ export function AssetAllocation({ portfolioId }: AssetAllocationProps) {
                   </div>
                   <div className="flex items-center space-x-4">
                     <div className="text-right">
-                      <p className="text-sm text-gray-600" data-testid={`current-percent-${item.name.toLowerCase()}`}>
+                      <p className="text-sm text-muted-foreground" data-testid={`current-percent-${item.name.toLowerCase()}`}>
                         Current: {item.current}%
                       </p>
-                      <p className="text-sm text-gray-600" data-testid={`target-percent-${item.name.toLowerCase()}`}>
+                      <p className="text-sm text-muted-foreground" data-testid={`target-percent-${item.name.toLowerCase()}`}>
                         Target: {item.target}%
                       </p>
                     </div>
-                    <div className="w-24 bg-gray-200 rounded-full h-2">
+                    <div className="w-24 bg-muted rounded-full h-2">
                       <div 
                         className="h-2 rounded-full" 
                         style={{ 
@@ -184,14 +184,14 @@ export function AssetAllocation({ portfolioId }: AssetAllocationProps) {
             
             {/* Rebalance Suggestions */}
             <div className="mt-6 p-4 bg-blue-50 rounded-lg" data-testid="rebalance-suggestions">
-              <h4 className="font-semibold text-gray-900 mb-2">Rebalance Suggestions</h4>
+              <h4 className="font-semibold text-foreground mb-2">Rebalance Suggestions</h4>
               <div className="space-y-2 text-sm">
                 {chartData.map((item) => {
                   const deviation = item.current - item.target;
                   if (Math.abs(deviation) < 1) return null; // Skip small deviations
                   
                   return (
-                    <p key={item.name} className="text-gray-700" data-testid={`suggestion-${item.name.toLowerCase()}`}>
+                    <p key={item.name} className="text-muted-foreground" data-testid={`suggestion-${item.name.toLowerCase()}`}>
                       • {deviation > 0 ? 'Reduce' : 'Increase'} {item.name} by {Math.abs(deviation).toFixed(1)}%
                       {item.rebalanceAmount !== 0 && (
                         <span className="ml-2 font-medium">
@@ -207,10 +207,10 @@ export function AssetAllocation({ portfolioId }: AssetAllocationProps) {
           
           {/* Asset Performance Chart */}
           <div>
-            <h3 className="font-bold text-gray-900 mb-4" data-testid="performance-chart-title">
+            <h3 className="font-bold text-foreground mb-4" data-testid="performance-chart-title">
               Current Allocation
             </h3>
-            <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center" data-testid="pie-chart-container">
+            <div className="h-64 bg-muted rounded-lg flex items-center justify-center" data-testid="pie-chart-container">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -236,12 +236,12 @@ export function AssetAllocation({ portfolioId }: AssetAllocationProps) {
             
             {/* Risk Profile */}
             <div className="mt-6" data-testid="risk-profiles">
-              <h4 className="font-semibold text-gray-900 mb-3">Recommended Allocation by Risk Profile</h4>
+              <h4 className="font-semibold text-foreground mb-3">Recommended Allocation by Risk Profile</h4>
               <div className="grid grid-cols-3 gap-4">
                 {Object.entries(RISK_PROFILES).map(([key, profile]) => (
                   <div 
                     key={key}
-                    className="text-center p-3 rounded-lg border-2 border-transparent hover:border-gray-200 transition-colors cursor-pointer"
+                    className="text-center p-3 rounded-lg border-2 border-transparent hover:border-border transition-colors cursor-pointer"
                     style={{ backgroundColor: `${profile.color}15` }}
                     data-testid={`risk-profile-${key.toLowerCase()}`}
                   >

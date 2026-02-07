@@ -428,7 +428,7 @@ export default function ProfessionalServicesPage() {
                   { name: "Amit Patel", role: "Tax Advisory Lead", experience: "12+ years", specialization: "Tax Planning" }
                 ].map((member, idx) => (
                   <div key={idx} className="text-center space-y-3">
-                    <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-primary/50 mx-auto flex items-center justify-center text-white text-2xl font-bold">
+                    <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-primary/50 mx-auto flex items-center justify-center text-foreground text-2xl font-bold">
                       {member.name.split(' ').map(n => n[0]).join('')}
                     </div>
                     <div>

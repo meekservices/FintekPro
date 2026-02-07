@@ -157,7 +157,7 @@ export default function Markets() {
         {/* Global Indices Dashboard */}
         <section className="mb-8" data-testid="global-indices">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-3xl font-bold text-gray-900 flex items-center">
+            <h2 className="text-3xl font-bold text-foreground flex items-center">
               <Globe className="h-8 w-8 mr-3 text-blue-600" />
               Global Market Indices
             </h2>
@@ -217,14 +217,14 @@ export default function Markets() {
                       </div>
                     </div>
                     
-                    <h3 className="font-bold text-lg text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+                    <h3 className="font-bold text-lg text-foreground mb-2 group-hover:text-blue-600 transition-colors">
                       {index.name}
                     </h3>
                     
                     <div className="space-y-2">
                       {indexData?.price ? (
                         <>
-                          <p className="text-2xl font-bold text-gray-900" data-testid={`index-price-${index.symbol}`}>
+                          <p className="text-2xl font-bold text-foreground" data-testid={`index-price-${index.symbol}`}>
                             <CurrencyDisplay 
                               amount={convertPrice(indexData.price, "INR")} 
                               currency={selectedCurrency} 
@@ -240,7 +240,7 @@ export default function Markets() {
                           )}
                         </>
                       ) : (
-                        <p className="text-2xl font-bold text-gray-900">Loading...</p>
+                        <p className="text-2xl font-bold text-foreground">Loading...</p>
                       )}
                       
                       <div className="flex items-center justify-between">
@@ -295,7 +295,7 @@ export default function Markets() {
             <Card className="shadow-xl border-0">
               <CardHeader className="border-b border-border">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-xl font-bold text-gray-900 flex items-center">
+                  <CardTitle className="text-xl font-bold text-foreground flex items-center">
                     <BarChart3 className="h-6 w-6 mr-3 text-blue-600" />
                     Live Chart - {selectedSymbol}
                   </CardTitle>
@@ -333,7 +333,7 @@ export default function Markets() {
                 {searchSymbol && symbolQuote ? (
                   <div className="space-y-6" data-testid="stock-quote-details">
                     <div className="text-center pb-4 border-b border-border">
-                      <h3 className="font-bold text-2xl text-gray-900 mb-2">
+                      <h3 className="font-bold text-2xl text-foreground mb-2">
                         {searchSymbol.toUpperCase()}
                       </h3>
                       <p className="text-4xl font-bold text-blue-600 mb-2">
@@ -351,8 +351,8 @@ export default function Markets() {
                       {[
                         { label: "High", value: `₹${symbolQuote.h?.toFixed(2)}`, color: "text-green-600" },
                         { label: "Low", value: `₹${symbolQuote.l?.toFixed(2)}`, color: "text-red-600" },
-                        { label: "Open", value: `₹${symbolQuote.o?.toFixed(2)}`, color: "text-gray-900" },
-                        { label: "Prev Close", value: `₹${symbolQuote.pc?.toFixed(2)}`, color: "text-gray-900" }
+                        { label: "Open", value: `₹${symbolQuote.o?.toFixed(2)}`, color: "text-foreground" },
+                        { label: "Prev Close", value: `₹${symbolQuote.pc?.toFixed(2)}`, color: "text-foreground" }
                       ].map((item, index) => (
                         <div key={index} className="bg-muted rounded-lg p-3">
                           <p className="text-muted-foreground mb-1">{item.label}</p>
@@ -387,7 +387,7 @@ export default function Markets() {
         <section className="mb-8">
           <Tabs defaultValue="exchanges" className="w-full">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-3xl font-bold text-gray-900">Market Data</h2>
+              <h2 className="text-3xl font-bold text-foreground">Market Data</h2>
             </div>
             <ScrollableTabsList>
               <TabsTrigger value="exchanges" className="flex items-center gap-2 flex-shrink-0">
@@ -409,7 +409,7 @@ export default function Markets() {
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                 <Card className="shadow-xl border-0">
                   <CardHeader className="border-b border-border">
-                    <CardTitle className="text-xl font-semibold text-gray-900">
+                    <CardTitle className="text-xl font-semibold text-foreground">
                       NSE (National Stock Exchange)
                     </CardTitle>
                   </CardHeader>
@@ -420,7 +420,7 @@ export default function Markets() {
                 
                 <Card className="shadow-xl border-0">
                   <CardHeader className="border-b border-border">
-                    <CardTitle className="text-xl font-semibold text-gray-900">
+                    <CardTitle className="text-xl font-semibold text-foreground">
                       BSE (Bombay Stock Exchange)
                     </CardTitle>
                   </CardHeader>
@@ -434,7 +434,7 @@ export default function Markets() {
               <div className="space-y-8">
                 <Card className="shadow-xl border-0">
                   <CardHeader className="border-b border-border">
-                    <CardTitle className="text-xl font-semibold text-gray-900">
+                    <CardTitle className="text-xl font-semibold text-foreground">
                       <AgriculturalTooltip searchTerm="commodity">
                         MCX Commodities Live Data
                       </AgriculturalTooltip>
@@ -447,7 +447,7 @@ export default function Markets() {
 
                 <Card className="shadow-xl border-0">
                   <CardHeader className="border-b border-border">
-                    <CardTitle className="text-xl font-semibold text-gray-900">
+                    <CardTitle className="text-xl font-semibold text-foreground">
                       <AgriculturalTooltip searchTerm="agricultural commodity">
                         NCDEX Agricultural Commodities
                       </AgriculturalTooltip>
@@ -460,7 +460,7 @@ export default function Markets() {
 
                 <Card className="shadow-xl border-0">
                   <CardHeader className="border-b border-border">
-                    <CardTitle className="text-xl font-semibold text-gray-900">
+                    <CardTitle className="text-xl font-semibold text-foreground">
                       MSEI Metropolitan Stock Exchange
                     </CardTitle>
                   </CardHeader>
@@ -476,7 +476,7 @@ export default function Markets() {
                 <MarketMovers />
                 <Card className="shadow-xl border-0">
                   <CardHeader className="border-b border-border">
-                    <CardTitle className="text-xl font-semibold text-gray-900 flex items-center">
+                    <CardTitle className="text-xl font-semibold text-foreground flex items-center">
                       <PieChart className="h-5 w-5 mr-2 text-blue-600" />
                       Sector Performance
                     </CardTitle>
@@ -491,7 +491,7 @@ export default function Markets() {
                         { sector: "Real Estate", change: "-1.3%", color: "text-red-600 bg-red-50" }
                       ].map((item, index) => (
                         <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                          <span className="font-medium text-gray-900">{item.sector}</span>
+                          <span className="font-medium text-foreground">{item.sector}</span>
                           <span className={`px-2 py-1 rounded text-sm font-semibold ${item.color}`}>
                             {item.change}
                           </span>
@@ -513,7 +513,7 @@ export default function Markets() {
         {watchlist.length > 0 && (
           <section className="mb-8">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-3xl font-bold text-gray-900 flex items-center">
+              <h2 className="text-3xl font-bold text-foreground flex items-center">
                 <Bookmark className="h-8 w-8 mr-3 text-blue-600" />
                 Your Watchlist
               </h2>
@@ -529,7 +529,7 @@ export default function Markets() {
                   <Card key={symbol} className="hover:shadow-lg transition-shadow cursor-pointer">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="font-semibold text-sm text-gray-900">{symbol}</span>
+                        <span className="font-semibold text-sm text-foreground">{symbol}</span>
                         <Button
                           variant="ghost"
                           size="sm"

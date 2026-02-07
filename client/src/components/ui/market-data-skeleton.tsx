@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 export function StockRowSkeleton() {
   return (
-    <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+    <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
       <div>
         <Skeleton className="h-4 w-20 mb-2" />
         <Skeleton className="h-3 w-32" />
@@ -68,7 +68,7 @@ export function MarketNewsSkeleton({ items = 4 }: { items?: number }) {
       <CardContent>
         <div className="space-y-4">
           {Array.from({ length: items }).map((_, i) => (
-            <div key={i} className="flex gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <div key={i} className="flex gap-3 p-3 bg-muted rounded-lg">
               <Skeleton className="w-16 h-16 rounded-md flex-shrink-0" />
               <div className="flex-1 space-y-2">
                 <Skeleton className="h-4 w-full" />

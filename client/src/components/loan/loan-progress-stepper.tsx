@@ -52,13 +52,13 @@ export function LoanProgressStepper({ status, compact = false }: LoanProgressSte
                     ? "bg-green-500"
                     : isCurrent
                     ? "bg-blue-500 animate-pulse"
-                    : "bg-gray-300 dark:bg-gray-600"
+                    : "bg-muted"
                 }`}
               />
               {index < stages.length - 1 && (
                 <div
                   className={`w-3 h-0.5 ${
-                    isComplete ? "bg-green-500" : "bg-gray-300 dark:bg-gray-600"
+                    isComplete ? "bg-green-500" : "bg-muted"
                   }`}
                 />
               )}
@@ -72,7 +72,7 @@ export function LoanProgressStepper({ status, compact = false }: LoanProgressSte
   return (
     <div className="w-full">
       <div className="flex items-center justify-between relative">
-        <div className="absolute top-4 left-0 right-0 h-0.5 bg-gray-200 dark:bg-gray-700 -z-10" />
+        <div className="absolute top-4 left-0 right-0 h-0.5 bg-muted -z-10" />
         
         {stages.map((stage, index) => {
           const stepNum = statusOrder[stage.key];
@@ -91,7 +91,7 @@ export function LoanProgressStepper({ status, compact = false }: LoanProgressSte
                     ? "bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-400"
                     : isCurrent
                     ? "bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 ring-2 ring-blue-500 ring-offset-2"
-                    : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500"
+                    : "bg-muted text-muted-foreground"
                 }`}
               >
                 {isComplete && !isRejected ? (
@@ -105,8 +105,8 @@ export function LoanProgressStepper({ status, compact = false }: LoanProgressSte
               <span
                 className={`mt-2 text-xs font-medium text-center max-w-[60px] ${
                   isComplete || isCurrent
-                    ? "text-gray-900 dark:text-gray-100"
-                    : "text-gray-400 dark:text-gray-500"
+                    ? "text-foreground"
+                    : "text-muted-foreground"
                 }`}
               >
                 {stage.key === "decision" && isSuccess ? "Approved" : 
@@ -133,7 +133,7 @@ export function LoanProgressStepper({ status, compact = false }: LoanProgressSte
           <span className={`text-sm font-medium ${
             status === "rejected" ? "text-red-600 dark:text-red-400" :
             status === "withdrawn" ? "text-orange-600 dark:text-orange-400" :
-            "text-gray-600 dark:text-gray-400"
+            "text-muted-foreground"
           }`}>
             {status === "rejected" ? "Application Rejected" :
              status === "withdrawn" ? "Application Withdrawn" :

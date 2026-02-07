@@ -105,7 +105,7 @@ function getStrategyBadgeColor(strategy: string | null): string {
     case "Focused": return "bg-orange-500 text-white";
     case "Value": return "bg-green-600 text-white";
     case "Thematic": return "bg-amber-600 text-white";
-    default: return "bg-gray-500 text-white";
+    default: return "bg-muted text-foreground";
   }
 }
 
@@ -302,7 +302,7 @@ export default function PmsSeedPage() {
       case "Small-cap": return "bg-orange-500";
       case "Focused": return "bg-purple-500";
       case "Thematic": return "bg-pink-500";
-      default: return "bg-gray-500";
+      default: return "bg-muted";
     }
   };
 
@@ -757,7 +757,7 @@ export default function PmsSeedPage() {
                     .filter(([_, count]) => count > 0)
                     .slice(0, 5)
                     .map(([strategy, count]) => (
-                      <Badge key={strategy} variant="outline" className={getStrategyBadgeColor(strategy).replace("text-white", "").replace("bg-", "text-").replace("-500", "-600") + " border-current"}>
+                      <Badge key={strategy} variant="outline" className={getStrategyBadgeColor(strategy).replace("text-foreground", "").replace("bg-", "text-").replace("-500", "-600") + " border-current"}>
                         {strategy}: {count}
                       </Badge>
                     ))

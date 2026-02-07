@@ -236,7 +236,7 @@ export default function FieldAgentPortal() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950">
+      <div className="min-h-screen bg-gradient-to-br from-background via-blue-50/30 to-indigo-50/30 dark:from-background dark:via-blue-950/30 dark:to-indigo-950/30">
         <div className="container mx-auto p-6">
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3"></div>
@@ -292,15 +292,15 @@ export default function FieldAgentPortal() {
                      agentLevel === 'sub_agent' ? 'Sub-Agent' : 'Associate';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950" data-testid="field-agent-portal">
+    <div className="min-h-screen bg-gradient-to-br from-background via-blue-50/30 to-indigo-50/30 dark:from-background dark:via-blue-950/30 dark:to-indigo-950/30" data-testid="field-agent-portal">
       <div className="container mx-auto p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <Award className="h-8 w-8 text-primary" />
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Agent Dashboard</h1>
+              <h1 className="text-3xl font-bold text-foreground">Agent Dashboard</h1>
             </div>
-            <p className="text-muted-foreground dark:text-muted-foreground">
+            <p className="text-muted-foreground">
               Welcome back, {(agentProfile as any)?.fullName || 'Agent'}
             </p>
           </div>
@@ -392,14 +392,14 @@ export default function FieldAgentPortal() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
+          <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-foreground">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-white/90">Total Earnings</CardTitle>
-              <DollarSign className="h-5 w-5 text-white/80" />
+              <CardTitle className="text-sm font-medium text-foreground/90">Total Earnings</CardTitle>
+              <DollarSign className="h-5 w-5 text-foreground/80" />
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">₹{(stats.totalCommissions / 1000).toFixed(2)} K</div>
-              <p className="text-sm text-white/70 mt-1">
+              <p className="text-sm text-foreground/70 mt-1">
                 ₹{(stats.pendingCommissions / 1000).toFixed(2)} K pending
               </p>
             </CardContent>
@@ -568,7 +568,7 @@ export default function FieldAgentPortal() {
                         data-testid="input-search-clients"
                       />
                     </div>
-                    <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md" data-testid="button-add-client" onClick={() => navigate("/agent/onboard-client")}>
+                    <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-foreground shadow-md" data-testid="button-add-client" onClick={() => navigate("/agent/onboard-client")}>
                       <UserPlus className="h-4 w-4 mr-2" />
                       Add Client
                     </Button>
@@ -634,7 +634,7 @@ export default function FieldAgentPortal() {
                           <Users className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
                           <p className="text-lg font-medium mb-1">No clients yet</p>
                           <p className="text-muted-foreground mb-4">Start by adding your first client</p>
-                          <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white" data-testid="button-add-first-client" onClick={() => navigate("/agent/onboard-client")}>
+                          <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-foreground" data-testid="button-add-first-client" onClick={() => navigate("/agent/onboard-client")}>
                             <UserPlus className="h-4 w-4 mr-2" />
                             Add Client
                           </Button>
@@ -664,7 +664,7 @@ export default function FieldAgentPortal() {
                         data-testid="input-search-leads"
                       />
                     </div>
-                    <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md" data-testid="button-add-lead" onClick={() => navigate("/agent/leads")}>
+                    <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-foreground shadow-md" data-testid="button-add-lead" onClick={() => navigate("/agent/leads")}>
                       <UserPlus className="h-4 w-4 mr-2" />
                       Add Lead
                     </Button>
@@ -723,7 +723,7 @@ export default function FieldAgentPortal() {
                           <Target className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
                           <p className="text-lg font-medium mb-1">No leads yet</p>
                           <p className="text-muted-foreground mb-4">Start prospecting to add leads</p>
-                          <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white" data-testid="button-add-first-lead" onClick={() => navigate("/agent/leads")}>
+                          <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-foreground" data-testid="button-add-first-lead" onClick={() => navigate("/agent/leads")}>
                             <UserPlus className="h-4 w-4 mr-2" />
                             Add Lead
                           </Button>
@@ -744,7 +744,7 @@ export default function FieldAgentPortal() {
                     <CardTitle>My Tasks</CardTitle>
                     <CardDescription>Manage your daily activities</CardDescription>
                   </div>
-                  <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md" data-testid="button-add-task" onClick={() => navigate("/agent-tasks")}>
+                  <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-foreground shadow-md" data-testid="button-add-task" onClick={() => navigate("/agent-tasks")}>
                     <ClipboardList className="h-4 w-4 mr-2" />
                     Add Task
                   </Button>
@@ -773,7 +773,7 @@ export default function FieldAgentPortal() {
                       <ClipboardList className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
                       <p className="text-lg font-medium mb-1">No tasks scheduled</p>
                       <p className="text-muted-foreground mb-4">Create tasks to stay organized</p>
-                      <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white" data-testid="button-create-first-task" onClick={() => navigate("/agent-tasks")}>
+                      <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-foreground" data-testid="button-create-first-task" onClick={() => navigate("/agent-tasks")}>
                         <ClipboardList className="h-4 w-4 mr-2" />
                         Create Task
                       </Button>
@@ -1107,7 +1107,7 @@ export default function FieldAgentPortal() {
                               .filter((m) => new Date(m.scheduledAt) < new Date() || m.status !== "confirmed")
                               .slice(0, 5)
                               .map((meeting) => (
-                                <div key={meeting.id} className="border rounded-lg p-3 bg-muted dark:bg-card opacity-75">
+                                <div key={meeting.id} className="border rounded-lg p-3 bg-muted opacity-75">
                                   <div className="flex items-center justify-between">
                                     <div>
                                       <h4 className="font-medium text-sm">{meeting.topic}</h4>

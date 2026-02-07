@@ -502,7 +502,7 @@ export function RetirementPlanning() {
                     <Badge variant="outline">Age-based allocation</Badge>
                   </div>
                   
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                     <div>
                       <p className="font-medium">Pension Plans</p>
                       <p className="text-sm text-muted-foreground">Guaranteed pension income</p>
@@ -564,7 +564,7 @@ export function RetirementPlanning() {
               </div>
             </div>
 
-            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+            <div className="mt-6 p-4 bg-muted rounded-lg">
               <p className="text-sm text-muted-foreground">
                 <strong>Note:</strong> This is a basic retirement projection. Actual returns may vary based on market conditions. 
                 Consider consulting with a financial advisor for personalized advice.

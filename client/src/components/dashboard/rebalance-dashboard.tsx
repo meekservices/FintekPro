@@ -85,7 +85,7 @@ export function RebalanceDashboard({ portfolioId, totalValue }: RebalanceDashboa
       <CardHeader>
         <div className="flex items-center space-x-2">
           <Calculator className="h-6 w-6 text-finance-blue" />
-          <CardTitle className="text-2xl font-bold text-gray-900" data-testid="rebalance-title">
+          <CardTitle className="text-2xl font-bold text-foreground" data-testid="rebalance-title">
             Portfolio Rebalance Calculator
           </CardTitle>
         </div>
@@ -95,7 +95,7 @@ export function RebalanceDashboard({ portfolioId, totalValue }: RebalanceDashboa
           
           {/* Target Allocation Input */}
           <div>
-            <h3 className="font-bold text-gray-900 mb-4" data-testid="target-allocation-title">
+            <h3 className="font-bold text-foreground mb-4" data-testid="target-allocation-title">
               Set Target Allocation
             </h3>
             
@@ -118,8 +118,8 @@ export function RebalanceDashboard({ portfolioId, totalValue }: RebalanceDashboa
                     className="w-20"
                     data-testid={`input-${allocation.assetType}`}
                   />
-                  <span className="text-gray-500">%</span>
-                  <div className="flex-1 text-right text-sm text-gray-600">
+                  <span className="text-muted-foreground">%</span>
+                  <div className="flex-1 text-right text-sm text-muted-foreground">
                     ₹{((allocation.percentage / 100) * totalValue).toLocaleString()}
                   </div>
                 </div>
@@ -127,7 +127,7 @@ export function RebalanceDashboard({ portfolioId, totalValue }: RebalanceDashboa
             </div>
 
             {/* Total Validation */}
-            <div className="mt-4 p-3 rounded-lg bg-gray-50" data-testid="allocation-validation">
+            <div className="mt-4 p-3 rounded-lg bg-muted" data-testid="allocation-validation">
               <div className="flex justify-between items-center">
                 <span className="font-medium">Total Allocation:</span>
                 <span 
@@ -179,14 +179,14 @@ export function RebalanceDashboard({ portfolioId, totalValue }: RebalanceDashboa
 
           {/* Rebalance Results */}
           <div>
-            <h3 className="font-bold text-gray-900 mb-4" data-testid="rebalance-results-title">
+            <h3 className="font-bold text-foreground mb-4" data-testid="rebalance-results-title">
               Rebalance Analysis
             </h3>
             
             {rebalanceResults ? (
               <div className="space-y-4" data-testid="rebalance-results">
                 <div className="bg-blue-50 p-4 rounded-lg">
-                  <h4 className="font-semibold text-gray-900 mb-3">Required Actions</h4>
+                  <h4 className="font-semibold text-foreground mb-3">Required Actions</h4>
                   <div className="space-y-3">
                     {rebalanceResults.rebalanceCalculations?.map((calc: any, index: number) => (
                       <div 
@@ -207,7 +207,7 @@ export function RebalanceDashboard({ portfolioId, totalValue }: RebalanceDashboa
                           <div className={`font-bold ${calc.action === 'BUY' ? 'text-finance-green' : 'text-finance-red'}`}>
                             {calc.action} ₹{Math.abs(calc.rebalanceAmount).toLocaleString()}
                           </div>
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-muted-foreground">
                             {calc.currentValue.toLocaleString()} → {calc.targetValue.toLocaleString()}
                           </div>
                         </div>
@@ -217,8 +217,8 @@ export function RebalanceDashboard({ portfolioId, totalValue }: RebalanceDashboa
                 </div>
 
                 <div className="bg-green-50 p-4 rounded-lg">
-                  <h4 className="font-semibold text-gray-900 mb-2">Summary</h4>
-                  <div className="text-sm text-gray-700">
+                  <h4 className="font-semibold text-foreground mb-2">Summary</h4>
+                  <div className="text-sm text-muted-foreground">
                     <p>Total portfolio value: ₹{totalValue.toLocaleString()}</p>
                     <p>Actions required: {rebalanceResults.rebalanceCalculations?.filter((c: any) => Math.abs(c.rebalanceAmount) > 1000).length || 0}</p>
                     <p className="text-finance-green font-medium mt-2">
@@ -235,9 +235,9 @@ export function RebalanceDashboard({ portfolioId, totalValue }: RebalanceDashboa
                 </Button>
               </div>
             ) : (
-              <div className="bg-gray-50 p-8 rounded-lg text-center" data-testid="no-results">
-                <TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-600">Set your target allocation and click calculate to see rebalance recommendations</p>
+              <div className="bg-muted p-8 rounded-lg text-center" data-testid="no-results">
+                <TrendingUp className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                <p className="text-muted-foreground">Set your target allocation and click calculate to see rebalance recommendations</p>
               </div>
             )}
           </div>

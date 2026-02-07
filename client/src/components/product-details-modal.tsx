@@ -71,7 +71,7 @@ export function ProductDetailsModal({
         <DialogHeader>
           <div className="flex justify-between items-start">
             <div>
-              <DialogTitle className="text-2xl font-bold text-gray-900">
+              <DialogTitle className="text-2xl font-bold text-foreground">
                 {product.name}
               </DialogTitle>
               <DialogDescription className="text-muted-foreground mt-2">
@@ -123,7 +123,7 @@ export function ProductDetailsModal({
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Min Investment</p>
-                      <p className="text-2xl font-bold text-gray-900">₹{product.minimumInvestment.toLocaleString()}</p>
+                      <p className="text-2xl font-bold text-foreground">₹{product.minimumInvestment.toLocaleString()}</p>
                     </div>
                     <ShoppingCart className="h-8 w-8 text-finance-blue" />
                   </div>
@@ -135,7 +135,7 @@ export function ProductDetailsModal({
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Risk Level</p>
-                      <p className="text-lg font-semibold text-gray-900">
+                      <p className="text-lg font-semibold text-foreground">
                         {product.riskLevel.charAt(0).toUpperCase() + product.riskLevel.slice(1)}
                       </p>
                     </div>
@@ -149,7 +149,7 @@ export function ProductDetailsModal({
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Provider</p>
-                      <p className="text-sm font-medium text-gray-900">{product.provider}</p>
+                      <p className="text-sm font-medium text-foreground">{product.provider}</p>
                     </div>
                     <CheckCircle className="h-8 w-8 text-green-600" />
                   </div>

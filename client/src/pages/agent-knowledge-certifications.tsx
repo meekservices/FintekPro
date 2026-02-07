@@ -110,7 +110,7 @@ const certificationLevels: CertificationLevel[] = [
 const getLevelBadgeColor = (level: number) => {
   switch (level) {
     case 0:
-      return "bg-slate-500/20 text-slate-400 border-slate-500/30";
+      return "bg-muted/20 text-muted-foreground border-border/30";
     case 1:
       return "bg-blue-500/20 text-blue-400 border-blue-500/30";
     case 2:
@@ -118,7 +118,7 @@ const getLevelBadgeColor = (level: number) => {
     case 3:
       return "bg-amber-500/20 text-amber-400 border-amber-500/30";
     default:
-      return "bg-slate-500/20 text-slate-400 border-slate-500/30";
+      return "bg-muted/20 text-muted-foreground border-border/30";
   }
 };
 
@@ -194,17 +194,17 @@ export default function AgentKnowledgeCertifications() {
     <div className="p-6 space-y-6">
       <div className="flex items-center gap-4">
         <Link href="/agent/knowledge-hub">
-          <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
+          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
             <ChevronLeft className="h-4 w-4 mr-1" />
             Back
           </Button>
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Shield className="h-7 w-7 text-purple-500" />
             My Certifications
           </h1>
-          <p className="text-slate-400 mt-1">Track your knowledge certifications (optional)</p>
+          <p className="text-muted-foreground mt-1">Track your knowledge certifications (optional)</p>
         </div>
       </div>
 
@@ -217,9 +217,9 @@ export default function AgentKnowledgeCertifications() {
         </AlertDescription>
       </Alert>
 
-      <Card className="bg-slate-900 border-slate-700">
+      <Card className="bg-background border-border">
         <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
+          <CardTitle className="text-foreground flex items-center gap-2">
             <Trophy className="h-5 w-5 text-amber-500" />
             Your Progress
           </CardTitle>
@@ -228,7 +228,7 @@ export default function AgentKnowledgeCertifications() {
           <div className="flex items-center gap-4 mb-4">
             <div className="flex-1">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-slate-300">Current Level</span>
+                <span className="text-muted-foreground">Current Level</span>
                 <Badge className={getLevelBadgeColor(currentLevel)}>
                   {currentLevel >= 0 ? certificationLevels[currentLevel]?.name : "None"}
                 </Badge>
@@ -248,15 +248,15 @@ export default function AgentKnowledgeCertifications() {
                       ? "bg-emerald-500/20 border border-emerald-500/30"
                       : isCurrent
                       ? "bg-blue-500/20 border border-blue-500/30"
-                      : "bg-slate-800/50 border border-slate-700"
+                      : "bg-card/50 border border-border"
                   }`}
                 >
                   {isCompleted ? (
                     <CheckCircle2 className="h-5 w-5 text-emerald-500 mx-auto" />
                   ) : (
-                    <Target className="h-5 w-5 text-slate-500 mx-auto" />
+                    <Target className="h-5 w-5 text-muted-foreground mx-auto" />
                   )}
-                  <p className="text-xs text-slate-400 mt-1">L{level.level}</p>
+                  <p className="text-xs text-muted-foreground mt-1">L{level.level}</p>
                 </div>
               );
             })}
@@ -267,7 +267,7 @@ export default function AgentKnowledgeCertifications() {
       {certsLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-48 bg-slate-800" />
+            <Skeleton key={i} className="h-48 bg-card" />
           ))}
         </div>
       ) : (
@@ -280,7 +280,7 @@ export default function AgentKnowledgeCertifications() {
             return (
               <Card
                 key={level.level}
-                className={`bg-slate-900 border-slate-700 ${
+                className={`bg-background border-border ${
                   isCompleted ? "border-emerald-500/30" : ""
                 }`}
                 data-testid={`card-level-${level.level}`}
@@ -290,10 +290,10 @@ export default function AgentKnowledgeCertifications() {
                     <div className="flex items-center gap-2">
                       <Award
                         className={`h-5 w-5 ${
-                          isCompleted ? "text-emerald-500" : "text-slate-500"
+                          isCompleted ? "text-emerald-500" : "text-muted-foreground"
                         }`}
                       />
-                      <CardTitle className="text-white">{level.name}</CardTitle>
+                      <CardTitle className="text-foreground">{level.name}</CardTitle>
                     </div>
                     {isCompleted ? (
                       <Badge className="bg-emerald-500/20 text-emerald-400 border-0">
@@ -306,21 +306,21 @@ export default function AgentKnowledgeCertifications() {
                         Available
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="border-slate-600 text-slate-400">
+                      <Badge variant="outline" className="border-border text-muted-foreground">
                         <Clock className="h-3 w-3 mr-1" />
                         Locked
                       </Badge>
                     )}
                   </div>
-                  <CardDescription className="text-slate-400">
+                  <CardDescription className="text-muted-foreground">
                     {level.description}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-1 mb-4">
                     {level.requirements.map((req, idx) => (
-                      <li key={idx} className="text-slate-400 text-sm flex items-start gap-2">
-                        <span className="text-slate-500 mt-1">•</span>
+                      <li key={idx} className="text-muted-foreground text-sm flex items-start gap-2">
+                        <span className="text-muted-foreground mt-1">•</span>
                         {req}
                       </li>
                     ))}
@@ -329,13 +329,13 @@ export default function AgentKnowledgeCertifications() {
                   {isCompleted && cert ? (
                     <div className="p-3 bg-emerald-500/10 rounded-lg text-sm">
                       <div className="flex items-center justify-between">
-                        <span className="text-slate-400">Score</span>
+                        <span className="text-muted-foreground">Score</span>
                         <span className="text-emerald-400 font-medium">{cert.score}%</span>
                       </div>
                       {cert.completedAt && (
                         <div className="flex items-center justify-between mt-1">
-                          <span className="text-slate-400">Completed</span>
-                          <span className="text-slate-300">
+                          <span className="text-muted-foreground">Completed</span>
+                          <span className="text-muted-foreground">
                             {format(new Date(cert.completedAt), "MMM d, yyyy")}
                           </span>
                         </div>
@@ -369,19 +369,19 @@ export default function AgentKnowledgeCertifications() {
           setQuizResult(null);
         }}
       >
-        <DialogContent className="max-w-2xl max-h-[90vh] bg-slate-900 border-slate-700">
+        <DialogContent className="max-w-2xl max-h-[90vh] bg-background border-border">
           {selectedQuiz && !quizResult && (
             <>
               <DialogHeader>
-                <DialogTitle className="text-white">{selectedQuiz.title}</DialogTitle>
-                <DialogDescription className="text-slate-400">
+                <DialogTitle className="text-foreground">{selectedQuiz.title}</DialogTitle>
+                <DialogDescription className="text-muted-foreground">
                   Answer all questions. You need {selectedQuiz.passingScore}% to pass.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-6 max-h-[60vh] overflow-y-auto">
                 {selectedQuiz.questions.map((q, idx) => (
-                  <div key={q.id} className="p-4 bg-slate-800 rounded-lg">
-                    <p className="text-white font-medium mb-3">
+                  <div key={q.id} className="p-4 bg-card rounded-lg">
+                    <p className="text-foreground font-medium mb-3">
                       {idx + 1}. {q.question}
                     </p>
                     <RadioGroup
@@ -391,7 +391,7 @@ export default function AgentKnowledgeCertifications() {
                       {q.options.map((option, optIdx) => (
                         <div key={optIdx} className="flex items-center space-x-2">
                           <RadioGroupItem value={option} id={`${q.id}-${optIdx}`} />
-                          <Label htmlFor={`${q.id}-${optIdx}`} className="text-slate-300">
+                          <Label htmlFor={`${q.id}-${optIdx}`} className="text-muted-foreground">
                             {option}
                           </Label>
                         </div>
@@ -419,8 +419,8 @@ export default function AgentKnowledgeCertifications() {
               {quizResult.passed ? (
                 <>
                   <Trophy className="h-16 w-16 text-amber-500 mx-auto mb-4" />
-                  <h3 className="text-2xl font-bold text-white mb-2">Congratulations! 🎉</h3>
-                  <p className="text-slate-400 mb-4">
+                  <h3 className="text-2xl font-bold text-foreground mb-2">Congratulations! 🎉</h3>
+                  <p className="text-muted-foreground mb-4">
                     You passed with a score of {quizResult.score}%
                   </p>
                   <Badge className="bg-emerald-500/20 text-emerald-400 text-lg px-4 py-2">
@@ -429,16 +429,16 @@ export default function AgentKnowledgeCertifications() {
                 </>
               ) : (
                 <>
-                  <Target className="h-16 w-16 text-slate-500 mx-auto mb-4" />
-                  <h3 className="text-2xl font-bold text-white mb-2">Keep Learning!</h3>
-                  <p className="text-slate-400 mb-4">
+                  <Target className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-2xl font-bold text-foreground mb-2">Keep Learning!</h3>
+                  <p className="text-muted-foreground mb-4">
                     You scored {quizResult.score}%. Review the material and try again.
                   </p>
                 </>
               )}
               <Button
                 variant="outline"
-                className="mt-4 border-slate-700"
+                className="mt-4 border-border"
                 onClick={() => {
                   setSelectedQuiz(null);
                   setQuizResult(null);

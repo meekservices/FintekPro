@@ -174,7 +174,7 @@ export function SigningMethodSelector({
       case 'medium':
         return <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">Medium Legal Validity</Badge>;
       case 'low':
-        return <Badge className="bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-400">Basic Validity</Badge>;
+        return <Badge className="bg-muted text-muted-foreground/30">Basic Validity</Badge>;
       default:
         return null;
     }
@@ -237,7 +237,7 @@ export function SigningMethodSelector({
               {selected && (
                 <div className="absolute top-2 right-2">
                   <div className="h-5 w-5 rounded-full bg-emerald-600 flex items-center justify-center">
-                    <Check className="h-3 w-3 text-white" />
+                    <Check className="h-3 w-3 text-foreground" />
                   </div>
                 </div>
               )}

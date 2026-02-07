@@ -233,7 +233,7 @@ export function ConsentAwareSchemeTab({
           <CardContent>
             <div className="text-center py-8">
               <Lock className="h-12 w-12 text-orange-500 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">PAN Number Required</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-2">PAN Number Required</h3>
               <p className="text-muted-foreground mb-4">
                 To access {SCHEME_NAMES[schemeType]} data, please complete your KYC 
                 by adding your PAN card in your profile.
@@ -261,7 +261,7 @@ export function ConsentAwareSchemeTab({
           <CardContent>
             <div className="text-center py-8">
               <Lock className="h-12 w-12 text-blue-500 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-lg font-semibold text-foreground mb-2">
                 Data Access Permission Needed
               </h3>
               <p className="text-muted-foreground mb-4 max-w-md mx-auto">

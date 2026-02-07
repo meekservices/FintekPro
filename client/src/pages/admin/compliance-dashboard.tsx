@@ -119,7 +119,7 @@ export default function ComplianceDashboard() {
       case 'pending': return 'bg-amber-100 text-amber-800';
       case 'overdue': return 'bg-red-100 text-red-800';
       case 'upcoming': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-muted dark:bg-muted text-foreground';
+      default: return 'bg-muted text-foreground';
     }
   };
 
@@ -139,7 +139,7 @@ export default function ComplianceDashboard() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Compliance Dashboard</h1>
+          <h1 className="text-2xl font-bold text-foreground">Compliance Dashboard</h1>
           <p className="text-sm text-muted-foreground">
             SEBI, RBI, and regulatory compliance tracking
           </p>
@@ -151,7 +151,7 @@ export default function ComplianceDashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-emerald-500 to-green-600 text-white">
+        <Card className="bg-gradient-to-br from-emerald-500 to-green-600 text-foreground">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
               <Shield className="w-5 h-5" />
@@ -160,7 +160,7 @@ export default function ComplianceDashboard() {
           </CardHeader>
           <CardContent>
             <p className="text-4xl font-bold">{data?.overallScore || 0}%</p>
-            <Progress value={data?.overallScore || 0} className="mt-2 bg-white/20" />
+            <Progress value={data?.overallScore || 0} className="mt-2 bg-card/20" />
           </CardContent>
         </Card>
 
@@ -313,7 +313,7 @@ export default function ComplianceDashboard() {
                     data-testid={`update-${index}`}
                   >
                     <div className="flex items-center gap-3">
-                      <Badge className={regulatorColors[update.regulator as keyof typeof regulatorColors] || 'bg-muted dark:bg-muted'}>
+                      <Badge className={regulatorColors[update.regulator as keyof typeof regulatorColors] || 'bg-muted'}>
                         {update.regulator}
                       </Badge>
                       <span className="font-medium">{update.title}</span>
@@ -392,7 +392,7 @@ export default function ComplianceDashboard() {
                           <Badge className={
                             gap.status === 'completed' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300' :
                             gap.status === 'in_progress' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' :
-                            gap.status === 'deferred' ? 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300' :
+                            gap.status === 'deferred' ? 'bg-muted text-foreground' :
                             'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300'
                           }>
                             {gap.status === 'completed' && <CheckCircle className="w-3 h-3 mr-1" />}

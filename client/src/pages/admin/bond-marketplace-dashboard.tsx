@@ -38,7 +38,7 @@ export default function BondMarketplaceDashboard() {
     <div className="space-y-8">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Bond Marketplace Dashboard</h1>
+          <h1 className="text-3xl font-bold text-foreground">Bond Marketplace Dashboard</h1>
           <p className="text-muted-foreground mt-1">Manage bond sell listings, buy requests, and deals</p>
         </div>
         <Button 

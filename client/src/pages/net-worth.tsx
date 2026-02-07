@@ -580,7 +580,7 @@ export default function NetWorthPage() {
                     <p className="text-sm text-muted-foreground">{netWorthData.assets.breakdown.illiquid.percentage.toFixed(1)}% of total assets</p>
                   </div>
                   {netWorthData.assets.breakdown.pending.value > 0 && (
-                    <div className="p-4 bg-muted dark:bg-background/30 rounded-lg border">
+                    <div className="p-4 bg-muted/30 rounded-lg border">
                       <div className="flex items-center justify-between">
                         <span className="font-semibold">Pending Orders</span>
                         <span className="text-xl font-bold">{formatCurrency(netWorthData.assets.breakdown.pending.value)}</span>

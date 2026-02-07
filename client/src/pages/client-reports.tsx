@@ -277,7 +277,7 @@ export default function ClientReports() {
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2" data-testid="text-page-title">
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2" data-testid="text-page-title">
               <FileText className="h-7 w-7 text-blue-600" />
               Your Reports
             </h1>
@@ -301,7 +301,7 @@ export default function ClientReports() {
                   )}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 bg-white" align="end">
+              <PopoverContent className="w-auto p-0 bg-card" align="end">
                 <Calendar
                   mode="range"
                   selected={{ from: dateRange.from, to: dateRange.to }}
@@ -315,7 +315,7 @@ export default function ClientReports() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="bg-white border-border shadow-sm" data-testid="card-total-reports">
+          <Card className="bg-card border-border shadow-sm" data-testid="card-total-reports">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-blue-100">
@@ -323,13 +323,13 @@ export default function ClientReports() {
                 </div>
                 <div>
                   <p className="text-muted-foreground text-sm">Total Reports</p>
-                  <p className="text-2xl font-bold text-gray-900" data-testid="text-total-count">{totalReports}</p>
+                  <p className="text-2xl font-bold text-foreground" data-testid="text-total-count">{totalReports}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-border shadow-sm" data-testid="card-ready-reports">
+          <Card className="bg-card border-border shadow-sm" data-testid="card-ready-reports">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-emerald-100">
@@ -337,13 +337,13 @@ export default function ClientReports() {
                 </div>
                 <div>
                   <p className="text-muted-foreground text-sm">Ready to Download</p>
-                  <p className="text-2xl font-bold text-gray-900" data-testid="text-ready-count">{readyReports}</p>
+                  <p className="text-2xl font-bold text-foreground" data-testid="text-ready-count">{readyReports}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-border shadow-sm" data-testid="card-generating-reports">
+          <Card className="bg-card border-border shadow-sm" data-testid="card-generating-reports">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-blue-100">
@@ -351,7 +351,7 @@ export default function ClientReports() {
                 </div>
                 <div>
                   <p className="text-muted-foreground text-sm">Generating</p>
-                  <p className="text-2xl font-bold text-gray-900" data-testid="text-generating-count">
+                  <p className="text-2xl font-bold text-foreground" data-testid="text-generating-count">
                     {REPORT_CATEGORIES.reduce((acc, cat) => acc + cat.reports.filter(r => r.status === 'generating').length, 0) + generatingReports.size}
                   </p>
                 </div>
@@ -359,7 +359,7 @@ export default function ClientReports() {
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-border shadow-sm" data-testid="card-scheduled-reports">
+          <Card className="bg-card border-border shadow-sm" data-testid="card-scheduled-reports">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-amber-100">
@@ -367,7 +367,7 @@ export default function ClientReports() {
                 </div>
                 <div>
                   <p className="text-muted-foreground text-sm">Scheduled</p>
-                  <p className="text-2xl font-bold text-gray-900" data-testid="text-scheduled-count">
+                  <p className="text-2xl font-bold text-foreground" data-testid="text-scheduled-count">
                     {REPORT_CATEGORIES.reduce((acc, cat) => acc + cat.reports.filter(r => r.status === 'scheduled').length, 0)}
                   </p>
                 </div>
@@ -377,7 +377,7 @@ export default function ClientReports() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="bg-white border border-border shadow-sm w-full md:w-auto">
+          <TabsList className="bg-card border border-border shadow-sm w-full md:w-auto">
             {REPORT_CATEGORIES.map((category) => {
               const Icon = category.icon;
               return (
@@ -406,7 +406,7 @@ export default function ClientReports() {
                   return (
                     <Card
                       key={report.id}
-                      className="bg-white border-border shadow-sm hover:shadow-md transition-shadow"
+                      className="bg-card border-border shadow-sm hover:shadow-md transition-shadow"
                       data-testid={`report-card-${report.id}`}
                     >
                       <CardHeader className="pb-3">
@@ -419,7 +419,7 @@ export default function ClientReports() {
                             {statusConfig.label}
                           </Badge>
                         </div>
-                        <CardTitle className="text-gray-900 text-lg mt-3" data-testid={`report-name-${report.id}`}>
+                        <CardTitle className="text-foreground text-lg mt-3" data-testid={`report-name-${report.id}`}>
                           {report.name}
                         </CardTitle>
                         <CardDescription className="text-muted-foreground" data-testid={`report-description-${report.id}`}>
@@ -479,7 +479,7 @@ export default function ClientReports() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-semibold text-gray-900 mb-1">Need a Custom Report?</h3>
+                <h3 className="font-semibold text-foreground mb-1">Need a Custom Report?</h3>
                 <p className="text-muted-foreground text-sm">Contact your advisor to request specialized reports tailored to your needs.</p>
               </div>
               <Button variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100" data-testid="button-request-report">

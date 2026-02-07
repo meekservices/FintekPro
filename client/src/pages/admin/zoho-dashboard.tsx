@@ -160,7 +160,7 @@ export default function ZohoDashboardPage() {
               {integrationStatus.applications?.map((app) => (
                 <div 
                   key={app.name} 
-                  className={`p-4 rounded-lg border ${app.configured ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950' : 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900'}`}
+                  className={`p-4 rounded-lg border ${app.configured ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950' : 'border-border bg-muted'}`}
                 >
                   <div className="flex items-center gap-2 mb-2">
                     {getAppIcon(app.name)}
@@ -168,7 +168,7 @@ export default function ZohoDashboardPage() {
                     {app.configured ? (
                       <CheckCircle className="h-4 w-4 text-green-600 ml-auto" />
                     ) : (
-                      <AlertCircle className="h-4 w-4 text-gray-400 ml-auto" />
+                      <AlertCircle className="h-4 w-4 text-muted-foreground ml-auto" />
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">{getAppDescription(app.name)}</p>

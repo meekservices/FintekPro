@@ -743,7 +743,7 @@ export default function ExpensesBudgetsPage() {
                       </CardHeader>
                       <CardContent>
                         {insight.aiAnalysis && (
-                          <div className="text-sm mb-3 p-3 bg-white/80 rounded-md">
+                          <div className="text-sm mb-3 p-3 bg-card/80 rounded-md">
                             <strong>AI Analysis:</strong> {insight.aiAnalysis}
                           </div>
                         )}

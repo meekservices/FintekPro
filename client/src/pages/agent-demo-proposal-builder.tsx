@@ -203,7 +203,7 @@ interface ProposalStats {
 }
 
 const PROPOSAL_STATUS_COLORS: Record<string, string> = {
-  draft: "bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground",
+  draft: "bg-muted text-muted-foreground",
   shared: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
   viewed: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
   converted: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
@@ -268,7 +268,7 @@ const ASSET_CATEGORIES = [
   { id: 'bonds', name: 'Direct Bonds', color: 'bg-emerald-500', description: 'NCDs, Tax-Free Bonds', group: 'fixed_income' },
   { id: 'listed_stocks', name: 'Listed Stocks', color: 'bg-rose-500', description: 'Direct Equity (NSE/BSE)', group: 'domestic' },
   { id: 'unlisted_stocks', name: 'Unlisted Stocks', color: 'bg-pink-500', description: 'Pre-IPO Shares', group: 'alternatives' },
-  { id: 'cash', name: 'Cash/Liquid', color: 'bg-gray-500', description: 'Liquid Funds & Cash', group: 'fixed_income' },
+  { id: 'cash', name: 'Cash/Liquid', color: 'bg-muted', description: 'Liquid Funds & Cash', group: 'fixed_income' },
 ];
 
 const DEFAULT_ALLOCATIONS: Record<string, AssetAllocation> = {
@@ -936,15 +936,15 @@ export default function AgentDemoProposalBuilder() {
   };
 
   return (
-    <div className="min-h-screen bg-muted dark:bg-card" data-testid="proposal-builder">
+    <div className="min-h-screen bg-muted" data-testid="proposal-builder">
       <div className="max-w-6xl mx-auto p-6">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
               <Sparkles className="h-8 w-8 text-purple-600" />
               Proposal Builder
             </h1>
-            <p className="text-muted-foreground dark:text-muted-foreground mt-1">
+            <p className="text-muted-foreground mt-1">
               Create professional investment proposals for prospects and clients
             </p>
           </div>
@@ -977,12 +977,12 @@ export default function AgentDemoProposalBuilder() {
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                       isCompleted ? 'bg-green-500 text-white' :
                       isActive ? 'bg-purple-600 text-white' :
-                      'bg-muted dark:bg-gray-700 text-muted-foreground'
+                      'bg-muted text-muted-foreground'
                     }`}>
                       {isCompleted ? <Check className="h-5 w-5" /> : <StepIcon className="h-5 w-5" />}
                     </div>
                     <div className="hidden lg:block">
-                      <p className={`text-sm font-medium ${isActive ? 'text-purple-600' : 'text-muted-foreground dark:text-muted-foreground'}`}>
+                      <p className={`text-sm font-medium ${isActive ? 'text-purple-600' : 'text-muted-foreground'}`}>
                         {step.title}
                       </p>
                       <p className="text-xs text-muted-foreground">{step.description}</p>
@@ -1074,7 +1074,7 @@ export default function AgentDemoProposalBuilder() {
                                         {selectedClient.type === 'client' ? 'Client' : 'Prospect'}
                                       </Badge>
                                     </div>
-                                    <div className="flex items-center gap-4 text-sm text-muted-foreground dark:text-muted-foreground mt-1">
+                                    <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
                                       {selectedClient.email && (
                                         <span className="flex items-center gap-1">
                                           <Mail className="h-4 w-4" />
@@ -1277,8 +1277,8 @@ export default function AgentDemoProposalBuilder() {
                                 key={category.id} 
                                 className={`p-3 rounded-lg border transition-all ${
                                   isSelected 
-                                    ? 'bg-white dark:bg-card border-gray-200 dark:border-gray-700' 
-                                    : 'bg-gray-50 dark:bg-gray-800/50 border-gray-100 dark:border-gray-800 opacity-60'
+                                    ? 'bg-card border-border' 
+                                    : 'bg-muted/50 border-border opacity-60'
                                 }`}
                               >
                                 <div className="flex items-center gap-3">
@@ -1474,7 +1474,7 @@ export default function AgentDemoProposalBuilder() {
                             <Scale className="h-6 w-6" />
                             <h3 className="font-semibold text-lg capitalize">{(config.riskProfile?.category || 'moderate').replace('_', ' ')} Investor</h3>
                           </div>
-                          <p className="text-muted-foreground dark:text-muted-foreground">{config.riskProfile.tolerance}</p>
+                          <p className="text-muted-foreground">{config.riskProfile.tolerance}</p>
                           <Badge className="mt-2">Score: {config.riskProfile.score}/100</Badge>
                         </Card>
                       </div>
@@ -1681,7 +1681,7 @@ export default function AgentDemoProposalBuilder() {
                                   key={section.id}
                                   className={`transition-all ${
                                     !isDataAvailable
-                                      ? 'border-gray-300 bg-gray-50/50 dark:bg-gray-900/10 cursor-not-allowed opacity-60'
+                                      ? 'border-border bg-muted/50/10 cursor-not-allowed opacity-60'
                                       : isRequired 
                                         ? 'border-amber-400 bg-amber-50/50 dark:bg-amber-900/10 cursor-not-allowed' 
                                         : isSelected 
@@ -1710,7 +1710,7 @@ export default function AgentDemoProposalBuilder() {
                                           <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700">Required</Badge>
                                         )}
                                         {!isDataAvailable && (
-                                          <Badge variant="secondary" className="text-xs bg-gray-200 text-gray-600">Unavailable</Badge>
+                                          <Badge variant="secondary" className="text-xs bg-muted text-muted-foreground">Unavailable</Badge>
                                         )}
                                       </div>
                                       <p className="text-sm text-muted-foreground mt-1">{section.description}</p>
@@ -1946,7 +1946,7 @@ export default function AgentDemoProposalBuilder() {
                         />
                       </div>
 
-                      <Card className="bg-muted dark:bg-muted">
+                      <Card className="bg-muted">
                         <CardHeader>
                           <CardTitle className="text-sm">Proposal Summary</CardTitle>
                         </CardHeader>
@@ -1998,8 +1998,8 @@ export default function AgentDemoProposalBuilder() {
                             </p>
 
                             {generatedProposalData?.shareToken && (
-                              <div className="mb-6 p-4 bg-white dark:bg-muted rounded-lg border">
-                                <Label className="text-sm text-muted-foreground dark:text-muted-foreground block mb-2">Shareable Link</Label>
+                              <div className="mb-6 p-4 bg-card rounded-lg border">
+                                <Label className="text-sm text-muted-foreground block mb-2">Shareable Link</Label>
                                 <div className="flex items-center gap-2">
                                   <Input
                                     value={`${baseUrl}/proposal/${generatedProposalData.shareToken}`}
@@ -2136,7 +2136,7 @@ export default function AgentDemoProposalBuilder() {
                 <CardContent className="pt-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-muted-foreground dark:text-muted-foreground">Total</p>
+                      <p className="text-xs text-muted-foreground">Total</p>
                       <p className="text-2xl font-bold">{stats.total}</p>
                     </div>
                     <FileText className="w-8 h-8 text-muted-foreground" />
@@ -2147,7 +2147,7 @@ export default function AgentDemoProposalBuilder() {
                 <CardContent className="pt-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-muted-foreground dark:text-muted-foreground">Draft</p>
+                      <p className="text-xs text-muted-foreground">Draft</p>
                       <p className="text-2xl font-bold text-muted-foreground">{stats.draft}</p>
                     </div>
                     <Clock className="w-8 h-8 text-muted-foreground" />
@@ -2158,7 +2158,7 @@ export default function AgentDemoProposalBuilder() {
                 <CardContent className="pt-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-muted-foreground dark:text-muted-foreground">Shared</p>
+                      <p className="text-xs text-muted-foreground">Shared</p>
                       <p className="text-2xl font-bold text-blue-600">{stats.shared}</p>
                     </div>
                     <Send className="w-8 h-8 text-blue-400" />
@@ -2169,7 +2169,7 @@ export default function AgentDemoProposalBuilder() {
                 <CardContent className="pt-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-muted-foreground dark:text-muted-foreground">Viewed</p>
+                      <p className="text-xs text-muted-foreground">Viewed</p>
                       <p className="text-2xl font-bold text-green-600">{stats.viewed}</p>
                     </div>
                     <Eye className="w-8 h-8 text-green-400" />
@@ -2180,7 +2180,7 @@ export default function AgentDemoProposalBuilder() {
                 <CardContent className="pt-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-muted-foreground dark:text-muted-foreground">Converted</p>
+                      <p className="text-xs text-muted-foreground">Converted</p>
                       <p className="text-2xl font-bold text-purple-600">{stats.converted}</p>
                     </div>
                     <CheckCircle2 className="w-8 h-8 text-purple-400" />
@@ -2191,7 +2191,7 @@ export default function AgentDemoProposalBuilder() {
                 <CardContent className="pt-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-muted-foreground dark:text-muted-foreground">Total Views</p>
+                      <p className="text-xs text-muted-foreground">Total Views</p>
                       <p className="text-2xl font-bold text-indigo-600">{stats.totalViews}</p>
                     </div>
                     <BarChart3 className="w-8 h-8 text-indigo-400" />
@@ -2236,8 +2236,8 @@ export default function AgentDemoProposalBuilder() {
                 ) : filteredProposals.length === 0 ? (
                   <div className="text-center py-12">
                     <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No proposals yet</h3>
-                    <p className="text-muted-foreground dark:text-muted-foreground mb-4">Create your first proposal to start acquiring new clients</p>
+                    <h3 className="text-lg font-medium text-foreground mb-2">No proposals yet</h3>
+                    <p className="text-muted-foreground mb-4">Create your first proposal to start acquiring new clients</p>
                     <Button 
                       onClick={() => setActiveTab("create")} 
                       className="bg-purple-600 hover:bg-purple-700"
@@ -2319,7 +2319,7 @@ export default function AgentDemoProposalBuilder() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="text-muted-foreground hover:text-foreground hover:bg-muted dark:text-muted-foreground dark:hover:bg-muted"
+                                className="text-muted-foreground hover:text-foreground hover:bg-muted"
                                 onClick={() => copyToClipboard(`${baseUrl}/proposal/${proposal.shareToken}`, "Proposal link")}
                                 data-testid={`btn-copy-${proposal.id}`}
                               >
@@ -2477,7 +2477,7 @@ export default function AgentDemoProposalBuilder() {
               {selectedProposal.executiveSummary && (
                 <div>
                   <h4 className="font-medium mb-1">Executive Summary</h4>
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">{selectedProposal.executiveSummary}</p>
+                  <p className="text-sm text-muted-foreground">{selectedProposal.executiveSummary}</p>
                 </div>
               )}
 

@@ -79,20 +79,20 @@ export default function AgentKnowledgeMarketBrief() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link href="/agent/knowledge-hub">
-            <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
+            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
               <ChevronLeft className="h-4 w-4 mr-1" />
               Back
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <TrendingUp className="h-7 w-7 text-blue-500" />
               Daily Market Brief
             </h1>
-            <p className="text-slate-400 mt-1">AI-generated market intelligence</p>
+            <p className="text-muted-foreground mt-1">AI-generated market intelligence</p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()} className="border-slate-700">
+        <Button variant="outline" size="sm" onClick={() => refetch()} className="border-border">
           <RefreshCw className="h-4 w-4 mr-2" />
           Refresh
         </Button>
@@ -105,7 +105,7 @@ export default function AgentKnowledgeMarketBrief() {
             variant={selectedRegion === region.id ? "default" : "outline"}
             size="sm"
             onClick={() => setSelectedRegion(region.id)}
-            className={selectedRegion === region.id ? "bg-blue-600 hover:bg-blue-700" : "border-slate-700"}
+            className={selectedRegion === region.id ? "bg-blue-600 hover:bg-blue-700" : "border-border"}
             data-testid={`region-${region.id}`}
           >
             <span className="mr-1">{region.flag}</span>
@@ -116,23 +116,23 @@ export default function AgentKnowledgeMarketBrief() {
 
       {todayLoading ? (
         <div className="space-y-4">
-          <Skeleton className="h-48 bg-slate-800" />
+          <Skeleton className="h-48 bg-card" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Skeleton className="h-32 bg-slate-800" />
-            <Skeleton className="h-32 bg-slate-800" />
+            <Skeleton className="h-32 bg-card" />
+            <Skeleton className="h-32 bg-card" />
           </div>
         </div>
       ) : hasTodaysBrief && todaysBrief ? (
         <div className="space-y-6">
-          <Card className="bg-slate-900 border-slate-700">
+          <Card className="bg-background border-border">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-white flex items-center gap-2">
+                  <CardTitle className="text-foreground flex items-center gap-2">
                     <Calendar className="h-5 w-5 text-blue-500" />
                     {format(new Date(todaysBrief.date), "EEEE, MMMM d, yyyy")}
                   </CardTitle>
-                  <CardDescription className="text-slate-400 flex items-center gap-2 mt-1">
+                  <CardDescription className="text-muted-foreground flex items-center gap-2 mt-1">
                     <Clock className="h-3 w-3" />
                     {todaysBrief.publishedAt
                       ? `Published at ${format(new Date(todaysBrief.publishedAt), "HH:mm")}`
@@ -146,28 +146,28 @@ export default function AgentKnowledgeMarketBrief() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div>
-                <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
                   <BarChart3 className="h-5 w-5 text-emerald-500" />
                   Market Snapshot
                 </h3>
                 <div className="prose prose-invert prose-sm max-w-none">
-                  <p className="text-slate-300 whitespace-pre-line">{todaysBrief.marketSnapshot}</p>
+                  <p className="text-muted-foreground whitespace-pre-line">{todaysBrief.marketSnapshot}</p>
                 </div>
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
                   <Newspaper className="h-5 w-5 text-amber-500" />
                   What Changed
                 </h3>
                 <div className="prose prose-invert prose-sm max-w-none">
-                  <p className="text-slate-300 whitespace-pre-line">{todaysBrief.whatChanged}</p>
+                  <p className="text-muted-foreground whitespace-pre-line">{todaysBrief.whatChanged}</p>
                 </div>
               </div>
 
               {todaysBrief.topMovers && todaysBrief.topMovers.length > 0 && (
                 <div>
-                  <h3 className="text-lg font-semibold text-white mb-3">Top Movers</h3>
+                  <h3 className="text-lg font-semibold text-foreground mb-3">Top Movers</h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {todaysBrief.topMovers.map((mover, idx) => (
                       <div
@@ -178,8 +178,8 @@ export default function AgentKnowledgeMarketBrief() {
                             : "bg-red-500/10 border-red-500/30"
                         }`}
                       >
-                        <p className="font-medium text-white text-sm">{mover.name}</p>
-                        {mover.symbol && <p className="text-xs text-slate-400">{mover.symbol}</p>}
+                        <p className="font-medium text-foreground text-sm">{mover.name}</p>
+                        {mover.symbol && <p className="text-xs text-muted-foreground">{mover.symbol}</p>}
                         <div className="flex items-center gap-1 mt-1">
                           {mover.direction === "up" ? (
                             <TrendingUp className="h-4 w-4 text-emerald-500" />
@@ -203,17 +203,17 @@ export default function AgentKnowledgeMarketBrief() {
 
               {todaysBrief.sectorHighlights && todaysBrief.sectorHighlights.length > 0 && (
                 <div>
-                  <h3 className="text-lg font-semibold text-white mb-3">Sector Highlights</h3>
+                  <h3 className="text-lg font-semibold text-foreground mb-3">Sector Highlights</h3>
                   <div className="space-y-2">
                     {todaysBrief.sectorHighlights.map((sector, idx) => (
-                      <div key={idx} className="p-3 rounded-lg bg-slate-800/50">
+                      <div key={idx} className="p-3 rounded-lg bg-card/50">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="font-medium text-white">{sector.sector}</span>
-                          <Badge variant="outline" className="text-xs border-slate-600">
+                          <span className="font-medium text-foreground">{sector.sector}</span>
+                          <Badge variant="outline" className="text-xs border-border">
                             {sector.trend}
                           </Badge>
                         </div>
-                        <p className="text-sm text-slate-400">{sector.outlook}</p>
+                        <p className="text-sm text-muted-foreground">{sector.outlook}</p>
                       </div>
                     ))}
                   </div>
@@ -226,20 +226,20 @@ export default function AgentKnowledgeMarketBrief() {
                     <AlertTriangle className="h-5 w-5" />
                     Key Risks to Watch
                   </h3>
-                  <p className="text-slate-300">{todaysBrief.keyRisks}</p>
+                  <p className="text-muted-foreground">{todaysBrief.keyRisks}</p>
                 </div>
               )}
 
               {todaysBrief.agentTips && (
                 <div className="p-4 bg-emerald-500/10 rounded-lg border border-emerald-500/30">
                   <h3 className="text-lg font-semibold text-emerald-400 mb-2">Agent Tips</h3>
-                  <p className="text-slate-300">{todaysBrief.agentTips}</p>
+                  <p className="text-muted-foreground">{todaysBrief.agentTips}</p>
                 </div>
               )}
 
               {todaysBrief.sources && todaysBrief.sources.length > 0 && (
-                <div className="pt-4 border-t border-slate-700">
-                  <p className="text-xs text-slate-500">
+                <div className="pt-4 border-t border-border">
+                  <p className="text-xs text-muted-foreground">
                     Sources: {todaysBrief.sources.join(", ")}
                   </p>
                 </div>
@@ -248,11 +248,11 @@ export default function AgentKnowledgeMarketBrief() {
           </Card>
         </div>
       ) : (
-        <Card className="bg-slate-900 border-slate-700">
+        <Card className="bg-background border-border">
           <CardContent className="p-8 text-center">
-            <RefreshCw className="h-16 w-16 text-slate-600 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-white mb-2">No Brief Available Today</h3>
-            <p className="text-slate-400 mb-4">
+            <RefreshCw className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-foreground mb-2">No Brief Available Today</h3>
+            <p className="text-muted-foreground mb-4">
               The market brief for today hasn't been generated yet. Check back later or view previous briefs below.
             </p>
           </CardContent>
@@ -260,10 +260,10 @@ export default function AgentKnowledgeMarketBrief() {
       )}
 
       {previousBriefs && previousBriefs.length > 0 && (
-        <Card className="bg-slate-900 border-slate-700">
+        <Card className="bg-background border-border">
           <CardHeader>
-            <CardTitle className="text-white">Previous Briefs</CardTitle>
-            <CardDescription className="text-slate-400">
+            <CardTitle className="text-foreground">Previous Briefs</CardTitle>
+            <CardDescription className="text-muted-foreground">
               Recent market briefs for reference
             </CardDescription>
           </CardHeader>
@@ -273,18 +273,18 @@ export default function AgentKnowledgeMarketBrief() {
                 {previousBriefs.map((brief) => (
                   <div
                     key={brief.id}
-                    className="p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800 cursor-pointer transition-colors"
+                    className="p-3 rounded-lg bg-card/50 hover:bg-card cursor-pointer transition-colors"
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-medium text-white">
+                        <p className="font-medium text-foreground">
                           {format(new Date(brief.date), "EEEE, MMM d")}
                         </p>
-                        <p className="text-sm text-slate-400 line-clamp-1">
+                        <p className="text-sm text-muted-foreground line-clamp-1">
                           {brief.marketSnapshot}
                         </p>
                       </div>
-                      <Badge variant="outline" className="text-xs border-slate-600">
+                      <Badge variant="outline" className="text-xs border-border">
                         v{brief.version}
                       </Badge>
                     </div>
@@ -296,7 +296,7 @@ export default function AgentKnowledgeMarketBrief() {
         </Card>
       )}
 
-      <div className="text-xs text-slate-500 text-center p-4 border-t border-slate-800">
+      <div className="text-xs text-muted-foreground text-center p-4 border-t border-border">
         <p>
           This market brief is generated using AI and is for informational purposes only. 
           It should not be construed as investment advice. Past performance is not indicative of future results.

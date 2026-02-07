@@ -290,7 +290,7 @@ export default function SmsInbox() {
       case 'pending': return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">Pending</Badge>;
       case 'scheduled': return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Scheduled</Badge>;
       case 'completed': return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Completed</Badge>;
-      case 'cancelled': return <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">Cancelled</Badge>;
+      case 'cancelled': return <Badge variant="outline" className="bg-muted text-muted-foreground border-border">Cancelled</Badge>;
       default: return <Badge variant="outline">Unknown</Badge>;
     }
   };

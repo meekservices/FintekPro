@@ -233,7 +233,7 @@ export default function ClientAIRecommendations() {
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2" data-testid="text-page-title">
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2" data-testid="text-page-title">
               <Brain className="h-7 w-7 text-blue-600" />
               AI Investment Insights
             </h1>
@@ -254,7 +254,7 @@ export default function ClientAIRecommendations() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="bg-white border-border shadow-sm" data-testid="card-total-recommendations">
+          <Card className="bg-card border-border shadow-sm" data-testid="card-total-recommendations">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-blue-100">
@@ -262,13 +262,13 @@ export default function ClientAIRecommendations() {
                 </div>
                 <div>
                   <p className="text-muted-foreground text-sm">Total Recommendations</p>
-                  <p className="text-2xl font-bold text-gray-900" data-testid="text-total-count">{stats.total}</p>
+                  <p className="text-2xl font-bold text-foreground" data-testid="text-total-count">{stats.total}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-border shadow-sm" data-testid="card-high-priority">
+          <Card className="bg-card border-border shadow-sm" data-testid="card-high-priority">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-red-100">
@@ -276,13 +276,13 @@ export default function ClientAIRecommendations() {
                 </div>
                 <div>
                   <p className="text-muted-foreground text-sm">High Priority</p>
-                  <p className="text-2xl font-bold text-gray-900" data-testid="text-high-priority-count">{stats.highPriority}</p>
+                  <p className="text-2xl font-bold text-foreground" data-testid="text-high-priority-count">{stats.highPriority}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-border shadow-sm" data-testid="card-potential-gains">
+          <Card className="bg-card border-border shadow-sm" data-testid="card-potential-gains">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-emerald-100">
@@ -290,13 +290,13 @@ export default function ClientAIRecommendations() {
                 </div>
                 <div>
                   <p className="text-muted-foreground text-sm">Potential Gains</p>
-                  <p className="text-2xl font-bold text-gray-900" data-testid="text-gains-count">{stats.potentialGains}</p>
+                  <p className="text-2xl font-bold text-foreground" data-testid="text-gains-count">{stats.potentialGains}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-border shadow-sm" data-testid="card-last-updated">
+          <Card className="bg-card border-border shadow-sm" data-testid="card-last-updated">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-muted">
@@ -304,7 +304,7 @@ export default function ClientAIRecommendations() {
                 </div>
                 <div>
                   <p className="text-muted-foreground text-sm">Last Updated</p>
-                  <p className="text-sm font-medium text-gray-900" data-testid="text-last-updated">{stats.lastUpdated}</p>
+                  <p className="text-sm font-medium text-foreground" data-testid="text-last-updated">{stats.lastUpdated}</p>
                 </div>
               </div>
             </CardContent>
@@ -313,7 +313,7 @@ export default function ClientAIRecommendations() {
 
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full md:w-auto">
-            <TabsList className="bg-white border border-border shadow-sm">
+            <TabsList className="bg-card border border-border shadow-sm">
               <TabsTrigger value="all" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white" data-testid="tab-all">
                 All
               </TabsTrigger>
@@ -357,7 +357,7 @@ export default function ClientAIRecommendations() {
           </DropdownMenu>
         </div>
 
-        <Card className="bg-white border-border shadow-sm">
+        <Card className="bg-card border-border shadow-sm">
           <CardContent className="p-0">
             <ScrollArea className="h-[600px]">
               <div className="divide-y divide-gray-100">
@@ -384,7 +384,7 @@ export default function ClientAIRecommendations() {
                             <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-3">
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 flex-wrap mb-2">
-                                  <h3 className="font-semibold text-gray-900" data-testid={`rec-title-${rec.id}`}>
+                                  <h3 className="font-semibold text-foreground" data-testid={`rec-title-${rec.id}`}>
                                     {rec.title}
                                   </h3>
                                   <Badge variant="outline" className={typeConfig.color} data-testid={`rec-type-${rec.id}`}>
@@ -491,7 +491,7 @@ export default function ClientAIRecommendations() {
                   <Brain className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-1">How AI Recommendations Work</h3>
+                  <h3 className="font-semibold text-foreground mb-1">How AI Recommendations Work</h3>
                   <p className="text-muted-foreground text-sm">
                     Our AI analyzes your portfolio, risk profile, market trends, and tax situation to provide personalized suggestions.
                   </p>

@@ -88,7 +88,7 @@ export function AchievementDashboard({ userId }: { userId: string }) {
       case 'intermediate': return <Target className="h-4 w-4 text-blue-500" />;
       case 'advanced': return <Zap className="h-4 w-4 text-orange-500" />;
       case 'expert': return <Crown className="h-4 w-4 text-purple-500" />;
-      default: return <Medal className="h-4 w-4 text-gray-500" />;
+      default: return <Medal className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
@@ -98,7 +98,7 @@ export function AchievementDashboard({ userId }: { userId: string }) {
       case 'intermediate': return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'advanced': return 'bg-orange-100 text-orange-800 border-orange-200';
       case 'expert': return 'bg-purple-100 text-purple-800 border-purple-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      default: return 'bg-muted text-foreground border-border';
     }
   };
 
@@ -115,12 +115,12 @@ export function AchievementDashboard({ userId }: { userId: string }) {
   const getRankBadge = (rank: string) => {
     const rankColors = {
       'Bronze': 'bg-amber-100 text-amber-800 border-amber-200',
-      'Silver': 'bg-gray-100 text-gray-800 border-gray-200',
+      'Silver': 'bg-muted text-foreground border-border',
       'Gold': 'bg-yellow-100 text-yellow-800 border-yellow-200',
       'Platinum': 'bg-indigo-100 text-indigo-800 border-indigo-200',
       'Diamond': 'bg-purple-100 text-purple-800 border-purple-200'
     };
-    return rankColors[rank as keyof typeof rankColors] || 'bg-gray-100 text-gray-800 border-gray-200';
+    return rankColors[rank as keyof typeof rankColors] || 'bg-muted text-foreground border-border';
   };
 
   const categories = [
@@ -244,8 +244,8 @@ export function AchievementDashboard({ userId }: { userId: string }) {
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">Locked</span>
-                  <Badge className="bg-gray-100 text-gray-800">{lockedAchievements.length}</Badge>
+                  <span className="text-sm font-medium text-muted-foreground">Locked</span>
+                  <Badge className="bg-muted text-foreground">{lockedAchievements.length}</Badge>
                 </div>
               </CardContent>
             </Card>
@@ -254,7 +254,7 @@ export function AchievementDashboard({ userId }: { userId: string }) {
           {/* Completed Achievements */}
           {completedAchievements.length > 0 && (
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center">
                 <Trophy className="h-5 w-5 text-yellow-500 mr-2" />
                 Completed Achievements
               </h3>
@@ -268,7 +268,7 @@ export function AchievementDashboard({ userId }: { userId: string }) {
                             {getCategoryIcon(userAchievement.achievement.category?.name || '')}
                           </div>
                           <div>
-                            <CardTitle className="text-sm font-semibold text-gray-900">
+                            <CardTitle className="text-sm font-semibold text-foreground">
                               {userAchievement.achievement.name}
                             </CardTitle>
                             <div className="flex items-center space-x-2 mt-1">
@@ -286,7 +286,7 @@ export function AchievementDashboard({ userId }: { userId: string }) {
                     </CardHeader>
                     
                     <CardContent className="pt-0">
-                      <p className="text-sm text-gray-600 mb-4">
+                      <p className="text-sm text-muted-foreground mb-4">
                         {userAchievement.achievement.description}
                       </p>
                       
@@ -319,7 +319,7 @@ export function AchievementDashboard({ userId }: { userId: string }) {
           {/* In Progress Achievements */}
           {inProgressAchievements.length > 0 && (
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center">
                 <Target className="h-5 w-5 text-blue-500 mr-2" />
                 In Progress
               </h3>
@@ -333,7 +333,7 @@ export function AchievementDashboard({ userId }: { userId: string }) {
                             {getCategoryIcon(userAchievement.achievement.category?.name || '')}
                           </div>
                           <div>
-                            <CardTitle className="text-sm font-semibold text-gray-900">
+                            <CardTitle className="text-sm font-semibold text-foreground">
                               {userAchievement.achievement.name}
                             </CardTitle>
                             <div className="flex items-center space-x-2 mt-1">
@@ -351,7 +351,7 @@ export function AchievementDashboard({ userId }: { userId: string }) {
                     </CardHeader>
                     
                     <CardContent className="pt-0">
-                      <p className="text-sm text-gray-600 mb-3">
+                      <p className="text-sm text-muted-foreground mb-3">
                         {userAchievement.achievement.description}
                       </p>
                       
@@ -372,42 +372,42 @@ export function AchievementDashboard({ userId }: { userId: string }) {
           {/* Locked Achievements */}
           {lockedAchievements.length > 0 && (
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <Medal className="h-5 w-5 text-gray-400 mr-2" />
+              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center">
+                <Medal className="h-5 w-5 text-muted-foreground mr-2" />
                 Locked Achievements
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {lockedAchievements.slice(0, 6).map((userAchievement) => (
-                  <Card key={userAchievement.id} className="border-gray-200 bg-gray-50/50 opacity-75">
+                  <Card key={userAchievement.id} className="border-border bg-muted/50 opacity-75">
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div className="flex items-center space-x-3">
-                          <div className="p-2 bg-gray-100 rounded-lg">
+                          <div className="p-2 bg-muted rounded-lg">
                             {getCategoryIcon(userAchievement.achievement.category?.name || '')}
                           </div>
                           <div>
-                            <CardTitle className="text-sm font-semibold text-gray-600">
+                            <CardTitle className="text-sm font-semibold text-muted-foreground">
                               {userAchievement.achievement.name}
                             </CardTitle>
                             <div className="flex items-center space-x-2 mt-1">
                               {getDifficultyIcon(userAchievement.achievement.difficulty)}
-                              <Badge className="text-xs bg-gray-100 text-gray-600 border-gray-200">
+                              <Badge className="text-xs bg-muted text-muted-foreground border-border">
                                 {userAchievement.achievement.difficulty}
                               </Badge>
                             </div>
                           </div>
                         </div>
-                        <Badge className="bg-gray-100 text-gray-600 text-xs">
+                        <Badge className="bg-muted text-muted-foreground text-xs">
                           +{userAchievement.achievement.points}
                         </Badge>
                       </div>
                     </CardHeader>
                     
                     <CardContent className="pt-0">
-                      <p className="text-sm text-gray-500 mb-3">
+                      <p className="text-sm text-muted-foreground mb-3">
                         {userAchievement.achievement.description}
                       </p>
-                      <p className="text-xs text-gray-400">🔒 Complete requirements to unlock</p>
+                      <p className="text-xs text-muted-foreground">🔒 Complete requirements to unlock</p>
                     </CardContent>
                   </Card>
                 ))}
@@ -429,23 +429,23 @@ export function AchievementDashboard({ userId }: { userId: string }) {
           <CardContent>
             <div className="space-y-3">
               {leaderboard.map((entry: any, index: number) => (
-                <div key={entry.userId} className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
+                <div key={entry.userId} className="flex items-center justify-between p-3 rounded-lg bg-muted">
                   <div className="flex items-center space-x-3">
-                    <Badge className={`${index < 3 ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'}`}>
+                    <Badge className={`${index < 3 ? 'bg-yellow-100 text-yellow-800' : 'bg-muted text-white'}`}>
                       #{index + 1}
                     </Badge>
                     <div>
-                      <p className="font-medium text-gray-900">
+                      <p className="font-medium text-foreground">
                         {entry.user?.firstName || 'Anonymous'} {entry.user?.lastName || 'User'}
                       </p>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-muted-foreground">
                         {entry.completedAchievements} achievements completed
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-lg text-yellow-600">{entry.totalPoints}</p>
-                    <p className="text-xs text-gray-500">points</p>
+                    <p className="text-xs text-muted-foreground">points</p>
                   </div>
                 </div>
               ))}

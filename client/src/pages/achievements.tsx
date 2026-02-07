@@ -9,7 +9,7 @@ export default function AchievementsPage() {
         <div className="mb-8">
           <div className="flex items-center mb-4">
             <Trophy className="h-8 w-8 text-yellow-500 mr-3" />
-            <h1 className="text-3xl font-bold text-gray-900">Investment Learning Achievements</h1>
+            <h1 className="text-3xl font-bold text-foreground">Investment Learning Achievements</h1>
           </div>
           <p className="text-lg text-muted-foreground">
             Track your progress, unlock achievements, and compete with other investors on your learning journey.

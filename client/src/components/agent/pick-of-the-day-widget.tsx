@@ -84,7 +84,7 @@ const statusColors: Record<string, string> = {
   live: "bg-green-500",
   target_hit: "bg-blue-500",
   stoploss_hit: "bg-red-500",
-  expired: "bg-gray-500",
+  expired: "bg-muted",
 };
 
 export default function PickOfTheDayWidget() {

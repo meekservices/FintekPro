@@ -223,7 +223,7 @@ export function ObjectUploader({
             className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
               isDragging
                 ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
-                : 'border-border dark:border-border hover:border-gray-400 dark:hover:border-gray-500'
+                : 'border-border hover:border-muted-foreground'
             }`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -273,7 +273,7 @@ export function ObjectUploader({
               {uploadFiles.map((uploadFile) => (
                 <div
                   key={uploadFile.id}
-                  className="flex items-center space-x-3 p-3 border rounded-lg bg-muted dark:bg-muted"
+                  className="flex items-center space-x-3 p-3 border rounded-lg bg-muted"
                   data-testid={`file-item-${uploadFile.id}`}
                 >
                   <div className="flex-shrink-0">

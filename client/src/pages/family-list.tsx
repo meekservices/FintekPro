@@ -103,24 +103,24 @@ export default function FamilyList() {
       case 'member':
         return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
       case 'view_only':
-        return 'bg-muted text-foreground dark:bg-gray-700 dark:text-foreground';
+        return 'bg-muted text-foreground';
       default:
         return 'bg-muted text-foreground';
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted">
       <div className="container mx-auto p-6">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-4xl font-bold text-gray-900 dark:text-white flex items-center gap-3" data-testid="title-family-list">
+              <h1 className="text-4xl font-bold text-foreground flex items-center gap-3" data-testid="title-family-list">
                 <Users className="h-10 w-10 text-blue-600" />
                 Family Groups
               </h1>
-              <p className="text-muted-foreground dark:text-muted-foreground mt-2">
+              <p className="text-muted-foreground mt-2">
                 Collaborate with your family on financial goals and budgets
               </p>
             </div>
@@ -220,10 +220,10 @@ export default function FamilyList() {
           <Card className="text-center py-12" data-testid="card-no-families">
             <CardContent>
               <Users className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+              <h3 className="text-xl font-semibold text-foreground mb-2">
                 No Family Groups Yet
               </h3>
-              <p className="text-muted-foreground dark:text-muted-foreground mb-6">
+              <p className="text-muted-foreground mb-6">
                 Create your first family group to start collaborating on financial goals
               </p>
               <Button
@@ -262,12 +262,12 @@ export default function FamilyList() {
                 </CardHeader>
                 <CardContent>
                   {family.description && (
-                    <p className="text-sm text-muted-foreground dark:text-muted-foreground mb-4" data-testid={`text-family-description-${family.id}`}>
+                    <p className="text-sm text-muted-foreground mb-4" data-testid={`text-family-description-${family.id}`}>
                       {family.description}
                     </p>
                   )}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground dark:text-muted-foreground">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Users className="h-4 w-4" />
                       <span data-testid={`text-member-count-${family.id}`}>
                         {family.memberCount || 0} {family.memberCount === 1 ? 'member' : 'members'}

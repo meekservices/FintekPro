@@ -309,7 +309,7 @@ export default function RecommendationProductsAdmin() {
 
   const getRiskBadgeColor = (risk: string) => {
     const profile = RISK_PROFILES.find(r => r.value === risk);
-    return profile?.color || "bg-gray-500";
+    return profile?.color || "bg-muted";
   };
 
   return (

@@ -206,7 +206,7 @@ export default function GlobalFeeModelAdmin() {
               <CardTitle className="text-sm text-muted-foreground">Not Selected</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-500">{stats.notSelectedCount}</div>
+              <div className="text-2xl font-bold text-muted-foreground">{stats.notSelectedCount}</div>
               <p className="text-xs text-muted-foreground">Pending selection</p>
             </CardContent>
           </Card>

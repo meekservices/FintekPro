@@ -194,7 +194,7 @@ export default function PropertyServices() {
         {service.features && (
           <div className="space-y-2 mb-4">
             {service.features.slice(0, 3).map((feature, index) => (
-              <div key={index} className="flex items-center gap-2 text-sm text-muted-foreground dark:text-muted-foreground">
+              <div key={index} className="flex items-center gap-2 text-sm text-muted-foreground">
                 <CheckCircle className="h-3 w-3 text-green-500" />
                 {feature}
               </div>
@@ -278,10 +278,10 @@ export default function PropertyServices() {
             <Home className="h-6 w-6 text-blue-600 dark:text-blue-400" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white" data-testid="heading-property-services">
+            <h1 className="text-3xl font-bold text-foreground" data-testid="heading-property-services">
               Property Services Hub
             </h1>
-            <p className="text-muted-foreground dark:text-muted-foreground mt-1">
+            <p className="text-muted-foreground mt-1">
               Complete real estate solutions from financing to investment
             </p>
           </div>
@@ -395,7 +395,7 @@ export default function PropertyServices() {
           <TabsContent key={category.id} value={category.id} className="space-y-6" data-testid={`tab-${category.id}`}>
             <div className="mb-6">
               <h2 className="text-2xl font-bold mb-2">{category.name}</h2>
-              <p className="text-muted-foreground dark:text-muted-foreground">{category.description}</p>
+              <p className="text-muted-foreground">{category.description}</p>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

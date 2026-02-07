@@ -387,9 +387,9 @@ export function ExternalPortfolioSync() {
 
         {/* Active Consent Info */}
         {activeConsent?.hasActiveConsent && activeConsent.session && (
-          <div className="bg-white dark:bg-gray-900 rounded-lg p-4 border border-indigo-100 dark:border-indigo-800">
+          <div className="bg-background rounded-lg p-4 border border-indigo-100 dark:border-indigo-800">
             <div className="flex items-center justify-between mb-3">
-              <h4 className="font-medium text-gray-900 dark:text-gray-100">Active Consent</h4>
+              <h4 className="font-medium text-foreground">Active Consent</h4>
               <Badge variant="outline" className="text-xs">
                 via {activeConsent.session.aaProvider}
               </Badge>
@@ -397,7 +397,7 @@ export function ExternalPortfolioSync() {
             
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="text-gray-500">Asset Types:</span>
+                <span className="text-muted-foreground">Asset Types:</span>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {(activeConsent.session.assetTypes as string[])?.map(type => (
                     <Badge key={type} variant="secondary" className="text-xs">
@@ -407,14 +407,14 @@ export function ExternalPortfolioSync() {
                 </div>
               </div>
               <div>
-                <span className="text-gray-500">Expires:</span>
-                <p className="text-gray-900 dark:text-gray-100">
+                <span className="text-muted-foreground">Expires:</span>
+                <p className="text-foreground">
                   {new Date(activeConsent.session.expiresAt).toLocaleDateString()}
                 </p>
               </div>
               <div>
-                <span className="text-gray-500">Last Sync:</span>
-                <p className="text-gray-900 dark:text-gray-100">
+                <span className="text-muted-foreground">Last Sync:</span>
+                <p className="text-foreground">
                   {activeConsent.session.lastDataFetchAt 
                     ? new Date(activeConsent.session.lastDataFetchAt).toLocaleString()
                     : 'Never'}
@@ -428,7 +428,7 @@ export function ExternalPortfolioSync() {
         {syncStatus !== 'idle' && syncStatus !== 'complete' && (
           <div className="space-y-3">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400">
+              <span className="text-muted-foreground">
                 {syncStatus === 'consenting' && 'Creating consent request...'}
                 {syncStatus === 'fetching' && 'Fetching data from sources...'}
                 {syncStatus === 'syncing' && 'Syncing to portfolio...'}
@@ -451,8 +451,8 @@ export function ExternalPortfolioSync() {
         )}
 
         {/* Data Sources */}
-        <div className="bg-white dark:bg-gray-900 rounded-lg p-4 border border-gray-100 dark:border-gray-800">
-          <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+        <div className="bg-background rounded-lg p-4 border border-border">
+          <h4 className="font-medium text-foreground mb-3 flex items-center gap-2">
             <Shield className="w-4 h-4 text-indigo-600" />
             Supported Data Sources
           </h4>
@@ -461,12 +461,12 @@ export function ExternalPortfolioSync() {
             {ASSET_TYPES.map(asset => (
               <div 
                 key={asset.id}
-                className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-800"
+                className="flex items-center gap-2 p-2 rounded-lg bg-muted"
               >
                 <asset.icon className="w-4 h-4 text-indigo-500" />
                 <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{asset.label}</p>
-                  <p className="text-xs text-gray-500">{asset.description}</p>
+                  <p className="text-sm font-medium text-foreground">{asset.label}</p>
+                  <p className="text-xs text-muted-foreground">{asset.description}</p>
                 </div>
               </div>
             ))}
@@ -474,7 +474,7 @@ export function ExternalPortfolioSync() {
         </div>
 
         {/* How it works */}
-        <div className="text-sm text-gray-600 dark:text-gray-400">
+        <div className="text-sm text-muted-foreground">
           <div className="flex items-start gap-2">
             <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
             <p>
@@ -547,7 +547,7 @@ export function ExternalPortfolioSync() {
               {ASSET_TYPES.map(asset => (
                 <div 
                   key={asset.id}
-                  className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  className="flex items-center space-x-3 p-3 rounded-lg border border-border hover:bg-muted"
                 >
                   <Checkbox
                     id={asset.id}
@@ -560,7 +560,7 @@ export function ExternalPortfolioSync() {
                       <asset.icon className="w-4 h-4 text-indigo-500" />
                       <span className="font-medium">{asset.label}</span>
                     </div>
-                    <p className="text-xs text-gray-500 mt-0.5">{asset.description}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{asset.description}</p>
                   </Label>
                 </div>
               ))}

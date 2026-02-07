@@ -206,10 +206,10 @@ export function ABTestingDashboard({ className = "" }: { className?: string }) {
       <Card className={className}>
         <CardContent className="p-6">
           <div className="animate-pulse space-y-4">
-            <div className="h-6 bg-gray-200 rounded w-1/3"></div>
+            <div className="h-6 bg-muted rounded w-1/3"></div>
             <div className="grid grid-cols-4 gap-4">
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-24 bg-gray-100 rounded"></div>
+                <div key={i} className="h-24 bg-muted rounded"></div>
               ))}
             </div>
           </div>
@@ -391,7 +391,7 @@ export function ABTestingDashboard({ className = "" }: { className?: string }) {
             </CardHeader>
             <CardContent>
               {metricsLoading ? (
-                <div className="animate-pulse h-48 bg-gray-100 rounded"></div>
+                <div className="animate-pulse h-48 bg-muted rounded"></div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <MetricCard

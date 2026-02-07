@@ -51,7 +51,7 @@ const bondTypeColors: Record<string, string> = {
   tax_free: "bg-green-100 text-green-800 border-green-300",
   sgb: "bg-yellow-100 text-yellow-800 border-yellow-300",
   sdl: "bg-cyan-100 text-cyan-800 border-cyan-300",
-  t_bill: "bg-muted dark:bg-muted text-foreground border-border",
+  t_bill: "bg-muted text-foreground border-border",
   infrastructure: "bg-indigo-100 text-indigo-800 border-indigo-300",
 };
 
@@ -174,7 +174,7 @@ export default function BondCommissionSettings() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Bond Commission Settings</h1>
+          <h1 className="text-2xl font-bold text-foreground">Bond Commission Settings</h1>
           <p className="text-muted-foreground">Configure brokerage and platform fees for each bond type</p>
         </div>
       </div>
@@ -207,7 +207,7 @@ export default function BondCommissionSettings() {
             <TableBody>
               {(configs || []).map((config) => {
                 const IconComponent = bondTypeIcons[config.bondType] || IndianRupee;
-                const colorClass = bondTypeColors[config.bondType] || "bg-muted dark:bg-muted text-foreground";
+                const colorClass = bondTypeColors[config.bondType] || "bg-muted text-foreground";
                 const sampleFees = calculateSampleFees(config);
                 
                 return (
@@ -397,7 +397,7 @@ export default function BondCommissionSettings() {
                               </div>
                             </div>
 
-                            <Card className="bg-muted dark:bg-muted">
+                            <Card className="bg-muted">
                               <CardHeader className="py-3">
                                 <CardTitle className="text-sm flex items-center gap-2">
                                   <Calculator className="h-4 w-4" />

@@ -285,10 +285,10 @@ export default function TaxReminderSubscription() {
             <Sparkles className="h-3 w-3 mr-1" />
             Never Miss a Tax Deadline
           </Badge>
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-gray-100 mb-4" data-testid="heading-hero">
+          <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4" data-testid="heading-hero">
             Quarterly Capital Gains Tax Reminder Service
           </h1>
-          <p className="text-lg text-muted-foreground dark:text-muted-foreground mb-6">
+          <p className="text-lg text-muted-foreground mb-6">
             Stay compliant with advance tax payments. Get timely reminders for STCG (20%) and LTCG (12.5% above ₹1.25L)
           </p>
 
@@ -305,11 +305,11 @@ export default function TaxReminderSubscription() {
             {ADVANCE_TAX_DATES.map((date) => (
               <div
                 key={date.quarter}
-                className="bg-white dark:bg-muted rounded-lg p-4 shadow-sm"
+                className="bg-card rounded-lg p-4 shadow-sm"
                 data-testid={`advance-tax-date-${date.quarter}`}
               >
-                <div className="text-sm text-muted-foreground dark:text-muted-foreground">{date.quarter}</div>
-                <div className="font-bold text-lg text-gray-900 dark:text-gray-100">{date.date}</div>
+                <div className="text-sm text-muted-foreground">{date.quarter}</div>
+                <div className="font-bold text-lg text-foreground">{date.date}</div>
                 <div className="text-xs text-blue-600 dark:text-blue-400">{date.percentage}</div>
               </div>
             ))}
@@ -331,11 +331,11 @@ export default function TaxReminderSubscription() {
           <CardContent className="pt-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div data-testid="subscription-plan">
-                <div className="text-sm text-muted-foreground dark:text-muted-foreground">Plan</div>
+                <div className="text-sm text-muted-foreground">Plan</div>
                 <div className="text-lg font-semibold">{subscription.itrFormType}</div>
               </div>
               <div data-testid="subscription-status">
-                <div className="text-sm text-muted-foreground dark:text-muted-foreground">Status</div>
+                <div className="text-sm text-muted-foreground">Status</div>
                 <div className="flex items-center gap-2">
                   <Badge variant={subscription.isFree ? "default" : "secondary"}>
                     {subscription.isFree ? "Free Tier" : "Paid"}
@@ -346,7 +346,7 @@ export default function TaxReminderSubscription() {
                 </div>
               </div>
               <div data-testid="subscription-validity">
-                <div className="text-sm text-muted-foreground dark:text-muted-foreground">Valid Until</div>
+                <div className="text-sm text-muted-foreground">Valid Until</div>
                 <div className="text-lg font-semibold">
                   {new Date(subscription.validUntil).toLocaleDateString()}
                 </div>
@@ -375,7 +375,7 @@ export default function TaxReminderSubscription() {
                 className={`relative ${
                   tier.recommended
                     ? 'border-2 border-blue-500 shadow-lg'
-                    : 'border-border dark:border-border'
+                    : 'border-border'
                 }`}
                 data-testid={`pricing-card-${tier.id}`}
               >
@@ -435,7 +435,7 @@ export default function TaxReminderSubscription() {
             <CardTitle>Quarterly Reminders</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground dark:text-muted-foreground">
+            <p className="text-muted-foreground">
               Receive timely alerts before each advance tax deadline - June 15, Sept 15, Dec 15, and March 15
             </p>
           </CardContent>
@@ -447,7 +447,7 @@ export default function TaxReminderSubscription() {
             <CardTitle>Auto Calculation</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground dark:text-muted-foreground">
+            <p className="text-muted-foreground">
               Automatic capital gains calculation based on your portfolio holdings and transactions
             </p>
           </CardContent>
@@ -459,7 +459,7 @@ export default function TaxReminderSubscription() {
             <CardTitle>Multi-Channel Alerts</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground dark:text-muted-foreground">
+            <p className="text-muted-foreground">
               Get notifications via Email, SMS, and WhatsApp to ensure you never miss a deadline
             </p>
           </CardContent>
@@ -471,7 +471,7 @@ export default function TaxReminderSubscription() {
             <CardTitle>Tax Breakdown</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground dark:text-muted-foreground">
+            <p className="text-muted-foreground">
               Detailed breakdown of STCG and LTCG liabilities with section-wise calculations
             </p>
           </CardContent>
@@ -483,7 +483,7 @@ export default function TaxReminderSubscription() {
             <CardTitle>Challan Assistance</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground dark:text-muted-foreground">
+            <p className="text-muted-foreground">
               Step-by-step guidance for challan generation and online payment of advance tax
             </p>
           </CardContent>
@@ -495,7 +495,7 @@ export default function TaxReminderSubscription() {
             <CardTitle>Stay Compliant</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground dark:text-muted-foreground">
+            <p className="text-muted-foreground">
               Avoid interest penalties under section 234B and 234C by paying advance tax on time
             </p>
           </CardContent>
@@ -527,7 +527,7 @@ export default function TaxReminderSubscription() {
               <div className="space-y-3">
                 <Label className="text-sm font-semibold">Select Payment Method</Label>
                 <RadioGroup value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as "cashfree" | "phonepe")}>
-                  <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-muted dark:hover:bg-muted cursor-pointer">
+                  <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-muted cursor-pointer">
                     <RadioGroupItem value="cashfree" id="cashfree-tax" data-testid="radio-cashfree-tax" />
                     <Label htmlFor="cashfree-tax" className="flex-1 cursor-pointer">
                       <div className="flex items-center gap-2">
@@ -537,7 +537,7 @@ export default function TaxReminderSubscription() {
                       <div className="text-xs text-muted-foreground">UPI, Cards & more payment options</div>
                     </Label>
                   </div>
-                  <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-muted dark:hover:bg-muted cursor-pointer">
+                  <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-muted cursor-pointer">
                     <RadioGroupItem value="phonepe" id="phonepe-tax" data-testid="radio-phonepe-tax" />
                     <Label htmlFor="phonepe-tax" className="flex-1 cursor-pointer">
                       <div className="flex items-center gap-2">

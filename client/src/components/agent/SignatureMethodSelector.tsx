@@ -216,7 +216,7 @@ export default function SignatureMethodSelector({
                         </Badge>
                       )}
                     </div>
-                    <div className="border rounded bg-white dark:bg-gray-900 p-2 flex items-center justify-center min-h-[60px]">
+                    <div className="border rounded bg-background p-2 flex items-center justify-center min-h-[60px]">
                       <img
                         src={sig.signatureDataUrl}
                         alt={sig.name}
@@ -240,7 +240,7 @@ export default function SignatureMethodSelector({
                       <span className="text-sm font-medium">New Signature</span>
                       <Badge variant="outline" className="text-xs">One-time</Badge>
                     </div>
-                    <div className="border rounded bg-white dark:bg-gray-900 p-2 flex items-center justify-center min-h-[60px]">
+                    <div className="border rounded bg-background p-2 flex items-center justify-center min-h-[60px]">
                       <img
                         src={tempSignature}
                         alt="New signature"
@@ -313,7 +313,7 @@ export default function SignatureMethodSelector({
       case 'Medium':
         return <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100">Medium Validity</Badge>;
       case 'Standard':
-        return <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100">Standard Validity</Badge>;
+        return <Badge className="bg-muted text-foreground">Standard Validity</Badge>;
     }
   };
 

@@ -231,13 +231,13 @@ export default function GiftCity() {
       <div className="mb-8">
         <div className="flex items-center gap-4 mb-6">
           <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl shadow-lg">
-            <Building2 className="h-8 w-8 text-white" />
+            <Building2 className="h-8 w-8 text-foreground" />
           </div>
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
+            <h1 className="text-4xl font-bold text-foreground mb-2">
               GIFT City IFSC
             </h1>
-            <p className="text-lg text-muted-foreground dark:text-muted-foreground">
+            <p className="text-lg text-muted-foreground">
               Premium Financial Services for High-Net-Worth Clients
             </p>
           </div>
@@ -256,8 +256,8 @@ export default function GiftCity() {
               <div className="flex items-center gap-3">
                 <DollarSign className="h-8 w-8 text-green-600" />
                 <div>
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">Assets Under Management</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">$2.5B+</p>
+                  <p className="text-sm text-muted-foreground">Assets Under Management</p>
+                  <p className="text-2xl font-bold text-foreground">$2.5B+</p>
                 </div>
               </div>
             </CardContent>
@@ -268,8 +268,8 @@ export default function GiftCity() {
               <div className="flex items-center gap-3">
                 <Users className="h-8 w-8 text-blue-600" />
                 <div>
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">HNI Clients</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">500+</p>
+                  <p className="text-sm text-muted-foreground">HNI Clients</p>
+                  <p className="text-2xl font-bold text-foreground">500+</p>
                 </div>
               </div>
             </CardContent>
@@ -280,8 +280,8 @@ export default function GiftCity() {
               <div className="flex items-center gap-3">
                 <TrendingUp className="h-8 w-8 text-purple-600" />
                 <div>
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">Average Returns</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">18.5%</p>
+                  <p className="text-sm text-muted-foreground">Average Returns</p>
+                  <p className="text-2xl font-bold text-foreground">18.5%</p>
                 </div>
               </div>
             </CardContent>
@@ -292,8 +292,8 @@ export default function GiftCity() {
               <div className="flex items-center gap-3">
                 <Globe className="h-8 w-8 text-indigo-600" />
                 <div>
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">Global Markets</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">25+</p>
+                  <p className="text-sm text-muted-foreground">Global Markets</p>
+                  <p className="text-2xl font-bold text-foreground">25+</p>
                 </div>
               </div>
             </CardContent>
@@ -331,7 +331,7 @@ export default function GiftCity() {
                 className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
                   selectedCategory === category.id 
                     ? 'ring-2 ring-purple-500 bg-purple-50 dark:bg-purple-900/20' 
-                    : 'hover:bg-muted dark:hover:bg-muted'
+                    : 'hover:bg-muted'
                 }`}
                 onClick={() => setSelectedCategory(category.id)}
                 data-testid={`category-${category.id}`}
@@ -339,7 +339,7 @@ export default function GiftCity() {
                 <CardContent className="p-4 text-center">
                   <category.icon className="h-8 w-8 mx-auto mb-2 text-purple-600" />
                   <p className="font-semibold text-sm">{category.name}</p>
-                  <p className="text-xs text-muted-foreground dark:text-muted-foreground">{category.count} Products</p>
+                  <p className="text-xs text-muted-foreground">{category.count} Products</p>
                 </CardContent>
               </Card>
             ))}
@@ -371,7 +371,7 @@ export default function GiftCity() {
                       )}
                     </div>
                   </div>
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">{product.description}</p>
+                  <p className="text-sm text-muted-foreground">{product.description}</p>
                 </CardHeader>
                 
                 <CardContent className="space-y-4">
@@ -457,10 +457,10 @@ export default function GiftCity() {
         {/* IFSC Advantages Tab */}
         <TabsContent value="advantages" className="space-y-6">
           <div className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+            <h2 className="text-2xl font-bold text-foreground mb-4">
               Why Choose GIFT City IFSC?
             </h2>
-            <p className="text-muted-foreground dark:text-muted-foreground">
+            <p className="text-muted-foreground">
               India's first International Financial Services Centre offers unparalleled advantages for sophisticated investors
             </p>
           </div>
@@ -477,7 +477,7 @@ export default function GiftCity() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-muted-foreground dark:text-muted-foreground">{advantage.description}</p>
+                  <p className="text-muted-foreground">{advantage.description}</p>
                 </CardContent>
               </Card>
             ))}
@@ -543,7 +543,7 @@ export default function GiftCity() {
                     <Users className="h-12 w-12 text-purple-600" />
                   </div>
                   <h3 className="text-xl font-bold mb-1">Priya Sharma</h3>
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground mb-4">
+                  <p className="text-sm text-muted-foreground mb-4">
                     Senior Relationship Manager - GIFT City IFSC
                   </p>
                   <div className="space-y-3">
@@ -586,7 +586,7 @@ export default function GiftCity() {
               <CardContent className="space-y-4">
                 <div>
                   <h4 className="font-semibold mb-2">Address</h4>
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     FintekPro IFSC Branch<br/>
                     Block A, 15th Floor<br/>
                     GIFT One Building<br/>
@@ -597,7 +597,7 @@ export default function GiftCity() {
 
                 <div>
                   <h4 className="font-semibold mb-2">Business Hours</h4>
-                  <div className="space-y-1 text-sm text-muted-foreground dark:text-muted-foreground">
+                  <div className="space-y-1 text-sm text-muted-foreground">
                     <div className="flex justify-between">
                       <span>Monday - Friday:</span>
                       <span>9:00 AM - 6:00 PM</span>
@@ -647,7 +647,7 @@ export default function GiftCity() {
           <Card>
             <CardHeader>
               <CardTitle>Get in Touch</CardTitle>
-              <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 Our relationship managers will contact you within 24 hours
               </p>
             </CardHeader>

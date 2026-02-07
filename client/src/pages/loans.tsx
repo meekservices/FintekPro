@@ -342,7 +342,7 @@ export default function Loans() {
     <div className="space-y-8" data-testid="loan-marketplace">
       <div className="space-y-6">
         <div className="text-center space-y-4">
-          <h1 className="text-4xl font-bold text-gray-900">Loan Marketplace</h1>
+          <h1 className="text-4xl font-bold text-foreground">Loan Marketplace</h1>
           <p className="text-xl text-muted-foreground">Compare loan offers from multiple banks and NBFCs</p>
           <div className="flex justify-center gap-6 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
@@ -379,7 +379,7 @@ export default function Loans() {
                       <Building2 className="h-6 w-6 text-blue-600" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-gray-900">
+                      <p className="text-2xl font-bold text-foreground">
                         {loanProviders?.data?.length || 0}
                       </p>
                       <p className="text-sm text-muted-foreground">Partner Lenders</p>
@@ -394,7 +394,7 @@ export default function Loans() {
                       <TrendingUp className="h-6 w-6 text-green-600" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-gray-900">8.5%</p>
+                      <p className="text-2xl font-bold text-foreground">8.5%</p>
                       <p className="text-sm text-muted-foreground">Starting Interest Rate</p>
                     </div>
                   </div>
@@ -407,7 +407,7 @@ export default function Loans() {
                       <Clock className="h-6 w-6 text-purple-600" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-gray-900">24h</p>
+                      <p className="text-2xl font-bold text-foreground">24h</p>
                       <p className="text-sm text-muted-foreground">Quick Approval</p>
                     </div>
                   </div>
@@ -417,7 +417,7 @@ export default function Loans() {
 
             {/* Loan Products */}
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Available Loan Products</h2>
+              <h2 className="text-2xl font-bold text-foreground mb-6">Available Loan Products</h2>
               {productsLoading ? (
                 <LoadingState variant="card" count={6} />
               ) : (
@@ -435,7 +435,7 @@ export default function Loans() {
                           <div className="w-12 h-12 rounded-lg flex items-center justify-center mb-4 bg-blue-100">
                             <IconComponent className="h-6 w-6 text-blue-600" />
                           </div>
-                          <h3 className="text-lg font-bold text-gray-900 mb-1">{product.productName || product.name || 'Loan Product'}</h3>
+                          <h3 className="text-lg font-bold text-foreground mb-1">{product.productName || product.name || 'Loan Product'}</h3>
                           <p className="text-muted-foreground text-sm mb-4 line-clamp-2">{product.description}</p>
                           
                           <div className="space-y-2 text-xs text-muted-foreground mb-4">
@@ -481,7 +481,7 @@ export default function Loans() {
 
             {/* Provider Network */}
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Our Partner Network</h2>
+              <h2 className="text-2xl font-bold text-foreground mb-6">Our Partner Network</h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {loanProviders?.data?.slice(0, 8).map((provider: any, index: number) => (
                   <Card key={provider.id || `provider-${index}`} className="p-4">
@@ -698,7 +698,7 @@ export default function Loans() {
               <Card className="border-dashed border-2 border-border">
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <GitCompare className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No Offers Yet</h3>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No Offers Yet</h3>
                   <p className="text-muted-foreground text-center mb-4">
                     Submit a loan request to see personalized offers from multiple lenders
                   </p>
@@ -715,7 +715,7 @@ export default function Loans() {
               <div className="space-y-6">
                 <div className="flex justify-between items-center">
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Compare Loan Offers</h2>
+                    <h2 className="text-2xl font-bold text-foreground">Compare Loan Offers</h2>
                     <p className="text-muted-foreground">Found {offers.length} offers matching your requirements</p>
                   </div>
                   <div className="flex gap-2">
@@ -886,13 +886,13 @@ export default function Loans() {
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b">
-                              <th className="text-left py-3 px-2 font-medium text-gray-900">Criteria</th>
+                              <th className="text-left py-3 px-2 font-medium text-foreground">Criteria</th>
                               {selectedOffers.map((offerId) => {
                                 const offer = offers.find(o => o.id === offerId);
                                 return offer ? (
                                   <th key={offerId} className="text-center py-3 px-4 min-w-[200px]" data-testid={`comparison-header-${offerId}`}>
                                     <div className="space-y-1">
-                                      <div className="font-semibold text-gray-900">{offer.providerName}</div>
+                                      <div className="font-semibold text-foreground">{offer.providerName}</div>
                                       <div className="text-xs text-muted-foreground">{offer.productName}</div>
                                       <div className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${getRiskColor(offer.approvalProbability)}`}>
                                         {offer.approvalProbability}% Match
@@ -906,7 +906,7 @@ export default function Loans() {
                           <tbody>
                             {/* Interest Rate Row */}
                             <tr className="border-b hover:bg-muted">
-                              <td className="py-4 px-2 font-medium text-gray-900">Interest Rate</td>
+                              <td className="py-4 px-2 font-medium text-foreground">Interest Rate</td>
                               {selectedOffers.map((offerId) => {
                                 const offer = offers.find(o => o.id === offerId);
                                 if (!offer) return null;
@@ -914,7 +914,7 @@ export default function Loans() {
                                 const isBest = offer.interestRate === bestRate;
                                 return (
                                   <td key={offerId} className={`py-4 px-4 text-center ${isBest ? 'bg-green-50' : ''}`} data-testid={`rate-${offerId}`}>
-                                    <div className={`text-xl font-bold ${isBest ? 'text-green-600' : 'text-gray-900'}`}>
+                                    <div className={`text-xl font-bold ${isBest ? 'text-green-600' : 'text-foreground'}`}>
                                       {offer.interestRate}%
                                     </div>
                                     {isBest && <div className="text-xs text-green-600 font-medium">LOWEST</div>}
@@ -926,7 +926,7 @@ export default function Loans() {
 
                             {/* Monthly EMI Row */}
                             <tr className="border-b hover:bg-muted">
-                              <td className="py-4 px-2 font-medium text-gray-900">Monthly EMI</td>
+                              <td className="py-4 px-2 font-medium text-foreground">Monthly EMI</td>
                               {selectedOffers.map((offerId) => {
                                 const offer = offers.find(o => o.id === offerId);
                                 if (!offer) return null;
@@ -934,7 +934,7 @@ export default function Loans() {
                                 const isBest = offer.monthlyEmi === lowestEmi;
                                 return (
                                   <td key={offerId} className={`py-4 px-4 text-center ${isBest ? 'bg-green-50' : ''}`} data-testid={`emi-${offerId}`}>
-                                    <div className={`text-lg font-semibold ${isBest ? 'text-green-600' : 'text-gray-900'}`}>
+                                    <div className={`text-lg font-semibold ${isBest ? 'text-green-600' : 'text-foreground'}`}>
                                       {formatCurrency(offer.monthlyEmi)}
                                     </div>
                                     {isBest && <div className="text-xs text-green-600 font-medium">LOWEST</div>}
@@ -945,7 +945,7 @@ export default function Loans() {
 
                             {/* Processing Fee Row */}
                             <tr className="border-b hover:bg-muted">
-                              <td className="py-4 px-2 font-medium text-gray-900">Processing Fee</td>
+                              <td className="py-4 px-2 font-medium text-foreground">Processing Fee</td>
                               {selectedOffers.map((offerId) => {
                                 const offer = offers.find(o => o.id === offerId);
                                 if (!offer) return null;
@@ -953,7 +953,7 @@ export default function Loans() {
                                 const isBest = offer.processingFee === lowestFee;
                                 return (
                                   <td key={offerId} className={`py-4 px-4 text-center ${isBest ? 'bg-green-50' : ''}`} data-testid={`fee-${offerId}`}>
-                                    <div className={`text-lg font-semibold ${isBest ? 'text-green-600' : 'text-gray-900'}`}>
+                                    <div className={`text-lg font-semibold ${isBest ? 'text-green-600' : 'text-foreground'}`}>
                                       {offer.processingFee}%
                                     </div>
                                     {isBest && <div className="text-xs text-green-600 font-medium">LOWEST</div>}
@@ -964,7 +964,7 @@ export default function Loans() {
 
                             {/* Total Interest Row */}
                             <tr className="border-b hover:bg-muted">
-                              <td className="py-4 px-2 font-medium text-gray-900">Total Interest</td>
+                              <td className="py-4 px-2 font-medium text-foreground">Total Interest</td>
                               {selectedOffers.map((offerId) => {
                                 const offer = offers.find(o => o.id === offerId);
                                 if (!offer) return null;
@@ -983,13 +983,13 @@ export default function Loans() {
 
                             {/* Response Time Row */}
                             <tr className="border-b hover:bg-muted">
-                              <td className="py-4 px-2 font-medium text-gray-900">Response Time</td>
+                              <td className="py-4 px-2 font-medium text-foreground">Response Time</td>
                               {selectedOffers.map((offerId) => {
                                 const offer = offers.find(o => o.id === offerId);
                                 if (!offer) return null;
                                 return (
                                   <td key={offerId} className="py-4 px-4 text-center" data-testid={`response-time-${offerId}`}>
-                                    <div className="text-lg font-semibold text-gray-900">
+                                    <div className="text-lg font-semibold text-foreground">
                                       {offer.responseTime}
                                     </div>
                                   </td>
@@ -999,7 +999,7 @@ export default function Loans() {
 
                             {/* Tenure Options Row */}
                             <tr className="border-b hover:bg-muted">
-                              <td className="py-4 px-2 font-medium text-gray-900">Tenure Options</td>
+                              <td className="py-4 px-2 font-medium text-foreground">Tenure Options</td>
                               {selectedOffers.map((offerId) => {
                                 const offer = offers.find(o => o.id === offerId);
                                 if (!offer) return null;
@@ -1015,7 +1015,7 @@ export default function Loans() {
 
                             {/* Key Features Row */}
                             <tr className="border-b hover:bg-muted">
-                              <td className="py-4 px-2 font-medium text-gray-900">Key Features</td>
+                              <td className="py-4 px-2 font-medium text-foreground">Key Features</td>
                               {selectedOffers.map((offerId) => {
                                 const offer = offers.find(o => o.id === offerId);
                                 if (!offer) return null;
@@ -1036,7 +1036,7 @@ export default function Loans() {
 
                             {/* Action Buttons Row */}
                             <tr>
-                              <td className="py-4 px-2 font-medium text-gray-900">Actions</td>
+                              <td className="py-4 px-2 font-medium text-foreground">Actions</td>
                               {selectedOffers.map((offerId) => {
                                 const offer = offers.find(o => o.id === offerId);
                                 if (!offer) return null;
@@ -1116,13 +1116,13 @@ export default function Loans() {
 
           <TabsContent value="applications" className="space-y-6" data-testid="applications-content">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">My Applications</h2>
+              <h2 className="text-2xl font-bold text-foreground mb-6">My Applications</h2>
               
               {!applications?.data || applications.data.length === 0 ? (
                 <Card className="border-dashed border-2 border-border">
                   <CardContent className="flex flex-col items-center justify-center py-12">
                     <CheckCircle className="h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Applications Yet</h3>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">No Applications Yet</h3>
                     <p className="text-muted-foreground text-center mb-4">
                       Your loan applications will appear here
                     </p>
@@ -1383,7 +1383,7 @@ export default function Loans() {
               </div>
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">RBI Digital Lending Disclosure</h3>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">RBI Digital Lending Disclosure</h3>
                   <p className="text-sm text-muted-foreground">
                     As per RBI Digital Lending Directions 2025, we are committed to transparent and unbiased loan offer presentation.
                   </p>
@@ -1391,7 +1391,7 @@ export default function Loans() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                   <div className="space-y-2">
-                    <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                    <h4 className="font-medium text-foreground flex items-center gap-2">
                       <Shield className="h-4 w-4 text-green-600" />
                       Ranking Methodology
                     </h4>
@@ -1401,7 +1401,7 @@ export default function Loans() {
                     </p>
                   </div>
                   <div className="space-y-2">
-                    <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                    <h4 className="font-medium text-foreground flex items-center gap-2">
                       <FileText className="h-4 w-4 text-blue-600" />
                       Key Facts Statement (KFS)
                     </h4>

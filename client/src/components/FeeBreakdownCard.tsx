@@ -54,8 +54,8 @@ export function FeeBreakdownCard({
   if (isLoading) {
     return (
       <div className="animate-pulse space-y-2" data-testid="fee-breakdown-loading">
-        <div className="h-4 bg-muted dark:bg-gray-700 rounded w-3/4"></div>
-        <div className="h-4 bg-muted dark:bg-gray-700 rounded w-1/2"></div>
+        <div className="h-4 bg-muted rounded w-3/4"></div>
+        <div className="h-4 bg-muted rounded w-1/2"></div>
       </div>
     );
   }
@@ -110,7 +110,7 @@ export function FeeBreakdownCard({
   return (
     <div className="space-y-2" data-testid="fee-breakdown-card">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <CollapsibleTrigger className="flex items-center justify-between w-full text-sm hover:bg-muted dark:hover:bg-muted p-2 rounded transition-colors" data-testid="button-toggle-fee-details">
+        <CollapsibleTrigger className="flex items-center justify-between w-full text-sm hover:bg-muted p-2 rounded transition-colors" data-testid="button-toggle-fee-details">
           <div className="flex items-center gap-2">
             <span className="font-medium">Fees & Charges</span>
             <Badge variant="secondary" className="text-xs">

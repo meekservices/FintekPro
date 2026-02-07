@@ -319,7 +319,7 @@ export function SignatureCanvas({
           </ScrollableTabsList>
 
           <TabsContent value="draw" className="space-y-3">
-            <div className="border rounded-lg p-2 bg-white">
+            <div className="border rounded-lg p-2 bg-card">
               <canvas
                 ref={canvasRef}
                 width={maxWidth}
@@ -364,7 +364,7 @@ export function SignatureCanvas({
 
             {uploadedImage ? (
               <div className="space-y-3">
-                <div className="border rounded-lg p-4 bg-white flex items-center justify-center">
+                <div className="border rounded-lg p-4 bg-card flex items-center justify-center">
                   <img 
                     src={uploadedImage} 
                     alt="Uploaded signature" 
@@ -435,7 +435,7 @@ export function SignatureCanvas({
             </div>
 
             {typedText && (
-              <div className="border rounded-lg p-4 bg-white">
+              <div className="border rounded-lg p-4 bg-card">
                 <canvas
                   ref={typedCanvasRef}
                   className="mx-auto"

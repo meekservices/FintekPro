@@ -133,7 +133,7 @@ export default function UnlistedComplianceAlerts() {
       case 'eligibility_block':
         return <Badge className="bg-orange-600"><AlertCircle className="w-3 h-3 mr-1" />Eligibility Block</Badge>;
       case 'disclosure_missing':
-        return <Badge className="bg-gray-600"><FileWarning className="w-3 h-3 mr-1" />Disclosure Missing</Badge>;
+        return <Badge className="bg-muted"><FileWarning className="w-3 h-3 mr-1" />Disclosure Missing</Badge>;
       default:
         return <Badge variant="outline">{type}</Badge>;
     }
@@ -165,7 +165,7 @@ export default function UnlistedComplianceAlerts() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-white">Compliance Alert Center</h1>
+          <h1 className="text-3xl font-bold text-foreground">Compliance Alert Center</h1>
           <p className="text-muted-foreground mt-1">Monitor blocked trades, KYC failures, and high-risk activities</p>
         </div>
         <Button
@@ -187,7 +187,7 @@ export default function UnlistedComplianceAlerts() {
           <CardContent>
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-yellow-500" />
-              <span className="text-2xl font-bold text-white">{stats.totalAlerts}</span>
+              <span className="text-2xl font-bold text-foreground">{stats.totalAlerts}</span>
             </div>
           </CardContent>
         </Card>
@@ -211,7 +211,7 @@ export default function UnlistedComplianceAlerts() {
           <CardContent>
             <div className="flex items-center gap-2">
               <XCircle className="w-5 h-5 text-orange-500" />
-              <span className="text-2xl font-bold text-white">{stats.blockedTrades}</span>
+              <span className="text-2xl font-bold text-foreground">{stats.blockedTrades}</span>
             </div>
           </CardContent>
         </Card>
@@ -223,7 +223,7 @@ export default function UnlistedComplianceAlerts() {
           <CardContent>
             <div className="flex items-center gap-2">
               <Shield className="w-5 h-5 text-amber-500" />
-              <span className="text-2xl font-bold text-white">{stats.kycFailures}</span>
+              <span className="text-2xl font-bold text-foreground">{stats.kycFailures}</span>
             </div>
           </CardContent>
         </Card>
@@ -235,7 +235,7 @@ export default function UnlistedComplianceAlerts() {
           <CardContent>
             <div className="flex items-center gap-2">
               <TrendingDown className="w-5 h-5 text-purple-500" />
-              <span className="text-2xl font-bold text-white">{stats.highRiskCompanies}</span>
+              <span className="text-2xl font-bold text-foreground">{stats.highRiskCompanies}</span>
             </div>
           </CardContent>
         </Card>
@@ -269,12 +269,12 @@ export default function UnlistedComplianceAlerts() {
                   placeholder="Search alerts..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 bg-muted border-border text-white w-64"
+                  className="pl-9 bg-muted border-border text-foreground w-64"
                   data-testid="input-search-alerts"
                 />
               </div>
               <Select value={severityFilter} onValueChange={setSeverityFilter}>
-                <SelectTrigger className="w-40 bg-muted border-border text-white" data-testid="select-severity-filter">
+                <SelectTrigger className="w-40 bg-muted border-border text-foreground" data-testid="select-severity-filter">
                   <SelectValue placeholder="Severity" />
                 </SelectTrigger>
                 <SelectContent>
@@ -348,14 +348,14 @@ export default function UnlistedComplianceAlerts() {
                           <TableCell>{getTypeBadge(alert.type)}</TableCell>
                           <TableCell>{getSeverityBadge(alert.severity)}</TableCell>
                           <TableCell className="max-w-xs">
-                            <div className="text-white font-medium truncate">{alert.title}</div>
+                            <div className="text-foreground font-medium truncate">{alert.title}</div>
                             <div className="text-muted-foreground text-sm truncate">{alert.description}</div>
                           </TableCell>
                           <TableCell>
                             {alert.companyName ? (
                               <div className="flex items-center gap-2">
                                 <Building2 className="w-4 h-4 text-blue-400" />
-                                <span className="text-white text-sm">{alert.companyName}</span>
+                                <span className="text-foreground text-sm">{alert.companyName}</span>
                               </div>
                             ) : (
                               <span className="text-muted-foreground">-</span>
@@ -365,7 +365,7 @@ export default function UnlistedComplianceAlerts() {
                             {alert.userName ? (
                               <div className="flex items-center gap-2">
                                 <User className="w-4 h-4 text-green-400" />
-                                <span className="text-white text-sm">{alert.userName}</span>
+                                <span className="text-foreground text-sm">{alert.userName}</span>
                               </div>
                             ) : (
                               <span className="text-muted-foreground">-</span>
@@ -376,7 +376,7 @@ export default function UnlistedComplianceAlerts() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-muted-foreground hover:text-white"
+                              className="text-muted-foreground hover:text-foreground"
                               data-testid={`button-view-alert-${alert.id}`}
                             >
                               <Eye className="w-4 h-4" />

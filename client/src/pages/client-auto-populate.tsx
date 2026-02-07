@@ -99,15 +99,15 @@ export default function ClientAutoPopulatePage() {
   const isLoading = autoPopulateMutation.isPending;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50/30 to-indigo-100/30 dark:from-background dark:to-card p-4">
       <div className="max-w-4xl mx-auto space-y-6">
         
         {/* Header */}
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+          <h1 className="text-3xl font-bold text-foreground mb-2">
             Smart Client Onboarding
           </h1>
-          <p className="text-muted-foreground dark:text-muted-foreground">
+          <p className="text-muted-foreground">
             Provide minimal details - we'll fetch everything else automatically
           </p>
         </div>
@@ -121,7 +121,7 @@ export default function ClientAutoPopulatePage() {
                   <span className="font-medium">Progress</span>
                   <span>{Math.round((currentStep / steps.length) * 100)}%</span>
                 </div>
-                <div className="w-full bg-muted rounded-full h-2 dark:bg-gray-700">
+                <div className="w-full bg-muted rounded-full h-2">
                   <div 
                     className="bg-blue-600 h-2 rounded-full transition-all duration-500"
                     style={{ width: `${(currentStep / steps.length) * 100}%` }}
@@ -129,7 +129,7 @@ export default function ClientAutoPopulatePage() {
                 </div>
                 <div className="text-center">
                   <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     {currentStep < steps.length ? steps[currentStep] : 'Completed'}
                   </p>
                 </div>
@@ -201,7 +201,7 @@ export default function ClientAutoPopulatePage() {
                   <CreditCard className="h-5 w-5" />
                   Banking Details (Optional)
                 </CardTitle>
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   Providing banking info enables auto-fetch of transaction history and balance
                 </p>
               </CardHeader>

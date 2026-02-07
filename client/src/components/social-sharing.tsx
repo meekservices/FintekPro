@@ -252,7 +252,7 @@ export function SocialSharing({ achievement, userAchievement, userId }: SocialSh
                       className="w-16 h-16 rounded-lg"
                     />
                   ) : (
-                    <div className="w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center text-white">
+                    <div className="w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center text-foreground">
                       {getAchievementIcon(achievement.category)}
                     </div>
                   )}

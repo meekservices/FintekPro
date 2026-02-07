@@ -73,7 +73,7 @@ export function UpdateNotificationBanner({ className }: UpdateNotificationBanner
         <Button
           variant="ghost"
           size="sm"
-          className="h-8 px-3 text-white hover:bg-white/20 font-medium"
+          className="h-8 px-3 text-foreground hover:bg-card/20 font-medium"
           onClick={handleRefresh}
           disabled={isRefreshing}
           data-testid="button-refresh-app"
@@ -85,7 +85,7 @@ export function UpdateNotificationBanner({ className }: UpdateNotificationBanner
         <Button
           variant="ghost"
           size="sm"
-          className="h-8 w-8 p-0 text-white hover:bg-white/20"
+          className="h-8 w-8 p-0 text-foreground hover:bg-card/20"
           onClick={handleDismiss}
           data-testid="button-dismiss-update"
         >

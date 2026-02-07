@@ -192,7 +192,7 @@ const getSourceBadge = (source: string, dataQuality?: number) => {
     },
     probe42: { 
       label: 'Probe42', 
-      color: 'bg-muted dark:bg-muted text-foreground dark:bg-card dark:text-foreground',
+      color: 'bg-muted text-foreground',
       description: 'Legacy source (deprecated)'
     },
     internal: { 
@@ -774,7 +774,7 @@ export default function SeedUnlistedPage() {
       case 'pre_ipo': return 'bg-blue-600/20 text-blue-400';
       case 'growth': return 'bg-purple-600/20 text-purple-400';
       case 'mature': return 'bg-cyan-600/20 text-cyan-400';
-      default: return 'bg-gray-600/20 text-muted-foreground';
+      default: return 'bg-muted/20 text-muted-foreground';
     }
   };
 
@@ -792,7 +792,7 @@ export default function SeedUnlistedPage() {
       case 'high': return <Badge className="bg-green-600/20 text-green-400">High</Badge>;
       case 'medium': return <Badge className="bg-yellow-600/20 text-yellow-400">Medium</Badge>;
       case 'low': return <Badge className="bg-red-600/20 text-red-400">Low</Badge>;
-      default: return <Badge className="bg-gray-600/20 text-muted-foreground">N/A</Badge>;
+      default: return <Badge className="bg-muted/20 text-muted-foreground">N/A</Badge>;
     }
   };
 
@@ -839,7 +839,7 @@ export default function SeedUnlistedPage() {
             <CardContent className="space-y-2">
               {suggestion.moneyControl.available ? (
                 <>
-                  <div className="text-2xl font-bold text-white">
+                  <div className="text-2xl font-bold text-foreground">
                     {formatPrice(suggestion.moneyControl.price)}
                   </div>
                   {suggestion.moneyControl.changePercent !== null && (
@@ -882,7 +882,7 @@ export default function SeedUnlistedPage() {
               <Button
                 size="sm"
                 variant="ghost"
-                className="w-full text-xs text-muted-foreground hover:text-white"
+                className="w-full text-xs text-muted-foreground hover:text-foreground"
                 onClick={() => refreshMoneyControlPrice(company.id)}
                 data-testid={`refresh-mc-${company.id}`}
               >
@@ -903,7 +903,7 @@ export default function SeedUnlistedPage() {
             <CardContent className="space-y-2">
               {suggestion.internalCalculation.available ? (
                 <>
-                  <div className="text-2xl font-bold text-white">
+                  <div className="text-2xl font-bold text-foreground">
                     {formatPrice(suggestion.internalCalculation.suggestedPrice)}
                   </div>
                   <div className="text-xs text-muted-foreground">
@@ -1093,13 +1093,13 @@ export default function SeedUnlistedPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link href="/admin/store-management">
-            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-white" data-testid="button-back">
+            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" data-testid="button-back">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Store Management
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <Sprout className="w-6 h-6 text-emerald-400" />
               Seed Unlisted Stocks
             </h1>
@@ -1131,7 +1131,7 @@ export default function SeedUnlistedPage() {
       {/* Unified Search - Search MoneyControl + Probe42 */}
       <Card className="bg-gradient-to-r from-blue-900/20 to-purple-900/20 border-blue-500/30">
         <CardHeader className="pb-3">
-          <CardTitle className="text-white flex items-center gap-2">
+          <CardTitle className="text-foreground flex items-center gap-2">
             <Search className="w-5 h-5 text-blue-400" />
             Add New Unlisted Stock
           </CardTitle>
@@ -1147,7 +1147,7 @@ export default function SeedUnlistedPage() {
                 placeholder="Search company by name, ISIN, or CIN..."
                 value={unifiedSearchQuery}
                 onChange={(e) => setUnifiedSearchQuery(e.target.value)}
-                className="pl-10 bg-muted border-border text-white"
+                className="pl-10 bg-muted border-border text-foreground"
                 data-testid="input-unified-search"
               />
               {isSearching && (
@@ -1169,7 +1169,7 @@ export default function SeedUnlistedPage() {
                   </Badge>
                 )}
                 {unifiedSearchData.sources.probe42 > 0 && (
-                  <Badge variant="outline" className="text-muted-foreground border-gray-400/50">
+                  <Badge variant="outline" className="text-muted-foreground border-border">
                     Probe42: {unifiedSearchData.sources.probe42}
                   </Badge>
                 )}
@@ -1194,7 +1194,7 @@ export default function SeedUnlistedPage() {
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-white">{result.name}</span>
+                            <span className="font-medium text-foreground">{result.name}</span>
                             {getSourceBadge(result.source, result.dataQuality)}
                             {result.isInFintekPro && (
                               <Badge className="bg-green-500/20 text-green-400 text-xs">
@@ -1210,7 +1210,7 @@ export default function SeedUnlistedPage() {
                         </div>
                         {result.currentPrice && (
                           <div className="text-right">
-                            <div className="text-white font-medium">₹{result.currentPrice.toLocaleString()}</div>
+                            <div className="text-foreground font-medium">₹{result.currentPrice.toLocaleString()}</div>
                             {result.priceChangePercent !== undefined && (
                               <div className={`text-xs ${result.priceChangePercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                                 {result.priceChangePercent >= 0 ? '+' : ''}{result.priceChangePercent.toFixed(2)}%
@@ -1273,7 +1273,7 @@ export default function SeedUnlistedPage() {
                             : 'bg-muted/50 border-border'
                       }`}>
                         <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="outline" className="text-muted-foreground border-gray-400/50 text-xs">Probe42</Badge>
+                          <Badge variant="outline" className="text-muted-foreground border-border text-xs">Probe42</Badge>
                           <span className="text-xs text-muted-foreground">
                             {unifiedSearchData.sourceStatuses.probe42.searched 
                               ? `${unifiedSearchData.sourceStatuses.probe42.resultCount} results`
@@ -1354,7 +1354,7 @@ export default function SeedUnlistedPage() {
                   </div>
                 ) : (
                   <div className="mt-4 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
-                    <h4 className="text-white font-medium mb-4 flex items-center gap-2">
+                    <h4 className="text-foreground font-medium mb-4 flex items-center gap-2">
                       <Building2 className="w-4 h-4 text-blue-400" />
                       Add Company Manually
                     </h4>
@@ -1365,7 +1365,7 @@ export default function SeedUnlistedPage() {
                           value={manualAddData.name}
                           onChange={(e) => setManualAddData(prev => ({ ...prev, name: e.target.value }))}
                           placeholder="Enter company name"
-                          className="mt-1 bg-muted border-border text-white"
+                          className="mt-1 bg-muted border-border text-foreground"
                           data-testid="input-manual-company-name"
                         />
                       </div>
@@ -1376,7 +1376,7 @@ export default function SeedUnlistedPage() {
                           onChange={(e) => setManualAddData(prev => ({ ...prev, cin: e.target.value.toUpperCase() }))}
                           placeholder="e.g., U72900KA2008PLC045316"
                           maxLength={21}
-                          className="mt-1 bg-muted border-border text-white font-mono"
+                          className="mt-1 bg-muted border-border text-foreground font-mono"
                           data-testid="input-manual-cin"
                         />
                         {manualAddData.cin && !isValidCINFormat(manualAddData.cin) && manualAddData.cin.length === 21 && (
@@ -1388,7 +1388,7 @@ export default function SeedUnlistedPage() {
                         <select
                           value={manualAddData.sector}
                           onChange={(e) => setManualAddData(prev => ({ ...prev, sector: e.target.value }))}
-                          className="mt-1 w-full bg-muted border border-border text-white rounded-md px-3 py-2"
+                          className="mt-1 w-full bg-muted border border-border text-foreground rounded-md px-3 py-2"
                           data-testid="select-manual-sector"
                         >
                           <option value="Unknown">Unknown</option>
@@ -1410,7 +1410,7 @@ export default function SeedUnlistedPage() {
                           value={manualAddData.industry}
                           onChange={(e) => setManualAddData(prev => ({ ...prev, industry: e.target.value }))}
                           placeholder="e.g., Software Development"
-                          className="mt-1 bg-muted border-border text-white"
+                          className="mt-1 bg-muted border-border text-foreground"
                           data-testid="input-manual-industry"
                         />
                       </div>
@@ -1421,7 +1421,7 @@ export default function SeedUnlistedPage() {
                         value={manualAddData.description}
                         onChange={(e) => setManualAddData(prev => ({ ...prev, description: e.target.value }))}
                         placeholder="Brief company description"
-                        className="mt-1 bg-muted border-border text-white"
+                        className="mt-1 bg-muted border-border text-foreground"
                         data-testid="input-manual-description"
                       />
                     </div>
@@ -1462,31 +1462,31 @@ export default function SeedUnlistedPage() {
             {/* Selected Company Preview & Add to FintekPro */}
             {selectedSearchResult && (
               <div className="mt-4 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
-                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                <h4 className="text-foreground font-medium mb-3 flex items-center gap-2">
                   <Building2 className="w-4 h-4 text-blue-400" />
                   Add to FintekPro: {selectedSearchResult.name}
                 </h4>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-4">
                   <div>
                     <span className="text-muted-foreground">Source:</span>
-                    <span className="ml-2 text-white capitalize">{selectedSearchResult.source}</span>
+                    <span className="ml-2 text-foreground capitalize">{selectedSearchResult.source}</span>
                   </div>
                   {selectedSearchResult.isin && (
                     <div>
                       <span className="text-muted-foreground">ISIN:</span>
-                      <span className="ml-2 text-white">{selectedSearchResult.isin}</span>
+                      <span className="ml-2 text-foreground">{selectedSearchResult.isin}</span>
                     </div>
                   )}
                   {selectedSearchResult.cin && (
                     <div>
                       <span className="text-muted-foreground">CIN:</span>
-                      <span className="ml-2 text-white">{selectedSearchResult.cin}</span>
+                      <span className="ml-2 text-foreground">{selectedSearchResult.cin}</span>
                     </div>
                   )}
                   {selectedSearchResult.currentPrice && (
                     <div>
                       <span className="text-muted-foreground">Current Price:</span>
-                      <span className="ml-2 text-white">₹{selectedSearchResult.currentPrice.toLocaleString()}</span>
+                      <span className="ml-2 text-foreground">₹{selectedSearchResult.currentPrice.toLocaleString()}</span>
                     </div>
                   )}
                 </div>
@@ -1539,7 +1539,7 @@ export default function SeedUnlistedPage() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-white flex items-center gap-2">
+                <CardTitle className="text-foreground flex items-center gap-2">
                   <Globe className="w-5 h-5 text-orange-400" />
                   MoneyControl Suggestions
                 </CardTitle>
@@ -1626,7 +1626,7 @@ export default function SeedUnlistedPage() {
                       />
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-white">{suggestion.externalCompany.name}</span>
+                          <span className="font-medium text-foreground">{suggestion.externalCompany.name}</span>
                           {suggestion.matchConfidence !== 'none' && (
                             <Badge variant="outline" className={
                               suggestion.matchConfidence === 'partial' 
@@ -1682,7 +1682,7 @@ export default function SeedUnlistedPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-white flex items-center gap-2">
+              <CardTitle className="text-foreground flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-blue-400" />
                 Available Companies
               </CardTitle>
@@ -1697,7 +1697,7 @@ export default function SeedUnlistedPage() {
               placeholder="Search by company name, CIN, or sector..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-muted border-border text-white"
+              className="pl-10 bg-muted border-border text-foreground"
               data-testid="input-search-companies"
             />
           </div>
@@ -1711,7 +1711,7 @@ export default function SeedUnlistedPage() {
           ) : availableCompanies.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <CheckCircle className="w-12 h-12 mx-auto mb-4 text-green-400" />
-              <p className="text-lg font-medium text-white">All companies are already published!</p>
+              <p className="text-lg font-medium text-foreground">All companies are already published!</p>
               <p className="text-sm mt-2">No more unlisted companies available to seed</p>
             </div>
           ) : (
@@ -1746,7 +1746,7 @@ export default function SeedUnlistedPage() {
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <Building2 className="w-4 h-4 text-blue-400" />
-                            <span className="font-medium text-white">{company.name}</span>
+                            <span className="font-medium text-foreground">{company.name}</span>
                             <Badge className={getStageBadgeColor(company.listingStage)}>
                               {getStageLabel(company.listingStage)}
                             </Badge>
@@ -1812,7 +1812,7 @@ export default function SeedUnlistedPage() {
       {alreadyPublishedCompanies.length > 0 && (
         <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
+            <CardTitle className="text-foreground flex items-center gap-2">
               <CheckCircle className="w-5 h-5 text-green-400" />
               Already Published ({alreadyPublishedCompanies.length})
             </CardTitle>
@@ -1837,16 +1837,16 @@ export default function SeedUnlistedPage() {
                       key={company.id} 
                       className="border-border hover:bg-muted/50"
                     >
-                      <TableCell className="font-medium text-white">
+                      <TableCell className="font-medium text-foreground">
                         <div className="flex items-center gap-2">
                           <Building2 className="w-4 h-4 text-blue-400" />
                           {company.name}
                         </div>
                       </TableCell>
-                      <TableCell className="text-gray-300">
+                      <TableCell className="text-muted-foreground">
                         {company.sector || 'N/A'}
                       </TableCell>
-                      <TableCell className="text-gray-300">
+                      <TableCell className="text-muted-foreground">
                         {company.listingStage || 'Unlisted'}
                       </TableCell>
                       <TableCell className="text-right">

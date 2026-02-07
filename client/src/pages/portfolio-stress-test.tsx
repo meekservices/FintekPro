@@ -162,7 +162,7 @@ export default function PortfolioStressTest() {
       case 'medium': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
       case 'high': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
       case 'extreme': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      default: return 'bg-muted text-foreground dark:bg-muted dark:text-foreground';
+      default: return 'bg-muted text-foreground';
     }
   };
 
@@ -434,7 +434,7 @@ export default function PortfolioStressTest() {
             <CardContent>
               <div className="space-y-4">
                 {stressedPortfolio.map((holding, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-muted dark:bg-muted rounded-lg">
+                  <div key={idx} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                     <div className="flex items-center gap-3">
                       <div className={`w-3 h-3 rounded-full ${
                         holding.type === 'equity' ? 'bg-blue-500' :

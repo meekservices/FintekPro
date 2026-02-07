@@ -86,7 +86,7 @@ export default function PortfolioImport() {
     <div className="container mx-auto px-4 py-6 max-w-4xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Import Portfolio</h1>
+          <h1 className="text-2xl font-bold text-foreground">Import Portfolio</h1>
           <p className="text-muted-foreground">
             Import your existing portfolio from broker statements, CAS, or URLs
           </p>
@@ -133,15 +133,15 @@ export default function PortfolioImport() {
             {lastImportResult.summary && (
               <>
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="p-3 bg-white dark:bg-gray-900 rounded-lg">
+                  <div className="p-3 bg-background rounded-lg">
                     <p className="text-xs text-muted-foreground">Total Holdings</p>
                     <p className="text-lg font-bold">{lastImportResult.summary.totalHoldings}</p>
                   </div>
-                  <div className="p-3 bg-white dark:bg-gray-900 rounded-lg">
+                  <div className="p-3 bg-background rounded-lg">
                     <p className="text-xs text-muted-foreground">Total Value</p>
                     <p className="text-lg font-bold">{formatCurrency(lastImportResult.summary.totalCurrentValue)}</p>
                   </div>
-                  <div className="p-3 bg-white dark:bg-gray-900 rounded-lg">
+                  <div className="p-3 bg-background rounded-lg">
                     <p className="text-xs text-muted-foreground">Allocation</p>
                     <p className="text-sm font-medium">
                       {lastImportResult.summary.equityPercent}% Equity / {lastImportResult.summary.debtPercent}% Debt

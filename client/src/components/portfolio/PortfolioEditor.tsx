@@ -127,7 +127,7 @@ const ASSET_CLASSES = [
   { value: "unlisted", label: "Unlisted Equity", color: "bg-red-500" },
   { value: "pms", label: "PMS", color: "bg-teal-500" },
   { value: "aif", label: "AIF", color: "bg-indigo-500" },
-  { value: "other", label: "Other Assets", color: "bg-gray-500" },
+  { value: "other", label: "Other Assets", color: "bg-muted" },
 ];
 
 const WORKFLOW_STEPS = [
@@ -848,7 +848,7 @@ export function PortfolioEditor({
   return (
     <div className="space-y-6">
       {/* Progress Steps */}
-      <Card className="border-none shadow-sm bg-gradient-to-r from-slate-50 to-blue-50 dark:from-slate-900 dark:to-blue-950">
+      <Card className="border-none shadow-sm bg-gradient-to-r from-slate-50 to-blue-50 dark:from-background dark:to-blue-950">
         <CardContent className="py-4">
           <div className="flex items-center justify-between">
             {WORKFLOW_STEPS.map((step, index) => {
@@ -876,8 +876,8 @@ export function PortfolioEditor({
                           : isActive
                           ? "bg-indigo-600 text-white ring-4 ring-indigo-200"
                           : step.id <= currentStep + 1
-                          ? "bg-gray-200 text-gray-600 hover:bg-gray-300"
-                          : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                          ? "bg-muted text-muted-foreground hover:bg-muted"
+                          : "bg-muted text-muted-foreground cursor-not-allowed"
                       }`}
                       data-testid={`step-${step.id}`}
                     >
@@ -887,14 +887,14 @@ export function PortfolioEditor({
                         <StepIcon className="w-5 h-5" />
                       )}
                     </button>
-                    <span className={`text-xs mt-2 font-medium ${isActive ? "text-indigo-600" : "text-gray-500"}`}>
+                    <span className={`text-xs mt-2 font-medium ${isActive ? "text-indigo-600" : "text-muted-foreground"}`}>
                       {step.name}
                     </span>
-                    <span className="text-[10px] text-gray-400 hidden sm:block">{step.description}</span>
+                    <span className="text-[10px] text-muted-foreground hidden sm:block">{step.description}</span>
                   </div>
                   {index < WORKFLOW_STEPS.length - 1 && (
                     <div className={`h-0.5 w-16 mx-2 hidden sm:block ${
-                      currentStep > step.id ? "bg-green-500" : "bg-gray-200"
+                      currentStep > step.id ? "bg-green-500" : "bg-muted"
                     }`} />
                   )}
                 </div>
@@ -966,7 +966,7 @@ export function PortfolioEditor({
                     
                     {importPreview.length > 0 && (
                       <div className="border rounded-lg overflow-hidden">
-                        <div className="bg-gray-50 px-3 py-2 text-sm font-medium">
+                        <div className="bg-muted px-3 py-2 text-sm font-medium">
                           Preview: {importPreview.length} holdings found
                         </div>
                         <div className="max-h-48 overflow-y-auto">
@@ -1143,7 +1143,7 @@ export function PortfolioEditor({
                         return <li key={i} className="ml-4 my-1">{line.replace(/^\d+\.\s*/, '')}</li>;
                       }
                       if (line.trim()) {
-                        return <p key={i} className="my-2 text-gray-700 dark:text-gray-300">{line}</p>;
+                        return <p key={i} className="my-2 text-foreground">{line}</p>;
                       }
                       return null;
                     })}
@@ -1191,7 +1191,7 @@ export function PortfolioEditor({
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
                   <Table>
-                    <TableHeader className="sticky top-0 bg-white dark:bg-gray-950 z-10">
+                    <TableHeader className="sticky top-0 bg-card z-10">
                       <TableRow>
                         <TableHead className="min-w-[200px]">ISIN / Security</TableHead>
                         <TableHead className="min-w-[120px]">Type</TableHead>
@@ -1554,9 +1554,9 @@ export function PortfolioEditor({
                         <span>{assetClass?.label || key}</span>
                         <span>{data.percent.toFixed(1)}%</span>
                       </div>
-                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
                         <div
-                          className={`h-full ${assetClass?.color || "bg-gray-500"}`}
+                          className={`h-full ${assetClass?.color || "bg-muted"}`}
                           style={{ width: `${data.percent}%` }}
                         />
                       </div>

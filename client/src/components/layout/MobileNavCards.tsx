@@ -68,7 +68,7 @@ const getCardStyles = (tone: string, isActive: boolean) => {
     }
   }
   
-  return `${baseStyles} border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600 focus-within:ring-gray-500`;
+  return `${baseStyles} border-border hover:border-border dark:hover:border-border focus-within:ring-ring`;
 };
 
 const getIconStyles = (tone: string, isActive: boolean) => {
@@ -85,7 +85,7 @@ const getIconStyles = (tone: string, isActive: boolean) => {
     }
   }
   
-  return "text-gray-600 dark:text-gray-400";
+  return "text-muted-foreground";
 };
 
 const getTextStyles = (tone: string, isActive: boolean) => {
@@ -102,7 +102,7 @@ const getTextStyles = (tone: string, isActive: boolean) => {
     }
   }
   
-  return "text-gray-700 dark:text-gray-300";
+  return "text-foreground";
 };
 
 export function MobileNavCards({ items, onNavigate, isAuthenticated, cartCount, isAdmin }: MobileNavCardsProps) {

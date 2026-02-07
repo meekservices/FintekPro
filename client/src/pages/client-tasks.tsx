@@ -133,7 +133,7 @@ export default function ClientTasks() {
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2" data-testid="text-page-title">
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2" data-testid="text-page-title">
               <ListTodo className="h-7 w-7 text-blue-600" />
               My Tasks
             </h1>
@@ -142,7 +142,7 @@ export default function ClientTasks() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="bg-white border-border shadow-sm" data-testid="card-pending-tasks">
+          <Card className="bg-card border-border shadow-sm" data-testid="card-pending-tasks">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-amber-100">
@@ -150,13 +150,13 @@ export default function ClientTasks() {
                 </div>
                 <div>
                   <p className="text-muted-foreground text-sm">Pending Tasks</p>
-                  <p className="text-2xl font-bold text-gray-900" data-testid="text-pending-count">{stats.pending}</p>
+                  <p className="text-2xl font-bold text-foreground" data-testid="text-pending-count">{stats.pending}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-border shadow-sm" data-testid="card-completed-tasks">
+          <Card className="bg-card border-border shadow-sm" data-testid="card-completed-tasks">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-emerald-100">
@@ -164,13 +164,13 @@ export default function ClientTasks() {
                 </div>
                 <div>
                   <p className="text-muted-foreground text-sm">Completed This Month</p>
-                  <p className="text-2xl font-bold text-gray-900" data-testid="text-completed-count">{stats.completedThisMonth}</p>
+                  <p className="text-2xl font-bold text-foreground" data-testid="text-completed-count">{stats.completedThisMonth}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-border shadow-sm" data-testid="card-overdue-tasks">
+          <Card className="bg-card border-border shadow-sm" data-testid="card-overdue-tasks">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-red-100">
@@ -178,13 +178,13 @@ export default function ClientTasks() {
                 </div>
                 <div>
                   <p className="text-muted-foreground text-sm">Overdue</p>
-                  <p className="text-2xl font-bold text-gray-900" data-testid="text-overdue-count">{stats.overdue}</p>
+                  <p className="text-2xl font-bold text-foreground" data-testid="text-overdue-count">{stats.overdue}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-border shadow-sm" data-testid="card-due-week-tasks">
+          <Card className="bg-card border-border shadow-sm" data-testid="card-due-week-tasks">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-blue-100">
@@ -192,7 +192,7 @@ export default function ClientTasks() {
                 </div>
                 <div>
                   <p className="text-muted-foreground text-sm">Due This Week</p>
-                  <p className="text-2xl font-bold text-gray-900" data-testid="text-due-week-count">{stats.dueThisWeek}</p>
+                  <p className="text-2xl font-bold text-foreground" data-testid="text-due-week-count">{stats.dueThisWeek}</p>
                 </div>
               </div>
             </CardContent>
@@ -200,7 +200,7 @@ export default function ClientTasks() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="bg-white border border-border shadow-sm">
+          <TabsList className="bg-card border border-border shadow-sm">
             <TabsTrigger value="all" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white" data-testid="tab-all">
               All Tasks
             </TabsTrigger>
@@ -216,7 +216,7 @@ export default function ClientTasks() {
           </TabsList>
         </Tabs>
 
-        <Card className="bg-white border-border shadow-sm">
+        <Card className="bg-card border-border shadow-sm">
           <CardContent className="p-0">
             <ScrollArea className="h-[500px]">
               <div className="divide-y divide-gray-100">
@@ -243,7 +243,7 @@ export default function ClientTasks() {
                             <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 flex-wrap mb-1">
-                                  <p className={`font-medium ${task.status === 'completed' ? 'text-muted-foreground line-through' : 'text-gray-900'}`} data-testid={`task-title-${task.id}`}>
+                                  <p className={`font-medium ${task.status === 'completed' ? 'text-muted-foreground line-through' : 'text-foreground'}`} data-testid={`task-title-${task.id}`}>
                                     {task.title}
                                   </p>
                                   <Badge variant="outline" className={typeConfig.color} data-testid={`task-type-${task.id}`}>
@@ -295,7 +295,7 @@ export default function ClientTasks() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-semibold text-gray-900 mb-1">Need Help?</h3>
+                <h3 className="font-semibold text-foreground mb-1">Need Help?</h3>
                 <p className="text-muted-foreground text-sm">Contact your advisor for assistance with any pending tasks.</p>
               </div>
               <Button variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100" data-testid="button-contact-advisor">

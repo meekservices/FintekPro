@@ -265,7 +265,7 @@ export function SignatureManagement() {
                       )}
                     </div>
 
-                    <div className="border rounded-lg p-2 bg-white dark:bg-gray-900 flex items-center justify-center min-h-[80px]">
+                    <div className="border rounded-lg p-2 bg-background flex items-center justify-center min-h-[80px]">
                       <img 
                         src={sig.signatureDataUrl} 
                         alt={sig.name}

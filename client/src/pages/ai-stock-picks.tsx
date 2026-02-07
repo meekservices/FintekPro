@@ -141,7 +141,7 @@ export default function AIStockPicks() {
       case 'hold': return 'bg-yellow-500 text-black';
       case 'sell': return 'bg-red-500 text-white';
       case 'strong_sell': return 'bg-red-700 text-white';
-      default: return 'bg-gray-500 text-white';
+      default: return 'bg-muted text-foreground';
     }
   };
 

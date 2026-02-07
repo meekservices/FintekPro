@@ -126,9 +126,9 @@ export default function AgentLeadPipeline() {
 
   if (leadsLoading) {
     return (
-      <div className="min-h-screen bg-slate-950 p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-background p-6 flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
-        <span className="ml-2 text-slate-400">Loading lead pipeline...</span>
+        <span className="ml-2 text-muted-foreground">Loading lead pipeline...</span>
       </div>
     );
   }
@@ -184,25 +184,25 @@ export default function AgentLeadPipeline() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 p-6">
+    <div className="min-h-screen bg-background p-6">
       <div className="max-w-full mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <Target className="h-7 w-7 text-emerald-500" />
               Lead Pipeline
             </h1>
-            <p className="text-slate-400 mt-1">Track and convert prospects into clients</p>
+            <p className="text-muted-foreground mt-1">Track and convert prospects into clients</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search leads..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 w-64 bg-slate-800 border-slate-700 text-white"
+                className="pl-10 w-64 bg-card border-border text-foreground"
                 data-testid="input-search-leads"
               />
             </div>
@@ -213,45 +213,45 @@ export default function AgentLeadPipeline() {
                   Add Lead
                 </Button>
               </DialogTrigger>
-              <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-md">
+              <DialogContent className="bg-background border-border text-foreground max-w-md">
                 <DialogHeader>
                   <DialogTitle>Add New Lead</DialogTitle>
-                  <DialogDescription className="text-slate-400">
+                  <DialogDescription className="text-muted-foreground">
                     Enter prospect details to add to your pipeline
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 mt-4">
                   <div>
-                    <Label htmlFor="name" className="text-slate-300">Name *</Label>
+                    <Label htmlFor="name" className="text-muted-foreground">Name *</Label>
                     <Input
                       id="name"
                       value={newLead.name}
                       onChange={(e) => setNewLead({ ...newLead, name: e.target.value })}
-                      className="mt-1 bg-slate-800 border-slate-700"
+                      className="mt-1 bg-card border-border"
                       placeholder="Full name"
                       data-testid="input-lead-name"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="email" className="text-slate-300">Email</Label>
+                      <Label htmlFor="email" className="text-muted-foreground">Email</Label>
                       <Input
                         id="email"
                         type="email"
                         value={newLead.email}
                         onChange={(e) => setNewLead({ ...newLead, email: e.target.value })}
-                        className="mt-1 bg-slate-800 border-slate-700"
+                        className="mt-1 bg-card border-border"
                         placeholder="email@example.com"
                         data-testid="input-lead-email"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="phone" className="text-slate-300">Phone</Label>
+                      <Label htmlFor="phone" className="text-muted-foreground">Phone</Label>
                       <Input
                         id="phone"
                         value={newLead.phone}
                         onChange={(e) => setNewLead({ ...newLead, phone: e.target.value })}
-                        className="mt-1 bg-slate-800 border-slate-700"
+                        className="mt-1 bg-card border-border"
                         placeholder="9876543210"
                         data-testid="input-lead-phone"
                       />
@@ -259,12 +259,12 @@ export default function AgentLeadPipeline() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="source" className="text-slate-300">Source</Label>
+                      <Label htmlFor="source" className="text-muted-foreground">Source</Label>
                       <Select value={newLead.source} onValueChange={(value) => setNewLead({ ...newLead, source: value })}>
-                        <SelectTrigger className="mt-1 bg-slate-800 border-slate-700" data-testid="select-lead-source">
+                        <SelectTrigger className="mt-1 bg-card border-border" data-testid="select-lead-source">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="bg-slate-800 border-slate-700">
+                        <SelectContent className="bg-card border-border">
                           <SelectItem value="referral">Referral</SelectItem>
                           <SelectItem value="website">Website</SelectItem>
                           <SelectItem value="linkedin">LinkedIn</SelectItem>
@@ -275,32 +275,32 @@ export default function AgentLeadPipeline() {
                       </Select>
                     </div>
                     <div>
-                      <Label htmlFor="value" className="text-slate-300">Potential Value (₹)</Label>
+                      <Label htmlFor="value" className="text-muted-foreground">Potential Value (₹)</Label>
                       <Input
                         id="value"
                         type="number"
                         value={newLead.potentialValue}
                         onChange={(e) => setNewLead({ ...newLead, potentialValue: e.target.value })}
-                        className="mt-1 bg-slate-800 border-slate-700"
+                        className="mt-1 bg-card border-border"
                         placeholder="1000000"
                         data-testid="input-lead-value"
                       />
                     </div>
                   </div>
                   <div>
-                    <Label htmlFor="notes" className="text-slate-300">Notes</Label>
+                    <Label htmlFor="notes" className="text-muted-foreground">Notes</Label>
                     <Textarea
                       id="notes"
                       value={newLead.notes}
                       onChange={(e) => setNewLead({ ...newLead, notes: e.target.value })}
-                      className="mt-1 bg-slate-800 border-slate-700"
+                      className="mt-1 bg-card border-border"
                       placeholder="Initial observations, interests, requirements..."
                       rows={3}
                       data-testid="textarea-lead-notes"
                     />
                   </div>
                   <div className="flex justify-end gap-3 pt-4">
-                    <Button variant="outline" onClick={() => setShowAddLead(false)} className="border-slate-600">
+                    <Button variant="outline" onClick={() => setShowAddLead(false)} className="border-border">
                       Cancel
                     </Button>
                     <Button 
@@ -321,12 +321,12 @@ export default function AgentLeadPipeline() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-card/50 border-border">
             <CardContent className="p-4">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-slate-400 text-sm">Pipeline Value</p>
-                  <p className="text-xl font-bold text-white mt-1" data-testid="text-pipeline-value">
+                  <p className="text-muted-foreground text-sm">Pipeline Value</p>
+                  <p className="text-xl font-bold text-foreground mt-1" data-testid="text-pipeline-value">
                     {formatCurrency(displayStats.pipelineValue)}
                   </p>
                 </div>
@@ -336,12 +336,12 @@ export default function AgentLeadPipeline() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-card/50 border-border">
             <CardContent className="p-4">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-slate-400 text-sm">Total Leads</p>
-                  <p className="text-xl font-bold text-white mt-1" data-testid="text-total-leads">
+                  <p className="text-muted-foreground text-sm">Total Leads</p>
+                  <p className="text-xl font-bold text-foreground mt-1" data-testid="text-total-leads">
                     {displayStats.total}
                   </p>
                 </div>
@@ -351,12 +351,12 @@ export default function AgentLeadPipeline() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-card/50 border-border">
             <CardContent className="p-4">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-slate-400 text-sm">Conversion Rate</p>
-                  <p className="text-xl font-bold text-white mt-1" data-testid="text-conversion-rate">
+                  <p className="text-muted-foreground text-sm">Conversion Rate</p>
+                  <p className="text-xl font-bold text-foreground mt-1" data-testid="text-conversion-rate">
                     {displayStats.conversionRate.toFixed(1)}%
                   </p>
                 </div>
@@ -366,12 +366,12 @@ export default function AgentLeadPipeline() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-card/50 border-border">
             <CardContent className="p-4">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-slate-400 text-sm">Avg Deal Size</p>
-                  <p className="text-xl font-bold text-white mt-1">
+                  <p className="text-muted-foreground text-sm">Avg Deal Size</p>
+                  <p className="text-xl font-bold text-foreground mt-1">
                     {formatCurrency(displayStats.avgDealValue)}
                   </p>
                 </div>
@@ -381,12 +381,12 @@ export default function AgentLeadPipeline() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-card/50 border-border">
             <CardContent className="p-4">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-slate-400 text-sm">Hot Leads</p>
-                  <p className="text-xl font-bold text-white mt-1">
+                  <p className="text-muted-foreground text-sm">Hot Leads</p>
+                  <p className="text-xl font-bold text-foreground mt-1">
                     {displayLeads.filter(l => l.score >= 80 && l.stage !== 'converted' && l.stage !== 'lost').length}
                   </p>
                 </div>
@@ -417,25 +417,25 @@ export default function AgentLeadPipeline() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className={`w-3 h-3 rounded-full ${config.color}`} />
-                        <span className="text-white font-medium">{config.label}</span>
-                        <Badge variant="outline" className="text-slate-300 border-slate-600 ml-1">
+                        <span className="text-foreground font-medium">{config.label}</span>
+                        <Badge variant="outline" className="text-muted-foreground border-border ml-1">
                           {stageLeads.length}
                         </Badge>
                       </div>
                       <span className={`text-sm ${config.textColor}`}>{formatCurrency(stageValue)}</span>
                     </div>
                   </div>
-                  <ScrollArea className="h-[500px] rounded-b-lg border border-slate-700 border-t-0 bg-slate-900/50">
+                  <ScrollArea className="h-[500px] rounded-b-lg border border-border border-t-0 bg-background/50">
                     <div className="p-2 space-y-2">
                       {stageLeads.length === 0 ? (
-                        <div className="p-4 text-center text-slate-500 text-sm">
+                        <div className="p-4 text-center text-muted-foreground text-sm">
                           No leads in this stage
                         </div>
                       ) : (
                         stageLeads.map((lead) => (
                           <Card
                             key={lead.id}
-                            className="bg-slate-800 border-slate-700 cursor-grab active:cursor-grabbing hover:border-slate-600 transition-colors"
+                            className="bg-card border-border cursor-grab active:cursor-grabbing hover:border-border transition-colors"
                             draggable
                             onDragStart={() => handleDragStart(lead)}
                             onClick={() => setSelectedLead(lead)}
@@ -444,26 +444,26 @@ export default function AgentLeadPipeline() {
                             <CardContent className="p-3">
                               <div className="flex items-start justify-between mb-2">
                                 <div>
-                                  <p className="text-white font-medium text-sm">{lead.name}</p>
-                                  <p className="text-slate-400 text-xs">{lead.source}</p>
+                                  <p className="text-foreground font-medium text-sm">{lead.name}</p>
+                                  <p className="text-muted-foreground text-xs">{lead.source}</p>
                                 </div>
                                 <Badge className={`${getScoreColor(lead.score)} text-xs`}>
                                   {lead.score}
                                 </Badge>
                               </div>
-                              <div className="flex items-center gap-2 text-xs text-slate-400 mb-2">
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
                                 <IndianRupee className="h-3 w-3" />
                                 <span>{formatCurrency(lead.potentialValue)}</span>
                               </div>
                               {lead.tags.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mb-2">
                                   {lead.tags.slice(0, 2).map((tag, i) => (
-                                    <Badge key={i} variant="outline" className="text-xs border-slate-600 text-slate-300 py-0">
+                                    <Badge key={i} variant="outline" className="text-xs border-border text-muted-foreground py-0">
                                       {tag}
                                     </Badge>
                                   ))}
                                   {lead.tags.length > 2 && (
-                                    <Badge variant="outline" className="text-xs border-slate-600 text-slate-400 py-0">
+                                    <Badge variant="outline" className="text-xs border-border text-muted-foreground py-0">
                                       +{lead.tags.length - 2}
                                     </Badge>
                                   )}
@@ -475,19 +475,19 @@ export default function AgentLeadPipeline() {
                                   <span>Follow up: {new Date(lead.nextFollowUp).toLocaleDateString()}</span>
                                 </div>
                               )}
-                              <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-700">
+                              <div className="flex items-center justify-between mt-3 pt-2 border-t border-border">
                                 <div className="flex gap-1">
-                                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-slate-400 hover:text-white">
+                                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground">
                                     <Phone className="h-3 w-3" />
                                   </Button>
-                                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-slate-400 hover:text-white">
+                                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground">
                                     <Mail className="h-3 w-3" />
                                   </Button>
-                                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-slate-400 hover:text-white">
+                                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground">
                                     <MessageSquare className="h-3 w-3" />
                                   </Button>
                                 </div>
-                                <Button size="sm" variant="ghost" className="h-7 text-xs text-slate-400 hover:text-white">
+                                <Button size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground hover:text-foreground">
                                   <ChevronRight className="h-3 w-3" />
                                 </Button>
                               </div>
@@ -504,14 +504,14 @@ export default function AgentLeadPipeline() {
         </div>
 
         {/* Lost Leads Section (Collapsed) */}
-        <Card className="bg-slate-900/50 border-slate-700">
+        <Card className="bg-background/50 border-border">
           <CardHeader className="py-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-white text-sm flex items-center gap-2">
+              <CardTitle className="text-foreground text-sm flex items-center gap-2">
                 <XCircle className="h-4 w-4 text-red-400" />
                 Lost Leads ({getLeadsByStage('lost').length})
               </CardTitle>
-              <Button variant="ghost" size="sm" className="text-slate-400">
+              <Button variant="ghost" size="sm" className="text-muted-foreground">
                 View All
               </Button>
             </div>
@@ -521,14 +521,14 @@ export default function AgentLeadPipeline() {
               {getLeadsByStage('lost').map((lead) => (
                 <div
                   key={lead.id}
-                  className="flex items-center gap-3 p-2 bg-slate-800/50 rounded-lg min-w-[200px]"
+                  className="flex items-center gap-3 p-2 bg-card/50 rounded-lg min-w-[200px]"
                 >
                   <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
                     <User className="h-4 w-4 text-red-400" />
                   </div>
                   <div>
-                    <p className="text-white text-sm">{lead.name}</p>
-                    <p className="text-slate-400 text-xs">{formatCurrency(lead.potentialValue)}</p>
+                    <p className="text-foreground text-sm">{lead.name}</p>
+                    <p className="text-muted-foreground text-xs">{formatCurrency(lead.potentialValue)}</p>
                   </div>
                 </div>
               ))}
@@ -538,14 +538,14 @@ export default function AgentLeadPipeline() {
 
         {/* Lead Detail Dialog */}
         <Dialog open={!!selectedLead} onOpenChange={() => setSelectedLead(null)}>
-          <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-lg">
+          <DialogContent className="bg-background border-border text-foreground max-w-lg">
             {selectedLead && (
               <>
                 <DialogHeader>
                   <div className="flex items-start justify-between">
                     <div>
                       <DialogTitle className="text-xl">{selectedLead.name}</DialogTitle>
-                      <DialogDescription className="text-slate-400 flex items-center gap-2 mt-1">
+                      <DialogDescription className="text-muted-foreground flex items-center gap-2 mt-1">
                         <Badge className={`${STAGE_CONFIG[selectedLead.stage].bgColor} ${STAGE_CONFIG[selectedLead.stage].textColor}`}>
                           {STAGE_CONFIG[selectedLead.stage].label}
                         </Badge>
@@ -557,56 +557,56 @@ export default function AgentLeadPipeline() {
                 </DialogHeader>
                 <div className="space-y-4 mt-4">
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="p-3 bg-slate-800 rounded-lg">
-                      <p className="text-slate-400 text-xs">Potential Value</p>
-                      <p className="text-white font-medium">{formatCurrency(selectedLead.potentialValue)}</p>
+                    <div className="p-3 bg-card rounded-lg">
+                      <p className="text-muted-foreground text-xs">Potential Value</p>
+                      <p className="text-foreground font-medium">{formatCurrency(selectedLead.potentialValue)}</p>
                     </div>
-                    <div className="p-3 bg-slate-800 rounded-lg">
-                      <p className="text-slate-400 text-xs">Source</p>
-                      <p className="text-white font-medium">{selectedLead.source}</p>
+                    <div className="p-3 bg-card rounded-lg">
+                      <p className="text-muted-foreground text-xs">Source</p>
+                      <p className="text-foreground font-medium">{selectedLead.source}</p>
                     </div>
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-sm">
-                      <Mail className="h-4 w-4 text-slate-400" />
-                      <span className="text-slate-300">{selectedLead.email}</span>
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">{selectedLead.email}</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
-                      <Phone className="h-4 w-4 text-slate-400" />
-                      <span className="text-slate-300">{selectedLead.phone}</span>
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">{selectedLead.phone}</span>
                     </div>
                     {selectedLead.lastContact && (
                       <div className="flex items-center gap-2 text-sm">
-                        <Calendar className="h-4 w-4 text-slate-400" />
-                        <span className="text-slate-300">Last contact: {new Date(selectedLead.lastContact).toLocaleDateString()}</span>
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Last contact: {new Date(selectedLead.lastContact).toLocaleDateString()}</span>
                       </div>
                     )}
                   </div>
                   {selectedLead.notes && (
-                    <div className="p-3 bg-slate-800 rounded-lg">
-                      <p className="text-slate-400 text-xs mb-1">Notes</p>
-                      <p className="text-white text-sm">{selectedLead.notes}</p>
+                    <div className="p-3 bg-card rounded-lg">
+                      <p className="text-muted-foreground text-xs mb-1">Notes</p>
+                      <p className="text-foreground text-sm">{selectedLead.notes}</p>
                     </div>
                   )}
                   {selectedLead.tags.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {selectedLead.tags.map((tag, i) => (
-                        <Badge key={i} variant="outline" className="border-slate-600 text-slate-300">
+                        <Badge key={i} variant="outline" className="border-border text-muted-foreground">
                           {tag}
                         </Badge>
                       ))}
                     </div>
                   )}
-                  <div className="flex gap-3 pt-4 border-t border-slate-700">
+                  <div className="flex gap-3 pt-4 border-t border-border">
                     <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700" data-testid="button-call-lead">
                       <Phone className="h-4 w-4 mr-2" />
                       Call
                     </Button>
-                    <Button variant="outline" className="flex-1 border-slate-600" data-testid="button-email-lead">
+                    <Button variant="outline" className="flex-1 border-border" data-testid="button-email-lead">
                       <Mail className="h-4 w-4 mr-2" />
                       Email
                     </Button>
-                    <Button variant="outline" className="border-slate-600" data-testid="button-edit-lead">
+                    <Button variant="outline" className="border-border" data-testid="button-edit-lead">
                       <Edit className="h-4 w-4" />
                     </Button>
                   </div>

@@ -251,7 +251,7 @@ export function NetYieldDisplay({
   return (
     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-700">
       <div className="flex justify-between items-center mb-2">
-        <span className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Net Yield</span>
+        <span className="text-sm font-medium text-muted-foreground">Net Yield</span>
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -327,11 +327,11 @@ export function SuitabilityScore({
   };
 
   return (
-    <div className="bg-white dark:bg-muted p-4 rounded-lg border border-border dark:border-border space-y-3">
+    <div className="bg-card p-4 rounded-lg border border-border space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Target className="h-5 w-5 text-blue-500" />
-          <span className="font-medium text-gray-900 dark:text-gray-100">Suitability Match</span>
+          <span className="font-medium text-foreground">Suitability Match</span>
         </div>
         {recommended && (
           <Badge className="bg-green-100 text-green-700 border-green-200">
@@ -566,7 +566,7 @@ const getFilterCreditRatingColors = (rating: string, isSelected: boolean): strin
     if (r.startsWith('AA')) return 'bg-green-600 text-white border-green-700 hover:bg-green-700';
     if (r.startsWith('A')) return 'bg-blue-600 text-white border-blue-700 hover:bg-blue-700';
     if (r.startsWith('BBB')) return 'bg-yellow-500 text-white border-yellow-600 hover:bg-yellow-600';
-    return 'bg-gray-600 text-white border-border hover:bg-gray-700';
+    return 'bg-muted text-foreground border-border hover:bg-muted';
   } else {
     // Unselected state - lighter background with colored text/border
     if (r === 'SOV' || r === 'AAA') return 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100';
@@ -617,7 +617,7 @@ const getFilterInstrumentTypeColors = (type: string, isSelected: boolean): strin
     if (t === 'ncd') return 'bg-orange-600 text-white border-orange-700 hover:bg-orange-700';
     if (t === 'infrastructure') return 'bg-teal-600 text-white border-teal-700 hover:bg-teal-700';
     if (t === 'tax_free') return 'bg-green-600 text-white border-green-700 hover:bg-green-700';
-    return 'bg-gray-600 text-white border-border hover:bg-gray-700';
+    return 'bg-muted text-foreground border-border hover:bg-muted';
   } else {
     // Unselected state - lighter background with colored text/border
     if (t === 'gsec' || t === 'government') return 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100';
@@ -659,9 +659,9 @@ export function EnhancedBondFilters({
   };
 
   return (
-    <div className="space-y-6 p-4 bg-white dark:bg-muted rounded-xl border border-border dark:border-border">
+    <div className="space-y-6 p-4 bg-card rounded-xl border border-border">
       <div className="flex justify-between items-center">
-        <h3 className="font-semibold text-gray-900 dark:text-gray-100">Advanced Filters</h3>
+        <h3 className="font-semibold text-foreground">Advanced Filters</h3>
         <Button 
           variant="ghost" 
           size="sm"
@@ -715,7 +715,7 @@ export function EnhancedBondFilters({
               min={0}
               max={30}
               step={1}
-              className="[&_[data-radix-slider-track]]:bg-muted [&_[data-radix-slider-track]]:h-3 [&_[data-radix-slider-track]]:border [&_[data-radix-slider-track]]:border-gray-400 [&_[data-radix-slider-track]]:shadow-sm [&_[data-radix-slider-range]]:bg-[var(--slider-range-bg)] [&_[data-radix-slider-range]]:h-3 [&_[data-radix-slider-thumb]]:border-[var(--slider-thumb-border)] [&_[data-radix-slider-thumb]]:border-3 [&_[data-radix-slider-thumb]]:bg-white [&_[data-radix-slider-thumb]]:shadow-lg [&_[data-radix-slider-thumb]]:h-6 [&_[data-radix-slider-thumb]]:w-6"
+              className="[&_[data-radix-slider-track]]:bg-muted [&_[data-radix-slider-track]]:h-3 [&_[data-radix-slider-track]]:border [&_[data-radix-slider-track]]:border-border [&_[data-radix-slider-track]]:shadow-sm [&_[data-radix-slider-range]]:bg-[var(--slider-range-bg)] [&_[data-radix-slider-range]]:h-3 [&_[data-radix-slider-thumb]]:border-[var(--slider-thumb-border)] [&_[data-radix-slider-thumb]]:border-3 [&_[data-radix-slider-thumb]]:bg-card [&_[data-radix-slider-thumb]]:shadow-lg [&_[data-radix-slider-thumb]]:h-6 [&_[data-radix-slider-thumb]]:w-6"
               data-testid="filter-maturity-slider"
             />
           </div>
@@ -743,7 +743,7 @@ export function EnhancedBondFilters({
               min={0}
               max={15}
               step={0.25}
-              className="[&_[data-radix-slider-track]]:bg-muted [&_[data-radix-slider-track]]:h-3 [&_[data-radix-slider-track]]:border [&_[data-radix-slider-track]]:border-gray-400 [&_[data-radix-slider-track]]:shadow-sm [&_[data-radix-slider-range]]:bg-[var(--slider-range-bg)] [&_[data-radix-slider-range]]:h-3 [&_[data-radix-slider-thumb]]:border-[var(--slider-thumb-border)] [&_[data-radix-slider-thumb]]:border-3 [&_[data-radix-slider-thumb]]:bg-white [&_[data-radix-slider-thumb]]:shadow-lg [&_[data-radix-slider-thumb]]:h-6 [&_[data-radix-slider-thumb]]:w-6"
+              className="[&_[data-radix-slider-track]]:bg-muted [&_[data-radix-slider-track]]:h-3 [&_[data-radix-slider-track]]:border [&_[data-radix-slider-track]]:border-border [&_[data-radix-slider-track]]:shadow-sm [&_[data-radix-slider-range]]:bg-[var(--slider-range-bg)] [&_[data-radix-slider-range]]:h-3 [&_[data-radix-slider-thumb]]:border-[var(--slider-thumb-border)] [&_[data-radix-slider-thumb]]:border-3 [&_[data-radix-slider-thumb]]:bg-card [&_[data-radix-slider-thumb]]:shadow-lg [&_[data-radix-slider-thumb]]:h-6 [&_[data-radix-slider-thumb]]:w-6"
               data-testid="filter-yield-slider"
             />
           </div>
@@ -854,7 +854,7 @@ export function MaturityLadderView({ bonds }: { bonds: UnifiedBond[] }) {
     <div className="space-y-4">
       <div className="flex items-center gap-2 mb-4">
         <BarChart3 className="h-5 w-5 text-blue-500" />
-        <h3 className="font-semibold text-gray-900 dark:text-gray-100">Maturity Ladder</h3>
+        <h3 className="font-semibold text-foreground">Maturity Ladder</h3>
       </div>
       
       <div className="grid grid-cols-5 gap-4">
@@ -867,12 +867,12 @@ export function MaturityLadderView({ bonds }: { bonds: UnifiedBond[] }) {
                   height: `${Math.max(30, Math.min(150, bucket.bonds.length * 30))}px` 
                 }}
               >
-                <span className="text-white font-bold text-lg mb-2">
+                <span className="text-foreground font-bold text-lg mb-2">
                   {bucket.bonds.length}
                 </span>
               </div>
-              <div className="bg-muted dark:bg-gray-700 p-2 rounded-b-lg">
-                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+              <div className="bg-muted p-2 rounded-b-lg">
+                <p className="text-xs font-medium text-muted-foreground">
                   {bucket.label}
                 </p>
                 {bucket.bonds.length > 0 && (
@@ -925,9 +925,9 @@ export function BondComparisonTable({
       <table className="w-full border-collapse">
         <thead>
           <tr>
-            <th className="text-left p-3 bg-muted dark:bg-muted font-semibold">Attribute</th>
+            <th className="text-left p-3 bg-muted font-semibold">Attribute</th>
             {selectedBonds.map(bond => (
-              <th key={bond.id} className="text-left p-3 bg-muted dark:bg-muted">
+              <th key={bond.id} className="text-left p-3 bg-muted">
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-sm">{bond.bondName}</span>
                   <Button 
@@ -946,8 +946,8 @@ export function BondComparisonTable({
         </thead>
         <tbody>
           {attributes.map(attr => (
-            <tr key={attr.key} className="border-t border-border dark:border-border">
-              <td className="p-3 font-medium text-muted-foreground dark:text-muted-foreground text-sm">
+            <tr key={attr.key} className="border-t border-border">
+              <td className="p-3 font-medium text-muted-foreground text-sm">
                 {attr.label}
               </td>
               {selectedBonds.map(bond => {

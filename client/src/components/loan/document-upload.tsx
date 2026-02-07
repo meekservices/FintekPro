@@ -97,7 +97,7 @@ function getFileIcon(file: File) {
   if (type === "application/pdf") {
     return <FileText className="h-5 w-5 text-red-500" />;
   }
-  return <File className="h-5 w-5 text-gray-500" />;
+  return <File className="h-5 w-5 text-muted-foreground" />;
 }
 
 function formatFileSize(bytes: number): string {
@@ -151,7 +151,7 @@ function DocumentUploadCard({ docType, documents, onUpload, onRemove }: Document
     <div
       className={cn(
         "border rounded-lg p-4 transition-all",
-        isDragging ? "border-blue-500 bg-blue-50/50" : "border-gray-200",
+        isDragging ? "border-blue-500 bg-blue-50/50" : "border-border",
         hasUploaded ? "bg-green-50/30 border-green-200" : ""
       )}
       onDragOver={handleDragOver}
@@ -160,13 +160,13 @@ function DocumentUploadCard({ docType, documents, onUpload, onRemove }: Document
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-gray-900">{docType.label}</span>
+          <span className="font-medium text-foreground">{docType.label}</span>
           {docType.required ? (
             <Badge variant="outline" className="text-xs text-red-600 border-red-200">
               Required
             </Badge>
           ) : (
-            <Badge variant="outline" className="text-xs text-gray-500">
+            <Badge variant="outline" className="text-xs text-muted-foreground">
               Optional
             </Badge>
           )}
@@ -177,7 +177,7 @@ function DocumentUploadCard({ docType, documents, onUpload, onRemove }: Document
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="text-gray-400 hover:text-gray-600">
+              <button className="text-muted-foreground hover:text-muted-foreground">
                 <HelpCircle className="h-4 w-4" />
               </button>
             </TooltipTrigger>
@@ -188,7 +188,7 @@ function DocumentUploadCard({ docType, documents, onUpload, onRemove }: Document
                   <li key={i}>{ex}</li>
                 ))}
               </ul>
-              <p className="mt-2 text-xs text-gray-500">
+              <p className="mt-2 text-xs text-muted-foreground">
                 Max size: {docType.maxSizeMB} MB | Types: {docType.acceptedTypes.join(", ")}
               </p>
             </TooltipContent>
@@ -196,14 +196,14 @@ function DocumentUploadCard({ docType, documents, onUpload, onRemove }: Document
         </TooltipProvider>
       </div>
 
-      <p className="text-sm text-gray-500 mb-3">{docType.description}</p>
+      <p className="text-sm text-muted-foreground mb-3">{docType.description}</p>
 
       {uploadedDocs.map((doc) => (
         <div
           key={doc.id}
           className={cn(
             "flex items-center gap-3 p-2 rounded-md mb-2",
-            doc.status === "error" ? "bg-red-50" : "bg-gray-50"
+            doc.status === "error" ? "bg-red-50" : "bg-muted"
           )}
         >
           {doc.previewUrl ? (
@@ -217,7 +217,7 @@ function DocumentUploadCard({ docType, documents, onUpload, onRemove }: Document
           )}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">{doc.file.name}</p>
-            <p className="text-xs text-gray-500">{formatFileSize(doc.file.size)}</p>
+            <p className="text-xs text-muted-foreground">{formatFileSize(doc.file.size)}</p>
             {doc.status === "error" && (
               <p className="text-xs text-red-600 flex items-center gap-1">
                 <AlertCircle className="h-3 w-3" />
@@ -229,7 +229,7 @@ function DocumentUploadCard({ docType, documents, onUpload, onRemove }: Document
             type="button"
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0 text-gray-400 hover:text-red-600"
+            className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600"
             onClick={() => onRemove(doc.id)}
           >
             <X className="h-4 w-4" />

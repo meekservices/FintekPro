@@ -235,11 +235,11 @@ export default function AgentStockAI() {
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
               <Brain className="h-8 w-8 text-emerald-500" />
               Stock AI
             </h1>
-            <p className="text-slate-400 mt-1">
+            <p className="text-muted-foreground mt-1">
               AI-powered stock and derivatives recommendations for your clients
             </p>
           </div>
@@ -251,7 +251,7 @@ export default function AgentStockAI() {
             <Button
               variant="outline"
               size="sm"
-              className="border-slate-700 text-slate-300"
+              className="border-border text-muted-foreground"
               data-testid="button-refresh-market"
             >
               <RefreshCw className="h-4 w-4 mr-2" />
@@ -261,7 +261,7 @@ export default function AgentStockAI() {
         </div>
 
         <Tabs value={mainTab} onValueChange={setMainTab} className="space-y-6">
-          <ScrollableTabsList className="bg-slate-900/50 border border-slate-800 p-1">
+          <ScrollableTabsList className="bg-background/50 border border-border p-1">
             <TabsTrigger 
               value="stocks" 
               className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white"
@@ -281,9 +281,9 @@ export default function AgentStockAI() {
           </ScrollableTabsList>
 
           <TabsContent value="stocks" className="space-y-6">
-            <Card className="bg-slate-900/50 border-slate-800">
+            <Card className="bg-background/50 border-border">
               <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
+                <CardTitle className="text-foreground flex items-center gap-2">
                   <Target className="h-5 w-5 text-emerald-500" />
                   Investment Horizon
                 </CardTitle>
@@ -304,15 +304,15 @@ export default function AgentStockAI() {
                         className={`p-4 rounded-lg border transition-all text-left ${
                           isActive
                             ? 'bg-emerald-600/20 border-emerald-500 ring-2 ring-emerald-500/30'
-                            : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'
+                            : 'bg-card/50 border-border hover:border-border'
                         }`}
                         data-testid={`horizon-${horizon.id}`}
                       >
                         <Icon className={`h-6 w-6 mb-2 ${isActive ? 'text-emerald-400' : horizon.color}`} />
-                        <p className={`font-medium ${isActive ? 'text-emerald-400' : 'text-white'}`}>
+                        <p className={`font-medium ${isActive ? 'text-emerald-400' : 'text-foreground'}`}>
                           {horizon.label}
                         </p>
-                        <p className="text-xs text-slate-400 mt-1">{horizon.duration}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{horizon.duration}</p>
                       </button>
                     );
                   })}
@@ -321,18 +321,18 @@ export default function AgentStockAI() {
             </Card>
 
             <div className="grid grid-cols-3 gap-6">
-              <Card className="bg-slate-900/50 border-slate-800">
+              <Card className="bg-background/50 border-border">
                 <CardHeader>
-                  <CardTitle className="text-white text-sm">Investment Amount</CardTitle>
+                  <CardTitle className="text-foreground text-sm">Investment Amount</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center gap-2">
-                    <span className="text-slate-400">₹</span>
+                    <span className="text-muted-foreground">₹</span>
                     <Input
                       type="number"
                       value={params.investmentAmount}
                       onChange={(e) => setParams({ ...params, investmentAmount: Number(e.target.value) })}
-                      className="bg-slate-800 border-slate-700 text-white"
+                      className="bg-card border-border text-foreground"
                       data-testid="input-investment-amount"
                     />
                   </div>
@@ -343,7 +343,7 @@ export default function AgentStockAI() {
                         variant="outline"
                         size="sm"
                         onClick={() => setParams({ ...params, investmentAmount: amount })}
-                        className={`text-xs ${params.investmentAmount === amount ? 'bg-emerald-600/20 border-emerald-500' : 'border-slate-700'}`}
+                        className={`text-xs ${params.investmentAmount === amount ? 'bg-emerald-600/20 border-emerald-500' : 'border-border'}`}
                       >
                         {amount >= 100000 ? `₹${amount / 100000}L` : `₹${amount / 1000}K`}
                       </Button>
@@ -352,16 +352,16 @@ export default function AgentStockAI() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-slate-900/50 border-slate-800">
+              <Card className="bg-background/50 border-border">
                 <CardHeader>
-                  <CardTitle className="text-white text-sm">Risk Tolerance</CardTitle>
+                  <CardTitle className="text-foreground text-sm">Risk Tolerance</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <Select
                     value={params.riskTolerance}
                     onValueChange={(value) => setParams({ ...params, riskTolerance: value })}
                   >
-                    <SelectTrigger className="bg-slate-800 border-slate-700 text-white" data-testid="select-risk">
+                    <SelectTrigger className="bg-card border-border text-foreground" data-testid="select-risk">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -372,7 +372,7 @@ export default function AgentStockAI() {
                       <SelectItem value="very_aggressive">Very Aggressive (Maximum Risk)</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-slate-400 mt-2">
+                  <p className="text-xs text-muted-foreground mt-2">
                     {params.riskTolerance === 'very_conservative' && 'Capital preservation priority with minimal return expectations'}
                     {params.riskTolerance === 'conservative' && 'Focus on stable, blue-chip stocks with lower volatility'}
                     {params.riskTolerance === 'moderate' && 'Balanced mix of growth and value stocks'}
@@ -382,16 +382,16 @@ export default function AgentStockAI() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-slate-900/50 border-slate-800">
+              <Card className="bg-background/50 border-border">
                 <CardHeader>
-                  <CardTitle className="text-white text-sm">Market Cap Preference</CardTitle>
+                  <CardTitle className="text-foreground text-sm">Market Cap Preference</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <Select
                     value={params.marketCap}
                     onValueChange={(value) => setParams({ ...params, marketCap: value })}
                   >
-                    <SelectTrigger className="bg-slate-800 border-slate-700 text-white" data-testid="select-marketcap">
+                    <SelectTrigger className="bg-card border-border text-foreground" data-testid="select-marketcap">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -404,9 +404,9 @@ export default function AgentStockAI() {
               </Card>
             </div>
 
-            <Card className="bg-slate-900/50 border-slate-800">
+            <Card className="bg-background/50 border-border">
               <CardHeader>
-                <CardTitle className="text-white text-sm">Sector Focus (Optional)</CardTitle>
+                <CardTitle className="text-foreground text-sm">Sector Focus (Optional)</CardTitle>
                 <CardDescription>Leave empty for diversified recommendations</CardDescription>
               </CardHeader>
               <CardContent>
@@ -420,7 +420,7 @@ export default function AgentStockAI() {
                         className={`cursor-pointer transition-colors ${
                           isSelected
                             ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400'
-                            : 'border-slate-700 text-slate-400 hover:border-slate-600'
+                            : 'border-border text-muted-foreground hover:border-border'
                         }`}
                         onClick={() => {
                           const newSectors = isSelected
@@ -459,18 +459,18 @@ export default function AgentStockAI() {
             {showResults && stockRecommendations.length > 0 && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+                  <h3 className="text-xl font-semibold text-foreground flex items-center gap-2">
                     <Lightbulb className="h-5 w-5 text-yellow-500" />
                     AI Recommendations ({stockRecommendations.length})
                   </h3>
-                  <Badge variant="outline" className="text-slate-400">
+                  <Badge variant="outline" className="text-muted-foreground">
                     {TIME_HORIZONS.find(h => h.id === timeHorizon)?.label} Horizon
                   </Badge>
                 </div>
 
                 <div className="grid gap-4">
                   {stockRecommendations.map((stock) => (
-                    <Card key={stock.id} className="bg-slate-900/50 border-slate-800 overflow-hidden">
+                    <Card key={stock.id} className="bg-background/50 border-border overflow-hidden">
                       <CardContent className="p-0">
                         <div className="flex">
                           <div className={`w-2 ${stock.action === 'BUY' ? 'bg-green-500' : stock.action === 'SELL' ? 'bg-red-500' : 'bg-yellow-500'}`} />
@@ -478,20 +478,20 @@ export default function AgentStockAI() {
                             <div className="flex items-start justify-between mb-4">
                               <div>
                                 <div className="flex items-center gap-3">
-                                  <h4 className="text-lg font-bold text-white">{stock.symbol}</h4>
+                                  <h4 className="text-lg font-bold text-foreground">{stock.symbol}</h4>
                                   <Badge className={getActionColor(stock.action)}>
                                     {stock.action === 'BUY' && <ArrowUpRight className="h-3 w-3 mr-1" />}
                                     {stock.action === 'SELL' && <ArrowDownRight className="h-3 w-3 mr-1" />}
                                     {stock.action}
                                   </Badge>
-                                  <Badge variant="outline" className="text-slate-400">
+                                  <Badge variant="outline" className="text-muted-foreground">
                                     {stock.sector}
                                   </Badge>
                                 </div>
-                                <p className="text-slate-400 text-sm">{stock.name}</p>
+                                <p className="text-muted-foreground text-sm">{stock.name}</p>
                               </div>
                               <div className="text-right">
-                                <p className="text-2xl font-bold text-white">₹{stock.currentPrice.toFixed(2)}</p>
+                                <p className="text-2xl font-bold text-foreground">₹{stock.currentPrice.toFixed(2)}</p>
                                 <p className={`text-sm flex items-center justify-end gap-1 ${getConfidenceColor(stock.confidence)}`}>
                                   <Star className="h-3 w-3" />
                                   {stock.confidence}% Confidence
@@ -500,20 +500,20 @@ export default function AgentStockAI() {
                             </div>
 
                             <div className="grid grid-cols-4 gap-4 mb-4">
-                              <div className="bg-slate-800/50 rounded-lg p-3">
-                                <p className="text-xs text-slate-400">Entry</p>
-                                <p className="text-lg font-semibold text-white">₹{stock.entryPrice.toFixed(2)}</p>
+                              <div className="bg-card/50 rounded-lg p-3">
+                                <p className="text-xs text-muted-foreground">Entry</p>
+                                <p className="text-lg font-semibold text-foreground">₹{stock.entryPrice.toFixed(2)}</p>
                               </div>
-                              <div className="bg-slate-800/50 rounded-lg p-3">
-                                <p className="text-xs text-slate-400">Target</p>
+                              <div className="bg-card/50 rounded-lg p-3">
+                                <p className="text-xs text-muted-foreground">Target</p>
                                 <p className="text-lg font-semibold text-green-400">₹{stock.targetPrice.toFixed(2)}</p>
                               </div>
-                              <div className="bg-slate-800/50 rounded-lg p-3">
-                                <p className="text-xs text-slate-400">Stop Loss</p>
+                              <div className="bg-card/50 rounded-lg p-3">
+                                <p className="text-xs text-muted-foreground">Stop Loss</p>
                                 <p className="text-lg font-semibold text-red-400">₹{stock.stopLoss.toFixed(2)}</p>
                               </div>
-                              <div className="bg-slate-800/50 rounded-lg p-3">
-                                <p className="text-xs text-slate-400">Expected Return</p>
+                              <div className="bg-card/50 rounded-lg p-3">
+                                <p className="text-xs text-muted-foreground">Expected Return</p>
                                 <p className={`text-lg font-semibold ${stock.expectedReturn >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                                   {stock.expectedReturn >= 0 ? '+' : ''}{stock.expectedReturn.toFixed(1)}%
                                 </p>
@@ -521,43 +521,43 @@ export default function AgentStockAI() {
                             </div>
 
                             <div className="grid grid-cols-2 gap-4 mb-4">
-                              <div className="bg-slate-800/30 rounded-lg p-3">
-                                <p className="text-xs text-slate-400 mb-2">Technical Indicators</p>
+                              <div className="bg-card/30 rounded-lg p-3">
+                                <p className="text-xs text-muted-foreground mb-2">Technical Indicators</p>
                                 <div className="grid grid-cols-2 gap-2 text-xs">
                                   <div className="flex justify-between">
-                                    <span className="text-slate-500">RSI</span>
-                                    <span className={`font-medium ${stock.technicalIndicators.rsi > 70 ? 'text-red-400' : stock.technicalIndicators.rsi < 30 ? 'text-green-400' : 'text-white'}`}>
+                                    <span className="text-muted-foreground">RSI</span>
+                                    <span className={`font-medium ${stock.technicalIndicators.rsi > 70 ? 'text-red-400' : stock.technicalIndicators.rsi < 30 ? 'text-green-400' : 'text-foreground'}`}>
                                       {stock.technicalIndicators.rsi}
                                     </span>
                                   </div>
                                   <div className="flex justify-between">
-                                    <span className="text-slate-500">MACD</span>
+                                    <span className="text-muted-foreground">MACD</span>
                                     <span className={`font-medium ${stock.technicalIndicators.macd === 'Bullish' ? 'text-green-400' : 'text-red-400'}`}>
                                       {stock.technicalIndicators.macd}
                                     </span>
                                   </div>
                                   <div className="flex justify-between">
-                                    <span className="text-slate-500">MA50</span>
-                                    <span className="text-white font-medium">₹{stock.technicalIndicators.movingAverage50}</span>
+                                    <span className="text-muted-foreground">MA50</span>
+                                    <span className="text-foreground font-medium">₹{stock.technicalIndicators.movingAverage50}</span>
                                   </div>
                                   <div className="flex justify-between">
-                                    <span className="text-slate-500">MA200</span>
-                                    <span className="text-white font-medium">₹{stock.technicalIndicators.movingAverage200}</span>
+                                    <span className="text-muted-foreground">MA200</span>
+                                    <span className="text-foreground font-medium">₹{stock.technicalIndicators.movingAverage200}</span>
                                   </div>
                                   <div className="flex justify-between">
-                                    <span className="text-slate-500">Support</span>
+                                    <span className="text-muted-foreground">Support</span>
                                     <span className="text-green-400 font-medium">₹{stock.technicalIndicators.supportLevel}</span>
                                   </div>
                                   <div className="flex justify-between">
-                                    <span className="text-slate-500">Resistance</span>
+                                    <span className="text-muted-foreground">Resistance</span>
                                     <span className="text-red-400 font-medium">₹{stock.technicalIndicators.resistanceLevel}</span>
                                   </div>
                                 </div>
                               </div>
 
-                              <div className="bg-slate-800/30 rounded-lg p-3">
-                                <p className="text-xs text-slate-400 mb-2">AI Analysis</p>
-                                <p className="text-sm text-slate-300">{stock.aiRationale}</p>
+                              <div className="bg-card/30 rounded-lg p-3">
+                                <p className="text-xs text-muted-foreground mb-2">AI Analysis</p>
+                                <p className="text-sm text-muted-foreground">{stock.aiRationale}</p>
                               </div>
                             </div>
 
@@ -565,11 +565,11 @@ export default function AgentStockAI() {
                               <div className="flex items-center gap-4">
                                 <div className="flex items-center gap-2">
                                   <Shield className={`h-4 w-4 ${getRiskColor(stock.riskScore)}`} />
-                                  <span className="text-xs text-slate-400">Risk: {stock.riskScore}/10</span>
+                                  <span className="text-xs text-muted-foreground">Risk: {stock.riskScore}/10</span>
                                 </div>
                                 <div className="flex gap-1">
                                   {stock.keyDrivers.slice(0, 3).map((driver, i) => (
-                                    <Badge key={i} variant="outline" className="text-xs border-slate-700 text-slate-400">
+                                    <Badge key={i} variant="outline" className="text-xs border-border text-muted-foreground">
                                       {driver}
                                     </Badge>
                                   ))}
@@ -590,9 +590,9 @@ export default function AgentStockAI() {
           </TabsContent>
 
           <TabsContent value="derivatives" className="space-y-6">
-            <Card className="bg-slate-900/50 border-slate-800">
+            <Card className="bg-background/50 border-border">
               <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
+                <CardTitle className="text-foreground flex items-center gap-2">
                   <Layers className="h-5 w-5 text-purple-500" />
                   Derivative Type
                 </CardTitle>
@@ -612,15 +612,15 @@ export default function AgentStockAI() {
                         className={`p-4 rounded-lg border transition-all text-left ${
                           isActive
                             ? 'bg-purple-600/20 border-purple-500 ring-2 ring-purple-500/30'
-                            : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'
+                            : 'bg-card/50 border-border hover:border-border'
                         }`}
                         data-testid={`derivative-${type.id}`}
                       >
-                        <CandlestickChart className={`h-6 w-6 mb-2 ${isActive ? 'text-purple-400' : 'text-slate-400'}`} />
-                        <p className={`font-medium ${isActive ? 'text-purple-400' : 'text-white'}`}>
+                        <CandlestickChart className={`h-6 w-6 mb-2 ${isActive ? 'text-purple-400' : 'text-muted-foreground'}`} />
+                        <p className={`font-medium ${isActive ? 'text-purple-400' : 'text-foreground'}`}>
                           {type.label}
                         </p>
-                        <p className="text-xs text-slate-400 mt-1">{type.description}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{type.description}</p>
                       </button>
                     );
                   })}
@@ -628,9 +628,9 @@ export default function AgentStockAI() {
               </CardContent>
             </Card>
 
-            <Card className="bg-slate-900/50 border-slate-800">
+            <Card className="bg-background/50 border-border">
               <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
+                <CardTitle className="text-foreground flex items-center gap-2">
                   <Target className="h-5 w-5 text-purple-500" />
                   Trading Horizon
                 </CardTitle>
@@ -648,15 +648,15 @@ export default function AgentStockAI() {
                         className={`p-4 rounded-lg border transition-all text-left ${
                           isActive
                             ? 'bg-purple-600/20 border-purple-500 ring-2 ring-purple-500/30'
-                            : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'
+                            : 'bg-card/50 border-border hover:border-border'
                         }`}
                         data-testid={`derivative-horizon-${horizon.id}`}
                       >
                         <Icon className={`h-6 w-6 mb-2 ${isActive ? 'text-purple-400' : horizon.color}`} />
-                        <p className={`font-medium ${isActive ? 'text-purple-400' : 'text-white'}`}>
+                        <p className={`font-medium ${isActive ? 'text-purple-400' : 'text-foreground'}`}>
                           {horizon.label}
                         </p>
-                        <p className="text-xs text-slate-400 mt-1">{horizon.duration}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{horizon.duration}</p>
                       </button>
                     );
                   })}
@@ -673,34 +673,34 @@ export default function AgentStockAI() {
             </Alert>
 
             <div className="grid grid-cols-3 gap-6">
-              <Card className="bg-slate-900/50 border-slate-800">
+              <Card className="bg-background/50 border-border">
                 <CardHeader>
-                  <CardTitle className="text-white text-sm">Capital Allocation</CardTitle>
+                  <CardTitle className="text-foreground text-sm">Capital Allocation</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center gap-2">
-                    <span className="text-slate-400">₹</span>
+                    <span className="text-muted-foreground">₹</span>
                     <Input
                       type="number"
                       value={params.investmentAmount}
                       onChange={(e) => setParams({ ...params, investmentAmount: Number(e.target.value) })}
-                      className="bg-slate-800 border-slate-700 text-white"
+                      className="bg-card border-border text-foreground"
                       data-testid="input-derivative-amount"
                     />
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="bg-slate-900/50 border-slate-800">
+              <Card className="bg-background/50 border-border">
                 <CardHeader>
-                  <CardTitle className="text-white text-sm">Risk Profile</CardTitle>
+                  <CardTitle className="text-foreground text-sm">Risk Profile</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <Select
                     value={params.riskTolerance}
                     onValueChange={(value) => setParams({ ...params, riskTolerance: value })}
                   >
-                    <SelectTrigger className="bg-slate-800 border-slate-700 text-white" data-testid="select-derivative-risk">
+                    <SelectTrigger className="bg-card border-border text-foreground" data-testid="select-derivative-risk">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -714,16 +714,16 @@ export default function AgentStockAI() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-slate-900/50 border-slate-800">
+              <Card className="bg-background/50 border-border">
                 <CardHeader>
-                  <CardTitle className="text-white text-sm">Trading Style</CardTitle>
+                  <CardTitle className="text-foreground text-sm">Trading Style</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <Select
                     value={params.tradingStyle}
                     onValueChange={(value) => setParams({ ...params, tradingStyle: value })}
                   >
-                    <SelectTrigger className="bg-slate-800 border-slate-700 text-white" data-testid="select-trading-style">
+                    <SelectTrigger className="bg-card border-border text-foreground" data-testid="select-trading-style">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -759,7 +759,7 @@ export default function AgentStockAI() {
             {showResults && derivativeRecommendations.length > 0 && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+                  <h3 className="text-xl font-semibold text-foreground flex items-center gap-2">
                     <Flame className="h-5 w-5 text-orange-500" />
                     F&O Recommendations ({derivativeRecommendations.length})
                   </h3>
@@ -767,7 +767,7 @@ export default function AgentStockAI() {
 
                 <div className="grid gap-4">
                   {derivativeRecommendations.map((derivative) => (
-                    <Card key={derivative.id} className="bg-slate-900/50 border-slate-800 overflow-hidden">
+                    <Card key={derivative.id} className="bg-background/50 border-border overflow-hidden">
                       <CardContent className="p-0">
                         <div className="flex">
                           <div className={`w-2 ${derivative.action === 'BUY' ? 'bg-green-500' : 'bg-red-500'}`} />
@@ -775,7 +775,7 @@ export default function AgentStockAI() {
                             <div className="flex items-start justify-between mb-4">
                               <div>
                                 <div className="flex items-center gap-3">
-                                  <h4 className="text-lg font-bold text-white">{derivative.symbol}</h4>
+                                  <h4 className="text-lg font-bold text-foreground">{derivative.symbol}</h4>
                                   <Badge className={derivative.action === 'BUY' ? 'bg-green-500/10 text-green-500 border-green-500/30' : 'bg-red-500/10 text-red-500 border-red-500/30'}>
                                     {derivative.action}
                                   </Badge>
@@ -783,12 +783,12 @@ export default function AgentStockAI() {
                                     {(derivative.instrumentType || 'option').replace('_', ' ')}
                                   </Badge>
                                 </div>
-                                <p className="text-slate-400 text-sm">
+                                <p className="text-muted-foreground text-sm">
                                   {derivative.underlying} | Lot Size: {derivative.lotSize} | Expiry: {derivative.expiryDate}
                                 </p>
                               </div>
                               <div className="text-right">
-                                <p className="text-2xl font-bold text-white">₹{derivative.currentPremium.toFixed(2)}</p>
+                                <p className="text-2xl font-bold text-foreground">₹{derivative.currentPremium.toFixed(2)}</p>
                                 <p className={`text-sm flex items-center justify-end gap-1 ${getConfidenceColor(derivative.confidence)}`}>
                                   <Star className="h-3 w-3" />
                                   {derivative.confidence}% Confidence
@@ -797,72 +797,72 @@ export default function AgentStockAI() {
                             </div>
 
                             <div className="grid grid-cols-5 gap-4 mb-4">
-                              <div className="bg-slate-800/50 rounded-lg p-3">
-                                <p className="text-xs text-slate-400">Entry</p>
-                                <p className="text-lg font-semibold text-white">₹{derivative.entryPrice.toFixed(2)}</p>
+                              <div className="bg-card/50 rounded-lg p-3">
+                                <p className="text-xs text-muted-foreground">Entry</p>
+                                <p className="text-lg font-semibold text-foreground">₹{derivative.entryPrice.toFixed(2)}</p>
                               </div>
-                              <div className="bg-slate-800/50 rounded-lg p-3">
-                                <p className="text-xs text-slate-400">Target</p>
+                              <div className="bg-card/50 rounded-lg p-3">
+                                <p className="text-xs text-muted-foreground">Target</p>
                                 <p className="text-lg font-semibold text-green-400">₹{derivative.targetPrice.toFixed(2)}</p>
                               </div>
-                              <div className="bg-slate-800/50 rounded-lg p-3">
-                                <p className="text-xs text-slate-400">Stop Loss</p>
+                              <div className="bg-card/50 rounded-lg p-3">
+                                <p className="text-xs text-muted-foreground">Stop Loss</p>
                                 <p className="text-lg font-semibold text-red-400">₹{derivative.stopLoss.toFixed(2)}</p>
                               </div>
                               {derivative.breakeven && (
-                                <div className="bg-slate-800/50 rounded-lg p-3">
-                                  <p className="text-xs text-slate-400">Breakeven</p>
+                                <div className="bg-card/50 rounded-lg p-3">
+                                  <p className="text-xs text-muted-foreground">Breakeven</p>
                                   <p className="text-lg font-semibold text-yellow-400">₹{derivative.breakeven.toFixed(2)}</p>
                                 </div>
                               )}
-                              <div className="bg-slate-800/50 rounded-lg p-3">
-                                <p className="text-xs text-slate-400">Max Profit/Loss</p>
+                              <div className="bg-card/50 rounded-lg p-3">
+                                <p className="text-xs text-muted-foreground">Max Profit/Loss</p>
                                 <p className="text-sm font-semibold">
                                   <span className="text-green-400">+₹{derivative.maxProfit?.toLocaleString()}</span>
-                                  <span className="text-slate-500"> / </span>
+                                  <span className="text-muted-foreground"> / </span>
                                   <span className="text-red-400">-₹{derivative.maxLoss?.toLocaleString()}</span>
                                 </p>
                               </div>
                             </div>
 
                             {derivative.greeks && (
-                              <div className="bg-slate-800/30 rounded-lg p-3 mb-4">
-                                <p className="text-xs text-slate-400 mb-2">Option Greeks</p>
+                              <div className="bg-card/30 rounded-lg p-3 mb-4">
+                                <p className="text-xs text-muted-foreground mb-2">Option Greeks</p>
                                 <div className="grid grid-cols-5 gap-4 text-xs">
                                   <div className="text-center">
-                                    <span className="text-slate-500 block">Delta</span>
-                                    <span className="text-white font-medium">{derivative.greeks.delta.toFixed(2)}</span>
+                                    <span className="text-muted-foreground block">Delta</span>
+                                    <span className="text-foreground font-medium">{derivative.greeks.delta.toFixed(2)}</span>
                                   </div>
                                   <div className="text-center">
-                                    <span className="text-slate-500 block">Gamma</span>
-                                    <span className="text-white font-medium">{derivative.greeks.gamma.toFixed(4)}</span>
+                                    <span className="text-muted-foreground block">Gamma</span>
+                                    <span className="text-foreground font-medium">{derivative.greeks.gamma.toFixed(4)}</span>
                                   </div>
                                   <div className="text-center">
-                                    <span className="text-slate-500 block">Theta</span>
+                                    <span className="text-muted-foreground block">Theta</span>
                                     <span className="text-red-400 font-medium">{derivative.greeks.theta.toFixed(2)}</span>
                                   </div>
                                   <div className="text-center">
-                                    <span className="text-slate-500 block">Vega</span>
-                                    <span className="text-white font-medium">{derivative.greeks.vega.toFixed(2)}</span>
+                                    <span className="text-muted-foreground block">Vega</span>
+                                    <span className="text-foreground font-medium">{derivative.greeks.vega.toFixed(2)}</span>
                                   </div>
                                   <div className="text-center">
-                                    <span className="text-slate-500 block">IV</span>
+                                    <span className="text-muted-foreground block">IV</span>
                                     <span className="text-purple-400 font-medium">{derivative.greeks.iv.toFixed(1)}%</span>
                                   </div>
                                 </div>
                               </div>
                             )}
 
-                            <div className="bg-slate-800/30 rounded-lg p-3 mb-4">
-                              <p className="text-xs text-slate-400 mb-1">Strategy: {derivative.strategy}</p>
-                              <p className="text-sm text-slate-300">{derivative.aiRationale}</p>
+                            <div className="bg-card/30 rounded-lg p-3 mb-4">
+                              <p className="text-xs text-muted-foreground mb-1">Strategy: {derivative.strategy}</p>
+                              <p className="text-sm text-muted-foreground">{derivative.aiRationale}</p>
                             </div>
 
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-4">
                                 <div className="flex items-center gap-2">
                                   <ShieldAlert className={`h-4 w-4 ${getRiskColor(derivative.riskScore)}`} />
-                                  <span className="text-xs text-slate-400">Risk: {derivative.riskScore}/10</span>
+                                  <span className="text-xs text-muted-foreground">Risk: {derivative.riskScore}/10</span>
                                 </div>
                               </div>
                               <Button size="sm" className="bg-purple-600 hover:bg-purple-700" data-testid={`button-add-derivative-${derivative.id}`}>

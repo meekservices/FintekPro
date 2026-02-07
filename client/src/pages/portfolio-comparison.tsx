@@ -114,7 +114,7 @@ function PortfolioSearchInput({ onPortfolioSelect, selectedPortfolios }: {
       </div>
       
       {searchTerm && (
-        <div className="absolute z-10 w-full mt-1 bg-white dark:bg-muted border border-border dark:border-border rounded-md shadow-lg max-h-64 overflow-y-auto">
+        <div className="absolute z-10 w-full mt-1 bg-card border border-border rounded-md shadow-lg max-h-64 overflow-y-auto">
           {isLoading ? (
             <div className="p-4">
               <div className="space-y-2">
@@ -128,7 +128,7 @@ function PortfolioSearchInput({ onPortfolioSelect, selectedPortfolios }: {
               {filteredResults.map((portfolio) => (
                 <div
                   key={portfolio.id}
-                  className="px-4 py-3 hover:bg-muted dark:hover:bg-gray-700 cursor-pointer border-b border-gray-100 dark:border-border"
+                  className="px-4 py-3 hover:bg-muted cursor-pointer border-b border-border"
                   onClick={() => {
                     onPortfolioSelect(portfolio);
                     setSearchTerm("");
@@ -139,7 +139,7 @@ function PortfolioSearchInput({ onPortfolioSelect, selectedPortfolios }: {
                     <div>
                       <div className="font-medium text-sm">{portfolio.name}</div>
                       {portfolio.description && (
-                        <div className="text-xs text-muted-foreground dark:text-muted-foreground">{portfolio.description}</div>
+                        <div className="text-xs text-muted-foreground">{portfolio.description}</div>
                       )}
                     </div>
                     <div className="text-right">
@@ -150,7 +150,7 @@ function PortfolioSearchInput({ onPortfolioSelect, selectedPortfolios }: {
               ))}
             </div>
           ) : (
-            <div className="p-4 text-center text-muted-foreground dark:text-muted-foreground">
+            <div className="p-4 text-center text-muted-foreground">
               No portfolios found
             </div>
           )}
@@ -171,7 +171,7 @@ function SelectedPortfolioCard({ portfolio, onRemove }: {
           <div className="flex-1">
             <h3 className="font-semibold text-sm">{portfolio.name}</h3>
             {portfolio.description && (
-              <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">{portfolio.description}</p>
+              <p className="text-xs text-muted-foreground mt-1">{portfolio.description}</p>
             )}
             <div className="mt-2">
               <span className="text-lg font-bold text-green-600 dark:text-green-400">
@@ -207,7 +207,7 @@ function ComparisonResults({ comparison }: { comparison: PortfolioComparisonResu
       case "low": return "text-green-600 dark:text-green-400";
       case "moderate": return "text-yellow-600 dark:text-yellow-400";
       case "high": return "text-red-600 dark:text-red-400";
-      default: return "text-muted-foreground dark:text-muted-foreground";
+      default: return "text-muted-foreground";
     }
   };
 
@@ -472,7 +472,7 @@ function ComparisonResults({ comparison }: { comparison: PortfolioComparisonResu
                       <span>Equity</span>
                       <span className="font-semibold">{portfolio.assetAllocation.equity.toFixed(1)}%</span>
                     </div>
-                    <div className="w-full bg-muted dark:bg-gray-700 rounded-full h-2">
+                    <div className="w-full bg-muted rounded-full h-2">
                       <div 
                         className="bg-blue-600 h-2 rounded-full" 
                         style={{ width: `${portfolio.assetAllocation.equity}%` }}
@@ -483,7 +483,7 @@ function ComparisonResults({ comparison }: { comparison: PortfolioComparisonResu
                       <span>Debt</span>
                       <span className="font-semibold">{portfolio.assetAllocation.debt.toFixed(1)}%</span>
                     </div>
-                    <div className="w-full bg-muted dark:bg-gray-700 rounded-full h-2">
+                    <div className="w-full bg-muted rounded-full h-2">
                       <div 
                         className="bg-green-600 h-2 rounded-full" 
                         style={{ width: `${portfolio.assetAllocation.debt}%` }}
@@ -494,7 +494,7 @@ function ComparisonResults({ comparison }: { comparison: PortfolioComparisonResu
                       <span>Cash</span>
                       <span className="font-semibold">{portfolio.assetAllocation.cash.toFixed(1)}%</span>
                     </div>
-                    <div className="w-full bg-muted dark:bg-gray-700 rounded-full h-2">
+                    <div className="w-full bg-muted rounded-full h-2">
                       <div 
                         className="bg-yellow-600 h-2 rounded-full" 
                         style={{ width: `${portfolio.assetAllocation.cash}%` }}
@@ -505,7 +505,7 @@ function ComparisonResults({ comparison }: { comparison: PortfolioComparisonResu
                       <span>Others</span>
                       <span className="font-semibold">{portfolio.assetAllocation.others.toFixed(1)}%</span>
                     </div>
-                    <div className="w-full bg-muted dark:bg-gray-700 rounded-full h-2">
+                    <div className="w-full bg-muted rounded-full h-2">
                       <div 
                         className="bg-purple-600 h-2 rounded-full" 
                         style={{ width: `${portfolio.assetAllocation.others}%` }}
@@ -550,14 +550,14 @@ function ComparisonResults({ comparison }: { comparison: PortfolioComparisonResu
             AI Insights & Recommendations
           </CardTitle>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground dark:text-muted-foreground">Recommendation Score:</span>
+            <span className="text-sm text-muted-foreground">Recommendation Score:</span>
             <Badge variant={comparison.recommendationScore >= 8 ? "default" : comparison.recommendationScore >= 6 ? "secondary" : "destructive"}>
               {comparison.recommendationScore}/10
             </Badge>
           </div>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground dark:text-muted-foreground leading-relaxed">
+          <p className="text-muted-foreground leading-relaxed">
             {comparison.aiInsights}
           </p>
         </CardContent>
@@ -653,11 +653,11 @@ export default function PortfolioComparison() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-3">
+        <h1 className="text-3xl font-bold text-foreground mb-2 flex items-center gap-3">
           <FolderOpen className="h-8 w-8 text-blue-600" />
           Portfolio Comparison
         </h1>
-        <p className="text-muted-foreground dark:text-muted-foreground">
+        <p className="text-muted-foreground">
           Compare multiple portfolios side by side to analyze performance, risk metrics, and asset allocation.
         </p>
       </div>
@@ -789,10 +789,10 @@ export default function PortfolioComparison() {
         <Card>
           <CardContent className="text-center py-12">
             <PieChart className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+            <h3 className="text-lg font-semibold text-foreground mb-2">
               No Portfolios Selected
             </h3>
-            <p className="text-muted-foreground dark:text-muted-foreground mb-6">
+            <p className="text-muted-foreground mb-6">
               Start by searching and selecting portfolios you want to compare.
             </p>
           </CardContent>

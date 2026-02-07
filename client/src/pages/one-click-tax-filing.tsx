@@ -313,7 +313,7 @@ export default function OneClickTaxFiling() {
                       <p className="text-sm text-muted-foreground">{source.recordsCount} records</p>
                     </div>
                     <Badge className={
-                      source.status === 'connected' ? 'bg-green-100 text-green-800' : 'bg-muted text-foreground'
+                      source.status === 'connected' ? 'bg-green-100 text-green-800' : 'bg-muted text-white'
                     }>
                       {source.status}
                     </Badge>

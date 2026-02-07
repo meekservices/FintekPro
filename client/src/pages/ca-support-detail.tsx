@@ -212,7 +212,7 @@ export default function CASupportDetail() {
       case "blocked":
         return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
       default:
-        return "bg-muted text-foreground dark:bg-muted dark:text-muted-foreground";
+        return "bg-muted text-foreground";
     }
   };
 
@@ -238,7 +238,7 @@ export default function CASupportDetail() {
       case "medium":
         return "bg-yellow-500 text-white";
       default:
-        return "bg-gray-500 text-white";
+        return "bg-muted text-foreground";
     }
   };
 
@@ -271,7 +271,7 @@ export default function CASupportDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-muted dark:bg-card">
+    <div className="min-h-screen bg-muted">
       <div className="container mx-auto p-6">
         <div className="flex items-center gap-4 mb-6">
           <Button variant="ghost" onClick={() => setLocation("/partner/ca-support")} data-testid="button-back">
@@ -280,11 +280,11 @@ export default function CASupportDetail() {
           </Button>
           <div className="flex-1">
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{ticket.subject}</h1>
+              <h1 className="text-2xl font-bold text-foreground">{ticket.subject}</h1>
               <Badge className={getPriorityColor(ticket.priority)}>{ticket.priority}</Badge>
               <Badge className={getStatusColor(ticket.status)}>{ticket.status}</Badge>
             </div>
-            <p className="text-muted-foreground dark:text-muted-foreground">
+            <p className="text-muted-foreground">
               {ticket.ticketNumber} • Created {new Date(ticket.createdAt).toLocaleDateString()}
             </p>
           </div>
@@ -451,7 +451,7 @@ export default function CASupportDetail() {
                               <div className="flex-1">
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">
-                                    <span className="font-medium text-gray-900 dark:text-white">
+                                    <span className="font-medium text-foreground">
                                       {step.stepNumber}. {step.title}
                                     </span>
                                     {step.isRequired && (
@@ -461,7 +461,7 @@ export default function CASupportDetail() {
                                   <Badge className={getStatusColor(step.status)}>{step.status}</Badge>
                                 </div>
                                 {step.description && (
-                                  <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">{step.description}</p>
+                                  <p className="text-sm text-muted-foreground mt-1">{step.description}</p>
                                 )}
                                 <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                                   <span className="flex items-center gap-1">
@@ -488,19 +488,19 @@ export default function CASupportDetail() {
                     <div className="space-y-4">
                       <div>
                         <Label className="text-sm text-muted-foreground">Description</Label>
-                        <p className="text-gray-900 dark:text-white mt-1">{ticket.description}</p>
+                        <p className="text-foreground mt-1">{ticket.description}</p>
                       </div>
                       <Separator />
                       <div>
                         <Label className="text-sm text-muted-foreground">Category</Label>
-                        <p className="text-gray-900 dark:text-white mt-1">{ticket.category}</p>
+                        <p className="text-foreground mt-1">{ticket.category}</p>
                       </div>
                       {template && (
                         <>
                           <Separator />
                           <div>
                             <Label className="text-sm text-muted-foreground">Template Applied</Label>
-                            <p className="text-gray-900 dark:text-white mt-1">{template.title}</p>
+                            <p className="text-foreground mt-1">{template.title}</p>
                             <p className="text-sm text-muted-foreground">{template.description}</p>
                           </div>
                         </>
@@ -584,7 +584,7 @@ export default function CASupportDetail() {
                   {selectedStep.description && (
                     <div>
                       <Label className="text-sm text-muted-foreground">Instructions</Label>
-                      <p className="mt-1 text-gray-900 dark:text-white">{selectedStep.description}</p>
+                      <p className="mt-1 text-foreground">{selectedStep.description}</p>
                     </div>
                   )}
 
@@ -598,7 +598,7 @@ export default function CASupportDetail() {
                       ) : (
                         <div className="space-y-3">
                           {comments.map((comment) => (
-                            <div key={comment.id} className={`p-3 rounded-lg ${comment.isInternal ? "bg-yellow-50 dark:bg-yellow-900/20" : "bg-muted dark:bg-muted"}`}>
+                            <div key={comment.id} className={`p-3 rounded-lg ${comment.isInternal ? "bg-yellow-50 dark:bg-yellow-900/20" : "bg-muted"}`}>
                               <div className="flex items-center gap-2 mb-1">
                                 <User className="h-3 w-3 text-muted-foreground" />
                                 <span className="text-xs text-muted-foreground">
@@ -650,7 +650,7 @@ export default function CASupportDetail() {
                     <User className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900 dark:text-white">{ticket.clientName}</p>
+                    <p className="font-medium text-foreground">{ticket.clientName}</p>
                     <p className="text-sm text-muted-foreground">Client</p>
                   </div>
                 </div>

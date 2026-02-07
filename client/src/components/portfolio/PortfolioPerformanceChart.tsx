@@ -149,19 +149,19 @@ function CustomTooltip({ active, payload, label }: any) {
     const isPositive = gain >= 0;
 
     return (
-      <div className="bg-slate-900 border border-slate-700 rounded-lg p-3 shadow-xl">
-        <p className="text-slate-400 text-xs mb-2">{label}</p>
+      <div className="bg-background border border-border rounded-lg p-3 shadow-xl">
+        <p className="text-muted-foreground text-xs mb-2">{label}</p>
         <div className="space-y-1">
           <div className="flex justify-between gap-4">
-            <span className="text-slate-400 text-sm">Value:</span>
-            <span className="text-white font-semibold">₹{value.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+            <span className="text-muted-foreground text-sm">Value:</span>
+            <span className="text-foreground font-semibold">₹{value.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
           </div>
           <div className="flex justify-between gap-4">
-            <span className="text-slate-400 text-sm">Invested:</span>
-            <span className="text-slate-300">₹{invested.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+            <span className="text-muted-foreground text-sm">Invested:</span>
+            <span className="text-muted-foreground">₹{invested.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
           </div>
-          <div className="flex justify-between gap-4 pt-1 border-t border-slate-700">
-            <span className="text-slate-400 text-sm">P&L:</span>
+          <div className="flex justify-between gap-4 pt-1 border-t border-border">
+            <span className="text-muted-foreground text-sm">P&L:</span>
             <span className={cn("font-semibold", isPositive ? "text-green-400" : "text-red-400")}>
               {isPositive ? "+" : ""}₹{gain.toLocaleString("en-IN", { maximumFractionDigits: 0 })} ({isPositive ? "+" : ""}{gainPercent}%)
             </span>
@@ -202,7 +202,7 @@ export function PortfolioPerformanceChart({
 
   if (isLoading) {
     return (
-      <Card className="border-slate-200 dark:border-slate-800" data-testid="performance-chart-loading">
+      <Card className="border-border" data-testid="performance-chart-loading">
         <CardHeader>
           <Skeleton className="h-6 w-48" />
         </CardHeader>
@@ -214,7 +214,7 @@ export function PortfolioPerformanceChart({
   }
 
   return (
-    <Card className="border-slate-200 dark:border-slate-800" data-testid="performance-chart">
+    <Card className="border-border" data-testid="performance-chart">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between mb-3">
           <CardTitle className="text-lg font-semibold">Portfolio Performance</CardTitle>
@@ -227,7 +227,7 @@ export function PortfolioPerformanceChart({
           </div>
         </div>
         
-        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 overflow-x-auto">
+        <div className="flex items-center gap-1 bg-muted rounded-lg p-1 overflow-x-auto">
           {timePeriods.map((period) => (
             <Button
               key={period.value}
@@ -236,8 +236,8 @@ export function PortfolioPerformanceChart({
               className={cn(
                 "h-7 px-2 sm:px-3 text-xs font-medium transition-all flex-shrink-0",
                 selectedPeriod === period.value
-                  ? "bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white"
-                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  ? "bg-card shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               )}
               onClick={() => setSelectedPeriod(period.value)}
               data-testid={`period-${period.value}`}
@@ -273,7 +273,7 @@ export function PortfolioPerformanceChart({
                   <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" className="dark:stroke-slate-700" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" className="dark:stroke-border" />
               <XAxis
                 dataKey="date"
                 axisLine={false}
@@ -315,14 +315,14 @@ export function PortfolioPerformanceChart({
           </ResponsiveContainer>
         </div>
 
-        <div className="flex items-center justify-center gap-6 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+        <div className="flex items-center justify-center gap-6 mt-4 pt-4 border-t border-border">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-gradient-to-r from-green-500 to-green-400" />
-            <span className="text-sm text-slate-600 dark:text-slate-400">Current Value</span>
+            <span className="text-sm text-muted-foreground">Current Value</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-0.5 bg-indigo-500 border-dashed" style={{ borderStyle: "dashed" }} />
-            <span className="text-sm text-slate-600 dark:text-slate-400">Invested Value</span>
+            <span className="text-sm text-muted-foreground">Invested Value</span>
           </div>
         </div>
       </CardContent>

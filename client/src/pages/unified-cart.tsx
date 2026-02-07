@@ -124,7 +124,7 @@ export default function UnifiedCart() {
     <div className="min-h-screen bg-finance-light" data-testid="unified-cart-page">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4 flex items-center gap-3">
+          <h1 className="text-4xl font-bold text-foreground mb-4 flex items-center gap-3">
             <ShoppingCart className="w-10 h-10 text-primary" />
             Investment Cart
           </h1>
@@ -207,7 +207,7 @@ export default function UnifiedCart() {
                     <Card className="border-dashed border-2 border-border">
                       <CardContent className="flex flex-col items-center justify-center py-16">
                         <ShoppingCart className="w-16 h-16 text-muted-foreground mb-4" />
-                        <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                        <h3 className="text-xl font-semibold text-foreground mb-2">
                           {tab === 'all' ? 'Your Cart is Empty' : `No ${tab.toUpperCase()} Items`}
                         </h3>
                         <p className="text-muted-foreground text-center max-w-md mb-4">
@@ -234,7 +234,7 @@ export default function UnifiedCart() {
                                   <div className="flex-1">
                                     <div className="flex items-center gap-2 mb-2">
                                       <IconComponent className="w-5 h-5 text-muted-foreground" />
-                                      <h4 className="font-semibold text-gray-900">
+                                      <h4 className="font-semibold text-foreground">
                                         {item.productName || item.schemeName || 'Investment Item'}
                                       </h4>
                                       <Badge className={config.color}>{config.label}</Badge>
@@ -251,7 +251,7 @@ export default function UnifiedCart() {
                                     </div>
                                   </div>
                                   <div className="text-right">
-                                    <p className="text-xl font-bold text-gray-900 flex items-center justify-end">
+                                    <p className="text-xl font-bold text-foreground flex items-center justify-end">
                                       <IndianRupee className="w-4 h-4" />
                                       {parseFloat(item.amount || item.quantity || '0').toLocaleString('en-IN')}
                                     </p>
@@ -370,7 +370,7 @@ export default function UnifiedCart() {
                 </div>
 
                 <Button 
-                  className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white font-semibold py-6"
+                  className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-foreground font-semibold py-6"
                   onClick={() => checkoutMutation.mutate(cartItems)}
                   disabled={checkoutMutation.isPending || cartItems.length === 0}
                   data-testid="unified-checkout-btn"

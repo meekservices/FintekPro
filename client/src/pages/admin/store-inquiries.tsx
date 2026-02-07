@@ -54,7 +54,7 @@ const statusColors: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
   contacted: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
   resolved: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-  cancelled: "bg-muted dark:bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground"
+  cancelled: "bg-muted text-muted-foreground"
 };
 
 const statusIcons: Record<string, any> = {
@@ -140,11 +140,11 @@ export default function AdminStoreInquiriesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-muted dark:bg-muted dark:bg-card p-6">
+    <div className="min-h-screen bg-muted p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
               <MessageSquare className="h-8 w-8 text-purple-600" />
               Store Inquiries Management
             </h1>
@@ -272,7 +272,7 @@ export default function AdminStoreInquiriesPage() {
                               <User className="h-5 w-5 text-purple-600" />
                             </div>
                             <div>
-                              <p className="font-medium text-gray-900 dark:text-white">{inquiry.name}</p>
+                              <p className="font-medium text-foreground">{inquiry.name}</p>
                               <p className="text-sm text-muted-foreground">{inquiry.email}</p>
                             </div>
                           </div>
@@ -283,7 +283,7 @@ export default function AdminStoreInquiriesPage() {
                               <Badge variant="outline" className="mr-2">{inquiry.categoryName}</Badge>
                             )}
                             {inquiry.productName && (
-                              <span className="text-sm text-muted-foreground dark:text-muted-foreground">{inquiry.productName}</span>
+                              <span className="text-sm text-muted-foreground">{inquiry.productName}</span>
                             )}
                           </div>
                         </TableCell>
@@ -375,7 +375,7 @@ export default function AdminStoreInquiriesPage() {
                 {selectedInquiry.message && (
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">Message</p>
-                    <p className="p-3 bg-muted dark:bg-muted dark:bg-muted rounded-lg text-sm">
+                    <p className="p-3 bg-muted rounded-lg text-sm">
                       {selectedInquiry.message}
                     </p>
                   </div>

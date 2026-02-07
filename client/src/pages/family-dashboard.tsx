@@ -387,7 +387,7 @@ export default function FamilyDashboard() {
       case 'member':
         return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
       case 'view_only':
-        return 'bg-muted text-foreground dark:bg-gray-700 dark:text-foreground';
+        return 'bg-muted text-foreground';
       default:
         return 'bg-muted text-foreground';
     }
@@ -412,14 +412,14 @@ export default function FamilyDashboard() {
 
   if (loadingFamily) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-6">
+      <div className="min-h-screen bg-gradient-to-br from-background to-muted p-6">
         <LoadingState variant="card" count={2} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted">
       <div className="container mx-auto p-6">
         {/* Header */}
         <div className="mb-8">
@@ -434,11 +434,11 @@ export default function FamilyDashboard() {
           </Button>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-4xl font-bold text-gray-900 dark:text-white flex items-center gap-3" data-testid="title-family-dashboard">
+              <h1 className="text-4xl font-bold text-foreground flex items-center gap-3" data-testid="title-family-dashboard">
                 <Users className="h-10 w-10 text-blue-600" />
                 {family?.name || 'Family Dashboard'}
               </h1>
-              <p className="text-muted-foreground dark:text-muted-foreground mt-2">
+              <p className="text-muted-foreground mt-2">
                 {family?.description || 'Collaborate with your family on financial planning'}
               </p>
             </div>
@@ -481,8 +481,8 @@ export default function FamilyDashboard() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Family Net Worth</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white" data-testid="text-net-worth">
+                      <p className="text-sm font-medium text-muted-foreground">Family Net Worth</p>
+                      <p className="text-2xl font-bold text-foreground" data-testid="text-net-worth">
                         {formatCurrency(dashboardStats?.totalNetWorth || 0)}
                       </p>
                     </div>
@@ -495,8 +495,8 @@ export default function FamilyDashboard() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Family Members</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white" data-testid="text-member-count">
+                      <p className="text-sm font-medium text-muted-foreground">Family Members</p>
+                      <p className="text-2xl font-bold text-foreground" data-testid="text-member-count">
                         {dashboardStats?.memberCount || 0}
                       </p>
                     </div>
@@ -509,8 +509,8 @@ export default function FamilyDashboard() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Active Goals</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white" data-testid="text-active-goals">
+                      <p className="text-sm font-medium text-muted-foreground">Active Goals</p>
+                      <p className="text-2xl font-bold text-foreground" data-testid="text-active-goals">
                         {dashboardStats?.activeGoalsCount || 0}
                       </p>
                     </div>
@@ -523,8 +523,8 @@ export default function FamilyDashboard() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Monthly Budget</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white" data-testid="text-monthly-budget">
+                      <p className="text-sm font-medium text-muted-foreground">Monthly Budget</p>
+                      <p className="text-2xl font-bold text-foreground" data-testid="text-monthly-budget">
                         {formatCurrency(dashboardStats?.totalMonthlyBudget || 0)}
                       </p>
                     </div>
@@ -554,7 +554,7 @@ export default function FamilyDashboard() {
                         <div key={activity.id} className="flex items-start gap-3" data-testid={`activity-item-${index}`}>
                           <Activity className="h-5 w-5 text-blue-600 mt-0.5" />
                           <div className="flex-1">
-                            <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            <p className="text-sm font-medium text-foreground">
                               {activity.action}
                             </p>
                             <p className="text-xs text-muted-foreground">
@@ -576,7 +576,7 @@ export default function FamilyDashboard() {
           {/* Members Tab */}
           <TabsContent value="members" className="space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Family Members</h2>
+              <h2 className="text-2xl font-bold text-foreground">Family Members</h2>
               {isAdmin && (
                 <Dialog open={isInviteMemberOpen} onOpenChange={setIsInviteMemberOpen}>
                   <DialogTrigger asChild>
@@ -666,7 +666,7 @@ export default function FamilyDashboard() {
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <p className="font-semibold text-gray-900 dark:text-white" data-testid={`text-member-name-${member.id}`}>
+                            <p className="font-semibold text-foreground" data-testid={`text-member-name-${member.id}`}>
                               {member.displayName || member.userName || 'Unknown'}
                             </p>
                             <Badge className={`gap-1 ${getRoleBadgeColor(member.role || 'member')}`} data-testid={`badge-member-role-${member.id}`}>
@@ -674,7 +674,7 @@ export default function FamilyDashboard() {
                               {member.role?.replace('_', ' ')}
                             </Badge>
                           </div>
-                          <p className="text-sm text-muted-foreground dark:text-muted-foreground" data-testid={`text-member-email-${member.id}`}>
+                          <p className="text-sm text-muted-foreground" data-testid={`text-member-email-${member.id}`}>
                             {member.userEmail || 'No email'}
                           </p>
                           <p className="text-xs text-muted-foreground mt-1">
@@ -743,7 +743,7 @@ export default function FamilyDashboard() {
           {/* Goals Tab */}
           <TabsContent value="goals" className="space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Family Goals</h2>
+              <h2 className="text-2xl font-bold text-foreground">Family Goals</h2>
               <Dialog open={isCreateGoalOpen} onOpenChange={setIsCreateGoalOpen}>
                 <DialogTrigger asChild>
                   <Button className="gap-2" data-testid="button-create-goal">
@@ -877,8 +877,8 @@ export default function FamilyDashboard() {
               <Card className="text-center py-12" data-testid="card-no-goals">
                 <CardContent>
                   <Target className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No Goals Yet</h3>
-                  <p className="text-muted-foreground dark:text-muted-foreground mb-6">
+                  <h3 className="text-xl font-semibold text-foreground mb-2">No Goals Yet</h3>
+                  <p className="text-muted-foreground mb-6">
                     Create your first family goal to start tracking progress
                   </p>
                   <Button onClick={() => setIsCreateGoalOpen(true)} className="gap-2" data-testid="button-create-first-goal">
@@ -895,7 +895,7 @@ export default function FamilyDashboard() {
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white" data-testid={`text-goal-name-${goal.id}`}>
+                            <h3 className="text-lg font-semibold text-foreground" data-testid={`text-goal-name-${goal.id}`}>
                               {goal.goalName}
                             </h3>
                             <Badge className={getPriorityBadgeColor(goal.priority || 'medium')} data-testid={`badge-goal-priority-${goal.id}`}>
@@ -919,7 +919,7 @@ export default function FamilyDashboard() {
                       </div>
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground dark:text-muted-foreground">Progress</span>
+                          <span className="text-muted-foreground">Progress</span>
                           <span className="font-semibold" data-testid={`text-goal-progress-${goal.id}`}>
                             {formatCurrency(Number(goal.currentAmount) || 0)} / {formatCurrency(Number(goal.targetAmount))}
                           </span>
@@ -933,7 +933,7 @@ export default function FamilyDashboard() {
                         </div>
                       </div>
                       {goal.description && (
-                        <p className="mt-4 text-sm text-muted-foreground dark:text-muted-foreground" data-testid={`text-goal-description-${goal.id}`}>
+                        <p className="mt-4 text-sm text-muted-foreground" data-testid={`text-goal-description-${goal.id}`}>
                           {goal.description}
                         </p>
                       )}
@@ -1003,7 +1003,7 @@ export default function FamilyDashboard() {
           {/* Budgets Tab */}
           <TabsContent value="budgets" className="space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Family Budgets</h2>
+              <h2 className="text-2xl font-bold text-foreground">Family Budgets</h2>
               {isAdmin && (
                 <Dialog open={isCreateBudgetOpen} onOpenChange={setIsCreateBudgetOpen}>
                   <DialogTrigger asChild>
@@ -1141,8 +1141,8 @@ export default function FamilyDashboard() {
               <Card className="text-center py-12" data-testid="card-no-budgets">
                 <CardContent>
                   <DollarSign className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No Budgets Yet</h3>
-                  <p className="text-muted-foreground dark:text-muted-foreground mb-6">
+                  <h3 className="text-xl font-semibold text-foreground mb-2">No Budgets Yet</h3>
+                  <p className="text-muted-foreground mb-6">
                     {isAdmin ? 'Create your first family budget to track spending' : 'No budgets have been created yet'}
                   </p>
                   {isAdmin && (
@@ -1160,7 +1160,7 @@ export default function FamilyDashboard() {
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between mb-4">
                         <div>
-                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white" data-testid={`text-budget-name-${budget.id}`}>
+                          <h3 className="text-lg font-semibold text-foreground" data-testid={`text-budget-name-${budget.id}`}>
                             {budget.budgetName}
                           </h3>
                           <p className="text-sm text-muted-foreground capitalize">{budget.category} • {budget.period}</p>
@@ -1174,7 +1174,7 @@ export default function FamilyDashboard() {
                       </div>
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground dark:text-muted-foreground">Spent</span>
+                          <span className="text-muted-foreground">Spent</span>
                           <span className="font-semibold" data-testid={`text-budget-spend-${budget.id}`}>
                             {formatCurrency(Number(budget.currentSpend) || 0)} / {formatCurrency(Number(budget.monthlyLimit))}
                           </span>
@@ -1198,15 +1198,15 @@ export default function FamilyDashboard() {
 
           {/* Activity Tab */}
           <TabsContent value="activity" className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Family Activity</h2>
+            <h2 className="text-2xl font-bold text-foreground">Family Activity</h2>
             {loadingActivities ? (
               <LoadingState variant="list" count={5} />
             ) : activities.length === 0 ? (
               <Card className="text-center py-12" data-testid="card-no-activities">
                 <CardContent>
                   <Activity className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No Activities Yet</h3>
-                  <p className="text-muted-foreground dark:text-muted-foreground">
+                  <h3 className="text-xl font-semibold text-foreground mb-2">No Activities Yet</h3>
+                  <p className="text-muted-foreground">
                     Family activities will appear here as members interact
                   </p>
                 </CardContent>
@@ -1223,11 +1223,11 @@ export default function FamilyDashboard() {
                               <Activity className="h-5 w-5 text-blue-600" />
                             </div>
                             {index < activities.length - 1 && (
-                              <div className="w-px h-full bg-muted dark:bg-gray-700 mt-2" />
+                              <div className="w-px h-full bg-muted mt-2" />
                             )}
                           </div>
                           <div className="flex-1 pb-6">
-                            <p className="font-medium text-gray-900 dark:text-white" data-testid={`activity-action-${index}`}>
+                            <p className="font-medium text-foreground" data-testid={`activity-action-${index}`}>
                               {activity.action}
                             </p>
                             <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
@@ -1240,8 +1240,8 @@ export default function FamilyDashboard() {
                               </span>
                             </div>
                             {activity.metadata && typeof activity.metadata === 'object' && (
-                              <div className="mt-2 p-3 bg-muted dark:bg-muted rounded-lg text-sm">
-                                <pre className="text-xs text-muted-foreground dark:text-muted-foreground">
+                              <div className="mt-2 p-3 bg-muted rounded-lg text-sm">
+                                <pre className="text-xs text-muted-foreground">
                                   {JSON.stringify(activity.metadata, null, 2)}
                                 </pre>
                               </div>
@@ -1259,7 +1259,7 @@ export default function FamilyDashboard() {
           {/* Discussions Tab */}
           <TabsContent value="discussions" className="space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Family Discussions</h2>
+              <h2 className="text-2xl font-bold text-foreground">Family Discussions</h2>
               <Dialog open={isCreateDiscussionOpen} onOpenChange={setIsCreateDiscussionOpen}>
                 <DialogTrigger asChild>
                   <Button className="gap-2" data-testid="button-create-discussion">
@@ -1344,8 +1344,8 @@ export default function FamilyDashboard() {
               <Card className="text-center py-12" data-testid="card-no-discussions">
                 <CardContent>
                   <MessageSquare className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No Discussions Yet</h3>
-                  <p className="text-muted-foreground dark:text-muted-foreground mb-6">
+                  <h3 className="text-xl font-semibold text-foreground mb-2">No Discussions Yet</h3>
+                  <p className="text-muted-foreground mb-6">
                     Start a discussion to collaborate with your family members
                   </p>
                   <Button onClick={() => setIsCreateDiscussionOpen(true)} className="gap-2" data-testid="button-create-first-discussion">
@@ -1361,7 +1361,7 @@ export default function FamilyDashboard() {
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1">
-                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1" data-testid={`text-discussion-subject-${discussion.id}`}>
+                          <h3 className="text-lg font-semibold text-foreground mb-1" data-testid={`text-discussion-subject-${discussion.id}`}>
                             {discussion.subject}
                           </h3>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -1388,7 +1388,7 @@ export default function FamilyDashboard() {
                           )}
                         </div>
                       </div>
-                      <p className="text-muted-foreground dark:text-muted-foreground text-sm mb-3" data-testid={`text-discussion-content-${discussion.id}`}>
+                      <p className="text-muted-foreground text-sm mb-3" data-testid={`text-discussion-content-${discussion.id}`}>
                         {discussion.content}
                       </p>
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">

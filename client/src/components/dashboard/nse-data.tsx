@@ -95,7 +95,7 @@ export function NSEData() {
             </Badge>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-muted-foreground">
               Last updated: {new Date().toLocaleTimeString()}
             </p>
           </CardContent>
@@ -133,8 +133,8 @@ export function NSEData() {
                 {indices.length > 0 ? indices.slice(0, 8).map((index: NSEData, i: number) => (
                   <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex-1">
-                      <h4 className="font-semibold text-gray-900">{index.symbol || `Index ${i + 1}`}</h4>
-                      <p className="text-2xl font-bold text-gray-900">
+                      <h4 className="font-semibold text-foreground">{index.symbol || `Index ${i + 1}`}</h4>
+                      <p className="text-2xl font-bold text-foreground">
                         {index.ltp ? index.ltp.toFixed(2) : 'N/A'}
                       </p>
                     </div>
@@ -148,13 +148,13 @@ export function NSEData() {
                         </span>
                       </div>
                       {index.volume && (
-                        <p className="text-sm text-gray-500">Vol: {formatNumber(index.volume)}</p>
+                        <p className="text-sm text-muted-foreground">Vol: {formatNumber(index.volume)}</p>
                       )}
                     </div>
                   </div>
                 )) : (
                   <div className="text-center py-8">
-                    <p className="text-gray-500">Loading indices data...</p>
+                    <p className="text-muted-foreground">Loading indices data...</p>
                   </div>
                 )}
               </div>
@@ -165,8 +165,8 @@ export function NSEData() {
                 {gainers.length > 0 ? gainers.slice(0, 10).map((stock: NSEData, i: number) => (
                   <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex-1">
-                      <h4 className="font-semibold text-gray-900">{stock.symbol}</h4>
-                      <p className="text-lg font-bold text-gray-900">
+                      <h4 className="font-semibold text-foreground">{stock.symbol}</h4>
+                      <p className="text-lg font-bold text-foreground">
                         ₹{stock.ltp ? stock.ltp.toFixed(2) : 'N/A'}
                       </p>
                     </div>
@@ -178,13 +178,13 @@ export function NSEData() {
                         </span>
                       </div>
                       {stock.volume && (
-                        <p className="text-sm text-gray-500">Vol: {formatNumber(stock.volume)}</p>
+                        <p className="text-sm text-muted-foreground">Vol: {formatNumber(stock.volume)}</p>
                       )}
                     </div>
                   </div>
                 )) : (
                   <div className="text-center py-8">
-                    <p className="text-gray-500">Loading gainers data...</p>
+                    <p className="text-muted-foreground">Loading gainers data...</p>
                   </div>
                 )}
               </div>
@@ -195,8 +195,8 @@ export function NSEData() {
                 {losers.length > 0 ? losers.slice(0, 10).map((stock: NSEData, i: number) => (
                   <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex-1">
-                      <h4 className="font-semibold text-gray-900">{stock.symbol}</h4>
-                      <p className="text-lg font-bold text-gray-900">
+                      <h4 className="font-semibold text-foreground">{stock.symbol}</h4>
+                      <p className="text-lg font-bold text-foreground">
                         ₹{stock.ltp ? stock.ltp.toFixed(2) : 'N/A'}
                       </p>
                     </div>
@@ -208,13 +208,13 @@ export function NSEData() {
                         </span>
                       </div>
                       {stock.volume && (
-                        <p className="text-sm text-gray-500">Vol: {formatNumber(stock.volume)}</p>
+                        <p className="text-sm text-muted-foreground">Vol: {formatNumber(stock.volume)}</p>
                       )}
                     </div>
                   </div>
                 )) : (
                   <div className="text-center py-8">
-                    <p className="text-gray-500">Loading losers data...</p>
+                    <p className="text-muted-foreground">Loading losers data...</p>
                   </div>
                 )}
               </div>

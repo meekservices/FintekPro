@@ -140,7 +140,7 @@ const statusConfig: Record<string, { color: string; icon: any; label: string }> 
   live: { color: "bg-green-500", icon: Clock, label: "Live" },
   target_hit: { color: "bg-blue-500", icon: CheckCircle, label: "Target Hit" },
   stoploss_hit: { color: "bg-red-500", icon: XCircle, label: "Stoploss Hit" },
-  expired: { color: "bg-gray-500", icon: AlertCircle, label: "Expired" },
+  expired: { color: "bg-muted", icon: AlertCircle, label: "Expired" },
 };
 
 const riskColors: Record<string, string> = {
@@ -905,7 +905,7 @@ function PickCard({
   if (compact) {
     return (
       <div className="flex items-center gap-4 p-3 rounded-lg border hover:bg-accent/50 transition-colors">
-        <div className={`p-2 rounded-full ${status.color} text-white`}>
+        <div className={`p-2 rounded-full ${status.color} text-foreground`}>
           <Icon className="h-4 w-4" />
         </div>
         <div className="flex-1 min-w-0">
@@ -1006,7 +1006,7 @@ function PickCard({
                     </Tooltip>
                   </TooltipProvider>
                 )}
-                <Badge className={`${status.color} text-white`}>
+                <Badge className={`${status.color} text-foreground`}>
                   <StatusIcon className="h-3 w-3 mr-1" />
                   {status.label}
                 </Badge>

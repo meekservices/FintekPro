@@ -140,7 +140,7 @@ export function KYCStatusBanner() {
       <Alert className={`relative ${config.bgColor} border-2`}>
         <button
           onClick={handleDismiss}
-          className="absolute top-4 right-4 rounded-full p-1 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+          className="absolute top-4 right-4 rounded-full p-1 hover:bg-black/5 dark:hover:bg-card/10 transition-colors"
           aria-label="Dismiss banner"
           data-testid="dismiss-banner"
         >
@@ -150,7 +150,7 @@ export function KYCStatusBanner() {
         <div className="pr-8">
           <div className="flex flex-col md:flex-row md:items-start gap-4">
             <div className="flex-shrink-0">
-              <div className={`p-3 rounded-full bg-white/50 dark:bg-white/10`}>
+              <div className={`p-3 rounded-full bg-card/50/10`}>
                 <Icon className={`w-6 h-6 ${config.iconColor}`} />
               </div>
             </div>
@@ -190,7 +190,7 @@ export function KYCStatusBanner() {
                           className={`flex items-center gap-2 text-sm ${
                             benefit.available 
                               ? 'text-green-700 dark:text-green-400' 
-                              : 'text-muted-foreground dark:text-muted-foreground'
+                              : 'text-muted-foreground'
                           }`}
                           data-testid={`benefit-${index}`}
                         >
@@ -202,7 +202,7 @@ export function KYCStatusBanner() {
                   </div>
 
                   {kycData.nextAction && (
-                    <div className="bg-white/70 dark:bg-white/5 rounded-lg p-3 mb-4">
+                    <div className="bg-card/70/5 rounded-lg p-3 mb-4">
                       <div className="flex items-start gap-2">
                         <TrendingUp className={`w-4 h-4 mt-0.5 ${config.iconColor}`} />
                         <div>
@@ -222,7 +222,7 @@ export function KYCStatusBanner() {
                       kycLevel === 0
                         ? 'bg-yellow-600 hover:bg-yellow-700'
                         : 'bg-blue-600 hover:bg-blue-700'
-                    } text-white font-semibold shadow-lg`}
+                    } text-foreground font-semibold shadow-lg`}
                     data-testid="complete-kyc-button"
                   >
                     <ShieldCheck className="w-4 h-4 mr-2" />
@@ -231,7 +231,7 @@ export function KYCStatusBanner() {
                   </Button>
                 </Link>
 
-                <div className="text-xs text-muted-foreground dark:text-muted-foreground flex items-center">
+                <div className="text-xs text-muted-foreground flex items-center">
                   <Info className="w-3 h-3 mr-1" />
                   Takes only 5-10 minutes
                 </div>

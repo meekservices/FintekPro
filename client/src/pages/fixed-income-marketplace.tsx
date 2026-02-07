@@ -203,7 +203,7 @@ function PortfolioSummaryCard() {
               <Briefcase className="h-6 w-6 text-blue-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">Start Your Fixed Income Portfolio</h3>
+              <h3 className="font-semibold text-foreground">Start Your Fixed Income Portfolio</h3>
               <p className="text-muted-foreground text-sm">Explore bonds, NCDs, and government securities to build stable returns.</p>
             </div>
           </div>
@@ -224,11 +224,11 @@ function PortfolioSummaryCard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
             <p className="text-xs text-muted-foreground">Total Invested</p>
-            <p className="text-lg font-bold text-gray-900">₹{(summary.totalInvested / 100000).toFixed(2)}L</p>
+            <p className="text-lg font-bold text-foreground">₹{(summary.totalInvested / 100000).toFixed(2)}L</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Current Value</p>
-            <p className="text-lg font-bold text-gray-900">₹{(summary.currentValue / 100000).toFixed(2)}L</p>
+            <p className="text-lg font-bold text-foreground">₹{(summary.currentValue / 100000).toFixed(2)}L</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Unrealized P&L</p>
@@ -244,7 +244,7 @@ function PortfolioSummaryCard() {
         </div>
         <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-emerald-200">
           <div className="text-center">
-            <p className="text-2xl font-bold text-gray-900">{summary.holdingsCount}</p>
+            <p className="text-2xl font-bold text-foreground">{summary.holdingsCount}</p>
             <p className="text-xs text-muted-foreground">Holdings</p>
           </div>
           <div className="text-center">
@@ -291,7 +291,7 @@ function BondCard({ bond, onSelect, isWatchlisted, onToggleWatchlist }: {
           <div className="flex items-center gap-2">
             {getBondTypeIcon()}
             <div>
-              <h4 className="font-semibold text-gray-900 text-sm line-clamp-1">{bond.securityName}</h4>
+              <h4 className="font-semibold text-foreground text-sm line-clamp-1">{bond.securityName}</h4>
               <p className="text-xs text-muted-foreground">{bond.issuer}</p>
             </div>
           </div>
@@ -317,7 +317,7 @@ function BondCard({ bond, onSelect, isWatchlisted, onToggleWatchlist }: {
           <Badge variant="outline" className={getRatingColor(bond.creditRating)}>
             {bond.creditRating || 'Unrated'}
           </Badge>
-          <Badge variant="outline" className="bg-slate-50">
+          <Badge variant="outline" className="bg-muted">
             {bond.securityType}
           </Badge>
           {bond.taxStatus === 'tax_free' && (
@@ -330,7 +330,7 @@ function BondCard({ bond, onSelect, isWatchlisted, onToggleWatchlist }: {
         <div className="grid grid-cols-2 gap-3 text-sm mb-3">
           <div>
             <p className="text-muted-foreground text-xs">Coupon Rate</p>
-            <p className="font-semibold text-gray-900">{bond.couponRate}%</p>
+            <p className="font-semibold text-foreground">{bond.couponRate}%</p>
           </div>
           <div>
             <p className="text-muted-foreground text-xs">YTM</p>
@@ -550,7 +550,7 @@ function BondOrderDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-lg text-sm">
+          <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg text-sm">
             <div>
               <p className="text-muted-foreground">ISIN</p>
               <p className="font-semibold">{bond.isin}</p>
@@ -1822,7 +1822,7 @@ export default function FixedIncomeMarketplace() {
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Fixed Income Marketplace</h1>
+          <h1 className="text-2xl font-bold text-foreground">Fixed Income Marketplace</h1>
           <p className="text-muted-foreground">Browse and invest in bonds, NCDs, G-Secs, and Sovereign Gold Bonds</p>
         </div>
         <Button variant="outline" className="gap-2" data-testid="btn-calculator">

@@ -75,10 +75,10 @@ function ProposalsTab({ onApprove }: { onApprove: () => void }) {
       <Card className="border-dashed border-2 border-purple-200 bg-purple-50/50 dark:bg-purple-900/10">
         <CardContent className="flex flex-col items-center justify-center py-16">
           <Bot className="w-16 h-16 text-purple-400 mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+          <h3 className="text-xl font-semibold text-foreground mb-2">
             No Pending Proposals
           </h3>
-          <p className="text-muted-foreground dark:text-muted-foreground text-center max-w-md mb-4">
+          <p className="text-muted-foreground text-center max-w-md mb-4">
             AI-generated and agent recommendations will appear here based on your risk profile and investment goals.
           </p>
           <Button 
@@ -124,15 +124,15 @@ function ProposalsTab({ onApprove }: { onApprove: () => void }) {
                         </Badge>
                       )}
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    <h3 className="text-lg font-semibold text-foreground">
                       {proposal.title}
                     </h3>
-                    <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
+                    <p className="text-sm text-muted-foreground mt-1">
                       {proposal.description}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white flex items-center justify-end">
+                    <p className="text-2xl font-bold text-foreground flex items-center justify-end">
                       <IndianRupee className="w-5 h-5" />
                       {parseFloat(proposal.totalInvestmentAmount || '0').toLocaleString('en-IN')}
                     </p>
@@ -158,22 +158,22 @@ function ProposalsTab({ onApprove }: { onApprove: () => void }) {
                 )}
 
                 {/* Expected Outcomes */}
-                <div className="grid grid-cols-3 gap-4 mb-4 p-4 bg-muted dark:bg-muted rounded-lg">
+                <div className="grid grid-cols-3 gap-4 mb-4 p-4 bg-muted rounded-lg">
                   <div className="text-center">
-                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">Expected Return</p>
+                    <p className="text-sm text-muted-foreground">Expected Return</p>
                     <p className="text-lg font-bold text-emerald-600">
                       {proposal.expectedReturns ? `${proposal.expectedReturns}%` : 'N/A'}
                     </p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">Time Horizon</p>
-                    <p className="text-lg font-bold text-gray-900 dark:text-white">
+                    <p className="text-sm text-muted-foreground">Time Horizon</p>
+                    <p className="text-lg font-bold text-foreground">
                       {proposal.timeHorizon?.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) || 'N/A'}
                     </p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">Projected Value</p>
-                    <p className="text-lg font-bold text-gray-900 dark:text-white flex items-center justify-center">
+                    <p className="text-sm text-muted-foreground">Projected Value</p>
+                    <p className="text-lg font-bold text-foreground flex items-center justify-center">
                       <IndianRupee className="w-4 h-4" />
                       {proposal.projectedValue ? parseFloat(proposal.projectedValue).toLocaleString('en-IN') : 'N/A'}
                     </p>
@@ -299,10 +299,10 @@ function MfCartTab({ onCheckout }: { onCheckout: () => void }) {
       <Card className="border-dashed border-2 border-orange-200 bg-orange-50/50 dark:bg-orange-900/10">
         <CardContent className="flex flex-col items-center justify-center py-16">
           <ShoppingCart className="w-16 h-16 text-orange-400 mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+          <h3 className="text-xl font-semibold text-foreground mb-2">
             Your Cart is Empty
           </h3>
-          <p className="text-muted-foreground dark:text-muted-foreground text-center max-w-md mb-4">
+          <p className="text-muted-foreground text-center max-w-md mb-4">
             Approve investment proposals to add them to your cart for checkout.
           </p>
         </CardContent>
@@ -321,7 +321,7 @@ function MfCartTab({ onCheckout }: { onCheckout: () => void }) {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
                     <Package className="w-5 h-5 text-orange-600" />
-                    <h4 className="font-semibold text-gray-900 dark:text-white">
+                    <h4 className="font-semibold text-foreground">
                       {item.productName || item.schemeName || 'Investment Item'}
                     </h4>
                   </div>
@@ -337,7 +337,7 @@ function MfCartTab({ onCheckout }: { onCheckout: () => void }) {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-xl font-bold text-gray-900 dark:text-white flex items-center justify-end">
+                  <p className="text-xl font-bold text-foreground flex items-center justify-end">
                     <IndianRupee className="w-4 h-4" />
                     {parseFloat(item.amount || item.quantity || '0').toLocaleString('en-IN')}
                   </p>
@@ -417,7 +417,7 @@ function MfCartTab({ onCheckout }: { onCheckout: () => void }) {
             </div>
 
             <Button 
-              className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold py-6"
+              className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-foreground font-semibold py-6"
               onClick={() => checkoutMutation.mutate()}
               disabled={checkoutMutation.isPending || cartItems.length === 0}
               data-testid="checkout-btn"
@@ -484,7 +484,7 @@ function MfOrderProgressTracker({ order }: { order: any }) {
     <div className="space-y-4">
       <div className="relative">
         {/* Progress Bar Background */}
-        <div className="absolute top-5 left-0 right-0 h-1 bg-muted dark:bg-gray-700 rounded-full" />
+        <div className="absolute top-5 left-0 right-0 h-1 bg-muted rounded-full" />
         {/* Progress Bar Fill */}
         <div 
           className="absolute top-5 left-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500"
@@ -506,7 +506,7 @@ function MfOrderProgressTracker({ order }: { order: any }) {
                       ? 'bg-emerald-500 text-white'
                       : isCurrent
                       ? 'bg-emerald-100 dark:bg-emerald-900 text-emerald-600 border-2 border-emerald-500 animate-pulse'
-                      : 'bg-muted dark:bg-muted text-muted-foreground'
+                      : 'bg-muted text-muted-foreground'
                   }`}
                 >
                   <StageIcon className="w-5 h-5" />
@@ -541,18 +541,18 @@ function FundCard({ fund, sebiData, onInvestClick }: { fund: MutualFundData; seb
   );
   
   return (
-    <Card className="group hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 overflow-hidden" data-testid={`fund-card-${fund.schemeCode}`}>
+    <Card className="group hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50 dark:from-card dark:to-background overflow-hidden" data-testid={`fund-card-${fund.schemeCode}`}>
       <div className="absolute inset-0 bg-gradient-to-r from-finance-blue/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
       <CardContent className="relative p-6">
         <div className="flex justify-between items-start mb-6">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-2 h-2 rounded-full bg-finance-blue animate-pulse" />
-              <h3 className="font-bold text-gray-900 dark:text-white text-lg line-clamp-2 group-hover:text-finance-blue transition-colors">{fund.schemeName}</h3>
+              <h3 className="font-bold text-foreground text-lg line-clamp-2 group-hover:text-finance-blue transition-colors">{fund.schemeName}</h3>
             </div>
             <div className="flex items-center gap-2 mb-3">
               <Building2 className="w-4 h-4 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground dark:text-muted-foreground font-medium">{fund.fundHouse}</p>
+              <p className="text-sm text-muted-foreground font-medium">{fund.fundHouse}</p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               {fund.category && (
@@ -582,7 +582,7 @@ function FundCard({ fund, sebiData, onInvestClick }: { fund: MutualFundData; seb
           </div>
         </div>
         
-        <div className="bg-white dark:bg-muted rounded-xl p-4 shadow-sm border border-gray-100 dark:border-border mb-4">
+        <div className="bg-card rounded-xl p-4 shadow-sm border border-border mb-4">
           <div className="grid grid-cols-3 gap-4 text-center">
             <div className="group-hover:scale-105 transition-transform">
               <div className="flex items-center justify-center mb-1">
@@ -590,8 +590,8 @@ function FundCard({ fund, sebiData, onInvestClick }: { fund: MutualFundData; seb
                   <TrendingUp className="w-4 h-4 text-finance-blue" />
                 </div>
               </div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">₹{navValue.toFixed(2)}</p>
-              <p className="text-xs text-muted-foreground dark:text-muted-foreground font-medium">Current NAV</p>
+              <p className="text-2xl font-bold text-foreground">₹{navValue.toFixed(2)}</p>
+              <p className="text-xs text-muted-foreground font-medium">Current NAV</p>
             </div>
             <div className="group-hover:scale-105 transition-transform">
               <div className="flex items-center justify-center mb-1">
@@ -605,7 +605,7 @@ function FundCard({ fund, sebiData, onInvestClick }: { fund: MutualFundData; seb
               <p className={`text-xl font-bold ${changeValue >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                 {changeValue >= 0 ? '+' : ''}₹{changeValue.toFixed(2)}
               </p>
-              <p className="text-xs text-muted-foreground dark:text-muted-foreground font-medium">Daily Change</p>
+              <p className="text-xs text-muted-foreground font-medium">Daily Change</p>
             </div>
             <div className="group-hover:scale-105 transition-transform">
               <div className="flex items-center justify-center mb-1">
@@ -616,7 +616,7 @@ function FundCard({ fund, sebiData, onInvestClick }: { fund: MutualFundData; seb
               <p className={`text-xl font-bold flex items-center justify-center ${changePercent >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                 {changePercent >= 0 ? '+' : ''}{changePercent.toFixed(2)}%
               </p>
-              <p className="text-xs text-muted-foreground dark:text-muted-foreground font-medium">% Change</p>
+              <p className="text-xs text-muted-foreground font-medium">% Change</p>
             </div>
           </div>
         </div>
@@ -632,7 +632,7 @@ function FundCard({ fund, sebiData, onInvestClick }: { fund: MutualFundData; seb
               {[1, 2, 3, 4, 5].map((star) => (
                 <Star
                   key={star}
-                  className={`w-4 h-4 ${star <= ((fund as any).fintekproRating || (fund as any).rating || 5) ? 'text-yellow-400 fill-current' : 'text-gray-300 dark:text-gray-600'}`}
+                  className={`w-4 h-4 ${star <= ((fund as any).fintekproRating || (fund as any).rating || 5) ? 'text-yellow-400 fill-current' : 'text-muted-foreground'}`}
                 />
               ))}
             </div>
@@ -642,7 +642,7 @@ function FundCard({ fund, sebiData, onInvestClick }: { fund: MutualFundData; seb
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           <Button 
             size="sm" 
-            className="w-full sm:flex-1 bg-gradient-to-r from-finance-blue to-blue-600 hover:from-blue-600 hover:to-finance-blue text-white font-medium shadow-lg hover:shadow-xl transition-all duration-300 group-hover:scale-105" 
+            className="w-full sm:flex-1 bg-gradient-to-r from-finance-blue to-blue-600 hover:from-blue-600 hover:to-finance-blue text-foreground font-medium shadow-lg hover:shadow-xl transition-all duration-300 group-hover:scale-105" 
             data-testid={`invest-${fund.schemeCode}`} 
             onClick={() => onInvestClick(fund)}
           >
@@ -652,7 +652,7 @@ function FundCard({ fund, sebiData, onInvestClick }: { fund: MutualFundData; seb
           <Button 
             size="sm" 
             variant="outline" 
-            className="w-full sm:flex-1 border-border dark:border-border hover:bg-muted dark:hover:bg-muted hover:border-finance-blue hover:text-finance-blue transition-all duration-300 group-hover:scale-105" 
+            className="w-full sm:flex-1 border-border hover:bg-muted hover:border-finance-blue hover:text-finance-blue transition-all duration-300 group-hover:scale-105" 
             data-testid={`details-${fund.schemeCode}`}
           >
             <Award className="w-4 h-4 mr-1.5" />
@@ -909,7 +909,7 @@ export default function MutualFunds() {
             className={`w-4 h-4 ${star <= rating ? 'text-yellow-400 fill-current' : 'text-muted-foreground'}`}
           />
         ))}
-        <span className="text-xs text-muted-foreground dark:text-muted-foreground ml-1">FintekPro</span>
+        <span className="text-xs text-muted-foreground ml-1">FintekPro</span>
       </div>
     );
   };
@@ -917,12 +917,12 @@ export default function MutualFunds() {
   // Performance Table Component
   const FundPerformanceTable = ({ category }: { category: typeof fundCategories[0] }) => {
     return (
-      <div className="bg-white dark:bg-muted rounded-xl shadow-sm border border-gray-100 dark:border-border overflow-hidden">
-        <div className="px-6 py-4 bg-gradient-to-r from-finance-blue/5 to-blue-50 dark:from-finance-blue/10 dark:to-gray-800 border-b border-gray-100 dark:border-border">
+      <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
+        <div className="px-6 py-4 bg-gradient-to-r from-finance-blue/5 to-blue-50 dark:from-finance-blue/10 dark:to-card border-b border-border">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{category.name}</h3>
-              <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">{category.description}</p>
+              <h3 className="text-xl font-semibold text-foreground">{category.name}</h3>
+              <p className="text-sm text-muted-foreground mt-1">{category.description}</p>
               <div className="flex items-center gap-2 mt-2">
                 <div className="px-2 py-1 bg-finance-blue/10 text-finance-blue text-xs font-medium rounded">
                   Risk: {category.riskLevel}
@@ -934,33 +934,33 @@ export default function MutualFunds() {
         
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-muted dark:bg-gray-700">
+            <thead className="bg-muted">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground dark:text-muted-foreground uppercase tracking-wider" data-testid="table-header-fund">Fund Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground dark:text-muted-foreground uppercase tracking-wider" data-testid="table-header-fintekpro-rating">FintekPro Rating</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground dark:text-muted-foreground uppercase tracking-wider" data-testid="table-header-aum">AUM</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground dark:text-muted-foreground uppercase tracking-wider" data-testid="table-header-1m">1M</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground dark:text-muted-foreground uppercase tracking-wider" data-testid="table-header-6m">6M</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground dark:text-muted-foreground uppercase tracking-wider" data-testid="table-header-1y">1Y</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground dark:text-muted-foreground uppercase tracking-wider" data-testid="table-header-3y">3Y</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground dark:text-muted-foreground uppercase tracking-wider" data-testid="table-header-5y">5Y</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground dark:text-muted-foreground uppercase tracking-wider" data-testid="table-header-action">Action</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider" data-testid="table-header-fund">Fund Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider" data-testid="table-header-fintekpro-rating">FintekPro Rating</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider" data-testid="table-header-aum">AUM</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider" data-testid="table-header-1m">1M</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider" data-testid="table-header-6m">6M</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider" data-testid="table-header-1y">1Y</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider" data-testid="table-header-3y">3Y</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider" data-testid="table-header-5y">5Y</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider" data-testid="table-header-action">Action</th>
               </tr>
             </thead>
-            <tbody className="bg-white dark:bg-muted divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className="bg-card divide-y divide-gray-200 dark:divide-border">
               {category.funds.map((fund, index) => (
-                <tr key={fund.fundName} className="hover:bg-muted dark:hover:bg-gray-700 transition-colors" data-testid={`fund-row-${index}`}>
+                <tr key={fund.fundName} className="hover:bg-muted transition-colors" data-testid={`fund-row-${index}`}>
                   <td className="px-6 py-4" data-testid={`fund-name-${index}`}>
                     <div>
-                      <div className="font-medium text-gray-900 dark:text-white">{fund.fundName}</div>
-                      <div className="text-sm text-muted-foreground dark:text-muted-foreground">{fund.fundHouse}</div>
+                      <div className="font-medium text-foreground">{fund.fundName}</div>
+                      <div className="text-sm text-muted-foreground">{fund.fundHouse}</div>
                       <div className="text-xs text-muted-foreground">NAV: ₹{fund.nav}</div>
                     </div>
                   </td>
                   <td className="px-6 py-4" data-testid={`fund-fintekpro-rating-${index}`}>
                     <FintekProSmartRating rating={fund.crisil} />
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 dark:text-white font-medium" data-testid={`fund-aum-${index}`}>
+                  <td className="px-6 py-4 text-sm text-foreground font-medium" data-testid={`fund-aum-${index}`}>
                     {fund.aum}
                   </td>
                   <td className="px-6 py-4" data-testid={`fund-1m-${index}`}>
@@ -1024,8 +1024,8 @@ export default function MutualFunds() {
           </table>
         </div>
         
-        <div className="px-6 py-4 bg-muted dark:bg-gray-700 border-t border-gray-100 dark:border-border">
-          <div className="flex items-center justify-between text-sm text-muted-foreground dark:text-muted-foreground">
+        <div className="px-6 py-4 bg-muted border-t border-border">
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
@@ -1155,10 +1155,10 @@ export default function MutualFunds() {
         {/* MoneyControl-Inspired Header */}
         <div className="mb-8" data-testid="mf-header">
           {/* Market Overview Banner */}
-          <div className="bg-white dark:bg-card border-b border-border dark:border-border mb-6">
+          <div className="bg-card border-b border-border mb-6">
             <div className="px-6 py-4">
               <div className="flex items-center justify-between">
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Mutual Funds</h1>
+                <h1 className="text-3xl font-bold text-foreground">Mutual Funds</h1>
                 <div className="flex items-center gap-4">
                   <Button 
                     onClick={handleRefreshAll} 
@@ -1196,11 +1196,11 @@ export default function MutualFunds() {
           {/* Market Indices & Stats */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             {/* NIFTY 50 */}
-            <Card className="border border-border dark:border-border">
+            <Card className="border border-border">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">NIFTY 50</p>
+                    <p className="text-sm text-muted-foreground">NIFTY 50</p>
                     {isLoadingNSE ? (
                       <Skeleton className="h-6 w-24" data-testid="nifty-value-loading" />
                     ) : nseError || !nseIndices?.data ? (
@@ -1209,7 +1209,7 @@ export default function MutualFunds() {
                         <p className="text-lg font-semibold" data-testid="nifty-value-error">24,286.50*</p>
                       </div>
                     ) : (
-                      <p className="text-lg font-semibold dark:text-white" data-testid="nifty-value">
+                      <p className="text-lg font-semibold" data-testid="nifty-value">
                         {(() => {
                           const niftyData = nseIndices.data.find(index => 
                             index.symbol.toUpperCase().includes('NIFTY') || 
@@ -1259,11 +1259,11 @@ export default function MutualFunds() {
             </Card>
             
             {/* SENSEX */}
-            <Card className="border border-border dark:border-border">
+            <Card className="border border-border">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">SENSEX</p>
+                    <p className="text-sm text-muted-foreground">SENSEX</p>
                     {isLoadingNSE ? (
                       <Skeleton className="h-6 w-24" data-testid="sensex-value-loading" />
                     ) : nseError || !nseIndices?.data ? (
@@ -1272,7 +1272,7 @@ export default function MutualFunds() {
                         <p className="text-lg font-semibold" data-testid="sensex-value-error">79,943.71*</p>
                       </div>
                     ) : (
-                      <p className="text-lg font-semibold dark:text-white" data-testid="sensex-value">
+                      <p className="text-lg font-semibold" data-testid="sensex-value">
                         {(() => {
                           const sensexData = nseIndices.data.find(index => 
                             index.symbol.toUpperCase().includes('SENSEX') || 
@@ -1322,15 +1322,15 @@ export default function MutualFunds() {
             </Card>
 
             {/* Total AUM */}
-            <Card className="border border-border dark:border-border">
+            <Card className="border border-border">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">Total AUM</p>
+                    <p className="text-sm text-muted-foreground">Total AUM</p>
                     {isLoadingAll ? (
                       <Skeleton className="h-6 w-20" data-testid="total-aum-loading" />
                     ) : (
-                      <p className="text-lg font-semibold dark:text-white" data-testid="total-aum">
+                      <p className="text-lg font-semibold" data-testid="total-aum">
                         {allFunds && allFunds.length > 0 
                           ? `₹${(allFunds.length * 185.5).toFixed(0)} Cr` 
                           : '₹41.16 L Cr*'
@@ -1347,15 +1347,15 @@ export default function MutualFunds() {
             </Card>
 
             {/* Active Schemes */}
-            <Card className="border border-border dark:border-border">
+            <Card className="border border-border">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">Active Schemes</p>
+                    <p className="text-sm text-muted-foreground">Active Schemes</p>
                     {isLoadingAll ? (
                       <Skeleton className="h-6 w-16" data-testid="active-schemes-loading" />
                     ) : (
-                      <p className="text-lg font-semibold dark:text-white" data-testid="active-schemes">
+                      <p className="text-lg font-semibold" data-testid="active-schemes">
                         {allFunds ? allFunds.length.toLocaleString() : '1,245*'}
                       </p>
                     )}
@@ -1377,10 +1377,10 @@ export default function MutualFunds() {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                      <TrendingUp className="w-5 h-5 text-white" />
+                      <TrendingUp className="w-5 h-5 text-foreground" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900 dark:text-white">Portfolio Value</h3>
+                      <h3 className="font-semibold text-foreground">Portfolio Value</h3>
                       <p className="text-sm text-blue-600 dark:text-blue-400">Current Investment</p>
                     </div>
                   </div>
@@ -1389,14 +1389,14 @@ export default function MutualFunds() {
                   {isLoadingPerformance ? (
                     <Skeleton className="h-8 w-32" data-testid="portfolio-value-loading" />
                   ) : portfolioPerformance ? (
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white" data-testid="portfolio-value">
+                    <p className="text-2xl font-bold text-foreground" data-testid="portfolio-value">
                       ₹{portfolioPerformance.totalCurrentValue ? 
                         parseFloat(portfolioPerformance.totalCurrentValue).toLocaleString('en-IN') : 
                         '2,45,670*'
                       }
                     </p>
                   ) : (
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white" data-testid="portfolio-value-fallback">₹2,45,670*</p>
+                    <p className="text-2xl font-bold text-foreground" data-testid="portfolio-value-fallback">₹2,45,670*</p>
                   )}
                   
                   {isLoadingPerformance ? (
@@ -1433,10 +1433,10 @@ export default function MutualFunds() {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
-                      <Calculator className="w-5 h-5 text-white" />
+                      <Calculator className="w-5 h-5 text-foreground" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900 dark:text-white">SIP Investments</h3>
+                      <h3 className="font-semibold text-foreground">SIP Investments</h3>
                       <p className="text-sm text-green-600 dark:text-green-400">Monthly Contribution</p>
                     </div>
                   </div>
@@ -1445,14 +1445,14 @@ export default function MutualFunds() {
                   {isLoadingHoldings ? (
                     <Skeleton className="h-8 w-24" data-testid="sip-value-loading" />
                   ) : portfolioHoldings ? (
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white" data-testid="sip-value">
+                    <p className="text-2xl font-bold text-foreground" data-testid="sip-value">
                       ₹{portfolioHoldings.length > 0 ? 
                         (portfolioHoldings.length * 5000).toLocaleString('en-IN') : 
                         '15,000*'
                       }
                     </p>
                   ) : (
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white" data-testid="sip-value-fallback">₹15,000*</p>
+                    <p className="text-2xl font-bold text-foreground" data-testid="sip-value-fallback">₹15,000*</p>
                   )}
                   
                   {isLoadingHoldings ? (
@@ -1478,10 +1478,10 @@ export default function MutualFunds() {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
-                      <Star className="w-5 h-5 text-white" />
+                      <Star className="w-5 h-5 text-foreground" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900 dark:text-white">Goal Progress</h3>
+                      <h3 className="font-semibold text-foreground">Goal Progress</h3>
                       <p className="text-sm text-purple-600 dark:text-purple-400">Financial Goals</p>
                     </div>
                   </div>
@@ -1490,7 +1490,7 @@ export default function MutualFunds() {
                   {isLoadingPerformance ? (
                     <Skeleton className="h-8 w-16" data-testid="goal-progress-loading" />
                   ) : portfolioPerformance && portfolioPerformance.totalGainLossPercent ? (
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white" data-testid="goal-progress">
+                    <p className="text-2xl font-bold text-foreground" data-testid="goal-progress">
                       {(() => {
                         const gainPercent = parseFloat(portfolioPerformance.totalGainLossPercent);
                         const progressPercent = Math.min(100, Math.max(0, 50 + (gainPercent * 2)));
@@ -1498,7 +1498,7 @@ export default function MutualFunds() {
                       })()}
                     </p>
                   ) : (
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white" data-testid="goal-progress-fallback">67%*</p>
+                    <p className="text-2xl font-bold text-foreground" data-testid="goal-progress-fallback">67%*</p>
                   )}
                   
                   {isLoadingPerformance ? (
@@ -1525,10 +1525,10 @@ export default function MutualFunds() {
         </div>
 
         {/* Search and Filter */}
-        <div className="mb-8 p-8 bg-white dark:bg-muted rounded-2xl shadow-xl border border-gray-100 dark:border-border" data-testid="search-filter">
+        <div className="mb-8 p-8 bg-card rounded-2xl shadow-xl border border-border" data-testid="search-filter">
           <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Find Your Perfect Fund</h2>
-            <p className="text-muted-foreground dark:text-muted-foreground text-sm">Use our advanced filters to discover funds that match your investment goals</p>
+            <h2 className="text-xl font-semibold text-foreground mb-2">Find Your Perfect Fund</h2>
+            <p className="text-muted-foreground text-sm">Use our advanced filters to discover funds that match your investment goals</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="relative group">
@@ -1538,14 +1538,14 @@ export default function MutualFunds() {
                 placeholder="Search funds, AMC, schemes..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-12 h-12 border-2 border-border dark:border-border focus:border-finance-blue transition-all duration-300 bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm"
+                className="pl-12 h-12 border-2 border-border focus:border-finance-blue transition-all duration-300 bg-card/50/50 backdrop-blur-sm"
                 data-testid="mf-search-input"
               />
               <Search className="absolute left-4 top-4 h-4 w-4 text-finance-blue" />
             </div>
             
             <Select value={selectedFilterCategory} onValueChange={setSelectedFilterCategory}>
-              <SelectTrigger className="h-12 border-2 border-border dark:border-border focus:border-finance-blue bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm" data-testid="category-select">
+              <SelectTrigger className="h-12 border-2 border-border focus:border-finance-blue bg-card/50/50 backdrop-blur-sm" data-testid="category-select">
                 <div className="flex items-center gap-2">
                   <TrendingUp className="w-4 h-4 text-finance-blue" />
                   <SelectValue placeholder="Fund Category" />
@@ -1562,7 +1562,7 @@ export default function MutualFunds() {
             </Select>
 
             <Select value={selectedRisk} onValueChange={setSelectedRisk}>
-              <SelectTrigger className="h-12 border-2 border-border dark:border-border focus:border-finance-blue bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm" data-testid="risk-select">
+              <SelectTrigger className="h-12 border-2 border-border focus:border-finance-blue bg-card/50/50 backdrop-blur-sm" data-testid="risk-select">
                 <div className="flex items-center gap-2">
                   <Shield className="w-4 h-4 text-finance-blue" />
                   <SelectValue placeholder="Risk Level" />
@@ -1577,7 +1577,7 @@ export default function MutualFunds() {
               </SelectContent>
             </Select>
 
-            <Button variant="outline" className="h-12 border-2 border-border dark:border-border hover:border-finance-blue hover:bg-finance-blue/5 transition-all duration-300 bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm">
+            <Button variant="outline" className="h-12 border-2 border-border hover:border-finance-blue hover:bg-finance-blue/5 transition-all duration-300 bg-card/50/50 backdrop-blur-sm">
               <Filter className="h-4 w-4 mr-2" />
               Advanced Filters
             </Button>
@@ -1598,45 +1598,45 @@ export default function MutualFunds() {
                   <Award className="w-6 h-6 text-finance-blue" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-lg text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                  <h3 className="font-semibold text-lg text-foreground mb-2 flex items-center gap-2">
                     About FintekPro Smart Rating
                     <Badge variant="secondary" className="bg-finance-blue/10 text-finance-blue">Transparent Methodology</Badge>
                   </h3>
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground mb-3">
+                  <p className="text-sm text-muted-foreground mb-3">
                     FintekPro Smart Rating is our proprietary fund rating system (1-5 stars, where 1 = exceptional performance). 
                     It's calculated using industry-standard quantitative metrics with complete transparency.
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
-                    <div className="bg-white/60 dark:bg-muted/60 rounded-lg p-3 border border-border dark:border-border">
+                    <div className="bg-card/60/60 rounded-lg p-3 border border-border">
                       <div className="flex items-center gap-2 mb-1">
                         <TrendingUp className="w-4 h-4 text-green-600" />
-                        <span className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground">Risk-Adjusted Returns</span>
+                        <span className="text-xs font-semibold text-muted-foreground">Risk-Adjusted Returns</span>
                       </div>
-                      <p className="text-xs text-muted-foreground dark:text-muted-foreground">40% weight • 1Y, 3Y, 5Y performance</p>
+                      <p className="text-xs text-muted-foreground">40% weight • 1Y, 3Y, 5Y performance</p>
                     </div>
-                    <div className="bg-white/60 dark:bg-muted/60 rounded-lg p-3 border border-border dark:border-border">
+                    <div className="bg-card/60/60 rounded-lg p-3 border border-border">
                       <div className="flex items-center gap-2 mb-1">
                         <Shield className="w-4 h-4 text-blue-600" />
-                        <span className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground">Asset Quality</span>
+                        <span className="text-xs font-semibold text-muted-foreground">Asset Quality</span>
                       </div>
-                      <p className="text-xs text-muted-foreground dark:text-muted-foreground">30% weight • AUM & fund house reputation</p>
+                      <p className="text-xs text-muted-foreground">30% weight • AUM & fund house reputation</p>
                     </div>
-                    <div className="bg-white/60 dark:bg-muted/60 rounded-lg p-3 border border-border dark:border-border">
+                    <div className="bg-card/60/60 rounded-lg p-3 border border-border">
                       <div className="flex items-center gap-2 mb-1">
                         <RefreshCw className="w-4 h-4 text-purple-600" />
-                        <span className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground">Liquidity Score</span>
+                        <span className="text-xs font-semibold text-muted-foreground">Liquidity Score</span>
                       </div>
-                      <p className="text-xs text-muted-foreground dark:text-muted-foreground">20% weight • Fund size & redemption ease</p>
+                      <p className="text-xs text-muted-foreground">20% weight • Fund size & redemption ease</p>
                     </div>
-                    <div className="bg-white/60 dark:bg-muted/60 rounded-lg p-3 border border-border dark:border-border">
+                    <div className="bg-card/60/60 rounded-lg p-3 border border-border">
                       <div className="flex items-center gap-2 mb-1">
                         <AlertCircle className="w-4 h-4 text-orange-600" />
-                        <span className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground">Concentration Risk</span>
+                        <span className="text-xs font-semibold text-muted-foreground">Concentration Risk</span>
                       </div>
-                      <p className="text-xs text-muted-foreground dark:text-muted-foreground">10% weight • Portfolio diversification</p>
+                      <p className="text-xs text-muted-foreground">10% weight • Portfolio diversification</p>
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-3 italic">
+                  <p className="text-xs text-muted-foreground mt-3 italic">
                     Note: FintekPro Smart Ratings are calculated ratings, not official third-party ratings. They're based on transparent, quantitative analysis of fund metrics.
                   </p>
                 </div>
@@ -1646,11 +1646,11 @@ export default function MutualFunds() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-          <ScrollableTabsList className="grid w-full grid-cols-9 h-14 p-1 bg-muted dark:bg-muted rounded-xl">
+          <ScrollableTabsList className="grid w-full grid-cols-9 h-14 p-1 bg-muted rounded-xl">
             <TabsTrigger 
               value="store" 
               data-testid="tab-marketplace"
-              className="flex items-center gap-2 h-12 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-finance-blue transition-all duration-300"
+              className="flex items-center gap-2 h-12 data-[state=active]:bg-card data-[state=active]:shadow-md data-[state=active]:text-finance-blue transition-all duration-300"
             >
               <Store className="w-4 h-4" />
               Marketplace
@@ -1658,7 +1658,7 @@ export default function MutualFunds() {
             <TabsTrigger 
               value="proposals" 
               data-testid="tab-proposals"
-              className="flex items-center gap-2 h-12 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-purple-600 transition-all duration-300"
+              className="flex items-center gap-2 h-12 data-[state=active]:bg-card data-[state=active]:shadow-md data-[state=active]:text-purple-600 transition-all duration-300"
             >
               <FileText className="w-4 h-4" />
               Proposals
@@ -1666,7 +1666,7 @@ export default function MutualFunds() {
             <TabsTrigger 
               value="cart" 
               data-testid="tab-cart"
-              className="flex items-center gap-2 h-12 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-orange-600 transition-all duration-300"
+              className="flex items-center gap-2 h-12 data-[state=active]:bg-card data-[state=active]:shadow-md data-[state=active]:text-orange-600 transition-all duration-300"
             >
               <ShoppingCart className="w-4 h-4" />
               Cart
@@ -1674,7 +1674,7 @@ export default function MutualFunds() {
             <TabsTrigger 
               value="orders" 
               data-testid="tab-orders"
-              className="flex items-center gap-2 h-12 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-finance-green transition-all duration-300"
+              className="flex items-center gap-2 h-12 data-[state=active]:bg-card data-[state=active]:shadow-md data-[state=active]:text-finance-green transition-all duration-300"
             >
               <ClipboardList className="w-4 h-4" />
               Orders
@@ -1682,7 +1682,7 @@ export default function MutualFunds() {
             <TabsTrigger 
               value="explore" 
               data-testid="tab-explore"
-              className="flex items-center gap-2 h-12 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-finance-blue transition-all duration-300"
+              className="flex items-center gap-2 h-12 data-[state=active]:bg-card data-[state=active]:shadow-md data-[state=active]:text-finance-blue transition-all duration-300"
             >
               <TrendingUp className="w-4 h-4" />
               Explore Funds
@@ -1690,7 +1690,7 @@ export default function MutualFunds() {
             <TabsTrigger 
               value="compliance" 
               data-testid="tab-compliance"
-              className="flex items-center gap-2 h-12 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-finance-blue transition-all duration-300"
+              className="flex items-center gap-2 h-12 data-[state=active]:bg-card data-[state=active]:shadow-md data-[state=active]:text-finance-blue transition-all duration-300"
             >
               <Shield className="w-4 h-4" />
               SEBI Data
@@ -1698,7 +1698,7 @@ export default function MutualFunds() {
             <TabsTrigger 
               value="sip" 
               data-testid="tab-sip"
-              className="flex items-center gap-2 h-12 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-finance-blue transition-all duration-300"
+              className="flex items-center gap-2 h-12 data-[state=active]:bg-card data-[state=active]:shadow-md data-[state=active]:text-finance-blue transition-all duration-300"
             >
               <Calculator className="w-4 h-4" />
               Start SIP
@@ -1706,7 +1706,7 @@ export default function MutualFunds() {
             <TabsTrigger 
               value="portfolio" 
               data-testid="tab-portfolio"
-              className="flex items-center gap-2 h-12 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-finance-blue transition-all duration-300"
+              className="flex items-center gap-2 h-12 data-[state=active]:bg-card data-[state=active]:shadow-md data-[state=active]:text-finance-blue transition-all duration-300"
             >
               <Building2 className="w-4 h-4" />
               My Portfolio
@@ -1714,7 +1714,7 @@ export default function MutualFunds() {
             <TabsTrigger 
               value="tools" 
               data-testid="tab-tools"
-              className="flex items-center gap-2 h-12 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-finance-blue transition-all duration-300"
+              className="flex items-center gap-2 h-12 data-[state=active]:bg-card data-[state=active]:shadow-md data-[state=active]:text-finance-blue transition-all duration-300"
             >
               <Award className="w-4 h-4" />
               Tools
@@ -1722,7 +1722,7 @@ export default function MutualFunds() {
             <TabsTrigger 
               value="history" 
               data-testid="tab-history"
-              className="flex items-center gap-2 h-12 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-finance-blue transition-all duration-300"
+              className="flex items-center gap-2 h-12 data-[state=active]:bg-card data-[state=active]:shadow-md data-[state=active]:text-finance-blue transition-all duration-300"
             >
               <Database className="w-4 h-4" />
               History
@@ -1732,14 +1732,14 @@ export default function MutualFunds() {
           {/* Store Tab - Published Funds from Database */}
           <TabsContent value="store" className="space-y-6" data-testid="store-funds">
             {/* Store Header & Filters */}
-            <div className="bg-white dark:bg-muted rounded-xl p-6 shadow-sm border border-border dark:border-border">
+            <div className="bg-card rounded-xl p-6 shadow-sm border border-border">
               <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between mb-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
                     <Store className="w-6 h-6 text-finance-blue" />
                     Mutual Fund Marketplace
                   </h2>
-                  <p className="text-muted-foreground dark:text-muted-foreground mt-1">
+                  <p className="text-muted-foreground mt-1">
                     Browse and invest in SEBI-registered mutual fund schemes
                   </p>
                 </div>
@@ -1835,16 +1835,16 @@ export default function MutualFunds() {
                   {publishedFundsData.funds.map((fund: any) => (
                     <Card 
                       key={fund.id} 
-                      className="group hover:shadow-xl hover:scale-[1.02] transition-all duration-300 border border-border dark:border-border"
+                      className="group hover:shadow-xl hover:scale-[1.02] transition-all duration-300 border border-border"
                       data-testid={`store-fund-card-${fund.schemeCode}`}
                     >
                       <CardContent className="p-6">
                         <div className="flex justify-between items-start mb-4">
                           <div className="flex-1">
-                            <h3 className="font-bold text-gray-900 dark:text-white line-clamp-2 group-hover:text-finance-blue transition-colors">
+                            <h3 className="font-bold text-foreground line-clamp-2 group-hover:text-finance-blue transition-colors">
                               {fund.schemeName}
                             </h3>
-                            <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1 flex items-center gap-1">
+                            <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
                               <Building2 className="w-3 h-3" />
                               {fund.fundHouse}
                             </p>
@@ -1877,15 +1877,15 @@ export default function MutualFunds() {
                           )}
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-4 mb-4 p-3 bg-muted dark:bg-muted rounded-lg">
+                        <div className="grid grid-cols-2 gap-4 mb-4 p-3 bg-muted rounded-lg">
                           <div>
-                            <p className="text-xs text-muted-foreground dark:text-muted-foreground">NAV</p>
-                            <p className="text-lg font-bold text-gray-900 dark:text-white">
+                            <p className="text-xs text-muted-foreground">NAV</p>
+                            <p className="text-lg font-bold text-foreground">
                               ₹{parseFloat(fund.nav || '0').toFixed(2)}
                             </p>
                           </div>
                           <div>
-                            <p className="text-xs text-muted-foreground dark:text-muted-foreground">1Y Returns</p>
+                            <p className="text-xs text-muted-foreground">1Y Returns</p>
                             <p className={`text-lg font-bold ${
                               parseFloat(fund.returns1y || '0') >= 0 
                                 ? 'text-green-600 dark:text-green-400' 
@@ -1952,7 +1952,7 @@ export default function MutualFunds() {
                       <ChevronLeft className="w-4 h-4 mr-1" />
                       Previous
                     </Button>
-                    <span className="text-sm text-muted-foreground dark:text-muted-foreground">
+                    <span className="text-sm text-muted-foreground">
                       Page {storePage} of {publishedFundsData.pagination.totalPages}
                     </span>
                     <Button
@@ -1969,13 +1969,13 @@ export default function MutualFunds() {
                 )}
               </>
             ) : (
-              <Card className="border-dashed border-2 border-border dark:border-border">
+              <Card className="border-dashed border-2 border-border">
                 <CardContent className="flex flex-col items-center justify-center py-16">
                   <Store className="h-16 w-16 text-muted-foreground mb-4" />
-                  <h3 className="text-xl font-semibold text-muted-foreground dark:text-muted-foreground mb-2">
+                  <h3 className="text-xl font-semibold text-muted-foreground mb-2">
                     No Published Funds
                   </h3>
-                  <p className="text-muted-foreground dark:text-muted-foreground text-center max-w-md mb-4">
+                  <p className="text-muted-foreground text-center max-w-md mb-4">
                     {storeSearchTerm || storeCategory !== 'all' || storeFundHouse !== 'all'
                       ? 'No funds match your current filters. Try adjusting your search criteria.'
                       : 'Mutual fund schemes will appear here once they are imported and published by the admin.'}
@@ -2004,11 +2004,11 @@ export default function MutualFunds() {
             <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
               <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
                     <FileText className="w-5 h-5 text-purple-600" />
                     Investment Proposals
                   </h2>
-                  <p className="text-muted-foreground dark:text-muted-foreground text-sm mt-1">
+                  <p className="text-muted-foreground text-sm mt-1">
                     Review AI-generated and agent recommendations tailored to your risk profile
                   </p>
                 </div>
@@ -2034,11 +2034,11 @@ export default function MutualFunds() {
             <div className="bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-xl p-4 border border-orange-200 dark:border-orange-800">
               <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
                     <ShoppingCart className="w-5 h-5 text-orange-600" />
                     Investment Cart
                   </h2>
-                  <p className="text-muted-foreground dark:text-muted-foreground text-sm mt-1">
+                  <p className="text-muted-foreground text-sm mt-1">
                     Review your approved investments and proceed to payment
                   </p>
                 </div>
@@ -2064,11 +2064,11 @@ export default function MutualFunds() {
             <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl p-4 border border-emerald-200 dark:border-emerald-800">
               <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
                     <ClipboardList className="w-5 h-5 text-emerald-600" />
                     Mutual Fund Order Execution
                   </h2>
-                  <p className="text-muted-foreground dark:text-muted-foreground text-sm mt-1">
+                  <p className="text-muted-foreground text-sm mt-1">
                     Place buy/sell orders with SEBI/RBI compliant pre-trade checks
                   </p>
                 </div>
@@ -2089,16 +2089,16 @@ export default function MutualFunds() {
             </div>
 
             {/* Two-Column Resizable Layout */}
-            <ResizablePanelGroup direction="horizontal" className="min-h-[700px] rounded-xl border border-border dark:border-border bg-white dark:bg-muted">
+            <ResizablePanelGroup direction="horizontal" className="min-h-[700px] rounded-xl border border-border bg-card">
               {/* Left Panel - Portfolio Holdings (40%) */}
               <ResizablePanel defaultSize={40} minSize={30} maxSize={50}>
                 <div className="h-full flex flex-col">
                   {/* Holdings Header */}
-                  <div className="p-4 border-b border-border dark:border-border bg-muted dark:bg-card">
+                  <div className="p-4 border-b border-border bg-muted">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Wallet className="w-5 h-5 text-finance-blue" />
-                        <h3 className="font-semibold text-gray-900 dark:text-white">My Holdings</h3>
+                        <h3 className="font-semibold text-foreground">My Holdings</h3>
                       </div>
                       <Button variant="ghost" size="sm" className="text-xs">
                         <RefreshCw className="w-3 h-3 mr-1" />
@@ -2106,15 +2106,15 @@ export default function MutualFunds() {
                       </Button>
                     </div>
                     <div className="grid grid-cols-2 gap-4 mt-3">
-                      <div className="bg-white dark:bg-muted rounded-lg p-3 border border-gray-100 dark:border-border">
-                        <p className="text-xs text-muted-foreground dark:text-muted-foreground">Total Investment</p>
-                        <p className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-1">
+                      <div className="bg-card rounded-lg p-3 border border-border">
+                        <p className="text-xs text-muted-foreground">Total Investment</p>
+                        <p className="text-lg font-bold text-foreground flex items-center gap-1">
                           <IndianRupee className="w-4 h-4" />
                           5,45,200
                         </p>
                       </div>
-                      <div className="bg-white dark:bg-muted rounded-lg p-3 border border-gray-100 dark:border-border">
-                        <p className="text-xs text-muted-foreground dark:text-muted-foreground">Current Value</p>
+                      <div className="bg-card rounded-lg p-3 border border-border">
+                        <p className="text-xs text-muted-foreground">Current Value</p>
                         <p className="text-lg font-bold text-emerald-600 flex items-center gap-1">
                           <IndianRupee className="w-4 h-4" />
                           6,12,340
@@ -2146,13 +2146,13 @@ export default function MutualFunds() {
                         ].map((holding, idx) => (
                           <TableRow 
                             key={idx} 
-                            className={`cursor-pointer hover:bg-muted dark:hover:bg-gray-700 ${selectedHolding?.id === holding.id ? 'bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500' : ''}`}
+                            className={`cursor-pointer hover:bg-muted ${selectedHolding?.id === holding.id ? 'bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500' : ''}`}
                             onClick={() => handleHoldingSelectForSell(holding)}
                             data-testid={`holding-row-${idx}`}
                           >
                             <TableCell>
                               <div>
-                                <p className="font-medium text-sm text-gray-900 dark:text-white line-clamp-1">{holding.schemeName}</p>
+                                <p className="font-medium text-sm text-foreground line-clamp-1">{holding.schemeName}</p>
                                 <p className="text-xs text-muted-foreground">NAV: ₹{holding.currentNav}</p>
                               </div>
                             </TableCell>
@@ -2160,7 +2160,7 @@ export default function MutualFunds() {
                               <p className="text-sm font-medium">{holding.units}</p>
                             </TableCell>
                             <TableCell className="text-right">
-                              <p className="text-sm font-medium text-gray-900 dark:text-white">₹{parseFloat(holding.currentValue).toLocaleString('en-IN')}</p>
+                              <p className="text-sm font-medium text-foreground">₹{parseFloat(holding.currentValue).toLocaleString('en-IN')}</p>
                               <p className="text-xs text-emerald-600">{holding.gain}</p>
                             </TableCell>
                             <TableCell className="text-right">
@@ -2196,7 +2196,7 @@ export default function MutualFunds() {
                     <div className="mt-6">
                       <div className="flex items-center gap-2 mb-3">
                         <Clock className="w-4 h-4 text-amber-600" />
-                        <h4 className="font-medium text-gray-900 dark:text-white text-sm">Pending Orders</h4>
+                        <h4 className="font-medium text-foreground text-sm">Pending Orders</h4>
                         <Badge variant="secondary" className="text-xs">2</Badge>
                       </div>
                       <div className="space-y-2">
@@ -2207,7 +2207,7 @@ export default function MutualFunds() {
                           <div key={idx} className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800" data-testid={`pending-order-${idx}`}>
                             <div className="flex justify-between items-start">
                               <div>
-                                <p className="text-sm font-medium text-gray-900 dark:text-white">{order.scheme}</p>
+                                <p className="text-sm font-medium text-foreground">{order.scheme}</p>
                                 <p className="text-xs text-muted-foreground">{order.time}</p>
                               </div>
                               <div className="text-right">
@@ -2232,15 +2232,15 @@ export default function MutualFunds() {
               <ResizablePanel defaultSize={60} minSize={50} maxSize={70}>
                 <div className="h-full flex flex-col">
                   {/* Action Panel Header */}
-                  <div className="p-4 border-b border-border dark:border-border bg-muted dark:bg-card">
+                  <div className="p-4 border-b border-border bg-muted">
                     <div className="flex items-center gap-2">
                       <ShoppingCart className="w-5 h-5 text-emerald-600" />
-                      <h3 className="font-semibold text-gray-900 dark:text-white">Place Order</h3>
+                      <h3 className="font-semibold text-foreground">Place Order</h3>
                     </div>
                   </div>
 
                   {/* Order Type Selector */}
-                  <div className="p-4 border-b border-gray-100 dark:border-border">
+                  <div className="p-4 border-b border-border">
                     <div className="flex gap-2">
                       <Button 
                         className={`flex-1 ${orderType === 'buy' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-transparent text-emerald-600 border-emerald-300 hover:bg-emerald-50'}`}
@@ -2285,7 +2285,7 @@ export default function MutualFunds() {
                                 <CardContent className="p-4">
                                   <div className="flex justify-between items-start">
                                     <div>
-                                      <h4 className="font-medium text-gray-900 dark:text-white text-sm">
+                                      <h4 className="font-medium text-foreground text-sm">
                                         {selectedHolding.schemeName || selectedHolding.scheme}
                                       </h4>
                                       <p className="text-xs text-muted-foreground mt-1">
@@ -2304,13 +2304,13 @@ export default function MutualFunds() {
                                   <div className="grid grid-cols-3 gap-4 mt-3 text-center">
                                     <div>
                                       <p className="text-xs text-muted-foreground">Available Units</p>
-                                      <p className="font-bold text-gray-900 dark:text-white">
+                                      <p className="font-bold text-foreground">
                                         {parseFloat(selectedHolding.units || '0').toFixed(3)}
                                       </p>
                                     </div>
                                     <div>
                                       <p className="text-xs text-muted-foreground">Current NAV</p>
-                                      <p className="font-bold text-gray-900 dark:text-white">
+                                      <p className="font-bold text-foreground">
                                         ₹{parseFloat(selectedHolding.currentNav || selectedHolding.nav || '0').toFixed(2)}
                                       </p>
                                     </div>
@@ -2339,7 +2339,7 @@ export default function MutualFunds() {
                             {selectedHolding && (
                               <>
                                 <div>
-                                  <label className="text-sm font-medium text-muted-foreground dark:text-muted-foreground mb-2 block">
+                                  <label className="text-sm font-medium text-muted-foreground mb-2 block">
                                     Redemption Type
                                   </label>
                                   <div className="flex gap-2">
@@ -2365,7 +2365,7 @@ export default function MutualFunds() {
                                 {/* Units Input for Partial Redemption */}
                                 {!redeemAllUnits && (
                                   <div>
-                                    <label className="text-sm font-medium text-muted-foreground dark:text-muted-foreground mb-2 block">
+                                    <label className="text-sm font-medium text-muted-foreground mb-2 block">
                                       Units to Redeem
                                     </label>
                                     <Input
@@ -2400,7 +2400,7 @@ export default function MutualFunds() {
 
                                 {/* Payout Bank Selection */}
                                 <div>
-                                  <label className="text-sm font-medium text-muted-foreground dark:text-muted-foreground mb-2 block">
+                                  <label className="text-sm font-medium text-muted-foreground mb-2 block">
                                     Credit Proceeds To
                                   </label>
                                   <Select value={orderPaymentMethod} onValueChange={setOrderPaymentMethod}>
@@ -2415,12 +2415,12 @@ export default function MutualFunds() {
                                 </div>
 
                                 {/* Redemption Summary */}
-                                <Card className="bg-muted dark:bg-card border-border dark:border-border">
+                                <Card className="bg-muted border-border">
                                   <CardContent className="p-4">
-                                    <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-3">Redemption Summary</h4>
+                                    <h4 className="font-medium text-foreground text-sm mb-3">Redemption Summary</h4>
                                     <div className="space-y-2 text-sm">
                                       <div className="flex justify-between">
-                                        <span className="text-muted-foreground dark:text-muted-foreground">Units to Redeem</span>
+                                        <span className="text-muted-foreground">Units to Redeem</span>
                                         <span className="font-medium">
                                           {redeemAllUnits 
                                             ? parseFloat(selectedHolding.units || '0').toFixed(3)
@@ -2429,21 +2429,21 @@ export default function MutualFunds() {
                                         </span>
                                       </div>
                                       <div className="flex justify-between">
-                                        <span className="text-muted-foreground dark:text-muted-foreground">Current NAV</span>
+                                        <span className="text-muted-foreground">Current NAV</span>
                                         <span className="font-medium">
                                           ₹{parseFloat(selectedHolding.currentNav || selectedHolding.nav || '0').toFixed(4)}
                                         </span>
                                       </div>
                                       <div className="flex justify-between">
-                                        <span className="text-muted-foreground dark:text-muted-foreground">Exit Load</span>
+                                        <span className="text-muted-foreground">Exit Load</span>
                                         <span className="font-medium text-amber-600">TBD at NAV date</span>
                                       </div>
                                       <div className="flex justify-between">
-                                        <span className="text-muted-foreground dark:text-muted-foreground">STT (0.001%)</span>
+                                        <span className="text-muted-foreground">STT (0.001%)</span>
                                         <span className="font-medium">~₹{(calculateSellValue() * 0.00001).toFixed(2)}</span>
                                       </div>
                                       <div className="flex justify-between border-t pt-2 mt-2">
-                                        <span className="font-semibold text-gray-900 dark:text-white">Estimated Proceeds</span>
+                                        <span className="font-semibold text-foreground">Estimated Proceeds</span>
                                         <span className="font-bold text-emerald-600">
                                           ₹{calculateSellValue().toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                                         </span>
@@ -2464,7 +2464,7 @@ export default function MutualFunds() {
                           <>
                             {/* Scheme Search */}
                             <div>
-                              <label className="text-sm font-medium text-muted-foreground dark:text-muted-foreground mb-2 block">
+                              <label className="text-sm font-medium text-muted-foreground mb-2 block">
                                 Search Scheme
                               </label>
                               <div className="relative">
@@ -2481,7 +2481,7 @@ export default function MutualFunds() {
 
                             {/* Folio Selection */}
                             <div>
-                              <label className="text-sm font-medium text-muted-foreground dark:text-muted-foreground mb-2 block">
+                              <label className="text-sm font-medium text-muted-foreground mb-2 block">
                                 Folio
                               </label>
                               <Select value={orderFolio} onValueChange={setOrderFolio}>
@@ -2498,7 +2498,7 @@ export default function MutualFunds() {
 
                             {/* Amount Input */}
                             <div>
-                              <label className="text-sm font-medium text-muted-foreground dark:text-muted-foreground mb-2 block">
+                              <label className="text-sm font-medium text-muted-foreground mb-2 block">
                                 Investment Amount
                               </label>
                               <div className="relative">
@@ -2530,7 +2530,7 @@ export default function MutualFunds() {
 
                             {/* Payment Method */}
                             <div>
-                              <label className="text-sm font-medium text-muted-foreground dark:text-muted-foreground mb-2 block">
+                              <label className="text-sm font-medium text-muted-foreground mb-2 block">
                                 Payment Method
                               </label>
                               <Select value={orderPaymentMethod} onValueChange={setOrderPaymentMethod}>
@@ -2572,25 +2572,25 @@ export default function MutualFunds() {
                             </Card>
 
                             {/* Order Summary */}
-                            <Card className="bg-muted dark:bg-card border-border dark:border-border">
+                            <Card className="bg-muted border-border">
                               <CardContent className="p-4">
-                                <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-3">Order Summary</h4>
+                                <h4 className="font-medium text-foreground text-sm mb-3">Order Summary</h4>
                                 <div className="space-y-2 text-sm">
                                   <div className="flex justify-between">
-                                    <span className="text-muted-foreground dark:text-muted-foreground">Investment Amount</span>
+                                    <span className="text-muted-foreground">Investment Amount</span>
                                     <span className="font-medium">₹{parseFloat(orderAmount || '0').toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                                   </div>
                                   <div className="flex justify-between">
-                                    <span className="text-muted-foreground dark:text-muted-foreground">Platform Fee</span>
+                                    <span className="text-muted-foreground">Platform Fee</span>
                                     <span className="font-medium text-emerald-600">₹0.00</span>
                                   </div>
                                   <div className="flex justify-between">
-                                    <span className="text-muted-foreground dark:text-muted-foreground">Stamp Duty (0.005%)</span>
+                                    <span className="text-muted-foreground">Stamp Duty (0.005%)</span>
                                     <span className="font-medium">₹{(parseFloat(orderAmount || '0') * 0.00005).toFixed(2)}</span>
                                   </div>
                                   <div className="flex justify-between border-t pt-2 mt-2">
-                                    <span className="font-semibold text-gray-900 dark:text-white">Total Payable</span>
-                                    <span className="font-bold text-gray-900 dark:text-white">
+                                    <span className="font-semibold text-foreground">Total Payable</span>
+                                    <span className="font-bold text-foreground">
                                       ₹{(parseFloat(orderAmount || '0') * 1.00005).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                                     </span>
                                   </div>
@@ -2625,7 +2625,7 @@ export default function MutualFunds() {
                   </div>
 
                   {/* Order Action Footer */}
-                  <div className="p-4 border-t border-border dark:border-border bg-muted dark:bg-card">
+                  <div className="p-4 border-t border-border bg-muted">
                     {orderType === 'sell' ? (
                       <>
                         <div className="flex gap-3">
@@ -2697,7 +2697,7 @@ export default function MutualFunds() {
             {/* Popular Funds */}
             <section>
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Popular Funds</h2>
+                <h2 className="text-2xl font-bold text-foreground">Popular Funds</h2>
                 {popularFunds && popularFunds.length > 0 && (
                   <Button 
                     variant="outline" 
@@ -2744,7 +2744,7 @@ export default function MutualFunds() {
             {filteredFunds.length > 0 && (
               <section ref={allFundsRef}>
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900">
+                  <h2 className="text-2xl font-bold text-foreground">
                     {searchTerm ? `Search Results (${filteredFunds.length})` : `All Mutual Funds (${filteredFunds.length})`}
                   </h2>
                 </div>
@@ -2990,7 +2990,7 @@ export default function MutualFunds() {
                 <CardContent className="space-y-4">
                   <div className="text-center py-8">
                     <TrendingUp className="h-12 w-12 text-finance-blue mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Build Wealth Systematically</h3>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">Build Wealth Systematically</h3>
                     <p className="text-muted-foreground mb-4">
                       Start your SIP with as little as ₹500 per month
                     </p>
@@ -3008,7 +3008,7 @@ export default function MutualFunds() {
             <Card className="border-dashed border-2 border-border">
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <Star className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No Investments Yet</h3>
+                <h3 className="text-lg font-semibold text-foreground mb-2">No Investments Yet</h3>
                 <p className="text-muted-foreground text-center mb-4">
                   Your mutual fund investments will appear here
                 </p>
@@ -3023,7 +3023,7 @@ export default function MutualFunds() {
               <Card className="hover:shadow-md transition-shadow cursor-pointer">
                 <CardContent className="p-6 text-center">
                   <Calculator className="h-12 w-12 text-finance-blue mx-auto mb-4" />
-                  <h3 className="font-bold text-gray-900 mb-2">SIP Calculator</h3>
+                  <h3 className="font-bold text-foreground mb-2">SIP Calculator</h3>
                   <p className="text-muted-foreground text-sm mb-4">
                     Calculate your SIP returns and plan investments
                   </p>
@@ -3034,7 +3034,7 @@ export default function MutualFunds() {
               <Card className="hover:shadow-md transition-shadow cursor-pointer">
                 <CardContent className="p-6 text-center">
                   <TrendingUp className="h-12 w-12 text-finance-green mx-auto mb-4" />
-                  <h3 className="font-bold text-gray-900 mb-2">Fund Comparison</h3>
+                  <h3 className="font-bold text-foreground mb-2">Fund Comparison</h3>
                   <p className="text-muted-foreground text-sm mb-4">
                     Compare mutual funds side by side
                   </p>
@@ -3045,7 +3045,7 @@ export default function MutualFunds() {
               <Card className="hover:shadow-md transition-shadow cursor-pointer">
                 <CardContent className="p-6 text-center">
                   <Star className="h-12 w-12 text-purple-600 mx-auto mb-4" />
-                  <h3 className="font-bold text-gray-900 mb-2">Goal Planner</h3>
+                  <h3 className="font-bold text-foreground mb-2">Goal Planner</h3>
                   <p className="text-muted-foreground text-sm mb-4">
                     Plan your financial goals with SIP
                   </p>

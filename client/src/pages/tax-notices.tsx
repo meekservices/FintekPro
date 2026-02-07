@@ -112,7 +112,7 @@ export default function TaxNoticesPage() {
             <FileWarning className="h-8 w-8 text-orange-500" />
             Tax Notices & Responses
           </h1>
-          <p className="text-muted-foreground dark:text-muted-foreground">Manage and respond to income tax notices</p>
+          <p className="text-muted-foreground">Manage and respond to income tax notices</p>
         </div>
         <Button className="gap-2" data-testid="button-upload-notice">
           <Upload className="h-4 w-4" /> Upload Notice
@@ -212,7 +212,7 @@ export default function TaxNoticesPage() {
                           <h4 className="font-semibold">{notice.noticeType}</h4>
                           {getPriorityBadge(notice.priority)}
                         </div>
-                        <p className="text-sm text-muted-foreground dark:text-muted-foreground">{notice.description}</p>
+                        <p className="text-sm text-muted-foreground">{notice.description}</p>
                         <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Calendar className="h-3 w-3" /> AY {notice.assessmentYear}

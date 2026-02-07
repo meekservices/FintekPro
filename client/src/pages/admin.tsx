@@ -91,16 +91,16 @@ function ApiStatusPanel() {
   const getOverallStatusColor = (status: string) => {
     switch (status) {
       case 'healthy':
-        return 'bg-gradient-to-r from-emerald-500 to-green-600 text-white';
+        return 'bg-gradient-to-r from-emerald-500 to-green-600 text-foreground';
       case 'partial':
-        return 'bg-gradient-to-r from-blue-500 to-cyan-600 text-white';
+        return 'bg-gradient-to-r from-blue-500 to-cyan-600 text-foreground';
       case 'degraded':
-        return 'bg-gradient-to-r from-amber-500 to-orange-600 text-white';
+        return 'bg-gradient-to-r from-amber-500 to-orange-600 text-foreground';
       case 'critical':
       case 'error':
-        return 'bg-gradient-to-r from-red-500 to-rose-600 text-white';
+        return 'bg-gradient-to-r from-red-500 to-rose-600 text-foreground';
       default:
-        return 'bg-gradient-to-r from-gray-500 to-slate-600 text-white';
+        return 'bg-gradient-to-r from-gray-500 to-slate-600 text-foreground';
     }
   };
 
@@ -117,7 +117,7 @@ function ApiStatusPanel() {
       case 'error':
         return 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400';
       default:
-        return 'bg-muted text-muted-foreground dark:bg-background dark:text-muted-foreground';
+        return 'bg-muted text-muted-foreground';
     }
   };
 
@@ -134,7 +134,7 @@ function ApiStatusPanel() {
       case 'error':
         return <ShieldAlert className="w-4 h-4 text-red-600 dark:text-red-400" />;
       default:
-        return <Monitor className="w-4 h-4 text-muted-foreground dark:text-muted-foreground" />;
+        return <Monitor className="w-4 h-4 text-muted-foreground" />;
     }
   };
 
@@ -149,7 +149,7 @@ function ApiStatusPanel() {
       case 'low':
         return 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-900';
       default:
-        return 'bg-muted text-muted-foreground border-border dark:bg-background dark:text-muted-foreground dark:border-gray-900';
+        return 'bg-muted text-muted-foreground border-border';
     }
   };
 
@@ -201,15 +201,15 @@ function ApiStatusPanel() {
       <Card className={`border-0 ${getOverallStatusColor((apiStatus as any)?.overall)}`}>
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-3 text-white">
+            <CardTitle className="flex items-center gap-3 text-foreground">
               <Monitor className="w-6 h-6" />
               System Status: {((apiStatus as any)?.overall || 'unknown').toUpperCase()}
             </CardTitle>
-            <div className="text-sm text-white/80">
+            <div className="text-sm text-foreground/80">
               Last updated: {(apiStatus as any)?.timestamp ? new Date((apiStatus as any).timestamp).toLocaleTimeString() : 'Unknown'}
             </div>
           </div>
-          <div className="text-sm text-white/90">
+          <div className="text-sm text-foreground/90">
             Comprehensive monitoring of all integrated APIs and system components
           </div>
         </CardHeader>
@@ -624,7 +624,7 @@ function AIBusinessIntelligenceDashboard() {
   return (
     <div className="space-y-6">
       {/* Header Section with Generate Button */}
-      <Card className="bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0">
+      <Card className="bg-gradient-to-r from-purple-600 to-pink-600 text-foreground border-0">
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -641,7 +641,7 @@ function AIBusinessIntelligenceDashboard() {
               disabled={generateInsights.isPending || insightsLoading}
               variant="secondary"
               size="lg"
-              className="bg-white text-purple-600 hover:bg-purple-50"
+              className="bg-card text-purple-600 hover:bg-purple-50"
               data-testid="button-generate-insights"
             >
               {generateInsights.isPending ? (
@@ -729,7 +729,7 @@ function AIBusinessIntelligenceDashboard() {
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg bg-gradient-to-br ${getCategoryColor(insight.category)} text-white`}>
+                    <div className={`p-2 rounded-lg bg-gradient-to-br ${getCategoryColor(insight.category)} text-foreground`}>
                       {getCategoryIcon(insight.category)}
                     </div>
                     <div>
@@ -929,9 +929,9 @@ export default function AdminPanel() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950">
+    <div className="min-h-screen bg-gradient-to-br from-background via-blue-50/30 to-indigo-50/30 dark:from-background dark:via-blue-950/30 dark:to-indigo-950/30">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 dark:from-blue-900 dark:via-indigo-900 dark:to-purple-900 text-white">
+      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 dark:from-blue-900 dark:via-indigo-900 dark:to-purple-900 text-foreground">
         <div className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-between">
             <div>
@@ -956,7 +956,7 @@ export default function AdminPanel() {
       <div className="container mx-auto px-4 py-8">
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
           {/* Grouped Navigation */}
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-3">
+          <div className="bg-background rounded-xl shadow-sm border border-border p-3">
             <div className="flex flex-wrap items-center gap-2">
               {/* Dashboard Group */}
               <DropdownMenu>
@@ -1214,7 +1214,7 @@ export default function AdminPanel() {
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6" data-testid="overview-content">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card className="bg-gradient-to-br from-blue-500 to-indigo-600 border-0 text-white">
+              <Card className="bg-gradient-to-br from-blue-500 to-indigo-600 border-0 text-foreground">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1228,7 +1228,7 @@ export default function AdminPanel() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-br from-emerald-500 to-green-600 border-0 text-white">
+              <Card className="bg-gradient-to-br from-emerald-500 to-green-600 border-0 text-foreground">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1242,7 +1242,7 @@ export default function AdminPanel() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-br from-purple-500 to-pink-600 border-0 text-white">
+              <Card className="bg-gradient-to-br from-purple-500 to-pink-600 border-0 text-foreground">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1256,7 +1256,7 @@ export default function AdminPanel() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-br from-orange-500 to-red-600 border-0 text-white">
+              <Card className="bg-gradient-to-br from-orange-500 to-red-600 border-0 text-foreground">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1431,7 +1431,7 @@ export default function AdminPanel() {
                         <TableRow key={user.id} data-testid={`user-row-${index}`}>
                           <TableCell>
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold">
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-foreground font-semibold">
                                 {user.firstName?.[0] || 'U'}
                               </div>
                               <div>
@@ -1485,7 +1485,7 @@ export default function AdminPanel() {
                 <h2 className="text-3xl font-bold">EUIN/ARN Integration</h2>
                 <p className="text-muted-foreground mt-1">Manage client-agent relationships for automated API integration</p>
               </div>
-              <Button className="bg-gradient-to-r from-purple-500 to-violet-600 text-white hover:from-purple-600 hover:to-violet-700" data-testid="button-add-relationship">
+              <Button className="bg-gradient-to-r from-purple-500 to-violet-600 text-foreground hover:from-purple-600 hover:to-violet-700" data-testid="button-add-relationship">
                 <Network className="w-4 h-4 mr-2" />
                 Add Relationship
               </Button>
@@ -1497,7 +1497,7 @@ export default function AdminPanel() {
                 <CardContent className="p-6">
                   <div className="flex items-center space-x-4">
                     <div className="p-3 bg-emerald-500 rounded-xl">
-                      <UserCheck className="w-6 h-6 text-white" />
+                      <UserCheck className="w-6 h-6 text-foreground" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Active Relationships</p>
@@ -1513,7 +1513,7 @@ export default function AdminPanel() {
                 <CardContent className="p-6">
                   <div className="flex items-center space-x-4">
                     <div className="p-3 bg-blue-500 rounded-xl">
-                      <Building className="w-6 h-6 text-white" />
+                      <Building className="w-6 h-6 text-foreground" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-blue-700 dark:text-blue-400">Unique Agents</p>
@@ -1529,7 +1529,7 @@ export default function AdminPanel() {
                 <CardContent className="p-6">
                   <div className="flex items-center space-x-4">
                     <div className="p-3 bg-purple-500 rounded-xl">
-                      <Zap className="w-6 h-6 text-white" />
+                      <Zap className="w-6 h-6 text-foreground" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-purple-700 dark:text-purple-400">Auto-Populated APIs</p>
@@ -1822,7 +1822,7 @@ export default function AdminPanel() {
                 <CardContent className="p-6">
                   <div className="flex items-center space-x-4">
                     <div className="p-3 bg-blue-500 rounded-xl">
-                      <TrendingUp className="w-6 h-6 text-white" />
+                      <TrendingUp className="w-6 h-6 text-foreground" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-blue-700 dark:text-blue-400">Revenue Growth</p>
@@ -1838,7 +1838,7 @@ export default function AdminPanel() {
                 <CardContent className="p-6">
                   <div className="flex items-center space-x-4">
                     <div className="p-3 bg-emerald-500 rounded-xl">
-                      <Users className="w-6 h-6 text-white" />
+                      <Users className="w-6 h-6 text-foreground" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">User Growth</p>
@@ -1854,7 +1854,7 @@ export default function AdminPanel() {
                 <CardContent className="p-6">
                   <div className="flex items-center space-x-4">
                     <div className="p-3 bg-purple-500 rounded-xl">
-                      <Target className="w-6 h-6 text-white" />
+                      <Target className="w-6 h-6 text-foreground" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-purple-700 dark:text-purple-400">Conversion Rate</p>
@@ -2055,7 +2055,7 @@ export default function AdminPanel() {
                 <CardContent className="p-6">
                   <div className="flex items-center space-x-4">
                     <div className="p-3 bg-amber-500 rounded-xl">
-                      <AlertTriangle className="w-6 h-6 text-white" />
+                      <AlertTriangle className="w-6 h-6 text-foreground" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-amber-700 dark:text-amber-400">Active Alerts</p>
@@ -2071,7 +2071,7 @@ export default function AdminPanel() {
                 <CardContent className="p-6">
                   <div className="flex items-center space-x-4">
                     <div className="p-3 bg-blue-500 rounded-xl">
-                      <ShieldCheck className="w-6 h-6 text-white" />
+                      <ShieldCheck className="w-6 h-6 text-foreground" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-blue-700 dark:text-blue-400">Compliance Events</p>

@@ -203,8 +203,8 @@ export default function CADashboard() {
   }
   
   return (
-    <div className="min-h-screen bg-muted dark:bg-card">
-      <div className="border-b bg-white dark:bg-muted">
+    <div className="min-h-screen bg-muted">
+      <div className="border-b bg-card">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -214,7 +214,7 @@ export default function CADashboard() {
                 </AvatarFallback>
               </Avatar>
               <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                <h1 className="text-xl font-bold text-foreground">
                   {profile?.name || 'CA Dashboard'}
                 </h1>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -526,19 +526,19 @@ export default function CADashboard() {
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                     <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">This Month</p>
+                      <p className="text-sm text-muted-foreground">This Month</p>
                       <p className="text-2xl font-bold text-green-600">₹{stats.thisMonthEarnings.toLocaleString()}</p>
                     </div>
                     <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Total Earnings</p>
+                      <p className="text-sm text-muted-foreground">Total Earnings</p>
                       <p className="text-2xl font-bold text-blue-600">₹{stats.totalEarnings.toLocaleString()}</p>
                     </div>
                     <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Pending</p>
+                      <p className="text-sm text-muted-foreground">Pending</p>
                       <p className="text-2xl font-bold text-yellow-600">₹0</p>
                     </div>
                     <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Avg per Case</p>
+                      <p className="text-sm text-muted-foreground">Avg per Case</p>
                       <p className="text-2xl font-bold text-purple-600">
                         ₹{stats.completedCases > 0 
                           ? Math.round(stats.totalEarnings / stats.completedCases).toLocaleString()
@@ -561,19 +561,19 @@ export default function CADashboard() {
                   <CardDescription>Your base fees by service type</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex justify-between items-center p-3 bg-muted dark:bg-muted rounded-lg">
+                  <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
                     <span>ITR-1</span>
                     <span className="font-semibold">₹500</span>
                   </div>
-                  <div className="flex justify-between items-center p-3 bg-muted dark:bg-muted rounded-lg">
+                  <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
                     <span>ITR-2</span>
                     <span className="font-semibold">₹1,500</span>
                   </div>
-                  <div className="flex justify-between items-center p-3 bg-muted dark:bg-muted rounded-lg">
+                  <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
                     <span>ITR-3</span>
                     <span className="font-semibold">₹3,000</span>
                   </div>
-                  <div className="flex justify-between items-center p-3 bg-muted dark:bg-muted rounded-lg">
+                  <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
                     <span>ITR-4</span>
                     <span className="font-semibold">₹2,000</span>
                   </div>

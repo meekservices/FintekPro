@@ -79,7 +79,7 @@ const TASK_TYPE_CONFIG = {
   proposal: { label: 'Proposal', icon: FileText, color: 'bg-emerald-500/20 text-emerald-400' },
   document: { label: 'Document', icon: FileText, color: 'bg-amber-500/20 text-amber-400' },
   alert: { label: 'Alert Action', icon: Bell, color: 'bg-orange-500/20 text-orange-400' },
-  custom: { label: 'Custom', icon: Target, color: 'bg-slate-500/20 text-slate-400' }
+  custom: { label: 'Custom', icon: Target, color: 'bg-muted/20 text-muted-foreground' }
 };
 
 const PRIORITY_CONFIG = {
@@ -89,7 +89,7 @@ const PRIORITY_CONFIG = {
 };
 
 const STATUS_CONFIG = {
-  pending: { label: 'Pending', color: 'bg-slate-500/20 text-slate-400' },
+  pending: { label: 'Pending', color: 'bg-muted/20 text-muted-foreground' },
   in_progress: { label: 'In Progress', color: 'bg-blue-500/20 text-blue-400' },
   completed: { label: 'Completed', color: 'bg-emerald-500/20 text-emerald-400' },
   overdue: { label: 'Overdue', color: 'bg-red-500/20 text-red-400' }
@@ -182,7 +182,7 @@ export default function AgentTasks() {
     if (days < 0) return 'text-red-400';
     if (days === 0) return 'text-orange-400';
     if (days <= 3) return 'text-amber-400';
-    return 'text-slate-400';
+    return 'text-muted-foreground';
   }
 
   function getDueDateLabel(dateStr: string, status: string) {
@@ -195,25 +195,25 @@ export default function AgentTasks() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 p-6">
+    <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <CheckCircle className="h-7 w-7 text-emerald-500" />
               Task Management
             </h1>
-            <p className="text-slate-400 mt-1">Track tasks, reminders, and follow-ups</p>
+            <p className="text-muted-foreground mt-1">Track tasks, reminders, and follow-ups</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search tasks..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 w-64 bg-slate-800 border-slate-700 text-white"
+                className="pl-10 w-64 bg-card border-border text-foreground"
                 data-testid="input-search-tasks"
               />
             </div>
@@ -224,31 +224,31 @@ export default function AgentTasks() {
                   Add Task
                 </Button>
               </DialogTrigger>
-              <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-lg">
+              <DialogContent className="bg-background border-border text-foreground max-w-lg">
                 <DialogHeader>
                   <DialogTitle>Create New Task</DialogTitle>
-                  <DialogDescription className="text-slate-400">Add a new task or reminder</DialogDescription>
+                  <DialogDescription className="text-muted-foreground">Add a new task or reminder</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 mt-4">
                   <div>
-                    <Label htmlFor="title" className="text-slate-300">Title *</Label>
+                    <Label htmlFor="title" className="text-muted-foreground">Title *</Label>
                     <Input
                       id="title"
                       value={newTask.title}
                       onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                      className="mt-1 bg-slate-800 border-slate-700"
+                      className="mt-1 bg-card border-border"
                       placeholder="Task title"
                       data-testid="input-task-title"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-slate-300">Type</Label>
+                      <Label className="text-muted-foreground">Type</Label>
                       <Select value={newTask.type} onValueChange={(value) => setNewTask({ ...newTask, type: value })}>
-                        <SelectTrigger className="mt-1 bg-slate-800 border-slate-700" data-testid="select-task-type">
+                        <SelectTrigger className="mt-1 bg-card border-border" data-testid="select-task-type">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="bg-slate-800 border-slate-700">
+                        <SelectContent className="bg-card border-border">
                           {Object.entries(TASK_TYPE_CONFIG).map(([key, config]) => (
                             <SelectItem key={key} value={key}>{config.label}</SelectItem>
                           ))}
@@ -256,12 +256,12 @@ export default function AgentTasks() {
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-slate-300">Priority</Label>
+                      <Label className="text-muted-foreground">Priority</Label>
                       <Select value={newTask.priority} onValueChange={(value) => setNewTask({ ...newTask, priority: value })}>
-                        <SelectTrigger className="mt-1 bg-slate-800 border-slate-700" data-testid="select-task-priority">
+                        <SelectTrigger className="mt-1 bg-card border-border" data-testid="select-task-priority">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="bg-slate-800 border-slate-700">
+                        <SelectContent className="bg-card border-border">
                           <SelectItem value="high">High</SelectItem>
                           <SelectItem value="medium">Medium</SelectItem>
                           <SelectItem value="low">Low</SelectItem>
@@ -271,31 +271,31 @@ export default function AgentTasks() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-slate-300">Due Date</Label>
+                      <Label className="text-muted-foreground">Due Date</Label>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant="outline" className="w-full mt-1 justify-start border-slate-700 bg-slate-800 text-left">
-                            <CalendarIcon className="h-4 w-4 mr-2 text-slate-400" />
+                          <Button variant="outline" className="w-full mt-1 justify-start border-border bg-card text-left">
+                            <CalendarIcon className="h-4 w-4 mr-2 text-muted-foreground" />
                             {selectedDate ? format(selectedDate, 'PPP') : 'Select date'}
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0 bg-slate-800 border-slate-700">
+                        <PopoverContent className="w-auto p-0 bg-card border-border">
                           <Calendar
                             mode="single"
                             selected={selectedDate}
                             onSelect={setSelectedDate}
-                            className="bg-slate-800"
+                            className="bg-card"
                           />
                         </PopoverContent>
                       </Popover>
                     </div>
                     <div>
-                      <Label className="text-slate-300">Recurring</Label>
+                      <Label className="text-muted-foreground">Recurring</Label>
                       <Select value={newTask.recurring} onValueChange={(value) => setNewTask({ ...newTask, recurring: value })}>
-                        <SelectTrigger className="mt-1 bg-slate-800 border-slate-700">
+                        <SelectTrigger className="mt-1 bg-card border-border">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="bg-slate-800 border-slate-700">
+                        <SelectContent className="bg-card border-border">
                           <SelectItem value="none">No repeat</SelectItem>
                           <SelectItem value="daily">Daily</SelectItem>
                           <SelectItem value="weekly">Weekly</SelectItem>
@@ -307,28 +307,28 @@ export default function AgentTasks() {
                     </div>
                   </div>
                   <div>
-                    <Label htmlFor="client" className="text-slate-300">Client (optional)</Label>
+                    <Label htmlFor="client" className="text-muted-foreground">Client (optional)</Label>
                     <Input
                       id="client"
                       value={newTask.clientName}
                       onChange={(e) => setNewTask({ ...newTask, clientName: e.target.value })}
-                      className="mt-1 bg-slate-800 border-slate-700"
+                      className="mt-1 bg-card border-border"
                       placeholder="Client name"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="description" className="text-slate-300">Description</Label>
+                    <Label htmlFor="description" className="text-muted-foreground">Description</Label>
                     <Textarea
                       id="description"
                       value={newTask.description}
                       onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                      className="mt-1 bg-slate-800 border-slate-700"
+                      className="mt-1 bg-card border-border"
                       placeholder="Task details..."
                       rows={3}
                     />
                   </div>
                   <div className="flex justify-end gap-3 pt-4">
-                    <Button variant="outline" onClick={() => setShowAddTask(false)} className="border-slate-600">Cancel</Button>
+                    <Button variant="outline" onClick={() => setShowAddTask(false)} className="border-border">Cancel</Button>
                     <Button className="bg-emerald-600 hover:bg-emerald-700" data-testid="button-save-task">
                       Create Task
                     </Button>
@@ -341,39 +341,39 @@ export default function AgentTasks() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-card/50 border-border">
             <CardContent className="p-4">
-              <p className="text-slate-400 text-sm">Total Tasks</p>
-              <p className="text-2xl font-bold text-white" data-testid="text-total-tasks">{stats.total}</p>
+              <p className="text-muted-foreground text-sm">Total Tasks</p>
+              <p className="text-2xl font-bold text-foreground" data-testid="text-total-tasks">{stats.total}</p>
             </CardContent>
           </Card>
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-card/50 border-border">
             <CardContent className="p-4">
-              <p className="text-slate-400 text-sm">Due Today</p>
+              <p className="text-muted-foreground text-sm">Due Today</p>
               <p className="text-2xl font-bold text-orange-400" data-testid="text-due-today">{stats.dueToday}</p>
             </CardContent>
           </Card>
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-card/50 border-border">
             <CardContent className="p-4">
-              <p className="text-slate-400 text-sm">This Week</p>
+              <p className="text-muted-foreground text-sm">This Week</p>
               <p className="text-2xl font-bold text-amber-400">{stats.dueThisWeek}</p>
             </CardContent>
           </Card>
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-card/50 border-border">
             <CardContent className="p-4">
-              <p className="text-slate-400 text-sm">In Progress</p>
+              <p className="text-muted-foreground text-sm">In Progress</p>
               <p className="text-2xl font-bold text-blue-400">{stats.inProgress}</p>
             </CardContent>
           </Card>
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-card/50 border-border">
             <CardContent className="p-4">
-              <p className="text-slate-400 text-sm">Overdue</p>
+              <p className="text-muted-foreground text-sm">Overdue</p>
               <p className="text-2xl font-bold text-red-400" data-testid="text-overdue-tasks">{stats.overdue}</p>
             </CardContent>
           </Card>
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-card/50 border-border">
             <CardContent className="p-4">
-              <p className="text-slate-400 text-sm">Completed</p>
+              <p className="text-muted-foreground text-sm">Completed</p>
               <p className="text-2xl font-bold text-emerald-400">{stats.completed}</p>
             </CardContent>
           </Card>
@@ -382,7 +382,7 @@ export default function AgentTasks() {
         {/* Filters & Tabs */}
         <div className="flex flex-col md:flex-row justify-between gap-4">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="bg-slate-800 border-slate-700">
+            <TabsList className="bg-card border-border">
               <TabsTrigger value="all" className="data-[state=active]:bg-emerald-600">All</TabsTrigger>
               <TabsTrigger value="today" className="data-[state=active]:bg-emerald-600">Today</TabsTrigger>
               <TabsTrigger value="week" className="data-[state=active]:bg-emerald-600">This Week</TabsTrigger>
@@ -392,11 +392,11 @@ export default function AgentTasks() {
           </Tabs>
           <div className="flex gap-2">
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-40 bg-slate-800 border-slate-700">
-                <Filter className="h-4 w-4 mr-2 text-slate-400" />
+              <SelectTrigger className="w-40 bg-card border-border">
+                <Filter className="h-4 w-4 mr-2 text-muted-foreground" />
                 <SelectValue placeholder="Type" />
               </SelectTrigger>
-              <SelectContent className="bg-slate-800 border-slate-700">
+              <SelectContent className="bg-card border-border">
                 <SelectItem value="all">All Types</SelectItem>
                 {Object.entries(TASK_TYPE_CONFIG).map(([key, config]) => (
                   <SelectItem key={key} value={key}>{config.label}</SelectItem>
@@ -404,11 +404,11 @@ export default function AgentTasks() {
               </SelectContent>
             </Select>
             <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-              <SelectTrigger className="w-40 bg-slate-800 border-slate-700">
-                <Flag className="h-4 w-4 mr-2 text-slate-400" />
+              <SelectTrigger className="w-40 bg-card border-border">
+                <Flag className="h-4 w-4 mr-2 text-muted-foreground" />
                 <SelectValue placeholder="Priority" />
               </SelectTrigger>
-              <SelectContent className="bg-slate-800 border-slate-700">
+              <SelectContent className="bg-card border-border">
                 <SelectItem value="all">All Priorities</SelectItem>
                 <SelectItem value="high">High</SelectItem>
                 <SelectItem value="medium">Medium</SelectItem>
@@ -419,14 +419,14 @@ export default function AgentTasks() {
         </div>
 
         {/* Task List */}
-        <Card className="bg-slate-800/50 border-slate-700">
+        <Card className="bg-card/50 border-border">
           <CardContent className="p-0">
             <ScrollArea className="h-[600px]">
               <div className="divide-y divide-slate-700">
                 {filteredTasks.length === 0 ? (
                   <div className="p-8 text-center">
-                    <CheckCircle className="h-12 w-12 text-slate-600 mx-auto mb-4" />
-                    <p className="text-slate-400">No tasks found</p>
+                    <CheckCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">No tasks found</p>
                   </div>
                 ) : (
                   filteredTasks.map((task) => {
@@ -435,13 +435,13 @@ export default function AgentTasks() {
                     return (
                       <div
                         key={task.id}
-                        className="p-4 hover:bg-slate-900/50 transition-colors flex items-start gap-4"
+                        className="p-4 hover:bg-background/50 transition-colors flex items-start gap-4"
                         data-testid={`task-item-${task.id}`}
                       >
                         <div className="pt-1">
                           <Checkbox
                             checked={task.status === 'completed'}
-                            className="border-slate-600 data-[state=checked]:bg-emerald-600"
+                            className="border-border data-[state=checked]:bg-emerald-600"
                             data-testid={`checkbox-task-${task.id}`}
                           />
                         </div>
@@ -451,10 +451,10 @@ export default function AgentTasks() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-4">
                             <div>
-                              <p className={`font-medium ${task.status === 'completed' ? 'text-slate-400 line-through' : 'text-white'}`}>
+                              <p className={`font-medium ${task.status === 'completed' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
                                 {task.title}
                               </p>
-                              <p className="text-slate-400 text-sm mt-0.5">{task.description}</p>
+                              <p className="text-muted-foreground text-sm mt-0.5">{task.description}</p>
                             </div>
                             <div className="flex items-center gap-2 flex-shrink-0">
                               <Badge className={PRIORITY_CONFIG[task.priority].color}>
@@ -467,7 +467,7 @@ export default function AgentTasks() {
                           </div>
                           <div className="flex items-center gap-4 mt-2 text-sm">
                             {task.clientName && (
-                              <span className="flex items-center gap-1 text-slate-400">
+                              <span className="flex items-center gap-1 text-muted-foreground">
                                 <User className="h-3 w-3" />
                                 {task.clientName}
                               </span>
@@ -478,14 +478,14 @@ export default function AgentTasks() {
                               <span className="text-xs">({getDueDateLabel(task.dueDate, task.status)})</span>
                             </span>
                             {task.recurring && task.recurring !== 'none' && (
-                              <span className="flex items-center gap-1 text-slate-400">
+                              <span className="flex items-center gap-1 text-muted-foreground">
                                 <RefreshCw className="h-3 w-3" />
                                 {task.recurring.charAt(0).toUpperCase() + task.recurring.slice(1)}
                               </span>
                             )}
                           </div>
                         </div>
-                        <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
+                        <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </div>
@@ -499,40 +499,40 @@ export default function AgentTasks() {
 
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="bg-slate-800/50 border-slate-700 border-l-4 border-l-indigo-500">
+          <Card className="bg-card/50 border-border border-l-4 border-l-indigo-500">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-white font-medium">Upcoming KYC Renewals</p>
-                  <p className="text-slate-400 text-sm">3 clients have KYC expiring in 30 days</p>
+                  <p className="text-foreground font-medium">Upcoming KYC Renewals</p>
+                  <p className="text-muted-foreground text-sm">3 clients have KYC expiring in 30 days</p>
                 </div>
-                <Button size="sm" variant="outline" className="border-slate-600">
+                <Button size="sm" variant="outline" className="border-border">
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-slate-800/50 border-slate-700 border-l-4 border-l-orange-500">
+          <Card className="bg-card/50 border-border border-l-4 border-l-orange-500">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-white font-medium">Pending Exit Alerts</p>
-                  <p className="text-slate-400 text-sm">5 stocks require action based on exit signals</p>
+                  <p className="text-foreground font-medium">Pending Exit Alerts</p>
+                  <p className="text-muted-foreground text-sm">5 stocks require action based on exit signals</p>
                 </div>
-                <Button size="sm" variant="outline" className="border-slate-600">
+                <Button size="sm" variant="outline" className="border-border">
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-slate-800/50 border-slate-700 border-l-4 border-l-purple-500">
+          <Card className="bg-card/50 border-border border-l-4 border-l-purple-500">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-white font-medium">Scheduled Meetings</p>
-                  <p className="text-slate-400 text-sm">2 client meetings this week</p>
+                  <p className="text-foreground font-medium">Scheduled Meetings</p>
+                  <p className="text-muted-foreground text-sm">2 client meetings this week</p>
                 </div>
-                <Button size="sm" variant="outline" className="border-slate-600">
+                <Button size="sm" variant="outline" className="border-border">
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>

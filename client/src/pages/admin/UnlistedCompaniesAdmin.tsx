@@ -55,7 +55,7 @@ export default function UnlistedCompaniesAdmin() {
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Card className="bg-card border-border max-w-md">
           <CardHeader>
-            <CardTitle className="text-white text-center">Access Denied</CardTitle>
+            <CardTitle className="text-foreground text-center">Access Denied</CardTitle>
             <CardDescription className="text-muted-foreground text-center">
               You do not have permission to access this page. Admin privileges required.
             </CardDescription>
@@ -73,7 +73,7 @@ export default function UnlistedCompaniesAdmin() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-white">Unlisted Marketplace Management</h1>
+          <h1 className="text-3xl font-bold text-foreground">Unlisted Marketplace Management</h1>
           <p className="text-muted-foreground mt-1">Manage companies, listings, and buy requests</p>
         </div>
         <div className="flex gap-2">
@@ -481,13 +481,13 @@ function CompanyListView({
                   placeholder="Search by company name or CIN..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 bg-muted border-border text-white"
+                  className="pl-9 bg-muted border-border text-foreground"
                   data-testid="input-search"
                 />
               </div>
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40 bg-muted border-border text-white" data-testid="select-status-filter">
+              <SelectTrigger className="w-40 bg-muted border-border text-foreground" data-testid="select-status-filter">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -498,7 +498,7 @@ function CompanyListView({
               </SelectContent>
             </Select>
             <Select value={sectorFilter} onValueChange={setSectorFilter}>
-              <SelectTrigger className="w-40 bg-muted border-border text-white" data-testid="select-sector-filter">
+              <SelectTrigger className="w-40 bg-muted border-border text-foreground" data-testid="select-sector-filter">
                 <SelectValue placeholder="Sector" />
               </SelectTrigger>
               <SelectContent>
@@ -519,7 +519,7 @@ function CompanyListView({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <CheckSquare className="w-5 h-5 text-blue-400" />
-                <span className="text-white font-medium">{selectedCompanyIds.size} companies selected</span>
+                <span className="text-foreground font-medium">{selectedCompanyIds.size} companies selected</span>
               </div>
               <div className="flex gap-2">
                 <Button
@@ -590,7 +590,7 @@ function CompanyListView({
                             placeholder="e.g. 5 for +5%, -10 for -10%"
                             value={bulkPricePercentage}
                             onChange={(e) => setBulkPricePercentage(e.target.value)}
-                            className="bg-muted border-border text-white"
+                            className="bg-muted border-border text-foreground"
                           />
                           <p className="text-xs text-muted-foreground mt-1">Use positive values for increase, negative for decrease</p>
                         </div>
@@ -602,7 +602,7 @@ function CompanyListView({
                             placeholder="Enter new price"
                             value={bulkPriceValue}
                             onChange={(e) => setBulkPriceValue(e.target.value)}
-                            className="bg-muted border-border text-white"
+                            className="bg-muted border-border text-foreground"
                           />
                         </div>
                       )}
@@ -621,7 +621,7 @@ function CompanyListView({
                   variant="ghost"
                   size="sm"
                   onClick={() => setSelectedCompanyIds(new Set())}
-                  className="text-muted-foreground hover:text-white"
+                  className="text-muted-foreground hover:text-foreground"
                 >
                   Clear Selection
                 </Button>
@@ -646,7 +646,7 @@ function CompanyListView({
               size="sm"
               onClick={() => bulkSyncMutation.mutate({ onlyUnsynced: true })}
               disabled={isBulkSyncing}
-              className="bg-muted border-border text-white hover:bg-gray-700"
+              className="bg-muted border-border text-foreground hover:bg-muted"
               data-testid="button-sync-unsynced"
             >
               {isBulkSyncing ? (
@@ -726,7 +726,7 @@ function CompanyListView({
                           data-testid={`checkbox-company-${company.id}`}
                         />
                       </TableCell>
-                      <TableCell className="font-medium text-white" data-testid={`text-name-${company.id}`}>
+                      <TableCell className="font-medium text-foreground" data-testid={`text-name-${company.id}`}>
                         <div className="flex items-center gap-2">
                           <Building2 className="w-4 h-4 text-blue-400" />
                           {company.name}
@@ -752,7 +752,7 @@ function CompanyListView({
                               company.listingStage === 'pre_ipo' ? 'bg-blue-600/20 text-blue-400' :
                               company.listingStage === 'growth' ? 'bg-purple-600/20 text-purple-400' :
                               company.listingStage === 'mature' ? 'bg-cyan-600/20 text-cyan-400' :
-                              'bg-gray-600/20 text-muted-foreground'
+                              'bg-muted/20 text-muted-foreground'
                             }`}
                             data-testid={`select-stage-${company.id}`}
                           >
@@ -784,7 +784,7 @@ function CompanyListView({
                               company.status === 'active' ? 'bg-green-600/20 text-green-400' :
                               company.status === 'inactive' ? 'bg-yellow-600/20 text-yellow-400' :
                               company.status === 'delisted' ? 'bg-red-600/20 text-red-400' :
-                              'bg-gray-600/20 text-muted-foreground'
+                              'bg-muted/20 text-muted-foreground'
                             }`}
                             data-testid={`select-status-${company.id}`}
                           >
@@ -853,13 +853,13 @@ function CompanyListView({
                               <AlertDialogHeader>
                                 <AlertDialogTitle className="text-foreground">Delete Company</AlertDialogTitle>
                                 <AlertDialogDescription className="text-muted-foreground">
-                                  Are you sure you want to delete <span className="font-semibold text-white">{company.name}</span>? 
+                                  Are you sure you want to delete <span className="font-semibold text-foreground">{company.name}</span>? 
                                   This will also delete all related financials, price history, listings, and buy requests. 
                                   This action cannot be undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
-                                <AlertDialogCancel className="bg-muted text-white border-border hover:bg-gray-700">
+                                <AlertDialogCancel className="bg-muted text-foreground border-border hover:bg-muted">
                                   Cancel
                                 </AlertDialogCancel>
                                 <AlertDialogAction
@@ -931,12 +931,12 @@ function AllListingsView() {
   const getStatusBadge = (status: string) => {
     const colors: Record<string, string> = {
       active: 'bg-green-500',
-      cancelled: 'bg-gray-500',
+      cancelled: 'bg-muted',
       suspended: 'bg-yellow-500',
       expired: 'bg-red-500',
       completed: 'bg-blue-500',
     };
-    return colors[status] || 'bg-gray-500';
+    return colors[status] || 'bg-muted';
   };
 
   if (isLoading) return <LoadingState variant="table" />;
@@ -950,7 +950,7 @@ function AllListingsView() {
             <CardDescription className="text-muted-foreground">Manage all sell listings across companies</CardDescription>
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-40 bg-muted border-border text-white">
+            <SelectTrigger className="w-40 bg-muted border-border text-foreground">
               <SelectValue placeholder="Filter status" />
             </SelectTrigger>
             <SelectContent>
@@ -988,7 +988,7 @@ function AllListingsView() {
               ) : (
                 listings.map((listing: any) => (
                   <TableRow key={listing.id} className="border-border hover:bg-muted/50">
-                    <TableCell className="font-medium text-white">
+                    <TableCell className="font-medium text-foreground">
                       <div>
                         <p>{listing.companyName}</p>
                         <p className="text-xs text-muted-foreground">{listing.companySector}</p>
@@ -1080,12 +1080,12 @@ function AllBuyRequestsView() {
   const getStatusBadge = (status: string) => {
     const colors: Record<string, string> = {
       active: 'bg-green-500',
-      cancelled: 'bg-gray-500',
+      cancelled: 'bg-muted',
       suspended: 'bg-yellow-500',
       expired: 'bg-red-500',
       matched: 'bg-blue-500',
     };
-    return colors[status] || 'bg-gray-500';
+    return colors[status] || 'bg-muted';
   };
 
   if (isLoading) return <LoadingState variant="table" />;
@@ -1099,7 +1099,7 @@ function AllBuyRequestsView() {
             <CardDescription className="text-muted-foreground">Manage all buy requests across companies</CardDescription>
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-40 bg-muted border-border text-white">
+            <SelectTrigger className="w-40 bg-muted border-border text-foreground">
               <SelectValue placeholder="Filter status" />
             </SelectTrigger>
             <SelectContent>
@@ -1137,7 +1137,7 @@ function AllBuyRequestsView() {
               ) : (
                 buyRequests.map((request: any) => (
                   <TableRow key={request.id} className="border-border hover:bg-muted/50">
-                    <TableCell className="font-medium text-white">
+                    <TableCell className="font-medium text-foreground">
                       <div>
                         <p>{request.companyName}</p>
                         <p className="text-xs text-muted-foreground">{request.companySector}</p>
@@ -1249,7 +1249,7 @@ function NSDLISINSearchDialog({ onClose }: { onClose: () => void }) {
       case 'debt': return 'bg-blue-600/20 text-blue-400 border-blue-600';
       case 'preference': return 'bg-purple-600/20 text-purple-400 border-purple-600';
       case 'warrant': return 'bg-yellow-600/20 text-yellow-400 border-yellow-600';
-      default: return 'bg-gray-600/20 text-muted-foreground border-border';
+      default: return 'bg-muted/20 text-muted-foreground border-border';
     }
   };
 
@@ -1269,11 +1269,11 @@ function NSDLISINSearchDialog({ onClose }: { onClose: () => void }) {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            className="bg-muted border-border text-white"
+            className="bg-muted border-border text-foreground"
             data-testid="input-nsdl-search"
           />
           <Select value={securityType} onValueChange={setSecurityType}>
-            <SelectTrigger className="w-32 bg-muted border-border text-white">
+            <SelectTrigger className="w-32 bg-muted border-border text-foreground">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -1308,7 +1308,7 @@ function NSDLISINSearchDialog({ onClose }: { onClose: () => void }) {
                 {searchResults.map((result, index) => (
                   <TableRow key={`${result.isin}-${index}`} className="border-border" data-testid={`row-isin-${result.isin}`}>
                     <TableCell className="font-mono text-sm text-blue-400">{result.isin}</TableCell>
-                    <TableCell className="font-medium text-white max-w-xs truncate" title={result.issuerName}>
+                    <TableCell className="font-medium text-foreground max-w-xs truncate" title={result.issuerName}>
                       {result.issuerName}
                     </TableCell>
                     <TableCell>
@@ -1318,7 +1318,7 @@ function NSDLISINSearchDialog({ onClose }: { onClose: () => void }) {
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       <div className="flex items-center gap-1">
-                        <div className="w-16 bg-gray-700 rounded-full h-2">
+                        <div className="w-16 bg-muted rounded-full h-2">
                           <div 
                             className="bg-green-500 h-2 rounded-full" 
                             style={{ width: `${result.matchScore}%` }}
@@ -1463,7 +1463,7 @@ function Probe42SearchDialog({ onClose }: { onClose: () => void }) {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            className="bg-muted border-border text-white"
+            className="bg-muted border-border text-foreground"
             data-testid="input-probe42-search"
           />
           <Button onClick={handleSearch} disabled={isSearching} data-testid="button-search">
@@ -1490,7 +1490,7 @@ function Probe42SearchDialog({ onClose }: { onClose: () => void }) {
               <TableBody>
                 {searchResults.map((result) => (
                   <TableRow key={result.company_id} className="border-border" data-testid={`row-result-${result.company_id}`}>
-                    <TableCell className="font-medium text-white">{result.name}</TableCell>
+                    <TableCell className="font-medium text-foreground">{result.name}</TableCell>
                     <TableCell className="font-mono text-sm text-muted-foreground">{result.cin}</TableCell>
                     <TableCell className="text-muted-foreground">{result.roc_state || 'N/A'}</TableCell>
                     <TableCell className="text-muted-foreground">
@@ -1583,30 +1583,30 @@ function CompanyDetailsView({ companyId, onBack }: { companyId: string; onBack: 
           Back
         </Button>
         <div>
-          <h1 className="text-3xl font-bold text-white">{company.name}</h1>
+          <h1 className="text-3xl font-bold text-foreground">{company.name}</h1>
           <p className="text-muted-foreground mt-1">{company.cin}</p>
         </div>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList className="bg-muted border-border">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-gray-700" data-testid="tab-overview">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-muted" data-testid="tab-overview">
             <Building2 className="w-4 h-4 mr-2" />
             Overview
           </TabsTrigger>
-          <TabsTrigger value="financials" className="data-[state=active]:bg-gray-700" data-testid="tab-financials">
+          <TabsTrigger value="financials" className="data-[state=active]:bg-muted" data-testid="tab-financials">
             <TrendingUp className="w-4 h-4 mr-2" />
             Financials
           </TabsTrigger>
-          <TabsTrigger value="ratios" className="data-[state=active]:bg-gray-700" data-testid="tab-ratios">
+          <TabsTrigger value="ratios" className="data-[state=active]:bg-muted" data-testid="tab-ratios">
             <BarChart3 className="w-4 h-4 mr-2" />
             Ratios
           </TabsTrigger>
-          <TabsTrigger value="price-history" className="data-[state=active]:bg-gray-700" data-testid="tab-price-history">
+          <TabsTrigger value="price-history" className="data-[state=active]:bg-muted" data-testid="tab-price-history">
             <History className="w-4 h-4 mr-2" />
             Price History
           </TabsTrigger>
-          <TabsTrigger value="sync-status" className="data-[state=active]:bg-gray-700" data-testid="tab-sync-status">
+          <TabsTrigger value="sync-status" className="data-[state=active]:bg-muted" data-testid="tab-sync-status">
             <Activity className="w-4 h-4 mr-2" />
             Sync Status
           </TabsTrigger>
@@ -1646,15 +1646,15 @@ function OverviewTab({ company }: { company: UnlistedCompany }) {
         <CardContent className="space-y-3">
           <div>
             <Label className="text-muted-foreground">Company Name</Label>
-            <p className="text-white font-medium">{company.name}</p>
+            <p className="text-foreground font-medium">{company.name}</p>
           </div>
           <div>
             <Label className="text-muted-foreground">CIN</Label>
-            <p className="text-white font-mono">{company.cin || 'N/A'}</p>
+            <p className="text-foreground font-mono">{company.cin || 'N/A'}</p>
           </div>
           <div>
             <Label className="text-muted-foreground">ISIN</Label>
-            <p className="text-white font-mono">{company.isin || 'N/A'}</p>
+            <p className="text-foreground font-mono">{company.isin || 'N/A'}</p>
           </div>
           <div>
             <Label className="text-muted-foreground">ROC State</Label>
@@ -1684,13 +1684,13 @@ function OverviewTab({ company }: { company: UnlistedCompany }) {
         <CardContent className="space-y-3">
           <div>
             <Label className="text-muted-foreground">Paid-Up Capital</Label>
-            <p className="text-white font-medium">
+            <p className="text-foreground font-medium">
               ₹{company.paidUpCapital ? Number(company.paidUpCapital).toLocaleString('en-IN') : 'N/A'}
             </p>
           </div>
           <div>
             <Label className="text-muted-foreground">Authorized Capital</Label>
-            <p className="text-white font-medium">
+            <p className="text-foreground font-medium">
               ₹{company.authorizedCapital ? Number(company.authorizedCapital).toLocaleString('en-IN') : 'N/A'}
             </p>
           </div>
@@ -1804,7 +1804,7 @@ function FinancialsTab({ financials }: { financials: CompanyFinancials[] }) {
               <TableBody>
                 {sortedFinancials.map((fin) => (
                   <TableRow key={fin.id} className="border-border">
-                    <TableCell className="font-medium text-white">{fin.financialYear}</TableCell>
+                    <TableCell className="font-medium text-foreground">{fin.financialYear}</TableCell>
                     <TableCell className="text-right text-muted-foreground">
                       ₹{fin.revenue ? (Number(fin.revenue) / 10000000).toFixed(2) : 'N/A'} Cr
                     </TableCell>
@@ -1907,7 +1907,7 @@ function RatiosTab({ ratios }: { ratios: CompanyRatios[] }) {
               <TableBody>
                 {sortedRatios.map((ratio) => (
                   <TableRow key={ratio.id} className="border-border">
-                    <TableCell className="font-medium text-white">{ratio.financialYear}</TableCell>
+                    <TableCell className="font-medium text-foreground">{ratio.financialYear}</TableCell>
                     <TableCell className="text-right text-muted-foreground">
                       {ratio.peRatio ? Number(ratio.peRatio).toFixed(2) : 'N/A'}
                     </TableCell>
@@ -2084,7 +2084,7 @@ function SyncStatusTab({ company }: { company: UnlistedCompany }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <Label className="text-muted-foreground">Probe42 Company ID</Label>
-            <p className="text-white font-mono">{company.probe42CompanyId || 'Not linked'}</p>
+            <p className="text-foreground font-mono">{company.probe42CompanyId || 'Not linked'}</p>
           </div>
           <div>
             <Label className="text-muted-foreground">Last Synced</Label>
@@ -2096,7 +2096,7 @@ function SyncStatusTab({ company }: { company: UnlistedCompany }) {
             <Label className="text-muted-foreground">Integration Status</Label>
             <Badge
               variant={company.probe42CompanyId ? 'default' : 'secondary'}
-              className={company.probe42CompanyId ? 'bg-green-500' : 'bg-gray-500'}
+              className={company.probe42CompanyId ? 'bg-green-500' : 'bg-muted'}
             >
               {company.probe42CompanyId ? 'Linked' : 'Not Linked'}
             </Badge>
@@ -2107,7 +2107,7 @@ function SyncStatusTab({ company }: { company: UnlistedCompany }) {
           </div>
           <div>
             <Label className="text-muted-foreground">CIN (for MCA lookup)</Label>
-            <p className="text-white font-mono">{company.cin || 'Not available'}</p>
+            <p className="text-foreground font-mono">{company.cin || 'Not available'}</p>
           </div>
         </div>
 
@@ -2279,7 +2279,7 @@ function MoneyControlImportDialog({ onClose }: { onClose: () => void }) {
   return (
     <>
       <DialogHeader>
-        <DialogTitle className="text-white flex items-center gap-2">
+        <DialogTitle className="text-foreground flex items-center gap-2">
           <Download className="w-5 h-5 text-green-400" />
           Import Prices from MoneyControl
         </DialogTitle>
@@ -2318,7 +2318,7 @@ function MoneyControlImportDialog({ onClose }: { onClose: () => void }) {
             <div className="grid grid-cols-4 gap-4">
               <Card className="bg-muted border-border">
                 <CardContent className="pt-4">
-                  <div className="text-2xl font-bold text-white">{previewData.total}</div>
+                  <div className="text-2xl font-bold text-foreground">{previewData.total}</div>
                   <div className="text-sm text-muted-foreground">Total Found</div>
                 </CardContent>
               </Card>
@@ -2345,7 +2345,7 @@ function MoneyControlImportDialog({ onClose }: { onClose: () => void }) {
             {previewData.matchedCompanies.length > 0 && (
               <Card className="bg-muted border-border">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-white text-sm flex items-center gap-2">
+                  <CardTitle className="text-foreground text-sm flex items-center gap-2">
                     <CheckCircle className="w-4 h-4 text-green-400" />
                     Matched Companies ({previewData.matchedCompanies.length})
                   </CardTitle>
@@ -2364,7 +2364,7 @@ function MoneyControlImportDialog({ onClose }: { onClose: () => void }) {
                       <TableBody>
                         {previewData.matchedCompanies.map((match, idx) => (
                           <TableRow key={idx} className="border-border">
-                            <TableCell className="text-white text-sm py-2">{match.moneyControlName}</TableCell>
+                            <TableCell className="text-foreground text-sm py-2">{match.moneyControlName}</TableCell>
                             <TableCell className="text-muted-foreground text-sm py-2">{match.matchedTo}</TableCell>
                             <TableCell className="py-2">
                               <Badge variant="outline" className={match.matchType === 'isin' ? 'border-green-500 text-green-400' : 'border-yellow-500 text-yellow-400'}>
@@ -2386,7 +2386,7 @@ function MoneyControlImportDialog({ onClose }: { onClose: () => void }) {
             {previewData.unmatchedCompanies.length > 0 && (
               <Card className="bg-muted border-border">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-white text-sm flex items-center gap-2">
+                  <CardTitle className="text-foreground text-sm flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 text-yellow-400" />
                     Unmatched Companies ({previewData.unmatchedCompanies.length})
                   </CardTitle>
@@ -2511,7 +2511,7 @@ function DeleteCompanyDialog({ onClose }: { onClose: () => void }) {
   return (
     <>
       <DialogHeader>
-        <DialogTitle className="text-white flex items-center gap-2">
+        <DialogTitle className="text-foreground flex items-center gap-2">
           <Trash2 className="w-5 h-5 text-red-400" />
           Delete Company
         </DialogTitle>
@@ -2530,7 +2530,7 @@ function DeleteCompanyDialog({ onClose }: { onClose: () => void }) {
             </div>
           ) : (
             <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
-              <SelectTrigger className="bg-muted border-border text-white" data-testid="select-delete-company">
+              <SelectTrigger className="bg-muted border-border text-foreground" data-testid="select-delete-company">
                 <SelectValue placeholder="Choose a company to delete..." />
               </SelectTrigger>
               <SelectContent>
@@ -2551,7 +2551,7 @@ function DeleteCompanyDialog({ onClose }: { onClose: () => void }) {
               <div>
                 <p className="text-red-400 font-medium">Warning: This action cannot be undone</p>
                 <p className="text-muted-foreground text-sm mt-1">
-                  You are about to delete <span className="text-white font-semibold">{selectedCompany.name}</span> and all its associated data.
+                  You are about to delete <span className="text-foreground font-semibold">{selectedCompany.name}</span> and all its associated data.
                 </p>
                 <div className="mt-3">
                   <Label className="text-muted-foreground text-sm">Type "DELETE" to confirm</Label>
@@ -2559,7 +2559,7 @@ function DeleteCompanyDialog({ onClose }: { onClose: () => void }) {
                     value={confirmText}
                     onChange={(e) => setConfirmText(e.target.value.toUpperCase())}
                     placeholder="Type DELETE"
-                    className="mt-1 bg-muted border-border text-white"
+                    className="mt-1 bg-muted border-border text-foreground"
                     data-testid="input-confirm-delete"
                   />
                 </div>
@@ -2576,7 +2576,7 @@ function DeleteCompanyDialog({ onClose }: { onClose: () => void }) {
         <Button
           onClick={() => deleteMutation.mutate(selectedCompanyId)}
           disabled={!canDelete || deleteMutation.isPending}
-          className="bg-red-600 hover:bg-red-700 disabled:bg-gray-600"
+          className="bg-red-600 hover:bg-red-700 disabled:bg-muted"
           data-testid="button-confirm-delete-company"
         >
           {deleteMutation.isPending ? (
@@ -2706,7 +2706,7 @@ function BulkImportDialog({ onClose }: { onClose: () => void }) {
   return (
     <>
       <DialogHeader>
-        <DialogTitle className="text-white flex items-center gap-2">
+        <DialogTitle className="text-foreground flex items-center gap-2">
           <Upload className="w-5 h-5 text-cyan-400" />
           Bulk Import Unlisted Companies
         </DialogTitle>
@@ -2723,7 +2723,7 @@ function BulkImportDialog({ onClose }: { onClose: () => void }) {
               type="file"
               accept=".csv"
               onChange={handleFileUpload}
-              className="mt-1 bg-muted border-border text-white"
+              className="mt-1 bg-muted border-border text-foreground"
               data-testid="input-csv-file"
             />
           </div>
@@ -2761,7 +2761,7 @@ function BulkImportDialog({ onClose }: { onClose: () => void }) {
         {parsedCompanies.length > 0 && (
           <Card className="bg-muted/50 border-border">
             <CardHeader className="pb-2">
-              <CardTitle className="text-white text-sm flex items-center gap-2">
+              <CardTitle className="text-foreground text-sm flex items-center gap-2">
                 <CheckCircle className="w-4 h-4 text-green-400" />
                 {parsedCompanies.length} Companies Ready to Import
               </CardTitle>
@@ -2780,7 +2780,7 @@ function BulkImportDialog({ onClose }: { onClose: () => void }) {
                   <TableBody>
                     {parsedCompanies.slice(0, 10).map((company, idx) => (
                       <TableRow key={idx}>
-                        <TableCell className="text-white">{company.name}</TableCell>
+                        <TableCell className="text-foreground">{company.name}</TableCell>
                         <TableCell className="text-muted-foreground font-mono text-xs">{company.cin || '-'}</TableCell>
                         <TableCell className="text-muted-foreground">{company.sector || '-'}</TableCell>
                         <TableCell>
@@ -2913,7 +2913,7 @@ function ListingTransitionDialog({ onClose }: { onClose: () => void }) {
   return (
     <>
       <DialogHeader>
-        <DialogTitle className="text-white flex items-center gap-2">
+        <DialogTitle className="text-foreground flex items-center gap-2">
           <ArrowRightCircle className="w-5 h-5 text-amber-400" />
           Listing Stage Transition
         </DialogTitle>
@@ -2933,7 +2933,7 @@ function ListingTransitionDialog({ onClose }: { onClose: () => void }) {
               </div>
             ) : (
               <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
-                <SelectTrigger className="bg-muted border-border text-white" data-testid="select-transition-company">
+                <SelectTrigger className="bg-muted border-border text-foreground" data-testid="select-transition-company">
                   <SelectValue placeholder="Choose a company..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -2950,7 +2950,7 @@ function ListingTransitionDialog({ onClose }: { onClose: () => void }) {
           <div className="space-y-2">
             <Label className="text-muted-foreground">Target Stage</Label>
             <Select value={targetStage} onValueChange={setTargetStage}>
-              <SelectTrigger className="bg-muted border-border text-white" data-testid="select-target-stage">
+              <SelectTrigger className="bg-muted border-border text-foreground" data-testid="select-target-stage">
                 <SelectValue placeholder="Select target stage..." />
               </SelectTrigger>
               <SelectContent>
@@ -2996,7 +2996,7 @@ function ListingTransitionDialog({ onClose }: { onClose: () => void }) {
                 value={ipoPrice}
                 onChange={(e) => setIpoPrice(e.target.value)}
                 placeholder="Enter IPO price"
-                className="bg-muted border-border text-white"
+                className="bg-muted border-border text-foreground"
                 data-testid="input-ipo-price"
               />
             </div>
@@ -3007,7 +3007,7 @@ function ListingTransitionDialog({ onClose }: { onClose: () => void }) {
                 value={lotSize}
                 onChange={(e) => setLotSize(e.target.value)}
                 placeholder="Enter lot size"
-                className="bg-muted border-border text-white"
+                className="bg-muted border-border text-foreground"
                 data-testid="input-lot-size"
               />
             </div>
@@ -3020,7 +3020,7 @@ function ListingTransitionDialog({ onClose }: { onClose: () => void }) {
               <div className="space-y-2">
                 <Label className="text-muted-foreground">Exchange</Label>
                 <Select value={exchange} onValueChange={setExchange}>
-                  <SelectTrigger className="bg-muted border-border text-white" data-testid="select-exchange">
+                  <SelectTrigger className="bg-muted border-border text-foreground" data-testid="select-exchange">
                     <SelectValue placeholder="Select exchange..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -3036,7 +3036,7 @@ function ListingTransitionDialog({ onClose }: { onClose: () => void }) {
                   value={stockSymbol}
                   onChange={(e) => setStockSymbol(e.target.value.toUpperCase())}
                   placeholder="e.g., RELIANCE"
-                  className="bg-muted border-border text-white"
+                  className="bg-muted border-border text-foreground"
                   data-testid="input-stock-symbol"
                 />
               </div>
@@ -3049,7 +3049,7 @@ function ListingTransitionDialog({ onClose }: { onClose: () => void }) {
                   value={listPrice}
                   onChange={(e) => setListPrice(e.target.value)}
                   placeholder="Enter listing price"
-                  className="bg-muted border-border text-white"
+                  className="bg-muted border-border text-foreground"
                   data-testid="input-list-price"
                 />
               </div>
@@ -3059,7 +3059,7 @@ function ListingTransitionDialog({ onClose }: { onClose: () => void }) {
                   type="date"
                   value={listingDate}
                   onChange={(e) => setListingDate(e.target.value)}
-                  className="bg-muted border-border text-white"
+                  className="bg-muted border-border text-foreground"
                   data-testid="input-listing-date"
                 />
               </div>
@@ -3088,15 +3088,15 @@ function ListingTransitionDialog({ onClose }: { onClose: () => void }) {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Settlement:</span>
-                <span className="text-white">T+{validation.transactionRules.settlementDays}</span>
+                <span className="text-foreground">T+{validation.transactionRules.settlementDays}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Min KYC Level:</span>
-                <span className="text-white">{validation.transactionRules.minKycLevel}</span>
+                <span className="text-foreground">{validation.transactionRules.minKycLevel}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Escrow Required:</span>
-                <span className="text-white">{validation.transactionRules.escrowRequired ? 'Yes' : 'No'}</span>
+                <span className="text-foreground">{validation.transactionRules.escrowRequired ? 'Yes' : 'No'}</span>
               </div>
             </CardContent>
           </Card>

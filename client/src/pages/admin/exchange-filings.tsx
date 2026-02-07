@@ -226,7 +226,7 @@ export default function ExchangeFilingsAdmin() {
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Card className="bg-card border-border max-w-md">
           <CardHeader>
-            <CardTitle className="text-white text-center">Access Denied</CardTitle>
+            <CardTitle className="text-foreground text-center">Access Denied</CardTitle>
             <CardDescription className="text-muted-foreground text-center">
               Admin privileges required to access this page.
             </CardDescription>
@@ -252,7 +252,7 @@ export default function ExchangeFilingsAdmin() {
               </Button>
             </Link>
             <div>
-              <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+              <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
                 <Database className="h-6 w-6" />
                 Exchange Filings Management
               </h1>
@@ -287,7 +287,7 @@ export default function ExchangeFilingsAdmin() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-muted-foreground text-sm">Total Filings</p>
-                  <p className="text-2xl font-bold text-white">{stats?.total || 0}</p>
+                  <p className="text-2xl font-bold text-foreground">{stats?.total || 0}</p>
                 </div>
                 <FileText className="h-8 w-8 text-muted-foreground" />
               </div>
@@ -342,7 +342,7 @@ export default function ExchangeFilingsAdmin() {
         <Card className="bg-card border-border">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-white">Filing Records</CardTitle>
+              <CardTitle className="text-foreground">Filing Records</CardTitle>
               <div className="flex gap-2">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -414,7 +414,7 @@ export default function ExchangeFilingsAdmin() {
                         </TableCell>
                         <TableCell>{format(new Date(filing.filing_date), "dd MMM yyyy")}</TableCell>
                         <TableCell>
-                          <Badge className={statusConfig[filing.processing_status]?.color || "bg-gray-500/20"}>
+                          <Badge className={statusConfig[filing.processing_status]?.color || "bg-muted/20"}>
                             {statusConfig[filing.processing_status]?.label || filing.processing_status}
                           </Badge>
                         </TableCell>

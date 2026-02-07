@@ -467,7 +467,7 @@ export default function AgentMeetings() {
               <CardContent>
                 <div className="space-y-2">
                   {pastMeetings.slice(0, 10).map((meeting) => (
-                    <div key={meeting.id} className="border rounded-lg p-3 bg-muted dark:bg-card opacity-75">
+                    <div key={meeting.id} className="border rounded-lg p-3 bg-muted opacity-75">
                       <div className="flex items-center justify-between">
                         <div>
                           <h4 className="font-medium text-sm">{meeting.topic}</h4>

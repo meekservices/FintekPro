@@ -761,7 +761,7 @@ export default function AgentDashboard() {
               { status: "KYC Complete", count: ckycClients.filter(c => c.verificationStatus === 'verified').length, color: "bg-green-500" },
               { status: "KYC Pending", count: ckycClients.filter(c => c.verificationStatus === 'pending').length, color: "bg-yellow-500" },
               { status: "Documents Required", count: ckycClients.filter(c => c.verificationStatus === 'documents_required').length, color: "bg-orange-500" },
-              { status: "Inactive", count: ckycClients.filter(c => c.verificationStatus === 'inactive').length, color: "bg-gray-400" }
+              { status: "Inactive", count: ckycClients.filter(c => c.verificationStatus === 'inactive').length, color: "bg-muted-foreground" }
             ] : [];
             
             const recentActivity = recentActivityData || [];
@@ -932,7 +932,7 @@ export default function AgentDashboard() {
                   <CardContent>
                     <div className="space-y-3">
                       {recentActivity.map((activity) => (
-                        <div key={activity.id} className="flex items-center gap-4 p-3 bg-muted dark:bg-muted rounded-lg" data-testid={`activity-${activity.id}`}>
+                        <div key={activity.id} className="flex items-center gap-4 p-3 bg-muted rounded-lg" data-testid={`activity-${activity.id}`}>
                           <div className={`p-2 rounded-full ${
                             activity.type === 'itr_filed' ? 'bg-green-100 text-green-600' :
                             activity.type === 'kyc_completed' ? 'bg-blue-100 text-blue-600' :
@@ -999,7 +999,7 @@ export default function AgentDashboard() {
                         </CardTitle>
                         <CardDescription>Manage client ITR filings with CA assignment workflow</CardDescription>
                       </div>
-                      <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md" data-testid="button-new-itr-case">
+                      <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-foreground shadow-md" data-testid="button-new-itr-case">
                         <Plus className="h-4 w-4 mr-2" /> New Case
                       </Button>
                     </div>
@@ -1007,7 +1007,7 @@ export default function AgentDashboard() {
                   <CardContent>
                     {/* Summary Stats */}
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-                      <div className="p-3 bg-muted dark:bg-muted rounded-lg text-center">
+                      <div className="p-3 bg-muted rounded-lg text-center">
                         <div className="text-2xl font-bold">{itrCases.length}</div>
                         <p className="text-xs text-muted-foreground">Total Cases</p>
                       </div>
@@ -1035,7 +1035,7 @@ export default function AgentDashboard() {
                         <div key={itrCase.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow" data-testid={`itr-case-${itrCase.id}`}>
                           <div className="flex items-start justify-between">
                             <div className="flex items-start gap-4">
-                              <div className="p-2 bg-muted dark:bg-muted rounded-lg">
+                              <div className="p-2 bg-muted rounded-lg">
                                 <FileText className="h-6 w-6" />
                               </div>
                               <div>
@@ -2114,7 +2114,7 @@ export default function AgentDashboard() {
                         .filter((m) => new Date(m.scheduledAt) < new Date() || m.status !== "confirmed")
                         .slice(0, 5)
                         .map((meeting) => (
-                          <div key={meeting.id} className="border rounded-lg p-3 bg-muted dark:bg-card opacity-75">
+                          <div key={meeting.id} className="border rounded-lg p-3 bg-muted opacity-75">
                             <div className="flex items-center justify-between">
                               <div>
                                 <h4 className="font-medium text-sm">{meeting.topic}</h4>

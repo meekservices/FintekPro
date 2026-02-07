@@ -89,7 +89,7 @@ const getBondTypeColors = (type: string | null | undefined): string => {
   if (t.includes('debenture')) return 'bg-purple-100 text-purple-700 border-purple-200';
   if (t.includes('perpetual')) return 'bg-rose-100 text-rose-700 border-rose-200';
   if (t.includes('floating')) return 'bg-cyan-100 text-cyan-700 border-cyan-200';
-  if (t.includes('zero')) return 'bg-slate-100 text-slate-700 border-slate-200';
+  if (t.includes('zero')) return 'bg-muted text-muted-foreground border-border';
   return 'bg-muted text-muted-foreground border-border';
 };
 
@@ -202,7 +202,7 @@ function FeeBreakdownDisplay({
   return (
     <div className="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 p-4 rounded-lg space-y-2 text-sm border border-blue-200 dark:border-blue-700">
       <div className="flex justify-between items-center">
-        <span className="text-muted-foreground dark:text-muted-foreground flex items-center gap-1">
+        <span className="text-muted-foreground flex items-center gap-1">
           <Calculator className="h-3 w-3" /> Principal Amount
         </span>
         <span className="font-semibold">₹{fees.principal.toLocaleString()}</span>
@@ -278,7 +278,7 @@ function BondCategoriesSection({ onCategoryClick }: { onCategoryClick?: (categor
   if (isLoading || !bondCategories) {
     return (
       <section>
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Bond Categories</h2>
+        <h2 className="text-2xl font-bold text-foreground mb-6">Bond Categories</h2>
         <LoadingState variant="card" count={4} />
       </section>
     );
@@ -313,7 +313,7 @@ function BondCategoriesSection({ onCategoryClick }: { onCategoryClick?: (categor
 
   return (
     <section>
-      <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Bond Categories</h2>
+      <h2 className="text-2xl font-bold text-foreground mb-6">Bond Categories</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {bondCategories.map((category: any) => {
           const IconComponent = getIcon(category.icon);
@@ -332,7 +332,7 @@ function BondCategoriesSection({ onCategoryClick }: { onCategoryClick?: (categor
                   </div>
                   <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-finance-blue transition-colors" />
                 </div>
-                <h3 className="font-bold text-gray-900 mb-2">{category.name}</h3>
+                <h3 className="font-bold text-foreground mb-2">{category.name}</h3>
                 <p className="text-muted-foreground text-sm mb-4">
                   {category.description}
                 </p>
@@ -456,7 +456,7 @@ function GovernmentSecurities() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">Government Securities</h3>
+        <h3 className="text-lg font-semibold text-foreground">Government Securities</h3>
         <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
           {bonds.length} Available
         </Badge>
@@ -481,7 +481,7 @@ function GovernmentSecurities() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h4 className="font-semibold text-gray-900 group-hover:text-finance-blue transition-colors">{bond.securityName}</h4>
+                    <h4 className="font-semibold text-foreground group-hover:text-finance-blue transition-colors">{bond.securityName}</h4>
                     <Badge variant="outline" className="bg-green-50 text-green-700">
                       {bond.securityType}
                     </Badge>
@@ -551,7 +551,7 @@ function GovernmentSecurities() {
                         </p>
                       </div>
 
-                      <div className="bg-muted dark:bg-muted p-4 rounded-lg space-y-2 text-sm">
+                      <div className="bg-muted p-4 rounded-lg space-y-2 text-sm">
                         <div className="flex justify-between">
                           <span>Security:</span>
                           <span className="font-medium">{bond.securityName}</span>
@@ -739,7 +739,7 @@ function CorporateBonds() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">Corporate Bonds</h3>
+        <h3 className="text-lg font-semibold text-foreground">Corporate Bonds</h3>
         <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
           {bonds.length} Available
         </Badge>
@@ -764,7 +764,7 @@ function CorporateBonds() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2 flex-wrap">
-                    <h4 className="font-semibold text-gray-900 group-hover:text-finance-blue transition-colors">{bond.name || bond.issuerName || bond.issuer || bond.bondName || 'Unknown Bond'}</h4>
+                    <h4 className="font-semibold text-foreground group-hover:text-finance-blue transition-colors">{bond.name || bond.issuerName || bond.issuer || bond.bondName || 'Unknown Bond'}</h4>
                     <Badge variant="outline" className={getCreditRatingColors(bond.rating || bond.creditRating)}>
                       {bond.rating || bond.creditRating || 'NR'}
                     </Badge>
@@ -849,7 +849,7 @@ function CorporateBonds() {
                         </p>
                       </div>
 
-                      <div className="bg-muted dark:bg-muted p-4 rounded-lg space-y-2 text-sm">
+                      <div className="bg-muted p-4 rounded-lg space-y-2 text-sm">
                         <div className="flex justify-between">
                           <span>Estimated Cost:</span>
                           <span className="font-semibold">
@@ -1033,7 +1033,7 @@ function NCDBonds() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">Non-Convertible Debentures (NCDs)</h3>
+        <h3 className="text-lg font-semibold text-foreground">Non-Convertible Debentures (NCDs)</h3>
         <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
           {bonds.length} Available
         </Badge>
@@ -1059,7 +1059,7 @@ function NCDBonds() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2 flex-wrap">
-                    <h4 className="font-semibold text-gray-900 group-hover:text-finance-blue transition-colors">{bond.name || bond.issuerName || bond.issuer || bond.bondName || 'Unknown Bond'}</h4>
+                    <h4 className="font-semibold text-foreground group-hover:text-finance-blue transition-colors">{bond.name || bond.issuerName || bond.issuer || bond.bondName || 'Unknown Bond'}</h4>
                     <Badge variant="outline" className={getCreditRatingColors(bond.rating)}>
                       {bond.rating || 'NR'}
                     </Badge>
@@ -1142,7 +1142,7 @@ function NCDBonds() {
                         </p>
                       </div>
 
-                      <div className="bg-muted dark:bg-muted p-4 rounded-lg space-y-2 text-sm">
+                      <div className="bg-muted p-4 rounded-lg space-y-2 text-sm">
                         <div className="flex justify-between">
                           <span>Estimated Cost:</span>
                           <span className="font-semibold">
@@ -1325,7 +1325,7 @@ function TaxFreeBonds() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">Tax Free Bonds</h3>
+        <h3 className="text-lg font-semibold text-foreground">Tax Free Bonds</h3>
         <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
           {bonds.length} Available
         </Badge>
@@ -1351,7 +1351,7 @@ function TaxFreeBonds() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2 flex-wrap">
-                    <h4 className="font-semibold text-gray-900 group-hover:text-finance-blue transition-colors">{bond.name || bond.issuerName || bond.issuer || bond.bondName || 'Unknown Bond'}</h4>
+                    <h4 className="font-semibold text-foreground group-hover:text-finance-blue transition-colors">{bond.name || bond.issuerName || bond.issuer || bond.bondName || 'Unknown Bond'}</h4>
                     <Badge variant="outline" className={getCreditRatingColors(bond.rating)}>
                       {bond.rating || 'NR'}
                     </Badge>
@@ -1757,7 +1757,7 @@ function BondMarketplace() {
 
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-xl font-semibold text-gray-900">Bond Marketplace</h3>
+          <h3 className="text-xl font-semibold text-foreground">Bond Marketplace</h3>
           <p className="text-muted-foreground text-sm">Buy and sell bonds in our secondary market</p>
         </div>
         <Dialog open={showCreateSellDialog} onOpenChange={setShowCreateSellDialog}>
@@ -1872,7 +1872,7 @@ function BondMarketplace() {
 
               {/* SEBI Risk Disclosure Acknowledgments for Sell Listing */}
               <div className="border rounded-lg p-4 space-y-3">
-                <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                <h4 className="font-semibold text-foreground flex items-center gap-2">
                   <AlertCircle className="h-4 w-4 text-amber-500" />
                   SEBI Risk Disclosures (Seller)
                 </h4>
@@ -1949,7 +1949,7 @@ function BondMarketplace() {
 
               {/* SEBI Risk Disclosure Acknowledgments */}
               <div className="border rounded-lg p-4 space-y-3">
-                <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                <h4 className="font-semibold text-foreground flex items-center gap-2">
                   <AlertCircle className="h-4 w-4 text-amber-500" />
                   SEBI Risk Disclosures
                 </h4>
@@ -2021,14 +2021,14 @@ function BondMarketplace() {
               {sellListings.map((listing: any) => (
                 <div key={listing.id} className="border rounded-lg p-4 flex justify-between items-center">
                   <div>
-                    <h4 className="font-medium text-gray-900">{listing.bondName}</h4>
+                    <h4 className="font-medium text-foreground">{listing.bondName}</h4>
                     <div className="flex gap-2 mt-1">
                       <Badge variant="outline">{listing.bondType}</Badge>
                       <span className="text-sm text-muted-foreground">ISIN: {listing.isin}</span>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-lg font-bold text-gray-900">₹{parseFloat(listing.askPrice).toLocaleString()}</p>
+                    <p className="text-lg font-bold text-foreground">₹{parseFloat(listing.askPrice).toLocaleString()}</p>
                     <p className="text-sm text-muted-foreground">{listing.quantity} units available</p>
                     <Button 
                       size="sm" 
@@ -2140,7 +2140,7 @@ function BondHoldings() {
       <Card className="border-dashed">
         <CardContent className="flex flex-col items-center justify-center py-12">
           <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Bond Holdings</h3>
+          <h3 className="text-lg font-semibold text-foreground mb-2">No Bond Holdings</h3>
           <p className="text-muted-foreground text-center">
             Your bond investments will appear here
           </p>
@@ -2157,14 +2157,14 @@ function BondHoldings() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">My Bond Holdings</h3>
+        <h3 className="text-lg font-semibold text-foreground">My Bond Holdings</h3>
         <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
           {bonds.length} Holdings
         </Badge>
       </div>
 
       {/* Portfolio Summary */}
-      <Card className="bg-gradient-to-br from-finance-blue to-blue-600 text-white">
+      <Card className="bg-gradient-to-br from-finance-blue to-blue-600 text-foreground">
         <CardContent className="p-6">
           <div className="grid grid-cols-3 gap-4">
             <div>
@@ -2192,7 +2192,7 @@ function BondHoldings() {
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
-                  <h4 className="font-semibold text-gray-900">{holding.bondName}</h4>
+                  <h4 className="font-semibold text-foreground">{holding.bondName}</h4>
                   <Badge variant="outline">
                     {holding.bondType}
                   </Badge>
@@ -2404,7 +2404,7 @@ function BondOrders() {
   return (
     <div className="space-y-4 mt-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">Recent Orders</h3>
+        <h3 className="text-lg font-semibold text-foreground">Recent Orders</h3>
         <Badge variant="outline">{orderList.length} Orders</Badge>
       </div>
       
@@ -2414,7 +2414,7 @@ function BondOrders() {
             <div className="p-4 border-b bg-muted">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <p className="font-semibold text-gray-900">{order.bondName}</p>
+                  <p className="font-semibold text-foreground">{order.bondName}</p>
                   <Badge variant="outline" className={getStatusColor(order.orderStatus || order.status)}>
                     {order.orderStatus || order.status}
                   </Badge>
@@ -2637,7 +2637,7 @@ export default function Bonds() {
       <div className="space-y-6">
         {/* Page Header */}
         <div className="mb-8" data-testid="bonds-header">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Bonds & NCDs</h1>
+          <h1 className="text-3xl font-bold text-foreground mb-4">Bonds & NCDs</h1>
           <p className="text-muted-foreground text-lg">
             Fixed income investments with guaranteed returns
           </p>
@@ -2661,7 +2661,7 @@ export default function Bonds() {
             
             {/* Bond Categories - Click to explore */}
             <div className="text-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Explore Bond Categories</h2>
+              <h2 className="text-2xl font-bold text-foreground mb-2">Explore Bond Categories</h2>
               <p className="text-muted-foreground">Click on a category to view available bonds</p>
             </div>
             
@@ -2776,7 +2776,7 @@ export default function Bonds() {
 
                     {investmentAmount && bondYield && tenure && (
                       <div className="mt-6 p-4 bg-muted rounded-lg">
-                        <h4 className="font-semibold text-gray-900 mb-2">Investment Summary</h4>
+                        <h4 className="font-semibold text-foreground mb-2">Investment Summary</h4>
                         <div className="space-y-1 text-sm text-muted-foreground">
                           <p>Monthly Interest: ₹{((parseFloat(investmentAmount) * parseFloat(bondYield)) / 100 / 12).toLocaleString()}</p>
                           <p>Annual Interest: ₹{((parseFloat(investmentAmount) * parseFloat(bondYield)) / 100).toLocaleString()}</p>
@@ -2793,7 +2793,7 @@ export default function Bonds() {
 
           <TabsContent value="marketplace" className="space-y-6" data-testid="bonds-marketplace">
             {/* Filter Section with Apply Button */}
-            <div className="p-6 bg-white dark:bg-muted rounded-xl border border-border dark:border-border">
+            <div className="p-6 bg-card rounded-xl border border-border">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold">Filter & Compare Bonds</h3>
                 {compareMode && (
@@ -2924,7 +2924,7 @@ export default function Bonds() {
               </div>
               
               {showAdvancedFilters && (
-                <div className="mt-4 p-4 bg-muted dark:bg-card rounded-lg">
+                <div className="mt-4 p-4 bg-muted rounded-lg">
                   <EnhancedBondFilters
                     filters={enhancedFilters}
                     onFiltersChange={setEnhancedFilters}
@@ -2969,7 +2969,7 @@ export default function Bonds() {
                         className={`p-4 border rounded-lg hover:shadow-md transition-shadow ${
                           selectedBonds.includes(bond.isin) 
                             ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                            : 'border-border dark:border-border'
+                            : 'border-border'
                         }`}
                       >
                         <div className="flex items-start gap-4">
@@ -2987,7 +2987,7 @@ export default function Bonds() {
                           <div className="flex-1">
                             <div className="flex items-start justify-between">
                               <div>
-                                <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+                                <h4 className="font-semibold text-foreground">
                                   {bond.issuerName || bond.bondName}
                                 </h4>
                                 <p className="text-sm text-muted-foreground">{bond.isin}</p>
@@ -3061,7 +3061,7 @@ export default function Bonds() {
               
               <Card>
                 <CardContent className="p-6">
-                  <h3 className="font-bold text-gray-900 mb-4">What are Bonds?</h3>
+                  <h3 className="font-bold text-foreground mb-4">What are Bonds?</h3>
                   <p className="text-muted-foreground mb-4">
                     Bonds are debt securities where you lend money to an issuer (government or corporation) 
                     for a defined period at a fixed interest rate.
@@ -3077,26 +3077,26 @@ export default function Bonds() {
 
               <Card>
                 <CardContent className="p-6">
-                  <h3 className="font-bold text-gray-900 mb-4">Benefits of Bond Investment</h3>
+                  <h3 className="font-bold text-foreground mb-4">Benefits of Bond Investment</h3>
                   <div className="space-y-3">
                     <div className="flex items-start gap-3">
                       <Shield className="h-5 w-5 text-finance-blue mt-0.5" />
                       <div>
-                        <h4 className="font-medium text-gray-900">Capital Protection</h4>
+                        <h4 className="font-medium text-foreground">Capital Protection</h4>
                         <p className="text-sm text-muted-foreground">Your principal is protected</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
                       <IndianRupee className="h-5 w-5 text-finance-green mt-0.5" />
                       <div>
-                        <h4 className="font-medium text-gray-900">Regular Income</h4>
+                        <h4 className="font-medium text-foreground">Regular Income</h4>
                         <p className="text-sm text-muted-foreground">Fixed periodic interest payments</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
                       <TrendingUp className="h-5 w-5 text-purple-600 mt-0.5" />
                       <div>
-                        <h4 className="font-medium text-gray-900">Portfolio Diversification</h4>
+                        <h4 className="font-medium text-foreground">Portfolio Diversification</h4>
                         <p className="text-sm text-muted-foreground">Reduce overall portfolio risk</p>
                       </div>
                     </div>

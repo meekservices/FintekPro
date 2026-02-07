@@ -382,10 +382,10 @@ export default function KycCompliancePage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+        <h1 className="text-3xl font-bold text-foreground">
           KYC & Compliance Hub
         </h1>
-        <p className="text-muted-foreground dark:text-muted-foreground mt-2">
+        <p className="text-muted-foreground mt-2">
           Review KYC submissions, verify documents, and monitor compliance alerts
         </p>
       </div>
@@ -416,13 +416,13 @@ export default function KycCompliancePage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <Card data-testid="card-pending-kyc">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
                   Pending KYC
                 </CardTitle>
                 <Clock className="h-4 w-4 text-orange-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                <div className="text-2xl font-bold text-foreground">
                   {stats?.pendingKyc || 0}
                 </div>
               </CardContent>
@@ -430,13 +430,13 @@ export default function KycCompliancePage() {
 
             <Card data-testid="card-approved-today">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
                   Approved Today
                 </CardTitle>
                 <CheckCircle className="h-4 w-4 text-green-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                <div className="text-2xl font-bold text-foreground">
                   {stats?.approvedToday || 0}
                 </div>
               </CardContent>
@@ -444,13 +444,13 @@ export default function KycCompliancePage() {
 
             <Card data-testid="card-rejected-today">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
                   Rejected Today
                 </CardTitle>
                 <XCircle className="h-4 w-4 text-red-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                <div className="text-2xl font-bold text-foreground">
                   {stats?.rejectedToday || 0}
                 </div>
               </CardContent>
@@ -458,13 +458,13 @@ export default function KycCompliancePage() {
 
             <Card data-testid="card-pending-docs">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
                   Pending Documents
                 </CardTitle>
                 <FileText className="h-4 w-4 text-blue-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                <div className="text-2xl font-bold text-foreground">
                   {stats?.pendingDocuments || 0}
                 </div>
               </CardContent>
@@ -480,15 +480,15 @@ export default function KycCompliancePage() {
               <div className="grid grid-cols-3 gap-4">
                 <div className="text-center p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
                   <div className="text-2xl font-bold text-blue-600">{stats?.tier1Count || 0}</div>
-                  <div className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">Tier 1</div>
+                  <div className="text-sm text-muted-foreground mt-1">Tier 1</div>
                 </div>
                 <div className="text-center p-4 bg-purple-50 dark:bg-purple-950 rounded-lg">
                   <div className="text-2xl font-bold text-purple-600">{stats?.tier2Count || 0}</div>
-                  <div className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">Tier 2</div>
+                  <div className="text-sm text-muted-foreground mt-1">Tier 2</div>
                 </div>
                 <div className="text-center p-4 bg-green-50 dark:bg-green-950 rounded-lg">
                   <div className="text-2xl font-bold text-green-600">{stats?.tier3Count || 0}</div>
-                  <div className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">Tier 3</div>
+                  <div className="text-sm text-muted-foreground mt-1">Tier 3</div>
                 </div>
               </div>
             </CardContent>
@@ -503,7 +503,7 @@ export default function KycCompliancePage() {
               </Badge>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 {stats?.activeAlerts ? `${stats.activeAlerts} alerts require attention` : "No active alerts"}
               </p>
             </CardContent>

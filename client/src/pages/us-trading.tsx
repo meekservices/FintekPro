@@ -328,7 +328,7 @@ export default function USTradingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-950 dark:to-blue-950">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-background dark:to-blue-950">
       <div className="container mx-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -448,7 +448,7 @@ export default function USTradingPage() {
             { symbol: "^DJI", name: "Dow Jones", price: 42992.21, change: 168.53, changePercent: 0.39 },
             { symbol: "^VIX", name: "VIX", price: 14.58, change: -0.87, changePercent: -5.63 },
           ]).map((index) => (
-            <Card key={index.symbol} className="bg-white dark:bg-slate-900" data-testid={`index-card-${index.symbol}`}>
+            <Card key={index.symbol} className="bg-background" data-testid={`index-card-${index.symbol}`}>
               <CardContent className="p-4">
                 <div className="flex justify-between items-start">
                   <div>
@@ -538,7 +538,7 @@ export default function USTradingPage() {
                           data-testid={`stock-row-${stock.symbol}`}
                         >
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs">
+                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-foreground font-bold text-xs">
                               {stock.symbol.slice(0, 2)}
                             </div>
                             <div>
@@ -604,7 +604,7 @@ export default function USTradingPage() {
                           data-testid={`etf-row-${etf.symbol}`}
                         >
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500 to-teal-600 flex items-center justify-center text-white font-bold text-xs">
+                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500 to-teal-600 flex items-center justify-center text-foreground font-bold text-xs">
                               {etf.symbol.slice(0, 2)}
                             </div>
                             <div>
@@ -673,7 +673,7 @@ export default function USTradingPage() {
                           data-testid={`watchlist-item-${item.symbol}`}
                         >
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-white font-bold text-xs">
+                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-foreground font-bold text-xs">
                               {item.symbol.slice(0, 2)}
                             </div>
                             <div>
@@ -726,21 +726,21 @@ export default function USTradingPage() {
             ) : holdings?.holdings?.length ? (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Card className="bg-gradient-to-br from-blue-500 to-blue-700 text-white">
+                  <Card className="bg-gradient-to-br from-blue-500 to-blue-700 text-foreground">
                     <CardContent className="p-6">
                       <p className="text-blue-100">Total Value (USD)</p>
                       <p className="text-3xl font-bold">${holdings.totalValue.toLocaleString()}</p>
                     </CardContent>
                   </Card>
-                  <Card className="bg-gradient-to-br from-green-500 to-green-700 text-white">
+                  <Card className="bg-gradient-to-br from-green-500 to-green-700 text-foreground">
                     <CardContent className="p-6">
                       <p className="text-green-100">Total Value (INR)</p>
                       <p className="text-3xl font-bold">₹{holdings.totalValueINR.toLocaleString()}</p>
                     </CardContent>
                   </Card>
-                  <Card className={`bg-gradient-to-br ${holdings.totalProfitLoss >= 0 ? "from-emerald-500 to-emerald-700" : "from-red-500 to-red-700"} text-white`}>
+                  <Card className={`bg-gradient-to-br ${holdings.totalProfitLoss >= 0 ? "from-emerald-500 to-emerald-700" : "from-red-500 to-red-700"} text-foreground`}>
                     <CardContent className="p-6">
-                      <p className="text-white/80">Total P&L</p>
+                      <p className="text-foreground/80">Total P&L</p>
                       <p className="text-3xl font-bold">
                         {holdings.totalProfitLoss >= 0 ? "+" : ""}{holdings.totalProfitLossPercent.toFixed(2)}%
                       </p>

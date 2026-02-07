@@ -61,7 +61,7 @@ export default function BankingProducts() {
     <div className="space-y-8" data-testid="banking-products-page">
       <div className="space-y-6">
         <div className="mb-8" data-testid="banking-header">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Banking Products</h1>
+          <h1 className="text-3xl font-bold text-foreground mb-4">Banking Products</h1>
           <p className="text-muted-foreground text-lg">
             Compare and apply for best banking products from leading banks
           </p>
@@ -81,7 +81,7 @@ export default function BankingProducts() {
                   <div className={`w-12 h-12 bg-${category.color}-100 rounded-lg flex items-center justify-center mb-4`}>
                     <IconComponent className={`h-6 w-6 text-finance-${category.color}`} />
                   </div>
-                  <h3 className="font-bold text-gray-900 mb-2">{category.name}</h3>
+                  <h3 className="font-bold text-foreground mb-2">{category.name}</h3>
                   <p className="text-muted-foreground text-sm mb-3">{category.description}</p>
                   <div className="text-xs">
                     <span className="text-muted-foreground">Interest/Rewards: </span>
@@ -240,7 +240,7 @@ export default function BankingProducts() {
               <p className="text-sm">
                 We continuously monitor and negotiate with partner banks to ensure you get the best rates available in the market.
               </p>
-              <div className="bg-white rounded-lg p-4">
+              <div className="bg-card rounded-lg p-4">
                 <div className="text-center">
                   <p className="text-3xl font-bold text-finance-green">8.5%</p>
                   <p className="text-xs text-muted-foreground mt-1">Best FD Rate Today</p>

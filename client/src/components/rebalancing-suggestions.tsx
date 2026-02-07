@@ -149,7 +149,7 @@ export function RebalancingSuggestions({ portfolioId }: RebalancingSuggestionsPr
 
         {/* Rebalancing Suggestions */}
         <div className="space-y-4">
-          <h4 className="font-semibold text-gray-900">Asset Allocation Analysis</h4>
+          <h4 className="font-semibold text-foreground">Asset Allocation Analysis</h4>
           
           {(suggestions?.suggestions || []).map((suggestion, index) => (
             <div 
@@ -219,7 +219,7 @@ export function RebalancingSuggestions({ portfolioId }: RebalancingSuggestionsPr
         {(suggestions?.suggestions || []).length === 0 && (
           <div className="text-center py-6">
             <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Portfolio Well Balanced</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-2">Portfolio Well Balanced</h3>
             <p className="text-muted-foreground">
               Your current asset allocation aligns with recommended targets.
             </p>

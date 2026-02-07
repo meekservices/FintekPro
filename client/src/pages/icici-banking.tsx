@@ -220,15 +220,15 @@ export default function ICICIBanking() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4" data-testid="icici-banking-page">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50/30 to-indigo-100/30 dark:from-background dark:to-card p-4" data-testid="icici-banking-page">
       <div className="container mx-auto max-w-7xl space-y-6">
         {/* Header */}
         <div className="text-center space-y-4">
           <div className="flex items-center justify-center gap-3">
             <Building2 className="h-8 w-8 text-blue-600" />
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">ICICI Bank Services</h1>
+            <h1 className="text-3xl font-bold text-foreground">ICICI Bank Services</h1>
           </div>
-          <p className="text-muted-foreground dark:text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-muted-foreground max-w-2xl mx-auto">
             Access comprehensive banking services including account management, payments, and transaction history
           </p>
         </div>
@@ -314,8 +314,8 @@ export default function ICICIBanking() {
                         ₹{accountBalance.data?.ledgerBalance?.toLocaleString()}
                       </p>
                     </div>
-                    <div className="text-center p-4 bg-muted dark:bg-muted rounded-lg">
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Last Updated</p>
+                    <div className="text-center p-4 bg-muted rounded-lg">
+                      <p className="text-sm text-muted-foreground">Last Updated</p>
                       <p className="text-sm font-medium" data-testid="last-updated">
                         {accountBalance.data?.lastUpdated ? format(new Date(accountBalance.data.lastUpdated), 'MMM dd, yyyy HH:mm') : 'N/A'}
                       </p>

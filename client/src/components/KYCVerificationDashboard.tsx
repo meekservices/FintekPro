@@ -199,7 +199,7 @@ export function KYCVerificationDashboard() {
     if (tier === "basic") return "bg-yellow-600 hover:bg-yellow-700";
     if (tier === "enhanced") return "bg-purple-600 hover:bg-purple-700";
     if (tier === "accredited_investor") return "bg-green-600 hover:bg-green-700";
-    return "bg-gray-600";
+    return "bg-muted";
   };
 
   return (
@@ -211,7 +211,7 @@ export function KYCVerificationDashboard() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="h-12 w-12 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center">
-                  <User className="h-6 w-6 text-white" />
+                  <User className="h-6 w-6 text-foreground" />
                 </div>
                 <div>
                   <CardTitle className="text-xl">{verifiedKYC.fullName || "User"}</CardTitle>

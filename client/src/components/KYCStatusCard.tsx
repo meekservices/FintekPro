@@ -136,7 +136,7 @@ export function KYCStatusCard() {
       case "basic":
         return "bg-blue-600 hover:bg-blue-700";
       default:
-        return "bg-gray-400";
+        return "bg-muted-foreground";
     }
   };
 

@@ -161,7 +161,7 @@ const normalizeStatus = (status: string): TransactionStatus => {
 function TransactionCard({ transaction }: { transaction: NormalizedTransaction }) {
   return (
     <div 
-      className="p-4 border rounded-lg hover:shadow-md transition-shadow bg-white dark:bg-card"
+      className="p-4 border rounded-lg hover:shadow-md transition-shadow bg-card"
       data-testid={`transaction-card-${transaction.id}`}
     >
       <div className="flex items-start justify-between gap-4">
@@ -229,7 +229,7 @@ function TransactionCard({ transaction }: { transaction: NormalizedTransaction }
 
 function TransactionSkeleton() {
   return (
-    <div className="p-4 border rounded-lg bg-white dark:bg-card">
+    <div className="p-4 border rounded-lg bg-card">
       <div className="flex items-center gap-2 mb-3">
         <Skeleton className="w-4 h-4" />
         <Skeleton className="h-5 w-40" />
@@ -525,8 +525,8 @@ export default function TransactionReports() {
         </Link>
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Transaction Reports</h1>
-            <p className="text-muted-foreground dark:text-muted-foreground">View all your FintekPro orders and payment transactions</p>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Transaction Reports</h1>
+            <p className="text-muted-foreground">View all your FintekPro orders and payment transactions</p>
           </div>
           <div className="flex items-center gap-2">
             <Button 
@@ -708,7 +708,7 @@ export default function TransactionReports() {
             </div>
             <div className="flex items-end">
               <div className="text-sm text-muted-foreground">
-                Showing <span className="font-semibold text-gray-900 dark:text-white">{filteredTransactions.length}</span> of {normalizedTransactions.length}
+                Showing <span className="font-semibold text-foreground">{filteredTransactions.length}</span> of {normalizedTransactions.length}
               </div>
             </div>
           </div>
@@ -746,8 +746,8 @@ export default function TransactionReports() {
             <Card>
               <CardContent className="text-center py-12">
                 <Receipt className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No transactions found</h2>
-                <p className="text-muted-foreground dark:text-muted-foreground mb-6">
+                <h2 className="text-xl font-semibold text-foreground mb-2">No transactions found</h2>
+                <p className="text-muted-foreground mb-6">
                   {hasActiveFilters 
                     ? 'Try adjusting your filters to see more transactions' 
                     : 'Complete some purchases to see your transaction history here'}

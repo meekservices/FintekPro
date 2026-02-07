@@ -26,18 +26,18 @@ export default function PrivacyPolicy() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50/30 to-indigo-100/30 dark:from-background dark:to-card">
       <main className="py-12 px-4">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
             <div className="flex items-center justify-center mb-4">
               <Shield className="w-12 h-12 text-blue-600 mr-3" />
-              <h1 className="text-4xl font-bold text-gray-900 dark:text-white">Privacy Policy</h1>
+              <h1 className="text-4xl font-bold text-foreground">Privacy Policy</h1>
             </div>
-            <p className="text-lg text-muted-foreground dark:text-muted-foreground">
+            <p className="text-lg text-muted-foreground">
               Your privacy is our priority. Learn how we collect, use, and protect your financial data.
             </p>
-            <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-2">
+            <p className="text-sm text-muted-foreground mt-2">
               Last updated: January 3, 2026
             </p>
           </div>
@@ -61,7 +61,7 @@ export default function PrivacyPolicy() {
               <CardContent className="space-y-4">
                 <div>
                   <h4 className="font-semibold mb-2">Personal Identification Data</h4>
-                  <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
+                  <ul className="list-disc list-inside text-muted-foreground space-y-1">
                     <li>Full legal name, email address, mobile number</li>
                     <li>PAN (mandatory), Aadhaar (for eKYC), passport/voter ID</li>
                     <li>Address, date of birth, nationality, and residency status</li>
@@ -71,7 +71,7 @@ export default function PrivacyPolicy() {
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">Financial Information</h4>
-                  <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
+                  <ul className="list-disc list-inside text-muted-foreground space-y-1">
                     <li>Bank account details (account number, IFSC, account type)</li>
                     <li>Demat account details (DP ID, Client ID)</li>
                     <li>Investment portfolio data and transaction history</li>
@@ -82,7 +82,7 @@ export default function PrivacyPolicy() {
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">Regulatory Compliance Data</h4>
-                  <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
+                  <ul className="list-disc list-inside text-muted-foreground space-y-1">
                     <li>FATCA/CRS declaration and tax residency details</li>
                     <li>PEP (Politically Exposed Person) status declaration</li>
                     <li>CKYC registration number and central KYC records</li>
@@ -92,7 +92,7 @@ export default function PrivacyPolicy() {
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">Auto-Populated Data (With Consent)</h4>
-                  <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
+                  <ul className="list-disc list-inside text-muted-foreground space-y-1">
                     <li>CAMS/KFintech mutual fund holdings</li>
                     <li>CDSL/NSDL demat holdings</li>
                     <li>Insurance policy data from repositories</li>
@@ -102,7 +102,7 @@ export default function PrivacyPolicy() {
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">Technical & Usage Data</h4>
-                  <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
+                  <ul className="list-disc list-inside text-muted-foreground space-y-1">
                     <li>Device information, IP address, browser type</li>
                     <li>Login timestamps and session data</li>
                     <li>Platform usage patterns and feature interactions</li>
@@ -122,7 +122,7 @@ export default function PrivacyPolicy() {
               <CardContent className="space-y-4">
                 <div>
                   <h4 className="font-semibold mb-2">Service Delivery</h4>
-                  <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
+                  <ul className="list-disc list-inside text-muted-foreground space-y-1">
                     <li>Process investment transactions and maintain portfolio records</li>
                     <li>Provide personalized investment recommendations and advisory</li>
                     <li>Execute trades, SIPs, and fund transfers</li>
@@ -132,7 +132,7 @@ export default function PrivacyPolicy() {
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">Regulatory Compliance</h4>
-                  <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
+                  <ul className="list-disc list-inside text-muted-foreground space-y-1">
                     <li>KYC verification and ongoing customer due diligence</li>
                     <li>AML monitoring and suspicious transaction reporting</li>
                     <li>SEBI, RBI, and Income Tax regulatory reporting</li>
@@ -142,7 +142,7 @@ export default function PrivacyPolicy() {
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">Communication</h4>
-                  <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
+                  <ul className="list-disc list-inside text-muted-foreground space-y-1">
                     <li>Transaction confirmations and account alerts</li>
                     <li>Market updates and investment opportunities (with consent)</li>
                     <li>Regulatory notices and policy updates</li>
@@ -162,7 +162,7 @@ export default function PrivacyPolicy() {
               <CardContent className="space-y-4">
                 <div>
                   <h4 className="font-semibold mb-2">Encryption Standards</h4>
-                  <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
+                  <ul className="list-disc list-inside text-muted-foreground space-y-1">
                     <li>AES-256 encryption for data at rest</li>
                     <li>TLS 1.3 for all data in transit</li>
                     <li>End-to-end encryption for sensitive financial data</li>
@@ -171,7 +171,7 @@ export default function PrivacyPolicy() {
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">Access Controls</h4>
-                  <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
+                  <ul className="list-disc list-inside text-muted-foreground space-y-1">
                     <li>Mandatory two-factor authentication (OTP via email/SMS)</li>
                     <li>Role-based access control (RBAC) for internal systems</li>
                     <li>Biometric authentication support for mobile apps</li>
@@ -180,7 +180,7 @@ export default function PrivacyPolicy() {
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">Infrastructure Security</h4>
-                  <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
+                  <ul className="list-disc list-inside text-muted-foreground space-y-1">
                     <li>SOC 2 Type II compliant cloud infrastructure</li>
                     <li>Regular penetration testing and vulnerability assessments</li>
                     <li>24/7 security monitoring and intrusion detection</li>
@@ -208,7 +208,7 @@ export default function PrivacyPolicy() {
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">Retention Periods by Data Type</h4>
-                  <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
+                  <ul className="list-disc list-inside text-muted-foreground space-y-1">
                     <li><strong>KYC Documents:</strong> 7 years from account closure</li>
                     <li><strong>Transaction Records:</strong> 7 years from transaction date</li>
                     <li><strong>Tax Documents:</strong> 7 years from relevant assessment year</li>
@@ -230,7 +230,7 @@ export default function PrivacyPolicy() {
               <CardContent className="space-y-4">
                 <div>
                   <h4 className="font-semibold mb-2">Regulatory Authorities (Mandatory)</h4>
-                  <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
+                  <ul className="list-disc list-inside text-muted-foreground space-y-1">
                     <li>SEBI for investment-related regulatory reporting</li>
                     <li>RBI for payment and banking compliance</li>
                     <li>Income Tax Department for tax-related reporting</li>
@@ -240,7 +240,7 @@ export default function PrivacyPolicy() {
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">Service Partners (Under Contract)</h4>
-                  <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
+                  <ul className="list-disc list-inside text-muted-foreground space-y-1">
                     <li>KYC verification providers (CKYC, video KYC)</li>
                     <li>Payment gateways and banking partners</li>
                     <li>Depositories (CDSL, NSDL) and RTAs (CAMS, KFintech)</li>
@@ -250,7 +250,7 @@ export default function PrivacyPolicy() {
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">We Do NOT</h4>
-                  <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
+                  <ul className="list-disc list-inside text-muted-foreground space-y-1">
                     <li>Sell your personal data to third parties</li>
                     <li>Share data for marketing without explicit consent</li>
                     <li>Transfer data to jurisdictions without adequate protection</li>
@@ -269,10 +269,10 @@ export default function PrivacyPolicy() {
               <CardContent className="space-y-4">
                 <div>
                   <h4 className="font-semibold mb-2">NRI & Global Advisory Services</h4>
-                  <p className="text-muted-foreground dark:text-muted-foreground mb-2">
+                  <p className="text-muted-foreground mb-2">
                     For NRI clients and Global Advisory users, certain data may be processed in jurisdictions outside India:
                   </p>
-                  <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
+                  <ul className="list-disc list-inside text-muted-foreground space-y-1">
                     <li>Cloud infrastructure in US/EU regions with SOC 2 certification</li>
                     <li>FATCA reporting to US IRS via Indian regulatory channels</li>
                     <li>CRS reporting to relevant tax authorities</li>
@@ -280,7 +280,7 @@ export default function PrivacyPolicy() {
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">Safeguards</h4>
-                  <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
+                  <ul className="list-disc list-inside text-muted-foreground space-y-1">
                     <li>Standard Contractual Clauses with all international processors</li>
                     <li>Data localization for sensitive Indian resident data per RBI guidelines</li>
                     <li>Encryption in transit for all cross-border transfers</li>
@@ -297,7 +297,7 @@ export default function PrivacyPolicy() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-2">
+                <ul className="list-disc list-inside text-muted-foreground space-y-2">
                   <li><strong>Right to Access:</strong> Request a copy of your personal data held by us</li>
                   <li><strong>Right to Correction:</strong> Update or correct inaccurate information</li>
                   <li><strong>Right to Erasure:</strong> Request deletion (subject to regulatory retention requirements)</li>
@@ -305,8 +305,8 @@ export default function PrivacyPolicy() {
                   <li><strong>Right to Withdraw Consent:</strong> Opt out of optional data processing and marketing</li>
                   <li><strong>Right to Grievance:</strong> Lodge complaints with our Grievance Officer</li>
                 </ul>
-                <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mt-4">
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+                <div className="bg-muted p-4 rounded-lg mt-4">
+                  <p className="text-sm text-muted-foreground">
                     <strong>Note:</strong> Certain rights may be limited where data is required for regulatory compliance, 
                     legal proceedings, or legitimate business interests. We will explain any limitations when you make a request.
                   </p>
@@ -324,14 +324,14 @@ export default function PrivacyPolicy() {
               <CardContent className="space-y-4">
                 <div>
                   <h4 className="font-semibold mb-2">Auto-Population Consent</h4>
-                  <p className="text-muted-foreground dark:text-muted-foreground">
+                  <p className="text-muted-foreground">
                     Our PAN-level portfolio auto-population feature requires explicit consent before fetching data from 
                     external sources (CAMS, KFintech, depositories). You can manage these consents in your account settings.
                   </p>
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">Marketing Communications</h4>
-                  <p className="text-muted-foreground dark:text-muted-foreground">
+                  <p className="text-muted-foreground">
                     You can opt out of marketing communications at any time via email preferences or by contacting support. 
                     Transactional and regulatory communications cannot be opted out.
                   </p>
@@ -347,12 +347,12 @@ export default function PrivacyPolicy() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-2">
+                <ul className="list-disc list-inside text-muted-foreground space-y-2">
                   <li><strong>Essential Cookies:</strong> Required for authentication and security</li>
                   <li><strong>Functional Cookies:</strong> Remember your preferences and settings</li>
                   <li><strong>Analytics Cookies:</strong> Help us improve platform performance (anonymized)</li>
                 </ul>
-                <p className="text-muted-foreground dark:text-muted-foreground mt-4">
+                <p className="text-muted-foreground mt-4">
                   We do not use third-party advertising cookies. You can manage cookie preferences in your browser settings.
                 </p>
               </CardContent>
@@ -369,14 +369,14 @@ export default function PrivacyPolicy() {
                 <div className="space-y-4">
                   <div>
                     <h4 className="font-semibold mb-2">Data Protection Officer</h4>
-                    <p className="text-muted-foreground dark:text-muted-foreground">
+                    <p className="text-muted-foreground">
                       <strong>Email:</strong> dpo@fintekpro.com<br />
                       <strong>Response Time:</strong> Within 30 days
                     </p>
                   </div>
                   <div>
                     <h4 className="font-semibold mb-2">Grievance Officer (As per IT Act)</h4>
-                    <p className="text-muted-foreground dark:text-muted-foreground">
+                    <p className="text-muted-foreground">
                       <strong>Name:</strong> Grievance Officer, FintekPro<br />
                       <strong>Email:</strong> grievance@fintekpro.com<br />
                       <strong>Address:</strong> FintekPro Financial Services Pvt. Ltd., Mumbai, Maharashtra, India<br />
@@ -389,7 +389,7 @@ export default function PrivacyPolicy() {
           </div>
 
           <div className="mt-12 text-center space-y-4">
-            <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               This privacy policy is effective as of January 3, 2026. We may update this policy with 30 days notice 
               to registered users. Continued use after changes constitutes acceptance.
             </p>

@@ -411,18 +411,18 @@ export default function AgentClientOnboarding() {
             <div className="mx-auto w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mb-4">
               <PartyPopper className="w-10 h-10 text-emerald-400" />
             </div>
-            <CardTitle className="text-2xl text-white">Client Onboarded Successfully!</CardTitle>
-            <CardDescription className="text-slate-300">
+            <CardTitle className="text-2xl text-foreground">Client Onboarded Successfully!</CardTitle>
+            <CardDescription className="text-muted-foreground">
               The client has been registered and their KYC process has been initiated.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="bg-slate-800/50 rounded-lg p-4 space-y-3">
-              <h4 className="font-medium text-white flex items-center gap-2">
+            <div className="bg-card/50 rounded-lg p-4 space-y-3">
+              <h4 className="font-medium text-foreground flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-emerald-400" />
                 What's Next
               </h4>
-              <ul className="space-y-2 text-sm text-slate-300">
+              <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex items-start gap-2">
                   <span className="bg-emerald-500/20 text-emerald-400 rounded-full w-5 h-5 flex items-center justify-center text-xs mt-0.5">1</span>
                   <span>Client will receive a welcome email with login credentials</span>
@@ -451,7 +451,7 @@ export default function AgentClientOnboarding() {
               )}
               <Button 
                 variant="outline" 
-                className="w-full border-slate-700 text-white hover:bg-slate-800"
+                className="w-full border-border text-foreground hover:bg-card"
                 onClick={() => {
                   setIsSuccess(false);
                   setCurrentStep(1);
@@ -464,7 +464,7 @@ export default function AgentClientOnboarding() {
               </Button>
               <Button 
                 variant="ghost" 
-                className="w-full text-slate-400 hover:text-white"
+                className="w-full text-muted-foreground hover:text-foreground"
                 onClick={() => navigate("/clients")}
                 data-testid="button-back-to-clients"
               >
@@ -481,14 +481,14 @@ export default function AgentClientOnboarding() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Onboard New Client</h1>
-          <p className="text-slate-400">Complete the KYC process to register a new client</p>
+          <h1 className="text-2xl font-bold text-foreground">Onboard New Client</h1>
+          <p className="text-muted-foreground">Complete the KYC process to register a new client</p>
         </div>
         <Button
           variant="outline"
           size="sm"
           onClick={saveDraft}
-          className="border-slate-700 text-slate-300 hover:bg-slate-800"
+          className="border-border text-muted-foreground hover:bg-card"
           data-testid="button-save-draft"
         >
           <Save className="w-4 h-4 mr-2" />
@@ -496,13 +496,13 @@ export default function AgentClientOnboarding() {
         </Button>
       </div>
 
-      <Card className="border-slate-800 bg-slate-900/50">
+      <Card className="border-border bg-background/50">
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-sm text-slate-400">Step {currentStep} of {STEPS.length}</span>
+            <span className="text-sm text-muted-foreground">Step {currentStep} of {STEPS.length}</span>
             <span className="text-sm text-emerald-400">{Math.round(progressPercentage)}% Complete</span>
           </div>
-          <Progress value={progressPercentage} className="h-2 bg-slate-800" />
+          <Progress value={progressPercentage} className="h-2 bg-card" />
           
           <div className="flex items-center justify-between mt-6 overflow-x-auto pb-2">
             {STEPS.map((step, index) => {
@@ -527,7 +527,7 @@ export default function AgentClientOnboarding() {
                         "w-10 h-10 rounded-full flex items-center justify-center transition-all",
                         isCompleted && "bg-emerald-500 text-white cursor-pointer hover:bg-emerald-600",
                         isCurrent && "bg-emerald-500/20 text-emerald-400 ring-2 ring-emerald-500",
-                        !isCompleted && !isCurrent && "bg-slate-800 text-slate-500"
+                        !isCompleted && !isCurrent && "bg-card text-muted-foreground"
                       )}
                       data-testid={`step-${step.id}`}
                     >
@@ -540,13 +540,13 @@ export default function AgentClientOnboarding() {
                     {index < STEPS.length - 1 && (
                       <div className={cn(
                         "flex-1 h-0.5 mx-2",
-                        isCompleted ? "bg-emerald-500" : "bg-slate-700"
+                        isCompleted ? "bg-emerald-500" : "bg-muted"
                       )} />
                     )}
                   </div>
                   <span className={cn(
                     "text-xs mt-2 text-center",
-                    isCurrent ? "text-emerald-400 font-medium" : "text-slate-500"
+                    isCurrent ? "text-emerald-400 font-medium" : "text-muted-foreground"
                   )}>
                     {step.name}
                   </span>
@@ -563,7 +563,7 @@ export default function AgentClientOnboarding() {
                 <div className="space-y-6 animate-in fade-in-50 duration-300">
                   <div className="flex items-center gap-2 mb-4">
                     <User className="w-5 h-5 text-emerald-400" />
-                    <h3 className="text-lg font-medium text-white">Basic Information</h3>
+                    <h3 className="text-lg font-medium text-foreground">Basic Information</h3>
                   </div>
                   
                   <div className="grid gap-4 md:grid-cols-2">
@@ -572,12 +572,12 @@ export default function AgentClientOnboarding() {
                       name="firstName"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-slate-300">First Name *</FormLabel>
+                          <FormLabel className="text-muted-foreground">First Name *</FormLabel>
                           <FormControl>
                             <Input
                               {...field}
                               placeholder="Enter first name"
-                              className="bg-slate-800 border-slate-700 text-white"
+                              className="bg-card border-border text-foreground"
                               data-testid="input-first-name"
                             />
                           </FormControl>
@@ -591,12 +591,12 @@ export default function AgentClientOnboarding() {
                       name="lastName"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-slate-300">Last Name *</FormLabel>
+                          <FormLabel className="text-muted-foreground">Last Name *</FormLabel>
                           <FormControl>
                             <Input
                               {...field}
                               placeholder="Enter last name"
-                              className="bg-slate-800 border-slate-700 text-white"
+                              className="bg-card border-border text-foreground"
                               data-testid="input-last-name"
                             />
                           </FormControl>
@@ -612,13 +612,13 @@ export default function AgentClientOnboarding() {
                       name="email"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-slate-300">Email Address *</FormLabel>
+                          <FormLabel className="text-muted-foreground">Email Address *</FormLabel>
                           <FormControl>
                             <Input
                               {...field}
                               type="email"
                               placeholder="client@example.com"
-                              className="bg-slate-800 border-slate-700 text-white"
+                              className="bg-card border-border text-foreground"
                               data-testid="input-email"
                             />
                           </FormControl>
@@ -632,13 +632,13 @@ export default function AgentClientOnboarding() {
                       name="mobile"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-slate-300">Mobile Number *</FormLabel>
+                          <FormLabel className="text-muted-foreground">Mobile Number *</FormLabel>
                           <FormControl>
                             <Input
                               {...field}
                               type="tel"
                               placeholder="9876543210"
-                              className="bg-slate-800 border-slate-700 text-white"
+                              className="bg-card border-border text-foreground"
                               data-testid="input-mobile"
                             />
                           </FormControl>
@@ -654,12 +654,12 @@ export default function AgentClientOnboarding() {
                       name="dateOfBirth"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-slate-300">Date of Birth *</FormLabel>
+                          <FormLabel className="text-muted-foreground">Date of Birth *</FormLabel>
                           <FormControl>
                             <Input
                               {...field}
                               type="date"
-                              className="bg-slate-800 border-slate-700 text-white"
+                              className="bg-card border-border text-foreground"
                               data-testid="input-dob"
                             />
                           </FormControl>
@@ -673,10 +673,10 @@ export default function AgentClientOnboarding() {
                       name="gender"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-slate-300">Gender *</FormLabel>
+                          <FormLabel className="text-muted-foreground">Gender *</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
-                              <SelectTrigger className="bg-slate-800 border-slate-700 text-white" data-testid="select-gender">
+                              <SelectTrigger className="bg-card border-border text-foreground" data-testid="select-gender">
                                 <SelectValue placeholder="Select gender" />
                               </SelectTrigger>
                             </FormControl>
@@ -698,7 +698,7 @@ export default function AgentClientOnboarding() {
                 <div className="space-y-6 animate-in fade-in-50 duration-300">
                   <div className="flex items-center gap-2 mb-4">
                     <CreditCard className="w-5 h-5 text-emerald-400" />
-                    <h3 className="text-lg font-medium text-white">PAN Verification</h3>
+                    <h3 className="text-lg font-medium text-foreground">PAN Verification</h3>
                   </div>
 
                   <Alert className="bg-blue-500/10 border-blue-500/20">
@@ -714,13 +714,13 @@ export default function AgentClientOnboarding() {
                     name="panNumber"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-slate-300">PAN Number *</FormLabel>
+                        <FormLabel className="text-muted-foreground">PAN Number *</FormLabel>
                         <div className="flex gap-3">
                           <FormControl>
                             <Input
                               {...field}
                               placeholder="ABCDE1234F"
-                              className="bg-slate-800 border-slate-700 text-white uppercase"
+                              className="bg-card border-border text-foreground uppercase"
                               maxLength={10}
                               onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                               data-testid="input-pan"
@@ -752,8 +752,8 @@ export default function AgentClientOnboarding() {
                         <span className="font-medium">PAN Verified Successfully</span>
                       </div>
                       {form.getValues("panHolderName") && (
-                        <p className="text-slate-300 mt-2">
-                          Name: <span className="text-white font-medium">{form.getValues("panHolderName")}</span>
+                        <p className="text-muted-foreground mt-2">
+                          Name: <span className="text-foreground font-medium">{form.getValues("panHolderName")}</span>
                         </p>
                       )}
                     </div>
@@ -775,7 +775,7 @@ export default function AgentClientOnboarding() {
                 <div className="space-y-6 animate-in fade-in-50 duration-300">
                   <div className="flex items-center gap-2 mb-4">
                     <MapPin className="w-5 h-5 text-emerald-400" />
-                    <h3 className="text-lg font-medium text-white">Address & KYC Details</h3>
+                    <h3 className="text-lg font-medium text-foreground">Address & KYC Details</h3>
                   </div>
 
                   <FormField
@@ -783,17 +783,17 @@ export default function AgentClientOnboarding() {
                     name="aadhaarNumber"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-slate-300">Aadhaar Number (Optional)</FormLabel>
+                        <FormLabel className="text-muted-foreground">Aadhaar Number (Optional)</FormLabel>
                         <FormControl>
                           <Input
                             {...field}
                             placeholder="Enter 12-digit Aadhaar number"
                             maxLength={12}
-                            className="bg-slate-800 border-slate-700 text-white"
+                            className="bg-card border-border text-foreground"
                             data-testid="input-aadhaar"
                           />
                         </FormControl>
-                        <FormDescription className="text-slate-500">
+                        <FormDescription className="text-muted-foreground">
                           Aadhaar is optional but helps in faster KYC verification
                         </FormDescription>
                         <FormMessage />
@@ -806,12 +806,12 @@ export default function AgentClientOnboarding() {
                     name="addressLine1"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-slate-300">Address Line 1 *</FormLabel>
+                        <FormLabel className="text-muted-foreground">Address Line 1 *</FormLabel>
                         <FormControl>
                           <Input
                             {...field}
                             placeholder="House/Flat No., Building Name, Street"
-                            className="bg-slate-800 border-slate-700 text-white"
+                            className="bg-card border-border text-foreground"
                             data-testid="input-address1"
                           />
                         </FormControl>
@@ -825,12 +825,12 @@ export default function AgentClientOnboarding() {
                     name="addressLine2"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-slate-300">Address Line 2</FormLabel>
+                        <FormLabel className="text-muted-foreground">Address Line 2</FormLabel>
                         <FormControl>
                           <Input
                             {...field}
                             placeholder="Area, Landmark (Optional)"
-                            className="bg-slate-800 border-slate-700 text-white"
+                            className="bg-card border-border text-foreground"
                             data-testid="input-address2"
                           />
                         </FormControl>
@@ -845,12 +845,12 @@ export default function AgentClientOnboarding() {
                       name="city"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-slate-300">City *</FormLabel>
+                          <FormLabel className="text-muted-foreground">City *</FormLabel>
                           <FormControl>
                             <Input
                               {...field}
                               placeholder="City"
-                              className="bg-slate-800 border-slate-700 text-white"
+                              className="bg-card border-border text-foreground"
                               data-testid="input-city"
                             />
                           </FormControl>
@@ -864,12 +864,12 @@ export default function AgentClientOnboarding() {
                       name="state"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-slate-300">State *</FormLabel>
+                          <FormLabel className="text-muted-foreground">State *</FormLabel>
                           <FormControl>
                             <Input
                               {...field}
                               placeholder="State"
-                              className="bg-slate-800 border-slate-700 text-white"
+                              className="bg-card border-border text-foreground"
                               data-testid="input-state"
                             />
                           </FormControl>
@@ -883,13 +883,13 @@ export default function AgentClientOnboarding() {
                       name="pincode"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-slate-300">Pincode *</FormLabel>
+                          <FormLabel className="text-muted-foreground">Pincode *</FormLabel>
                           <FormControl>
                             <Input
                               {...field}
                               placeholder="123456"
                               maxLength={6}
-                              className="bg-slate-800 border-slate-700 text-white"
+                              className="bg-card border-border text-foreground"
                               data-testid="input-pincode"
                             />
                           </FormControl>
@@ -899,20 +899,20 @@ export default function AgentClientOnboarding() {
                     />
                   </div>
 
-                  <Separator className="bg-slate-700" />
+                  <Separator className="bg-muted" />
 
                   <div className="space-y-4">
-                    <h4 className="font-medium text-white">Address Proof</h4>
+                    <h4 className="font-medium text-foreground">Address Proof</h4>
                     
                     <FormField
                       control={form.control}
                       name="addressProofType"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-slate-300">Document Type *</FormLabel>
+                          <FormLabel className="text-muted-foreground">Document Type *</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
-                              <SelectTrigger className="bg-slate-800 border-slate-700 text-white" data-testid="select-address-proof">
+                              <SelectTrigger className="bg-card border-border text-foreground" data-testid="select-address-proof">
                                 <SelectValue placeholder="Select document type" />
                               </SelectTrigger>
                             </FormControl>
@@ -929,7 +929,7 @@ export default function AgentClientOnboarding() {
                       )}
                     />
 
-                    <div className="border-2 border-dashed border-slate-700 rounded-lg p-6 text-center">
+                    <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
                       <input
                         type="file"
                         id="address-proof"
@@ -943,7 +943,7 @@ export default function AgentClientOnboarding() {
                         className="cursor-pointer flex flex-col items-center"
                       >
                         {uploadingDocument ? (
-                          <Loader2 className="w-10 h-10 text-slate-500 animate-spin" />
+                          <Loader2 className="w-10 h-10 text-muted-foreground animate-spin" />
                         ) : form.getValues("addressProofUrl") ? (
                           <>
                             <CheckCircle2 className="w-10 h-10 text-emerald-400" />
@@ -951,9 +951,9 @@ export default function AgentClientOnboarding() {
                           </>
                         ) : (
                           <>
-                            <Upload className="w-10 h-10 text-slate-500" />
-                            <span className="text-slate-400 mt-2">Click to upload document</span>
-                            <span className="text-slate-500 text-sm">PNG, JPG or PDF (max 5MB)</span>
+                            <Upload className="w-10 h-10 text-muted-foreground" />
+                            <span className="text-muted-foreground mt-2">Click to upload document</span>
+                            <span className="text-muted-foreground text-sm">PNG, JPG or PDF (max 5MB)</span>
                           </>
                         )}
                       </label>
@@ -966,7 +966,7 @@ export default function AgentClientOnboarding() {
                 <div className="space-y-6 animate-in fade-in-50 duration-300">
                   <div className="flex items-center gap-2 mb-4">
                     <Building2 className="w-5 h-5 text-emerald-400" />
-                    <h3 className="text-lg font-medium text-white">Bank Details</h3>
+                    <h3 className="text-lg font-medium text-foreground">Bank Details</h3>
                   </div>
 
                   <Alert className="bg-amber-500/10 border-amber-500/20">
@@ -983,13 +983,13 @@ export default function AgentClientOnboarding() {
                       name="accountNumber"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-slate-300">Account Number *</FormLabel>
+                          <FormLabel className="text-muted-foreground">Account Number *</FormLabel>
                           <FormControl>
                             <Input
                               {...field}
                               type="password"
                               placeholder="Enter account number"
-                              className="bg-slate-800 border-slate-700 text-white"
+                              className="bg-card border-border text-foreground"
                               data-testid="input-account-number"
                             />
                           </FormControl>
@@ -1003,12 +1003,12 @@ export default function AgentClientOnboarding() {
                       name="confirmAccountNumber"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-slate-300">Confirm Account Number *</FormLabel>
+                          <FormLabel className="text-muted-foreground">Confirm Account Number *</FormLabel>
                           <FormControl>
                             <Input
                               {...field}
                               placeholder="Re-enter account number"
-                              className="bg-slate-800 border-slate-700 text-white"
+                              className="bg-card border-border text-foreground"
                               data-testid="input-confirm-account"
                             />
                           </FormControl>
@@ -1024,12 +1024,12 @@ export default function AgentClientOnboarding() {
                       name="ifscCode"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-slate-300">IFSC Code *</FormLabel>
+                          <FormLabel className="text-muted-foreground">IFSC Code *</FormLabel>
                           <FormControl>
                             <Input
                               {...field}
                               placeholder="SBIN0001234"
-                              className="bg-slate-800 border-slate-700 text-white uppercase"
+                              className="bg-card border-border text-foreground uppercase"
                               maxLength={11}
                               onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                               data-testid="input-ifsc"
@@ -1045,12 +1045,12 @@ export default function AgentClientOnboarding() {
                       name="bankName"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-slate-300">Bank Name *</FormLabel>
+                          <FormLabel className="text-muted-foreground">Bank Name *</FormLabel>
                           <FormControl>
                             <Input
                               {...field}
                               placeholder="Bank name"
-                              className="bg-slate-800 border-slate-700 text-white"
+                              className="bg-card border-border text-foreground"
                               data-testid="input-bank-name"
                             />
                           </FormControl>
@@ -1066,12 +1066,12 @@ export default function AgentClientOnboarding() {
                       name="branchName"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-slate-300">Branch Name</FormLabel>
+                          <FormLabel className="text-muted-foreground">Branch Name</FormLabel>
                           <FormControl>
                             <Input
                               {...field}
                               placeholder="Branch name (optional)"
-                              className="bg-slate-800 border-slate-700 text-white"
+                              className="bg-card border-border text-foreground"
                               data-testid="input-branch-name"
                             />
                           </FormControl>
@@ -1085,10 +1085,10 @@ export default function AgentClientOnboarding() {
                       name="accountType"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-slate-300">Account Type *</FormLabel>
+                          <FormLabel className="text-muted-foreground">Account Type *</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
-                              <SelectTrigger className="bg-slate-800 border-slate-700 text-white" data-testid="select-account-type">
+                              <SelectTrigger className="bg-card border-border text-foreground" data-testid="select-account-type">
                                 <SelectValue placeholder="Select account type" />
                               </SelectTrigger>
                             </FormControl>
@@ -1109,7 +1109,7 @@ export default function AgentClientOnboarding() {
                 <div className="space-y-6 animate-in fade-in-50 duration-300">
                   <div className="flex items-center gap-2 mb-4">
                     <Target className="w-5 h-5 text-emerald-400" />
-                    <h3 className="text-lg font-medium text-white">Risk Profile</h3>
+                    <h3 className="text-lg font-medium text-foreground">Risk Profile</h3>
                   </div>
 
                   <FormField
@@ -1117,7 +1117,7 @@ export default function AgentClientOnboarding() {
                     name="investmentGoal"
                     render={({ field }) => (
                       <FormItem className="space-y-3">
-                        <FormLabel className="text-slate-300">Investment Goal *</FormLabel>
+                        <FormLabel className="text-muted-foreground">Investment Goal *</FormLabel>
                         <FormControl>
                           <RadioGroup
                             onValueChange={field.onChange}
@@ -1140,7 +1140,7 @@ export default function AgentClientOnboarding() {
                                 />
                                 <Label
                                   htmlFor={goal.value}
-                                  className="flex items-center justify-center rounded-lg border-2 border-slate-700 bg-slate-800 p-3 hover:bg-slate-700 peer-data-[state=checked]:border-emerald-500 peer-data-[state=checked]:bg-emerald-500/10 cursor-pointer transition-all text-sm text-slate-300 peer-data-[state=checked]:text-emerald-400"
+                                  className="flex items-center justify-center rounded-lg border-2 border-border bg-card p-3 hover:bg-muted peer-data-[state=checked]:border-emerald-500 peer-data-[state=checked]:bg-emerald-500/10 cursor-pointer transition-all text-sm text-muted-foreground peer-data-[state=checked]:text-emerald-400"
                                   data-testid={`radio-goal-${goal.value}`}
                                 >
                                   {goal.label}
@@ -1159,7 +1159,7 @@ export default function AgentClientOnboarding() {
                     name="riskTolerance"
                     render={({ field }) => (
                       <FormItem className="space-y-3">
-                        <FormLabel className="text-slate-300">Risk Tolerance *</FormLabel>
+                        <FormLabel className="text-muted-foreground">Risk Tolerance *</FormLabel>
                         <FormControl>
                           <RadioGroup
                             onValueChange={field.onChange}
@@ -1170,36 +1170,36 @@ export default function AgentClientOnboarding() {
                               <RadioGroupItem value="conservative" id="conservative" className="peer sr-only" />
                               <Label
                                 htmlFor="conservative"
-                                className="flex flex-col items-center justify-center rounded-lg border-2 border-slate-700 bg-slate-800 p-4 hover:bg-slate-700 peer-data-[state=checked]:border-emerald-500 peer-data-[state=checked]:bg-emerald-500/10 cursor-pointer transition-all"
+                                className="flex flex-col items-center justify-center rounded-lg border-2 border-border bg-card p-4 hover:bg-muted peer-data-[state=checked]:border-emerald-500 peer-data-[state=checked]:bg-emerald-500/10 cursor-pointer transition-all"
                                 data-testid="radio-risk-conservative"
                               >
                                 <span className="text-2xl mb-1">🛡️</span>
-                                <span className="text-slate-300 peer-data-[state=checked]:text-emerald-400">Conservative</span>
-                                <span className="text-xs text-slate-500">Low risk, stable returns</span>
+                                <span className="text-muted-foreground peer-data-[state=checked]:text-emerald-400">Conservative</span>
+                                <span className="text-xs text-muted-foreground">Low risk, stable returns</span>
                               </Label>
                             </div>
                             <div>
                               <RadioGroupItem value="moderate" id="moderate" className="peer sr-only" />
                               <Label
                                 htmlFor="moderate"
-                                className="flex flex-col items-center justify-center rounded-lg border-2 border-slate-700 bg-slate-800 p-4 hover:bg-slate-700 peer-data-[state=checked]:border-emerald-500 peer-data-[state=checked]:bg-emerald-500/10 cursor-pointer transition-all"
+                                className="flex flex-col items-center justify-center rounded-lg border-2 border-border bg-card p-4 hover:bg-muted peer-data-[state=checked]:border-emerald-500 peer-data-[state=checked]:bg-emerald-500/10 cursor-pointer transition-all"
                                 data-testid="radio-risk-moderate"
                               >
                                 <span className="text-2xl mb-1">⚖️</span>
-                                <span className="text-slate-300 peer-data-[state=checked]:text-emerald-400">Moderate</span>
-                                <span className="text-xs text-slate-500">Balanced approach</span>
+                                <span className="text-muted-foreground peer-data-[state=checked]:text-emerald-400">Moderate</span>
+                                <span className="text-xs text-muted-foreground">Balanced approach</span>
                               </Label>
                             </div>
                             <div>
                               <RadioGroupItem value="aggressive" id="aggressive" className="peer sr-only" />
                               <Label
                                 htmlFor="aggressive"
-                                className="flex flex-col items-center justify-center rounded-lg border-2 border-slate-700 bg-slate-800 p-4 hover:bg-slate-700 peer-data-[state=checked]:border-emerald-500 peer-data-[state=checked]:bg-emerald-500/10 cursor-pointer transition-all"
+                                className="flex flex-col items-center justify-center rounded-lg border-2 border-border bg-card p-4 hover:bg-muted peer-data-[state=checked]:border-emerald-500 peer-data-[state=checked]:bg-emerald-500/10 cursor-pointer transition-all"
                                 data-testid="radio-risk-aggressive"
                               >
                                 <span className="text-2xl mb-1">🚀</span>
-                                <span className="text-slate-300 peer-data-[state=checked]:text-emerald-400">Aggressive</span>
-                                <span className="text-xs text-slate-500">High risk, high potential</span>
+                                <span className="text-muted-foreground peer-data-[state=checked]:text-emerald-400">Aggressive</span>
+                                <span className="text-xs text-muted-foreground">High risk, high potential</span>
                               </Label>
                             </div>
                           </RadioGroup>
@@ -1215,10 +1215,10 @@ export default function AgentClientOnboarding() {
                       name="investmentHorizon"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-slate-300">Investment Horizon *</FormLabel>
+                          <FormLabel className="text-muted-foreground">Investment Horizon *</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
-                              <SelectTrigger className="bg-slate-800 border-slate-700 text-white" data-testid="select-horizon">
+                              <SelectTrigger className="bg-card border-border text-foreground" data-testid="select-horizon">
                                 <SelectValue placeholder="Select horizon" />
                               </SelectTrigger>
                             </FormControl>
@@ -1238,10 +1238,10 @@ export default function AgentClientOnboarding() {
                       name="annualIncome"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-slate-300">Annual Income *</FormLabel>
+                          <FormLabel className="text-muted-foreground">Annual Income *</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
-                              <SelectTrigger className="bg-slate-800 border-slate-700 text-white" data-testid="select-income">
+                              <SelectTrigger className="bg-card border-border text-foreground" data-testid="select-income">
                                 <SelectValue placeholder="Select range" />
                               </SelectTrigger>
                             </FormControl>
@@ -1263,10 +1263,10 @@ export default function AgentClientOnboarding() {
                       name="investmentExperience"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-slate-300">Experience *</FormLabel>
+                          <FormLabel className="text-muted-foreground">Experience *</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
-                              <SelectTrigger className="bg-slate-800 border-slate-700 text-white" data-testid="select-experience">
+                              <SelectTrigger className="bg-card border-border text-foreground" data-testid="select-experience">
                                 <SelectValue placeholder="Select experience" />
                               </SelectTrigger>
                             </FormControl>
@@ -1288,7 +1288,7 @@ export default function AgentClientOnboarding() {
                 <div className="space-y-6 animate-in fade-in-50 duration-300">
                   <div className="flex items-center gap-2 mb-4">
                     <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                    <h3 className="text-lg font-medium text-white">Review & Submit</h3>
+                    <h3 className="text-lg font-medium text-foreground">Review & Submit</h3>
                   </div>
 
                   <Alert className="bg-emerald-500/10 border-emerald-500/20">
@@ -1300,95 +1300,95 @@ export default function AgentClientOnboarding() {
                   </Alert>
 
                   <div className="grid gap-4 md:grid-cols-2">
-                    <Card className="bg-slate-800/50 border-slate-700">
+                    <Card className="bg-card/50 border-border">
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-sm text-slate-400 flex items-center gap-2">
+                        <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
                           <User className="w-4 h-4" /> Basic Info
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-1 text-sm">
-                        <p className="text-white">{form.getValues("firstName")} {form.getValues("lastName")}</p>
-                        <p className="text-slate-400">{form.getValues("email")}</p>
-                        <p className="text-slate-400">{form.getValues("mobile")}</p>
-                        <p className="text-slate-400">DOB: {form.getValues("dateOfBirth")}</p>
+                        <p className="text-foreground">{form.getValues("firstName")} {form.getValues("lastName")}</p>
+                        <p className="text-muted-foreground">{form.getValues("email")}</p>
+                        <p className="text-muted-foreground">{form.getValues("mobile")}</p>
+                        <p className="text-muted-foreground">DOB: {form.getValues("dateOfBirth")}</p>
                       </CardContent>
                     </Card>
 
-                    <Card className="bg-slate-800/50 border-slate-700">
+                    <Card className="bg-card/50 border-border">
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-sm text-slate-400 flex items-center gap-2">
+                        <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
                           <CreditCard className="w-4 h-4" /> PAN Details
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-1 text-sm">
-                        <p className="text-white">{form.getValues("panNumber")}</p>
+                        <p className="text-foreground">{form.getValues("panNumber")}</p>
                         {panVerificationStatus === "verified" && (
                           <Badge className="bg-emerald-500/20 text-emerald-400 border-0">
                             <CheckCircle2 className="w-3 h-3 mr-1" /> Verified
                           </Badge>
                         )}
                         {form.getValues("panHolderName") && (
-                          <p className="text-slate-400">{form.getValues("panHolderName")}</p>
+                          <p className="text-muted-foreground">{form.getValues("panHolderName")}</p>
                         )}
                       </CardContent>
                     </Card>
 
-                    <Card className="bg-slate-800/50 border-slate-700">
+                    <Card className="bg-card/50 border-border">
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-sm text-slate-400 flex items-center gap-2">
+                        <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
                           <MapPin className="w-4 h-4" /> Address & KYC
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-1 text-sm">
                         {form.getValues("aadhaarNumber") && (
-                          <p className="text-white">Aadhaar: ****{form.getValues("aadhaarNumber").slice(-4)}</p>
+                          <p className="text-foreground">Aadhaar: ****{form.getValues("aadhaarNumber").slice(-4)}</p>
                         )}
-                        <p className="text-white">{form.getValues("addressLine1")}</p>
-                        {form.getValues("addressLine2") && <p className="text-slate-400">{form.getValues("addressLine2")}</p>}
-                        <p className="text-slate-400">{form.getValues("city")}, {form.getValues("state")} - {form.getValues("pincode")}</p>
+                        <p className="text-foreground">{form.getValues("addressLine1")}</p>
+                        {form.getValues("addressLine2") && <p className="text-muted-foreground">{form.getValues("addressLine2")}</p>}
+                        <p className="text-muted-foreground">{form.getValues("city")}, {form.getValues("state")} - {form.getValues("pincode")}</p>
                       </CardContent>
                     </Card>
 
-                    <Card className="bg-slate-800/50 border-slate-700">
+                    <Card className="bg-card/50 border-border">
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-sm text-slate-400 flex items-center gap-2">
+                        <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
                           <Building2 className="w-4 h-4" /> Bank Details
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-1 text-sm">
-                        <p className="text-white">{form.getValues("bankName")}</p>
-                        <p className="text-slate-400">A/C: ****{form.getValues("accountNumber").slice(-4)}</p>
-                        <p className="text-slate-400">IFSC: {form.getValues("ifscCode")}</p>
-                        <p className="text-slate-400 capitalize">{form.getValues("accountType")} Account</p>
+                        <p className="text-foreground">{form.getValues("bankName")}</p>
+                        <p className="text-muted-foreground">A/C: ****{form.getValues("accountNumber").slice(-4)}</p>
+                        <p className="text-muted-foreground">IFSC: {form.getValues("ifscCode")}</p>
+                        <p className="text-muted-foreground capitalize">{form.getValues("accountType")} Account</p>
                       </CardContent>
                     </Card>
 
-                    <Card className="bg-slate-800/50 border-slate-700 md:col-span-2">
+                    <Card className="bg-card/50 border-border md:col-span-2">
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-sm text-slate-400 flex items-center gap-2">
+                        <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
                           <Target className="w-4 h-4" /> Risk Profile
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
                         <div>
-                          <p className="text-slate-500">Goal</p>
-                          <p className="text-white capitalize">{form.getValues("investmentGoal")?.replace(/_/g, " ")}</p>
+                          <p className="text-muted-foreground">Goal</p>
+                          <p className="text-foreground capitalize">{form.getValues("investmentGoal")?.replace(/_/g, " ")}</p>
                         </div>
                         <div>
-                          <p className="text-slate-500">Risk</p>
-                          <p className="text-white capitalize">{form.getValues("riskTolerance")}</p>
+                          <p className="text-muted-foreground">Risk</p>
+                          <p className="text-foreground capitalize">{form.getValues("riskTolerance")}</p>
                         </div>
                         <div>
-                          <p className="text-slate-500">Horizon</p>
-                          <p className="text-white capitalize">{form.getValues("investmentHorizon")} Term</p>
+                          <p className="text-muted-foreground">Horizon</p>
+                          <p className="text-foreground capitalize">{form.getValues("investmentHorizon")} Term</p>
                         </div>
                         <div>
-                          <p className="text-slate-500">Income</p>
-                          <p className="text-white">{form.getValues("annualIncome")?.replace(/_/g, " ").replace(/l/g, "L")}</p>
+                          <p className="text-muted-foreground">Income</p>
+                          <p className="text-foreground">{form.getValues("annualIncome")?.replace(/_/g, " ").replace(/l/g, "L")}</p>
                         </div>
                         <div>
-                          <p className="text-slate-500">Experience</p>
-                          <p className="text-white capitalize">{form.getValues("investmentExperience")}</p>
+                          <p className="text-muted-foreground">Experience</p>
+                          <p className="text-foreground capitalize">{form.getValues("investmentExperience")}</p>
                         </div>
                       </CardContent>
                     </Card>
@@ -1396,13 +1396,13 @@ export default function AgentClientOnboarding() {
                 </div>
               )}
 
-              <div className="flex justify-between pt-6 border-t border-slate-700">
+              <div className="flex justify-between pt-6 border-t border-border">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={handleBack}
                   disabled={currentStep === 1}
-                  className="border-slate-700 text-slate-300 hover:bg-slate-800"
+                  className="border-border text-muted-foreground hover:bg-card"
                   data-testid="button-back"
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />

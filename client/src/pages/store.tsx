@@ -486,7 +486,7 @@ export default function StorePage() {
       case "low": return "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400";
       case "medium": return "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400";
       case "high": return "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400";
-      default: return "bg-muted text-muted-foreground border-border dark:bg-muted dark:text-muted-foreground";
+      default: return "bg-muted text-muted-foreground border-border";
     }
   };
 
@@ -494,7 +494,7 @@ export default function StorePage() {
     switch(badge) {
       case "NEW": return "bg-green-500 text-white";
       case "HOT": return "bg-red-500 text-white";
-      case "PREMIUM": return "bg-gradient-to-r from-yellow-400 to-orange-500 text-white";
+      case "PREMIUM": return "bg-gradient-to-r from-yellow-400 to-orange-500 text-foreground";
       default: return "bg-blue-500 text-white";
     }
   };
@@ -505,13 +505,13 @@ export default function StorePage() {
     return (
       <Card 
         key={product.id} 
-        className={`group hover:shadow-xl hover:scale-[1.02] transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 overflow-hidden ${isLocked ? 'opacity-60' : ''}`}
+        className={`group hover:shadow-xl hover:scale-[1.02] transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50 dark:from-card dark:to-background overflow-hidden ${isLocked ? 'opacity-60' : ''}`}
         data-testid={`product-card-${product.id}`}
       >
         <div className="absolute inset-0 bg-gradient-to-r from-finance-blue/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         {isLocked && (
           <div className="absolute top-4 right-4 z-10">
-            <div className="bg-card/90 text-white px-3 py-1.5 rounded-full flex items-center gap-2 text-xs font-medium">
+            <div className="bg-card/90 text-foreground px-3 py-1.5 rounded-full flex items-center gap-2 text-xs font-medium">
               <Lock className="h-3 w-3" />
               Locked
             </div>
@@ -527,7 +527,7 @@ export default function StorePage() {
                 </Badge>
               )}
               {product.isFeatured && (
-                <Badge className="bg-gradient-to-r from-finance-blue to-blue-600 text-white text-xs">
+                <Badge className="bg-gradient-to-r from-finance-blue to-blue-600 text-foreground text-xs">
                   <Star className="h-3 w-3 mr-1" />
                   Featured
                 </Badge>
@@ -538,7 +538,7 @@ export default function StorePage() {
                 </Badge>
               )}
               {product.isPremium && (
-                <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white">
+                <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-foreground">
                   <Crown className="h-3 w-3 mr-1" />
                   Premium
                 </Badge>
@@ -557,7 +557,7 @@ export default function StorePage() {
           <CardTitle className="text-lg group-hover:text-finance-blue transition-colors">
             {product.name}
           </CardTitle>
-          <p className="text-sm text-muted-foreground dark:text-muted-foreground line-clamp-2">
+          <p className="text-sm text-muted-foreground line-clamp-2">
             {product.shortDescription}
           </p>
           <div className="flex items-center gap-2 mt-2">
@@ -616,18 +616,18 @@ export default function StorePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-blue-900 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-background dark:to-blue-900 p-6">
       {/* Hero Section */}
       <div className="mb-8">
         <div className="flex items-center gap-4 mb-6">
           <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-r from-finance-blue to-blue-600 rounded-2xl shadow-lg">
-            <StoreIcon className="h-8 w-8 text-white" />
+            <StoreIcon className="h-8 w-8 text-foreground" />
           </div>
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
+            <h1 className="text-4xl font-bold text-foreground mb-2">
               FintekPro Marketplace
             </h1>
-            <p className="text-lg text-muted-foreground dark:text-muted-foreground">
+            <p className="text-lg text-muted-foreground">
               Curated financial products • Expert recommendations • Trusted providers
             </p>
           </div>
@@ -635,7 +635,7 @@ export default function StorePage() {
             {isLoadingProducts ? (
               <Skeleton className="h-10 w-48" />
             ) : (
-              <Badge className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-2 text-sm">
+              <Badge className="bg-gradient-to-r from-green-500 to-emerald-600 text-foreground px-4 py-2 text-sm">
                 <Sparkles className="h-4 w-4 mr-2" />
                 {products.length} Products Available
               </Badge>
@@ -716,11 +716,11 @@ export default function StorePage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-r from-finance-blue to-blue-600 rounded-lg flex items-center justify-center">
-                <Star className="h-5 w-5 text-white" />
+                <Star className="h-5 w-5 text-foreground" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Featured Products</h2>
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Handpicked by our experts</p>
+                <h2 className="text-2xl font-bold text-foreground">Featured Products</h2>
+                <p className="text-sm text-muted-foreground">Handpicked by our experts</p>
               </div>
             </div>
             <Badge variant="outline" className="text-finance-blue border-finance-blue">
@@ -739,11 +739,11 @@ export default function StorePage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
-                <TrendingUp className="h-5 w-5 text-white" />
+                <TrendingUp className="h-5 w-5 text-foreground" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Top Performing</h2>
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Highest returns in the market</p>
+                <h2 className="text-2xl font-bold text-foreground">Top Performing</h2>
+                <p className="text-sm text-muted-foreground">Highest returns in the market</p>
               </div>
             </div>
             <Badge variant="outline" className="text-green-600 border-green-600">
@@ -764,11 +764,11 @@ export default function StorePage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gradient-to-r from-red-500 to-orange-600 rounded-lg flex items-center justify-center">
-                    <Flame className="h-5 w-5 text-white" />
+                    <Flame className="h-5 w-5 text-foreground" />
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Hot Deals & New Launches</h2>
-                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">Limited time offers and latest products</p>
+                    <h2 className="text-2xl font-bold text-foreground">Hot Deals & New Launches</h2>
+                    <p className="text-sm text-muted-foreground">Limited time offers and latest products</p>
                   </div>
                 </div>
                 <Badge variant="outline" className="text-red-600 border-red-600">
@@ -787,11 +787,11 @@ export default function StorePage() {
         <div className="space-y-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <Package className="h-5 w-5 text-white" />
+              <Package className="h-5 w-5 text-foreground" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Browse by Category</h2>
-              <p className="text-sm text-muted-foreground dark:text-muted-foreground">Explore our complete product range</p>
+              <h2 className="text-2xl font-bold text-foreground">Browse by Category</h2>
+              <p className="text-sm text-muted-foreground">Explore our complete product range</p>
             </div>
           </div>
           
@@ -903,17 +903,17 @@ export default function StorePage() {
 
       {/* KYC Upgrade Modal */}
       <Dialog open={upgradeModalOpen} onOpenChange={setUpgradeModalOpen}>
-        <DialogContent className="sm:max-w-[500px] bg-white dark:bg-card">
+        <DialogContent className="sm:max-w-[500px] bg-card">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+            <DialogTitle className="flex items-center gap-2 text-foreground">
               <Shield className="h-5 w-5 text-amber-500" />
               KYC Upgrade Required
             </DialogTitle>
             <DialogDescription asChild>
-              <div className="text-sm text-muted-foreground dark:text-muted-foreground">
+              <div className="text-sm text-muted-foreground">
                 {selectedLockedProduct && (
                   <p className="mt-1">
-                    <strong className="text-gray-900 dark:text-white">{selectedLockedProduct.name}</strong> requires{" "}
+                    <strong className="text-foreground">{selectedLockedProduct.name}</strong> requires{" "}
                     <Badge variant="outline" className="ml-1 text-amber-600 border-amber-600">
                       {getTierDisplayName(requiredTier)}
                     </Badge>
@@ -946,12 +946,12 @@ export default function StorePage() {
 
             {/* Requirements List */}
             <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-900 dark:text-white">
+              <p className="text-sm font-medium text-foreground">
                 Required Documents/Verification:
               </p>
               <ul className="space-y-2">
                 {getKycRequirementsForTier(requiredTier).requirements.map((req, idx) => (
-                  <li key={idx} className="flex items-start gap-2 text-sm text-muted-foreground dark:text-muted-foreground">
+                  <li key={idx} className="flex items-start gap-2 text-sm text-muted-foreground">
                     <CheckCircle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                     {req}
                   </li>

@@ -358,7 +358,7 @@ export default function ReportsHub() {
     <div className="min-h-screen bg-muted p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold text-gray-900">Reports Hub</h1>
+          <h1 className="text-4xl font-bold text-foreground">Reports Hub</h1>
           <p className="text-xl text-muted-foreground">
             Access all your financial reports in one place - auto-fetched from official sources
           </p>
@@ -379,7 +379,7 @@ export default function ReportsHub() {
                   <Receipt className="w-5 h-5 text-purple-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900">Transaction Reports</h3>
+                  <h3 className="font-semibold text-foreground">Transaction Reports</h3>
                   <p className="text-sm text-muted-foreground">View all FintekPro orders and payment transactions</p>
                 </div>
               </div>
@@ -426,7 +426,7 @@ export default function ReportsHub() {
                 className={`p-4 rounded-lg border-2 transition-all ${
                   isActive 
                     ? `${catColors.border} ${catColors.bg} ring-2 ring-offset-2 ring-${category.color}-300`
-                    : 'border-border bg-white hover:border-border'
+                    : 'border-border bg-card hover:border-border'
                 }`}
                 data-testid={`category-${category.id}`}
               >
@@ -464,7 +464,7 @@ export default function ReportsHub() {
                     return (
                       <div
                         key={report.id}
-                        className={`p-4 rounded-lg border ${isLocked ? 'bg-muted border-border' : 'bg-white border-border hover:border-border'} transition-all`}
+                        className={`p-4 rounded-lg border ${isLocked ? 'bg-muted border-border' : 'bg-card border-border hover:border-border'} transition-all`}
                         data-testid={`report-${report.id}`}
                       >
                         <div className="flex items-start justify-between gap-4">
@@ -475,7 +475,7 @@ export default function ReportsHub() {
                               ) : (
                                 <FileText className={`w-4 h-4 ${colors.text}`} />
                               )}
-                              <h4 className={`font-semibold ${isLocked ? 'text-muted-foreground' : 'text-gray-900'}`}>
+                              <h4 className={`font-semibold ${isLocked ? 'text-muted-foreground' : 'text-foreground'}`}>
                                 {report.name}
                               </h4>
                               {isLocked && (
@@ -540,7 +540,7 @@ export default function ReportsHub() {
                   {/* Live Transactions Table for Transactions Category */}
                   {activeCategory === 'transactions' && (
                     <div className="mt-6 pt-6 border-t">
-                      <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                      <h4 className="font-semibold text-foreground mb-4 flex items-center gap-2">
                         <Receipt className="w-5 h-5 text-purple-600" />
                         Recent Transactions
                       </h4>
@@ -553,7 +553,7 @@ export default function ReportsHub() {
                       ) : (mfOrders as any)?.orders?.length > 0 ? (
                         <div className="space-y-3">
                           {((mfOrders as any)?.orders || []).slice(0, 10).map((order: any) => (
-                            <div key={order.id} className="p-4 rounded-lg border bg-white hover:bg-muted transition-colors" data-testid={`order-${order.id}`}>
+                            <div key={order.id} className="p-4 rounded-lg border bg-card hover:bg-muted transition-colors" data-testid={`order-${order.id}`}>
                               <div className="flex items-start justify-between">
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2 mb-1">
@@ -573,14 +573,14 @@ export default function ReportsHub() {
                                       {order.status}
                                     </Badge>
                                   </div>
-                                  <p className="font-medium text-gray-900 text-sm">{order.schemeName || 'Mutual Fund Order'}</p>
+                                  <p className="font-medium text-foreground text-sm">{order.schemeName || 'Mutual Fund Order'}</p>
                                   <p className="text-xs text-muted-foreground mt-1">
                                     {order.folioNumber && `Folio: ${order.folioNumber} • `}
                                     {new Date(order.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                                   </p>
                                 </div>
                                 <div className="text-right">
-                                  <p className="font-bold text-gray-900">
+                                  <p className="font-bold text-foreground">
                                     ₹{parseFloat(order.amount || '0').toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                                   </p>
                                   {order.units && (
@@ -629,7 +629,7 @@ export default function ReportsHub() {
                       data-testid={`external-${source.name.toLowerCase().replace(/\s+/g, '-')}`}
                     >
                       <div>
-                        <p className="font-medium text-gray-900">{source.name}</p>
+                        <p className="font-medium text-foreground">{source.name}</p>
                         <p className="text-xs text-muted-foreground">{source.description}</p>
                       </div>
                       <ExternalLink className="w-4 h-4 text-muted-foreground" />
@@ -649,7 +649,7 @@ export default function ReportsHub() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-blue-700">Current Level</span>
-                      <Badge className={userKYCLevel >= 2 ? "bg-green-600" : userKYCLevel >= 1 ? "bg-blue-600" : "bg-gray-500"}>
+                      <Badge className={userKYCLevel >= 2 ? "bg-green-600" : userKYCLevel >= 1 ? "bg-blue-600" : "bg-muted"}>
                         {kycLevelName}
                       </Badge>
                     </div>

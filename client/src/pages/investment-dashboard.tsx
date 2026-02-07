@@ -236,17 +236,17 @@ export default function InvestmentDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted">
       <div className="container mx-auto p-6">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-4xl font-bold text-gray-900 dark:text-white flex items-center gap-3" data-testid="title-investment-dashboard">
+              <h1 className="text-4xl font-bold text-foreground flex items-center gap-3" data-testid="title-investment-dashboard">
                 <Brain className="h-10 w-10 text-blue-600" />
                 Smart Investment Dashboard
               </h1>
-              <p className="text-muted-foreground dark:text-muted-foreground mt-2">
+              <p className="text-muted-foreground mt-2">
                 AI-powered investment ideas and comprehensive yield tracking
               </p>
             </div>
@@ -281,8 +281,8 @@ export default function InvestmentDashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Portfolio Value</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  <p className="text-sm font-medium text-muted-foreground">Portfolio Value</p>
+                  <p className="text-2xl font-bold text-foreground">
                     {formatCurrency(portfolioOverview.totalValue)}
                   </p>
                   <p className="text-sm text-muted-foreground">
@@ -298,8 +298,8 @@ export default function InvestmentDashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Active Ideas</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  <p className="text-sm font-medium text-muted-foreground">Active Ideas</p>
+                  <p className="text-2xl font-bold text-foreground">
                     {portfolioOverview.activeIdeas}
                   </p>
                   <p className="text-sm text-muted-foreground">
@@ -315,8 +315,8 @@ export default function InvestmentDashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Tracked Investments</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  <p className="text-sm font-medium text-muted-foreground">Tracked Investments</p>
+                  <p className="text-2xl font-bold text-foreground">
                     {portfolioOverview.trackedInvestments}
                   </p>
                   <p className="text-sm text-muted-foreground">
@@ -332,8 +332,8 @@ export default function InvestmentDashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Alert Status</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  <p className="text-sm font-medium text-muted-foreground">Alert Status</p>
+                  <p className="text-2xl font-bold text-foreground">
                     {portfolioOverview.unreadAlerts}
                   </p>
                   <p className="text-sm text-muted-foreground">
@@ -408,16 +408,16 @@ export default function InvestmentDashboard() {
                   <ScrollArea className="h-64">
                     <div className="space-y-4">
                       {popularRecommendations?.recommendations?.slice(0, 5).map((rec: any, index: number) => (
-                        <div key={index} className="flex items-center justify-between p-3 bg-muted dark:bg-muted rounded-lg">
+                        <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                           <div>
                             <p className="font-medium">{rec.symbol}</p>
-                            <p className="text-sm text-muted-foreground dark:text-muted-foreground">{rec.instrumentType}</p>
+                            <p className="text-sm text-muted-foreground">{rec.instrumentType}</p>
                           </div>
                           <div className="text-right">
                             <Badge className={getRecommendationColor(rec.recommendation)}>
                               {rec.recommendation}
                             </Badge>
-                            <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
+                            <p className="text-sm text-muted-foreground mt-1">
                               {rec.confidence}% confidence
                             </p>
                           </div>
@@ -455,7 +455,7 @@ export default function InvestmentDashboard() {
                               </Badge>
                             </div>
                             <p className="text-sm">{suggestion.description}</p>
-                            <p className="text-xs text-muted-foreground dark:text-muted-foreground">{suggestion.expectedImpact}</p>
+                            <p className="text-xs text-muted-foreground">{suggestion.expectedImpact}</p>
                           </div>
                         </AlertDescription>
                       </Alert>
@@ -560,12 +560,12 @@ export default function InvestmentDashboard() {
               {loadingIdeas ? (
                 <div className="col-span-full text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                  <p className="mt-2 text-muted-foreground dark:text-muted-foreground">Loading investment ideas...</p>
+                  <p className="mt-2 text-muted-foreground">Loading investment ideas...</p>
                 </div>
               ) : investmentIdeas.length === 0 ? (
                 <div className="col-span-full text-center py-8" data-testid="empty-investment-ideas">
                   <Lightbulb className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground dark:text-muted-foreground">No investment ideas yet. Generate some to get started!</p>
+                  <p className="text-muted-foreground">No investment ideas yet. Generate some to get started!</p>
                 </div>
               ) : (
                 investmentIdeas.map((idea: InvestmentIdea) => (
@@ -582,19 +582,19 @@ export default function InvestmentDashboard() {
                     <CardContent>
                       <div className="space-y-3">
                         <div className="flex justify-between">
-                          <span className="text-sm text-muted-foreground dark:text-muted-foreground">Entry Price:</span>
+                          <span className="text-sm text-muted-foreground">Entry Price:</span>
                           <span className="font-medium">{formatCurrency(idea.entryPrice)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-sm text-muted-foreground dark:text-muted-foreground">Target:</span>
+                          <span className="text-sm text-muted-foreground">Target:</span>
                           <span className="font-medium text-green-600">{formatCurrency(idea.targetPrice)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-sm text-muted-foreground dark:text-muted-foreground">Stop Loss:</span>
+                          <span className="text-sm text-muted-foreground">Stop Loss:</span>
                           <span className="font-medium text-red-600">{formatCurrency(idea.stopLoss)}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground dark:text-muted-foreground">Confidence:</span>
+                          <span className="text-sm text-muted-foreground">Confidence:</span>
                           <div className="flex items-center gap-2">
                             <Progress value={idea.confidence} className="w-16" />
                             <span className="text-sm font-medium">{idea.confidence}%</span>
@@ -634,7 +634,7 @@ export default function InvestmentDashboard() {
                   <div className="text-3xl font-bold text-green-600">
                     {formatPercentage(portfolioYield?.weightedYield || 0)}
                   </div>
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
+                  <p className="text-sm text-muted-foreground mt-1">
                     Portfolio-wide yield
                   </p>
                 </CardContent>
@@ -648,7 +648,7 @@ export default function InvestmentDashboard() {
                   <div className="text-3xl font-bold text-blue-600">
                     {((portfolioYield?.diversificationRatio || 0) * 10).toFixed(1)}/10
                   </div>
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
+                  <p className="text-sm text-muted-foreground mt-1">
                     Diversification score
                   </p>
                 </CardContent>
@@ -662,7 +662,7 @@ export default function InvestmentDashboard() {
                   <div className="text-3xl font-bold text-purple-600">
                     {formatCurrency(portfolioYield?.totalInvestment || 0)}
                   </div>
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
+                  <p className="text-sm text-muted-foreground mt-1">
                     Across all trackers
                   </p>
                 </CardContent>
@@ -681,17 +681,17 @@ export default function InvestmentDashboard() {
                 {loadingTrackers ? (
                   <div className="text-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="mt-2 text-muted-foreground dark:text-muted-foreground">Loading yield trackers...</p>
+                    <p className="mt-2 text-muted-foreground">Loading yield trackers...</p>
                   </div>
                 ) : yieldTrackers.length === 0 ? (
                   <div className="text-center py-8" data-testid="empty-yield-trackers">
                     <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground dark:text-muted-foreground">No yield trackers yet. Add one to start monitoring performance!</p>
+                    <p className="text-muted-foreground">No yield trackers yet. Add one to start monitoring performance!</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {yieldTrackers.map((tracker: YieldTracker) => (
-                      <div key={tracker.id} className="flex items-center justify-between p-4 bg-muted dark:bg-muted rounded-lg" data-testid={`tracker-${tracker.id}`}>
+                      <div key={tracker.id} className="flex items-center justify-between p-4 bg-muted rounded-lg" data-testid={`tracker-${tracker.id}`}>
                         <div className="flex-1">
                           <div className="flex items-center gap-3">
                             <h3 className="font-medium">{tracker.symbol}</h3>
@@ -700,7 +700,7 @@ export default function InvestmentDashboard() {
                               {formatPercentage(tracker.totalReturn)}
                             </Badge>
                           </div>
-                          <div className="flex items-center gap-6 mt-2 text-sm text-muted-foreground dark:text-muted-foreground">
+                          <div className="flex items-center gap-6 mt-2 text-sm text-muted-foreground">
                             <span>Investment: {formatCurrency(tracker.initialInvestment)}</span>
                             <span>Current: {formatCurrency(tracker.currentValue)}</span>
                             <span>Target: {formatPercentage(tracker.targetYield)}</span>
@@ -733,7 +733,7 @@ export default function InvestmentDashboard() {
             {loadingAnalytics ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="mt-2 text-muted-foreground dark:text-muted-foreground">Loading analytics...</p>
+                <p className="mt-2 text-muted-foreground">Loading analytics...</p>
               </div>
             ) : portfolioAnalytics ? (
               <>
@@ -814,16 +814,16 @@ export default function InvestmentDashboard() {
                         </div>
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground dark:text-muted-foreground">Equity Exposure</span>
+                            <span className="text-muted-foreground">Equity Exposure</span>
                             <span className="font-medium">{portfolioAnalytics.riskProfile?.equityExposure?.toFixed(2) || 0}%</span>
                           </div>
                           <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground dark:text-muted-foreground">Debt Exposure</span>
+                            <span className="text-muted-foreground">Debt Exposure</span>
                             <span className="font-medium">{portfolioAnalytics.riskProfile?.debtExposure?.toFixed(2) || 0}%</span>
                           </div>
                         </div>
                         <Separator />
-                        <p className="text-sm text-muted-foreground dark:text-muted-foreground">{portfolioAnalytics.riskProfile?.recommendation}</p>
+                        <p className="text-sm text-muted-foreground">{portfolioAnalytics.riskProfile?.recommendation}</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -861,7 +861,7 @@ export default function InvestmentDashboard() {
               </>
             ) : (
               <div className="text-center py-8">
-                <p className="text-muted-foreground dark:text-muted-foreground">No analytics data available</p>
+                <p className="text-muted-foreground">No analytics data available</p>
               </div>
             )}
           </TabsContent>
@@ -881,23 +881,23 @@ export default function InvestmentDashboard() {
                 {loadingAlerts ? (
                   <div className="text-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="mt-2 text-muted-foreground dark:text-muted-foreground">Loading alerts...</p>
+                    <p className="mt-2 text-muted-foreground">Loading alerts...</p>
                   </div>
                 ) : unreadAlerts.length === 0 ? (
                   <div className="text-center py-8" data-testid="empty-alerts">
                     <CheckCircle className="h-12 w-12 text-green-400 mx-auto mb-4" />
-                    <p className="text-muted-foreground dark:text-muted-foreground">All caught up! No new alerts.</p>
+                    <p className="text-muted-foreground">All caught up! No new alerts.</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {unreadAlerts.map((alert: any) => (
-                      <Alert key={alert.id} className="cursor-pointer hover:bg-muted dark:hover:bg-muted" onClick={() => markAlertReadMutation.mutate(alert.id)} data-testid={`alert-${alert.id}`}>
+                      <Alert key={alert.id} className="cursor-pointer hover:bg-muted" onClick={() => markAlertReadMutation.mutate(alert.id)} data-testid={`alert-${alert.id}`}>
                         <AlertCircle className="h-4 w-4" />
                         <AlertDescription>
                           <div className="flex items-center justify-between">
                             <div>
                               <p className="font-medium">{alert.alertType}</p>
-                              <p className="text-sm text-muted-foreground dark:text-muted-foreground">{alert.message}</p>
+                              <p className="text-sm text-muted-foreground">{alert.message}</p>
                             </div>
                             <Badge variant="outline">{alert.priority}</Badge>
                           </div>
@@ -961,7 +961,7 @@ export default function InvestmentDashboard() {
                 {/* AI Reasoning */}
                 <div className="space-y-2">
                   <Label>AI Analysis & Reasoning</Label>
-                  <div className="bg-muted dark:bg-muted p-4 rounded-lg">
+                  <div className="bg-muted p-4 rounded-lg">
                     <p className="text-sm">{selectedIdea.reasoning}</p>
                   </div>
                 </div>
@@ -972,19 +972,19 @@ export default function InvestmentDashboard() {
                     <Label>Technical Indicators</Label>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <span className="text-muted-foreground dark:text-muted-foreground">RSI:</span>
+                        <span className="text-muted-foreground">RSI:</span>
                         <span className="ml-2 font-medium">{selectedIdea.technicalAnalysis.rsi}</span>
                       </div>
                       <div>
-                        <span className="text-muted-foreground dark:text-muted-foreground">MACD:</span>
+                        <span className="text-muted-foreground">MACD:</span>
                         <span className="ml-2 font-medium">{selectedIdea.technicalAnalysis.macd}</span>
                       </div>
                       <div>
-                        <span className="text-muted-foreground dark:text-muted-foreground">SMA 20:</span>
+                        <span className="text-muted-foreground">SMA 20:</span>
                         <span className="ml-2 font-medium">{selectedIdea.technicalAnalysis.sma20}</span>
                       </div>
                       <div>
-                        <span className="text-muted-foreground dark:text-muted-foreground">SMA 50:</span>
+                        <span className="text-muted-foreground">SMA 50:</span>
                         <span className="ml-2 font-medium">{selectedIdea.technicalAnalysis.sma50}</span>
                       </div>
                     </div>

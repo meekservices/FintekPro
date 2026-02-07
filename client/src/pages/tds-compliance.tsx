@@ -313,14 +313,14 @@ export default function TDSCompliancePage() {
   return (
     <div className="container mx-auto px-4 py-8 space-y-8">
       {/* Hero Section */}
-      <div className="relative bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 rounded-3xl p-8 md:p-12 text-white overflow-hidden">
+      <div className="relative bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 rounded-3xl p-8 md:p-12 text-foreground overflow-hidden">
         <div className="absolute inset-0 bg-black/10"></div>
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 bg-white/10 backdrop-blur-sm rounded-xl">
+            <div className="p-3 bg-card/10 backdrop-blur-sm rounded-xl">
               <Receipt className="h-8 w-8" />
             </div>
-            <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
+            <Badge variant="secondary" className="bg-card/20 text-foreground border-white/30">
               Sandbox.co.in Integration
             </Badge>
           </div>
@@ -333,22 +333,22 @@ export default function TDSCompliancePage() {
           </p>
 
           <div className="grid md:grid-cols-4 gap-4">
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+            <div className="bg-card/10 backdrop-blur-sm rounded-xl p-4">
               <Calculator className="h-6 w-6 mb-2" />
               <div className="text-2xl font-bold">Calculators</div>
               <div className="text-sm text-blue-100">Salary & Non-Salary TDS</div>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+            <div className="bg-card/10 backdrop-blur-sm rounded-xl p-4">
               <FileText className="h-6 w-6 mb-2" />
               <div className="text-2xl font-bold">Form 16/16A</div>
               <div className="text-sm text-blue-100">Certificate Generation</div>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+            <div className="bg-card/10 backdrop-blur-sm rounded-xl p-4">
               <Upload className="h-6 w-6 mb-2" />
               <div className="text-2xl font-bold">E-Filing</div>
               <div className="text-sm text-blue-100">24Q, 26Q, 27Q, 27EQ</div>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+            <div className="bg-card/10 backdrop-blur-sm rounded-xl p-4">
               <BarChart3 className="h-6 w-6 mb-2" />
               <div className="text-2xl font-bold">Analytics</div>
               <div className="text-sm text-blue-100">Compliance Tracking</div>
@@ -428,7 +428,7 @@ export default function TDSCompliancePage() {
                 <Separator />
 
                 <div className="space-y-4">
-                  <h4 className="font-semibold text-sm text-muted-foreground dark:text-muted-foreground">Income Details</h4>
+                  <h4 className="font-semibold text-sm text-muted-foreground">Income Details</h4>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="grossSalary">Gross Salary (Annual)</Label>
@@ -481,7 +481,7 @@ export default function TDSCompliancePage() {
 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-semibold text-sm text-muted-foreground dark:text-muted-foreground">Tax Regime</h4>
+                    <h4 className="font-semibold text-sm text-muted-foreground">Tax Regime</h4>
                     <div className="flex items-center gap-4">
                       <Label className={salaryForm.taxRegime === "old" ? "text-blue-600 font-medium" : "text-muted-foreground"}>
                         Old Regime
@@ -502,7 +502,7 @@ export default function TDSCompliancePage() {
                   <>
                     <Separator />
                     <div className="space-y-4">
-                      <h4 className="font-semibold text-sm text-muted-foreground dark:text-muted-foreground">Deductions (Old Regime Only)</h4>
+                      <h4 className="font-semibold text-sm text-muted-foreground">Deductions (Old Regime Only)</h4>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="section80C">Section 80C (Max ₹1.5L)</Label>
@@ -606,36 +606,36 @@ export default function TDSCompliancePage() {
                   <div className="space-y-6">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-                        <div className="text-sm text-muted-foreground dark:text-muted-foreground">Gross Income</div>
+                        <div className="text-sm text-muted-foreground">Gross Income</div>
                         <div className="text-2xl font-bold text-blue-600">
                           ₹{salaryResult.data.grossIncome.toLocaleString()}
                         </div>
                       </div>
                       <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
-                        <div className="text-sm text-muted-foreground dark:text-muted-foreground">Total Deductions</div>
+                        <div className="text-sm text-muted-foreground">Total Deductions</div>
                         <div className="text-2xl font-bold text-green-600">
                           ₹{salaryResult.data.totalDeductions.toLocaleString()}
                         </div>
                       </div>
                       <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
-                        <div className="text-sm text-muted-foreground dark:text-muted-foreground">Taxable Income</div>
+                        <div className="text-sm text-muted-foreground">Taxable Income</div>
                         <div className="text-2xl font-bold text-purple-600">
                           ₹{salaryResult.data.taxableIncome.toLocaleString()}
                         </div>
                       </div>
                       <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-xl">
-                        <div className="text-sm text-muted-foreground dark:text-muted-foreground">Total Tax</div>
+                        <div className="text-sm text-muted-foreground">Total Tax</div>
                         <div className="text-2xl font-bold text-orange-600">
                           ₹{salaryResult.data.totalTax.toLocaleString()}
                         </div>
                       </div>
                     </div>
 
-                    <div className="p-6 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl text-white">
+                    <div className="p-6 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl text-foreground">
                       <div className="text-sm opacity-80">Monthly TDS Deduction</div>
                       <div className="text-4xl font-bold">₹{salaryResult.data.monthlyTDS.toLocaleString()}</div>
                       <div className="mt-2 flex items-center gap-2">
-                        <Badge variant="secondary" className="bg-white/20 text-white">
+                        <Badge variant="secondary" className="bg-card/20 text-foreground">
                           {salaryResult.data.taxRegime === "new" ? "New Regime" : "Old Regime"}
                         </Badge>
                         <span className="text-sm opacity-80">
@@ -667,7 +667,7 @@ export default function TDSCompliancePage() {
                         <h4 className="font-semibold text-sm">Slab-wise Computation</h4>
                         <div className="space-y-2">
                           {salaryResult.data.slabWise.map((slab, idx) => (
-                            <div key={idx} className="flex justify-between text-sm p-2 bg-muted dark:bg-muted rounded">
+                            <div key={idx} className="flex justify-between text-sm p-2 bg-muted rounded">
                               <span>
                                 {slab.slab} @ {slab.rate}%
                               </span>
@@ -820,11 +820,11 @@ export default function TDSCompliancePage() {
               <CardContent>
                 {nonSalaryResult?.success && nonSalaryResult.data ? (
                   <div className="space-y-6">
-                    <div className="p-6 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl text-white">
+                    <div className="p-6 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl text-foreground">
                       <div className="text-sm opacity-80">Total TDS Deductible</div>
                       <div className="text-4xl font-bold">₹{nonSalaryResult.data.totalTDS.toLocaleString()}</div>
                       <div className="mt-2 flex items-center gap-2">
-                        <Badge variant="secondary" className="bg-white/20 text-white">
+                        <Badge variant="secondary" className="bg-card/20 text-foreground">
                           Section {nonSalaryResult.data.section}
                         </Badge>
                         <span className="text-sm opacity-80">@ {nonSalaryResult.data.tdsRate}%</span>
@@ -833,13 +833,13 @@ export default function TDSCompliancePage() {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-                        <div className="text-sm text-muted-foreground dark:text-muted-foreground">Payment Amount</div>
+                        <div className="text-sm text-muted-foreground">Payment Amount</div>
                         <div className="text-xl font-bold text-blue-600">
                           ₹{nonSalaryResult.data.amount.toLocaleString()}
                         </div>
                       </div>
                       <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
-                        <div className="text-sm text-muted-foreground dark:text-muted-foreground">Net Payable</div>
+                        <div className="text-sm text-muted-foreground">Net Payable</div>
                         <div className="text-xl font-bold text-green-600">
                           ₹{nonSalaryResult.data.netPayable.toLocaleString()}
                         </div>
@@ -898,12 +898,12 @@ export default function TDSCompliancePage() {
               {sectionRates?.data && (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {Object.entries(sectionRates.data as Record<string, any>).map(([section, info]) => (
-                    <div key={section} className="p-4 border rounded-lg dark:border-border">
+                    <div key={section} className="p-4 border rounded-lg">
                       <div className="flex items-center justify-between mb-2">
                         <Badge variant="outline" className="font-mono">{section}</Badge>
                         <span className="text-lg font-bold text-blue-600">{info.rate}%</span>
                       </div>
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground mb-2">{info.description}</p>
+                      <p className="text-sm text-muted-foreground mb-2">{info.description}</p>
                       <div className="text-xs text-muted-foreground">
                         Threshold: ₹{info.thresholdIndividual.toLocaleString()} (Individual) / 
                         ₹{info.thresholdOther.toLocaleString()} (Others)
@@ -970,7 +970,7 @@ export default function TDSCompliancePage() {
                 </div>
 
                 {form16Data.employees.map((emp, idx) => (
-                  <div key={idx} className="grid md:grid-cols-4 gap-4 p-4 border rounded-lg dark:border-border">
+                  <div key={idx} className="grid md:grid-cols-4 gap-4 p-4 border rounded-lg">
                     <div className="space-y-2">
                       <Label>PAN</Label>
                       <Input
@@ -1072,7 +1072,7 @@ export default function TDSCompliancePage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <h4 className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Applicable For:</h4>
+                    <h4 className="text-sm font-medium text-muted-foreground">Applicable For:</h4>
                     <div className="flex flex-wrap gap-2">
                       {form.applicableFor.map((item: string, idx: number) => (
                         <Badge key={idx} variant="secondary" className="text-xs">
@@ -1102,7 +1102,7 @@ export default function TDSCompliancePage() {
               {dueDates?.data && (
                 <div className="grid md:grid-cols-4 gap-4">
                   {dueDates.data.map((quarter: any) => (
-                    <div key={quarter.quarter} className="p-4 border rounded-lg dark:border-border">
+                    <div key={quarter.quarter} className="p-4 border rounded-lg">
                       <div className="flex items-center justify-between mb-3">
                         <Badge variant="outline" className="text-lg">{quarter.quarter}</Badge>
                         <span className="text-sm text-muted-foreground">{quarter.period}</span>
@@ -1184,19 +1184,19 @@ export default function TDSCompliancePage() {
                   {/* Summary Cards */}
                   <div className="grid md:grid-cols-3 gap-4">
                     <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-                      <div className="text-sm text-muted-foreground dark:text-muted-foreground">Total TDS Deducted</div>
+                      <div className="text-sm text-muted-foreground">Total TDS Deducted</div>
                       <div className="text-3xl font-bold text-blue-600">
                         ₹{analytics.data.totalTDSDeducted.toLocaleString()}
                       </div>
                     </div>
                     <div className="p-6 bg-green-50 dark:bg-green-900/20 rounded-xl">
-                      <div className="text-sm text-muted-foreground dark:text-muted-foreground">TDS Deposited</div>
+                      <div className="text-sm text-muted-foreground">TDS Deposited</div>
                       <div className="text-3xl font-bold text-green-600">
                         ₹{analytics.data.totalTDSDeposited.toLocaleString()}
                       </div>
                     </div>
                     <div className="p-6 bg-red-50 dark:bg-red-900/20 rounded-xl">
-                      <div className="text-sm text-muted-foreground dark:text-muted-foreground">Pending Deposit</div>
+                      <div className="text-sm text-muted-foreground">Pending Deposit</div>
                       <div className="text-3xl font-bold text-red-600">
                         ₹{analytics.data.pendingDeposit.toLocaleString()}
                       </div>
@@ -1236,7 +1236,7 @@ export default function TDSCompliancePage() {
                           </div>
                         </div>
                       </div>
-                      <div className="mt-4 p-4 bg-muted dark:bg-muted rounded-lg">
+                      <div className="mt-4 p-4 bg-muted rounded-lg">
                         <div className="flex justify-between text-sm">
                           <span>Last Filing Date:</span>
                           <span className="font-medium">{analytics.data.compliance.lastFilingDate || "N/A"}</span>

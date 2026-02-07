@@ -106,7 +106,7 @@ export function MarketChart({ symbol = "^NSEI" }: MarketChartProps) {
         <CardContent className="flex items-center justify-center h-96">
           <div className="text-center" data-testid="chart-error">
             <p className="text-red-500 mb-2">Error loading market data</p>
-            <p className="text-gray-500 text-sm">Please check your connection and try again</p>
+            <p className="text-muted-foreground text-sm">Please check your connection and try again</p>
           </div>
         </CardContent>
       </Card>
@@ -117,7 +117,7 @@ export function MarketChart({ symbol = "^NSEI" }: MarketChartProps) {
     <Card className="lg:col-span-2" data-testid="market-chart">
       <CardHeader>
         <div className="flex justify-between items-center">
-          <CardTitle className="text-2xl font-bold text-gray-900" data-testid="chart-title">
+          <CardTitle className="text-2xl font-bold text-foreground" data-testid="chart-title">
             Market Overview
           </CardTitle>
           <div className="flex space-x-2">
@@ -137,10 +137,10 @@ export function MarketChart({ symbol = "^NSEI" }: MarketChartProps) {
       </CardHeader>
       <CardContent>
         {/* Chart Container - Using placeholder for now */}
-        <div className="h-80 bg-gray-50 rounded-lg flex items-center justify-center mb-6" data-testid="chart-container">
+        <div className="h-80 bg-muted rounded-lg flex items-center justify-center mb-6" data-testid="chart-container">
           {chartData ? (
             <div className="text-center">
-              <p className="text-gray-600 mb-2">Market Chart</p>
+              <p className="text-muted-foreground mb-2">Market Chart</p>
               <p className="text-2xl font-bold text-finance-blue">
                 {symbol} - {chartData[chartData.length - 1]?.close.toFixed(2)}
               </p>
@@ -149,7 +149,7 @@ export function MarketChart({ symbol = "^NSEI" }: MarketChartProps) {
               </p>
             </div>
           ) : (
-            <p className="text-gray-500">No chart data available</p>
+            <p className="text-muted-foreground">No chart data available</p>
           )}
         </div>
 
@@ -157,26 +157,26 @@ export function MarketChart({ symbol = "^NSEI" }: MarketChartProps) {
         {stats && (
           <div className="grid grid-cols-4 gap-4" data-testid="market-stats">
             <div className="text-center">
-              <p className="text-sm text-gray-600">Open</p>
-              <p className="font-bold text-gray-900" data-testid="stat-open">
+              <p className="text-sm text-muted-foreground">Open</p>
+              <p className="font-bold text-foreground" data-testid="stat-open">
                 {stats.open?.toFixed(2)}
               </p>
             </div>
             <div className="text-center">
-              <p className="text-sm text-gray-600">High</p>
+              <p className="text-sm text-muted-foreground">High</p>
               <p className="font-bold text-finance-green" data-testid="stat-high">
                 {stats.high?.toFixed(2)}
               </p>
             </div>
             <div className="text-center">
-              <p className="text-sm text-gray-600">Low</p>
+              <p className="text-sm text-muted-foreground">Low</p>
               <p className="font-bold text-finance-red" data-testid="stat-low">
                 {stats.low?.toFixed(2)}
               </p>
             </div>
             <div className="text-center">
-              <p className="text-sm text-gray-600">Volume</p>
-              <p className="font-bold text-gray-900" data-testid="stat-volume">
+              <p className="text-sm text-muted-foreground">Volume</p>
+              <p className="font-bold text-foreground" data-testid="stat-volume">
                 {stats.volume ? (stats.volume / 1000000).toFixed(2) + 'M' : 'N/A'}
               </p>
             </div>

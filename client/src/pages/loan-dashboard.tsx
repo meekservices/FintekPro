@@ -176,7 +176,7 @@ export default function LoanDashboard() {
       <div className="container mx-auto px-4 max-w-7xl">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          <h1 className="text-4xl font-bold text-foreground mb-2">
             Loan Dashboard
           </h1>
           <p className="text-xl text-muted-foreground">
@@ -192,7 +192,7 @@ export default function LoanDashboard() {
                 <FileText className="w-8 h-8 text-blue-600 mr-3" />
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total Applications</p>
-                  <p className="text-2xl font-bold text-gray-900">{loanSummary.totalApplications}</p>
+                  <p className="text-2xl font-bold text-foreground">{loanSummary.totalApplications}</p>
                 </div>
               </div>
             </CardContent>
@@ -204,7 +204,7 @@ export default function LoanDashboard() {
                 <CheckCircle className="w-8 h-8 text-green-600 mr-3" />
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Approved</p>
-                  <p className="text-2xl font-bold text-gray-900">{loanSummary.approved}</p>
+                  <p className="text-2xl font-bold text-foreground">{loanSummary.approved}</p>
                 </div>
               </div>
             </CardContent>
@@ -216,7 +216,7 @@ export default function LoanDashboard() {
                 <IndianRupee className="w-8 h-8 text-purple-600 mr-3" />
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total Loan Amount</p>
-                  <p className="text-2xl font-bold text-gray-900">₹{(loanSummary.totalLoanAmount / 100000).toFixed(1)}L</p>
+                  <p className="text-2xl font-bold text-foreground">₹{(loanSummary.totalLoanAmount / 100000).toFixed(1)}L</p>
                 </div>
               </div>
             </CardContent>
@@ -228,7 +228,7 @@ export default function LoanDashboard() {
                 <Calendar className="w-8 h-8 text-orange-600 mr-3" />
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Monthly EMI</p>
-                  <p className="text-2xl font-bold text-gray-900">₹{loanSummary.monthlyEMI.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-foreground">₹{loanSummary.monthlyEMI.toLocaleString()}</p>
                 </div>
               </div>
             </CardContent>

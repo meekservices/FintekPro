@@ -40,7 +40,7 @@ export function QuickActionsWidget() {
   const actions = isAuthenticated ? authenticatedActions : guestActions;
 
   return (
-    <Card className="border-0 shadow-lg bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800" data-testid="quick-actions-widget">
+    <Card className="border-0 shadow-lg bg-gradient-to-br from-background to-muted" data-testid="quick-actions-widget">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-lg">
           <Zap className="h-5 w-5 text-yellow-500" />

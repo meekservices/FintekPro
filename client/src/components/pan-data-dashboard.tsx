@@ -64,10 +64,10 @@ export function PANDataDashboard({ className }: PANDataDashboardProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100" data-testid="heading-pan-dashboard">
+          <h2 className="text-2xl font-bold text-foreground" data-testid="heading-pan-dashboard">
             My PAN Information
           </h2>
-          <p className="text-muted-foreground dark:text-muted-foreground">
+          <p className="text-muted-foreground">
             Secure access to your PAN consent and usage data
           </p>
         </div>
@@ -97,10 +97,10 @@ export function PANDataDashboard({ className }: PANDataDashboardProps) {
           <CardContent className="p-6">
             <div className="text-center py-8">
               <Shield className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+              <h3 className="text-lg font-medium text-foreground mb-2">
                 No PAN Consent Found
               </h3>
-              <p className="text-muted-foreground dark:text-muted-foreground mb-4">
+              <p className="text-muted-foreground mb-4">
                 You haven't provided PAN consent yet. This is required for tax services.
               </p>
               <Button variant="default" data-testid="button-setup-pan">
@@ -135,7 +135,7 @@ export function PANDataDashboard({ className }: PANDataDashboardProps) {
                     <Label className="text-sm font-medium">Masked PAN</Label>
                     <div className="flex items-center gap-2">
                       <code 
-                        className="text-lg font-mono bg-muted dark:bg-muted px-3 py-2 rounded-md"
+                        className="text-lg font-mono bg-muted px-3 py-2 rounded-md"
                         data-testid="text-masked-pan"
                       >
                         {panStatus?.data?.maskedPan || 'N/A'}
@@ -184,7 +184,7 @@ export function PANDataDashboard({ className }: PANDataDashboardProps) {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                   <div>
-                    <p className="text-muted-foreground dark:text-muted-foreground">Consent Given</p>
+                    <p className="text-muted-foreground">Consent Given</p>
                     <p className="font-medium" data-testid="text-consent-date">
                       {panStatus?.data?.consentDetails?.consentTimestamp 
                         ? format(new Date(panStatus.data.consentDetails.consentTimestamp), 'MMM dd, yyyy')
@@ -193,7 +193,7 @@ export function PANDataDashboard({ className }: PANDataDashboardProps) {
                     </p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground dark:text-muted-foreground">Last Used</p>
+                    <p className="text-muted-foreground">Last Used</p>
                     <p className="font-medium" data-testid="text-last-used">
                       {panStatus?.data?.consentDetails?.lastUsed 
                         ? format(new Date(panStatus.data.consentDetails.lastUsed), 'MMM dd, yyyy')
@@ -202,7 +202,7 @@ export function PANDataDashboard({ className }: PANDataDashboardProps) {
                     </p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground dark:text-muted-foreground">Usage Count</p>
+                    <p className="text-muted-foreground">Usage Count</p>
                     <p className="font-medium" data-testid="text-usage-count">
                       {panStatus?.data?.consentDetails?.usageCount || 0} times
                     </p>
@@ -230,7 +230,7 @@ export function PANDataDashboard({ className }: PANDataDashboardProps) {
                     </div>
                     <div>
                       <p className="font-medium">AES-256 Encryption</p>
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+                      <p className="text-sm text-muted-foreground">
                         Your PAN is encrypted using military-grade security
                       </p>
                     </div>
@@ -242,7 +242,7 @@ export function PANDataDashboard({ className }: PANDataDashboardProps) {
                     </div>
                     <div>
                       <p className="font-medium">Complete Audit Trail</p>
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+                      <p className="text-sm text-muted-foreground">
                         Every access is logged for transparency
                       </p>
                     </div>
@@ -254,7 +254,7 @@ export function PANDataDashboard({ className }: PANDataDashboardProps) {
                     </div>
                     <div>
                       <p className="font-medium">7-Year Retention</p>
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+                      <p className="text-sm text-muted-foreground">
                         Compliant with tax regulations
                       </p>
                     </div>
@@ -266,7 +266,7 @@ export function PANDataDashboard({ className }: PANDataDashboardProps) {
                     </div>
                     <div>
                       <p className="font-medium">Revocable Consent</p>
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+                      <p className="text-sm text-muted-foreground">
                         You can withdraw consent anytime
                       </p>
                     </div>
@@ -315,7 +315,7 @@ export function PANDataDashboard({ className }: PANDataDashboardProps) {
                   {panStatus?.data?.compliance?.issues && panStatus.data.compliance.issues.length > 0 && (
                     <div>
                       <p className="text-sm font-medium mb-2">Issues to Address:</p>
-                      <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground dark:text-muted-foreground">
+                      <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
                         {panStatus.data.compliance.issues.map((issue: string, index: number) => (
                           <li key={index}>{issue}</li>
                         ))}
@@ -349,13 +349,13 @@ export function PANDataDashboard({ className }: PANDataDashboardProps) {
                     {auditLog.data.slice(0, 10).map((entry: any, index: number) => (
                       <div 
                         key={entry.id || index}
-                        className="border-l-2 border-border dark:border-border pl-4 py-2"
+                        className="border-l-2 border-border pl-4 py-2"
                       >
                         <div className="flex items-center justify-between text-sm">
                           <div>
                             <span className="font-medium capitalize">{entry.action}</span>
                             {entry.accessReason && (
-                              <span className="text-muted-foreground dark:text-muted-foreground ml-2">
+                              <span className="text-muted-foreground ml-2">
                                 - {entry.accessReason}
                               </span>
                             )}
@@ -365,7 +365,7 @@ export function PANDataDashboard({ className }: PANDataDashboardProps) {
                           </span>
                         </div>
                         {entry.apiEndpoint && (
-                          <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">
+                          <p className="text-xs text-muted-foreground mt-1">
                             Endpoint: {entry.apiEndpoint}
                           </p>
                         )}
@@ -373,7 +373,7 @@ export function PANDataDashboard({ className }: PANDataDashboardProps) {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-muted-foreground dark:text-muted-foreground">
+                  <div className="text-center py-8 text-muted-foreground">
                     <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
                     <p>No audit log entries found</p>
                   </div>
@@ -390,7 +390,7 @@ export function PANDataDashboard({ className }: PANDataDashboardProps) {
 // Helper component for labels
 function Label({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <label className={`block text-sm font-medium text-muted-foreground dark:text-muted-foreground ${className || ''}`}>
+    <label className={`block text-sm font-medium text-muted-foreground ${className || ''}`}>
       {children}
     </label>
   );

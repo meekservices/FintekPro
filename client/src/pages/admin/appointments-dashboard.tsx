@@ -151,11 +151,11 @@ export default function AdminAppointmentsDashboard() {
       master_agent: "bg-blue-100 text-blue-800",
       agent: "bg-indigo-100 text-indigo-800",
       sub_agent: "bg-cyan-100 text-cyan-800",
-      support_staff: "bg-muted dark:bg-muted text-foreground",
+      support_staff: "bg-muted text-foreground",
       ca: "bg-teal-100 text-teal-800",
     };
     return (
-      <Badge className={roleColors[role] || "bg-muted dark:bg-muted text-foreground"}>
+      <Badge className={roleColors[role] || "bg-muted text-foreground"}>
         {role.replace(/_/g, " ").toUpperCase()}
       </Badge>
     );

@@ -86,7 +86,7 @@ const STATUS_COLORS: Record<string, string> = {
   draft: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
   active: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
   frozen: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  archived: 'bg-muted dark:bg-muted text-foreground dark:bg-card dark:text-foreground',
+  archived: 'bg-muted text-foreground',
 };
 
 const COMMISSION_ROLES = [
@@ -259,10 +259,10 @@ export default function CommissionMaster() {
     <div className="p-6 space-y-6" data-testid="commission-master-page">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Commission Master</h1>
-          <p className="text-muted-foreground dark:text-muted-foreground">Configure role-based commission plans by product type</p>
+          <h1 className="text-2xl font-bold text-foreground">Commission Master</h1>
+          <p className="text-muted-foreground">Configure role-based commission plans by product type</p>
         </div>
-        <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md" onClick={() => setShowCreateDialog(true)} data-testid="btn-create-plan">
+        <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-foreground shadow-md" onClick={() => setShowCreateDialog(true)} data-testid="btn-create-plan">
           <Plus className="w-4 h-4 mr-2" />
           Create Plan
         </Button>
@@ -273,7 +273,7 @@ export default function CommissionMaster() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Total Plans</p>
+                <p className="text-sm text-muted-foreground">Total Plans</p>
                 <p className="text-2xl font-bold">{plans.length}</p>
               </div>
               <Settings className="w-8 h-8 text-muted-foreground" />
@@ -284,7 +284,7 @@ export default function CommissionMaster() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Active Plans</p>
+                <p className="text-sm text-muted-foreground">Active Plans</p>
                 <p className="text-2xl font-bold text-green-600">{activePlansCount}</p>
               </div>
               <Check className="w-8 h-8 text-green-500" />
@@ -295,7 +295,7 @@ export default function CommissionMaster() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Draft Plans</p>
+                <p className="text-sm text-muted-foreground">Draft Plans</p>
                 <p className="text-2xl font-bold text-yellow-600">{draftPlansCount}</p>
               </div>
               <Edit className="w-8 h-8 text-yellow-500" />
@@ -306,7 +306,7 @@ export default function CommissionMaster() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Product Types</p>
+                <p className="text-sm text-muted-foreground">Product Types</p>
                 <p className="text-2xl font-bold">{productTypes?.productTypes.length || 0}</p>
               </div>
               <TrendingUp className="w-8 h-8 text-blue-500" />
@@ -409,7 +409,7 @@ export default function CommissionMaster() {
                         <Button 
                           size="sm" 
                           variant="ghost"
-                          className="text-muted-foreground hover:text-foreground hover:bg-muted dark:bg-muted dark:text-muted-foreground dark:hover:bg-muted"
+                          className="text-muted-foreground hover:text-foreground hover:bg-muted"
                           onClick={() => openAuditLog(plan)}
                           data-testid={`btn-audit-${plan.id}`}
                         >
@@ -464,7 +464,7 @@ export default function CommissionMaster() {
                   <Input 
                     value={productTypes?.regulatoryCaps[newPlan.product_type as keyof typeof productTypes.regulatoryCaps] || ''} 
                     disabled 
-                    className="bg-muted dark:bg-muted dark:bg-muted"
+                    className="bg-muted"
                   />
                   <p className="text-xs text-muted-foreground">Set by SEBI/AMFI regulations</p>
                 </div>
@@ -624,11 +624,11 @@ export default function CommissionMaster() {
           </Tabs>
 
           <DialogFooter>
-            <Button variant="outline" className="border-border text-muted-foreground hover:bg-muted dark:bg-muted dark:border-border dark:text-muted-foreground dark:hover:bg-muted" onClick={() => setShowCreateDialog(false)}>
+            <Button variant="outline" className="border-border text-muted-foreground hover:bg-muted" onClick={() => setShowCreateDialog(false)}>
               Cancel
             </Button>
             <Button 
-              className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white"
+              className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-foreground"
               onClick={handleCreatePlan} 
               disabled={createPlanMutation.isPending}
               data-testid="btn-submit-plan"
@@ -682,7 +682,7 @@ export default function CommissionMaster() {
           )}
 
           <DialogFooter>
-            <Button variant="outline" className="border-border text-muted-foreground hover:bg-muted dark:bg-muted dark:border-border dark:text-muted-foreground dark:hover:bg-muted" onClick={() => setShowAuditDialog(false)}>
+            <Button variant="outline" className="border-border text-muted-foreground hover:bg-muted" onClick={() => setShowAuditDialog(false)}>
               Close
             </Button>
           </DialogFooter>

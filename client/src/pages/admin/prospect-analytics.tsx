@@ -145,7 +145,7 @@ export default function ProspectAnalytics() {
       case 'hot': return 'bg-red-500';
       case 'warm': return 'bg-orange-500';
       case 'cold': return 'bg-blue-500';
-      default: return 'bg-gray-500';
+      default: return 'bg-muted';
     }
   };
 
@@ -351,7 +351,7 @@ export default function ProspectAnalytics() {
                       <Badge className={
                         company.surplusCategory === 'high' ? 'bg-green-500' :
                         company.surplusCategory === 'medium' ? 'bg-yellow-500' :
-                        'bg-gray-500'
+                        'bg-muted'
                       }>
                         {company.surplusCategory.toUpperCase()}
                       </Badge>
@@ -546,7 +546,7 @@ export default function ProspectAnalytics() {
                       <Badge className={
                         region.growthPotential === 'high' ? 'bg-green-500' :
                         region.growthPotential === 'medium' ? 'bg-yellow-500' :
-                        'bg-gray-500'
+                        'bg-muted'
                       }>
                         {region.growthPotential} potential
                       </Badge>

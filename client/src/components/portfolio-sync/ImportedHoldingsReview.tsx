@@ -333,7 +333,7 @@ export function ImportedHoldingsReview({ userId, onSyncComplete, onCancel }: Imp
       case 'modified':
         return <Badge className="bg-blue-100 text-blue-800"><Edit2 className="w-3 h-3 mr-1" />Modified</Badge>;
       default:
-        return <Badge variant="outline" className="text-gray-600"><Eye className="w-3 h-3 mr-1" />Pending</Badge>;
+        return <Badge variant="outline" className="text-muted-foreground"><Eye className="w-3 h-3 mr-1" />Pending</Badge>;
     }
   };
 
@@ -342,7 +342,7 @@ export function ImportedHoldingsReview({ userId, onSyncComplete, onCancel }: Imp
       <Card>
         <CardContent className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-          <span className="ml-3 text-gray-600">Loading imported holdings...</span>
+          <span className="ml-3 text-muted-foreground">Loading imported holdings...</span>
         </CardContent>
       </Card>
     );
@@ -353,9 +353,9 @@ export function ImportedHoldingsReview({ userId, onSyncComplete, onCancel }: Imp
       <Card>
         <CardContent className="py-12">
           <div className="text-center">
-            <FileText className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900">No Holdings to Review</h3>
-            <p className="text-gray-500 mt-2">
+            <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium text-foreground">No Holdings to Review</h3>
+            <p className="text-muted-foreground mt-2">
               Import your portfolio via Account Aggregator or upload a CAS statement to see holdings here.
             </p>
           </div>
@@ -391,7 +391,7 @@ export function ImportedHoldingsReview({ userId, onSyncComplete, onCancel }: Imp
         <div className="flex flex-wrap gap-4 items-center justify-between">
           <div className="flex items-center gap-2 flex-1 min-w-[200px]">
             <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Search by name, ISIN, or symbol..."
                 value={searchTerm}
@@ -497,10 +497,10 @@ export function ImportedHoldingsReview({ userId, onSyncComplete, onCancel }: Imp
                   </TableCell>
                   <TableCell>
                     <div>
-                      <div className="font-medium text-gray-900 dark:text-gray-100">
+                      <div className="font-medium text-foreground">
                         {holding.name}
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-muted-foreground">
                         {holding.isin || holding.symbol || '-'}
                         {holding.folioNumber && ` | Folio: ${holding.folioNumber}`}
                       </div>
@@ -533,7 +533,7 @@ export function ImportedHoldingsReview({ userId, onSyncComplete, onCancel }: Imp
                     )}
                   </TableCell>
                   <TableCell>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-muted-foreground">
                       {SOURCE_LABELS[holding.source] || holding.source}
                     </span>
                   </TableCell>
@@ -558,17 +558,17 @@ export function ImportedHoldingsReview({ userId, onSyncComplete, onCancel }: Imp
 
         <Separator />
 
-        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
+        <div className="bg-background rounded-lg p-4">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <div className="text-sm text-gray-500">Total Portfolio Value (Approved)</div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              <div className="text-sm text-muted-foreground">Total Portfolio Value (Approved)</div>
+              <div className="text-2xl font-bold text-foreground">
                 {formatCurrency(summary.totalValue)}
               </div>
             </div>
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <div className="text-sm text-gray-500">Ready to Sync</div>
+                <div className="text-sm text-muted-foreground">Ready to Sync</div>
                 <div className="text-lg font-semibold">
                   {summary.approved + summary.modified} of {summary.total} holdings
                 </div>
@@ -620,7 +620,7 @@ export function ImportedHoldingsReview({ userId, onSyncComplete, onCancel }: Imp
           {editingHolding && (
             <div className="space-y-4 py-4">
               <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
+                <label className="text-sm font-medium text-foreground">Name</label>
                 <Input
                   value={editForm.name || ''}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
@@ -630,7 +630,7 @@ export function ImportedHoldingsReview({ userId, onSyncComplete, onCancel }: Imp
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <label className="text-sm font-medium text-foreground">
                     {editingHolding.assetType === 'mutual_fund' ? 'Units' : 'Quantity'}
                   </label>
                   <Input
@@ -644,7 +644,7 @@ export function ImportedHoldingsReview({ userId, onSyncComplete, onCancel }: Imp
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Average Cost</label>
+                  <label className="text-sm font-medium text-foreground">Average Cost</label>
                   <Input
                     type="number"
                     value={editForm.averageCost || ''}
@@ -655,7 +655,7 @@ export function ImportedHoldingsReview({ userId, onSyncComplete, onCancel }: Imp
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Current Price</label>
+                <label className="text-sm font-medium text-foreground">Current Price</label>
                 <Input
                   type="number"
                   value={editForm.currentPrice || ''}

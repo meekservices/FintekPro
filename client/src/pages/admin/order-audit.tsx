@@ -168,7 +168,7 @@ export default function OrderAuditDashboard() {
       <div className="flex items-center justify-center min-h-screen bg-background" data-testid="access-denied-container">
         <Card className="bg-card border-border max-w-md">
           <CardHeader>
-            <CardTitle className="text-white text-center" data-testid="text-access-denied">Access Denied</CardTitle>
+            <CardTitle className="text-foreground text-center" data-testid="text-access-denied">Access Denied</CardTitle>
             <CardDescription className="text-muted-foreground text-center">
               Admin privileges required to access this page.
             </CardDescription>
@@ -218,7 +218,7 @@ export default function OrderAuditDashboard() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-bold text-white flex items-center gap-3" data-testid="text-page-title">
+            <h1 className="text-3xl font-bold text-foreground flex items-center gap-3" data-testid="text-page-title">
               <ClipboardList className="h-8 w-8" />
               Order Audit Dashboard
             </h1>
@@ -242,7 +242,7 @@ export default function OrderAuditDashboard() {
             <div className="flex items-center gap-3">
               <ShoppingCart className="h-6 w-6 text-primary" />
               <div>
-                <p className="text-2xl font-bold text-white" data-testid="text-stat-total">{stats.total}</p>
+                <p className="text-2xl font-bold text-foreground" data-testid="text-stat-total">{stats.total}</p>
                 <p className="text-xs text-muted-foreground">Total Orders</p>
               </div>
             </div>
@@ -253,7 +253,7 @@ export default function OrderAuditDashboard() {
             <div className="flex items-center gap-3">
               <CheckCircle className="h-6 w-6 text-green-400" />
               <div>
-                <p className="text-2xl font-bold text-white" data-testid="text-stat-active">{stats.active}</p>
+                <p className="text-2xl font-bold text-foreground" data-testid="text-stat-active">{stats.active}</p>
                 <p className="text-xs text-muted-foreground">Active</p>
               </div>
             </div>
@@ -264,7 +264,7 @@ export default function OrderAuditDashboard() {
             <div className="flex items-center gap-3">
               <Clock className="h-6 w-6 text-yellow-400" />
               <div>
-                <p className="text-2xl font-bold text-white" data-testid="text-stat-pending">{stats.pending}</p>
+                <p className="text-2xl font-bold text-foreground" data-testid="text-stat-pending">{stats.pending}</p>
                 <p className="text-xs text-muted-foreground">Pending</p>
               </div>
             </div>
@@ -275,7 +275,7 @@ export default function OrderAuditDashboard() {
             <div className="flex items-center gap-3">
               <User className="h-6 w-6 text-green-400" />
               <div>
-                <p className="text-2xl font-bold text-white" data-testid="text-stat-client">{stats.clientSource}</p>
+                <p className="text-2xl font-bold text-foreground" data-testid="text-stat-client">{stats.clientSource}</p>
                 <p className="text-xs text-muted-foreground">Client</p>
               </div>
             </div>
@@ -286,7 +286,7 @@ export default function OrderAuditDashboard() {
             <div className="flex items-center gap-3">
               <Users className="h-6 w-6 text-blue-400" />
               <div>
-                <p className="text-2xl font-bold text-white" data-testid="text-stat-agent">{stats.agentSource}</p>
+                <p className="text-2xl font-bold text-foreground" data-testid="text-stat-agent">{stats.agentSource}</p>
                 <p className="text-xs text-muted-foreground">Agent</p>
               </div>
             </div>
@@ -297,7 +297,7 @@ export default function OrderAuditDashboard() {
             <div className="flex items-center gap-3">
               <Bot className="h-6 w-6 text-purple-400" />
               <div>
-                <p className="text-2xl font-bold text-white" data-testid="text-stat-ai">{stats.aiSource}</p>
+                <p className="text-2xl font-bold text-foreground" data-testid="text-stat-ai">{stats.aiSource}</p>
                 <p className="text-xs text-muted-foreground">AI</p>
               </div>
             </div>
@@ -308,7 +308,7 @@ export default function OrderAuditDashboard() {
             <div className="flex items-center gap-3">
               <TrendingUp className="h-6 w-6 text-emerald-400" />
               <div>
-                <p className="text-lg font-bold text-white" data-testid="text-stat-value">{formatCurrency(stats.totalValue)}</p>
+                <p className="text-lg font-bold text-foreground" data-testid="text-stat-value">{formatCurrency(stats.totalValue)}</p>
                 <p className="text-xs text-muted-foreground">Page Value</p>
               </div>
             </div>
@@ -326,7 +326,7 @@ export default function OrderAuditDashboard() {
                   placeholder="Search by name, ID, or user..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 bg-muted border-border text-white"
+                  className="pl-9 bg-muted border-border text-foreground"
                   data-testid="input-search-audit"
                 />
               </div>
@@ -374,7 +374,7 @@ export default function OrderAuditDashboard() {
                 <TabsTrigger 
                   key={cat} 
                   value={cat}
-                  className="data-[state=active]:bg-gray-700"
+                  className="data-[state=active]:bg-muted"
                   data-testid={`tab-category-${cat}`}
                 >
                   <span className="flex items-center gap-2">
@@ -426,7 +426,7 @@ export default function OrderAuditDashboard() {
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 {getCategoryIcon(order.productCategory as ProductCategory)}
-                                <span className="text-white font-medium truncate max-w-[200px]" data-testid={`text-product-name-${order.id}`}>
+                                <span className="text-foreground font-medium truncate max-w-[200px]" data-testid={`text-product-name-${order.id}`}>
                                   {order.displayName || 'Unnamed Product'}
                                 </span>
                               </div>
@@ -456,7 +456,7 @@ export default function OrderAuditDashboard() {
                             <TableCell className="text-right text-green-400 font-medium" data-testid={`text-amount-${order.id}`}>
                               {formatCurrency(order.amount)}
                             </TableCell>
-                            <TableCell className="text-right text-white" data-testid={`text-quantity-${order.id}`}>
+                            <TableCell className="text-right text-foreground" data-testid={`text-quantity-${order.id}`}>
                               {order.quantity || 1}
                             </TableCell>
                             <TableCell>
@@ -520,7 +520,7 @@ export default function OrderAuditDashboard() {
       
       <Card className="bg-card border-border" data-testid="card-source-legend">
         <CardHeader>
-          <CardTitle className="text-white text-lg">Source Tracking Legend</CardTitle>
+          <CardTitle className="text-foreground text-lg">Source Tracking Legend</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-4">

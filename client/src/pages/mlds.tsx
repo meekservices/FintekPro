@@ -208,7 +208,7 @@ function CartTab({ productType, onCheckout }: { productType: string; onCheckout:
                 <div><p className="font-medium text-amber-800">MLD Notice</p><p className="text-amber-700 text-xs">Minimum ₹1 Lakh. Principal protection at maturity.</p></div>
               </div>
             </div>
-            <Button className="w-full bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-semibold py-6" onClick={() => checkoutMutation.mutate()} disabled={checkoutMutation.isPending} data-testid="mld-checkout-btn">
+            <Button className="w-full bg-gradient-to-r from-teal-500 to-cyan-500 text-foreground font-semibold py-6" onClick={() => checkoutMutation.mutate()} disabled={checkoutMutation.isPending} data-testid="mld-checkout-btn">
               {checkoutMutation.isPending ? <><RefreshCw className="w-5 h-5 mr-2 animate-spin" />Processing...</> : <><CreditCard className="w-5 h-5 mr-2" />Proceed to Payment</>}
             </Button>
           </CardContent>
@@ -325,7 +325,7 @@ export default function MLDs() {
     <div className="min-h-screen bg-finance-light" data-testid="mlds-page">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Market Linked Debentures (MLDs)</h1>
+          <h1 className="text-3xl font-bold text-foreground mb-4">Market Linked Debentures (MLDs)</h1>
           <p className="text-muted-foreground text-lg">Structured debt instruments linked to market indices with capital protection options.</p>
         </div>
 

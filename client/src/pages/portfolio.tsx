@@ -297,7 +297,7 @@ export default function Portfolio() {
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0">
           <div className="text-center py-16">
             <Shield className="h-16 w-16 text-blue-500 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Sign In Required</h1>
+            <h1 className="text-2xl font-bold text-foreground mb-2">Sign In Required</h1>
             <p className="text-muted-foreground mb-4">
               Please sign in to view your portfolio holdings and performance
             </p>
@@ -321,7 +321,7 @@ export default function Portfolio() {
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0">
           <div className="text-center py-16">
             <Shield className="h-16 w-16 text-orange-500 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">PAN Card Required</h1>
+            <h1 className="text-2xl font-bold text-foreground mb-2">PAN Card Required</h1>
             <p className="text-muted-foreground mb-4">
               Complete your KYC by adding your PAN card to access portfolio data
             </p>
@@ -343,7 +343,7 @@ export default function Portfolio() {
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0">
           <div className="text-center py-16">
             <TrendingUp className="h-16 w-16 text-blue-500 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">No Portfolios Found</h1>
+            <h1 className="text-2xl font-bold text-foreground mb-2">No Portfolios Found</h1>
             <p className="text-muted-foreground mb-4">
               No investment portfolios are linked to your PAN card yet
             </p>
@@ -572,14 +572,14 @@ export default function Portfolio() {
                           const assetTypeLabel = assetType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
                           
                           return (
-                            <div key={assetType} className="bg-muted dark:bg-slate-800/50 rounded-lg p-4">
-                              <div className="flex justify-between items-center mb-4 pb-3 border-b border-border dark:border-slate-700">
+                            <div key={assetType} className="bg-muted/50 rounded-lg p-4">
+                              <div className="flex justify-between items-center mb-4 pb-3 border-b border-border">
                                 <div>
-                                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white capitalize">{assetTypeLabel}</h3>
-                                  <p className="text-sm text-muted-foreground dark:text-slate-400">{holdings?.length || 0} holding{(holdings?.length || 0) !== 1 ? 's' : ''}</p>
+                                  <h3 className="text-lg font-semibold text-foreground capitalize">{assetTypeLabel}</h3>
+                                  <p className="text-sm text-muted-foreground">{holdings?.length || 0} holding{(holdings?.length || 0) !== 1 ? 's' : ''}</p>
                                 </div>
                                 <div className="text-right">
-                                  <p className="text-lg font-bold text-gray-900 dark:text-white">₹{totalCurrent.toLocaleString()}</p>
+                                  <p className="text-lg font-bold text-foreground">₹{totalCurrent.toLocaleString()}</p>
                                   <div className={`text-sm flex items-center justify-end ${totalGainLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                     {totalGainLoss >= 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
                                     {totalGainLoss >= 0 ? '+' : ''}₹{totalGainLoss.toFixed(0)} ({totalGainLossPercent.toFixed(1)}%)
@@ -588,16 +588,16 @@ export default function Portfolio() {
                               </div>
                               <div className="space-y-2">
                                 {holdings?.map((holding) => (
-                                  <div key={holding.id} className="flex justify-between items-center p-3 bg-white dark:bg-slate-900 rounded-md" data-testid={`holding-${holding.symbol}`}>
+                                  <div key={holding.id} className="flex justify-between items-center p-3 bg-background rounded-md" data-testid={`holding-${holding.symbol}`}>
                                     <div className="flex-1">
                                       <div className="flex items-center space-x-2">
-                                        <h4 className="font-semibold text-gray-900 dark:text-white">{holding.symbol}</h4>
+                                        <h4 className="font-semibold text-foreground">{holding.symbol}</h4>
                                         <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 px-2 py-0.5 rounded">{holding.exchange}</span>
                                       </div>
-                                      <p className="text-sm text-muted-foreground dark:text-slate-400">Qty: {holding.quantity} @ ₹{holding.avgPrice}</p>
+                                      <p className="text-sm text-muted-foreground">Qty: {holding.quantity} @ ₹{holding.avgPrice}</p>
                                     </div>
                                     <div className="text-right">
-                                      <p className="font-bold text-gray-900 dark:text-white">₹{parseFloat(holding.currentValue).toLocaleString()}</p>
+                                      <p className="font-bold text-foreground">₹{parseFloat(holding.currentValue).toLocaleString()}</p>
                                       <div className={`text-sm ${parseFloat(holding.gainLoss) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                         {parseFloat(holding.gainLoss) >= 0 ? '+' : ''}{parseFloat(holding.gainLossPercent).toFixed(1)}%
                                       </div>
@@ -819,7 +819,7 @@ export default function Portfolio() {
                 ) : (
                   <div className="text-center py-12" data-testid="empty-orders">
                     <Briefcase className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No FintekPro Orders Yet</h3>
+                    <h3 className="text-lg font-medium text-foreground mb-2">No FintekPro Orders Yet</h3>
                     <p className="text-muted-foreground mb-4">
                       Start investing through FintekPro to see your transactions here
                     </p>
@@ -1047,7 +1047,7 @@ export default function Portfolio() {
                 ) : (
                   <div className="text-center py-12" data-testid="empty-tracker">
                     <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Holdings Found</h3>
+                    <h3 className="text-lg font-medium text-foreground mb-2">No Holdings Found</h3>
                     <p className="text-muted-foreground mb-4">
                       Your PAN-linked demat holdings will appear here once connected
                     </p>
@@ -1215,7 +1215,7 @@ export default function Portfolio() {
                 ) : (
                   <div className="text-center py-12" data-testid="empty-external">
                     <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">All Holdings on FintekPro</h3>
+                    <h3 className="text-lg font-medium text-foreground mb-2">All Holdings on FintekPro</h3>
                     <p className="text-muted-foreground mb-4">
                       Great news! All your demat holdings are managed through FintekPro
                     </p>
@@ -1287,7 +1287,7 @@ export default function Portfolio() {
 
                       {/* Policy Breakdown */}
                       <div className="space-y-3">
-                        <h4 className="font-semibold text-gray-900">Policy Categories</h4>
+                        <h4 className="font-semibold text-foreground">Policy Categories</h4>
                         <div className="space-y-2">
                           {insuranceHoldings && insuranceHoldings.length > 0 ? (
                             Array.from(new Set(insuranceHoldings.map(p => p.policyType))).map(policyType => {
@@ -1309,7 +1309,7 @@ export default function Portfolio() {
 
                       {/* Depository Info */}
                       <div className="space-y-3">
-                        <h4 className="font-semibold text-gray-900">Depository Details</h4>
+                        <h4 className="font-semibold text-foreground">Depository Details</h4>
                         <div className="grid grid-cols-2 gap-2">
                           <div className="text-center p-3 bg-purple-50 rounded-lg">
                             <p className="text-sm font-medium text-purple-600">NSDL Holdings</p>
@@ -1344,11 +1344,11 @@ export default function Portfolio() {
                           <div key={policy.id} className="border rounded-lg p-4" data-testid={`insurance-policy-${policy.id}`}>
                             <div className="flex justify-between items-start mb-3">
                               <div>
-                                <h4 className="font-medium text-gray-900">{policy.policyName}</h4>
+                                <h4 className="font-medium text-foreground">{policy.policyName}</h4>
                                 <p className="text-sm text-muted-foreground">Policy No: {policy.policyNumber}</p>
                                 <p className="text-xs text-muted-foreground">{policy.insuranceCompany}</p>
                               </div>
-                              <Badge className={(policy.policyStatus || '') === 'active' ? "bg-green-100 text-green-800" : "bg-muted text-foreground"}>
+                              <Badge className={(policy.policyStatus || '') === 'active' ? "bg-green-100 text-green-800" : "bg-muted text-white"}>
                                 {policy.policyStatus ? policy.policyStatus.charAt(0).toUpperCase() + policy.policyStatus.slice(1) : 'Unknown'}
                               </Badge>
                             </div>
@@ -1412,7 +1412,7 @@ export default function Portfolio() {
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                     {/* Coverage Adequacy */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Coverage Adequacy</h4>
+                      <h4 className="font-semibold text-foreground">Coverage Adequacy</h4>
                       <div className="text-center">
                         <div className="text-3xl font-bold text-green-600">85%</div>
                         <p className="text-sm text-muted-foreground">of recommended coverage</p>
@@ -1424,7 +1424,7 @@ export default function Portfolio() {
 
                     {/* Annual Premium */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Annual Premium</h4>
+                      <h4 className="font-semibold text-foreground">Annual Premium</h4>
                       <div className="space-y-2">
                         <div className="flex justify-between">
                           <span className="text-sm">Total Premium</span>
@@ -1443,7 +1443,7 @@ export default function Portfolio() {
 
                     {/* Risk Protection */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Risk Protection</h4>
+                      <h4 className="font-semibold text-foreground">Risk Protection</h4>
                       <div className="space-y-2">
                         <div className="flex justify-between">
                           <span className="text-sm">Life Coverage</span>
@@ -1462,7 +1462,7 @@ export default function Portfolio() {
 
                     {/* Portfolio Impact */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Portfolio Impact</h4>
+                      <h4 className="font-semibold text-foreground">Portfolio Impact</h4>
                       <div className="space-y-2">
                         <div className="text-center">
                           <div className="text-2xl font-bold text-blue-600">{insuranceAnalytics.ulipValue > 0 ? `₹${(insuranceAnalytics.ulipValue / 100000).toFixed(2)}L` : 'Not available'}</div>
@@ -1525,7 +1525,7 @@ export default function Portfolio() {
                               <span className="text-xs text-muted-foreground font-normal">{epf.epfAccountNumber}</span>
                             </div>
                           </CardTitle>
-                          <Badge variant="outline" className={epf.isActive ? "text-green-600 border-green-600" : "text-muted-foreground border-gray-400"}>
+                          <Badge variant="outline" className={epf.isActive ? "text-green-600 border-green-600" : "text-muted-foreground border-border"}>
                             {epf.isActive ? 'Active' : 'Previous'}
                           </Badge>
                         </div>
@@ -1554,7 +1554,7 @@ export default function Portfolio() {
 
                           {/* Balance Breakdown */}
                           <div className="space-y-4">
-                            <h4 className="font-semibold text-gray-900">Balance Breakdown</h4>
+                            <h4 className="font-semibold text-foreground">Balance Breakdown</h4>
                             <div className="space-y-3">
                               <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
                                 <span className="text-sm font-medium text-blue-900">Employee Contribution</span>
@@ -1578,7 +1578,7 @@ export default function Portfolio() {
                           {/* Total Balance */}
                           <div className="pt-4 border-t">
                             <div className="flex justify-between items-center">
-                              <span className="text-lg font-semibold text-gray-900">Total EPF Balance</span>
+                              <span className="text-lg font-semibold text-foreground">Total EPF Balance</span>
                               <span className="text-2xl font-bold text-green-600">₹{parseFloat(epf.totalBalance || '0').toLocaleString('en-IN')}</span>
                             </div>
                             <p className="text-sm text-muted-foreground mt-1">
@@ -1601,15 +1601,15 @@ export default function Portfolio() {
                         <div className="space-y-6">
                           {/* Monthly Contribution */}
                           <div className="space-y-3">
-                            <h4 className="font-semibold text-gray-900">Monthly Contribution</h4>
+                            <h4 className="font-semibold text-foreground">Monthly Contribution</h4>
                             <div className="grid grid-cols-2 gap-4">
                               <div className="p-3 bg-muted rounded-lg">
                                 <p className="text-sm text-muted-foreground">Employee (12%)</p>
-                                <p className="text-lg font-bold text-gray-900">₹7,200</p>
+                                <p className="text-lg font-bold text-foreground">₹7,200</p>
                               </div>
                               <div className="p-3 bg-muted rounded-lg">
                                 <p className="text-sm text-muted-foreground">Employer (12%)</p>
-                                <p className="text-lg font-bold text-gray-900">₹7,200</p>
+                                <p className="text-lg font-bold text-foreground">₹7,200</p>
                               </div>
                             </div>
                             <div className="p-3 bg-green-50 rounded-lg">
@@ -1620,7 +1620,7 @@ export default function Portfolio() {
 
                           {/* Growth Statistics */}
                           <div className="space-y-3">
-                            <h4 className="font-semibold text-gray-900">Growth Statistics</h4>
+                            <h4 className="font-semibold text-foreground">Growth Statistics</h4>
                             <div className="space-y-2">
                               <div className="flex justify-between">
                                 <span className="text-sm text-muted-foreground">Current Year Interest</span>
@@ -1639,7 +1639,7 @@ export default function Portfolio() {
 
                     {/* Withdrawal Options */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Withdrawal Information</h4>
+                      <h4 className="font-semibold text-foreground">Withdrawal Information</h4>
                       <div className="space-y-2">
                         <div className="p-3 bg-yellow-50 rounded-lg">
                           <p className="text-sm font-medium text-yellow-900">Partial Withdrawal</p>
@@ -1654,7 +1654,7 @@ export default function Portfolio() {
 
                     {/* Nominee Details */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Nominee Details</h4>
+                      <h4 className="font-semibold text-foreground">Nominee Details</h4>
                       <div className="p-3 bg-muted rounded-lg">
                         <div className="grid grid-cols-2 gap-2">
                           <div>
@@ -1684,7 +1684,7 @@ export default function Portfolio() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {/* Portfolio Contribution */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Portfolio Weight</h4>
+                      <h4 className="font-semibold text-foreground">Portfolio Weight</h4>
                       <div className="text-center">
                         <div className="text-3xl font-bold text-purple-600">{epfPortfolioWeight ? `${epfPortfolioWeight}%` : 'Not available'}</div>
                         <p className="text-sm text-muted-foreground">of total wealth</p>
@@ -1698,7 +1698,7 @@ export default function Portfolio() {
 
                     {/* Risk Profile */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Risk Profile</h4>
+                      <h4 className="font-semibold text-foreground">Risk Profile</h4>
                       <div className="space-y-2">
                         <div className="flex justify-between">
                           <span className="text-sm">Risk Level</span>
@@ -1717,7 +1717,7 @@ export default function Portfolio() {
 
                     {/* Retirement Planning */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Retirement Impact</h4>
+                      <h4 className="font-semibold text-foreground">Retirement Impact</h4>
                       <div className="space-y-2">
                         <div className="text-center">
                           {(() => {
@@ -1817,7 +1817,7 @@ export default function Portfolio() {
 
                     {/* Current Status */}
                     <div className="space-y-4">
-                      <h4 className="font-semibold text-gray-900">Current Status & Timeline</h4>
+                      <h4 className="font-semibold text-foreground">Current Status & Timeline</h4>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="p-3 bg-blue-50 rounded-lg">
                           <p className="text-sm text-muted-foreground">Years Completed</p>
@@ -1834,7 +1834,7 @@ export default function Portfolio() {
 
                     {/* Balance Summary */}
                     <div className="space-y-4">
-                      <h4 className="font-semibold text-gray-900">Balance Summary</h4>
+                      <h4 className="font-semibold text-foreground">Balance Summary</h4>
                       <div className="space-y-3">
                         <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
                           <span className="text-sm font-medium text-purple-900">Total Contribution</span>
@@ -1855,7 +1855,7 @@ export default function Portfolio() {
                     <div className="pt-4 border-t">
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
-                          <span className="text-lg font-semibold text-gray-900">Projected Maturity Value</span>
+                          <span className="text-lg font-semibold text-foreground">Projected Maturity Value</span>
                           {(() => {
                             const yearsToMaturity = ppf.maturityDate ? Math.ceil((new Date(ppf.maturityDate).getTime() - Date.now()) / (365.25 * 24 * 60 * 60 * 1000)) : 0;
                             const projectedValue = calculateProjectedValue(parseFloat(ppf.totalBalance || '0'), parseFloat((ppf as any).interestRate || '7.1'), yearsToMaturity);
@@ -1887,11 +1887,11 @@ export default function Portfolio() {
                   <div className="space-y-6">
                     {/* This Year's Contribution */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">FY 2024-25 Contribution</h4>
+                      <h4 className="font-semibold text-foreground">FY 2024-25 Contribution</h4>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="p-3 bg-muted rounded-lg">
                           <p className="text-sm text-muted-foreground">Contributed So Far</p>
-                          <p className="text-lg font-bold text-gray-900">₹1,20,000</p>
+                          <p className="text-lg font-bold text-foreground">₹1,20,000</p>
                         </div>
                         <div className="p-3 bg-orange-50 rounded-lg">
                           <p className="text-sm text-muted-foreground">Remaining Limit</p>
@@ -1908,7 +1908,7 @@ export default function Portfolio() {
 
                     {/* Tax Benefits */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Tax Benefits</h4>
+                      <h4 className="font-semibold text-foreground">Tax Benefits</h4>
                       <div className="space-y-2">
                         <div className="flex justify-between items-center p-2 bg-green-50 rounded">
                           <span className="text-sm">Section 80C Deduction</span>
@@ -1927,7 +1927,7 @@ export default function Portfolio() {
 
                     {/* Available Features */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Available Features</h4>
+                      <h4 className="font-semibold text-foreground">Available Features</h4>
                       <div className="space-y-2">
                         <div className="p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
                           <p className="text-sm font-medium text-green-900">✓ Loan Available</p>
@@ -1952,7 +1952,7 @@ export default function Portfolio() {
 
                     {/* Nominee Information */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Nominee Details</h4>
+                      <h4 className="font-semibold text-foreground">Nominee Details</h4>
                       <div className="p-3 bg-muted rounded-lg">
                         <div className="grid grid-cols-2 gap-2">
                           <div>
@@ -1982,7 +1982,7 @@ export default function Portfolio() {
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                     {/* Portfolio Contribution */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Portfolio Weight</h4>
+                      <h4 className="font-semibold text-foreground">Portfolio Weight</h4>
                       <div className="text-center">
                         <div className="text-3xl font-bold text-purple-600">{ppfPortfolioWeight ? `${ppfPortfolioWeight}%` : 'Not available'}</div>
                         <p className="text-sm text-muted-foreground">of total wealth</p>
@@ -1996,7 +1996,7 @@ export default function Portfolio() {
 
                     {/* Risk Profile */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Risk & Returns</h4>
+                      <h4 className="font-semibold text-foreground">Risk & Returns</h4>
                       <div className="space-y-2">
                         <div className="flex justify-between">
                           <span className="text-sm">Risk Level</span>
@@ -2015,7 +2015,7 @@ export default function Portfolio() {
 
                     {/* Liquidity Status */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Liquidity</h4>
+                      <h4 className="font-semibold text-foreground">Liquidity</h4>
                       <div className="space-y-2">
                         <div className="flex justify-between">
                           <span className="text-sm">Lock-in Period</span>
@@ -2034,7 +2034,7 @@ export default function Portfolio() {
 
                     {/* Retirement Planning Impact */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Retirement Impact</h4>
+                      <h4 className="font-semibold text-foreground">Retirement Impact</h4>
                       <div className="space-y-2">
                         <div className="text-center">
                           {(() => {
@@ -2057,7 +2057,7 @@ export default function Portfolio() {
 
                   {/* Yearly Contribution History Chart Placeholder */}
                   <div className="mt-6 pt-6 border-t">
-                    <h4 className="font-semibold text-gray-900 mb-4">9-Year Contribution & Growth History</h4>
+                    <h4 className="font-semibold text-foreground mb-4">9-Year Contribution & Growth History</h4>
                     <div className="grid grid-cols-9 gap-2">
                       {Array.from({ length: 9 }, (_, i) => (
                         <div key={i} className="text-center">
@@ -2157,7 +2157,7 @@ export default function Portfolio() {
 
                     {/* Service Details */}
                     <div className="space-y-4">
-                      <h4 className="font-semibold text-gray-900">Service Information</h4>
+                      <h4 className="font-semibold text-foreground">Service Information</h4>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="p-3 bg-blue-50 rounded-lg">
                           <p className="text-sm text-muted-foreground">Service Start Date</p>
@@ -2183,7 +2183,7 @@ export default function Portfolio() {
 
                     {/* Vesting Status */}
                     <div className="space-y-4">
-                      <h4 className="font-semibold text-gray-900">Vesting & Eligibility Status</h4>
+                      <h4 className="font-semibold text-foreground">Vesting & Eligibility Status</h4>
                       <div className="space-y-3">
                         <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
                           <div>
@@ -2206,7 +2206,7 @@ export default function Portfolio() {
                     <div className="pt-4 border-t">
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
-                          <span className="text-lg font-semibold text-gray-900">Expected Retirement Date</span>
+                          <span className="text-lg font-semibold text-foreground">Expected Retirement Date</span>
                           <span className="text-xl font-bold text-blue-600">01-Jun-2038</span>
                         </div>
                         <p className="text-sm text-muted-foreground">
@@ -2230,7 +2230,7 @@ export default function Portfolio() {
                   <div className="space-y-6">
                     {/* Current Contribution Status */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Monthly Contribution (FY 2024-25)</h4>
+                      <h4 className="font-semibold text-foreground">Monthly Contribution (FY 2024-25)</h4>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="p-3 bg-blue-50 rounded-lg">
                           <p className="text-sm text-muted-foreground">Contribution Rate</p>
@@ -2254,7 +2254,7 @@ export default function Portfolio() {
 
                     {/* Pension Formula & Calculation */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Pension Formula (EPS-95)</h4>
+                      <h4 className="font-semibold text-foreground">Pension Formula (EPS-95)</h4>
                       <div className="p-4 bg-muted rounded-lg border">
                         <p className="text-sm font-medium text-center text-muted-foreground">
                           Pension = (Pensionable Salary × Service) ÷ 70
@@ -2278,7 +2278,7 @@ export default function Portfolio() {
 
                     {/* Projected Pension */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Projected Monthly Pension</h4>
+                      <h4 className="font-semibold text-foreground">Projected Monthly Pension</h4>
                       <div className="space-y-2">
                         <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
                           <span className="text-sm font-medium text-green-900">At Current Service (9.8 years)</span>
@@ -2297,7 +2297,7 @@ export default function Portfolio() {
 
                     {/* Pension Benefits */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Additional Benefits</h4>
+                      <h4 className="font-semibold text-foreground">Additional Benefits</h4>
                       <div className="space-y-2">
                         <div className="p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
                           <p className="text-sm font-medium text-green-900">✓ Lifelong Pension</p>
@@ -2316,7 +2316,7 @@ export default function Portfolio() {
 
                     {/* Nominee Information */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Nominee Details</h4>
+                      <h4 className="font-semibold text-foreground">Nominee Details</h4>
                       <div className="p-3 bg-muted rounded-lg">
                         <div className="grid grid-cols-3 gap-2">
                           <div>
@@ -2353,7 +2353,7 @@ export default function Portfolio() {
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                     {/* APY Account Overview */}
                     <div className="space-y-4">
-                      <h4 className="font-semibold text-gray-900">Account Details</h4>
+                      <h4 className="font-semibold text-foreground">Account Details</h4>
                       <div className="space-y-3">
                         <div className="p-3 bg-green-50 rounded-lg">
                           <p className="text-sm text-muted-foreground">APY Account</p>
@@ -2376,7 +2376,7 @@ export default function Portfolio() {
 
                     {/* Chosen Pension Plan */}
                     <div className="space-y-4">
-                      <h4 className="font-semibold text-gray-900">Pension Plan</h4>
+                      <h4 className="font-semibold text-foreground">Pension Plan</h4>
                       <div className="space-y-3">
                         <div className="text-center p-4 bg-gradient-to-br from-green-100 to-green-200 rounded-lg border-2 border-green-300">
                           <p className="text-sm text-green-700 font-medium">Guaranteed Monthly Pension</p>
@@ -2398,7 +2398,7 @@ export default function Portfolio() {
 
                     {/* Monthly Contributions */}
                     <div className="space-y-4">
-                      <h4 className="font-semibold text-gray-900">Contributions (FY 2024-25)</h4>
+                      <h4 className="font-semibold text-foreground">Contributions (FY 2024-25)</h4>
                       <div className="space-y-3">
                         <div className="p-3 bg-blue-50 rounded-lg">
                           <p className="text-sm text-muted-foreground">Monthly Contribution</p>
@@ -2420,11 +2420,11 @@ export default function Portfolio() {
 
                     {/* Contribution Progress */}
                     <div className="space-y-4">
-                      <h4 className="font-semibold text-gray-900">Contribution Progress</h4>
+                      <h4 className="font-semibold text-foreground">Contribution Progress</h4>
                       <div className="space-y-3">
                         <div className="p-3 bg-muted rounded-lg">
                           <p className="text-sm text-muted-foreground">Years Contributed</p>
-                          <p className="text-lg font-bold text-gray-900">6.3 Years</p>
+                          <p className="text-lg font-bold text-foreground">6.3 Years</p>
                         </div>
                         <div className="w-full bg-muted rounded-full h-3">
                           <div className="bg-green-500 h-3 rounded-full" style={{ width: '25.2%' }}></div>
@@ -2445,7 +2445,7 @@ export default function Portfolio() {
 
                   {/* APY Benefits Overview */}
                   <div className="mt-6 pt-6 border-t">
-                    <h4 className="font-semibold text-gray-900 mb-4">APY Benefits & Features</h4>
+                    <h4 className="font-semibold text-foreground mb-4">APY Benefits & Features</h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="space-y-3">
                         <h5 className="font-medium text-foreground">Pension Benefits</h5>
@@ -2505,7 +2505,7 @@ export default function Portfolio() {
 
                   {/* APY vs Other Pension Plans Comparison */}
                   <div className="mt-6 pt-6 border-t">
-                    <h4 className="font-semibold text-gray-900 mb-4">Your Complete Pension Portfolio</h4>
+                    <h4 className="font-semibold text-foreground mb-4">Your Complete Pension Portfolio</h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                         <div className="flex items-center justify-between mb-2">
@@ -2578,7 +2578,7 @@ export default function Portfolio() {
                   <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
                     {/* Retirement Income Impact */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Monthly Income</h4>
+                      <h4 className="font-semibold text-foreground">Monthly Income</h4>
                       <div className="text-center">
                         <div className="text-3xl font-bold text-blue-600">₹6,857</div>
                         <p className="text-sm text-muted-foreground">at retirement</p>
@@ -2590,7 +2590,7 @@ export default function Portfolio() {
 
                     {/* Risk Profile */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Security Level</h4>
+                      <h4 className="font-semibold text-foreground">Security Level</h4>
                       <div className="space-y-2">
                         <div className="flex justify-between">
                           <span className="text-sm">Risk</span>
@@ -2609,7 +2609,7 @@ export default function Portfolio() {
 
                     {/* Service Progress */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Service Progress</h4>
+                      <h4 className="font-semibold text-foreground">Service Progress</h4>
                       <div className="space-y-2">
                         <div className="flex justify-between">
                           <span className="text-sm">Completed</span>
@@ -2627,7 +2627,7 @@ export default function Portfolio() {
 
                     {/* Family Security */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Family Security</h4>
+                      <h4 className="font-semibold text-foreground">Family Security</h4>
                       <div className="space-y-2">
                         <div className="text-center">
                           <div className="text-2xl font-bold text-green-600">₹3,428</div>
@@ -2641,7 +2641,7 @@ export default function Portfolio() {
 
                     {/* Retirement Corpus Equivalent */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Corpus Equivalent</h4>
+                      <h4 className="font-semibold text-foreground">Corpus Equivalent</h4>
                       <div className="space-y-2">
                         <div className="text-center">
                           <div className="text-2xl font-bold text-purple-600">₹17.1L</div>
@@ -2656,7 +2656,7 @@ export default function Portfolio() {
 
                   {/* Contribution Timeline Chart */}
                   <div className="mt-6 pt-6 border-t">
-                    <h4 className="font-semibold text-gray-900 mb-4">9+ Year Contribution History</h4>
+                    <h4 className="font-semibold text-foreground mb-4">9+ Year Contribution History</h4>
                     <div className="grid grid-cols-10 gap-1">
                       {Array.from({ length: 10 }, (_, i) => (
                         <div key={i} className="text-center">
@@ -2677,7 +2677,7 @@ export default function Portfolio() {
 
                   {/* Future Projections */}
                   <div className="mt-6 pt-6 border-t">
-                    <h4 className="font-semibold text-gray-900 mb-4">Pension Growth Projection</h4>
+                    <h4 className="font-semibold text-foreground mb-4">Pension Growth Projection</h4>
                     <div className="grid grid-cols-4 gap-4">
                       <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
                         <p className="text-sm text-blue-600 font-medium">Year 15</p>
@@ -3000,7 +3000,7 @@ export default function Portfolio() {
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center space-x-3">
                           <div className="w-4 h-4 bg-blue-600 rounded-full"></div>
-                          <h4 className="font-semibold text-gray-900">Equity Allocation</h4>
+                          <h4 className="font-semibold text-foreground">Equity Allocation</h4>
                           <Badge variant="outline" className="text-orange-600 border-orange-600">Action Needed</Badge>
                         </div>
                         <div className="text-right">
@@ -3045,7 +3045,7 @@ export default function Portfolio() {
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center space-x-3">
                           <div className="w-4 h-4 bg-green-600 rounded-full"></div>
-                          <h4 className="font-semibold text-gray-900">Debt Allocation</h4>
+                          <h4 className="font-semibold text-foreground">Debt Allocation</h4>
                           <Badge variant="outline" className="text-blue-600 border-blue-600">Increase</Badge>
                         </div>
                         <div className="text-right">
@@ -3091,7 +3091,7 @@ export default function Portfolio() {
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center space-x-2">
                             <div className="w-3 h-3 bg-yellow-600 rounded-full"></div>
-                            <h5 className="font-semibold text-gray-900">Gold</h5>
+                            <h5 className="font-semibold text-foreground">Gold</h5>
                             <Badge variant="outline" className="text-green-600 border-green-600 text-xs">Optimal</Badge>
                           </div>
                         </div>
@@ -3103,7 +3103,7 @@ export default function Portfolio() {
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center space-x-2">
                             <div className="w-3 h-3 bg-purple-600 rounded-full"></div>
-                            <h5 className="font-semibold text-gray-900">Alternatives</h5>
+                            <h5 className="font-semibold text-foreground">Alternatives</h5>
                             <Badge variant="outline" className="text-green-600 border-green-600 text-xs">Optimal</Badge>
                           </div>
                         </div>
@@ -3128,7 +3128,7 @@ export default function Portfolio() {
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Scenario Selection */}
                     <div>
-                      <h4 className="font-semibold text-gray-900 mb-4">Choose Rebalancing Scenario</h4>
+                      <h4 className="font-semibold text-foreground mb-4">Choose Rebalancing Scenario</h4>
                       <div className="space-y-3">
                         <div className="p-3 border border-blue-200 rounded-lg bg-blue-50 cursor-pointer">
                           <div className="flex items-center justify-between">
@@ -3142,7 +3142,7 @@ export default function Portfolio() {
                         <div className="p-3 border border-border rounded-lg cursor-pointer hover:bg-muted">
                           <div className="flex items-center justify-between">
                             <div>
-                              <h5 className="font-medium text-gray-900">Balanced (Risk Score: 7.0)</h5>
+                              <h5 className="font-medium text-foreground">Balanced (Risk Score: 7.0)</h5>
                               <p className="text-sm text-muted-foreground">Equity: 65% | Debt: 25% | Gold: 5% | Alt: 5%</p>
                             </div>
                             <input type="radio" name="scenario" className="text-muted-foreground" />
@@ -3151,7 +3151,7 @@ export default function Portfolio() {
                         <div className="p-3 border border-border rounded-lg cursor-pointer hover:bg-muted">
                           <div className="flex items-center justify-between">
                             <div>
-                              <h5 className="font-medium text-gray-900">Aggressive (Risk Score: 8.5)</h5>
+                              <h5 className="font-medium text-foreground">Aggressive (Risk Score: 8.5)</h5>
                               <p className="text-sm text-muted-foreground">Equity: 80% | Debt: 15% | Gold: 3% | Alt: 2%</p>
                             </div>
                             <input type="radio" name="scenario" className="text-muted-foreground" />
@@ -3162,7 +3162,7 @@ export default function Portfolio() {
 
                     {/* Projected Outcomes */}
                     <div>
-                      <h4 className="font-semibold text-gray-900 mb-4">Projected Outcomes (Conservative)</h4>
+                      <h4 className="font-semibold text-foreground mb-4">Projected Outcomes (Conservative)</h4>
                       <div className="space-y-4">
                         <div className="p-3 bg-green-50 rounded-lg">
                           <div className="flex items-center justify-between mb-2">
@@ -3201,7 +3201,7 @@ export default function Portfolio() {
                   <div className="mt-6 pt-4 border-t">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h5 className="font-semibold text-gray-900">Tax-Efficient Rebalancing Timeline</h5>
+                        <h5 className="font-semibold text-foreground">Tax-Efficient Rebalancing Timeline</h5>
                         <p className="text-sm text-muted-foreground">Optimal execution to minimize tax impact</p>
                       </div>
                       <Button className="bg-indigo-600 text-white hover:bg-indigo-700">

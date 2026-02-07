@@ -229,7 +229,7 @@ export default function NSDLServices() {
         <div className="space-y-8">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">NSDL Securities Services</h1>
+          <h1 className="text-3xl font-bold text-foreground">NSDL Securities Services</h1>
           <p className="text-muted-foreground mt-2">
             Complete depository services including demat accounts, electronic trading, margin pledges, and loan facilities
           </p>

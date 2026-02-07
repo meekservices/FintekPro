@@ -75,7 +75,7 @@ export function YieldCurveChart() {
       case 'normal': return 'bg-green-100 text-green-700 border-green-200';
       case 'inverted': return 'bg-red-100 text-red-700 border-red-200';
       case 'flat': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-      default: return 'bg-gray-100 text-gray-700 border-gray-200';
+      default: return 'bg-muted text-muted-foreground border-border';
     }
   }, [chartData.summary.curveShape]);
 
@@ -92,23 +92,23 @@ export function YieldCurveChart() {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
-          <p className="font-semibold text-gray-900 dark:text-gray-100 mb-2">
+        <div className="bg-card p-4 rounded-lg shadow-lg border border-border">
+          <p className="font-semibold text-foreground mb-2">
             {data.benchmark}
           </p>
           <div className="space-y-1 text-sm">
             <div className="flex justify-between gap-4">
-              <span className="text-gray-500">Current Yield:</span>
+              <span className="text-muted-foreground">Current Yield:</span>
               <span className="font-medium text-blue-600">{data.currentYield.toFixed(2)}%</span>
             </div>
             {showHistorical && (
               <div className="flex justify-between gap-4">
-                <span className="text-gray-500">Historical:</span>
-                <span className="font-medium text-gray-600">{data.historicalYield.toFixed(2)}%</span>
+                <span className="text-muted-foreground">Historical:</span>
+                <span className="font-medium text-muted-foreground">{data.historicalYield.toFixed(2)}%</span>
               </div>
             )}
-            <div className="flex justify-between gap-4 pt-1 border-t border-gray-100 dark:border-gray-700">
-              <span className="text-gray-500">Change:</span>
+            <div className="flex justify-between gap-4 pt-1 border-t border-border">
+              <span className="text-muted-foreground">Change:</span>
               <span className={`font-medium flex items-center gap-1 ${data.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 {data.change >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
                 {data.change >= 0 ? '+' : ''}{data.change.toFixed(2)}%
@@ -159,7 +159,7 @@ export function YieldCurveChart() {
         </div>
         
         <div className="flex flex-wrap items-center gap-2 mt-4">
-          <span className="text-sm text-gray-500">Historical Period:</span>
+          <span className="text-sm text-muted-foreground">Historical Period:</span>
           {(['1W', '1M', '3M', '6M', '1Y'] as TimeRange[]).map((range) => (
             <Button
               key={range}
@@ -176,7 +176,7 @@ export function YieldCurveChart() {
               variant="ghost"
               size="sm"
               onClick={() => setShowHistorical(!showHistorical)}
-              className={showHistorical ? 'text-blue-600' : 'text-gray-400'}
+              className={showHistorical ? 'text-blue-600' : 'text-muted-foreground'}
               data-testid="yield-toggle-historical"
             >
               <Calendar className="h-4 w-4 mr-1" />
@@ -255,34 +255,34 @@ export function YieldCurveChart() {
           </ResponsiveContainer>
         </div>
         
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-4 border-t border-gray-100 dark:border-gray-800">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-4 border-t border-border">
           <div className="text-center">
-            <p className="text-sm text-gray-500">Short-Term Avg</p>
-            <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
+            <p className="text-sm text-muted-foreground">Short-Term Avg</p>
+            <p className="text-xl font-bold text-foreground">
               {chartData.summary.shortTermAvg.toFixed(2)}%
             </p>
-            <p className="text-xs text-gray-400">91D - 1Y</p>
+            <p className="text-xs text-muted-foreground">91D - 1Y</p>
           </div>
           <div className="text-center">
-            <p className="text-sm text-gray-500">Long-Term Avg</p>
-            <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
+            <p className="text-sm text-muted-foreground">Long-Term Avg</p>
+            <p className="text-xl font-bold text-foreground">
               {chartData.summary.longTermAvg.toFixed(2)}%
             </p>
-            <p className="text-xs text-gray-400">10Y - 30Y</p>
+            <p className="text-xs text-muted-foreground">10Y - 30Y</p>
           </div>
           <div className="text-center">
-            <p className="text-sm text-gray-500">Yield Spread</p>
+            <p className="text-sm text-muted-foreground">Yield Spread</p>
             <p className="text-xl font-bold text-green-600">
               +{chartData.summary.spread.toFixed(2)}%
             </p>
-            <p className="text-xs text-gray-400">30Y vs 91D</p>
+            <p className="text-xs text-muted-foreground">30Y vs 91D</p>
           </div>
           <div className="text-center">
-            <p className="text-sm text-gray-500">10Y Benchmark</p>
+            <p className="text-sm text-muted-foreground">10Y Benchmark</p>
             <p className="text-xl font-bold text-blue-600">
               {chartData.data.find(d => d.maturity === '10Y')?.currentYield.toFixed(2)}%
             </p>
-            <p className="text-xs text-gray-400">G-Sec 10Y</p>
+            <p className="text-xs text-muted-foreground">G-Sec 10Y</p>
           </div>
         </div>
         

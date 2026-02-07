@@ -126,17 +126,17 @@ export default function AgentKnowledgeExplanations() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link href="/agent/knowledge-hub">
-            <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
+            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
               <ChevronLeft className="h-4 w-4 mr-1" />
               Back
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <Lightbulb className="h-7 w-7 text-amber-500" />
               Client Explanation Templates
             </h1>
-            <p className="text-slate-400 mt-1">Ready-to-use explanations for client communication</p>
+            <p className="text-muted-foreground mt-1">Ready-to-use explanations for client communication</p>
           </div>
         </div>
         <Button
@@ -151,17 +151,17 @@ export default function AgentKnowledgeExplanations() {
 
       <div className="flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search explanations..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-slate-900 border-slate-700 text-white"
+            className="pl-10 bg-background border-border text-foreground"
             data-testid="input-search"
           />
         </div>
         <Select value={category} onValueChange={setCategory}>
-          <SelectTrigger className="w-48 bg-slate-900 border-slate-700" data-testid="select-category">
+          <SelectTrigger className="w-48 bg-background border-border" data-testid="select-category">
             <SelectValue placeholder="Category" />
           </SelectTrigger>
           <SelectContent>
@@ -177,7 +177,7 @@ export default function AgentKnowledgeExplanations() {
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-40 bg-slate-800" />
+            <Skeleton key={i} className="h-40 bg-card" />
           ))}
         </div>
       ) : filteredTemplates && filteredTemplates.length > 0 ? (
@@ -185,23 +185,23 @@ export default function AgentKnowledgeExplanations() {
           {filteredTemplates.map((template) => (
             <Card
               key={template.id}
-              className="bg-slate-900 border-slate-700 hover:border-slate-600 transition-colors"
+              className="bg-background border-border hover:border-border transition-colors"
               data-testid={`card-template-${template.id}`}
             >
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">
-                  <CardTitle className="text-white text-lg">{template.topic}</CardTitle>
-                  <Badge variant="outline" className="text-xs border-slate-600">
+                  <CardTitle className="text-foreground text-lg">{template.topic}</CardTitle>
+                  <Badge variant="outline" className="text-xs border-border">
                     {template.category}
                   </Badge>
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-slate-400 text-sm line-clamp-3 mb-4">
+                <p className="text-muted-foreground text-sm line-clamp-3 mb-4">
                   {template.simplifiedVersion}
                 </p>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <MessageSquare className="h-3 w-3" />
                     Used {template.usageCount} times
                   </div>
@@ -209,7 +209,7 @@ export default function AgentKnowledgeExplanations() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="border-slate-700"
+                      className="border-border"
                       onClick={() => setSelectedTemplate(template)}
                     >
                       View Full
@@ -232,11 +232,11 @@ export default function AgentKnowledgeExplanations() {
           ))}
         </div>
       ) : (
-        <Card className="bg-slate-900 border-slate-700">
+        <Card className="bg-background border-border">
           <CardContent className="p-8 text-center">
-            <BookOpen className="h-16 w-16 text-slate-600 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-white mb-2">No Templates Found</h3>
-            <p className="text-slate-400">
+            <BookOpen className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-foreground mb-2">No Templates Found</h3>
+            <p className="text-muted-foreground">
               {searchTerm
                 ? "Try adjusting your search or category filter"
                 : "Explanation templates will appear here once added"}
@@ -246,12 +246,12 @@ export default function AgentKnowledgeExplanations() {
       )}
 
       <Dialog open={!!selectedTemplate} onOpenChange={() => setSelectedTemplate(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] bg-slate-900 border-slate-700">
+        <DialogContent className="max-w-2xl max-h-[90vh] bg-background border-border">
           {selectedTemplate && (
             <>
               <DialogHeader>
-                <DialogTitle className="text-white text-xl">{selectedTemplate.topic}</DialogTitle>
-                <DialogDescription className="text-slate-400">
+                <DialogTitle className="text-foreground text-xl">{selectedTemplate.topic}</DialogTitle>
+                <DialogDescription className="text-muted-foreground">
                   {selectedTemplate.category} • v{selectedTemplate.version}
                 </DialogDescription>
               </DialogHeader>
@@ -262,8 +262,8 @@ export default function AgentKnowledgeExplanations() {
                       <Sparkles className="h-4 w-4" />
                       Simplified Version (for clients)
                     </h4>
-                    <div className="p-4 bg-slate-800 rounded-lg relative">
-                      <p className="text-slate-300 pr-8">{selectedTemplate.simplifiedVersion}</p>
+                    <div className="p-4 bg-card rounded-lg relative">
+                      <p className="text-muted-foreground pr-8">{selectedTemplate.simplifiedVersion}</p>
                       <Button
                         size="sm"
                         variant="ghost"
@@ -286,17 +286,17 @@ export default function AgentKnowledgeExplanations() {
                       <BookOpen className="h-4 w-4" />
                       Expert Version (technical details)
                     </h4>
-                    <div className="p-4 bg-slate-800/50 rounded-lg">
-                      <p className="text-slate-400 text-sm">{selectedTemplate.expertVersion}</p>
+                    <div className="p-4 bg-card/50 rounded-lg">
+                      <p className="text-muted-foreground text-sm">{selectedTemplate.expertVersion}</p>
                     </div>
                   </div>
 
                   {selectedTemplate.keyPoints.length > 0 && (
                     <div>
-                      <h4 className="text-sm font-medium text-slate-300 mb-2">Key Points</h4>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2">Key Points</h4>
                       <ul className="space-y-1">
                         {selectedTemplate.keyPoints.map((point, idx) => (
-                          <li key={idx} className="text-slate-400 text-sm flex items-start gap-2">
+                          <li key={idx} className="text-muted-foreground text-sm flex items-start gap-2">
                             <span className="text-emerald-500 mt-1">•</span>
                             {point}
                           </li>
@@ -307,10 +307,10 @@ export default function AgentKnowledgeExplanations() {
 
                   {selectedTemplate.commonQuestions && selectedTemplate.commonQuestions.length > 0 && (
                     <div>
-                      <h4 className="text-sm font-medium text-slate-300 mb-2">Common Questions</h4>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2">Common Questions</h4>
                       <ul className="space-y-1">
                         {selectedTemplate.commonQuestions.map((q, idx) => (
-                          <li key={idx} className="text-slate-400 text-sm flex items-start gap-2">
+                          <li key={idx} className="text-muted-foreground text-sm flex items-start gap-2">
                             <span className="text-blue-500">Q:</span>
                             {q}
                           </li>
@@ -326,24 +326,24 @@ export default function AgentKnowledgeExplanations() {
       </Dialog>
 
       <Dialog open={simplifyDialogOpen} onOpenChange={setSimplifyDialogOpen}>
-        <DialogContent className="max-w-2xl bg-slate-900 border-slate-700">
+        <DialogContent className="max-w-2xl bg-background border-border">
           <DialogHeader>
-            <DialogTitle className="text-white flex items-center gap-2">
+            <DialogTitle className="text-foreground flex items-center gap-2">
               <Wand2 className="h-5 w-5 text-purple-500" />
               AI Text Simplifier
             </DialogTitle>
-            <DialogDescription className="text-slate-400">
+            <DialogDescription className="text-muted-foreground">
               Paste complex financial jargon and get a client-friendly explanation
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <label className="text-sm text-slate-300 mb-2 block">Complex Text</label>
+              <label className="text-sm text-muted-foreground mb-2 block">Complex Text</label>
               <Textarea
                 placeholder="Paste the technical explanation here..."
                 value={customText}
                 onChange={(e) => setCustomText(e.target.value)}
-                className="bg-slate-800 border-slate-700 text-white min-h-32"
+                className="bg-card border-border text-foreground min-h-32"
                 data-testid="textarea-complex"
               />
             </div>
@@ -368,8 +368,8 @@ export default function AgentKnowledgeExplanations() {
                   <Check className="h-4 w-4" />
                   Simplified Version
                 </label>
-                <div className="p-4 bg-slate-800 rounded-lg relative">
-                  <p className="text-slate-300 pr-8">{simplifiedResult}</p>
+                <div className="p-4 bg-card rounded-lg relative">
+                  <p className="text-muted-foreground pr-8">{simplifiedResult}</p>
                   <Button
                     size="sm"
                     variant="ghost"

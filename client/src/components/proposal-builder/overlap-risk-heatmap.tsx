@@ -27,7 +27,7 @@ interface OverlapRiskHeatmapProps {
 }
 
 function getHeatmapColor(exposure: number): string {
-  if (exposure === 0) return "bg-gray-100 dark:bg-gray-800";
+  if (exposure === 0) return "bg-muted";
   if (exposure < 1) return "bg-green-100 dark:bg-green-900/30";
   if (exposure < 2) return "bg-green-300 dark:bg-green-800/50";
   if (exposure < 3) return "bg-yellow-200 dark:bg-yellow-900/40";
@@ -37,9 +37,9 @@ function getHeatmapColor(exposure: number): string {
 }
 
 function getTextColor(exposure: number): string {
-  if (exposure === 0) return "text-gray-400";
-  if (exposure < 3) return "text-gray-700 dark:text-gray-200";
-  return "text-white";
+  if (exposure === 0) return "text-muted-foreground";
+  if (exposure < 3) return "text-foreground";
+  return "text-foreground";
 }
 
 export function OverlapRiskHeatmap({

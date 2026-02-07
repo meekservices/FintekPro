@@ -713,7 +713,7 @@ export default function APIConfiguration() {
                       Last Connection Test
                     </div>
                     {testResults[selectedService.id].latency && (
-                      <Badge variant="outline" className="text-xs bg-gray-700">
+                      <Badge variant="outline" className="text-xs bg-muted">
                         {testResults[selectedService.id].latency}ms
                       </Badge>
                     )}
@@ -731,7 +731,7 @@ export default function APIConfiguration() {
                 </div>
               )}
 
-              <Separator className="bg-gray-700" />
+              <Separator className="bg-muted" />
 
               {/* Required Environment Variables */}
               <div>
@@ -757,7 +757,7 @@ export default function APIConfiguration() {
                 </div>
               </div>
 
-              <Separator className="bg-gray-700" />
+              <Separator className="bg-muted" />
 
               {/* Features */}
               <div>
@@ -778,7 +778,7 @@ export default function APIConfiguration() {
                 </div>
               </div>
 
-              <Separator className="bg-gray-700" />
+              <Separator className="bg-muted" />
 
               {/* Use Cases */}
               <div>
@@ -799,7 +799,7 @@ export default function APIConfiguration() {
               {/* Documentation Link */}
               {selectedService.docs && (
                 <>
-                  <Separator className="bg-gray-700" />
+                  <Separator className="bg-muted" />
                   <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Link2 className="h-4 w-4" />

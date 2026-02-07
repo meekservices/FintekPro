@@ -106,21 +106,21 @@ export function ConfettiTestPanel({ confettiEnabled, onToggleConfetti }: Confett
             Celebration Triggers
           </h4>
           <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="p-2 bg-white rounded border">
-              <div className="font-medium text-gray-700">Profit Milestones</div>
-              <div className="text-gray-600">₹1L, ₹5L, ₹10L, ₹25L, ₹50L, ₹1Cr+</div>
+            <div className="p-2 bg-card rounded border">
+              <div className="font-medium text-muted-foreground">Profit Milestones</div>
+              <div className="text-muted-foreground">₹1L, ₹5L, ₹10L, ₹25L, ₹50L, ₹1Cr+</div>
             </div>
-            <div className="p-2 bg-white rounded border">
-              <div className="font-medium text-gray-700">Percentage Gains</div>
-              <div className="text-gray-600">10%, 25%, 50%, 75%, 100%+</div>
+            <div className="p-2 bg-card rounded border">
+              <div className="font-medium text-muted-foreground">Percentage Gains</div>
+              <div className="text-muted-foreground">10%, 25%, 50%, 75%, 100%+</div>
             </div>
-            <div className="p-2 bg-white rounded border">
-              <div className="font-medium text-gray-700">Daily Gains</div>
-              <div className="text-gray-600">₹10K+ or 2%+ today</div>
+            <div className="p-2 bg-card rounded border">
+              <div className="font-medium text-muted-foreground">Daily Gains</div>
+              <div className="text-muted-foreground">₹10K+ or 2%+ today</div>
             </div>
-            <div className="p-2 bg-white rounded border">
-              <div className="font-medium text-gray-700">All-Time Highs</div>
-              <div className="text-gray-600">₹50K+ portfolio increase</div>
+            <div className="p-2 bg-card rounded border">
+              <div className="font-medium text-muted-foreground">All-Time Highs</div>
+              <div className="text-muted-foreground">₹50K+ portfolio increase</div>
             </div>
           </div>
         </div>

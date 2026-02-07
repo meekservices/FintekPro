@@ -80,7 +80,7 @@ interface ClientOption {
 }
 
 const statusColors: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-800",
+  draft: "bg-muted text-foreground",
   submitted: "bg-blue-100 text-blue-800",
   eligibility_check: "bg-purple-100 text-purple-800",
   routed: "bg-indigo-100 text-indigo-800",
@@ -898,7 +898,7 @@ export default function AgentLoanApplyPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge className={statusColors[app.status] || "bg-gray-100"}>
+                          <Badge className={statusColors[app.status] || "bg-muted"}>
                             {app.status?.replace(/_/g, " ")}
                           </Badge>
                           <DropdownMenu>
@@ -1145,7 +1145,7 @@ export default function AgentLoanApplyPage() {
                       >
                         <div className="flex items-center justify-between mb-1">
                           <span className="font-medium text-sm">{history.bankCode}</span>
-                          <Badge className={bankStatusColors[history.bankStatus] || "bg-gray-100"}>
+                          <Badge className={bankStatusColors[history.bankStatus] || "bg-muted"}>
                             {history.bankStatus?.replace(/_/g, " ")}
                           </Badge>
                         </div>

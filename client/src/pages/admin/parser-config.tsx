@@ -131,7 +131,7 @@ export default function ParserConfigPage() {
     <div className="container mx-auto px-4 py-6 max-w-4xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Unified PDF Parser</h1>
+          <h1 className="text-2xl font-bold text-foreground">Unified PDF Parser</h1>
           <p className="text-muted-foreground">
             Configure CAS statement and portfolio PDF parsing settings
           </p>

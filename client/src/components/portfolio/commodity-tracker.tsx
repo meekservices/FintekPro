@@ -22,7 +22,7 @@ export function CommodityTracker({ className }: CommodityTrackerProps) {
       agricultural: "bg-green-100 text-green-800",
       industrial: "bg-blue-100 text-blue-800",
     };
-    return colors[category] || "bg-gray-100 text-gray-800";
+    return colors[category] || "bg-muted text-foreground";
   };
 
   const getCategoryIcon = (category: string) => {
@@ -55,7 +55,7 @@ export function CommodityTracker({ className }: CommodityTrackerProps) {
         <CardContent>
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div key={i} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                 <div className="flex items-center space-x-3">
                   <Skeleton className="h-8 w-8 rounded" />
                   <div className="space-y-1">
@@ -94,14 +94,14 @@ export function CommodityTracker({ className }: CommodityTrackerProps) {
             Refresh
           </Button>
         </div>
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-muted-foreground">
           Real-time commodity prices for portfolio diversification
         </p>
       </CardHeader>
       <CardContent>
         {!commodities || commodities.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <Coins className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+          <div className="text-center py-8 text-muted-foreground">
+            <Coins className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
             <p>No commodity data available</p>
           </div>
         ) : (
@@ -109,7 +109,7 @@ export function CommodityTracker({ className }: CommodityTrackerProps) {
             {commodities.map((commodity: any) => (
               <div 
                 key={commodity.id} 
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted transition-colors"
                 data-testid={`commodity-${commodity.symbol}`}
               >
                 <div className="flex items-center space-x-3">
@@ -118,18 +118,18 @@ export function CommodityTracker({ className }: CommodityTrackerProps) {
                   </div>
                   <div>
                     <div className="flex items-center space-x-2">
-                      <span className="font-medium text-gray-900">{commodity.name}</span>
+                      <span className="font-medium text-foreground">{commodity.name}</span>
                       <Badge className={getCategoryColor(commodity.category)} variant="secondary">
                         {commodity.category.replace('_', ' ')}
                       </Badge>
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-muted-foreground">
                       {commodity.symbol} • {commodity.priceUnit}
                     </div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-semibold text-gray-900">
+                  <div className="font-semibold text-foreground">
                     ₹{commodity.price.toFixed(2)}
                   </div>
                   <div className="flex items-center space-x-1">
@@ -144,7 +144,7 @@ export function CommodityTracker({ className }: CommodityTrackerProps) {
                       {commodity.changePercent >= 0 ? '+' : ''}{commodity.changePercent.toFixed(2)}%
                     </span>
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-muted-foreground">
                     {commodity.changePercent >= 0 ? '+' : ''}₹{commodity.change.toFixed(2)}
                   </div>
                 </div>
@@ -153,7 +153,7 @@ export function CommodityTracker({ className }: CommodityTrackerProps) {
           </div>
         )}
         <div className="mt-4 pt-4 border-t">
-          <div className="flex items-center justify-between text-xs text-gray-500">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>Prices updated every minute</span>
             <span>
               Last update: {commodities?.[0] ? new Date(commodities[0].lastUpdated).toLocaleTimeString() : 'N/A'}

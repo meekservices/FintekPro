@@ -220,7 +220,7 @@ export default function ReferralProgram() {
             </div>
 
             <div className="flex justify-center pt-4">
-              <div className="bg-white p-4 rounded-lg">
+              <div className="bg-card p-4 rounded-lg">
                 <QRCode value={referralLink} size={120} />
               </div>
             </div>

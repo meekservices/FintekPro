@@ -107,7 +107,7 @@ export function BeforeAfterRiskBars({ current, proposed, changesApplied }: Befor
   return (
     <Card className={cn(
       "border-2",
-      isOverallImproved ? "border-green-200" : netImprovement < 0 ? "border-red-200" : "border-gray-200"
+      isOverallImproved ? "border-green-200" : netImprovement < 0 ? "border-red-200" : "border-border"
     )}>
       <CardHeader className={cn(
         "pb-3",
@@ -120,7 +120,7 @@ export function BeforeAfterRiskBars({ current, proposed, changesApplied }: Befor
           ) : netImprovement < 0 ? (
             <TrendingDown className="h-5 w-5 text-red-600" />
           ) : (
-            <Minus className="h-5 w-5 text-gray-600" />
+            <Minus className="h-5 w-5 text-muted-foreground" />
           )}
           Before vs After Risk Analysis
         </CardTitle>

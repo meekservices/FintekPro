@@ -287,7 +287,7 @@ export default function ProfilePage() {
         <div className="opacity-50 pointer-events-none">
           {children}
         </div>
-        <div className="absolute inset-0 flex items-center justify-center bg-muted/80 dark:bg-card/80 rounded border-2 border-orange-300 dark:border-orange-700">
+        <div className="absolute inset-0 flex items-center justify-center bg-muted/80/80 rounded border-2 border-orange-300 dark:border-orange-700">
           <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400 text-sm font-medium">
             <Lock className="h-4 w-4" />
             <span>Re-CKYC Required</span>
@@ -501,8 +501,8 @@ export default function ProfilePage() {
   return (
     <div className="container mx-auto p-6 max-w-4xl">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Profile Settings</h1>
-        <p className="text-muted-foreground dark:text-muted-foreground">
+        <h1 className="text-3xl font-bold text-foreground mb-2">Profile Settings</h1>
+        <p className="text-muted-foreground">
           Complete your profile to enable advanced portfolio features and compliance tracking
         </p>
       </div>
@@ -525,7 +525,7 @@ export default function ProfilePage() {
                 <h3 className="font-semibold text-lg">
                   {user?.firstName} {user?.middleName && user.middleName + ' '}{user?.lastName}
                 </h3>
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   {user?.email || user?.mobile}
                 </p>
               </div>
@@ -555,7 +555,7 @@ export default function ProfilePage() {
               </div>
               
               {protectedFieldsData?.data && protectedFieldsData.data.length > 0 && (
-                <div className="pt-4 border-t border-border dark:border-border">
+                <div className="pt-4 border-t border-border">
                   <Button 
                     onClick={() => setShowReCKYCWorkflow(true)}
                     variant="outline"
@@ -566,7 +566,7 @@ export default function ProfilePage() {
                     <Shield className="h-4 w-4 mr-2" />
                     Update Protected Data
                   </Button>
-                  <p className="text-xs text-muted-foreground dark:text-muted-foreground text-center mt-1">
+                  <p className="text-xs text-muted-foreground text-center mt-1">
                     via Re-CKYC Process
                   </p>
                 </div>
@@ -581,7 +581,7 @@ export default function ProfilePage() {
                 <Database className="h-5 w-5" />
                 Smart Profile Setup
               </CardTitle>
-              <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 Auto-populate your profile using banking APIs and compliance data
               </p>
             </CardHeader>
@@ -862,7 +862,7 @@ export default function ProfilePage() {
                             <Label htmlFor="panConsentGiven" className="text-sm font-medium">
                               PAN Verification Consent *
                             </Label>
-                            <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">
+                            <p className="text-xs text-muted-foreground mt-1">
                               I consent to verify my PAN details with NSDL/CDSL for regulatory compliance and account verification purposes. This is a one-time consent required for KYC completion.
                             </p>
                           </div>
@@ -1205,7 +1205,7 @@ export default function ProfilePage() {
                   <Shield className="h-5 w-5 text-blue-600" />
                   Investment Risk Profile
                 </CardTitle>
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   SEBI-compliant risk profiling for personalized investment recommendations
                 </p>
               </CardHeader>
@@ -1221,7 +1221,7 @@ export default function ProfilePage() {
                   <Info className="h-5 w-5" />
                   Residency & Tax Status
                 </CardTitle>
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   Required for Indian regulatory compliance and NRI investor classification
                 </p>
               </CardHeader>
@@ -1302,7 +1302,7 @@ export default function ProfilePage() {
                   <FileText className="h-5 w-5" />
                   FATCA Compliance
                 </CardTitle>
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   Foreign Account Tax Compliance Act - Required for international compliance
                 </p>
               </CardHeader>
@@ -1374,7 +1374,7 @@ export default function ProfilePage() {
                   <Shield className="h-5 w-5" />
                   PEP Status & Beneficial Ownership
                 </CardTitle>
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   Politically Exposed Person declaration and Ultimate Beneficial Owner information
                 </p>
               </CardHeader>
@@ -1457,7 +1457,7 @@ export default function ProfilePage() {
                   <Link className="h-5 w-5" />
                   API Integration Settings
                 </CardTitle>
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   External service codes automatically assigned by your relationship manager
                 </p>
               </CardHeader>
@@ -1469,7 +1469,7 @@ export default function ProfilePage() {
                       id="euinNumber"
                       value={form.watch("euinNumber") || "Auto-assigned by agent"}
                       disabled={true}
-                      className="bg-muted dark:bg-muted"
+                      className="bg-muted"
                       data-testid="input-euin-number"
                     />
                     <p className="text-xs text-muted-foreground mt-1">Employee Unique Identification Number</p>
@@ -1480,7 +1480,7 @@ export default function ProfilePage() {
                       id="arnCode"
                       value={form.watch("arnCode") || "Auto-assigned by agent"}
                       disabled={true}
-                      className="bg-muted dark:bg-muted"
+                      className="bg-muted"
                       data-testid="input-arn-code"
                     />
                     <p className="text-xs text-muted-foreground mt-1">AMFI Registration Number</p>
@@ -1491,7 +1491,7 @@ export default function ProfilePage() {
                       id="distributorId"
                       value={form.watch("distributorId") || "Auto-assigned by agent"}
                       disabled={true}
-                      className="bg-muted dark:bg-muted"
+                      className="bg-muted"
                       data-testid="input-distributor-id"
                     />
                     <p className="text-xs text-muted-foreground mt-1">Distributor Identification Code</p>
@@ -1513,7 +1513,7 @@ export default function ProfilePage() {
                   <FileText className="h-5 w-5" />
                   NRI Documentation Requirements
                 </CardTitle>
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   Additional documents required for Non-Resident Indian investors
                 </p>
               </CardHeader>

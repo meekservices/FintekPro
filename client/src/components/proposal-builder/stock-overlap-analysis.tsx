@@ -413,7 +413,7 @@ export function StockOverlapAnalysis({
                 Rebalancing Insights
               </h4>
             </div>
-            <div className="p-4 space-y-3 bg-white dark:bg-background">
+            <div className="p-4 space-y-3 bg-card">
               {analysis.highRiskStocksCount > 0 && (
                 <div className="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-950/20 rounded-lg">
                   <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />

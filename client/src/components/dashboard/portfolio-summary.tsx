@@ -101,20 +101,20 @@ export function PortfolioSummary({ userId }: PortfolioSummaryProps) {
   return (
     <Card data-testid="portfolio-summary">
       <CardHeader>
-        <CardTitle className="text-xl font-bold text-gray-900" data-testid="portfolio-title">
+        <CardTitle className="text-xl font-bold text-foreground" data-testid="portfolio-title">
           Your Portfolio
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="mb-6">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-gray-600">Total Value</span>
-            <span className="font-bold text-2xl text-gray-900" data-testid="portfolio-total-value">
+            <span className="text-muted-foreground">Total Value</span>
+            <span className="font-bold text-2xl text-foreground" data-testid="portfolio-total-value">
               ₹{summary.totalValue.toLocaleString()}
             </span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-gray-600">Today's P&L</span>
+            <span className="text-muted-foreground">Today's P&L</span>
             <span 
               className={`font-bold ${summary.todayPnL >= 0 ? 'text-finance-green' : 'text-finance-red'}`}
               data-testid="portfolio-pnl"
@@ -126,7 +126,7 @@ export function PortfolioSummary({ userId }: PortfolioSummaryProps) {
 
         {/* Asset Allocation Chart */}
         <div className="mb-6">
-          <h4 className="font-semibold text-gray-900 mb-3" data-testid="allocation-title">
+          <h4 className="font-semibold text-foreground mb-3" data-testid="allocation-title">
             Asset Allocation
           </h4>
           <div className="h-48 flex items-center justify-center" data-testid="allocation-chart">
@@ -153,7 +153,7 @@ export function PortfolioSummary({ userId }: PortfolioSummaryProps) {
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="text-gray-500 text-center">
+              <div className="text-muted-foreground text-center">
                 <p>No portfolio data</p>
                 <p className="text-sm">Add investments to see allocation</p>
               </div>

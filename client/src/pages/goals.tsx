@@ -529,7 +529,7 @@ function GoalDetailDialog({ goalId, onClose }: { goalId: string; onClose: () => 
                       milestone.isAchieved ? "bg-green-500" : "bg-muted-foreground/30"
                     }`}>
                       {milestone.isAchieved ? (
-                        <CheckCircle2 className="h-4 w-4 text-white" />
+                        <CheckCircle2 className="h-4 w-4 text-foreground" />
                       ) : (
                         <Flag className="h-4 w-4 text-muted-foreground" />
                       )}
@@ -1045,7 +1045,7 @@ function CreateGoalWizard({ onClose }: { onClose: () => void }) {
                             <span className="font-medium">{allocation.gold}%</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-gray-400" />
+                            <div className="w-3 h-3 rounded-full bg-muted-foreground" />
                             <span className="text-sm flex-1">Cash</span>
                             <span className="font-medium">{allocation.cash}%</span>
                           </div>

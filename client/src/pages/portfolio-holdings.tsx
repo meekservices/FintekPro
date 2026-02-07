@@ -72,7 +72,7 @@ export default function PortfolioHoldings() {
     <div className="container mx-auto px-4 py-6 max-w-7xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">My Holdings</h1>
+          <h1 className="text-2xl font-bold text-foreground">My Holdings</h1>
           <p className="text-muted-foreground">Unified view of all your investments</p>
         </div>
         <Badge variant="outline" className="text-lg px-4 py-2">

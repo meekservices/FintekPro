@@ -490,7 +490,7 @@ export default function ReitsInvitsSeedPage() {
                 <Card>
                   <CardContent className="pt-4">
                     <div className="flex items-center gap-2">
-                      <div className={`h-3 w-3 rounded-full ${refreshStatusData?.status?.scheduledRefreshActive ? "bg-green-500" : "bg-gray-300"}`} />
+                      <div className={`h-3 w-3 rounded-full ${refreshStatusData?.status?.scheduledRefreshActive ? "bg-green-500" : "bg-muted"}`} />
                       <span className="text-sm font-medium">
                         {refreshStatusData?.status?.scheduledRefreshActive ? "Scheduler Active" : "Scheduler Inactive"}
                       </span>

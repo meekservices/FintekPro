@@ -472,7 +472,7 @@ export default function IntelligentTaxHub() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground dark:text-muted-foreground">Overall Progress:</span>
+                      <span className="text-sm text-muted-foreground">Overall Progress:</span>
                       <span className="font-semibold text-blue-600" data-testid="text-filing-progress">{filingStatus.overallProgress}%</span>
                     </div>
                     <Badge variant="secondary" className="text-xs">
@@ -492,7 +492,7 @@ export default function IntelligentTaxHub() {
                         <div className={`relative w-10 h-10 rounded-full flex items-center justify-center mb-2 ${
                           step.status === "completed" ? "bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300" :
                           step.status === "in_progress" ? "bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300 ring-2 ring-blue-400 ring-offset-2" :
-                          "bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground"
+                          "bg-muted text-muted-foreground"
                         }`}>
                           {step.status === "completed" ? (
                             <CheckCircle className="h-5 w-5" />
@@ -583,7 +583,7 @@ export default function IntelligentTaxHub() {
                       {prefillSources.map((source) => (
                         <div 
                           key={source.id}
-                          className="flex items-center justify-between p-2 border rounded-lg hover:bg-muted dark:hover:bg-muted"
+                          className="flex items-center justify-between p-2 border rounded-lg hover:bg-muted"
                           data-testid={`prefill-source-${source.id}`}
                         >
                           <div className="flex items-center gap-2">
@@ -679,7 +679,7 @@ export default function IntelligentTaxHub() {
                             </span>
                           </div>
                           <h4 className="text-sm font-medium mb-1">{saving.title}</h4>
-                          <p className="text-xs text-muted-foreground dark:text-muted-foreground">{saving.actionRequired}</p>
+                          <p className="text-xs text-muted-foreground">{saving.actionRequired}</p>
                           {saving.deadline && (
                             <div className="flex items-center gap-1 mt-2 text-xs text-red-600">
                               <Clock className="h-3 w-3" />
@@ -721,7 +721,7 @@ export default function IntelligentTaxHub() {
                       stroke="currentColor"
                       strokeWidth="12"
                       fill="none"
-                      className="text-foreground dark:text-muted-foreground"
+                      className="text-foreground"
                     />
                     <circle
                       cx="80"
@@ -740,7 +740,7 @@ export default function IntelligentTaxHub() {
                     <span className={`text-4xl font-bold ${getScoreColor(healthScore.score)}`} data-testid="text-health-score">
                       {healthScore.score}
                     </span>
-                    <span className="text-sm text-muted-foreground dark:text-muted-foreground">out of 100</span>
+                    <span className="text-sm text-muted-foreground">out of 100</span>
                   </div>
                 </div>
                 <Badge
@@ -756,7 +756,7 @@ export default function IntelligentTaxHub() {
                 {healthFactorsData.map((factor, idx) => (
                   <div key={idx} className="space-y-1" data-testid={`factor-${factor.name.toLowerCase().replace(' ', '-')}`}>
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground dark:text-muted-foreground">{factor.name}</span>
+                      <span className="text-muted-foreground">{factor.name}</span>
                       <span className="font-medium">{factor.value}%</span>
                     </div>
                     <Progress value={factor.value} className="h-2" />
@@ -786,7 +786,7 @@ export default function IntelligentTaxHub() {
                     incomeSources.map((source) => (
                       <div
                         key={source.id}
-                        className="flex items-center justify-between p-3 bg-muted dark:bg-muted rounded-lg"
+                        className="flex items-center justify-between p-3 bg-muted rounded-lg"
                         data-testid={`income-source-${source.id}`}
                       >
                         <div className="flex items-center gap-3">
@@ -826,7 +826,7 @@ export default function IntelligentTaxHub() {
                     timeline.map((event, idx) => (
                       <div
                         key={idx}
-                        className="flex items-start gap-3 p-3 bg-muted dark:bg-muted rounded-lg"
+                        className="flex items-start gap-3 p-3 bg-muted rounded-lg"
                         data-testid={`timeline-event-${idx}`}
                       >
                         <div className={`mt-1 p-2 rounded-full ${
@@ -883,7 +883,7 @@ export default function IntelligentTaxHub() {
                       <Sparkles className="h-4 w-4 text-yellow-500" />
                     </div>
                     <h4 className="font-semibold text-sm mb-1">{rec.title}</h4>
-                    <p className="text-xs text-muted-foreground dark:text-muted-foreground mb-2">{rec.description}</p>
+                    <p className="text-xs text-muted-foreground mb-2">{rec.description}</p>
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-green-600">
                         Save ₹{rec.savings.toLocaleString()}
@@ -952,7 +952,7 @@ export default function IntelligentTaxHub() {
                       <Badge className="mb-2 bg-blue-600">Recommended</Badge>
                     )}
                     <h4 className="font-bold text-lg">{form.formType}</h4>
-                    <p className="text-sm text-muted-foreground dark:text-muted-foreground mb-2">{form.name}</p>
+                    <p className="text-sm text-muted-foreground mb-2">{form.name}</p>
                     <p className="text-xs text-muted-foreground mb-3">{form.description}</p>
                     <div className="flex items-center justify-between">
                       <Badge variant="outline">{form.complexity}</Badge>
@@ -993,7 +993,7 @@ export default function IntelligentTaxHub() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {autoFillStatus.sources.map((source, idx) => (
-                <div key={idx} className="p-3 bg-muted dark:bg-muted rounded-lg" data-testid={`autofill-source-${idx}`}>
+                <div key={idx} className="p-3 bg-muted rounded-lg" data-testid={`autofill-source-${idx}`}>
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-sm font-medium">{source.name}</span>
                     <Badge variant={source.status === 100 ? "default" : "secondary"}>
@@ -1143,11 +1143,11 @@ export default function IntelligentTaxHub() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3">
-                <div className="flex justify-between items-center p-3 bg-muted dark:bg-muted rounded">
+                <div className="flex justify-between items-center p-3 bg-muted rounded">
                   <span className="text-sm">Total Income</span>
                   <span className="font-bold" data-testid="text-calc-income">₹{calculator.totalIncome.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between items-center p-3 bg-muted dark:bg-muted rounded">
+                <div className="flex justify-between items-center p-3 bg-muted rounded">
                   <span className="text-sm">Total Deductions</span>
                   <span className="font-bold text-green-600" data-testid="text-calc-deductions">
                     -₹{calculator.deductions.toLocaleString()}
@@ -1307,18 +1307,18 @@ export default function IntelligentTaxHub() {
             <CardContent className="space-y-4">
               <div className="space-y-3">
                 <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 rounded-lg">
-                  <div className="text-sm text-muted-foreground dark:text-muted-foreground">Tax Liability</div>
+                  <div className="text-sm text-muted-foreground">Tax Liability</div>
                   <div className="text-3xl font-bold" data-testid="text-old-liability">
                     ₹{regime.oldRegime.taxLiability.toLocaleString()}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 bg-muted dark:bg-muted rounded">
+                  <div className="p-3 bg-muted rounded">
                     <div className="text-xs text-muted-foreground">Deductions</div>
                     <div className="font-semibold">₹{regime.oldRegime.deductions.toLocaleString()}</div>
                   </div>
-                  <div className="p-3 bg-muted dark:bg-muted rounded">
+                  <div className="p-3 bg-muted rounded">
                     <div className="text-xs text-muted-foreground">Effective Rate</div>
                     <div className="font-semibold">{regime.oldRegime.effectiveRate}%</div>
                   </div>
@@ -1329,7 +1329,7 @@ export default function IntelligentTaxHub() {
                 <div className="space-y-2">
                   <h4 className="text-sm font-semibold">Tax Breakdown</h4>
                   {regime.oldRegime.breakdown.map((item, idx) => (
-                    <div key={idx} className="flex justify-between text-sm p-2 bg-muted dark:bg-muted rounded">
+                    <div key={idx} className="flex justify-between text-sm p-2 bg-muted rounded">
                       <span>{item.slab}</span>
                       <span className="font-medium">₹{item.amount.toLocaleString()}</span>
                     </div>
@@ -1356,18 +1356,18 @@ export default function IntelligentTaxHub() {
             <CardContent className="space-y-4">
               <div className="space-y-3">
                 <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 rounded-lg">
-                  <div className="text-sm text-muted-foreground dark:text-muted-foreground">Tax Liability</div>
+                  <div className="text-sm text-muted-foreground">Tax Liability</div>
                   <div className="text-3xl font-bold" data-testid="text-new-liability">
                     ₹{regime.newRegime.taxLiability.toLocaleString()}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 bg-muted dark:bg-muted rounded">
+                  <div className="p-3 bg-muted rounded">
                     <div className="text-xs text-muted-foreground">Deductions</div>
                     <div className="font-semibold">₹{regime.newRegime.deductions.toLocaleString()}</div>
                   </div>
-                  <div className="p-3 bg-muted dark:bg-muted rounded">
+                  <div className="p-3 bg-muted rounded">
                     <div className="text-xs text-muted-foreground">Effective Rate</div>
                     <div className="font-semibold">{regime.newRegime.effectiveRate}%</div>
                   </div>
@@ -1378,7 +1378,7 @@ export default function IntelligentTaxHub() {
                 <div className="space-y-2">
                   <h4 className="text-sm font-semibold">Tax Breakdown</h4>
                   {regime.newRegime.breakdown.map((item, idx) => (
-                    <div key={idx} className="flex justify-between text-sm p-2 bg-muted dark:bg-muted rounded">
+                    <div key={idx} className="flex justify-between text-sm p-2 bg-muted rounded">
                       <span>{item.slab}</span>
                       <span className="font-medium">₹{item.amount.toLocaleString()}</span>
                     </div>
@@ -1675,7 +1675,7 @@ export default function IntelligentTaxHub() {
                 {incomeBreakdown.map((item, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center justify-between p-3 bg-muted dark:bg-muted rounded"
+                    className="flex items-center justify-between p-3 bg-muted rounded"
                     data-testid={`income-item-${idx}`}
                   >
                     <div className="flex items-center gap-3">
@@ -1830,7 +1830,7 @@ export default function IntelligentTaxHub() {
           <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
             Intelligent Tax Hub
           </h1>
-          <p className="text-muted-foreground dark:text-muted-foreground mt-2">
+          <p className="text-muted-foreground mt-2">
             AI-powered unified platform for all your tax needs
           </p>
         </div>

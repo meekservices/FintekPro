@@ -98,7 +98,7 @@ const STATUS_COLORS: Record<string, string> = {
   qualified: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
   converted: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300",
   rejected: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
-  on_hold: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
+  on_hold: "bg-muted text-foreground",
 };
 
 const QUALITY_COLORS: Record<string, string> = {
@@ -451,7 +451,7 @@ export default function AdminProspectDashboardPage() {
                   <CardContent>
                     <div className="space-y-4">
                       {[
-                        { label: "Prospect", count: metrics?.individualProspects.prospect || 0, color: "bg-gray-500" },
+                        { label: "Prospect", count: metrics?.individualProspects.prospect || 0, color: "bg-muted" },
                         { label: "Onboarded", count: metrics?.individualProspects.onboarded || 0, color: "bg-blue-500" },
                         { label: "Active Client", count: metrics?.individualProspects.activeClient || 0, color: "bg-green-500" },
                       ].map((stage) => (
@@ -617,7 +617,7 @@ export default function AdminProspectDashboardPage() {
                           </TableCell>
                           <TableCell>
                             {lead.leadQuality && (
-                              <Badge className={QUALITY_COLORS[lead.leadQuality] || "bg-gray-500"}>
+                              <Badge className={QUALITY_COLORS[lead.leadQuality] || "bg-muted"}>
                                 {lead.leadQuality.toUpperCase()}
                               </Badge>
                             )}
@@ -629,7 +629,7 @@ export default function AdminProspectDashboardPage() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge className={STATUS_COLORS[lead.status] || "bg-gray-500"}>
+                            <Badge className={STATUS_COLORS[lead.status] || "bg-muted"}>
                               {lead.status.replace("_", " ")}
                             </Badge>
                           </TableCell>
@@ -772,7 +772,7 @@ export default function AdminProspectDashboardPage() {
                           </TableCell>
                           <TableCell>{prospect.indicativeRiskProfile || "-"}</TableCell>
                           <TableCell>
-                            <Badge className={STATE_COLORS[prospect.state] || "bg-gray-500"}>
+                            <Badge className={STATE_COLORS[prospect.state] || "bg-muted"}>
                               {prospect.state.replace("_", " ")}
                             </Badge>
                           </TableCell>

@@ -259,7 +259,7 @@ export default function CDSLServices() {
       <div className="text-center space-y-4">
         <div className="flex items-center justify-center space-x-3">
           <Shield className="h-12 w-12 text-finance-red" />
-          <h1 className="text-4xl font-bold text-gray-900">CDSL Services</h1>
+          <h1 className="text-4xl font-bold text-foreground">CDSL Services</h1>
         </div>
         <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
           Central Depository Services Limited - Complete depository services including demat accounts, 

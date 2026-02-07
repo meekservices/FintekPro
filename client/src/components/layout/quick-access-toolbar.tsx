@@ -245,7 +245,7 @@ export function QuickAccessToolbar() {
   const contextualActions = getContextualActions();
 
   return (
-    <div className="sticky top-0 z-30 bg-background/95 dark:bg-background/95 backdrop-blur-sm border-b border-border" data-testid="quick-access-toolbar">
+    <div className="sticky top-0 z-30 bg-background/95/95 backdrop-blur-sm border-b border-border" data-testid="quick-access-toolbar">
       <div className="flex items-center justify-between px-4 py-2">
         {/* Quick Actions */}
         <div className="flex items-center space-x-2">

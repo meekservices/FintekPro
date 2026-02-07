@@ -58,7 +58,7 @@ function getStatusBadge(status: Document['clientStatus']) {
     case 'declined':
       return <Badge variant="outline" className="text-red-600 border-red-300 bg-red-50"><XCircle className="h-3 w-3 mr-1" />Declined</Badge>;
     case 'expired':
-      return <Badge variant="outline" className="text-gray-600 border-gray-300 bg-gray-50"><AlertCircle className="h-3 w-3 mr-1" />Expired</Badge>;
+      return <Badge variant="outline" className="text-muted-foreground border-border bg-muted"><AlertCircle className="h-3 w-3 mr-1" />Expired</Badge>;
     default:
       return null;
   }

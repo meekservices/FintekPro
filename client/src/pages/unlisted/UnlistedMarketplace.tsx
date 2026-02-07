@@ -59,32 +59,32 @@ export default function UnlistedMarketplace() {
 
   if (isLoadingCompanies) {
     return (
-      <div className="min-h-screen bg-background dark:bg-gray-950 p-6">
+      <div className="min-h-screen bg-background p-6">
         <LoadingState variant="card" count={6} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background dark:bg-gray-950 p-4 md:p-6" data-testid="unlisted-marketplace">
+    <div className="min-h-screen bg-background p-4 md:p-6" data-testid="unlisted-marketplace">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+          <h1 className="text-3xl font-bold text-foreground mb-2">
             Unlisted Marketplace
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-muted-foreground">
             Browse and invest in pre-IPO and unlisted equity opportunities
           </p>
         </div>
 
         {/* Filters */}
-        <Card className="mb-6 bg-white dark:bg-gray-900">
+        <Card className="mb-6 bg-background">
           <CardContent className="pt-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Search */}
               <div className="md:col-span-2 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search by company name or sector..."
                   value={searchQuery}
@@ -143,10 +143,10 @@ export default function UnlistedMarketplace() {
             ))}
           </div>
         ) : (
-          <Card className="bg-white dark:bg-gray-900">
+          <Card className="bg-background">
             <CardContent className="py-12 text-center">
-              <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 dark:text-gray-400">
+              <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">
                 {searchQuery || selectedSector !== 'all' 
                   ? 'No companies found matching your filters'
                   : 'No companies available at the moment'}
@@ -261,14 +261,14 @@ function CompanyCard({ company, isInWatchlist }: CompanyCardProps) {
 
   return (
     <Card 
-      className="hover:shadow-lg transition-shadow cursor-pointer bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800"
+      className="hover:shadow-lg transition-shadow cursor-pointer bg-background border border-border"
       onClick={() => navigate(`/unlisted/company/${company.id}`)}
       data-testid={`card-company-${company.id}`}
     >
       <CardHeader>
         <div className="flex items-start gap-4">
           {company.logo ? (
-            <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
+            <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
               <img src={company.logo} alt={company.name} className="w-full h-full object-cover" />
             </div>
           ) : (
@@ -292,8 +292,8 @@ function CompanyCard({ company, isInWatchlist }: CompanyCardProps) {
         <div className="space-y-3">
           {/* Last Price */}
           <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600 dark:text-gray-400">Last Price</span>
-            <span className="font-semibold text-gray-900 dark:text-white" data-testid={`text-price-${company.id}`}>
+            <span className="text-sm text-muted-foreground">Last Price</span>
+            <span className="font-semibold text-foreground" data-testid={`text-price-${company.id}`}>
               {formatCurrency(lastPrice)}
             </span>
           </div>
@@ -301,8 +301,8 @@ function CompanyCard({ company, isInWatchlist }: CompanyCardProps) {
           {/* P/E Ratio */}
           {latestRatio?.peRatio && (
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600 dark:text-gray-400">P/E Ratio</span>
-              <span className="font-semibold text-gray-900 dark:text-white" data-testid={`text-pe-${company.id}`}>
+              <span className="text-sm text-muted-foreground">P/E Ratio</span>
+              <span className="font-semibold text-foreground" data-testid={`text-pe-${company.id}`}>
                 {Number(latestRatio.peRatio).toFixed(2)}
               </span>
             </div>
@@ -311,8 +311,8 @@ function CompanyCard({ company, isInWatchlist }: CompanyCardProps) {
           {/* ROE */}
           {latestRatio?.roe && (
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600 dark:text-gray-400">ROE</span>
-              <span className="font-semibold text-gray-900 dark:text-white" data-testid={`text-roe-${company.id}`}>
+              <span className="text-sm text-muted-foreground">ROE</span>
+              <span className="font-semibold text-foreground" data-testid={`text-roe-${company.id}`}>
                 {(Number(latestRatio.roe) * 100).toFixed(2)}%
               </span>
             </div>

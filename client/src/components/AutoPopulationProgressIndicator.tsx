@@ -70,7 +70,7 @@ const getStatusIcon = (status: SourceStatus['status']) => {
     case 'in_progress':
       return <Loader2 className="h-5 w-5 text-blue-600 dark:text-blue-400 animate-spin" data-testid={`icon-in-progress`} />;
     case 'pending':
-      return <Clock className="h-5 w-5 text-muted-foreground dark:text-muted-foreground" data-testid={`icon-pending`} />;
+      return <Clock className="h-5 w-5 text-muted-foreground" data-testid={`icon-pending`} />;
   }
 };
 
@@ -211,7 +211,7 @@ export function AutoPopulationProgressIndicator({
               const config = DATA_SOURCE_CONFIG[sourceStatus.source] || {
                 icon: FileText,
                 label: sourceStatus.source,
-                color: 'text-muted-foreground dark:text-muted-foreground'
+                color: 'text-muted-foreground'
               };
               const Icon = config.icon;
 
@@ -220,11 +220,11 @@ export function AutoPopulationProgressIndicator({
                   key={sourceStatus.source}
                   className={cn(
                     'flex items-center justify-between p-3 rounded-lg border',
-                    'bg-white dark:bg-card',
+                    'bg-card',
                     sourceStatus.status === 'completed' && 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950',
                     sourceStatus.status === 'failed' && 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950',
                     sourceStatus.status === 'in_progress' && 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950',
-                    sourceStatus.status === 'pending' && 'border-border dark:border-border'
+                    sourceStatus.status === 'pending' && 'border-border'
                   )}
                   data-testid={`source-status-${sourceStatus.source}`}
                 >

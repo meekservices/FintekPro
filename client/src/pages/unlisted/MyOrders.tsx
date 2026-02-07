@@ -107,14 +107,14 @@ export default function MyOrders() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background dark:bg-gray-950 p-6">
+      <div className="min-h-screen bg-background p-6">
         <LoadingState variant="card" count={4} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background dark:bg-gray-950 p-4 md:p-6" data-testid="my-orders">
+    <div className="min-h-screen bg-background p-4 md:p-6" data-testid="my-orders">
       <div className="max-w-6xl mx-auto">
         <Button 
           variant="ghost" 
@@ -128,8 +128,8 @@ export default function MyOrders() {
 
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">My Orders</h1>
-            <p className="text-gray-600 dark:text-gray-400">Track your unlisted share buy requests and sell listings</p>
+            <h1 className="text-2xl font-bold text-foreground">My Orders</h1>
+            <p className="text-muted-foreground">Track your unlisted share buy requests and sell listings</p>
           </div>
           <Button 
             variant="outline" 
@@ -178,9 +178,9 @@ export default function MyOrders() {
             {filteredBuyRequests.length === 0 ? (
               <Card className="border-dashed">
                 <CardContent className="flex flex-col items-center justify-center py-12">
-                  <ShoppingCart className="h-12 w-12 text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No Buy Requests</h3>
-                  <p className="text-gray-500 dark:text-gray-400 mb-4">You haven't created any buy requests yet.</p>
+                  <ShoppingCart className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium text-foreground mb-2">No Buy Requests</h3>
+                  <p className="text-muted-foreground mb-4">You haven't created any buy requests yet.</p>
                   <Button onClick={() => navigate('/unlisted/buy')} data-testid="button-create-buy">
                     Create Buy Request
                   </Button>
@@ -197,34 +197,34 @@ export default function MyOrders() {
                         </div>
                         <div>
                           <CardTitle className="text-lg">{request.companyName || 'Unknown Company'}</CardTitle>
-                          <p className="text-sm text-gray-500">Buy Request • {new Date(request.createdAt).toLocaleDateString('en-IN')}</p>
+                          <p className="text-sm text-muted-foreground">Buy Request • {new Date(request.createdAt).toLocaleDateString('en-IN')}</p>
                         </div>
                       </div>
                       {getStatusBadge(request.status)}
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted rounded-lg">
                       <div>
-                        <p className="text-sm text-gray-500">Quantity</p>
+                        <p className="text-sm text-muted-foreground">Quantity</p>
                         <p className="font-semibold">{request.quantity.toLocaleString('en-IN')} shares</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Max Price</p>
+                        <p className="text-sm text-muted-foreground">Max Price</p>
                         <p className="font-semibold flex items-center">
                           <IndianRupee className="h-4 w-4" />
                           {parseFloat(request.maxPrice).toLocaleString('en-IN')}
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Total Value</p>
+                        <p className="text-sm text-muted-foreground">Total Value</p>
                         <p className="font-semibold flex items-center">
                           <IndianRupee className="h-4 w-4" />
                           {(request.quantity * parseFloat(request.maxPrice)).toLocaleString('en-IN')}
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Valid Until</p>
+                        <p className="text-sm text-muted-foreground">Valid Until</p>
                         <p className="font-semibold">{new Date(request.validUntil).toLocaleDateString('en-IN')}</p>
                       </div>
                     </div>
@@ -269,9 +269,9 @@ export default function MyOrders() {
             {filteredSellListings.length === 0 ? (
               <Card className="border-dashed">
                 <CardContent className="flex flex-col items-center justify-center py-12">
-                  <TrendingUp className="h-12 w-12 text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No Sell Listings</h3>
-                  <p className="text-gray-500 dark:text-gray-400 mb-4">You haven't created any sell listings yet.</p>
+                  <TrendingUp className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium text-foreground mb-2">No Sell Listings</h3>
+                  <p className="text-muted-foreground mb-4">You haven't created any sell listings yet.</p>
                   <Button onClick={() => navigate('/unlisted/sell')} data-testid="button-create-sell">
                     Create Sell Listing
                   </Button>
@@ -288,34 +288,34 @@ export default function MyOrders() {
                         </div>
                         <div>
                           <CardTitle className="text-lg">{listing.companyName || 'Unknown Company'}</CardTitle>
-                          <p className="text-sm text-gray-500">Sell Listing • {new Date(listing.createdAt).toLocaleDateString('en-IN')}</p>
+                          <p className="text-sm text-muted-foreground">Sell Listing • {new Date(listing.createdAt).toLocaleDateString('en-IN')}</p>
                         </div>
                       </div>
                       {getStatusBadge(listing.status)}
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted rounded-lg">
                       <div>
-                        <p className="text-sm text-gray-500">Quantity</p>
+                        <p className="text-sm text-muted-foreground">Quantity</p>
                         <p className="font-semibold">{listing.quantity.toLocaleString('en-IN')} shares</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Ask Price</p>
+                        <p className="text-sm text-muted-foreground">Ask Price</p>
                         <p className="font-semibold flex items-center">
                           <IndianRupee className="h-4 w-4" />
                           {parseFloat(listing.askPrice).toLocaleString('en-IN')}
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Total Value</p>
+                        <p className="text-sm text-muted-foreground">Total Value</p>
                         <p className="font-semibold flex items-center">
                           <IndianRupee className="h-4 w-4" />
                           {(listing.quantity * parseFloat(listing.askPrice)).toLocaleString('en-IN')}
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Valid Until</p>
+                        <p className="text-sm text-muted-foreground">Valid Until</p>
                         <p className="font-semibold">{new Date(listing.validUntil).toLocaleDateString('en-IN')}</p>
                       </div>
                     </div>

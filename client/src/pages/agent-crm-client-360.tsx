@@ -125,7 +125,7 @@ export default function AgentCrmClient360() {
       case 'meeting': return 'bg-green-500/20 text-green-400';
       case 'note': return 'bg-yellow-500/20 text-yellow-400';
       case 'whatsapp': return 'bg-emerald-500/20 text-emerald-400';
-      default: return 'bg-gray-500/20 text-muted-foreground';
+      default: return 'bg-muted/20 text-muted-foreground';
     }
   };
 

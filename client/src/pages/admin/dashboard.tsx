@@ -150,7 +150,7 @@ export default function AdminDashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white" data-testid="text-dashboard-title">Admin Dashboard</h1>
+          <h1 className="text-3xl font-bold text-foreground" data-testid="text-dashboard-title">Admin Dashboard</h1>
           <p className="text-muted-foreground mt-1">Real-time platform overview and key metrics</p>
         </div>
         <Button 
@@ -177,7 +177,7 @@ export default function AdminDashboard() {
               <Skeleton className="h-8 w-24 bg-muted" />
             ) : (
               <>
-                <div className="text-2xl font-bold text-white" data-testid="text-total-users">
+                <div className="text-2xl font-bold text-foreground" data-testid="text-total-users">
                   {formatNumber(dashboardData?.totalClients)}
                 </div>
                 <div className="flex items-center gap-1 mt-1">
@@ -205,7 +205,7 @@ export default function AdminDashboard() {
               <Skeleton className="h-8 w-24 bg-muted" />
             ) : (
               <>
-                <div className="text-2xl font-bold text-white" data-testid="text-active-users">
+                <div className="text-2xl font-bold text-foreground" data-testid="text-active-users">
                   {formatNumber(dashboardData?.activeClients)}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -226,7 +226,7 @@ export default function AdminDashboard() {
               <Skeleton className="h-8 w-24 bg-muted" />
             ) : (
               <>
-                <div className="text-2xl font-bold text-white" data-testid="text-business-clients">
+                <div className="text-2xl font-bold text-foreground" data-testid="text-business-clients">
                   {formatNumber(dashboardData?.userStats?.businessClients)}
                 </div>
                 <p className="text-xs text-purple-400 mt-1">Corporate accounts</p>
@@ -245,7 +245,7 @@ export default function AdminDashboard() {
               <Skeleton className="h-8 w-24 bg-muted" />
             ) : (
               <>
-                <div className="text-2xl font-bold text-white" data-testid="text-revenue">
+                <div className="text-2xl font-bold text-foreground" data-testid="text-revenue">
                   {formatCurrency(dashboardData?.platformInsights?.revenue)}
                 </div>
                 <p className="text-xs text-yellow-400 mt-1">Monthly revenue</p>
@@ -258,7 +258,7 @@ export default function AdminDashboard() {
       {/* Quick Actions Panel */}
       <Card className="bg-gradient-to-r from-blue-900/50 to-purple-900/50 border-blue-800">
         <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
+          <CardTitle className="text-foreground flex items-center gap-2">
             <Clock className="w-5 h-5" />
             Quick Actions
           </CardTitle>
@@ -273,7 +273,7 @@ export default function AdminDashboard() {
                 <div className="flex items-center justify-between mb-2">
                   <FileCheck className="w-8 h-8 text-orange-400" />
                   {kycLoading ? (
-                    <Skeleton className="h-8 w-12 bg-gray-700" />
+                    <Skeleton className="h-8 w-12 bg-muted" />
                   ) : (
                     <span className="text-2xl font-bold text-orange-400">{kycStats?.pendingKyc || 0}</span>
                   )}
@@ -290,7 +290,7 @@ export default function AdminDashboard() {
                 <div className="flex items-center justify-between mb-2">
                   <AlertTriangle className="w-8 h-8 text-red-400" />
                   {kycLoading ? (
-                    <Skeleton className="h-8 w-12 bg-gray-700" />
+                    <Skeleton className="h-8 w-12 bg-muted" />
                   ) : (
                     <span className="text-2xl font-bold text-red-400">{kycStats?.activeAlerts || 0}</span>
                   )}
@@ -307,7 +307,7 @@ export default function AdminDashboard() {
                 <div className="flex items-center justify-between mb-2">
                   <UserPlus className="w-8 h-8 text-green-400" />
                   {dashboardLoading ? (
-                    <Skeleton className="h-8 w-12 bg-gray-700" />
+                    <Skeleton className="h-8 w-12 bg-muted" />
                   ) : (
                     <span className="text-2xl font-bold text-green-400">{dashboardData?.newClientsToday || 0}</span>
                   )}
@@ -324,7 +324,7 @@ export default function AdminDashboard() {
                 <div className="flex items-center justify-between mb-2">
                   <Briefcase className="w-8 h-8 text-blue-400" />
                   {ordersLoading ? (
-                    <Skeleton className="h-8 w-12 bg-gray-700" />
+                    <Skeleton className="h-8 w-12 bg-muted" />
                   ) : (
                     <span className="text-2xl font-bold text-blue-400">{pendingOrdersData?.total || 0}</span>
                   )}
@@ -423,7 +423,7 @@ export default function AdminDashboard() {
                         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
                         <div className="flex-1">
                           <p className="text-sm text-muted-foreground">{item.name}</p>
-                          <p className="text-lg font-bold text-white">{item.value}</p>
+                          <p className="text-lg font-bold text-foreground">{item.value}</p>
                         </div>
                       </div>
                     ))}
@@ -466,9 +466,9 @@ export default function AdminDashboard() {
                 <div>
                   <p className="text-muted-foreground text-sm">Partners</p>
                   {stakeholderLoading ? (
-                    <Skeleton className="h-6 w-16 bg-gray-700" />
+                    <Skeleton className="h-6 w-16 bg-muted" />
                   ) : (
-                    <p className="text-xl font-bold text-white">{stakeholderStats?.totalPartners || 0}</p>
+                    <p className="text-xl font-bold text-foreground">{stakeholderStats?.totalPartners || 0}</p>
                   )}
                 </div>
               </div>
@@ -488,9 +488,9 @@ export default function AdminDashboard() {
                 <div>
                   <p className="text-muted-foreground text-sm">Agents</p>
                   {stakeholderLoading ? (
-                    <Skeleton className="h-6 w-16 bg-gray-700" />
+                    <Skeleton className="h-6 w-16 bg-muted" />
                   ) : (
-                    <p className="text-xl font-bold text-white">{stakeholderStats?.totalAgents || 0}</p>
+                    <p className="text-xl font-bold text-foreground">{stakeholderStats?.totalAgents || 0}</p>
                   )}
                 </div>
               </div>
@@ -510,9 +510,9 @@ export default function AdminDashboard() {
                 <div>
                   <p className="text-muted-foreground text-sm">Suppliers</p>
                   {stakeholderLoading ? (
-                    <Skeleton className="h-6 w-16 bg-gray-700" />
+                    <Skeleton className="h-6 w-16 bg-muted" />
                   ) : (
-                    <p className="text-xl font-bold text-white">{stakeholderStats?.totalSuppliers || 0}</p>
+                    <p className="text-xl font-bold text-foreground">{stakeholderStats?.totalSuppliers || 0}</p>
                   )}
                 </div>
               </div>
@@ -530,7 +530,7 @@ export default function AdminDashboard() {
       {/* System Status */}
       <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
+          <CardTitle className="text-foreground flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-green-400" />
             System Status
           </CardTitle>
@@ -554,7 +554,7 @@ export default function AdminDashboard() {
                     <span className="text-xs text-green-400 capitalize">{service.status}</span>
                   </div>
                 </div>
-                <p className="font-medium text-white">{service.name}</p>
+                <p className="font-medium text-foreground">{service.name}</p>
                 <p className="text-sm text-muted-foreground">Uptime: {service.uptime}</p>
               </div>
             ))}
@@ -579,7 +579,7 @@ export default function AdminDashboard() {
               <div>
                 <p className="text-muted-foreground text-sm">Approved Today</p>
                 {kycLoading ? (
-                  <Skeleton className="h-8 w-16 bg-gray-700" />
+                  <Skeleton className="h-8 w-16 bg-muted" />
                 ) : (
                   <p className="text-2xl font-bold text-green-400">{kycStats?.approvedToday || 0}</p>
                 )}
@@ -593,7 +593,7 @@ export default function AdminDashboard() {
               <div>
                 <p className="text-muted-foreground text-sm">Rejected Today</p>
                 {kycLoading ? (
-                  <Skeleton className="h-8 w-16 bg-gray-700" />
+                  <Skeleton className="h-8 w-16 bg-muted" />
                 ) : (
                   <p className="text-2xl font-bold text-red-400">{kycStats?.rejectedToday || 0}</p>
                 )}
@@ -607,7 +607,7 @@ export default function AdminDashboard() {
               <div>
                 <p className="text-muted-foreground text-sm">Pending Documents</p>
                 {kycLoading ? (
-                  <Skeleton className="h-8 w-16 bg-gray-700" />
+                  <Skeleton className="h-8 w-16 bg-muted" />
                 ) : (
                   <p className="text-2xl font-bold text-orange-400">{kycStats?.pendingDocuments || 0}</p>
                 )}

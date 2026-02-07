@@ -115,14 +115,14 @@ export default function CreateSellListing() {
 
   if (isLoadingCompanies) {
     return (
-      <div className="min-h-screen bg-background dark:bg-gray-950 p-6">
+      <div className="min-h-screen bg-background p-6">
         <LoadingState variant="form" count={8} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background dark:bg-gray-950 p-4 md:p-6" data-testid="create-sell-listing">
+    <div className="min-h-screen bg-background p-4 md:p-6" data-testid="create-sell-listing">
       <div className="max-w-3xl mx-auto">
         {/* Header */}
         <Button 
@@ -135,7 +135,7 @@ export default function CreateSellListing() {
           Back to Marketplace
         </Button>
 
-        <Card className="bg-white dark:bg-gray-900">
+        <Card className="bg-background">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-6 w-6" />
@@ -148,7 +148,7 @@ export default function CreateSellListing() {
           <CardContent>
             {/* KYC Status */}
             <div className="mb-6">
-              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                 <div className="flex items-center gap-2">
                   <Shield className="h-5 w-5 text-primary" />
                   <span className="font-medium">KYC Tier:</span>

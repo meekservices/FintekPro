@@ -298,7 +298,7 @@ export default function MutualFundsSeeding() {
   const missingCount = missingAmcsData?.missingCount || 0;
 
   return (
-    <div className="min-h-screen bg-muted dark:bg-muted dark:bg-card p-6">
+    <div className="min-h-screen bg-muted p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -310,8 +310,8 @@ export default function MutualFundsSeeding() {
               </Button>
             </Link>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Regular Mutual Fund Seeding</h1>
-              <p className="text-muted-foreground dark:text-muted-foreground">Seed and manage Regular Plans for Mutual Funds. Direct plans managed separately.</p>
+              <h1 className="text-2xl font-bold text-foreground">Regular Mutual Fund Seeding</h1>
+              <p className="text-muted-foreground">Seed and manage Regular Plans for Mutual Funds. Direct plans managed separately.</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -597,7 +597,7 @@ export default function MutualFundsSeeding() {
                                   Enabled
                                 </Badge>
                               ) : (
-                                <Badge variant="secondary" className="bg-muted dark:bg-muted text-muted-foreground">
+                                <Badge variant="secondary" className="bg-muted text-muted-foreground">
                                   <XCircle className="h-3 w-3 mr-1" />
                                   Disabled
                                 </Badge>
@@ -728,7 +728,7 @@ export default function MutualFundsSeeding() {
                                     Published
                                   </Badge>
                                 ) : (
-                                  <Badge variant="secondary" className="bg-muted dark:bg-muted text-muted-foreground">
+                                  <Badge variant="secondary" className="bg-muted text-muted-foreground">
                                     <EyeOff className="h-3 w-3 mr-1" />
                                     Unpublished
                                   </Badge>

@@ -35,7 +35,7 @@ const severityBg = {
 
 function KycTierBadge({ tier, variant }: { tier: string; variant: "current" | "required" }) {
   const bgColor = variant === "current" 
-    ? "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+    ? "bg-muted text-muted-foreground"
     : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300";
   return (
     <Badge variant="outline" className={bgColor}>
@@ -46,11 +46,11 @@ function KycTierBadge({ tier, variant }: { tier: string; variant: "current" | "r
 
 function MissingStepsChecklist({ steps }: { steps: string[] }) {
   return (
-    <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
-      <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Missing Requirements:</p>
+    <div className="mt-3 p-3 bg-muted rounded-lg border border-border">
+      <p className="text-sm font-medium text-muted-foreground mb-2">Missing Requirements:</p>
       <ul className="space-y-1.5">
         {steps.map((step, idx) => (
-          <li key={idx} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+          <li key={idx} className="flex items-center gap-2 text-sm text-muted-foreground">
             <Circle className="h-3.5 w-3.5 text-amber-500" />
             <span>{step}</span>
           </li>
@@ -62,14 +62,14 @@ function MissingStepsChecklist({ steps }: { steps: string[] }) {
 
 function KycTierComparison({ current, required }: { current: string; required: string }) {
   return (
-    <div className="flex items-center gap-2 mt-3 p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+    <div className="flex items-center gap-2 mt-3 p-3 bg-muted rounded-lg border border-border">
       <div className="flex-1 text-center">
-        <p className="text-xs text-slate-500 mb-1">Current</p>
+        <p className="text-xs text-muted-foreground mb-1">Current</p>
         <KycTierBadge tier={current} variant="current" />
       </div>
-      <ArrowRight className="h-4 w-4 text-slate-400" />
+      <ArrowRight className="h-4 w-4 text-muted-foreground" />
       <div className="flex-1 text-center">
-        <p className="text-xs text-slate-500 mb-1">Required</p>
+        <p className="text-xs text-muted-foreground mb-1">Required</p>
         <KycTierBadge tier={required} variant="required" />
       </div>
     </div>

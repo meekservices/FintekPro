@@ -270,7 +270,7 @@ export default function LoanApplication() {
       <div className="container mx-auto px-4 max-w-6xl">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          <h1 className="text-4xl font-bold text-foreground mb-2">
             Apply for Loan
           </h1>
           <p className="text-xl text-muted-foreground">

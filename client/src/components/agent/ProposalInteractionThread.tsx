@@ -153,7 +153,7 @@ export function ProposalInteractionThread({
                       </div>
                       <p className="text-sm">{interaction.content}</p>
                       {interaction.revisionDetails && (
-                        <div className="mt-2 p-2 bg-white/10 rounded text-xs">
+                        <div className="mt-2 p-2 bg-card/10 rounded text-xs">
                           <p>Field: {interaction.revisionDetails.field}</p>
                           {interaction.revisionDetails.reason && (
                             <p>Reason: {interaction.revisionDetails.reason}</p>

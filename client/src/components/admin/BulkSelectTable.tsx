@@ -141,14 +141,14 @@ export function BulkSelectTable<T extends { id: string | number }>({
           data-testid="bulk-action-toolbar"
         >
           <div className="flex items-center gap-3">
-            <Badge variant="secondary" className="bg-white/20 text-white">
+            <Badge variant="secondary" className="bg-card/20 text-foreground">
               {selectedIds.size} selected
             </Badge>
             <Button
               variant="ghost"
               size="sm"
               onClick={clearSelection}
-              className="text-white hover:bg-white/20"
+              className="text-foreground hover:bg-card/20"
               data-testid="button-clear-selection"
             >
               <X className="h-4 w-4 mr-1" />

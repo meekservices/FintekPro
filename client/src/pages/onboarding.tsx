@@ -1463,7 +1463,7 @@ export default function SmartKYCOnboarding() {
                   <Input
                     value={panNumber}
                     disabled
-                    className="bg-muted dark:bg-card border-green-200 dark:border-green-800"
+                    className="bg-muted border-green-200 dark:border-green-800"
                     data-testid="input-pan-verified"
                   />
                 </div>
@@ -1476,7 +1476,7 @@ export default function SmartKYCOnboarding() {
                   <Input
                     value={panFullName}
                     disabled
-                    className="bg-muted dark:bg-card border-green-200 dark:border-green-800"
+                    className="bg-muted border-green-200 dark:border-green-800"
                     data-testid="input-fullname-verified"
                   />
                 </div>
@@ -1490,7 +1490,7 @@ export default function SmartKYCOnboarding() {
                     value={panDob}
                     disabled
                     type="date"
-                    className="bg-muted dark:bg-card border-green-200 dark:border-green-800"
+                    className="bg-muted border-green-200 dark:border-green-800"
                     data-testid="input-dob-verified"
                   />
                 </div>
@@ -2108,7 +2108,7 @@ export default function SmartKYCOnboarding() {
             <div className="border rounded-md p-4 bg-muted">
               <canvas
                 ref={signatureCanvasRef}
-                className="w-full border border-dashed border-border rounded cursor-crosshair bg-white"
+                className="w-full border border-dashed border-border rounded cursor-crosshair bg-card"
                 style={{ height: '150px' }}
                 data-testid="canvas-signature"
               />

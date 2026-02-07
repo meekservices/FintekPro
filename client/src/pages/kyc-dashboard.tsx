@@ -68,8 +68,8 @@ export default function KYCDashboard() {
     return (
       <div className="container mx-auto p-6">
         <div className="animate-pulse space-y-4">
-          <div className="h-32 bg-muted dark:bg-muted rounded-lg"></div>
-          <div className="h-64 bg-muted dark:bg-muted rounded-lg"></div>
+          <div className="h-32 bg-muted rounded-lg"></div>
+          <div className="h-64 bg-muted rounded-lg"></div>
         </div>
       </div>
     );
@@ -101,7 +101,7 @@ export default function KYCDashboard() {
       case 'accredited_investor':
         return 'bg-purple-500';
       default:
-        return 'bg-gray-500';
+        return 'bg-muted';
     }
   };
 
@@ -127,10 +127,10 @@ export default function KYCDashboard() {
       {/* Header Section */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold dark:text-white" data-testid="heading-kyc-dashboard">My KYC Dashboard</h1>
-          <p className="text-muted-foreground dark:text-muted-foreground">Manage your verification and access</p>
+          <h1 className="text-3xl font-bold" data-testid="heading-kyc-dashboard">My KYC Dashboard</h1>
+          <p className="text-muted-foreground">Manage your verification and access</p>
         </div>
-        <Badge className={`${getTierColor(profile?.kycTier || 'basic')} text-white px-4 py-2 text-lg`} data-testid="badge-kyc-tier">
+        <Badge className={`${getTierColor(profile?.kycTier || 'basic')} text-foreground px-4 py-2 text-lg`} data-testid="badge-kyc-tier">
           {getTierIcon(profile?.kycTier || 'basic')}
           <span className="ml-2">{formatTierName(profile?.kycTier || 'basic')}</span>
         </Badge>
@@ -149,37 +149,37 @@ export default function KYCDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* User ID */}
             <div>
-              <p className="text-sm text-muted-foreground dark:text-muted-foreground">User ID</p>
-              <p className="font-semibold dark:text-white" data-testid="text-user-id">{profile?.userId}</p>
+              <p className="text-sm text-muted-foreground">User ID</p>
+              <p className="font-semibold" data-testid="text-user-id">{profile?.userId}</p>
             </div>
 
             {/* Full Name */}
             <div>
-              <p className="text-sm text-muted-foreground dark:text-muted-foreground">Full Name</p>
-              <p className="font-semibold dark:text-white" data-testid="text-full-name">{profile?.fullName || 'Not provided'}</p>
+              <p className="text-sm text-muted-foreground">Full Name</p>
+              <p className="font-semibold" data-testid="text-full-name">{profile?.fullName || 'Not provided'}</p>
             </div>
 
             {/* Email */}
             <div>
-              <p className="text-sm text-muted-foreground dark:text-muted-foreground">Email</p>
-              <p className="font-semibold dark:text-white" data-testid="text-email">{profile?.email}</p>
+              <p className="text-sm text-muted-foreground">Email</p>
+              <p className="font-semibold" data-testid="text-email">{profile?.email}</p>
             </div>
 
             {/* Mobile */}
             <div>
-              <p className="text-sm text-muted-foreground dark:text-muted-foreground">Mobile</p>
-              <p className="font-semibold dark:text-white" data-testid="text-mobile">{profile?.mobile}</p>
+              <p className="text-sm text-muted-foreground">Mobile</p>
+              <p className="font-semibold" data-testid="text-mobile">{profile?.mobile}</p>
             </div>
 
             {/* PAN Number */}
             <div>
-              <p className="text-sm text-muted-foreground dark:text-muted-foreground">PAN Number</p>
-              <p className="font-semibold dark:text-white" data-testid="text-pan">{profile?.panNumber || 'Not verified'}</p>
+              <p className="text-sm text-muted-foreground">PAN Number</p>
+              <p className="font-semibold" data-testid="text-pan">{profile?.panNumber || 'Not verified'}</p>
             </div>
 
             {/* KYC Status */}
             <div>
-              <p className="text-sm text-muted-foreground dark:text-muted-foreground">KYC Status</p>
+              <p className="text-sm text-muted-foreground">KYC Status</p>
               <Badge variant={profile?.kycStatus === 'approved' ? 'default' : 'secondary'} data-testid="badge-kyc-status">
                 {profile?.kycStatus || 'pending'}
               </Badge>
@@ -190,7 +190,7 @@ export default function KYCDashboard() {
 
           {/* Verification Status */}
           <div>
-            <h3 className="font-semibold mb-3 dark:text-white">Verification Status</h3>
+            <h3 className="font-semibold mb-3">Verification Status</h3>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               <VerificationBadge 
                 label="PAN" 
@@ -222,7 +222,7 @@ export default function KYCDashboard() {
 
           {/* Compliance Status */}
           <div>
-            <h3 className="font-semibold mb-3 dark:text-white">Compliance Status</h3>
+            <h3 className="font-semibold mb-3">Compliance Status</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <ComplianceItem 
                 label="Risk Category" 
@@ -277,14 +277,14 @@ export default function KYCDashboard() {
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-5 w-5 text-green-500" />
-                <span className="text-sm dark:text-white">
+                <span className="text-sm">
                   {profile?.kycTierMetadata?.productsUnlocked?.length || 0} Products Unlocked
                 </span>
               </div>
               {profile?.kycTierMetadata?.maxAnnualInvestment && (
                 <div className="flex items-center gap-2">
                   <TrendingUp className="h-5 w-5 text-blue-500" />
-                  <span className="text-sm dark:text-white">
+                  <span className="text-sm">
                     Max Investment: ₹{(profile.kycTierMetadata.maxAnnualInvestment / 1000).toFixed(0)}K/year
                   </span>
                 </div>
@@ -364,7 +364,7 @@ export default function KYCDashboard() {
             {/* Locked Products */}
             {eligibility?.lockedProducts && eligibility.lockedProducts.length > 0 && (
               <div>
-                <h3 className="font-semibold mb-3 text-muted-foreground dark:text-muted-foreground flex items-center gap-2">
+                <h3 className="font-semibold mb-3 text-muted-foreground flex items-center gap-2">
                   <Lock className="h-5 w-5" />
                   Locked Products ({eligibility?.totalProductsLocked || 0})
                 </h3>
@@ -399,13 +399,13 @@ export default function KYCDashboard() {
 // Verification Badge Component
 function VerificationBadge({ label, verified, testId }: { label: string; verified: boolean; testId: string }) {
   return (
-    <div className="flex items-center gap-2 p-2 bg-muted dark:bg-muted rounded-lg" data-testid={testId}>
+    <div className="flex items-center gap-2 p-2 bg-muted rounded-lg" data-testid={testId}>
       {verified ? (
         <CheckCircle2 className="h-4 w-4 text-green-500" />
       ) : (
         <XCircle className="h-4 w-4 text-muted-foreground" />
       )}
-      <span className="text-sm dark:text-white">{label}</span>
+      <span className="text-sm">{label}</span>
     </div>
   );
 }
@@ -413,9 +413,9 @@ function VerificationBadge({ label, verified, testId }: { label: string; verifie
 // Compliance Item Component
 function ComplianceItem({ label, value, testId }: { label: string; value: string; testId: string }) {
   return (
-    <div className="p-3 bg-muted dark:bg-muted rounded-lg">
-      <p className="text-xs text-muted-foreground dark:text-muted-foreground">{label}</p>
-      <p className="font-semibold capitalize dark:text-white" data-testid={testId}>{value}</p>
+    <div className="p-3 bg-muted rounded-lg">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="font-semibold capitalize" data-testid={testId}>{value}</p>
     </div>
   );
 }
@@ -427,13 +427,13 @@ function ProductCard({ product, isAccessible }: { product: any; isAccessible: bo
       className={`p-3 rounded-lg border ${
         isAccessible 
           ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800' 
-          : 'bg-muted dark:bg-muted border-border dark:border-border'
+          : 'bg-muted border-border'
       }`}
       data-testid={`card-product-${product.productCode}`}
     >
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <p className="font-semibold text-sm dark:text-white">{product.productName}</p>
+          <p className="font-semibold text-sm">{product.productName}</p>
           {!isAccessible && (
             <Badge variant="outline" className="mt-1 text-xs">
               Requires: {product.requiredUpgrade?.replace(/_/g, ' ')}

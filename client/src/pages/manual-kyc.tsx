@@ -1044,10 +1044,10 @@ export default function ManualKYCPage() {
             {getKYCTypeIcon()}
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            <h1 className="text-3xl font-bold text-foreground">
               {getKYCTypeTitle()} - Manual Upload
             </h1>
-            <p className="text-muted-foreground dark:text-muted-foreground">
+            <p className="text-muted-foreground">
               {getKYCTypeDescription()}
             </p>
           </div>
@@ -1084,7 +1084,7 @@ export default function ManualKYCPage() {
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="entityType" className="text-base font-semibold">Entity Type *</Label>
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
+                  <p className="text-sm text-muted-foreground mt-1">
                     Select the type of non-individual entity
                   </p>
                 </div>
@@ -1133,7 +1133,7 @@ export default function ManualKYCPage() {
 
       {/* Step Navigation */}
       <div className="flex justify-center mb-8">
-        <div className="inline-flex gap-2 bg-muted dark:bg-muted p-1 rounded-lg">
+        <div className="inline-flex gap-2 bg-muted p-1 rounded-lg">
           <Button
             variant={currentStep === 'details' ? 'default' : 'ghost'}
             size="sm"
@@ -1698,7 +1698,7 @@ export default function ManualKYCPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="text-sm text-muted-foreground dark:text-muted-foreground">
+                  <div className="text-sm text-muted-foreground">
                     <p><strong>Accepted Formats:</strong> {doc.acceptedFormats.join(', ')}</p>
                     <p><strong>Max Size:</strong> {Math.round(doc.maxSize / 1024 / 1024)}MB</p>
                   </div>

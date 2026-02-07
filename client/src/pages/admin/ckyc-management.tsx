@@ -307,7 +307,7 @@ export default function CkycManagement() {
               ) : (
                 <div className="space-y-4">
                   {filteredRecords.map((record) => (
-                    <div key={record.id} className="border rounded-lg p-4 hover:bg-muted dark:bg-muted">
+                    <div key={record.id} className="border rounded-lg p-4 hover:bg-muted">
                       <div className="flex items-center justify-between">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
@@ -433,7 +433,7 @@ export default function CkycManagement() {
               ) : (
                 <div className="space-y-4">
                   {notificationTriggers?.map((trigger) => (
-                    <div key={trigger.id} className="border rounded-lg p-4 hover:bg-muted dark:bg-muted">
+                    <div key={trigger.id} className="border rounded-lg p-4 hover:bg-muted">
                       <div className="flex items-center justify-between">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">

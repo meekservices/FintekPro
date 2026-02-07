@@ -98,7 +98,7 @@ function SettlementTimeline({ deal }: { deal: Deal }) {
             <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
               stage.completed 
                 ? 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400' 
-                : 'bg-muted text-muted-foreground dark:bg-muted'
+                : 'bg-muted text-muted-foreground'
             }`}>
               <stage.icon className="w-5 h-5" />
             </div>
@@ -111,7 +111,7 @@ function SettlementTimeline({ deal }: { deal: Deal }) {
           </div>
           {index < stages.length - 1 && (
             <div className={`flex-1 h-1 mx-2 ${
-              stage.completed ? 'bg-green-500' : 'bg-muted dark:bg-gray-700'
+              stage.completed ? 'bg-green-500' : 'bg-muted'
             }`} />
           )}
         </div>
@@ -131,7 +131,7 @@ function DealSettlementCard({ deal, userRole }: { deal: Deal; userRole: string }
     transfer_pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
     completed: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
     failed: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
-    pending: 'bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground'
+    pending: 'bg-muted text-muted-foreground'
   };
 
   return (
@@ -240,8 +240,8 @@ export function SettlementDashboard({ userRole, userId }: SettlementDashboardPro
           {[1, 2, 3, 4].map(i => (
             <Card key={i} className="animate-pulse">
               <CardContent className="pt-6">
-                <div className="h-8 bg-muted dark:bg-gray-700 rounded mb-2" />
-                <div className="h-4 bg-muted dark:bg-muted rounded w-1/2" />
+                <div className="h-8 bg-muted rounded mb-2" />
+                <div className="h-4 bg-muted rounded w-1/2" />
               </CardContent>
             </Card>
           ))}

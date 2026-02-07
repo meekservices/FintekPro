@@ -180,7 +180,7 @@ export function DocumentUpload({
             className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
               isDragActive
                 ? 'border-primary bg-primary/5'
-                : 'border-border dark:border-border hover:border-primary/50'
+                : 'border-border hover:border-primary/50'
             } ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
             data-testid="dropzone"
           >
@@ -211,7 +211,7 @@ export function DocumentUpload({
             {existingDocuments.map((doc) => (
               <div
                 key={doc.id}
-                className="flex items-center justify-between p-3 bg-muted dark:bg-muted rounded-lg"
+                className="flex items-center justify-between p-3 bg-muted rounded-lg"
                 data-testid={`document-${doc.id}`}
               >
                 <div className="flex items-center gap-3">

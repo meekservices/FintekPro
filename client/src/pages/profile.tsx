@@ -557,7 +557,7 @@ export default function ProfilePage() {
       case 'accredited_investor':
         return 'bg-purple-500';
       default:
-        return 'bg-gray-500';
+        return 'bg-muted';
     }
   };
 
@@ -773,8 +773,8 @@ export default function ProfilePage() {
                 </Alert>
               ) : kycProfileLoading || eligibilityLoading ? (
                 <div className="animate-pulse space-y-4">
-                  <div className="h-32 bg-muted dark:bg-muted rounded-lg"></div>
-                  <div className="h-64 bg-muted dark:bg-muted rounded-lg"></div>
+                  <div className="h-32 bg-muted rounded-lg"></div>
+                  <div className="h-64 bg-muted rounded-lg"></div>
                 </div>
               ) : (
                 <>
@@ -806,10 +806,10 @@ export default function ProfilePage() {
                         {/* Header Section */}
                         <div className="flex justify-between items-center">
                           <div>
-                            <h1 className="text-3xl font-bold dark:text-white" data-testid="heading-kyc-dashboard">My KYC Dashboard</h1>
-                            <p className="text-muted-foreground dark:text-muted-foreground">Manage your verification and access</p>
+                            <h1 className="text-3xl font-bold" data-testid="heading-kyc-dashboard">My KYC Dashboard</h1>
+                            <p className="text-muted-foreground">Manage your verification and access</p>
                           </div>
-                          <Badge className={`${getTierColor(kycProfileData?.kycTier || 'basic')} text-white px-4 py-2 text-lg`} data-testid="badge-kyc-tier">
+                          <Badge className={`${getTierColor(kycProfileData?.kycTier || 'basic')} text-foreground px-4 py-2 text-lg`} data-testid="badge-kyc-tier">
                             {getTierIcon(kycProfileData?.kycTier || 'basic')}
                             <span className="ml-2">{formatTierName(kycProfileData?.kycTier || 'basic')}</span>
                           </Badge>
@@ -828,25 +828,25 @@ export default function ProfilePage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                               {/* Email */}
                               <div>
-                                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Email</p>
-                                <p className="font-semibold dark:text-white" data-testid="text-email">{kycProfileData?.email}</p>
+                                <p className="text-sm text-muted-foreground">Email</p>
+                                <p className="font-semibold" data-testid="text-email">{kycProfileData?.email}</p>
                               </div>
 
                               {/* Mobile */}
                               <div>
-                                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Mobile</p>
-                                <p className="font-semibold dark:text-white" data-testid="text-mobile">{kycProfileData?.mobile}</p>
+                                <p className="text-sm text-muted-foreground">Mobile</p>
+                                <p className="font-semibold" data-testid="text-mobile">{kycProfileData?.mobile}</p>
                               </div>
 
                               {/* PAN Number */}
                               <div>
-                                <p className="text-sm text-muted-foreground dark:text-muted-foreground">PAN Number</p>
-                                <p className="font-semibold dark:text-white" data-testid="text-pan">{kycProfileData?.panNumber || 'Not verified'}</p>
+                                <p className="text-sm text-muted-foreground">PAN Number</p>
+                                <p className="font-semibold" data-testid="text-pan">{kycProfileData?.panNumber || 'Not verified'}</p>
                               </div>
 
                               {/* KYC Status */}
                               <div>
-                                <p className="text-sm text-muted-foreground dark:text-muted-foreground">KYC Status</p>
+                                <p className="text-sm text-muted-foreground">KYC Status</p>
                                 <Badge variant={kycProfileData?.kycStatus === 'approved' ? 'default' : 'secondary'} data-testid="badge-kyc-status">
                                   {kycProfileData?.kycStatus || 'pending'}
                                 </Badge>
@@ -858,7 +858,7 @@ export default function ProfilePage() {
                             {/* Verification Progress */}
                             <div>
                               <div className="flex justify-between items-center mb-3">
-                                <h3 className="font-semibold dark:text-white">Verification Progress</h3>
+                                <h3 className="font-semibold">Verification Progress</h3>
                                 {(() => {
                                   const summary = kycProfileData?.verificationSummary;
                                   const completed = summary?.completedVerifications ?? [
@@ -929,7 +929,7 @@ export default function ProfilePage() {
 
                             {/* Compliance Status */}
                             <div>
-                              <h3 className="font-semibold mb-3 dark:text-white">Compliance Status</h3>
+                              <h3 className="font-semibold mb-3">Compliance Status</h3>
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                 <ComplianceItem 
                                   label="Risk Category" 
@@ -984,21 +984,21 @@ export default function ProfilePage() {
                               <div className="space-y-3">
                                 <div className="flex items-center gap-2">
                                   <CheckCircle2 className="h-5 w-5 text-green-500" />
-                                  <span className="text-sm dark:text-white" data-testid="text-products-unlocked">
+                                  <span className="text-sm" data-testid="text-products-unlocked">
                                     {eligibility?.totalProductsAccessible || 0} Products Unlocked
                                   </span>
                                 </div>
                                 {kycProfileData?.kycTierMetadata?.maxAnnualInvestment && (
                                   <div className="flex items-center gap-2">
                                     <TrendingUp className="h-5 w-5 text-blue-500" />
-                                    <span className="text-sm dark:text-white" data-testid="text-max-investment">
+                                    <span className="text-sm" data-testid="text-max-investment">
                                       Max Investment: ₹{(kycProfileData.kycTierMetadata.maxAnnualInvestment / 100000).toFixed(0)} Lakh/year
                                     </span>
                                   </div>
                                 )}
                                 <div className="flex items-center gap-2">
                                   <Award className="h-5 w-5 text-purple-500" />
-                                  <span className="text-sm dark:text-white" data-testid="text-kyc-level">
+                                  <span className="text-sm" data-testid="text-kyc-level">
                                     KYC Level: {kycProfileData?.kycLevel || '1'}
                                   </span>
                                 </div>
@@ -1061,7 +1061,7 @@ export default function ProfilePage() {
                               {/* Locked Products */}
                               {eligibility?.lockedProducts && eligibility.lockedProducts.length > 0 && (
                                 <div>
-                                  <h3 className="font-semibold mb-3 text-muted-foreground dark:text-muted-foreground flex items-center gap-2">
+                                  <h3 className="font-semibold mb-3 text-muted-foreground flex items-center gap-2">
                                     <Lock className="h-5 w-5" />
                                     Locked Products ({eligibility?.totalProductsLocked || 0})
                                   </h3>
@@ -1274,7 +1274,7 @@ export default function ProfilePage() {
                               type="email" 
                               placeholder="Enter email address" 
                               disabled={isEmailVerified}
-                              className={isEmailVerified ? "bg-muted dark:bg-muted cursor-not-allowed" : ""}
+                              className={isEmailVerified ? "bg-muted cursor-not-allowed" : ""}
                             />
                           </FormControl>
                           {isEmailVerified && (
@@ -1305,7 +1305,7 @@ export default function ProfilePage() {
                               {...field} 
                               placeholder="Enter mobile number" 
                               disabled={isMobileVerified}
-                              className={isMobileVerified ? "bg-muted dark:bg-muted cursor-not-allowed" : ""}
+                              className={isMobileVerified ? "bg-muted cursor-not-allowed" : ""}
                             />
                           </FormControl>
                           {isMobileVerified && (
@@ -1461,7 +1461,7 @@ export default function ProfilePage() {
                             <Input 
                               {...field} 
                               placeholder="ABCDE1234F" 
-                              className={`uppercase ${isPanVerified ? "bg-muted dark:bg-muted cursor-not-allowed" : ""}`}
+                              className={`uppercase ${isPanVerified ? "bg-muted cursor-not-allowed" : ""}`}
                               disabled={isPanVerified}
                             />
                           </FormControl>
@@ -2109,13 +2109,13 @@ export default function ProfilePage() {
 // Verification Badge Component
 function VerificationBadge({ label, verified, testId }: { label: string; verified: boolean; testId: string }) {
   return (
-    <div className="flex items-center gap-2 p-2 bg-muted dark:bg-muted rounded-lg" data-testid={testId}>
+    <div className="flex items-center gap-2 p-2 bg-muted rounded-lg" data-testid={testId}>
       {verified ? (
         <CheckCircle2 className="h-4 w-4 text-green-500" />
       ) : (
         <XCircle className="h-4 w-4 text-muted-foreground" />
       )}
-      <span className="text-sm dark:text-white">{label}</span>
+      <span className="text-sm">{label}</span>
     </div>
   );
 }
@@ -2123,9 +2123,9 @@ function VerificationBadge({ label, verified, testId }: { label: string; verifie
 // Compliance Item Component
 function ComplianceItem({ label, value, testId }: { label: string; value: string; testId: string }) {
   return (
-    <div className="p-3 bg-muted dark:bg-muted rounded-lg">
-      <p className="text-xs text-muted-foreground dark:text-muted-foreground">{label}</p>
-      <p className="font-semibold capitalize dark:text-white" data-testid={testId}>{value}</p>
+    <div className="p-3 bg-muted rounded-lg">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="font-semibold capitalize" data-testid={testId}>{value}</p>
     </div>
   );
 }
@@ -2137,13 +2137,13 @@ function ProductCard({ product, isAccessible }: { product: any; isAccessible: bo
       className={`p-3 rounded-lg border ${
         isAccessible 
           ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800' 
-          : 'bg-muted dark:bg-muted border-border dark:border-border'
+          : 'bg-muted border-border'
       }`}
       data-testid={`card-product-${product.productCode}`}
     >
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <p className="font-semibold text-sm dark:text-white">{product.productName}</p>
+          <p className="font-semibold text-sm">{product.productName}</p>
           {!isAccessible && (
             <Badge variant="outline" className="mt-1 text-xs">
               Requires: {product.requiredUpgrade?.replace(/_/g, ' ')}

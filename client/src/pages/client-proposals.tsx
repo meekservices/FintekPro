@@ -677,7 +677,7 @@ export default function ClientProposalsPage() {
           </DialogHeader>
           {selectedProposal && (
             <div className="space-y-4">
-              <div className="bg-muted dark:bg-muted p-4 rounded-lg">
+              <div className="bg-muted p-4 rounded-lg">
                 <h4 className="font-medium mb-2">{selectedProposal.title}</h4>
                 <p className="text-sm text-muted-foreground mb-2">
                   Total Investment: <span className="font-semibold">{formatCurrency(selectedProposal.totalAmount)}</span>

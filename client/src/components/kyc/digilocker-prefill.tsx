@@ -227,12 +227,12 @@ export function DigiLockerPrefill({ onDocumentsFetched, requiredDocuments = ['aa
                 doc.fetched 
                   ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800'
                   : doc.available
-                  ? 'bg-white dark:bg-slate-900 border-gray-200 dark:border-gray-700'
-                  : 'bg-gray-50 dark:bg-gray-900 border-gray-100 dark:border-gray-800 opacity-50'
+                  ? 'bg-background border-border'
+                  : 'bg-background border-border opacity-50'
               }`}
             >
               <div className="flex items-center gap-3">
-                <FileCheck className={`h-5 w-5 ${doc.fetched ? 'text-green-600' : 'text-gray-400'}`} />
+                <FileCheck className={`h-5 w-5 ${doc.fetched ? 'text-green-600' : 'text-muted-foreground'}`} />
                 <div>
                   <p className="font-medium">{doc.name}</p>
                   <p className="text-xs text-muted-foreground">{doc.issuer}</p>

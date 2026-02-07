@@ -84,7 +84,7 @@ export function MCXData() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 Next Session: {marketStatus.nextSession}
               </p>
               <div className="flex flex-wrap gap-2">
@@ -131,11 +131,11 @@ export function MCXData() {
                   <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-semibold text-gray-900">{commodity.name}</h4>
+                        <h4 className="font-semibold text-foreground">{commodity.name}</h4>
                         <Badge variant="outline" className="text-xs">{commodity.expiry}</Badge>
                       </div>
-                      <p className="text-sm text-gray-500 mb-2">{commodity.unit}</p>
-                      <p className="text-2xl font-bold text-gray-900">
+                      <p className="text-sm text-muted-foreground mb-2">{commodity.unit}</p>
+                      <p className="text-2xl font-bold text-foreground">
                         ₹{commodity.ltp ? commodity.ltp.toFixed(2) : 'N/A'}
                       </p>
                     </div>
@@ -148,7 +148,7 @@ export function MCXData() {
                           {commodity.change ? commodity.change.toFixed(2) : '0.00'} ({commodity.pchange ? commodity.pchange.toFixed(2) : '0.00'}%)
                         </span>
                       </div>
-                      <div className="text-sm text-gray-500 space-y-1 mt-1">
+                      <div className="text-sm text-muted-foreground space-y-1 mt-1">
                         {commodity.volume && (
                           <p>Vol: {formatNumber(commodity.volume)}</p>
                         )}
@@ -160,7 +160,7 @@ export function MCXData() {
                   </div>
                 )) : (
                   <div className="text-center py-8">
-                    <p className="text-gray-500">Loading MCX commodities data...</p>
+                    <p className="text-muted-foreground">Loading MCX commodities data...</p>
                   </div>
                 )}
               </div>
@@ -172,11 +172,11 @@ export function MCXData() {
                   <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-semibold text-gray-900">{commodity.name}</h4>
+                        <h4 className="font-semibold text-foreground">{commodity.name}</h4>
                         <Badge variant="outline" className="text-xs">{commodity.expiry}</Badge>
                       </div>
-                      <p className="text-sm text-gray-500 mb-2">{commodity.unit}</p>
-                      <p className="text-lg font-bold text-gray-900">
+                      <p className="text-sm text-muted-foreground mb-2">{commodity.unit}</p>
+                      <p className="text-lg font-bold text-foreground">
                         ₹{commodity.ltp ? commodity.ltp.toFixed(2) : 'N/A'}
                       </p>
                     </div>
@@ -187,7 +187,7 @@ export function MCXData() {
                           +{commodity.change ? commodity.change.toFixed(2) : '0.00'} (+{commodity.pchange ? commodity.pchange.toFixed(2) : '0.00'}%)
                         </span>
                       </div>
-                      <div className="text-sm text-gray-500 space-y-1 mt-1">
+                      <div className="text-sm text-muted-foreground space-y-1 mt-1">
                         {commodity.volume && (
                           <p>Vol: {formatNumber(commodity.volume)}</p>
                         )}
@@ -199,7 +199,7 @@ export function MCXData() {
                   </div>
                 )) : (
                   <div className="text-center py-8">
-                    <p className="text-gray-500">Loading MCX gainers data...</p>
+                    <p className="text-muted-foreground">Loading MCX gainers data...</p>
                   </div>
                 )}
               </div>
@@ -211,11 +211,11 @@ export function MCXData() {
                   <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-semibold text-gray-900">{commodity.name}</h4>
+                        <h4 className="font-semibold text-foreground">{commodity.name}</h4>
                         <Badge variant="outline" className="text-xs">{commodity.expiry}</Badge>
                       </div>
-                      <p className="text-sm text-gray-500 mb-2">{commodity.unit}</p>
-                      <p className="text-lg font-bold text-gray-900">
+                      <p className="text-sm text-muted-foreground mb-2">{commodity.unit}</p>
+                      <p className="text-lg font-bold text-foreground">
                         ₹{commodity.ltp ? commodity.ltp.toFixed(2) : 'N/A'}
                       </p>
                     </div>
@@ -226,7 +226,7 @@ export function MCXData() {
                           {commodity.change ? commodity.change.toFixed(2) : '0.00'} ({commodity.pchange ? commodity.pchange.toFixed(2) : '0.00'}%)
                         </span>
                       </div>
-                      <div className="text-sm text-gray-500 space-y-1 mt-1">
+                      <div className="text-sm text-muted-foreground space-y-1 mt-1">
                         {commodity.volume && (
                           <p>Vol: {formatNumber(commodity.volume)}</p>
                         )}
@@ -238,7 +238,7 @@ export function MCXData() {
                   </div>
                 )) : (
                   <div className="text-center py-8">
-                    <p className="text-gray-500">Loading MCX losers data...</p>
+                    <p className="text-muted-foreground">Loading MCX losers data...</p>
                   </div>
                 )}
               </div>

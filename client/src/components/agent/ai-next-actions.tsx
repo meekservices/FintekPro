@@ -194,10 +194,10 @@ export default function AINextActions({ maxItems = 8, compact = false }: AINextA
 
   if (compact) {
     return (
-      <Card className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-slate-700 border-l-4 border-l-emerald-500">
+      <Card className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-border border-l-4 border-l-emerald-500">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-white text-lg flex items-center gap-2">
+            <CardTitle className="text-foreground text-lg flex items-center gap-2">
               <Brain className="h-5 w-5 text-emerald-400" />
               AI Next-Best-Actions
             </CardTitle>
@@ -218,7 +218,7 @@ export default function AINextActions({ maxItems = 8, compact = false }: AINextA
             return (
               <div
                 key={action.id}
-                className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                className="flex items-center justify-between p-3 bg-card/50 rounded-lg hover:bg-card transition-colors cursor-pointer"
                 data-testid={`action-compact-${action.id}`}
               >
                 <div className="flex items-center gap-3">
@@ -226,13 +226,13 @@ export default function AINextActions({ maxItems = 8, compact = false }: AINextA
                     <Icon className="h-4 w-4" />
                   </div>
                   <div>
-                    <p className="text-white text-sm font-medium">{action.title}</p>
-                    <p className="text-slate-400 text-xs">{action.clientName}</p>
+                    <p className="text-foreground text-sm font-medium">{action.title}</p>
+                    <p className="text-muted-foreground text-xs">{action.clientName}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-emerald-400 text-sm">{action.impact}</span>
-                  <ChevronRight className="h-4 w-4 text-slate-500" />
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
               </div>
             );
@@ -249,17 +249,17 @@ export default function AINextActions({ maxItems = 8, compact = false }: AINextA
   }
 
   return (
-    <Card className="bg-slate-800/50 border-slate-700">
+    <Card className="bg-card/50 border-border">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="text-white flex items-center gap-2">
+            <CardTitle className="text-foreground flex items-center gap-2">
               <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg">
-                <Brain className="h-5 w-5 text-white" />
+                <Brain className="h-5 w-5 text-foreground" />
               </div>
               AI Next-Best-Actions
             </CardTitle>
-            <CardDescription className="text-slate-400 mt-1">
+            <CardDescription className="text-muted-foreground mt-1">
               Personalized recommendations based on client data and market signals
             </CardDescription>
           </div>
@@ -267,7 +267,7 @@ export default function AINextActions({ maxItems = 8, compact = false }: AINextA
             {criticalCount > 0 && (
               <Badge className="bg-red-600 text-white animate-pulse">{criticalCount} Critical</Badge>
             )}
-            <Badge className="bg-slate-600 text-slate-200">{activeActions.length} Actions</Badge>
+            <Badge className="bg-muted text-foreground">{activeActions.length} Actions</Badge>
           </div>
         </div>
       </CardHeader>
@@ -282,7 +282,7 @@ export default function AINextActions({ maxItems = 8, compact = false }: AINextA
               return (
                 <div
                   key={action.id}
-                  className={`p-4 bg-slate-900/50 rounded-lg border ${action.priority === 'critical' ? 'border-red-500/50' : 'border-slate-700'} hover:border-emerald-500/50 transition-colors`}
+                  className={`p-4 bg-background/50 rounded-lg border ${action.priority === 'critical' ? 'border-red-500/50' : 'border-border'} hover:border-emerald-500/50 transition-colors`}
                   data-testid={`action-${action.id}`}
                 >
                   <div className="flex items-start justify-between gap-4">
@@ -292,16 +292,16 @@ export default function AINextActions({ maxItems = 8, compact = false }: AINextA
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="text-white font-medium">{action.title}</h4>
+                          <h4 className="text-foreground font-medium">{action.title}</h4>
                           <Badge className={typeConfig.color}>{typeConfig.label}</Badge>
                           <Badge className={priorityConfig.color}>
                             {priorityConfig.label}
                           </Badge>
                         </div>
-                        <p className="text-slate-400 text-sm mt-1">{action.description}</p>
+                        <p className="text-muted-foreground text-sm mt-1">{action.description}</p>
                         
                         <div className="flex items-center gap-4 mt-2 text-sm">
-                          <span className="flex items-center gap-1 text-slate-400">
+                          <span className="flex items-center gap-1 text-muted-foreground">
                             <User className="h-3 w-3" />
                             {action.clientName}
                           </span>
@@ -319,12 +319,12 @@ export default function AINextActions({ maxItems = 8, compact = false }: AINextA
                           )}
                         </div>
 
-                        <div className="mt-3 p-2 bg-slate-800/50 rounded-md">
+                        <div className="mt-3 p-2 bg-card/50 rounded-md">
                           <div className="flex items-start gap-2">
                             <Sparkles className="h-4 w-4 text-emerald-400 mt-0.5 flex-shrink-0" />
                             <div>
                               <p className="text-emerald-400 text-xs font-medium">AI Reasoning</p>
-                              <p className="text-slate-400 text-xs mt-0.5">{action.reasoning}</p>
+                              <p className="text-muted-foreground text-xs mt-0.5">{action.reasoning}</p>
                             </div>
                           </div>
                         </div>
@@ -334,18 +334,18 @@ export default function AINextActions({ maxItems = 8, compact = false }: AINextA
                             <Zap className="h-3 w-3 mr-1" />
                             {action.suggestedAction.split(' ').slice(0, 2).join(' ')}
                           </Button>
-                          <Button size="sm" variant="outline" className="border-slate-600 text-slate-300">
+                          <Button size="sm" variant="outline" className="border-border text-muted-foreground">
                             <Phone className="h-3 w-3 mr-1" />
                             Call
                           </Button>
-                          <Button size="sm" variant="outline" className="border-slate-600 text-slate-300">
+                          <Button size="sm" variant="outline" className="border-border text-muted-foreground">
                             <Mail className="h-3 w-3 mr-1" />
                             Email
                           </Button>
                           <Button 
                             size="sm" 
                             variant="ghost" 
-                            className="text-slate-500 hover:text-slate-300 ml-auto"
+                            className="text-muted-foreground hover:text-muted-foreground ml-auto"
                             onClick={() => handleDismiss(action.id)}
                           >
                             <CheckCircle className="h-3 w-3 mr-1" />

@@ -144,7 +144,7 @@ export function BrokingDashboard() {
     if (sentiment >= 0.7) return 'bg-green-500';
     if (sentiment >= 0.4) return 'bg-green-300';
     if (sentiment >= 0.1) return 'bg-yellow-300';
-    if (sentiment >= -0.1) return 'bg-gray-300';
+    if (sentiment >= -0.1) return 'bg-muted';
     if (sentiment >= -0.4) return 'bg-red-300';
     return 'bg-red-500';
   };
@@ -927,7 +927,7 @@ export function BrokingDashboard() {
                     <div
                       key={index}
                       className={`p-3 rounded-lg border text-center cursor-pointer transition-all hover:scale-105 ${getSentimentColor(item.sentiment)} ${
-                        item.sentiment >= 0 ? 'text-white' : 'text-gray-800'
+                        item.sentiment >= 0 ? 'text-foreground' : 'text-foreground'
                       }`}
                       data-testid={`sentiment-tile-${item.sector.toLowerCase().replace(' ', '-')}`}
                     >
@@ -990,7 +990,7 @@ export function BrokingDashboard() {
                     <span className="text-sm text-muted-foreground">Overall Market Sentiment</span>
                     <Badge className="bg-green-100 text-green-800">Bullish</Badge>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="w-full bg-muted rounded-full h-2">
                     <div className="bg-green-600 h-2 rounded-full" style={{ width: '65%' }}></div>
                   </div>
                   <div className="text-xs text-muted-foreground">65% Bullish Sentiment</div>
@@ -1073,7 +1073,7 @@ export function BrokingDashboard() {
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              <div className="w-16 bg-gray-200 rounded-full h-2">
+                              <div className="w-16 bg-muted rounded-full h-2">
                                 <div 
                                   className="bg-blue-600 h-2 rounded-full" 
                                   style={{ width: `${Math.abs(item.sentiment) * 100}%` }}

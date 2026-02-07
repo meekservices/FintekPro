@@ -271,9 +271,9 @@ export default function Support() {
     <>
       <div className="min-h-screen bg-muted">
         {/* Hero Section */}
-        <div className="bg-white py-16 border-b">
+        <div className="bg-card py-16 border-b">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h1 className="text-4xl font-bold text-gray-900 mb-4" data-testid="support-title">
+            <h1 className="text-4xl font-bold text-foreground mb-4" data-testid="support-title">
               Help & Support Center
             </h1>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
@@ -302,11 +302,11 @@ export default function Support() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between flex-wrap gap-4">
                   <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-full bg-white shadow-sm">
+                    <div className="p-3 rounded-full bg-card shadow-sm">
                       <Ticket className="h-8 w-8 text-blue-600" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-semibold text-gray-900">Need Help?</h3>
+                      <h3 className="text-xl font-semibold text-foreground">Need Help?</h3>
                       <p className="text-muted-foreground">Create a support request and our team will assist you</p>
                     </div>
                   </div>
@@ -448,7 +448,7 @@ export default function Support() {
           {/* My Tickets Section */}
           {myTickets.length > 0 && (
             <div className="mb-12">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6" data-testid="my-tickets-title">
+              <h2 className="text-2xl font-bold text-foreground mb-6" data-testid="my-tickets-title">
                 My Support Requests
               </h2>
               <div className="space-y-4">
@@ -463,7 +463,7 @@ export default function Support() {
                               {ticket.status.replace('_', ' ')}
                             </Badge>
                           </div>
-                          <h4 className="font-medium text-gray-900">{ticket.subject}</h4>
+                          <h4 className="font-medium text-foreground">{ticket.subject}</h4>
                           <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{ticket.description}</p>
                         </div>
                         <div className="text-right text-sm text-muted-foreground">
@@ -480,7 +480,7 @@ export default function Support() {
           
           {/* Contact Options */}
           <div className="mb-12">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6" data-testid="contact-options-title">
+            <h2 className="text-2xl font-bold text-foreground mb-6" data-testid="contact-options-title">
               Contact Our Support Team
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -488,13 +488,13 @@ export default function Support() {
                 <Card key={index} className={`${option.bgColor} border-0 hover:shadow-md transition-shadow`}>
                   <CardContent className="p-6">
                     <div className="flex items-center gap-4">
-                      <div className={`p-3 rounded-full bg-white ${option.iconColor}`}>
+                      <div className={`p-3 rounded-full bg-card ${option.iconColor}`}>
                         <option.icon className="h-6 w-6" />
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900">{option.title}</h3>
+                        <h3 className="font-semibold text-foreground">{option.title}</h3>
                         <p className="text-sm text-muted-foreground mb-1">{option.description}</p>
-                        <p className="font-medium text-gray-900">{option.contact}</p>
+                        <p className="font-medium text-foreground">{option.contact}</p>
                         <p className="text-xs text-muted-foreground">{option.timing}</p>
                       </div>
                     </div>
@@ -506,7 +506,7 @@ export default function Support() {
 
           {/* Quick Actions */}
           <div className="mb-12">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6" data-testid="quick-actions-title">
+            <h2 className="text-2xl font-bold text-foreground mb-6" data-testid="quick-actions-title">
               Quick Self-Service Actions
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -514,7 +514,7 @@ export default function Support() {
                 <Card key={index} className="hover:shadow-md transition-shadow cursor-pointer" data-testid={`action-${action.action}`}>
                   <CardContent className="p-6 text-center">
                     <action.icon className="h-8 w-8 text-finance-blue mx-auto mb-3" />
-                    <h3 className="font-semibold text-gray-900 mb-2">{action.title}</h3>
+                    <h3 className="font-semibold text-foreground mb-2">{action.title}</h3>
                     <p className="text-sm text-muted-foreground">{action.description}</p>
                   </CardContent>
                 </Card>
@@ -525,7 +525,7 @@ export default function Support() {
           {/* FAQ Section */}
           <div>
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white" data-testid="faq-title">
+              <h2 className="text-2xl font-bold text-foreground" data-testid="faq-title">
                 Frequently Asked Questions
               </h2>
               {searchQuery && (
@@ -600,7 +600,7 @@ export default function Support() {
           </div>
 
           {/* Support Hours */}
-          <Card className="mt-12 bg-gradient-to-r from-finance-blue to-blue-600 text-white">
+          <Card className="mt-12 bg-gradient-to-r from-finance-blue to-blue-600 text-foreground">
             <CardContent className="p-8">
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div className="flex items-center gap-4">

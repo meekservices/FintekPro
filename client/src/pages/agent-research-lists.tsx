@@ -153,9 +153,9 @@ export default function AgentResearchLists() {
       BOND: "bg-amber-500",
       ETF: "bg-purple-500",
       FD: "bg-cyan-500",
-      MIXED: "bg-slate-500",
+      MIXED: "bg-muted",
     };
-    return colors[universe] || "bg-slate-500";
+    return colors[universe] || "bg-muted";
   };
 
   return (
@@ -163,11 +163,11 @@ export default function AgentResearchLists() {
       <div className="p-4 md:p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-3 text-white">
+            <h1 className="text-2xl font-bold flex items-center gap-3 text-foreground">
               <ListChecks className="h-7 w-7 text-blue-400" />
               Research Lists
             </h1>
-            <p className="text-slate-400 mt-1">
+            <p className="text-muted-foreground mt-1">
               Create and manage curated instrument lists for client recommendations
             </p>
           </div>
@@ -250,20 +250,20 @@ export default function AgentResearchLists() {
           </Dialog>
         </div>
 
-        <Card className="bg-slate-800/50 border-slate-700">
+        <Card className="bg-card/50 border-border">
           <CardHeader className="pb-4">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search lists..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 bg-slate-900 border-slate-600"
+                  className="pl-10 bg-background border-border"
                 />
               </div>
               <Select value={filterUniverse} onValueChange={setFilterUniverse}>
-                <SelectTrigger className="w-[180px] bg-slate-900 border-slate-600">
+                <SelectTrigger className="w-[180px] bg-background border-border">
                   <Filter className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Filter by universe" />
                 </SelectTrigger>
@@ -280,12 +280,12 @@ export default function AgentResearchLists() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="text-center py-8 text-slate-400">Loading research lists...</div>
+              <div className="text-center py-8 text-muted-foreground">Loading research lists...</div>
             ) : filteredLists.length === 0 ? (
               <div className="text-center py-12">
-                <FolderOpen className="h-12 w-12 mx-auto text-slate-500 mb-4" />
-                <h3 className="text-lg font-medium text-slate-300 mb-2">No research lists yet</h3>
-                <p className="text-slate-400 mb-4">
+                <FolderOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium text-muted-foreground mb-2">No research lists yet</h3>
+                <p className="text-muted-foreground mb-4">
                   Create your first research list to start curating instruments for client recommendations.
                 </p>
                 <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
@@ -297,46 +297,46 @@ export default function AgentResearchLists() {
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="border-slate-700">
-                      <TableHead className="text-slate-300">List Name</TableHead>
-                      <TableHead className="text-slate-300">Universe</TableHead>
-                      <TableHead className="text-slate-300 text-center">Items</TableHead>
-                      <TableHead className="text-slate-300">Visibility</TableHead>
-                      <TableHead className="text-slate-300">Last Modified</TableHead>
-                      <TableHead className="text-slate-300 text-right">Actions</TableHead>
+                    <TableRow className="border-border">
+                      <TableHead className="text-muted-foreground">List Name</TableHead>
+                      <TableHead className="text-muted-foreground">Universe</TableHead>
+                      <TableHead className="text-muted-foreground text-center">Items</TableHead>
+                      <TableHead className="text-muted-foreground">Visibility</TableHead>
+                      <TableHead className="text-muted-foreground">Last Modified</TableHead>
+                      <TableHead className="text-muted-foreground text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredLists.map((list) => (
-                      <TableRow key={list.id} className="border-slate-700 hover:bg-slate-700/50">
+                      <TableRow key={list.id} className="border-border hover:bg-muted/50">
                         <TableCell>
                           <div>
                             <Link href={`/agent/research-lists/${list.id}`}>
-                              <span className="font-medium text-white hover:text-blue-400 cursor-pointer">
+                              <span className="font-medium text-foreground hover:text-blue-400 cursor-pointer">
                                 {list.name}
                               </span>
                             </Link>
                             {list.description && (
-                              <p className="text-xs text-slate-400 mt-1 line-clamp-1">
+                              <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
                                 {list.description}
                               </p>
                             )}
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge className={`${getUniverseColor(list.universeType)} text-white`}>
+                          <Badge className={`${getUniverseColor(list.universeType)} text-foreground`}>
                             {list.universeType}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-center">
-                          <span className="text-slate-300">{list.itemCount}</span>
+                          <span className="text-muted-foreground">{list.itemCount}</span>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="border-slate-600 text-slate-300">
+                          <Badge variant="outline" className="border-border text-muted-foreground">
                             {list.visibility}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-slate-400">
+                        <TableCell className="text-muted-foreground">
                           {formatDistanceToNow(new Date(list.updatedAt), { addSuffix: true })}
                         </TableCell>
                         <TableCell className="text-right">

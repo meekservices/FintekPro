@@ -290,7 +290,7 @@ export default function PortfolioRebalancing() {
     <div className="container mx-auto px-4 py-6 max-w-7xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Scale className="w-6 h-6 text-purple-600" />
             AI Rebalancing
           </h1>

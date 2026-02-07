@@ -79,7 +79,7 @@ const MEETING_TYPE_CONFIG: Record<string, { label: string; icon: any; color: str
   office_visit: { label: 'Office Visit', icon: Building, color: 'bg-amber-500', textColor: 'text-amber-400', bgLight: 'bg-amber-500/20' },
 };
 
-const DEFAULT_MEETING_CONFIG = { label: 'Meeting', icon: CalendarIcon, color: 'bg-slate-500', textColor: 'text-slate-400', bgLight: 'bg-slate-500/20' };
+const DEFAULT_MEETING_CONFIG = { label: 'Meeting', icon: CalendarIcon, color: 'bg-muted', textColor: 'text-muted-foreground', bgLight: 'bg-muted/20' };
 
 const getMeetingConfig = (meetingType?: string) => (meetingType && MEETING_TYPE_CONFIG[meetingType]) || DEFAULT_MEETING_CONFIG;
 
@@ -360,10 +360,10 @@ export default function AgentCalendar() {
     const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
     return (
-      <div className="bg-slate-900 rounded-lg border border-slate-700 overflow-hidden">
-        <div className="grid grid-cols-7 border-b border-slate-700">
+      <div className="bg-background rounded-lg border border-border overflow-hidden">
+        <div className="grid grid-cols-7 border-b border-border">
           {weekDays.map(day => (
-            <div key={day} className="p-3 text-center text-sm font-medium text-slate-400 bg-slate-800/50">
+            <div key={day} className="p-3 text-center text-sm font-medium text-muted-foreground bg-card/50">
               {day}
             </div>
           ))}
@@ -378,13 +378,13 @@ export default function AgentCalendar() {
               <div
                 key={idx}
                 onClick={() => handleDateClick(day)}
-                className={`min-h-[100px] p-2 border-b border-r border-slate-700 cursor-pointer transition-colors hover:bg-slate-800/50 ${
-                  !isCurrentMonth ? 'bg-slate-900/50' : ''
+                className={`min-h-[100px] p-2 border-b border-r border-border cursor-pointer transition-colors hover:bg-card/50 ${
+                  !isCurrentMonth ? 'bg-background/50' : ''
                 } ${isCurrentDay ? 'bg-emerald-500/10' : ''}`}
                 data-testid={`calendar-day-${format(day, 'yyyy-MM-dd')}`}
               >
                 <div className={`text-sm font-medium mb-1 ${
-                  isCurrentDay ? 'text-emerald-400' : isCurrentMonth ? 'text-white' : 'text-slate-600'
+                  isCurrentDay ? 'text-emerald-400' : isCurrentMonth ? 'text-foreground' : 'text-muted-foreground'
                 }`}>
                   {format(day, 'd')}
                 </div>
@@ -403,7 +403,7 @@ export default function AgentCalendar() {
                     );
                   })}
                   {dayAppointments.length > 3 && (
-                    <div className="text-xs text-slate-500">+{dayAppointments.length - 3} more</div>
+                    <div className="text-xs text-muted-foreground">+{dayAppointments.length - 3} more</div>
                   )}
                 </div>
               </div>
@@ -418,12 +418,12 @@ export default function AgentCalendar() {
     const days = getDaysInWeek();
 
     return (
-      <div className="bg-slate-900 rounded-lg border border-slate-700 overflow-hidden">
-        <div className="grid grid-cols-8 border-b border-slate-700">
-          <div className="p-3 text-center text-sm font-medium text-slate-400 bg-slate-800/50">Time</div>
+      <div className="bg-background rounded-lg border border-border overflow-hidden">
+        <div className="grid grid-cols-8 border-b border-border">
+          <div className="p-3 text-center text-sm font-medium text-muted-foreground bg-card/50">Time</div>
           {days.map(day => (
-            <div key={day.toString()} className={`p-3 text-center text-sm font-medium bg-slate-800/50 ${
-              isToday(day) ? 'text-emerald-400' : 'text-slate-400'
+            <div key={day.toString()} className={`p-3 text-center text-sm font-medium bg-card/50 ${
+              isToday(day) ? 'text-emerald-400' : 'text-muted-foreground'
             }`}>
               <div>{format(day, 'EEE')}</div>
               <div className="text-lg">{format(day, 'd')}</div>
@@ -432,8 +432,8 @@ export default function AgentCalendar() {
         </div>
         <div className="max-h-[500px] overflow-y-auto">
           {TIME_SLOTS.map(({ hour, label }) => (
-            <div key={hour} className="grid grid-cols-8 border-b border-slate-700">
-              <div className="p-2 text-xs text-slate-500 bg-slate-800/30">
+            <div key={hour} className="grid grid-cols-8 border-b border-border">
+              <div className="p-2 text-xs text-muted-foreground bg-card/30">
                 {label}
               </div>
               {days.map(day => {
@@ -444,7 +444,7 @@ export default function AgentCalendar() {
                   <div
                     key={day.toString()}
                     onClick={() => handleDateClick(day)}
-                    className="p-1 border-l border-slate-700 min-h-[50px] hover:bg-slate-800/30 cursor-pointer"
+                    className="p-1 border-l border-border min-h-[50px] hover:bg-card/30 cursor-pointer"
                   >
                     {dayAppointments.map(apt => {
                       const config = getMeetingConfig(apt.meetingType);
@@ -469,21 +469,21 @@ export default function AgentCalendar() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 p-6">
+    <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col lg:flex-row gap-6">
           <div className="flex-1 space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
-                <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
                   <CalendarIcon className="h-7 w-7 text-emerald-500" />
                   Calendar & Appointments
                 </h1>
-                <p className="text-slate-400 mt-1">Schedule and manage client meetings</p>
+                <p className="text-muted-foreground mt-1">Schedule and manage client meetings</p>
               </div>
               <div className="flex items-center gap-3">
                 <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as typeof viewMode)}>
-                  <TabsList className="bg-slate-800 border-slate-700">
+                  <TabsList className="bg-card border-border">
                     <TabsTrigger value="month" className="data-[state=active]:bg-emerald-600" data-testid="button-view-month">Month</TabsTrigger>
                     <TabsTrigger value="week" className="data-[state=active]:bg-emerald-600" data-testid="button-view-week">Week</TabsTrigger>
                   </TabsList>
@@ -496,14 +496,14 @@ export default function AgentCalendar() {
             </div>
 
             <div className="flex items-center justify-between">
-              <Button variant="outline" size="icon" onClick={navigatePrev} className="border-slate-700" data-testid="button-nav-prev">
+              <Button variant="outline" size="icon" onClick={navigatePrev} className="border-border" data-testid="button-nav-prev">
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <h2 className="text-xl font-semibold text-white">
+              <h2 className="text-xl font-semibold text-foreground">
                 {viewMode === 'month' && format(currentDate, 'MMMM yyyy')}
                 {viewMode === 'week' && `Week of ${format(startOfWeek(currentDate), 'MMM d, yyyy')}`}
               </h2>
-              <Button variant="outline" size="icon" onClick={navigateNext} className="border-slate-700" data-testid="button-nav-next">
+              <Button variant="outline" size="icon" onClick={navigateNext} className="border-border" data-testid="button-nav-next">
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
@@ -523,27 +523,27 @@ export default function AgentCalendar() {
               {Object.entries(MEETING_TYPE_CONFIG).map(([key, config]) => (
                 <div key={key} className="flex items-center gap-2">
                   <div className={`w-3 h-3 rounded ${config.color}`} />
-                  <span className="text-sm text-slate-400">{config.label}</span>
+                  <span className="text-sm text-muted-foreground">{config.label}</span>
                 </div>
               ))}
             </div>
           </div>
 
           <div className="w-full lg:w-80 space-y-4">
-            <Card className="bg-slate-900 border-slate-700">
+            <Card className="bg-background border-border">
               <CardHeader className="pb-3">
-                <CardTitle className="text-white flex items-center gap-2">
+                <CardTitle className="text-foreground flex items-center gap-2">
                   <Clock className="h-5 w-5 text-emerald-500" />
                   Today's Schedule
                 </CardTitle>
-                <CardDescription className="text-slate-400">
+                <CardDescription className="text-muted-foreground">
                   {todayAppointments.length} appointment{todayAppointments.length !== 1 ? 's' : ''} today
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <ScrollArea className="h-48">
                   {todayAppointments.length === 0 ? (
-                    <p className="text-slate-500 text-sm text-center py-4">No appointments today</p>
+                    <p className="text-muted-foreground text-sm text-center py-4">No appointments today</p>
                   ) : (
                     <div className="space-y-3">
                       {todayAppointments.map(apt => {
@@ -553,19 +553,19 @@ export default function AgentCalendar() {
                           <div
                             key={apt.id}
                             onClick={(e) => handleAppointmentClick(apt, e)}
-                            className="p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800 cursor-pointer transition-colors"
+                            className="p-3 rounded-lg bg-card/50 hover:bg-card cursor-pointer transition-colors"
                             data-testid={`sidebar-today-${apt.id}`}
                           >
                             <div className="flex items-center gap-2 mb-1">
                               <Icon className={`h-4 w-4 ${config.textColor}`} />
-                              <span className="font-medium text-white text-sm">{apt.title}</span>
+                              <span className="font-medium text-foreground text-sm">{apt.title}</span>
                             </div>
-                            <div className="text-xs text-slate-400 flex items-center gap-2">
+                            <div className="text-xs text-muted-foreground flex items-center gap-2">
                               <Clock className="h-3 w-3" />
                               {apt.startTime} - {apt.endTime}
                             </div>
                             {apt.clientName && (
-                              <div className="text-xs text-slate-500 mt-1">{apt.clientName}</div>
+                              <div className="text-xs text-muted-foreground mt-1">{apt.clientName}</div>
                             )}
                           </div>
                         );
@@ -576,20 +576,20 @@ export default function AgentCalendar() {
               </CardContent>
             </Card>
 
-            <Card className="bg-slate-900 border-slate-700">
+            <Card className="bg-background border-border">
               <CardHeader className="pb-3">
-                <CardTitle className="text-white flex items-center gap-2">
+                <CardTitle className="text-foreground flex items-center gap-2">
                   <CalendarIcon className="h-5 w-5 text-blue-500" />
                   Upcoming Appointments
                 </CardTitle>
-                <CardDescription className="text-slate-400">
+                <CardDescription className="text-muted-foreground">
                   {upcomingAppointments.length} upcoming
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <ScrollArea className="h-64">
                   {upcomingAppointments.length === 0 ? (
-                    <p className="text-slate-500 text-sm text-center py-4">No upcoming appointments</p>
+                    <p className="text-muted-foreground text-sm text-center py-4">No upcoming appointments</p>
                   ) : (
                     <div className="space-y-3">
                       {upcomingAppointments.slice(0, 8).map(apt => {
@@ -598,20 +598,20 @@ export default function AgentCalendar() {
                           <div
                             key={apt.id}
                             onClick={(e) => handleAppointmentClick(apt, e)}
-                            className="p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800 cursor-pointer transition-colors"
+                            className="p-3 rounded-lg bg-card/50 hover:bg-card cursor-pointer transition-colors"
                             data-testid={`sidebar-upcoming-${apt.id}`}
                           >
                             <div className="flex items-center justify-between mb-1">
-                              <span className="font-medium text-white text-sm">{apt.title}</span>
+                              <span className="font-medium text-foreground text-sm">{apt.title}</span>
                               <Badge className={`text-xs ${config.bgLight} ${config.textColor} border-0`}>
                                 {config.label}
                               </Badge>
                             </div>
-                            <div className="text-xs text-slate-400">
+                            <div className="text-xs text-muted-foreground">
                               {format(parseISO(apt.date), 'EEE, MMM d')} at {apt.startTime}
                             </div>
                             {apt.clientName && (
-                              <div className="text-xs text-slate-500 mt-1">{apt.clientName}</div>
+                              <div className="text-xs text-muted-foreground mt-1">{apt.clientName}</div>
                             )}
                           </div>
                         );
@@ -626,21 +626,21 @@ export default function AgentCalendar() {
       </div>
 
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-background border-border text-foreground max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Schedule Appointment</DialogTitle>
-            <DialogDescription className="text-slate-400">
+            <DialogDescription className="text-muted-foreground">
               Create a new appointment with a client
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 mt-4">
             <div>
-              <Label htmlFor="apt-title" className="text-slate-300">Subject/Title *</Label>
+              <Label htmlFor="apt-title" className="text-muted-foreground">Subject/Title *</Label>
               <Input
                 id="apt-title"
                 value={newAppointment.title}
                 onChange={(e) => setNewAppointment({ ...newAppointment, title: e.target.value })}
-                className="mt-1 bg-slate-800 border-slate-700"
+                className="mt-1 bg-card border-border"
                 placeholder="e.g., Portfolio Review, Tax Planning"
                 data-testid="input-appointment-title"
               />
@@ -648,12 +648,12 @@ export default function AgentCalendar() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label className="text-slate-300">Client</Label>
+                <Label className="text-muted-foreground">Client</Label>
                 <Select value={newAppointment.clientId} onValueChange={(value) => setNewAppointment({ ...newAppointment, clientId: value })}>
-                  <SelectTrigger className="mt-1 bg-slate-800 border-slate-700" data-testid="select-client">
+                  <SelectTrigger className="mt-1 bg-card border-border" data-testid="select-client">
                     <SelectValue placeholder="Select client" />
                   </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-700">
+                  <SelectContent className="bg-card border-border">
                     {clients.map(client => (
                       <SelectItem key={client.id} value={client.id}>
                         {client.firstName && client.lastName ? `${client.firstName} ${client.lastName}` : client.email}
@@ -663,12 +663,12 @@ export default function AgentCalendar() {
                 </Select>
               </div>
               <div>
-                <Label className="text-slate-300">Meeting Type *</Label>
+                <Label className="text-muted-foreground">Meeting Type *</Label>
                 <Select value={newAppointment.meetingType} onValueChange={(value) => setNewAppointment({ ...newAppointment, meetingType: value as Appointment['meetingType'] })}>
-                  <SelectTrigger className="mt-1 bg-slate-800 border-slate-700" data-testid="select-meeting-type">
+                  <SelectTrigger className="mt-1 bg-card border-border" data-testid="select-meeting-type">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-700">
+                  <SelectContent className="bg-card border-border">
                     <SelectItem value="call">Call</SelectItem>
                     <SelectItem value="video_call">Video Call</SelectItem>
                     <SelectItem value="in_person">In-Person</SelectItem>
@@ -680,23 +680,23 @@ export default function AgentCalendar() {
 
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <Label htmlFor="apt-date" className="text-slate-300">Date *</Label>
+                <Label htmlFor="apt-date" className="text-muted-foreground">Date *</Label>
                 <Input
                   id="apt-date"
                   type="date"
                   value={newAppointment.date}
                   onChange={(e) => setNewAppointment({ ...newAppointment, date: e.target.value })}
-                  className="mt-1 bg-slate-800 border-slate-700"
+                  className="mt-1 bg-card border-border"
                   data-testid="input-date"
                 />
               </div>
               <div>
-                <Label htmlFor="apt-time" className="text-slate-300">Time *</Label>
+                <Label htmlFor="apt-time" className="text-muted-foreground">Time *</Label>
                 <Select value={newAppointment.startTime} onValueChange={(value) => setNewAppointment({ ...newAppointment, startTime: value })}>
-                  <SelectTrigger className="mt-1 bg-slate-800 border-slate-700" data-testid="select-time">
+                  <SelectTrigger className="mt-1 bg-card border-border" data-testid="select-time">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-700">
+                  <SelectContent className="bg-card border-border">
                     {TIME_SLOTS.map(({ hour }) => (
                       <SelectItem key={hour} value={`${hour.toString().padStart(2, '0')}:00`}>
                         {format(new Date().setHours(hour, 0), 'h:mm a')}
@@ -711,12 +711,12 @@ export default function AgentCalendar() {
                 </Select>
               </div>
               <div>
-                <Label className="text-slate-300">Duration *</Label>
+                <Label className="text-muted-foreground">Duration *</Label>
                 <Select value={newAppointment.duration.toString()} onValueChange={(value) => setNewAppointment({ ...newAppointment, duration: parseInt(value) })}>
-                  <SelectTrigger className="mt-1 bg-slate-800 border-slate-700" data-testid="select-duration">
+                  <SelectTrigger className="mt-1 bg-card border-border" data-testid="select-duration">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-700">
+                  <SelectContent className="bg-card border-border">
                     {DURATION_OPTIONS.map(opt => (
                       <SelectItem key={opt.value} value={opt.value.toString()}>{opt.label}</SelectItem>
                     ))}
@@ -726,23 +726,23 @@ export default function AgentCalendar() {
             </div>
 
             <div>
-              <Label htmlFor="apt-location" className="text-slate-300">Location Details</Label>
+              <Label htmlFor="apt-location" className="text-muted-foreground">Location Details</Label>
               <Input
                 id="apt-location"
                 value={newAppointment.locationDetails}
                 onChange={(e) => setNewAppointment({ ...newAppointment, locationDetails: e.target.value })}
-                className="mt-1 bg-slate-800 border-slate-700"
+                className="mt-1 bg-card border-border"
                 placeholder="e.g., Google Meet link, Office address"
               />
             </div>
 
             <div>
-              <Label className="text-slate-300">Reminder</Label>
+              <Label className="text-muted-foreground">Reminder</Label>
               <Select value={newAppointment.reminder} onValueChange={(value) => setNewAppointment({ ...newAppointment, reminder: value as Appointment['reminder'] })}>
-                <SelectTrigger className="mt-1 bg-slate-800 border-slate-700" data-testid="select-reminder">
+                <SelectTrigger className="mt-1 bg-card border-border" data-testid="select-reminder">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-slate-800 border-slate-700">
+                <SelectContent className="bg-card border-border">
                   {REMINDER_OPTIONS.map(opt => (
                     <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                   ))}
@@ -751,31 +751,31 @@ export default function AgentCalendar() {
             </div>
 
             <div>
-              <Label htmlFor="apt-agenda" className="text-slate-300">Agenda</Label>
+              <Label htmlFor="apt-agenda" className="text-muted-foreground">Agenda</Label>
               <Textarea
                 id="apt-agenda"
                 value={newAppointment.agenda}
                 onChange={(e) => setNewAppointment({ ...newAppointment, agenda: e.target.value })}
-                className="mt-1 bg-slate-800 border-slate-700"
+                className="mt-1 bg-card border-border"
                 placeholder="Meeting agenda points..."
                 rows={2}
               />
             </div>
 
             <div>
-              <Label htmlFor="apt-notes" className="text-slate-300">Notes</Label>
+              <Label htmlFor="apt-notes" className="text-muted-foreground">Notes</Label>
               <Textarea
                 id="apt-notes"
                 value={newAppointment.notes}
                 onChange={(e) => setNewAppointment({ ...newAppointment, notes: e.target.value })}
-                className="mt-1 bg-slate-800 border-slate-700"
+                className="mt-1 bg-card border-border"
                 placeholder="Additional notes..."
                 rows={2}
               />
             </div>
 
             <div className="flex justify-end gap-3 pt-4">
-              <Button variant="outline" onClick={() => setShowAddDialog(false)} className="border-slate-600">
+              <Button variant="outline" onClick={() => setShowAddDialog(false)} className="border-border">
                 Cancel
               </Button>
               <Button 
@@ -793,7 +793,7 @@ export default function AgentCalendar() {
       </Dialog>
 
       <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
-        <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-lg">
+        <DialogContent className="bg-background border-border text-foreground max-w-lg">
           {selectedAppointment && (
             <>
               <DialogHeader>
@@ -828,24 +828,24 @@ export default function AgentCalendar() {
 
               <div className="space-y-4 mt-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="flex items-center gap-2 text-slate-300">
-                    <CalendarIcon className="h-4 w-4 text-slate-500" />
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
                     <span>{format(parseISO(selectedAppointment.date), 'EEEE, MMMM d, yyyy')}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-slate-300">
-                    <Clock className="h-4 w-4 text-slate-500" />
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
                     <span>{selectedAppointment.startTime} - {selectedAppointment.endTime}</span>
                   </div>
                 </div>
 
                 {selectedAppointment.clientName && (
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50">
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-card/50">
                     <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-slate-500" />
+                      <User className="h-4 w-4 text-muted-foreground" />
                       <div>
-                        <span className="text-white">{selectedAppointment.clientName}</span>
+                        <span className="text-foreground">{selectedAppointment.clientName}</span>
                         {selectedAppointment.clientEmail && (
-                          <p className="text-xs text-slate-400">{selectedAppointment.clientEmail}</p>
+                          <p className="text-xs text-muted-foreground">{selectedAppointment.clientEmail}</p>
                         )}
                       </div>
                     </div>
@@ -861,28 +861,28 @@ export default function AgentCalendar() {
                 )}
 
                 {selectedAppointment.locationDetails && (
-                  <div className="flex items-center gap-2 text-slate-300">
-                    <MapPin className="h-4 w-4 text-slate-500" />
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
                     <span>{selectedAppointment.locationDetails}</span>
                   </div>
                 )}
 
                 {selectedAppointment.agenda && (
-                  <div className="p-3 rounded-lg bg-slate-800/50">
-                    <p className="text-xs text-slate-400 mb-1">Agenda</p>
-                    <p className="text-sm text-slate-300">{selectedAppointment.agenda}</p>
+                  <div className="p-3 rounded-lg bg-card/50">
+                    <p className="text-xs text-muted-foreground mb-1">Agenda</p>
+                    <p className="text-sm text-muted-foreground">{selectedAppointment.agenda}</p>
                   </div>
                 )}
 
                 {selectedAppointment.notes && (
-                  <div className="p-3 rounded-lg bg-slate-800/50">
-                    <p className="text-xs text-slate-400 mb-1">Notes</p>
-                    <p className="text-sm text-slate-300">{selectedAppointment.notes}</p>
+                  <div className="p-3 rounded-lg bg-card/50">
+                    <p className="text-xs text-muted-foreground mb-1">Notes</p>
+                    <p className="text-sm text-muted-foreground">{selectedAppointment.notes}</p>
                   </div>
                 )}
 
                 {selectedAppointment.reminder !== 'none' && (
-                  <div className="flex items-center gap-2 text-slate-400 text-sm">
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
                     <Bell className="h-4 w-4" />
                     <span>Reminder: {REMINDER_OPTIONS.find(r => r.value === selectedAppointment.reminder)?.label}</span>
                     {selectedAppointment.reminderSent && (
@@ -893,11 +893,11 @@ export default function AgentCalendar() {
 
                 {selectedAppointment.status === 'scheduled' && (
                   <>
-                    <div className="flex gap-2 pt-2 border-t border-slate-700">
+                    <div className="flex gap-2 pt-2 border-t border-border">
                       <Button
                         variant="outline"
                         size="sm"
-                        className="flex-1 border-slate-600"
+                        className="flex-1 border-border"
                         onClick={handleDownloadICS}
                         data-testid="button-download-ics"
                       >
@@ -907,7 +907,7 @@ export default function AgentCalendar() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="border-slate-600"
+                        className="border-border"
                         onClick={() => handleSendReminder('email')}
                         disabled={sendReminderMutation.isPending}
                         data-testid="button-send-email-reminder"
@@ -918,7 +918,7 @@ export default function AgentCalendar() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="border-slate-600"
+                        className="border-border"
                         onClick={() => handleSendReminder('sms')}
                         disabled={sendReminderMutation.isPending}
                         data-testid="button-send-sms-reminder"
@@ -928,7 +928,7 @@ export default function AgentCalendar() {
                       </Button>
                     </div>
 
-                    <div className="flex justify-between gap-3 pt-2 border-t border-slate-700">
+                    <div className="flex justify-between gap-3 pt-2 border-t border-border">
                       <Button
                         className="bg-emerald-600 hover:bg-emerald-700"
                         onClick={handleMarkComplete}

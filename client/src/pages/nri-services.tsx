@@ -391,14 +391,14 @@ export default function NRIServices() {
   return (
     <div className="container mx-auto px-4 py-8 space-y-8">
       {/* Hero Section */}
-      <div className="relative bg-gradient-to-br from-blue-600 via-purple-600 to-blue-800 rounded-3xl p-8 md:p-12 text-white overflow-hidden">
+      <div className="relative bg-gradient-to-br from-blue-600 via-purple-600 to-blue-800 rounded-3xl p-8 md:p-12 text-foreground overflow-hidden">
         <div className="absolute inset-0 bg-black/10"></div>
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 bg-white/10 backdrop-blur-sm rounded-xl">
+            <div className="p-3 bg-card/10 backdrop-blur-sm rounded-xl">
               <Globe className="h-8 w-8" />
             </div>
-            <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
+            <Badge variant="secondary" className="bg-card/20 text-foreground border-white/30">
               NRI Services
             </Badge>
           </div>
@@ -411,11 +411,11 @@ export default function NRIServices() {
           </p>
           
           <div className="flex flex-wrap gap-4">
-            <Button size="lg" className="bg-white text-blue-600 hover:bg-blue-50" data-testid="button-get-started">
+            <Button size="lg" className="bg-card text-blue-600 hover:bg-blue-50" data-testid="button-get-started">
               Get Started Today
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
-            <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10" data-testid="button-speak-advisor">
+            <Button size="lg" variant="outline" className="border-white/30 text-foreground hover:bg-card/10" data-testid="button-speak-advisor">
               <Phone className="mr-2 h-5 w-5" />
               Speak to NRI Advisor
             </Button>
@@ -530,7 +530,7 @@ export default function NRIServices() {
                   </div>
                 )}
                 {service.isPopular && (
-                  <div className="absolute top-0 left-0 bg-gradient-to-r from-blue-500 to-purple-600 text-white px-3 py-1 text-xs font-semibold rounded-br-lg">
+                  <div className="absolute top-0 left-0 bg-gradient-to-r from-blue-500 to-purple-600 text-foreground px-3 py-1 text-xs font-semibold rounded-br-lg">
                     <Star className="h-3 w-3 inline mr-1" />
                     POPULAR
                   </div>

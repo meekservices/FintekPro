@@ -382,7 +382,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
@@ -393,10 +393,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       window.location.href = '/auth' + getPortalQueryParams();
     }
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-400">Redirecting to login...</p>
+          <p className="text-muted-foreground">Redirecting to login...</p>
         </div>
       </div>
     );
@@ -407,12 +407,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   if (!isAdmin) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-950 dark:to-orange-950 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl p-8 max-w-md w-full text-center">
+        <div className="bg-background rounded-lg shadow-xl p-8 max-w-md w-full text-center">
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+          <h1 className="text-2xl font-bold text-foreground mb-2">
             Access Denied
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
+          <p className="text-muted-foreground mb-6">
             This admin portal is restricted to administrators only. Please sign in with an admin account.
           </p>
           <div className="space-y-3">
@@ -429,9 +429,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
+    <div className="min-h-screen bg-background text-foreground">
       <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
-        <DialogContent className="bg-gray-900 border-gray-700 p-0 max-w-lg">
+        <DialogContent className="bg-background border-border p-0 max-w-lg">
           <Command className="bg-transparent">
             <CommandInput placeholder="Search admin features..." className="border-0" />
             <CommandList>
@@ -447,7 +447,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                     >
                       <item.icon className="mr-2 h-4 w-4" />
                       <span>{item.title}</span>
-                      <span className="ml-2 text-xs text-gray-500">{item.description}</span>
+                      <span className="ml-2 text-xs text-muted-foreground">{item.description}</span>
                     </CommandItem>
                   ))}
                 </CommandGroup>
@@ -457,34 +457,34 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </DialogContent>
       </Dialog>
 
-      <header className="bg-gray-900 border-b border-gray-800 sticky top-0 z-50">
+      <header className="bg-background border-b border-border sticky top-0 z-50">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="text-gray-400 hover:text-white"
+              className="text-muted-foreground hover:text-foreground"
               data-testid="btn-toggle-sidebar"
             >
               {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
             <div>
-              <h1 className="text-xl font-bold text-white">FintekPro Admin</h1>
-              <p className="text-xs text-gray-400">System Administration Portal</p>
+              <h1 className="text-xl font-bold text-foreground">FintekPro Admin</h1>
+              <p className="text-xs text-muted-foreground">System Administration Portal</p>
             </div>
           </div>
 
           <div className="flex-1 max-w-md mx-8">
             <Button
               variant="outline"
-              className="w-full justify-start text-gray-400 border-gray-700 hover:bg-gray-800"
+              className="w-full justify-start text-muted-foreground border-border hover:bg-card"
               onClick={() => setSearchOpen(true)}
               data-testid="btn-global-search"
             >
               <Search className="h-4 w-4 mr-2" />
               <span>Search features...</span>
-              <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-gray-600 bg-gray-800 px-1.5 font-mono text-[10px] font-medium text-gray-400">
+              <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-card px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
                 <span className="text-xs">⌘</span>K
               </kbd>
             </Button>
@@ -492,13 +492,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           
           <div className="flex items-center gap-4">
             <Link href="/admin/theme-settings">
-              <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white" data-testid="btn-theme-settings" title="Theme & Accessibility">
+              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" data-testid="btn-theme-settings" title="Theme & Accessibility">
                 <Palette className="h-5 w-5" />
               </Button>
             </Link>
             <DropdownMenu open={notificationsOpen} onOpenChange={setNotificationsOpen}>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white relative" data-testid="btn-notifications">
+                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground relative" data-testid="btn-notifications">
                   <Bell className="h-5 w-5" />
                   {unreadCount > 0 && (
                     <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-red-500 text-white text-xs">
@@ -507,11 +507,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                   )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80 bg-gray-900 border-gray-700">
-                <DropdownMenuLabel className="text-gray-300">Notifications</DropdownMenuLabel>
-                <DropdownMenuSeparator className="bg-gray-700" />
+              <DropdownMenuContent align="end" className="w-80 bg-background border-border">
+                <DropdownMenuLabel className="text-muted-foreground">Notifications</DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-muted" />
                 {notifications.length === 0 ? (
-                  <div className="p-4 text-center text-gray-500">
+                  <div className="p-4 text-center text-muted-foreground">
                     <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-500" />
                     <p className="text-sm">All caught up!</p>
                   </div>
@@ -519,7 +519,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                   notifications.map(notification => (
                     <DropdownMenuItem 
                       key={notification.id}
-                      className="flex items-start gap-3 p-3 cursor-pointer hover:bg-gray-800"
+                      className="flex items-start gap-3 p-3 cursor-pointer hover:bg-card"
                       onClick={() => notification.link && navigate(notification.link)}
                     >
                       <div className={cn(
@@ -527,11 +527,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                         notification.type === 'kyc' && "bg-orange-400",
                         notification.type === 'compliance' && "bg-red-400",
                         notification.type === 'order' && "bg-blue-400",
-                        notification.type === 'system' && "bg-gray-400"
+                        notification.type === 'system' && "bg-muted-foreground"
                       )} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-200">{notification.title}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{notification.message}</p>
+                        <p className="text-sm font-medium text-foreground">{notification.title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{notification.message}</p>
                       </div>
                     </DropdownMenuItem>
                   ))
@@ -539,10 +539,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               </DropdownMenuContent>
             </DropdownMenu>
             
-            <div className="flex items-center gap-3 border-l border-gray-800 pl-4">
+            <div className="flex items-center gap-3 border-l border-border pl-4">
               <div className="text-right">
-                <p className="text-sm font-medium text-white">{user?.email}</p>
-                <p className="text-xs text-gray-400 capitalize">
+                <p className="text-sm font-medium text-foreground">{user?.email}</p>
+                <p className="text-xs text-muted-foreground capitalize">
                   {user?.roles?.includes('superadmin') ? 'Super Admin' : 'Admin'}
                 </p>
               </div>
@@ -550,7 +550,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 variant="ghost"
                 size="icon"
                 onClick={() => logoutMutation.mutate()}
-                className="text-gray-400 hover:text-red-400"
+                className="text-muted-foreground hover:text-red-400"
                 data-testid="button-logout"
               >
                 <LogOut className="h-5 w-5" />
@@ -563,7 +563,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       <div className="flex">
         <aside
           className={cn(
-            "bg-gray-900 border-r border-gray-800 transition-all duration-300 overflow-y-auto sticky top-[73px] h-[calc(100vh-73px)]",
+            "bg-background border-r border-border transition-all duration-300 overflow-y-auto sticky top-[73px] h-[calc(100vh-73px)]",
             sidebarOpen ? "w-72" : "w-0 border-0"
           )}
         >
@@ -585,7 +585,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                         "w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-left",
                         hasActiveItem 
                           ? "bg-blue-600/10 text-blue-400" 
-                          : "text-gray-400 hover:bg-gray-800 hover:text-gray-200"
+                          : "text-muted-foreground hover:bg-card hover:text-foreground"
                       )}
                       data-testid={`btn-category-${category.id}`}
                     >
@@ -618,21 +618,21 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                                     "w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-left",
                                     isChildActive
                                       ? "bg-blue-600/20 text-blue-400"
-                                      : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                                      : "text-muted-foreground hover:bg-card hover:text-foreground"
                                   )}
                                   data-testid={`btn-menu-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
                                 >
                                   <Icon className="h-4 w-4 flex-shrink-0" />
                                   <span className="text-sm flex-1">{item.title}</span>
                                   {isExpanded ? (
-                                    <ChevronDown className="h-3 w-3 text-gray-500" />
+                                    <ChevronDown className="h-3 w-3 text-muted-foreground" />
                                   ) : (
-                                    <ChevronRight className="h-3 w-3 text-gray-500" />
+                                    <ChevronRight className="h-3 w-3 text-muted-foreground" />
                                   )}
                                 </button>
                                 
                                 {isExpanded && (
-                                  <div className="ml-4 mt-1 space-y-0.5 border-l border-gray-700 pl-3">
+                                  <div className="ml-4 mt-1 space-y-0.5 border-l border-border pl-3">
                                     {item.children?.map(child => {
                                       const ChildIcon = child.icon;
                                       const isChildItemActive = location === child.href;
@@ -645,7 +645,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                                             "flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors text-sm",
                                             isChildItemActive
                                               ? "bg-blue-600 text-white"
-                                              : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                                              : "text-muted-foreground hover:bg-card hover:text-foreground"
                                           )}
                                           data-testid={`link-admin-${child.href.split('/').pop()}`}
                                         >
@@ -670,7 +670,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                                 "flex items-center gap-2 px-3 py-2 rounded-lg transition-colors",
                                 isActive
                                   ? "bg-blue-600 text-white"
-                                  : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                                  : "text-muted-foreground hover:bg-card hover:text-foreground"
                               )}
                               data-testid={`link-admin-${item.href.split('/').pop()}`}
                             >

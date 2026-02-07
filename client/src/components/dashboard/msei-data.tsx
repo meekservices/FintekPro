@@ -107,9 +107,9 @@ export function MSEIData() {
           </CardHeader>
           <CardContent>
             <div className="animate-pulse space-y-4">
-              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-              <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+              <div className="h-4 bg-muted rounded w-3/4"></div>
+              <div className="h-4 bg-muted rounded w-1/2"></div>
+              <div className="h-4 bg-muted rounded w-2/3"></div>
             </div>
           </CardContent>
         </Card>
@@ -144,7 +144,7 @@ export function MSEIData() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {statusData.tradingSegments.map((segment) => (
                 <div key={segment.segment} className="text-center">
-                  <p className="text-sm font-medium text-gray-900">{segment.segment}</p>
+                  <p className="text-sm font-medium text-foreground">{segment.segment}</p>
                   <Badge 
                     className={
                       segment.status === 'Open' ? 'bg-green-100 text-green-800' : 
@@ -157,7 +157,7 @@ export function MSEIData() {
                 </div>
               ))}
             </div>
-            <div className="mt-4 text-xs text-gray-500">
+            <div className="mt-4 text-xs text-muted-foreground">
               <p>Next Session: {statusData.nextSession}</p>
               <p>Last Updated: {new Date(statusData.lastUpdated).toLocaleTimeString()}</p>
             </div>
@@ -215,11 +215,11 @@ export function MSEIData() {
                   </thead>
                   <tbody>
                     {equitiesData.map((equity) => (
-                      <tr key={equity.symbol} className="border-b hover:bg-gray-50" data-testid={`equity-row-${equity.symbol}`}>
+                      <tr key={equity.symbol} className="border-b hover:bg-muted" data-testid={`equity-row-${equity.symbol}`}>
                         <td className="py-2">
                           <div>
                             <p className="font-medium">{equity.name}</p>
-                            <p className="text-xs text-gray-500">{equity.symbol}</p>
+                            <p className="text-xs text-muted-foreground">{equity.symbol}</p>
                           </div>
                         </td>
                         <td className="py-2">
@@ -236,13 +236,13 @@ export function MSEIData() {
                         <td className={`py-2 text-right ${equity.pchange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                           {equity.pchange >= 0 ? '+' : ''}{formatPercentage(equity.pchange)}
                         </td>
-                        <td className="py-2 text-right text-gray-600">
+                        <td className="py-2 text-right text-muted-foreground">
                           {formatPrice(equity.high)}
                         </td>
-                        <td className="py-2 text-right text-gray-600">
+                        <td className="py-2 text-right text-muted-foreground">
                           {formatPrice(equity.low)}
                         </td>
-                        <td className="py-2 text-right text-gray-600">
+                        <td className="py-2 text-right text-muted-foreground">
                           {equity.volume.toLocaleString()}
                         </td>
                       </tr>
@@ -268,8 +268,8 @@ export function MSEIData() {
                   <div key={currency.symbol} className="p-4 border rounded-lg" data-testid={`currency-${currency.symbol}`}>
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900">{currency.name}</h4>
-                        <p className="text-sm text-gray-600">{currency.symbol}</p>
+                        <h4 className="font-semibold text-foreground">{currency.name}</h4>
+                        <p className="text-sm text-muted-foreground">{currency.symbol}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-xl font-bold">{formatRate(currency.rate)}</p>
@@ -278,7 +278,7 @@ export function MSEIData() {
                         </p>
                       </div>
                     </div>
-                    <div className="mt-3 flex justify-between text-sm text-gray-600">
+                    <div className="mt-3 flex justify-between text-sm text-muted-foreground">
                       <span>High: {formatRate(currency.high)}</span>
                       <span>Low: {formatRate(currency.low)}</span>
                       <span>Volume: {currency.volume.toLocaleString()}</span>
@@ -315,11 +315,11 @@ export function MSEIData() {
                   </thead>
                   <tbody>
                     {derivativesData.map((derivative) => (
-                      <tr key={derivative.symbol} className="border-b hover:bg-gray-50" data-testid={`derivative-row-${derivative.symbol}`}>
+                      <tr key={derivative.symbol} className="border-b hover:bg-muted" data-testid={`derivative-row-${derivative.symbol}`}>
                         <td className="py-2">
                           <div>
                             <p className="font-medium">{derivative.name}</p>
-                            <p className="text-xs text-gray-500">{derivative.symbol}</p>
+                            <p className="text-xs text-muted-foreground">{derivative.symbol}</p>
                           </div>
                         </td>
                         <td className="py-2">
@@ -327,8 +327,8 @@ export function MSEIData() {
                             {derivative.type}
                           </Badge>
                         </td>
-                        <td className="py-2 text-gray-600">{derivative.expiry}</td>
-                        <td className="py-2 text-right text-gray-600">
+                        <td className="py-2 text-muted-foreground">{derivative.expiry}</td>
+                        <td className="py-2 text-right text-muted-foreground">
                           {derivative.strike ? derivative.strike.toLocaleString() : '-'}
                         </td>
                         <td className="py-2 text-right font-medium">
@@ -337,10 +337,10 @@ export function MSEIData() {
                         <td className={`py-2 text-right ${derivative.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                           {derivative.change >= 0 ? '+' : ''}{formatChange(derivative.change)}
                         </td>
-                        <td className="py-2 text-right text-gray-600">
+                        <td className="py-2 text-right text-muted-foreground">
                           {derivative.volume.toLocaleString()}
                         </td>
-                        <td className="py-2 text-right text-gray-600">
+                        <td className="py-2 text-right text-muted-foreground">
                           {derivative.openInterest.toLocaleString()}
                         </td>
                       </tr>
@@ -369,12 +369,12 @@ export function MSEIData() {
                         <span className="text-sm font-bold text-green-700">#{index + 1}</span>
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">{stock.name}</p>
-                        <p className="text-sm text-gray-600">{stock.sector} • {stock.symbol}</p>
+                        <p className="font-medium text-foreground">{stock.name}</p>
+                        <p className="text-sm text-muted-foreground">{stock.sector} • {stock.symbol}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-gray-900">{formatPrice(stock.ltp)}</p>
+                      <p className="font-bold text-foreground">{formatPrice(stock.ltp)}</p>
                       <p className="text-sm text-green-600">
                         +{formatChange(stock.change)} (+{formatPercentage(stock.pchange)})
                       </p>
@@ -403,12 +403,12 @@ export function MSEIData() {
                         <span className="text-sm font-bold text-red-700">#{index + 1}</span>
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">{stock.name}</p>
-                        <p className="text-sm text-gray-600">{stock.sector} • {stock.symbol}</p>
+                        <p className="font-medium text-foreground">{stock.name}</p>
+                        <p className="text-sm text-muted-foreground">{stock.sector} • {stock.symbol}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-gray-900">{formatPrice(stock.ltp)}</p>
+                      <p className="font-bold text-foreground">{formatPrice(stock.ltp)}</p>
                       <p className="text-sm text-red-600">
                         {formatChange(stock.change)} ({formatPercentage(stock.pchange)})
                       </p>
@@ -433,21 +433,21 @@ export function MSEIData() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="text-center p-4 bg-blue-50 rounded-lg">
               <p className="text-2xl font-bold text-blue-600">{equitiesData.length}</p>
-              <p className="text-sm text-gray-600">Listed Equities</p>
+              <p className="text-sm text-muted-foreground">Listed Equities</p>
             </div>
             <div className="text-center p-4 bg-green-50 rounded-lg">
               <p className="text-2xl font-bold text-green-600">{currenciesData.length}</p>
-              <p className="text-sm text-gray-600">Currency Pairs</p>
+              <p className="text-sm text-muted-foreground">Currency Pairs</p>
             </div>
             <div className="text-center p-4 bg-purple-50 rounded-lg">
               <p className="text-2xl font-bold text-purple-600">{derivativesData.length}</p>
-              <p className="text-sm text-gray-600">Derivatives</p>
+              <p className="text-sm text-muted-foreground">Derivatives</p>
             </div>
             <div className="text-center p-4 bg-orange-50 rounded-lg">
               <p className="text-2xl font-bold text-orange-600">
                 {equitiesData.filter(e => e.change > 0).length}
               </p>
-              <p className="text-sm text-gray-600">Advancing</p>
+              <p className="text-sm text-muted-foreground">Advancing</p>
             </div>
           </div>
         </CardContent>
