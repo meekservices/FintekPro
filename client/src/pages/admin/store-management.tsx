@@ -1319,14 +1319,14 @@ export default function StoreManagement() {
                                   )}
                                 </div>
                               ) : (
-                                <span className="text-xs text-slate-400">-</span>
+                                <span className="text-xs text-gray-400 dark:text-gray-400">-</span>
                               )}
                             </TableCell>
-                            <TableCell className="text-slate-200">
+                            <TableCell className="text-gray-900 dark:text-gray-100">
                               <div className="flex flex-col">
                                 <span>{category?.name || 'Unknown'}</span>
                                 {subcategory && (
-                                  <span className="text-xs text-slate-400">→ {subcategory.name}</span>
+                                  <span className="text-xs text-gray-400 dark:text-gray-400">→ {subcategory.name}</span>
                                 )}
                               </div>
                             </TableCell>

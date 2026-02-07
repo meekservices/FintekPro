@@ -213,26 +213,46 @@
   background-color: hsla(0, 84%, 60%, 0.2) !important;
 }
 .dark ::placeholder {
-  color: hsl(215, 20%, 50%);
+  color: hsl(215, 20%, 55%) !important;
 }
 .dark td {
-  color: hsl(210, 25%, 86%);
+  color: #e2e8f0 !important;
 }
 .dark th {
-  color: hsl(210, 30%, 93%);
+  color: #f1f5f9 !important;
   font-weight: 600;
 }
 .dark p {
-  color: hsl(210, 20%, 88%);
+  color: #e2e8f0;
 }
 .dark label {
-  color: hsl(210, 25%, 88%);
+  color: #e2e8f0 !important;
 }
 .dark li {
-  color: hsl(210, 20%, 88%);
+  color: #e2e8f0;
+}
+.dark span {
+  color: inherit;
 }
 .dark input, .dark select, .dark textarea {
-  color: hsl(210, 40%, 98%);
+  color: #f8fafc !important;
+}
+.dark .text-muted-foreground {
+  color: #94a3b8 !important;
+}
+.dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+  color: #f1f5f9 !important;
+}
+.dark [data-slot="card-description"] {
+  color: #94a3b8 !important;
+}
+.dark [class*="border-border"] {
+  border-color: hsl(217, 33%, 30%) !important;
+}
+.dark [data-slot="badge"],
+.dark .inline-flex.rounded-full.border {
+  color: #cbd5e1 !important;
+  border-color: #475569 !important;
 }
 
 /* Reduced motion preference */
