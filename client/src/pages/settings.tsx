@@ -34,7 +34,8 @@ import {
   PanelLeft,
   PanelTop,
   Dock,
-  PenTool
+  PenTool,
+  RotateCcw
 } from "lucide-react";
 import { SignatureManagement } from "@/components/esign/SignatureManagement";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -210,6 +211,108 @@ function NavigationPositionSelector() {
             </div>
           </div>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DisplayPreferencesCard() {
+  const { displayPreferences, setDisplayPreference } = useUserPreferences();
+  const { toast } = useToast();
+
+  const handleToggle = (key: "reduceMotion" | "highContrast" | "compactMode", label: string) => {
+    const newValue = !displayPreferences[key];
+    setDisplayPreference(key, newValue);
+    toast({
+      title: `${label} ${newValue ? "Enabled" : "Disabled"}`,
+      description: newValue 
+        ? `${label} has been turned on` 
+        : `${label} has been turned off`,
+    });
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Display Preferences</CardTitle>
+        <CardDescription>Additional display settings for your experience</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label>Reduce Motion</Label>
+            <p className="text-sm text-muted-foreground">
+              Minimize animations and transitions
+            </p>
+          </div>
+          <Switch 
+            checked={displayPreferences.reduceMotion}
+            onCheckedChange={() => handleToggle("reduceMotion", "Reduce Motion")}
+            data-testid="switch-reduce-motion" 
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label>High Contrast</Label>
+            <p className="text-sm text-muted-foreground">
+              Increase contrast for better visibility
+            </p>
+          </div>
+          <Switch 
+            checked={displayPreferences.highContrast}
+            onCheckedChange={() => handleToggle("highContrast", "High Contrast")}
+            data-testid="switch-high-contrast" 
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label>Compact Mode</Label>
+            <p className="text-sm text-muted-foreground">
+              Reduce spacing to show more content
+            </p>
+          </div>
+          <Switch 
+            checked={displayPreferences.compactMode}
+            onCheckedChange={() => handleToggle("compactMode", "Compact Mode")}
+            data-testid="switch-compact-mode" 
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ResetAllSettingsCard() {
+  const { resetAllPreferences } = useUserPreferences();
+  const { setTheme } = useTheme();
+  const { toast } = useToast();
+
+  const handleReset = () => {
+    setTheme("system");
+    resetAllPreferences();
+    toast({
+      title: "Settings Reset",
+      description: "All appearance settings have been restored to defaults.",
+    });
+  };
+
+  return (
+    <Card className="border-dashed">
+      <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-6">
+        <div>
+          <p className="font-semibold">Reset All Appearance Settings</p>
+          <p className="text-sm text-muted-foreground">
+            Restore theme, navigation position, and display preferences to their original defaults
+          </p>
+        </div>
+        <Button 
+          variant="outline" 
+          onClick={handleReset}
+          data-testid="button-reset-settings"
+        >
+          <RotateCcw className="h-4 w-4 mr-2" />
+          Reset to Defaults
+        </Button>
       </CardContent>
     </Card>
   );
@@ -739,41 +842,9 @@ export default function SettingsPage() {
 
           <NavigationPositionSelector />
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Display Preferences</CardTitle>
-              <CardDescription>Additional display settings for your experience</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Reduce Motion</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Minimize animations and transitions
-                  </p>
-                </div>
-                <Switch data-testid="switch-reduce-motion" />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>High Contrast</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Increase contrast for better visibility
-                  </p>
-                </div>
-                <Switch data-testid="switch-high-contrast" />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Compact Mode</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Reduce spacing to show more content
-                  </p>
-                </div>
-                <Switch data-testid="switch-compact-mode" />
-              </div>
-            </CardContent>
-          </Card>
+          <DisplayPreferencesCard />
+
+          <ResetAllSettingsCard />
         </TabsContent>
 
         {/* Signatures Tab */}

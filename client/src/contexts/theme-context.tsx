@@ -82,17 +82,34 @@ function applyAccessibilityStyles(settings: AccessibilitySettings, isDark: boole
     : 85 - (15 * contrastLevel);
   root.style.setProperty('--border', `217 33% ${borderLightness}%`);
   
-  if (contrastLevel > 0.5) {
+  let userPrefsHighContrast = false;
+  let userPrefsReduceMotion = false;
+  try {
+    const stored = localStorage.getItem('user-preferences');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      userPrefsHighContrast = parsed.displayPreferences?.highContrast === true;
+      userPrefsReduceMotion = parsed.displayPreferences?.reduceMotion === true;
+    }
+  } catch {}
+
+  if (contrastLevel > 0.5 || userPrefsHighContrast) {
     root.classList.add('high-contrast');
   } else {
     root.classList.remove('high-contrast');
   }
   
   const motionLevel = settings.motion / 100;
-  root.style.setProperty('--animation-speed', `${1 - motionLevel}`);
-  root.style.setProperty('--transition-duration', `${Math.max(0.01, 0.3 * (1 - motionLevel))}s`);
   
-  if (motionLevel > 0.5) {
+  if (userPrefsReduceMotion) {
+    root.style.setProperty('--animation-speed', '0');
+    root.style.setProperty('--transition-duration', '0.01s');
+  } else {
+    root.style.setProperty('--animation-speed', `${1 - motionLevel}`);
+    root.style.setProperty('--transition-duration', `${Math.max(0.01, 0.3 * (1 - motionLevel))}s`);
+  }
+  
+  if (motionLevel > 0.5 || userPrefsReduceMotion) {
     root.classList.add('reduce-motion');
   } else {
     root.classList.remove('reduce-motion');

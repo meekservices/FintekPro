@@ -9,6 +9,7 @@ import { GDPRConsent } from "@/components/gdpr-consent";
 import { ThemeProvider } from "@/contexts/theme-context";
 import { LowDataProvider } from "@/contexts/LowDataContext";
 import { UnifiedCartProvider } from "@/contexts/UnifiedCartContext";
+import { UserPreferencesProvider } from "@/hooks/use-user-preferences";
 import { NetworkProvider } from "@/hooks/use-network-state";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { UpdateNotificationBanner } from "@/components/UpdateNotificationBanner";
@@ -2135,6 +2136,7 @@ function App() {
       <LowDataProvider>
         <ThemeProvider>
         <QueryClientProvider client={queryClient}>
+          <UserPreferencesProvider>
           <UnifiedCartProvider>
             <TooltipProvider>
               <VersionCheckModal />
@@ -2147,6 +2149,7 @@ function App() {
               <Router />
             </TooltipProvider>
           </UnifiedCartProvider>
+          </UserPreferencesProvider>
         </QueryClientProvider>
       </ThemeProvider>
         </LowDataProvider>
