@@ -534,8 +534,22 @@ export default function AgentLoanApplyPage() {
             </CardContent>
           </Card>
 
-          {loanVertical === "DEVELOPER" && loanSubType ? (
+          {loanVertical === "DEVELOPER" ? (
             <>
+              {!loanSubType ? (
+                <Card className="mb-6">
+                  <CardContent className="py-8">
+                    <div className="text-center space-y-3">
+                      <Building2 className="h-10 w-10 mx-auto text-muted-foreground/50" />
+                      <div>
+                        <p className="font-medium text-muted-foreground">Select a Loan Sub-Type</p>
+                        <p className="text-sm text-muted-foreground/70 mt-1">Choose a developer finance type above to proceed with client selection and project details</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+              <>
               <Card className="mb-6">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -765,8 +779,10 @@ export default function AgentLoanApplyPage() {
                   }}
                 />
               )}
+              </>
+              )}
             </>
-          ) : loanVertical !== "DEVELOPER" ? (
+          ) : (
             <>
           {showRestorePrompt && (
             <RestorePrompt onRestore={restoreDraft} onDiscard={discardDraft} />
@@ -1188,12 +1204,6 @@ export default function AgentLoanApplyPage() {
             </form>
           </Form>
             </>
-          ) : (
-            <Card className="py-12 text-center">
-              <CardContent>
-                <p className="text-muted-foreground">Please select a loan sub-type above to begin the Developer Finance application.</p>
-              </CardContent>
-            </Card>
           )}
         </TabsContent>
 
