@@ -2114,6 +2114,17 @@ export const partners = pgTable("partners", {
   caProfilePhoto: varchar("ca_profile_photo"), // Profile photo URL
   caBio: text("ca_bio"), // Short bio/about
   
+  // === Multi-Level Partner Hierarchy Fields ===
+  parentPartnerId: varchar("parent_partner_id"),
+  partnerLevel: varchar("partner_level").default("L1"),
+  hierarchyPartnerType: varchar("hierarchy_partner_type").default("MASTER"),
+  hierarchyStatus: varchar("hierarchy_status").default("ACTIVE"),
+  kycStatus: varchar("kyc_status").default("PENDING"),
+  approvalStatus: varchar("approval_status").default("PENDING"),
+  agreementId: varchar("agreement_id"),
+  maxDepth: integer("max_depth").default(3),
+  createdBy: varchar("created_by"),
+
   // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -2232,6 +2243,95 @@ export const partnerSettlements = pgTable("partner_settlements", {
   invoiceUrl: text("invoice_url"), // PDF invoice stored in object storage
   statementUrl: text("statement_url"), // Detailed statement
   
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// === Multi-Level Partner Hierarchy Tables ===
+
+// Partner Hierarchy Agreements - Track formal agreements between partners
+export const partnerHierarchyAgreements = pgTable("partner_hierarchy_agreements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  partnerId: varchar("partner_id").references(() => partners.id).notNull(),
+  agreementType: varchar("agreement_type").notNull().default("PARTNER"),
+  agreementDocument: text("agreement_document"),
+  agreementStatus: varchar("agreement_status").default("DRAFT"),
+  effectiveFrom: timestamp("effective_from"),
+  effectiveTo: timestamp("effective_to"),
+  approvedBy: varchar("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Partner Commission Rules - Waterfall commission structure
+export const partnerCommissionRules = pgTable("partner_commission_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productType: varchar("product_type").notNull(),
+  agentPct: decimal("agent_pct", { precision: 5, scale: 2 }).notNull().default("0.00"),
+  subPartnerPct: decimal("sub_partner_pct", { precision: 5, scale: 2 }).notNull().default("0.00"),
+  masterPartnerPct: decimal("master_partner_pct", { precision: 5, scale: 2 }).notNull().default("0.00"),
+  platformPct: decimal("platform_pct", { precision: 5, scale: 2 }).notNull().default("0.00"),
+  isActive: boolean("is_active").default(true),
+  effectiveFrom: timestamp("effective_from").defaultNow(),
+  effectiveTo: timestamp("effective_to"),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Partner Wallets - Track partner balance
+export const partnerWallets = pgTable("partner_wallets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  partnerId: varchar("partner_id").references(() => partners.id).notNull().unique(),
+  balance: decimal("balance", { precision: 15, scale: 2 }).notNull().default("0.00"),
+  totalCredited: decimal("total_credited", { precision: 15, scale: 2 }).notNull().default("0.00"),
+  totalDebited: decimal("total_debited", { precision: 15, scale: 2 }).notNull().default("0.00"),
+  lastTransactionAt: timestamp("last_transaction_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Partner Commission Ledger - Immutable commission records
+export const partnerCommissionLedger = pgTable("partner_commission_ledger", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  partnerId: varchar("partner_id").references(() => partners.id).notNull(),
+  transactionId: varchar("transaction_id").notNull(),
+  orderId: varchar("order_id"),
+  productType: varchar("product_type").notNull(),
+  transactionAmount: decimal("transaction_amount", { precision: 15, scale: 2 }).notNull(),
+  commissionAmount: decimal("commission_amount", { precision: 15, scale: 2 }).notNull(),
+  commissionRuleId: varchar("commission_rule_id").references(() => partnerCommissionRules.id),
+  waterfallLevel: varchar("waterfall_level").notNull(),
+  status: varchar("status").notNull().default("PENDING"),
+  kycGated: boolean("kyc_gated").default(false),
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Partner Audit Logs - Immutable audit trail for all partner actions
+export const partnerAuditLogs = pgTable("partner_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  actorId: varchar("actor_id").notNull(),
+  action: text("action").notNull(),
+  entityType: text("entity_type").notNull(),
+  entityId: varchar("entity_id").notNull(),
+  metadata: jsonb("metadata").default({}),
+  ipAddress: varchar("ip_address"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Partner Client Ownership - Track immutable client ownership by lowest-level partner
+export const partnerClientOwnership = pgTable("partner_client_ownership", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  ownerPartnerId: varchar("owner_partner_id").references(() => partners.id).notNull(),
+  firstTransactionAt: timestamp("first_transaction_at"),
+  isLocked: boolean("is_locked").default(false),
+  overrideBy: varchar("override_by"),
+  overrideReason: text("override_reason"),
+  overrideAt: timestamp("override_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -4733,6 +4833,58 @@ export const insertPartnerSettlementSchema = createInsertSchema(partnerSettlemen
 });
 export type InsertPartnerSettlement = z.infer<typeof insertPartnerSettlementSchema>;
 export type PartnerSettlement = typeof partnerSettlements.$inferSelect;
+
+// Partner Hierarchy Agreement schemas
+export const insertPartnerHierarchyAgreementSchema = createInsertSchema(partnerHierarchyAgreements).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertPartnerHierarchyAgreement = z.infer<typeof insertPartnerHierarchyAgreementSchema>;
+export type PartnerHierarchyAgreement = typeof partnerHierarchyAgreements.$inferSelect;
+
+// Partner Commission Rule schemas
+export const insertPartnerCommissionRuleSchema = createInsertSchema(partnerCommissionRules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertPartnerCommissionRule = z.infer<typeof insertPartnerCommissionRuleSchema>;
+export type PartnerCommissionRule = typeof partnerCommissionRules.$inferSelect;
+
+// Partner Wallet schemas
+export const insertPartnerWalletSchema = createInsertSchema(partnerWallets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertPartnerWallet = z.infer<typeof insertPartnerWalletSchema>;
+export type PartnerWallet = typeof partnerWallets.$inferSelect;
+
+// Partner Commission Ledger schemas
+export const insertPartnerCommissionLedgerSchema = createInsertSchema(partnerCommissionLedger).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertPartnerCommissionLedger = z.infer<typeof insertPartnerCommissionLedgerSchema>;
+export type PartnerCommissionLedger = typeof partnerCommissionLedger.$inferSelect;
+
+// Partner Audit Log schemas
+export const insertPartnerAuditLogSchema = createInsertSchema(partnerAuditLogs).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertPartnerAuditLog = z.infer<typeof insertPartnerAuditLogSchema>;
+export type PartnerAuditLog = typeof partnerAuditLogs.$inferSelect;
+
+// Partner Client Ownership schemas
+export const insertPartnerClientOwnershipSchema = createInsertSchema(partnerClientOwnership).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertPartnerClientOwnership = z.infer<typeof insertPartnerClientOwnershipSchema>;
+export type PartnerClientOwnership = typeof partnerClientOwnership.$inferSelect;
 
 // Agent schemas
 export const insertAgentSchema = createInsertSchema(agents).omit({

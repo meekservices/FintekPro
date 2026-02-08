@@ -1,0 +1,174 @@
+Below are Replit-ready BACKEND tickets to implement multi-level partner (Partner → Sub-Partner → Agent) handling in FintekPro, written so your engineering team can execute without interpretation gaps.
+I’ve structured this as atomic, buildable tickets, aligned to your existing fintech + DSA architecture.
+EPIC: Multi-Level Partner Hierarchy (Backend)
+EPIC GOAL
+Enable hierarchical partner onboarding, controlled delegation, commission waterfall, client ownership protection, and audit-ready compliance.
+TICKET 1: Partner Hierarchy Core Schema
+Type: Backend – Database
+Priority: P0
+Objective
+Introduce a strict parent–child partner hierarchy.
+Tasks
+Create partners table (or extend existing)
+partners (
+  partner_id UUID PK,
+  parent_partner_id UUID NULL FK -> partners.partner_id,
+  partner_level ENUM('L1','L2','L3'),
+  partner_type ENUM('MASTER','SUB','AGENT'),
+  status ENUM('ACTIVE','SUSPENDED','TERMINATED'),
+  kyc_status ENUM('PENDING','VERIFIED','REJECTED'),
+  agreement_id UUID,
+  created_at TIMESTAMP,
+  created_by UUID
+)
+Rules
+parent_partner_id is NULL only for FintekPro root
+Enforce single parent only
+Index on parent_partner_id
+Acceptance Criteria
+Recursive hierarchy query possible
+No cyclic relationships allowed
+TICKET 2: Partner Creation API with Delegation Rules
+Type: Backend – API
+Priority: P0
+Endpoint
+POST /api/partners
+Logic
+Validate creator permissions:
+L1 → can create L2
+L2 → can create L3
+L3 → cannot create partners
+Enforce max depth (default = 3)
+Require FintekPro admin approval flag
+Validation
+Parent must be ACTIVE
+Parent KYC must be VERIFIED
+Child inherits commission template reference
+Acceptance Criteria
+Invalid hierarchy creation rejected
+All partner creation logged
+TICKET 3: Partner Approval & Agreement Mapping
+Type: Backend – Workflow
+Priority: P1
+Tasks
+Introduce partner approval status:
+approval_status ENUM('PENDING','APPROVED','REJECTED')
+Map agreement_id on approval
+Lock hierarchy post-approval
+Acceptance Criteria
+No selling before approval
+Agreement mandatory for activation
+TICKET 4: Client Ownership Enforcement
+Type: Backend – Business Logic
+Priority: P0
+Objective
+Ensure lowest-level seller owns the client permanently.
+Schema
+clients (
+  client_id UUID,
+  owner_partner_id UUID,
+  first_transaction_at TIMESTAMP
+)
+Rules
+owner_partner_id immutable after first transaction
+Only FintekPro admin override allowed
+Override requires reason + audit entry
+Acceptance Criteria
+Parent cannot reassign clients
+Violations blocked at API layer
+TICKET 5: Commission Waterfall Engine
+Type: Backend – Financial Engine
+Priority: P0
+Schema
+commission_rules (
+  rule_id UUID,
+  product_type ENUM('MF','INSURANCE','LOAN'),
+  agent_pct DECIMAL,
+  sub_partner_pct DECIMAL,
+  master_partner_pct DECIMAL,
+  platform_pct DECIMAL
+)
+Logic
+Resolve partner tree at transaction time
+Apply waterfall top-down
+Generate immutable commission ledger entries
+Acceptance Criteria
+Sum always = 100%
+Missing level → percentage rolls up to platform
+TICKET 6: Partner Wallet & Ledger System
+Type: Backend – Finance
+Priority: P0
+Tables
+partner_wallets (
+  partner_id UUID,
+  balance DECIMAL
+)
+
+commission_ledger (
+  ledger_id UUID,
+  partner_id UUID,
+  transaction_id UUID,
+  amount DECIMAL,
+  status ENUM('PENDING','ELIGIBLE','PAID'),
+  created_at TIMESTAMP
+)
+Rules
+Wallet credit only via ledger
+KYC gate before payout eligibility
+TICKET 7: Downline Visibility API (Permissioned)
+Type: Backend – API
+Priority: P1
+Endpoint
+GET /api/partners/downline
+Behavior
+Returns recursive children
+Mask client PII for parents
+Aggregated metrics only
+Acceptance Criteria
+Agents cannot see peers
+Parents cannot see raw client data unless permitted
+TICKET 8: Audit Logging (Regulatory Critical)
+Type: Backend – Compliance
+Priority: P0
+Log Events
+Partner creation
+Partner approval
+Client reassignment
+Commission override
+Manual payout
+audit_logs (
+  log_id UUID,
+  actor_id UUID,
+  action TEXT,
+  entity_type TEXT,
+  entity_id UUID,
+  metadata JSONB,
+  created_at TIMESTAMP
+)
+Acceptance Criteria
+Immutable logs
+Admin-only read access
+TICKET 9: Anti-MLM Safeguards
+Type: Backend – Compliance Logic
+Priority: P1
+Rules
+No commission on partner onboarding
+No joining fees payable to partners
+Block circular revenue flows
+Acceptance Criteria
+Partner creation does not generate earnings
+Only product-linked transactions generate commission
+TICKET 10: Hierarchy Integrity Validator (Background Job)
+Type: Backend – Cron / Worker
+Priority: P2
+Tasks
+Daily scan for:
+Cycles
+Orphan partners
+Depth violations
+Auto-flag issues to admin
+FINAL NOTES FOR REPLIT
+All tickets are independent but ordered
+Build order: 1 → 2 → 4 → 5 → 6
+No frontend dependency for initial rollout
+SEBI / RBI audit-safe by design

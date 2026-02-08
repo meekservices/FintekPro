@@ -3,6 +3,7 @@ import { partnerService } from '../../partner-service';
 import { db } from '../../db';
 import * as schema from '@shared/schema';
 import { eq, desc } from 'drizzle-orm';
+import { registerPartnerHierarchyRoutes } from './hierarchy-routes';
 
 export function registerPartnerPortalRoutes(app: Express): void {
   // Partner Authentication
@@ -608,6 +609,8 @@ export function registerPartnerPortalRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to fetch top agents" });
     }
   });
+
+  registerPartnerHierarchyRoutes(app);
 
   console.log("✅ Partner Portal routes registered");
 }
