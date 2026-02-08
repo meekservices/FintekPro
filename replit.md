@@ -10,6 +10,14 @@ Ask before making major changes.
 Do not make changes to the folder `Z`.
 Do not make changes to the file `Y`.
 
+## Testing Policy — Single Central Test Account
+- **test@fintekpro.com** is the ONLY test account for all FintekPro testing.
+- Password: `Test@123456`, OTP: `123456` (fixed for tester role).
+- Roles: superadmin, admin, partner, agent, client, user, tester.
+- All dev fallbacks use id `central-test-user` and email `test@fintekpro.com`.
+- Do NOT create additional demo/test user IDs (demo-user-1, demo@partner.com, admin-dev-1, etc.).
+- Scripts: `server/seed-test-user.ts` creates/resets the central account; `create-admin-user.ts` and `update-admin-password.ts` both redirect to `seedTestUser()`.
+
 ## System Architecture
 
 ### UI/UX Decisions

@@ -3258,7 +3258,7 @@ System Security Data:`;
   // Get KYC form progress for current user
   app.get("/api/kyc-progress", async (req, res) => {
     try {
-      const userId = req.user?.id || "demo-user-1"; // Get from session
+      const userId = req.user?.id || "central-test-user"; // Get from session
       const result = await db
         .select()
         .from(kycFormProgress)
@@ -3279,7 +3279,7 @@ System Security Data:`;
   // Save/Update KYC form progress
   app.put("/api/kyc-progress", async (req, res) => {
     try {
-      const userId = req.user?.id || "demo-user-1"; // Get from session
+      const userId = req.user?.id || "central-test-user"; // Get from session
       const { 
         currentStep, 
         completedSteps, 

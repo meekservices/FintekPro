@@ -8916,7 +8916,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       // Check for Replit development environment or non-production conditions
       const isDevelopment = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.REPL_ID;
       if (isDevelopment) {
-        req.user = { id: 'demo-user-1' };
+        req.user = { id: 'central-test-user' };
       } else {
         return res.status(401).json({ error: "Authentication required" });
       }
@@ -9151,7 +9151,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         // Check for Replit development environment or non-production conditions
         const isDevelopment = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.REPL_ID;
         if (isDevelopment) {
-          userId = 'demo-user-1';
+          userId = 'central-test-user';
           req.user = { id: userId };
         } else {
           return res.status(401).json({ error: "Authentication required" });
@@ -16160,10 +16160,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           user: { id: 'user-1', firstName: 'Alex', lastName: 'Johnson', email: 'alex@example.com' }
         },
         {
-          userId: 'demo-user-1',
+          userId: 'central-test-user',
           totalPoints: 300,
           completedAchievements: 2,
-          user: { id: 'demo-user-1', firstName: 'Demo', lastName: 'User', email: 'demo@example.com' }
+          user: { id: 'central-test-user', firstName: 'Test', lastName: 'SuperUser', email: 'test@fintekpro.com' }
         },
         {
           userId: 'user-3',
@@ -20814,7 +20814,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       // Use development bypass for demo purposes
       const isDevelopment = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.REPL_ID;
       if (!req.user && isDevelopment) {
-        req.user = { id: 'demo-user-1' };
+        req.user = { id: 'central-test-user' };
       }
       
       const { portfolioId } = req.params;
@@ -20901,7 +20901,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       // Use development bypass for demo purposes
       const isDevelopment = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.REPL_ID;
       if (!req.user && isDevelopment) {
-        req.user = { id: 'demo-user-1' };
+        req.user = { id: 'central-test-user' };
       }
       
       const { portfolioId } = req.params;
@@ -20978,7 +20978,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       // Use development bypass for demo purposes
       const isDevelopment = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.REPL_ID;
       if (!req.user && isDevelopment) {
-        req.user = { id: 'demo-user-1' };
+        req.user = { id: 'central-test-user' };
       }
       
       const { proposalIds, portfolioId } = req.body;

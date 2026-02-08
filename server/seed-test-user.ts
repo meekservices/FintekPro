@@ -63,7 +63,7 @@ export async function seedTestUser(): Promise<void> {
       .limit(1);
     
     if (existingUser.length > 0) {
-      const allRoles = ['superadmin', 'admin', 'partner', 'agent', 'client', 'user'];
+      const allRoles = ['superadmin', 'admin', 'partner', 'agent', 'client', 'user', 'tester'];
       const hashedPassword = await hashPassword(testPassword);
       
       await db
@@ -84,7 +84,11 @@ export async function seedTestUser(): Promise<void> {
       console.log("║ Email:    test@fintekpro.com               ║");
       console.log("║ Password: Test@123456                      ║");
       console.log("║ Roles:    ALL (superadmin, admin, partner, ║");
-      console.log("║           agent, client, user)             ║");
+      console.log("║           agent, client, user, tester)     ║");
+      console.log("║ OTP:      123456 (fixed for test account)  ║");
+      console.log("╠════════════════════════════════════════════╣");
+      console.log("║ ⚠️  This is the ONLY test account.         ║");
+      console.log("║    Do NOT create other test IDs.           ║");
       console.log("╚════════════════════════════════════════════╝");
       return;
     }
@@ -103,24 +107,29 @@ export async function seedTestUser(): Promise<void> {
         lastName: "SuperUser",
         isEmailVerified: true,
         isMobileVerified: true,
-        roles: ['superadmin', 'admin', 'partner', 'agent', 'client', 'user'],
+        roles: ['superadmin', 'admin', 'partner', 'agent', 'client', 'user', 'tester'],
         isActive: true,
       });
     
-    console.log("\n✅ TEST USER CREATED SUCCESSFULLY!\n");
+    console.log("\n✅ CENTRAL TEST USER CREATED SUCCESSFULLY!\n");
     console.log("╔════════════════════════════════════════════╗");
-    console.log("║       TEST USER LOGIN CREDENTIALS          ║");
+    console.log("║    CENTRAL TEST USER - ONLY TEST ACCOUNT   ║");
     console.log("╠════════════════════════════════════════════╣");
     console.log("║ User ID:  " + userId.padEnd(33) + "║");
     console.log("║ Email:    test@fintekpro.com               ║");
     console.log("║ Mobile:   9876543210                       ║");
     console.log("║ Password: Test@123456                      ║");
+    console.log("║ OTP:      123456 (fixed for test account)  ║");
     console.log("║ Roles:    ALL (superadmin, admin, partner, ║");
-    console.log("║           agent, client, user)             ║");
+    console.log("║           agent, client, user, tester)     ║");
+    console.log("╠════════════════════════════════════════════╣");
+    console.log("║ ⚠️  This is the ONLY test account.         ║");
+    console.log("║    Do NOT create other test IDs.           ║");
     console.log("╚════════════════════════════════════════════╝");
     console.log("\n🔐 ACCESS ALL PORTALS:");
     console.log("   - Admin Portal: Add ?admin=true to URL");
     console.log("   - Agent Portal: /agent-dashboard");
+    console.log("   - Partner Portal: /partner-portal");
     console.log("   - Client Portal: /dashboard\n");
     
   } catch (error) {

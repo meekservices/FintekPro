@@ -1104,7 +1104,7 @@ export function registerLoanComparisonRoutes(app: Express) {
       const comparisonId = `comparison-${Date.now()}`;
       const savedComparison = {
         id: comparisonId,
-        userId: req.user?.id || 'demo-user',
+        userId: req.user?.id || 'central-test-user',
         ...validatedData,
         createdAt: new Date().toISOString()
       };

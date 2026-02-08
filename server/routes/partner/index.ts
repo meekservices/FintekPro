@@ -51,9 +51,9 @@ export function registerPartnerPortalRoutes(app: Express): void {
     // Dev mode fallback
     if (process.env.NODE_ENV === 'development' && !req.headers.authorization) {
       req.partner = {
-        id: 'dev-partner',
-        companyName: 'Dev Partner',
-        contactEmail: 'dev@fintekpro.com',
+        id: 'central-test-user',
+        companyName: 'Test SuperUser',
+        contactEmail: 'test@fintekpro.com',
         partnerType: 'distributor',
         permissions: ['read', 'write'],
       };
@@ -453,7 +453,7 @@ export function registerPartnerPortalRoutes(app: Express): void {
     if (!req.user) {
       const isDevelopment = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.REPL_ID;
       if (isDevelopment) {
-        req.user = { id: 'demo-user-1', roles: ['partner'], firstName: 'Demo', lastName: 'Partner', email: 'demo@partner.com', userId: 'demo-partner-001' };
+        req.user = { id: 'central-test-user', roles: ['superadmin', 'admin', 'partner', 'agent', 'client', 'user', 'tester'], firstName: 'Test', lastName: 'SuperUser', email: 'test@fintekpro.com', userId: 'central-test-user' };
       } else {
         return res.status(401).json({ error: "Authentication required" });
       }

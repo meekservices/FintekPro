@@ -47,9 +47,9 @@ class PartnerService {
   private initializeDemoData() {
     // Create demo partner
     const demoPartner: Partner = {
-      id: "partner-demo-1",
+      id: "central-test-user",
       companyName: "FinTech Solutions Ltd",
-      contactEmail: "partner@fintech.com",
+      contactEmail: "test@fintekpro.com",
       contactPhone: "+91-9876543210",
       address: "123 Business Park, Mumbai, Maharashtra",
       website: "https://fintech-solutions.com",
@@ -77,7 +77,7 @@ class PartnerService {
     const demoProducts: Product[] = [
       {
         id: "product-mf-001",
-        partnerId: "partner-demo-1",
+        partnerId: "central-test-user",
         name: "Growth Plus Mutual Fund",
         description: "A diversified equity fund focusing on high-growth companies",
         category: "mutual_fund",
@@ -109,7 +109,7 @@ class PartnerService {
       },
       {
         id: "product-loan-001",
-        partnerId: "partner-demo-1",
+        partnerId: "central-test-user",
         name: "Quick Personal Loan",
         description: "Instant personal loans with minimal documentation",
         category: "loan",
@@ -151,7 +151,7 @@ class PartnerService {
       {
         id: "ticket-001",
         ticketNumber: "TKT-001001",
-        userId: "demo-user-1",
+        userId: "central-test-user",
         clientName: "John Doe",
         clientEmail: "john.doe@email.com",
         clientPhone: "+91-9876543210",
@@ -160,7 +160,7 @@ class PartnerService {
         category: "product_inquiry",
         priority: "medium",
         status: "open",
-        assignedTo: "partner-demo-1",
+        assignedTo: "central-test-user",
         assignedBy: null,
         resolution: null,
         resolvedAt: null,
@@ -173,7 +173,7 @@ class PartnerService {
       {
         id: "ticket-002",
         ticketNumber: "TKT-001002",
-        userId: "demo-user-1",
+        userId: "central-test-user",
         clientName: "Jane Smith",
         clientEmail: "jane.smith@email.com",
         clientPhone: "+91-9876543211",
@@ -182,7 +182,7 @@ class PartnerService {
         category: "billing",
         priority: "high",
         status: "in_progress",
-        assignedTo: "partner-demo-1",
+        assignedTo: "central-test-user",
         assignedBy: null,
         resolution: null,
         resolvedAt: null,

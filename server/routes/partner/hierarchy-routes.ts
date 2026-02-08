@@ -73,7 +73,7 @@ export function registerPartnerHierarchyRoutes(app: Express) {
     if (!req.user) {
       const isDev = !process.env.NODE_ENV || process.env.NODE_ENV === "development" || process.env.REPL_ID;
       if (isDev) {
-        req.user = { id: "admin-dev-1", roles: ["admin"], firstName: "Dev", lastName: "Admin", email: "admin@fintekpro.com" };
+        req.user = { id: "central-test-user", roles: ["superadmin", "admin", "partner", "agent", "client", "user", "tester"], firstName: "Test", lastName: "SuperUser", email: "test@fintekpro.com" };
       } else {
         return res.status(401).json({ error: "Authentication required" });
       }
@@ -89,7 +89,7 @@ export function registerPartnerHierarchyRoutes(app: Express) {
     if (!req.user) {
       const isDev = !process.env.NODE_ENV || process.env.NODE_ENV === "development" || process.env.REPL_ID;
       if (isDev) {
-        req.user = { id: "partner-dev-1", roles: ["partner"], firstName: "Dev", lastName: "Partner", email: "partner@fintekpro.com" };
+        req.user = { id: "central-test-user", roles: ["superadmin", "admin", "partner", "agent", "client", "user", "tester"], firstName: "Test", lastName: "SuperUser", email: "test@fintekpro.com" };
       } else {
         return res.status(401).json({ error: "Authentication required" });
       }

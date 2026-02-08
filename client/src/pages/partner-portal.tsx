@@ -74,7 +74,7 @@ export default function PartnerPortal() {
   const [statementToDate, setStatementToDate] = useState('');
   const [statementGroupBy, setStatementGroupBy] = useState('transaction');
 
-  const partnerId = (dashboardData as any)?.partnerId || 'partner-dev-1';
+  const partnerId = (dashboardData as any)?.partnerId || 'central-test-user';
 
   const { data: statementData, isLoading: statementLoading, refetch: refetchStatement } = useQuery({
     queryKey: ['/api/partners', partnerId, 'payout-statement', statementFromDate, statementToDate, statementGroupBy],

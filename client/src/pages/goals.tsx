@@ -358,7 +358,7 @@ function GoalDetailDialog({ goalId, onClose }: { goalId: string; onClose: () => 
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/goals/user/demo-user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/goals/user/central-test-user"] });
       toast({ title: "Goal Deleted", description: "Your goal has been removed." });
       onClose();
     },
@@ -370,7 +370,7 @@ function GoalDetailDialog({ goalId, onClose }: { goalId: string; onClose: () => 
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/goals/user/demo-user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/goals/user/central-test-user"] });
       queryClient.invalidateQueries({ queryKey: ["/api/goals", goalId] });
       toast({ title: "Congratulations!", description: "Your goal has been marked as complete!" });
     },
@@ -772,7 +772,7 @@ function CreateGoalWizard({ onClose }: { onClose: () => void }) {
 
   const createGoalMutation = useMutation({
     mutationFn: async (data: GoalFormData) => {
-      const userId = "demo-user";
+      const userId = "central-test-user";
       const categoryDefaults = GOAL_CATEGORIES[data.category as keyof typeof GOAL_CATEGORIES] || GOAL_CATEGORIES.custom;
       
       const goalData = {
@@ -787,7 +787,7 @@ function CreateGoalWizard({ onClose }: { onClose: () => void }) {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/goals/user/demo-user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/goals/user/central-test-user"] });
       toast({ title: "Goal Created!", description: "Your financial goal has been set up successfully." });
       onClose();
     },
@@ -1183,7 +1183,7 @@ function SmartAlertsSection({ goals, onViewGoal }: { goals: any[]; onViewGoal: (
 export default function GoalsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
-  const userId = "demo-user";
+  const userId = "central-test-user";
 
   const { data: goals, isLoading } = useQuery<any[]>({
     queryKey: ["/api/goals/user", userId],

@@ -2374,7 +2374,7 @@ function CreateProposalDialog({ open, onOpenChange, clients, onSubmit, isLoading
     expiresAt.setDate(expiresAt.getDate() + parseInt(formData.expiresInDays));
 
     onSubmit({
-      agentId: "demo-agent-1",
+      agentId: "central-test-user",
       clientId: formData.clientId,
       title: formData.title,
       description: formData.description,

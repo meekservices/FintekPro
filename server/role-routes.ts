@@ -575,9 +575,9 @@ export function registerRoleRoutes(app: Express) {
       }
       
       res.json({
-        id: req.user?.id || 'demo-agent',
-        fullName: req.user?.firstName ? `${req.user.firstName} ${req.user.lastName || ''}` : 'Demo Agent',
-        email: req.user?.email || 'demo-agent@example.com',
+        id: req.user?.id || 'central-test-user',
+        fullName: req.user?.firstName ? `${req.user.firstName} ${req.user.lastName || ''}` : 'Test SuperUser',
+        email: req.user?.email || 'test@fintekpro.com',
         phone: req.user?.phone || '+91-9876543210',
         euinNumber,
         arnCode,
@@ -917,7 +917,7 @@ export function registerRoleRoutes(app: Express) {
     if (!req.user) {
       const isDevelopment = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.REPL_ID;
       if (isDevelopment) {
-        req.user = { id: 'demo-user-1', roles: ['partner'], firstName: 'Demo', lastName: 'Partner', email: 'demo@partner.com' };
+        req.user = { id: 'central-test-user', roles: ['superadmin', 'admin', 'partner', 'agent', 'client', 'user', 'tester'], firstName: 'Test', lastName: 'SuperUser', email: 'test@fintekpro.com' };
       } else {
         return res.status(401).json({ error: "Authentication required" });
       }
