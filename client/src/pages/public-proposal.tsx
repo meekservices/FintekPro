@@ -185,7 +185,7 @@ interface ProposalData {
   proposalType: string;
   proposalTitle: string;
   executiveSummary?: string;
-  currentAnalysis?: string;
+  currentAnalysis?: string | object;
   recommendations?: any[];
   totalInvestmentAmount?: string;
   projectedReturns?: string;
@@ -249,12 +249,25 @@ interface PortfolioAnalysis {
   portfolioComparison?: PortfolioComparison;
 }
 
-function parseAnalysis(analysisStr?: string): PortfolioAnalysis | null {
+function parseAnalysis(analysisStr?: string | object | null): PortfolioAnalysis | null {
   if (!analysisStr) return null;
+  if (typeof analysisStr === 'object') return analysisStr as PortfolioAnalysis;
   try {
     return JSON.parse(analysisStr);
   } catch {
-    return null;
+    try {
+      const sanitized = (analysisStr as string).replace(/\d+\.XXXX[\s\w]*\d+/g, '0');
+      return JSON.parse(sanitized);
+    } catch {
+      const result: any = {};
+      const tvMatch = (analysisStr as string).match(/"totalValue"\s*:\s*([\d.]+)/);
+      if (tvMatch) result.totalValue = parseFloat(tvMatch[1]);
+      const rsMatch = (analysisStr as string).match(/"riskScore"\s*:\s*([\d.]+)/);
+      if (rsMatch) result.riskScore = parseFloat(rsMatch[1]);
+      const dsMatch = (analysisStr as string).match(/"diversificationScore"\s*:\s*([\d.]+)/);
+      if (dsMatch) result.diversificationScore = parseFloat(dsMatch[1]);
+      return Object.keys(result).length > 0 ? (result as PortfolioAnalysis) : null;
+    }
   }
 }
 
@@ -423,7 +436,8 @@ export default function PublicProposalPage() {
       pdf.setFontSize(12);
       pdf.setTextColor(30, 30, 30);
       const pdfAnalysis2 = parseAnalysis(proposal.currentAnalysis);
-      pdf.text(formatRs(pdfAnalysis2?.totalValue || 0), margin + 8, yPos + 20);
+      const pdfPortfolioValue = pdfAnalysis2?.totalValue || pdfAnalysis2?.portfolioComparison?.currentPortfolio?.totalValue || 0;
+      pdf.text(formatRs(pdfPortfolioValue), margin + 8, yPos + 20);
       
       // Expected Returns
       pdf.setFontSize(8);
@@ -859,6 +873,10 @@ export default function PublicProposalPage() {
   const targetAllocation = proposal.targetAllocation || {};
   const analysis = parseAnalysis(proposal.currentAnalysis);
 
+  const portfolioValue = analysis?.totalValue 
+    || analysis?.portfolioComparison?.currentPortfolio?.totalValue 
+    || 0;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 dark:from-background dark:via-card dark:to-background">
       {/* Header */}
@@ -923,7 +941,7 @@ export default function PublicProposalPage() {
                 <div>
                   <p className="text-blue-100 text-sm">Portfolio Value</p>
                   <p className="text-2xl font-bold">
-                    {formatIndianCurrency(analysis?.totalValue || 0)}
+                    {formatIndianCurrency(portfolioValue)}
                   </p>
                 </div>
               </div>
