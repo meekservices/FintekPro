@@ -531,10 +531,18 @@ export function registerKYCWizardRoutes(app: Express) {
         currentStep: 'completed'
       });
       
+      const stepStatus = session.stepStatus as any || {};
+      
       await db.update(schema.userProfiles)
         .set({
           kycLevel: '2',
-          kycLevelUpgradedAt: new Date()
+          kycLevelUpgradedAt: new Date(),
+          isProfileCompleted: true,
+          profileCompletedAt: new Date(),
+          kraVerifiedViaProtean: stepStatus.kra_verified || true,
+          aadhaarVerifiedViaSmartKyc: stepStatus.aadhaar_verified || session.aadhaarVerified || true,
+          videoKycCompleted: true,
+          faceToFaceVerificationCompleted: true,
         })
         .where(eq(schema.userProfiles.userId, userId));
       
