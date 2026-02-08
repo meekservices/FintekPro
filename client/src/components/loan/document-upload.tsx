@@ -151,8 +151,8 @@ function DocumentUploadCard({ docType, documents, onUpload, onRemove }: Document
     <div
       className={cn(
         "border rounded-lg p-4 transition-all",
-        isDragging ? "border-blue-500 bg-blue-50/50" : "border-border",
-        hasUploaded ? "bg-green-50/30 border-green-200" : ""
+        isDragging ? "border-blue-500 bg-blue-500/10" : "border-border",
+        hasUploaded ? "bg-green-500/10 border-green-500/30" : ""
       )}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -162,7 +162,7 @@ function DocumentUploadCard({ docType, documents, onUpload, onRemove }: Document
         <div className="flex items-center gap-2">
           <span className="font-medium text-foreground">{docType.label}</span>
           {docType.required ? (
-            <Badge variant="outline" className="text-xs text-red-600 border-red-200">
+            <Badge variant="outline" className="text-xs text-red-500 border-red-500/30">
               Required
             </Badge>
           ) : (
@@ -203,7 +203,7 @@ function DocumentUploadCard({ docType, documents, onUpload, onRemove }: Document
           key={doc.id}
           className={cn(
             "flex items-center gap-3 p-2 rounded-md mb-2",
-            doc.status === "error" ? "bg-red-50" : "bg-muted"
+            doc.status === "error" ? "bg-red-500/10" : "bg-muted"
           )}
         >
           {doc.previewUrl ? (
@@ -357,11 +357,11 @@ export function LoanDocumentUpload({ loanType, documents, onDocumentsChange }: L
           ))}
         </div>
 
-        <div className="mt-4 flex items-start gap-2 p-3 bg-blue-50 rounded-lg">
-          <Camera className="h-5 w-5 text-blue-600 mt-0.5" />
-          <div className="text-sm text-blue-800">
+        <div className="mt-4 flex items-start gap-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+          <Camera className="h-5 w-5 text-blue-400 mt-0.5" />
+          <div className="text-sm text-foreground">
             <p className="font-medium">Tips for better uploads:</p>
-            <ul className="mt-1 space-y-1 text-blue-700">
+            <ul className="mt-1 space-y-1 text-muted-foreground">
               <li>Ensure documents are clearly visible and not blurred</li>
               <li>All four corners should be visible in the image</li>
               <li>Avoid glare and shadows on the document</li>
