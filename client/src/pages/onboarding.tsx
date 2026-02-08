@@ -545,7 +545,7 @@ export default function SmartKYCOnboarding() {
         method: 'POST',
         body: JSON.stringify({
           sessionId,
-          ...riskProfileAnswers
+          riskProfile: riskProfileAnswers
         })
       });
     },
