@@ -141,13 +141,14 @@ router.get("/history", async (req, res) => {
     const category = req.query.category as PickCategory | undefined;
     const limit = parseInt(req.query.limit as string) || 50;
     
-    const picks = await pickOfTheDayService.getPickHistory(category, limit);
-    const enrichedPicks = enrichPicksWithDataSource(picks);
+    const rawPicks = await pickOfTheDayService.getPickHistory(category, limit);
+    const { picks, categoryLastUpdated } = await enrichPicksWithDataSource(rawPicks);
     res.json({
       success: true,
-      count: enrichedPicks.length,
-      picks: enrichedPicks,
+      count: picks.length,
+      picks,
       dataSources: DATA_SOURCES,
+      categoryLastUpdated,
       disclaimer: REGULATORY_DISCLAIMER,
     });
   } catch (error) {
