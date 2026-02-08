@@ -434,12 +434,17 @@ export function registerKYCWizardRoutes(app: Express) {
         }
       });
       
+      const isTester = req.user?.roles?.includes('tester') || req.user?.email === 'test@fintekpro.com';
+      
       res.json({
         success: true,
-        message: "OTP sent to Aadhaar-linked mobile number",
+        message: isTester 
+          ? "Mock OTP mode: Use fixed OTP 123456" 
+          : "OTP sent to Aadhaar-linked mobile number",
         data: {
           maskedMobile: `XXXXXX${Math.floor(1000 + Math.random() * 9000)}`,
-          otpValidFor: 300
+          otpValidFor: 300,
+          ...(isTester ? { testOtp: '123456' } : {})
         }
       });
     } catch (error) {

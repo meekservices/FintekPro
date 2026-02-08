@@ -476,12 +476,13 @@ export default function SmartKYCOnboarding() {
     },
     onSuccess: (data) => {
       if (data.success) {
-        setAadhaarTransactionId(data.transactionId);
-        setAadhaarMasked(data.maskedAadhaar || '');
+        setAadhaarTransactionId(data.transactionId || data.data?.transactionId);
+        setAadhaarMasked(data.maskedAadhaar || data.data?.maskedMobile || '');
         setCurrentStep('aadhaar_verification');
+        const testOtp = data.data?.testOtp;
         toast({
           title: "OTP Sent",
-          description: data.message,
+          description: testOtp ? `${data.message} (Test OTP: ${testOtp})` : data.message,
         });
       } else {
         toast({
@@ -1683,10 +1684,10 @@ export default function SmartKYCOnboarding() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            For demo purposes, the OTP is logged in the console. Check browser developer tools or backend logs.
+        <Alert className="bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/20">
+          <AlertCircle className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-800 dark:text-blue-200">
+            <strong>Test Mode:</strong> No real SMS is sent. Use the fixed OTP: <code className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-500/20 rounded font-mono font-bold">123456</code>
           </AlertDescription>
         </Alert>
         
