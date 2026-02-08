@@ -3,6 +3,7 @@ import { z } from "zod";
 import { partnerHierarchyService } from "../../services/partner-hierarchy-service";
 import { commissionWaterfallEngine } from "../../services/commission-waterfall-engine";
 import { partnerAuditService } from "../../services/partner-audit-service";
+import { commissionPayoutService } from "../../services/commission-payout-service";
 
 const createPartnerSchema = z.object({
   companyName: z.string().min(1),
@@ -533,5 +534,115 @@ export function registerPartnerHierarchyRoutes(app: Express) {
     }
   });
 
+  // === PROGRESSIVE PAYOUT ENGINE: Commission Config CRUD ===
+  const commissionConfigSchema = z.object({
+    productType: z.string().min(1),
+    agentPct: z.number().min(0).max(99),
+    platformPct: z.number().min(0).max(99),
+    uplineIncentivePct: z.number().min(0).max(100),
+    minResidualThreshold: z.number().min(0).optional(),
+  });
+
+  app.post("/api/partner-hierarchy/payout-config", requireAdmin, async (req: any, res) => {
+    try {
+      const parsed = commissionConfigSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
+      }
+
+      const result = await commissionPayoutService.createConfig(parsed.data);
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+
+      await partnerAuditService.log({
+        actorId: req.user.id,
+        action: "PAYOUT_CONFIG_CREATED",
+        entityType: "commission_config",
+        entityId: result.config.configId,
+        metadata: parsed.data,
+        ipAddress: req.ip,
+      });
+
+      res.status(201).json(result.config);
+    } catch (error: any) {
+      console.error("Error creating payout config:", error);
+      res.status(500).json({ error: "Failed to create payout config" });
+    }
+  });
+
+  app.get("/api/partner-hierarchy/payout-config", requirePartnerOrAdmin, async (req: any, res) => {
+    try {
+      const configs = await commissionPayoutService.getConfigs();
+      res.json(configs);
+    } catch (error: any) {
+      console.error("Error fetching payout configs:", error);
+      res.status(500).json({ error: "Failed to fetch payout configs" });
+    }
+  });
+
+  app.get("/api/partner-hierarchy/payout-config/:productType", requirePartnerOrAdmin, async (req: any, res) => {
+    try {
+      const config = await commissionPayoutService.getConfigByProduct(req.params.productType);
+      if (!config) {
+        return res.status(404).json({ error: "No active config for this product type" });
+      }
+      res.json(config);
+    } catch (error: any) {
+      console.error("Error fetching payout config:", error);
+      res.status(500).json({ error: "Failed to fetch payout config" });
+    }
+  });
+
+  // === PROGRESSIVE PAYOUT ENGINE: Process Transaction ===
+  const processPayoutSchema = z.object({
+    transactionId: z.string().min(1),
+    grossCommission: z.number().positive(),
+    productType: z.string().min(1),
+    sellerPartnerId: z.string().min(1),
+  });
+
+  app.post("/api/partner-hierarchy/payout/process", requireAdmin, async (req: any, res) => {
+    try {
+      const parsed = processPayoutSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
+      }
+
+      const result = await commissionPayoutService.processTransaction(parsed.data);
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+
+      res.json({ success: true, ledgerEntries: result.ledgerEntries });
+    } catch (error: any) {
+      console.error("Error processing payout:", error);
+      res.status(500).json({ error: "Failed to process payout" });
+    }
+  });
+
+  // === PROGRESSIVE PAYOUT ENGINE: Ledger Queries ===
+  app.get("/api/partner-hierarchy/payout/ledger/transaction/:transactionId", requirePartnerOrAdmin, async (req: any, res) => {
+    try {
+      const entries = await commissionPayoutService.getLedgerByTransaction(req.params.transactionId);
+      res.json(entries);
+    } catch (error: any) {
+      console.error("Error fetching ledger:", error);
+      res.status(500).json({ error: "Failed to fetch ledger entries" });
+    }
+  });
+
+  app.get("/api/partner-hierarchy/payout/ledger/partner/:partnerId", requirePartnerOrAdmin, async (req: any, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const entries = await commissionPayoutService.getLedgerByPartner(req.params.partnerId, limit);
+      res.json(entries);
+    } catch (error: any) {
+      console.error("Error fetching partner ledger:", error);
+      res.status(500).json({ error: "Failed to fetch partner ledger entries" });
+    }
+  });
+
   console.log("✅ Partner Hierarchy routes registered");
+  console.log("✅ Progressive Payout Engine routes registered");
 }
