@@ -1105,9 +1105,9 @@ export default function AgentDashboard() {
         {/* TDS Summary Tab */}
         <TabsContent value="tds-summary" className="space-y-4" data-testid="content-tds-summary">
           {(() => {
-            const tdsSummary: TDSSummary[] = tdsSummaryData || [];
+            const tdsSummary: TDSSummary[] = Array.isArray(tdsSummaryData) ? tdsSummaryData : [];
             
-            const totalTDSCollected = tdsSummary.reduce((acc, q) => acc + q.totalTDS, 0);
+            const totalTDSCollected = tdsSummary.reduce((acc, q) => acc + (q.totalTDS || 0), 0);
             const filedQuarters = tdsSummary.filter(q => q.filed).length;
             
             const nextDue = tdsSummary.find(q => !q.filed);
