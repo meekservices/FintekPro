@@ -12526,7 +12526,7 @@ export const kycAuditLogs = pgTable("kyc_audit_logs", {
   // Timestamps
   accessedAt: timestamp("accessed_at").defaultNow(),
 }, (table) => [
-  index("idx_kyc_audit_user").on(table.userId),
+  index("idx_kyc_audit_log_user").on(table.userId),
   index("idx_kyc_audit_accessed_by").on(table.accessedBy),
   index("idx_kyc_audit_type").on(table.accessType),
   index("idx_kyc_audit_timestamp").on(table.accessedAt),
@@ -30453,3 +30453,233 @@ export const SEBI_AUDIT_ACTION_TYPES = {
   OVERLAP_ANALYSIS: "OVERLAP_ANALYSIS",
 } as const;
 
+
+// ============================================================
+// KYC WIZARD v2 EXTENSION TABLES
+// ============================================================
+
+// Video KYC Sessions (BE-KYC-011)
+export const kycVideoSessions = pgTable("kyc_video_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => kycVerificationSessions.id),
+  userId: varchar("user_id").references(() => users.id),
+  reason: varchar("reason").notNull(), // HIGH_AML, ADMIN_REQUEST, REKYC_ESCALATION, REGULATOR_MANDATE
+  status: varchar("status").notNull().default("PENDING"), // PENDING, SCHEDULED, IN_PROGRESS, COMPLETED, FAILED, EXPIRED
+  provider: varchar("provider").default("internal"), // internal, third_party
+  scheduledAt: timestamp("scheduled_at"),
+  joinUrl: text("join_url"),
+  recordingHash: varchar("recording_hash"), // SHA-256 hash of recording (no raw storage)
+  officerId: varchar("officer_id").references(() => users.id),
+  officerNotes: text("officer_notes"),
+  completedAt: timestamp("completed_at"),
+  failureReason: text("failure_reason"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_video_kyc_user").on(table.userId),
+  index("idx_video_kyc_session").on(table.sessionId),
+  index("idx_video_kyc_status").on(table.status),
+]);
+
+export const insertKycVideoSessionSchema = createInsertSchema(kycVideoSessions).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+export type KycVideoSession = typeof kycVideoSessions.$inferSelect;
+export type InsertKycVideoSession = z.infer<typeof insertKycVideoSessionSchema>;
+
+// KYC Maker-Checker Approvals (BE-KYC-012)
+export const kycApprovals = pgTable("kyc_approvals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => kycVerificationSessions.id),
+  userId: varchar("user_id").references(() => users.id),
+  entityType: varchar("entity_type").notNull(), // COMPANY, HUF, TRUST, AOP, BOI, HIGH_VALUE_INDIVIDUAL
+  makerId: varchar("maker_id").references(() => users.id).notNull(),
+  checkerId: varchar("checker_id").references(() => users.id),
+  status: varchar("status").notNull().default("PENDING"), // PENDING, APPROVED, REJECTED, ESCALATED
+  makerNotes: text("maker_notes"),
+  checkerNotes: text("checker_notes"),
+  rejectionReason: text("rejection_reason"),
+  checkerIpAddress: varchar("checker_ip_address"),
+  submittedAt: timestamp("submitted_at").defaultNow().notNull(),
+  decidedAt: timestamp("decided_at"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_kyc_approval_session").on(table.sessionId),
+  index("idx_kyc_approval_status").on(table.status),
+  index("idx_kyc_approval_maker").on(table.makerId),
+  index("idx_kyc_approval_checker").on(table.checkerId),
+]);
+
+export const insertKycApprovalSchema = createInsertSchema(kycApprovals).omit({
+  id: true, createdAt: true,
+});
+export type KycApproval = typeof kycApprovals.$inferSelect;
+export type InsertKycApproval = z.infer<typeof insertKycApprovalSchema>;
+
+// KYC Rejection Events (BE-KYC-013)
+export const kycRejectionEvents = pgTable("kyc_rejection_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => kycVerificationSessions.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  reasonCode: varchar("reason_code").notNull(), // DOCUMENT_MISMATCH, AML_HIGH_RISK, SIGNATURE_INVALID, CKYC_INCOMPLETE
+  reasonDescription: text("reason_description"),
+  rejectedBy: varchar("rejected_by").references(() => users.id).notNull(),
+  rejectedByRole: varchar("rejected_by_role"),
+  rekycRequired: boolean("rekyc_required").default(false),
+  newSessionId: varchar("new_session_id"), // Linked re-KYC session if created
+  disputeNotes: text("dispute_notes"),
+  disputeStatus: varchar("dispute_status"), // null, FILED, UNDER_REVIEW, RESOLVED, DISMISSED
+  disputeResolvedAt: timestamp("dispute_resolved_at"),
+  rejectedAt: timestamp("rejected_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_kyc_rejection_session").on(table.sessionId),
+  index("idx_kyc_rejection_user").on(table.userId),
+  index("idx_kyc_rejection_code").on(table.reasonCode),
+]);
+
+export const insertKycRejectionEventSchema = createInsertSchema(kycRejectionEvents).omit({
+  id: true, createdAt: true,
+});
+export type KycRejectionEvent = typeof kycRejectionEvents.$inferSelect;
+export type InsertKycRejectionEvent = z.infer<typeof insertKycRejectionEventSchema>;
+
+// KYC Product Eligibility Rules (BE-KYC-014)
+export const kycProductEligibilityRules = pgTable("kyc_product_eligibility_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productCode: varchar("product_code").notNull(), // EQUITY, MUTUAL_FUNDS, BONDS, IPOS, AIF_PMS, LOANS, INSURANCE, UNLISTED, US_STOCKS, COMMODITIES
+  productName: varchar("product_name").notNull(),
+  requiredTier: varchar("required_tier").notNull(), // basic, enhanced, accredited_investor
+  requiredTierStatus: varchar("required_tier_status").default("final"), // provisional, final
+  maxAmount: decimal("max_amount", { precision: 15, scale: 2 }),
+  conditions: text("conditions").array().default(sql`'{}'::text[]`), // AML_OK, FATCA_SIGNED, VIDEO_KYC_DONE, MAKER_CHECKER_APPROVED
+  requireVideoKyc: boolean("require_video_kyc").default(false),
+  requireMakerChecker: boolean("require_maker_checker").default(false),
+  amlMaxRisk: varchar("aml_max_risk").default("MEDIUM"), // Maximum allowed AML risk: LOW, MEDIUM, HIGH
+  isActive: boolean("is_active").default(true),
+  regulatoryBasis: text("regulatory_basis"), // SEBI circular, RBI guideline reference
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_kyc_eligibility_product").on(table.productCode),
+  index("idx_kyc_eligibility_tier").on(table.requiredTier),
+]);
+
+export const insertKycProductEligibilityRuleSchema = createInsertSchema(kycProductEligibilityRules).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+export type KycProductEligibilityRule = typeof kycProductEligibilityRules.$inferSelect;
+export type InsertKycProductEligibilityRule = z.infer<typeof insertKycProductEligibilityRuleSchema>;
+
+// KYC Audit Packs (BE-KYC-015)
+export const kycAuditPacks = pgTable("kyc_audit_packs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  sessionId: varchar("session_id").references(() => kycVerificationSessions.id),
+  generatedBy: varchar("generated_by").references(() => users.id).notNull(),
+  generatedByRole: varchar("generated_by_role"),
+  packType: varchar("pack_type").default("full"), // full, pan_only, aml_only, compliance
+  checksum: varchar("checksum"), // SHA-256 of generated bundle
+  sections: text("sections").array().default(sql`'{}'::text[]`), // PAN_PROOF, CKYC_HASH, AML_SNAPSHOT, AADHAAR_CONSENT, SIGNATURE, CHANGE_HISTORY
+  filePath: text("file_path"), // Object storage path
+  fileSize: integer("file_size"),
+  expiresAt: timestamp("expires_at"), // Auto-expire download links
+  downloadCount: integer("download_count").default(0),
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_kyc_audit_pack_user").on(table.userId),
+  index("idx_kyc_audit_pack_session").on(table.sessionId),
+  index("idx_kyc_audit_pack_generated_at").on(table.generatedAt),
+]);
+
+export const insertKycAuditPackSchema = createInsertSchema(kycAuditPacks).omit({
+  id: true, createdAt: true,
+});
+export type KycAuditPack = typeof kycAuditPacks.$inferSelect;
+export type InsertKycAuditPack = z.infer<typeof insertKycAuditPackSchema>;
+
+// KYC Webhook Events (BE-KYC-016)
+export const kycWebhookEvents = pgTable("kyc_webhook_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  provider: varchar("provider").notNull(), // sandbox, truthscreen
+  eventType: varchar("event_type").notNull(), // pan_verified, aadhaar_otp_sent, aml_check_complete, video_kyc_complete
+  referenceId: varchar("reference_id"), // Provider-specific reference
+  sessionId: varchar("session_id"),
+  payload: jsonb("payload"),
+  status: varchar("status").notNull().default("PENDING"), // PENDING, PROCESSING, COMPLETED, FAILED, DLQ
+  attempts: integer("attempts").default(0),
+  maxAttempts: integer("max_attempts").default(5),
+  nextRetryAt: timestamp("next_retry_at"),
+  lastError: text("last_error"),
+  processedAt: timestamp("processed_at"),
+  dlqAt: timestamp("dlq_at"), // When moved to dead-letter queue
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_kyc_webhook_provider").on(table.provider),
+  index("idx_kyc_webhook_status").on(table.status),
+  index("idx_kyc_webhook_retry").on(table.nextRetryAt),
+  index("idx_kyc_webhook_reference").on(table.referenceId),
+]);
+
+export const insertKycWebhookEventSchema = createInsertSchema(kycWebhookEvents).omit({
+  id: true, createdAt: true,
+});
+export type KycWebhookEvent = typeof kycWebhookEvents.$inferSelect;
+export type InsertKycWebhookEvent = z.infer<typeof insertKycWebhookEventSchema>;
+
+// KYC Rate Limit Counters (BE-KYC-019)
+export const kycRateLimitCounters = pgTable("kyc_rate_limit_counters", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  limitKey: varchar("limit_key").notNull(), // format: type:identifier (e.g., aadhaar_otp:user123, pan_verify:agent456)
+  limitType: varchar("limit_type").notNull(), // aadhaar_otp, pan_verify, ckyc_lookup
+  identifierType: varchar("identifier_type").notNull(), // user, agent, ip
+  identifier: varchar("identifier").notNull(),
+  windowStart: timestamp("window_start").notNull(),
+  windowEnd: timestamp("window_end").notNull(),
+  count: integer("count").default(0).notNull(),
+  maxAllowed: integer("max_allowed").notNull(),
+  isLocked: boolean("is_locked").default(false),
+  lockedAt: timestamp("locked_at"),
+  lockedReason: text("locked_reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_kyc_rate_key").on(table.limitKey),
+  index("idx_kyc_rate_type").on(table.limitType),
+  index("idx_kyc_rate_window").on(table.windowStart, table.windowEnd),
+]);
+
+export const insertKycRateLimitCounterSchema = createInsertSchema(kycRateLimitCounters).omit({
+  id: true, createdAt: true,
+});
+export type KycRateLimitCounter = typeof kycRateLimitCounters.$inferSelect;
+export type InsertKycRateLimitCounter = z.infer<typeof insertKycRateLimitCounterSchema>;
+
+// KYC Rejection Reason Codes
+export const KYC_REJECTION_REASON_CODES = {
+  DOCUMENT_MISMATCH: "DOCUMENT_MISMATCH",
+  AML_HIGH_RISK: "AML_HIGH_RISK",
+  SIGNATURE_INVALID: "SIGNATURE_INVALID",
+  CKYC_INCOMPLETE: "CKYC_INCOMPLETE",
+  PAN_NAME_MISMATCH: "PAN_NAME_MISMATCH",
+  AADHAAR_FAILED: "AADHAAR_FAILED",
+  VIDEO_KYC_FAILED: "VIDEO_KYC_FAILED",
+  MAKER_CHECKER_REJECTED: "MAKER_CHECKER_REJECTED",
+  REGULATOR_FLAG: "REGULATOR_FLAG",
+} as const;
+
+// Video KYC Trigger Reasons
+export const VIDEO_KYC_REASONS = {
+  HIGH_AML: "HIGH_AML",
+  ADMIN_REQUEST: "ADMIN_REQUEST",
+  REKYC_ESCALATION: "REKYC_ESCALATION",
+  REGULATOR_MANDATE: "REGULATOR_MANDATE",
+  CRITICAL_AML: "CRITICAL_AML",
+} as const;
+
+// Maker-Checker Required Entity Types
+export const MAKER_CHECKER_ENTITY_TYPES = [
+  "COMPANY", "HUF", "TRUST", "AOP", "BOI", "HIGH_VALUE_INDIVIDUAL",
+] as const;

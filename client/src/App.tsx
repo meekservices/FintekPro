@@ -96,6 +96,7 @@ import AdminESignManagement from "@/pages/admin/esign-management";
 import ReportBuilder from "@/pages/admin/report-builder";
 import StakeholdersPage from "@/pages/admin/stakeholders";
 import KycCompliancePage from "@/pages/admin/kyc-compliance";
+import KycV2ManagementPage from "@/pages/admin/kyc-v2-management";
 import FinancialOperationsPage from "@/pages/admin/financial-operations";
 import APIConfiguration from "@/pages/admin/api-configuration";
 import ProductionReadiness from "@/pages/admin/production-readiness";
@@ -197,6 +198,8 @@ const AgentProspectProposals = lazy(() => import("@/pages/agent-prospect-proposa
 import OnboardingPage from "@/pages/onboarding";
 import PublicProposalPage from "@/pages/public-proposal";
 import ManualKYCPage from "@/pages/manual-kyc";
+import KycRejectionRekyc from "@/pages/kyc-rejection-rekyc";
+import KYCProductEligibility from "@/pages/kyc-product-eligibility";
 import NetWorthPage from "@/pages/net-worth";
 import AdminProposalsPage from "@/pages/admin-proposals";
 import ClientProposalsPage from "@/pages/client-proposals";
@@ -637,6 +640,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <KycCompliancePage />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/kyc-v2-management">
+        {() => (
+          <AdminLayout>
+            <KycV2ManagementPage />
           </AdminLayout>
         )}
       </Route>
@@ -2199,7 +2209,9 @@ function Router() {
         <Route path="/kyc/complete">
           <Redirect to="/profile?tab=kyc-dashboard" />
         </Route>
+        <Route path="/product-eligibility" component={KYCProductEligibility} />
         <Route path="/video-kyc" component={VideoKYC} />
+        <Route path="/kyc-rejections" component={KycRejectionRekyc} />
         <Route path="/net-worth" component={NetWorthPage} />
         <Route path="/privacy" component={Privacy} />
         <Route path="/terms" component={Terms} />

@@ -1,0 +1,1172 @@
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { format, formatDistanceToNow } from "date-fns";
+import {
+  Video,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  Shield,
+  Search,
+  RefreshCw,
+  Clock,
+  Eye,
+  Download,
+  FileText,
+  Users,
+  Activity,
+  Package,
+  Webhook,
+  Server,
+  Play,
+  ChevronDown,
+  Loader2,
+  Inbox,
+  Ban,
+  ThumbsUp,
+  ThumbsDown,
+  Hash,
+  Info,
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+
+function EnvironmentBanner() {
+  const { data, isLoading } = useQuery<{
+    success: boolean;
+    environment: string;
+    fixedOtpEnabled: boolean;
+    providers: { pan: string; aadhaar: string; ckyc: string; aml: string };
+  }>({
+    queryKey: ["/api/kyc/environment/status"],
+  });
+
+  if (isLoading) {
+    return <Skeleton className="h-12 w-full mb-4" />;
+  }
+
+  if (!data?.success) return null;
+
+  const isSandbox = data.environment === "sandbox";
+
+  return (
+    <Alert
+      className={
+        isSandbox
+          ? "border-yellow-500 bg-yellow-50 dark:bg-yellow-950 mb-4"
+          : "border-green-500 bg-green-50 dark:bg-green-950 mb-4"
+      }
+    >
+      <Server className="h-4 w-4" />
+      <AlertTitle className="flex items-center gap-2">
+        Environment:{" "}
+        <Badge variant={isSandbox ? "secondary" : "default"}>
+          {data.environment?.toUpperCase()}
+        </Badge>
+        {data.fixedOtpEnabled && (
+          <Badge variant="outline" className="text-yellow-600">
+            Fixed OTP Enabled
+          </Badge>
+        )}
+      </AlertTitle>
+      <AlertDescription>
+        <div className="flex flex-wrap gap-3 mt-1">
+          {Object.entries(data.providers || {}).map(([key, status]) => (
+            <span key={key} className="flex items-center gap-1 text-sm">
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  status === "active" || status === "connected"
+                    ? "bg-green-500"
+                    : status === "sandbox"
+                      ? "bg-yellow-500"
+                      : "bg-red-500"
+                }`}
+              />
+              {key.toUpperCase()}: {String(status)}
+            </span>
+          ))}
+        </div>
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+function LoadingTable({ rows = 5 }: { rows?: number }) {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: rows }).map((_, i) => (
+        <Skeleton key={i} className="h-12 w-full" />
+      ))}
+    </div>
+  );
+}
+
+function EmptyState({ icon: Icon, title, description }: { icon: any; title: string; description: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <Icon className="h-12 w-12 text-muted-foreground mb-4" />
+      <h3 className="text-lg font-medium mb-1">{title}</h3>
+      <p className="text-sm text-muted-foreground max-w-sm">{description}</p>
+    </div>
+  );
+}
+
+function VideoKycTab() {
+  const { toast } = useToast();
+  const [selectedSession, setSelectedSession] = useState<any>(null);
+  const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
+  const [officerNotes, setOfficerNotes] = useState("");
+  const [recordingHash, setRecordingHash] = useState("");
+  const [completeStatus, setCompleteStatus] = useState<"approved" | "rejected">("approved");
+
+  const { data, isLoading, refetch } = useQuery<{
+    success: boolean;
+    sessions: Array<{
+      id: string;
+      userId: string;
+      reason: string;
+      status: string;
+      scheduledAt: string;
+      createdAt: string;
+    }>;
+  }>({
+    queryKey: ["/api/kyc/video/admin/pending"],
+  });
+
+  const completeMutation = useMutation({
+    mutationFn: (body: { videoKycId: string; status: string; recordingHash: string; officerNotes: string }) =>
+      apiRequest("/api/kyc/video/complete", { method: "POST", body: JSON.stringify(body) }),
+    onSuccess: () => {
+      toast({ title: "Success", description: "Video KYC session completed." });
+      setCompleteDialogOpen(false);
+      setSelectedSession(null);
+      setOfficerNotes("");
+      setRecordingHash("");
+      queryClient.invalidateQueries({ queryKey: ["/api/kyc/video/admin/pending"] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to complete video KYC session.", variant: "destructive" });
+    },
+  });
+
+  const handleComplete = () => {
+    if (!selectedSession) return;
+    completeMutation.mutate({
+      videoKycId: selectedSession.id,
+      status: completeStatus,
+      recordingHash,
+      officerNotes,
+    });
+  };
+
+  const sessions = data?.sessions || [];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold">Pending Video KYC Sessions</h3>
+          <p className="text-sm text-muted-foreground">Review and manage video KYC verification requests</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => refetch()}>
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Refresh
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <LoadingTable />
+      ) : sessions.length === 0 ? (
+        <EmptyState icon={Video} title="No pending sessions" description="All video KYC sessions have been processed." />
+      ) : (
+        <Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Session ID</TableHead>
+                <TableHead>User ID</TableHead>
+                <TableHead>Reason</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Scheduled</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sessions.map((session) => (
+                <TableRow key={session.id}>
+                  <TableCell className="font-mono text-sm">{session.id.slice(0, 8)}...</TableCell>
+                  <TableCell>{session.userId}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{session.reason}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        session.status === "completed"
+                          ? "default"
+                          : session.status === "pending"
+                            ? "secondary"
+                            : "destructive"
+                      }
+                    >
+                      {session.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {session.scheduledAt ? format(new Date(session.scheduledAt), "dd MMM yyyy, HH:mm") : "—"}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {formatDistanceToNow(new Date(session.createdAt), { addSuffix: true })}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedSession(session);
+                          setCompleteStatus("approved");
+                          setCompleteDialogOpen(true);
+                        }}
+                      >
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedSession(session);
+                          setCompleteStatus("rejected");
+                          setCompleteDialogOpen(true);
+                        }}
+                      >
+                        <XCircle className="h-4 w-4 text-red-600" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+      )}
+
+      <Dialog open={completeDialogOpen} onOpenChange={setCompleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {completeStatus === "approved" ? "Approve" : "Reject"} Video KYC
+            </DialogTitle>
+            <DialogDescription>
+              Session: {selectedSession?.id?.slice(0, 12)}... | User: {selectedSession?.userId}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Recording Hash</label>
+              <Input
+                placeholder="Enter recording hash..."
+                value={recordingHash}
+                onChange={(e) => setRecordingHash(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Officer Notes</label>
+              <Textarea
+                placeholder="Add notes about this session..."
+                value={officerNotes}
+                onChange={(e) => setOfficerNotes(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCompleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant={completeStatus === "approved" ? "default" : "destructive"}
+              onClick={handleComplete}
+              disabled={completeMutation.isPending}
+            >
+              {completeMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {completeStatus === "approved" ? "Approve" : "Reject"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function MakerCheckerTab() {
+  const { toast } = useToast();
+  const [activeView, setActiveView] = useState<"pending" | "history">("pending");
+  const [actionDialog, setActionDialog] = useState<{ open: boolean; type: "approve" | "reject"; approval: any }>({
+    open: false,
+    type: "approve",
+    approval: null,
+  });
+  const [notes, setNotes] = useState("");
+  const [rejectionReason, setRejectionReason] = useState("");
+
+  const { data: pendingData, isLoading: pendingLoading } = useQuery<{
+    success: boolean;
+    approvals: Array<{
+      id: string;
+      sessionId: string;
+      userId: string;
+      entityType: string;
+      makerId: string;
+      status: string;
+      makerNotes: string;
+      submittedAt: string;
+    }>;
+  }>({
+    queryKey: ["/api/kyc/approval/pending"],
+    enabled: activeView === "pending",
+  });
+
+  const { data: historyData, isLoading: historyLoading } = useQuery<{
+    success: boolean;
+    approvals: any[];
+  }>({
+    queryKey: ["/api/kyc/approval/history", "limit=50"],
+    enabled: activeView === "history",
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: (body: { approvalId: string; notes: string }) =>
+      apiRequest("/api/kyc/approval/approve", { method: "POST", body: JSON.stringify(body) }),
+    onSuccess: () => {
+      toast({ title: "Approved", description: "Approval has been granted." });
+      setActionDialog({ open: false, type: "approve", approval: null });
+      setNotes("");
+      queryClient.invalidateQueries({ queryKey: ["/api/kyc/approval/pending"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/kyc/approval/history"] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to approve.", variant: "destructive" });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (body: { approvalId: string; notes: string; rejectionReason: string }) =>
+      apiRequest("/api/kyc/approval/reject", { method: "POST", body: JSON.stringify(body) }),
+    onSuccess: () => {
+      toast({ title: "Rejected", description: "Approval has been rejected." });
+      setActionDialog({ open: false, type: "reject", approval: null });
+      setNotes("");
+      setRejectionReason("");
+      queryClient.invalidateQueries({ queryKey: ["/api/kyc/approval/pending"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/kyc/approval/history"] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to reject.", variant: "destructive" });
+    },
+  });
+
+  const handleAction = () => {
+    if (!actionDialog.approval) return;
+    if (actionDialog.type === "approve") {
+      approveMutation.mutate({ approvalId: actionDialog.approval.id, notes });
+    } else {
+      rejectMutation.mutate({ approvalId: actionDialog.approval.id, notes, rejectionReason });
+    }
+  };
+
+  const pendingApprovals = pendingData?.approvals || [];
+  const historyApprovals = historyData?.approvals || [];
+  const isLoading = activeView === "pending" ? pendingLoading : historyLoading;
+  const approvals = activeView === "pending" ? pendingApprovals : historyApprovals;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold">Maker-Checker Approvals</h3>
+          <p className="text-sm text-muted-foreground">Review pending approvals or view history</p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant={activeView === "pending" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setActiveView("pending")}
+          >
+            <Clock className="h-4 w-4 mr-1" />
+            Pending
+          </Button>
+          <Button
+            variant={activeView === "history" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setActiveView("history")}
+          >
+            <FileText className="h-4 w-4 mr-1" />
+            History
+          </Button>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <LoadingTable />
+      ) : approvals.length === 0 ? (
+        <EmptyState
+          icon={CheckCircle}
+          title={activeView === "pending" ? "No pending approvals" : "No approval history"}
+          description={
+            activeView === "pending"
+              ? "All maker-checker items have been processed."
+              : "No approval records found."
+          }
+        />
+      ) : (
+        <Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>User</TableHead>
+                <TableHead>Entity Type</TableHead>
+                <TableHead>Maker</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Maker Notes</TableHead>
+                <TableHead>Submitted</TableHead>
+                {activeView === "pending" && <TableHead className="text-right">Actions</TableHead>}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {approvals.map((approval: any) => (
+                <TableRow key={approval.id}>
+                  <TableCell className="font-mono text-sm">{approval.id?.slice(0, 8)}...</TableCell>
+                  <TableCell>{approval.userId}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{approval.entityType}</Badge>
+                  </TableCell>
+                  <TableCell className="text-sm">{approval.makerId}</TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        approval.status === "approved"
+                          ? "default"
+                          : approval.status === "rejected"
+                            ? "destructive"
+                            : "secondary"
+                      }
+                    >
+                      {approval.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
+                    {approval.makerNotes || "—"}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {approval.submittedAt
+                      ? formatDistanceToNow(new Date(approval.submittedAt), { addSuffix: true })
+                      : "—"}
+                  </TableCell>
+                  {activeView === "pending" && (
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            setActionDialog({ open: true, type: "approve", approval })
+                          }
+                        >
+                          <ThumbsUp className="h-4 w-4 text-green-600" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            setActionDialog({ open: true, type: "reject", approval })
+                          }
+                        >
+                          <ThumbsDown className="h-4 w-4 text-red-600" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+      )}
+
+      <Dialog open={actionDialog.open} onOpenChange={(open) => setActionDialog((prev) => ({ ...prev, open }))}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {actionDialog.type === "approve" ? "Approve" : "Reject"} Request
+            </DialogTitle>
+            <DialogDescription>
+              Approval ID: {actionDialog.approval?.id?.slice(0, 12)}... | Entity: {actionDialog.approval?.entityType}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Notes</label>
+              <Textarea
+                placeholder="Add reviewer notes..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+              />
+            </div>
+            {actionDialog.type === "reject" && (
+              <div>
+                <label className="text-sm font-medium">Rejection Reason</label>
+                <Textarea
+                  placeholder="Provide reason for rejection..."
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  rows={2}
+                />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setActionDialog({ open: false, type: "approve", approval: null })}>
+              Cancel
+            </Button>
+            <Button
+              variant={actionDialog.type === "approve" ? "default" : "destructive"}
+              onClick={handleAction}
+              disabled={approveMutation.isPending || rejectMutation.isPending}
+            >
+              {(approveMutation.isPending || rejectMutation.isPending) && (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
+              {actionDialog.type === "approve" ? "Approve" : "Reject"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function RejectionsDisputesTab() {
+  const { data: disputesData, isLoading: disputesLoading } = useQuery<{
+    success: boolean;
+    disputes: any[];
+  }>({
+    queryKey: ["/api/kyc/disputes"],
+  });
+
+  const { data: reasonsData, isLoading: reasonsLoading } = useQuery<{
+    success: boolean;
+    reasons: Record<string, string>;
+  }>({
+    queryKey: ["/api/kyc/rejection-reasons"],
+  });
+
+  const disputes = disputesData?.disputes || [];
+  const reasons = reasonsData?.reasons || {};
+  const isLoading = disputesLoading || reasonsLoading;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold">KYC Rejections & Disputes</h3>
+        <p className="text-sm text-muted-foreground">View rejection reasons and manage disputes</p>
+      </div>
+
+      {Object.keys(reasons).length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Ban className="h-4 w-4" />
+              Rejection Reasons Reference
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {Object.entries(reasons).map(([code, description]) => (
+                <div key={code} className="flex items-start gap-2 p-2 rounded-md bg-muted/50">
+                  <Badge variant="outline" className="shrink-0 font-mono text-xs">
+                    {code}
+                  </Badge>
+                  <span className="text-sm">{String(description)}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {isLoading ? (
+        <LoadingTable />
+      ) : disputes.length === 0 ? (
+        <EmptyState icon={AlertTriangle} title="No disputes" description="No KYC disputes have been filed." />
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Active Disputes</CardTitle>
+          </CardHeader>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Dispute ID</TableHead>
+                <TableHead>User</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Reason</TableHead>
+                <TableHead>Filed</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {disputes.map((dispute: any) => (
+                <TableRow key={dispute.id}>
+                  <TableCell className="font-mono text-sm">{dispute.id?.slice?.(0, 8) ?? dispute.id}...</TableCell>
+                  <TableCell>{dispute.userId || dispute.user}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{dispute.type || dispute.entityType || "KYC"}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        dispute.status === "resolved"
+                          ? "default"
+                          : dispute.status === "rejected"
+                            ? "destructive"
+                            : "secondary"
+                      }
+                    >
+                      {dispute.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="max-w-[250px] truncate text-sm">
+                    {dispute.reason || dispute.description || "—"}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {dispute.createdAt
+                      ? formatDistanceToNow(new Date(dispute.createdAt), { addSuffix: true })
+                      : "—"}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function AuditPackTab() {
+  const { toast } = useToast();
+  const [searchUserId, setSearchUserId] = useState("");
+  const [activeUserId, setActiveUserId] = useState("");
+
+  const { data: packData, isLoading: packLoading } = useQuery<{
+    success: boolean;
+    packId: string;
+    sections: any[];
+    checksum: string;
+  }>({
+    queryKey: ["/api/kyc/audit-pack", activeUserId],
+    enabled: !!activeUserId,
+  });
+
+  const { data: packsData, isLoading: packsLoading } = useQuery<{
+    success: boolean;
+    packs: any[];
+  }>({
+    queryKey: ["/api/kyc/audit-packs", activeUserId],
+    enabled: !!activeUserId,
+  });
+
+  const handleSearch = () => {
+    if (!searchUserId.trim()) {
+      toast({ title: "Enter a User ID", description: "Please provide a user ID to search.", variant: "destructive" });
+      return;
+    }
+    setActiveUserId(searchUserId.trim());
+  };
+
+  const sections = packData?.sections || [];
+  const packs = packsData?.packs || [];
+  const isLoading = packLoading || packsLoading;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold">Audit Pack Generator</h3>
+        <p className="text-sm text-muted-foreground">Search for a user and generate or download audit packs</p>
+      </div>
+
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <Input
+                placeholder="Enter User ID..."
+                value={searchUserId}
+                onChange={(e) => setSearchUserId(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              />
+            </div>
+            <Button onClick={handleSearch} disabled={isLoading}>
+              {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Search className="h-4 w-4 mr-2" />}
+              Search
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {activeUserId && isLoading && <LoadingTable rows={3} />}
+
+      {activeUserId && !isLoading && (
+        <>
+          {packData?.success && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Package className="h-4 w-4" />
+                    Current Audit Pack
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="font-mono text-xs">
+                      <Hash className="h-3 w-3 mr-1" />
+                      {packData.checksum?.slice(0, 12)}...
+                    </Badge>
+                  </div>
+                </div>
+                <CardDescription>Pack ID: {packData.packId}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {sections.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No sections in this audit pack.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {sections.map((section: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-3 rounded-md border"
+                      >
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm font-medium">{section.title || section.name || `Section ${idx + 1}`}</span>
+                        </div>
+                        <Badge variant={section.status === "complete" ? "default" : "secondary"}>
+                          {section.status || "pending"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {packs.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Previous Audit Packs</CardTitle>
+              </CardHeader>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Pack ID</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Sections</TableHead>
+                    <TableHead>Checksum</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {packs.map((pack: any) => (
+                    <TableRow key={pack.id || pack.packId}>
+                      <TableCell className="font-mono text-sm">{(pack.id || pack.packId)?.slice(0, 10)}...</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {pack.createdAt ? format(new Date(pack.createdAt), "dd MMM yyyy") : "—"}
+                      </TableCell>
+                      <TableCell>{pack.sectionsCount || pack.sections?.length || 0}</TableCell>
+                      <TableCell className="font-mono text-xs">{pack.checksum?.slice(0, 10)}...</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm">
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          )}
+
+          {!packData?.success && packs.length === 0 && !isLoading && (
+            <EmptyState icon={Package} title="No audit packs found" description={`No audit packs found for user ${activeUserId}.`} />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function WebhookDlqTab() {
+  const { toast } = useToast();
+
+  const { data: statsData, isLoading: statsLoading, refetch: refetchStats } = useQuery<{
+    success: boolean;
+    stats: { pending: number; processing: number; completed: number; failed: number; dlq: number };
+  }>({
+    queryKey: ["/api/kyc/webhook/stats"],
+  });
+
+  const { data: dlqData, isLoading: dlqLoading, refetch: refetchDlq } = useQuery<{
+    success: boolean;
+    events: any[];
+  }>({
+    queryKey: ["/api/kyc/webhook/dlq"],
+  });
+
+  const replayMutation = useMutation({
+    mutationFn: (eventId: string) =>
+      apiRequest(`/api/kyc/webhook/replay/${eventId}`, { method: "POST" }),
+    onSuccess: () => {
+      toast({ title: "Replayed", description: "Event has been queued for replay." });
+      queryClient.invalidateQueries({ queryKey: ["/api/kyc/webhook/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/kyc/webhook/dlq"] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to replay event.", variant: "destructive" });
+    },
+  });
+
+  const stats = statsData?.stats;
+  const events = dlqData?.events || [];
+
+  const statCards = stats
+    ? [
+        { label: "Pending", value: stats.pending, color: "text-yellow-600", bg: "bg-yellow-50 dark:bg-yellow-950" },
+        { label: "Processing", value: stats.processing, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950" },
+        { label: "Completed", value: stats.completed, color: "text-green-600", bg: "bg-green-50 dark:bg-green-950" },
+        { label: "Failed", value: stats.failed, color: "text-red-600", bg: "bg-red-50 dark:bg-red-950" },
+        { label: "DLQ", value: stats.dlq, color: "text-purple-600", bg: "bg-purple-50 dark:bg-purple-950" },
+      ]
+    : [];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold">Webhook & DLQ Monitor</h3>
+          <p className="text-sm text-muted-foreground">Monitor webhook processing and dead letter queue</p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            refetchStats();
+            refetchDlq();
+          }}
+        >
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Refresh
+        </Button>
+      </div>
+
+      {statsLoading ? (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 w-full" />
+          ))}
+        </div>
+      ) : stats ? (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          {statCards.map((s) => (
+            <Card key={s.label} className={s.bg}>
+              <CardContent className="pt-4 pb-4">
+                <p className="text-sm text-muted-foreground">{s.label}</p>
+                <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : null}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Inbox className="h-4 w-4" />
+            Dead Letter Queue Events
+          </CardTitle>
+        </CardHeader>
+        {dlqLoading ? (
+          <CardContent>
+            <LoadingTable rows={3} />
+          </CardContent>
+        ) : events.length === 0 ? (
+          <CardContent>
+            <EmptyState icon={Inbox} title="DLQ is empty" description="No failed events in the dead letter queue." />
+          </CardContent>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Event ID</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Error</TableHead>
+                <TableHead>Failed At</TableHead>
+                <TableHead>Retries</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {events.map((event: any) => (
+                <TableRow key={event.id}>
+                  <TableCell className="font-mono text-sm">{event.id?.slice?.(0, 8) ?? event.id}...</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{event.type || event.eventType || "webhook"}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="destructive">{event.status || "failed"}</Badge>
+                  </TableCell>
+                  <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
+                    {event.error || event.lastError || "—"}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {event.failedAt || event.lastAttemptAt
+                      ? formatDistanceToNow(new Date(event.failedAt || event.lastAttemptAt), { addSuffix: true })
+                      : "—"}
+                  </TableCell>
+                  <TableCell className="text-sm">{event.retryCount ?? event.attempts ?? 0}</TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => replayMutation.mutate(event.id)}
+                      disabled={replayMutation.isPending}
+                    >
+                      <Play className="h-4 w-4 text-blue-600" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function EnvironmentStatusTab() {
+  const { data, isLoading, refetch } = useQuery<{
+    success: boolean;
+    environment: string;
+    fixedOtpEnabled: boolean;
+    providers: Record<string, string>;
+  }>({
+    queryKey: ["/api/kyc/environment/status"],
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-48" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-32 w-full" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (!data?.success) {
+    return (
+      <EmptyState
+        icon={Server}
+        title="Unable to fetch environment status"
+        description="Could not retrieve environment configuration."
+      />
+    );
+  }
+
+  const isSandbox = data.environment === "sandbox";
+  const providers = data.providers || {};
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold">Environment Status</h3>
+          <p className="text-sm text-muted-foreground">Current KYC environment and provider configuration</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => refetch()}>
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Refresh
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Server className="h-4 w-4" />
+              Environment
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-3">
+              <div
+                className={`h-4 w-4 rounded-full ${isSandbox ? "bg-yellow-500" : "bg-green-500"}`}
+              />
+              <span className="text-2xl font-bold">{data.environment?.toUpperCase()}</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              Fixed OTP
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-3">
+              <Badge variant={data.fixedOtpEnabled ? "secondary" : "default"}>
+                {data.fixedOtpEnabled ? "Enabled" : "Disabled"}
+              </Badge>
+              {data.fixedOtpEnabled && (
+                <span className="text-sm text-yellow-600">Test mode active</span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Provider Status</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            {Object.entries(providers).map(([name, status]) => {
+              const isActive = status === "active" || status === "connected";
+              const isSandboxMode = status === "sandbox";
+              return (
+                <div
+                  key={name}
+                  className="flex items-center gap-3 p-4 rounded-lg border"
+                >
+                  <div
+                    className={`h-3 w-3 rounded-full ${
+                      isActive ? "bg-green-500" : isSandboxMode ? "bg-yellow-500" : "bg-red-500"
+                    }`}
+                  />
+                  <div>
+                    <p className="font-medium">{name.toUpperCase()}</p>
+                    <p className="text-sm text-muted-foreground">{String(status)}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export default function KycV2ManagementPage() {
+  return (
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Shield className="h-6 w-6" />
+          KYC Admin Management
+        </h1>
+        <p className="text-muted-foreground">Comprehensive KYC operations, approvals, and monitoring</p>
+      </div>
+
+      <EnvironmentBanner />
+
+      <Tabs defaultValue="video-kyc" className="space-y-4">
+        <TabsList className="grid grid-cols-3 md:grid-cols-6 w-full">
+          <TabsTrigger value="video-kyc" className="text-xs sm:text-sm">
+            <Video className="h-4 w-4 mr-1 hidden sm:inline" />
+            Video KYC
+          </TabsTrigger>
+          <TabsTrigger value="maker-checker" className="text-xs sm:text-sm">
+            <Users className="h-4 w-4 mr-1 hidden sm:inline" />
+            Approvals
+          </TabsTrigger>
+          <TabsTrigger value="rejections" className="text-xs sm:text-sm">
+            <AlertTriangle className="h-4 w-4 mr-1 hidden sm:inline" />
+            Disputes
+          </TabsTrigger>
+          <TabsTrigger value="audit-pack" className="text-xs sm:text-sm">
+            <Package className="h-4 w-4 mr-1 hidden sm:inline" />
+            Audit Pack
+          </TabsTrigger>
+          <TabsTrigger value="webhook-dlq" className="text-xs sm:text-sm">
+            <Activity className="h-4 w-4 mr-1 hidden sm:inline" />
+            Webhooks
+          </TabsTrigger>
+          <TabsTrigger value="environment" className="text-xs sm:text-sm">
+            <Server className="h-4 w-4 mr-1 hidden sm:inline" />
+            Environment
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="video-kyc">
+          <VideoKycTab />
+        </TabsContent>
+
+        <TabsContent value="maker-checker">
+          <MakerCheckerTab />
+        </TabsContent>
+
+        <TabsContent value="rejections">
+          <RejectionsDisputesTab />
+        </TabsContent>
+
+        <TabsContent value="audit-pack">
+          <AuditPackTab />
+        </TabsContent>
+
+        <TabsContent value="webhook-dlq">
+          <WebhookDlqTab />
+        </TabsContent>
+
+        <TabsContent value="environment">
+          <EnvironmentStatusTab />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}

@@ -9,6 +9,7 @@ import { registerCapitalGainsRoutes } from './routes/capital-gains';
 import { registerAdminPanelRoutes } from './routes/admin';
 import { registerPartnerPortalRoutes } from './routes/partner';
 import { registerKYCWizardRoutes } from './routes/kyc';
+import { registerKycV2ExtensionRoutes } from './routes/kyc/v2-extensions';
 import { registerStockExchangeRoutes } from './routes/stock-exchange';
 import { registerBankingRoutes } from './routes/banking';
 import { registerLoanRoutes, registerLoanProcessingRoutes, registerLoanComparisonRoutes } from './routes/loans';
@@ -29004,6 +29005,7 @@ Provide analysis in JSON format with these sections:
   registerAdminPanelRoutes(app);
   // Restored Loan Comparison and Cart System routes
   registerKYCWizardRoutes(app);
+  registerKycV2ExtensionRoutes(app);
 
   registerStockExchangeRoutes(app);
   registerSandboxWebhookRoutes(app);

@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { KycEnvironmentBanner } from "@/components/kyc-environment-banner";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -4323,6 +4324,7 @@ export default function SmartKYCOnboarding() {
   
   return (
     <div className="container mx-auto py-8 px-4">
+      <KycEnvironmentBanner />
       {/* Resume Session Dialog */}
       <AlertDialog open={showResumeDialog} onOpenChange={setShowResumeDialog}>
         <AlertDialogContent>
