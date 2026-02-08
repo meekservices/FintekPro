@@ -315,9 +315,9 @@ export default function AgentPicksPage() {
     }
   };
 
-  const todayPicks = todayData?.picks || [];
-  const livePicks = liveData?.picks || [];
-  const historyPicks = historyData?.picks || [];
+  const todayPicks = Array.isArray(todayData?.picks) ? todayData.picks : [];
+  const livePicks = Array.isArray(liveData?.picks) ? liveData.picks : [];
+  const historyPicks = Array.isArray(historyData?.picks) ? historyData.picks : [];
   const stats = statsData?.stats;
 
   const filterByMarket = (pick: DailyPick, marketFilter: string) => {
