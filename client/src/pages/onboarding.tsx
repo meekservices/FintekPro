@@ -270,6 +270,16 @@ export default function SmartKYCOnboarding() {
       const sessionData = data.session || data.data;
       
       if (data.success && sessionData) {
+        // Check if KYC is already fully completed
+        if (data.alreadyCompleted || sessionData.currentStep === 'completed') {
+          setCurrentStep('completed');
+          toast({
+            title: "KYC Already Complete",
+            description: "Your KYC verification is already completed. You have full access to all services.",
+          });
+          return;
+        }
+
         // Check if this is a resumable session
         if (data.resumable && !sessionData.stepStatus?.pan_verified) {
           // Show resume dialog only if user hasn't completed PAN yet

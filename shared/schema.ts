@@ -292,6 +292,12 @@ export const userProfiles = pgTable("user_profiles", {
   lastUpdated: timestamp("last_updated").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+  aadhaarVerifiedViaSmartKyc: boolean("aadhaar_verified_via_smart_kyc").default(false),
+  panVerifiedViaSmartKyc: boolean("pan_verified_via_smart_kyc").default(false),
+  ckycAuthbridgeFetchedAt: timestamp("ckyc_authbridge_fetched_at"),
+  ckycAuthbridgeKin: varchar("ckyc_authbridge_kin"),
+  ckycAuthbridgeResponse: jsonb("ckyc_authbridge_response"),
+  ckycAuthbridgeStatus: varchar("ckyc_authbridge_status"),
 });
 
 // User Bank Accounts table - Multiple bank accounts per user (max 5)

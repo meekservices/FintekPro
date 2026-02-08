@@ -131,6 +131,30 @@ export function registerKYCWizardRoutes(app: Express) {
       const userId = req.user!.id;
       const { entityType, targetLevel, forceNew } = req.body;
       
+      // Check if KYC is already fully completed (kycLevel='2')
+      const existingProfile = await db.select().from(schema.userProfiles).where(eq(schema.userProfiles.userId, userId)).limit(1);
+      const existingUserProfile = existingProfile[0];
+      
+      if (existingUserProfile?.kycLevel === '2' && existingUserProfile?.isProfileCompleted) {
+        return res.json({
+          success: true,
+          alreadyCompleted: true,
+          data: {
+            sessionId: null,
+            currentStep: 'completed',
+            stepStatus: {
+              pan_verified: true,
+              aadhaar_verified: true,
+              ckyc_fetched: true,
+              kra_verified: true,
+              risk_profiling: true,
+              compliance_signed: true
+            },
+            isResumed: false
+          }
+        });
+      }
+
       // Check for existing active session (includes expiry check)
       let existingSession: any = null;
       try {
@@ -146,7 +170,14 @@ export function registerKYCWizardRoutes(app: Express) {
             sessionId: existingSession.id,
             currentStep: existingSession.currentStep,
             stepStatus: existingSession.stepStatus,
-            isResumed: true
+            expiresAt: existingSession.expiresAt,
+            isResumed: true,
+            panVerified: (existingSession.stepStatus as any)?.pan_verified,
+            panVerificationData: existingSession.panVerificationData,
+            panNumber: existingSession.panNumber,
+            aadhaarOtpSent: (existingSession.stepStatus as any)?.aadhaar_otp_sent,
+            aadhaarVerified: existingSession.aadhaarVerified,
+            aadhaarVerificationData: existingSession.aadhaarVerificationData
           }
         });
       }
@@ -202,6 +233,8 @@ export function registerKYCWizardRoutes(app: Express) {
         }
       }
       
+      const sessionExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+      
       let session: any;
       try {
         session = await storage.createKycVerificationSession({
@@ -210,6 +243,7 @@ export function registerKYCWizardRoutes(app: Express) {
           targetLevel: targetLevel || '2',
           currentStep: initialStep,
           stepStatus,
+          expiresAt: sessionExpiresAt,
           panNumber: userProfile?.panNumber || undefined,
           panVerificationData: userProfile?.panSandboxResponse || undefined
         });
@@ -230,6 +264,7 @@ export function registerKYCWizardRoutes(app: Express) {
             targetLevel: targetLevel || '2',
             currentStep: initialStep,
             stepStatus,
+            expiresAt: sessionExpiresAt,
             panNumber: userProfile?.panNumber || undefined,
             panVerificationData: userProfile?.panSandboxResponse || undefined
           });
@@ -244,6 +279,7 @@ export function registerKYCWizardRoutes(app: Express) {
           sessionId: session.id,
           currentStep: session.currentStep,
           stepStatus: session.stepStatus,
+          expiresAt: session.expiresAt || sessionExpiresAt,
           isResumed: false,
           existingKycData: {
             panVerified: stepStatus.pan_verified,
@@ -494,6 +530,13 @@ export function registerKYCWizardRoutes(app: Express) {
         }
       });
       
+      // Also persist Aadhaar verification to user profile so progress is retained
+      await db.update(schema.userProfiles)
+        .set({
+          aadhaarVerifiedViaSmartKyc: true,
+        })
+        .where(eq(schema.userProfiles.userId, userId));
+      
       res.json({
         success: true,
         message: "Aadhaar verified successfully",
@@ -535,7 +578,8 @@ export function registerKYCWizardRoutes(app: Express) {
       await storage.updateKycVerificationSession(sessionId, {
         status: 'completed',
         completedAt: new Date(),
-        currentStep: 'completed'
+        currentStep: 'completed',
+        isActive: false
       });
       
       const stepStatus = session.stepStatus as any || {};
@@ -763,6 +807,8 @@ export function registerKYCWizardRoutes(app: Express) {
           completedAt: new Date() 
         },
         currentStep: "completed",
+        isActive: false,
+        completedAt: new Date(),
         stepStatus: { ...session.stepStatus as any, compliance_signed: true }
       });
 
@@ -771,6 +817,21 @@ export function registerKYCWizardRoutes(app: Express) {
         tinNumber: tinNumber || undefined,
         complianceAcceptedAt: new Date()
       });
+
+      // Persist KYC completion to user profile so it's retained across sessions
+      const stepStatus = session.stepStatus as any || {};
+      await db.update(schema.userProfiles)
+        .set({
+          kycLevel: '2',
+          kycLevelUpgradedAt: new Date(),
+          isProfileCompleted: true,
+          profileCompletedAt: new Date(),
+          kraVerifiedViaProtean: stepStatus.kra_verified || true,
+          aadhaarVerifiedViaSmartKyc: stepStatus.aadhaar_verified || session.aadhaarVerified || true,
+          videoKycCompleted: true,
+          faceToFaceVerificationCompleted: true,
+        })
+        .where(eq(schema.userProfiles.userId, userId));
 
       res.json({
         success: true,

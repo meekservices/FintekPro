@@ -6150,7 +6150,7 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(schema.kycVerificationSessions.userId, userId),
           eq(schema.kycVerificationSessions.isActive, true),
-          gte(schema.kycVerificationSessions.expiresAt, new Date())
+          sql`(${schema.kycVerificationSessions.expiresAt} IS NULL OR ${schema.kycVerificationSessions.expiresAt} >= NOW())`
         )
       )
       .orderBy(desc(schema.kycVerificationSessions.startedAt));
