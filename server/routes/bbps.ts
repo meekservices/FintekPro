@@ -2,6 +2,7 @@ import { Express } from 'express';
 import BBPSService from '../services/bbpsService';
 import { digilockerService } from '../services/digilockerService';
 import { CashfreeAadhaarService } from '../services/cashfree-aadhaar-service';
+import { sandboxKYCService } from '../services/sandbox-kyc-service';
 import { storage } from '../storage';
 
 const cashfreeAadhaarService = new CashfreeAadhaarService();
@@ -9,8 +10,8 @@ const cashfreeAadhaarService = new CashfreeAadhaarService();
 export async function registerBBPSRoutes(app: Express): Promise<void> {
   await BBPSService.initializeBBPSData();
   
-  digilockerService.initializeDigiLockerApp().catch(err => {
-    console.warn('⚠️ DigiLocker optional service unavailable, using Cashfree OKYC fallback');
+  digilockerService.initializeDigiLockerApp().catch((err: any) => {
+    console.warn('⚠️ DigiLocker optional service unavailable, using Sandbox API fallback');
   });
 
   app.post("/api/digilocker/fetch-aadhaar", async (req, res) => {
@@ -86,28 +87,59 @@ export async function registerBBPSRoutes(app: Express): Promise<void> {
         return res.status(401).json({ error: "Authentication required" });
       }
 
-      const config = await digilockerService.generateWidgetConfig("handleDigiLockerCallback");
-      
-      if (!config || !config.baseUrl) {
-        return res.status(503).json({ 
-          success: false,
-          message: "DigiLocker integration is not configured. Please contact support."
-        });
-      }
+      const { docTypes = ['aadhaar', 'pan'], flow = 'signin' } = req.body;
+      const redirectUri = `${process.env.REPLIT_DEV_DOMAIN ? 'https://' + process.env.REPLIT_DEV_DOMAIN : 'https://fintekpro.com'}/api/digilocker/callback`;
 
-      const widgetUrl = `${config.baseUrl}/authorize?client_id=${config.appId}&redirect_uri=${encodeURIComponent(config.redirectUri)}&response_type=code&state=${req.user.id}`;
+      const session = await sandboxKYCService.initiateDigiLockerSession(redirectUri, docTypes, flow);
       
       res.json({ 
         success: true,
-        widgetUrl,
+        sessionId: session.sessionId,
+        authorizationUrl: session.authorizationUrl,
+        transactionId: session.transactionId,
+        widgetUrl: session.authorizationUrl,
         message: "Please complete the authentication in the DigiLocker window."
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error initiating DigiLocker sharing:", error);
       res.status(500).json({ 
         success: false,
-        message: "Failed to initiate document sharing. Please try again."
+        message: error.message || "Failed to initiate document sharing. Please try again."
       });
+    }
+  });
+
+  app.get("/api/digilocker/session/:sessionId/status", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { sessionId } = req.params;
+      const status = await sandboxKYCService.getDigiLockerSessionStatus(sessionId);
+      res.json({ success: true, ...status });
+    } catch (error: any) {
+      console.error("Error checking DigiLocker session status:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  app.post("/api/digilocker/fetch-document", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { sessionId, documentType } = req.body;
+      if (!sessionId || !documentType) {
+        return res.status(400).json({ error: "Session ID and document type are required" });
+      }
+
+      const document = await sandboxKYCService.fetchDigiLockerDocument(sessionId, documentType);
+      res.json({ success: true, document });
+    } catch (error: any) {
+      console.error("Error fetching DigiLocker document:", error);
+      res.status(500).json({ success: false, message: error.message });
     }
   });
 

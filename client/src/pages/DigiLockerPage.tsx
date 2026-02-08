@@ -101,11 +101,6 @@ export default function DigiLockerPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch DigiLocker widget configuration
-  const { data: widgetConfig, isLoading: isLoadingConfig } = useQuery<DigiLockerConfig>({
-    queryKey: ["/api/digilocker/widget-config"],
-  });
-
   // Fetch user's DigiLocker documents
   const { 
     data: documents = [], 
@@ -166,21 +161,13 @@ export default function DigiLockerPage() {
   });
 
   const initiateDocumentSharing = async () => {
-    if (!widgetConfig) {
-      toast({
-        title: "Configuration Required",
-        description: "DigiLocker integration is not configured. Please contact support.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsInitiatingShare(true);
 
     try {
       const res = await fetch("/api/digilocker/initiate-sharing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docTypes: ['aadhaar', 'pan'], flow: 'signin' }),
       });
       
       if (!res.ok) {
@@ -190,15 +177,15 @@ export default function DigiLockerPage() {
 
       const result = await res.json();
       
-      if (result.widgetUrl) {
-        window.open(result.widgetUrl, "_blank", "width=800,height=600");
+      if (result.authorizationUrl || result.widgetUrl) {
+        window.open(result.authorizationUrl || result.widgetUrl, "_blank", "width=800,height=600");
+        toast({
+          title: "DigiLocker Opened",
+          description: "Please complete authentication in the DigiLocker window to share your documents.",
+        });
       }
       
       refetchDocuments();
-      toast({
-        title: result.success ? "Documents Shared Successfully" : "Sharing Initiated",
-        description: result.message || "Your DigiLocker documents are being processed.",
-      });
     } catch (error: any) {
       toast({
         title: "Sharing Failed",
@@ -472,17 +459,9 @@ export default function DigiLockerPage() {
               <Separator />
 
               <div className="flex flex-col gap-4">
-                {!widgetConfig && (
-                  <Alert variant="destructive" className="mb-2">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      DigiLocker integration is currently unavailable. Please contact support or try again later.
-                    </AlertDescription>
-                  </Alert>
-                )}
                 <Button
                   onClick={initiateDocumentSharing}
-                  disabled={isInitiatingShare || !widgetConfig}
+                  disabled={isInitiatingShare}
                   className="w-full"
                   size="lg"
                   data-testid="share-documents-btn"
@@ -501,9 +480,7 @@ export default function DigiLockerPage() {
                 </Button>
                 
                 <p className="text-sm text-muted-foreground text-center">
-                  {widgetConfig 
-                    ? "You'll be redirected to the official DigiLocker platform to select and share your documents"
-                    : "Document sharing is temporarily unavailable"}
+                  You'll be redirected to the official DigiLocker platform to select and share your documents
                 </p>
               </div>
             </CardContent>
