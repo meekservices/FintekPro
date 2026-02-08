@@ -16,6 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { LoadingState } from "@/components/LoadingState";
 import { 
@@ -150,8 +151,13 @@ const bankStatusColors: Record<string, string> = {
   query_raised: "bg-orange-100 text-orange-800",
 };
 
+const AGENT_ROLES = ["agent", "sub_agent", "master_agent", "associate"];
+
 export default function AgentLoanApplyPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const userRole = (user as any)?.role || (user as any)?.roles?.[0] || "";
+  const isAgent = AGENT_ROLES.includes(userRole);
   const [activeTab, setActiveTab] = useState("apply");
   const [loanVertical, setLoanVertical] = useState<"RETAIL" | "MSME" | "DEVELOPER">("RETAIL");
   const [loanSubType, setLoanSubType] = useState<string>("");
@@ -221,6 +227,8 @@ export default function AgentLoanApplyPage() {
 
   const { data: myApplications, isLoading: loadingApplications, refetch: refetchApplications } = useQuery<any>({
     queryKey: ["/api/agent/loans/my-applications"],
+    enabled: isAgent,
+    retry: false,
   });
 
   const { data: banksData } = useQuery<{ success: boolean; data: Bank[] }>({

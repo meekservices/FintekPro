@@ -229,11 +229,11 @@ export default function ProjectFinanceWizard({ applicationId, loanSubType, onCom
     if (projectData?.success && projectData.data) {
       const p = projectData.data;
       developerForm.reset({
-        developerCompanyName: p.developerCompanyName || "",
-        cin: p.cin || "",
-        pan: p.pan || "",
+        developerCompanyName: p.developerName || "",
+        cin: p.developerCin || "",
+        pan: p.developerPan || "",
         promoterName: p.promoterName || "",
-        din: p.din || "",
+        din: p.promoterDin || "",
         contactEmail: p.contactEmail || "",
         contactPhone: p.contactPhone || "",
       });
@@ -241,31 +241,31 @@ export default function ProjectFinanceWizard({ applicationId, loanSubType, onCom
         projectName: p.projectName || "",
         reraNumber: p.reraNumber || "",
         reraState: p.reraState || "",
-        city: p.city || "",
-        state: p.state || "",
-        address: p.address || "",
+        city: p.projectCity || "",
+        state: p.projectState || "",
+        address: p.projectAddress || "",
         projectStage: p.projectStage || "",
         projectType: p.projectType || "",
         totalUnits: p.totalUnits,
-        totalSalableArea: p.totalSalableArea,
+        totalSalableArea: p.totalSalableArea ? Number(p.totalSalableArea) : undefined,
         expectedCompletionDate: p.expectedCompletionDate || "",
-        tenureMonths: p.tenureMonths,
+        tenureMonths: p.projectTenureMonths,
       });
       if (p.landDetails) {
         landForm.reset({
           surveyNumber: p.landDetails.surveyNumber || "",
           plotNumber: p.landDetails.plotNumber || "",
-          totalLandArea: p.landDetails.totalLandArea,
-          unit: p.landDetails.unit || "sqft",
+          totalLandArea: p.landDetails.totalLandArea ? Number(p.landDetails.totalLandArea) : undefined,
+          unit: p.landDetails.landAreaUnit || "sqft",
           landUseZone: p.landDetails.landUseZone || "",
           encumbranceStatus: p.landDetails.encumbranceStatus || "",
           titleStatus: p.landDetails.titleStatus || "",
           landOwnership: p.landDetails.landOwnership || "",
           registrationNumber: p.landDetails.registrationNumber || "",
           registrationDate: p.landDetails.registrationDate || "",
-          marketValue: p.landDetails.marketValue,
-          guidanceValue: p.landDetails.guidanceValue,
-          purchaseValue: p.landDetails.purchaseValue,
+          marketValue: p.landDetails.marketValue ? Number(p.landDetails.marketValue) : undefined,
+          guidanceValue: p.landDetails.guidanceValue ? Number(p.landDetails.guidanceValue) : undefined,
+          purchaseValue: p.landDetails.purchaseValue ? Number(p.landDetails.purchaseValue) : undefined,
         });
       }
       if (p.approvals?.length) setApprovals(p.approvals);
@@ -276,7 +276,19 @@ export default function ProjectFinanceWizard({ applicationId, loanSubType, onCom
 
   const createProjectMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest("/api/developer-finance/projects", { method: "POST", body: JSON.stringify({ ...data, applicationId, agentId }) });
+      const mapped = {
+        developerName: data.developerCompanyName,
+        developerCin: data.cin,
+        developerPan: data.pan,
+        promoterName: data.promoterName,
+        promoterDin: data.din,
+        contactEmail: data.contactEmail,
+        contactPhone: data.contactPhone,
+        projectName: `${data.developerCompanyName || "New"} Project`,
+        applicationId,
+        agentId,
+      };
+      return apiRequest("/api/developer-finance/projects", { method: "POST", body: JSON.stringify(mapped) });
     },
     onSuccess: (res) => {
       if (res?.data?.id) {
@@ -290,7 +302,27 @@ export default function ProjectFinanceWizard({ applicationId, loanSubType, onCom
 
   const updateProjectMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest(`/api/developer-finance/projects/${projectId}`, { method: "PATCH", body: JSON.stringify(data) });
+      const mapped: Record<string, any> = {};
+      if (data.developerCompanyName !== undefined) mapped.developerName = data.developerCompanyName;
+      if (data.cin !== undefined) mapped.developerCin = data.cin;
+      if (data.pan !== undefined) mapped.developerPan = data.pan;
+      if (data.promoterName !== undefined) mapped.promoterName = data.promoterName;
+      if (data.din !== undefined) mapped.promoterDin = data.din;
+      if (data.contactEmail !== undefined) mapped.contactEmail = data.contactEmail;
+      if (data.contactPhone !== undefined) mapped.contactPhone = data.contactPhone;
+      if (data.projectName !== undefined) mapped.projectName = data.projectName;
+      if (data.reraNumber !== undefined) mapped.reraNumber = data.reraNumber;
+      if (data.reraState !== undefined) mapped.reraState = data.reraState;
+      if (data.city !== undefined) mapped.projectCity = data.city;
+      if (data.state !== undefined) mapped.projectState = data.state;
+      if (data.address !== undefined) mapped.projectAddress = data.address;
+      if (data.projectStage !== undefined) mapped.projectStage = data.projectStage;
+      if (data.projectType !== undefined) mapped.projectType = data.projectType;
+      if (data.totalUnits !== undefined) mapped.totalUnits = data.totalUnits;
+      if (data.totalSalableArea !== undefined) mapped.totalSalableArea = data.totalSalableArea;
+      if (data.expectedCompletionDate !== undefined) mapped.expectedCompletionDate = data.expectedCompletionDate;
+      if (data.tenureMonths !== undefined) mapped.projectTenureMonths = data.tenureMonths;
+      return apiRequest(`/api/developer-finance/projects/${projectId}`, { method: "PATCH", body: JSON.stringify(mapped) });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/developer-finance/projects", projectId] });
@@ -301,7 +333,9 @@ export default function ProjectFinanceWizard({ applicationId, loanSubType, onCom
 
   const saveLandMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest(`/api/developer-finance/projects/${projectId}/land`, { method: "POST", body: JSON.stringify(data) });
+      const mapped = { ...data, landAreaUnit: data.unit };
+      delete mapped.unit;
+      return apiRequest(`/api/developer-finance/projects/${projectId}/land`, { method: "POST", body: JSON.stringify(mapped) });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/developer-finance/projects", projectId] });
