@@ -438,6 +438,26 @@ export default function AgentClientOnboarding() {
               </ul>
             </div>
 
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 space-y-2">
+              <h4 className="font-medium text-amber-400 flex items-center gap-2">
+                <Shield className="w-4 h-4" />
+                Agent-Restricted KYC Steps
+              </h4>
+              <p className="text-xs text-muted-foreground">
+                The following steps must be completed by the customer directly and cannot be performed by agents:
+              </p>
+              <div className="flex flex-wrap gap-1 mt-2">
+                {['Aadhaar OTP', 'Aadhaar Verification', 'FATCA Signature', 'Compliance Sign-off'].map(step => (
+                  <span key={step} className="px-2 py-1 text-xs rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    {step}
+                  </span>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                A secure KYC link will be sent to the customer to complete these steps.
+              </p>
+            </div>
+
             <div className="flex flex-col gap-3">
               {createdClientId && (
                 <Button 

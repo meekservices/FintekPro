@@ -121,6 +121,15 @@ interface SessionData {
       pincode: string;
     };
   };
+  entityType?: string;
+  entityLocked?: boolean;
+  ckycConfidenceScore?: number;
+  ckycMissingFields?: string[];
+  aadhaarRequired?: boolean;
+  amlRiskLevel?: string;
+  videoKycRequired?: boolean;
+  stepStatus?: Record<string, any>;
+  initiatedBy?: string;
 }
 
 interface ReferralInfo {
@@ -256,6 +265,11 @@ export default function SmartKYCOnboarding() {
   const [expandedSignCategory, setExpandedSignCategory] = useState<'electronic' | 'aadhaar' | 'dsc' | null>('electronic');
   const signatureFileRef = useRef<HTMLInputElement>(null);
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  const [v2EntityInfo, setV2EntityInfo] = useState<{ entity_detected: string; entity_locked: boolean; override_allowed: boolean } | null>(null);
+  const [v2CkycInfo, setV2CkycInfo] = useState<{ confidence_score: number; missing_fields: string[]; aadhaar_required: boolean; source: string } | null>(null);
+  const [v2AmlInfo, setV2AmlInfo] = useState<{ aml_score: number; risk_level: string; pep: boolean; sanctions: boolean; video_kyc_required: boolean; screening_id: string } | null>(null);
+  const [v2TierInfo, setV2TierInfo] = useState<{ kycTier: string; tierStatus: string; productsUnlocked: string[]; upgradeActions: string[] } | null>(null);
   
   // Start or resume session
   const startSessionMutation = useMutation({
@@ -414,12 +428,23 @@ export default function SmartKYCOnboarding() {
     },
     onSuccess: (data) => {
       if (data.success) {
-        if (data.ckycFound) {
-          toast({
-            title: "CKYC Record Found",
-            description: "Your identity is verified via Central KYC Registry. Skipping Aadhaar verification.",
+        if (data.data?.confidence_score !== undefined) {
+          setV2CkycInfo({
+            confidence_score: data.data.confidence_score,
+            missing_fields: data.data.missing_fields || [],
+            aadhaar_required: data.data.aadhaar_required ?? !data.ckycFound,
+            source: data.data.source || 'truthscreen',
           });
-          setCurrentStep('risk_profiling');
+        }
+        if (data.ckycFound) {
+          const needsAadhaar = data.data?.aadhaar_required ?? false;
+          toast({
+            title: needsAadhaar ? "CKYC Found (Incomplete)" : "CKYC Record Found",
+            description: needsAadhaar
+              ? `CKYC confidence: ${Math.round((data.data?.confidence_score || 0) * 100)}%. Missing fields require Aadhaar verification.`
+              : "Your identity is verified via Central KYC Registry. Skipping Aadhaar verification.",
+          });
+          setCurrentStep(needsAadhaar ? 'aadhaar_otp' : 'risk_profiling');
         } else {
           toast({
             title: "CKYC Not Found",
@@ -460,9 +485,16 @@ export default function SmartKYCOnboarding() {
     onSuccess: (data) => {
       if (data.success) {
         setPanData(data.data);
+        if (data.data?.entity_detected) {
+          setV2EntityInfo({
+            entity_detected: data.data.entity_detected,
+            entity_locked: data.data.entity_locked ?? true,
+            override_allowed: data.data.override_allowed ?? false,
+          });
+        }
         toast({
           title: "Success",
-          description: `PAN verified successfully for ${data.data.name}`,
+          description: `PAN verified successfully for ${data.data.name}${data.data.entity_detected ? ` (${data.data.entity_detected})` : ''}`,
         });
         
         setCurrentStep('ckyc_kra_check');
@@ -606,10 +638,20 @@ export default function SmartKYCOnboarding() {
     },
     onSuccess: (data) => {
       if (data.success) {
+        if (data.data?.kycTier) {
+          setV2TierInfo({
+            kycTier: data.data.kycTier,
+            tierStatus: data.data.tierStatus,
+            productsUnlocked: data.data.productsUnlocked || [],
+            upgradeActions: data.data.upgradeActions || [],
+          });
+        }
         setCurrentStep('completed');
         toast({
           title: "Success",
-          description: "Compliance declarations accepted successfully!",
+          description: data.data?.tierStatus === 'final'
+            ? "KYC completed! Full access unlocked."
+            : "Compliance accepted. Provisional access granted.",
         });
       }
     },
@@ -1516,6 +1558,27 @@ export default function SmartKYCOnboarding() {
                   />
                 </div>
               </div>
+
+              {v2EntityInfo && (
+                <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800">
+                  <Shield className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  <AlertDescription className="text-blue-800 dark:text-blue-300">
+                    <div className="flex items-center justify-between">
+                      <span>
+                        <strong>Entity Type:</strong> {v2EntityInfo.entity_detected}
+                        {v2EntityInfo.entity_locked && (
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                            Locked
+                          </span>
+                        )}
+                      </span>
+                      {v2EntityInfo.override_allowed && (
+                        <span className="text-xs text-blue-500">Admin override available</span>
+                      )}
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
               
               <Button
                 data-testid="button-continue-next"
@@ -1808,6 +1871,38 @@ export default function SmartKYCOnboarding() {
                 Querying Central KYC Registry and KRA databases
               </p>
             </div>
+          </div>
+        )}
+
+        {v2CkycInfo && (
+          <div className="space-y-3 mt-4">
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+              <span className="text-sm font-medium">CKYC Confidence Score</span>
+              <div className="flex items-center gap-2">
+                <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${v2CkycInfo.confidence_score >= 0.9 ? 'bg-green-500' : v2CkycInfo.confidence_score >= 0.5 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                    style={{ width: `${v2CkycInfo.confidence_score * 100}%` }}
+                  />
+                </div>
+                <span className="text-sm font-bold">{Math.round(v2CkycInfo.confidence_score * 100)}%</span>
+              </div>
+            </div>
+            {v2CkycInfo.missing_fields.length > 0 && (
+              <div className="p-3 rounded-lg bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800">
+                <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300 mb-1">Missing Fields</p>
+                <div className="flex flex-wrap gap-1">
+                  {v2CkycInfo.missing_fields.map((field: string) => (
+                    <span key={field} className="px-2 py-0.5 text-xs rounded bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300">
+                      {field.replace(/_/g, ' ')}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Source: {v2CkycInfo.source} | Aadhaar {v2CkycInfo.aadhaar_required ? 'Required' : 'Not Required'}
+            </p>
           </div>
         )}
       </CardContent>
@@ -3433,6 +3528,40 @@ export default function SmartKYCOnboarding() {
           </AlertDescription>
         </Alert>
         
+        {v2TierInfo && (
+          <div className="p-4 rounded-lg border space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">KYC Tier</span>
+              <div className="flex items-center gap-2">
+                <span className="font-bold">{v2TierInfo.kycTier}</span>
+                <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${v2TierInfo.tierStatus === 'final' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'}`}>
+                  {v2TierInfo.tierStatus === 'final' ? 'Final' : 'Provisional'}
+                </span>
+              </div>
+            </div>
+            {v2TierInfo.productsUnlocked.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1">Products Unlocked</p>
+                <div className="flex flex-wrap gap-1">
+                  {v2TierInfo.productsUnlocked.map((p: string) => (
+                    <span key={p} className="px-2 py-0.5 text-xs rounded bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">{p}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {v2TierInfo.upgradeActions.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1">To Unlock More</p>
+                <ul className="text-xs text-muted-foreground list-disc list-inside">
+                  {v2TierInfo.upgradeActions.map((a: string, i: number) => (
+                    <li key={i}>{a}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="space-y-2">
           <h3 className="font-semibold">What's Next?</h3>
           <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">

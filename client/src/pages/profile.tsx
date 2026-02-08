@@ -849,6 +849,34 @@ export default function ProfilePage() {
                               </div>
                             </div>
 
+                            {kycProfileData?.kycTierStatus && (
+                              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium">Tier Status:</span>
+                                  <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${kycProfileData.kycTierStatus === 'final' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'}`}>
+                                    {kycProfileData.kycTierStatus === 'final' ? 'Final' : 'Provisional'}
+                                  </span>
+                                </div>
+                                {kycProfileData?.amlRiskLevel && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm text-muted-foreground">AML Risk:</span>
+                                    <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${kycProfileData.amlRiskLevel === 'LOW' ? 'bg-green-100 text-green-800' : kycProfileData.amlRiskLevel === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>
+                                      {kycProfileData.amlRiskLevel}
+                                    </span>
+                                  </div>
+                                )}
+                                {kycProfileData?.entityType && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm text-muted-foreground">Entity:</span>
+                                    <span className="text-sm font-medium">{kycProfileData.entityType}</span>
+                                    {kycProfileData?.entityTypeLocked && (
+                                      <Shield className="h-3 w-3 text-blue-500" />
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
                             <Separator />
 
                             {/* Verification Progress */}

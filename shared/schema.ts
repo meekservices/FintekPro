@@ -216,11 +216,26 @@ export const userProfiles = pgTable("user_profiles", {
   kycTier: varchar("kyc_tier").default("basic"), // basic/enhanced/accredited_investor
   kycTierUpgradedAt: timestamp("kyc_tier_upgraded_at"),
   kycTierUpgradeRequestedAt: timestamp("kyc_tier_upgrade_requested_at"),
+  kycTierStatus: varchar("kyc_tier_status").default("provisional"), // provisional/final - product unlock only when final
   
   // Progressive KYC Level System (3-Level)
   kycLevel: varchar("kyc_level").default("0"), // "0" (basic profile), "1" (PAN verified), "2" (full KYC)
   kycLevelUpgradedAt: timestamp("kyc_level_upgraded_at"),
   
+  
+  // AML Screening Results
+  amlRiskLevel: varchar("aml_risk_level"), // LOW/MEDIUM/HIGH/CRITICAL
+  amlScreenedAt: timestamp("aml_screened_at"),
+  amlScreeningId: varchar("aml_screening_id"),
+  videoKycRequired: boolean("video_kyc_required").default(false),
+  videoKycCompletedAt: timestamp("video_kyc_completed_at"),
+  
+  // Entity Locking
+  entityTypeLocked: boolean("entity_type_locked").default(false),
+  entityTypeLockedAt: timestamp("entity_type_locked_at"),
+  entityTypeOverrideBy: varchar("entity_type_override_by"),
+  entityTypeOverrideReason: text("entity_type_override_reason"),
+  entityTypeOverrideAt: timestamp("entity_type_override_at"),
   // BSE UCC (Unique Client Code) for Mutual Fund Trading
   bseUccCode: varchar("bse_ucc_code"), // BSE Star UCC for mutual fund transactions
   bseClientCode: varchar("bse_client_code"), // BSE Star client code (same as UCC)
@@ -654,6 +669,15 @@ export const kycVerificationSessions = pgTable("kyc_verification_sessions", {
   
   // Session Type and Flow
   sessionType: varchar("session_type").default("smart_kyc_wizard"), // smart_kyc_wizard
+  initiatedBy: varchar("initiated_by").default("customer"), // customer/agent
+  entityType: varchar("entity_type_detected"), // INDIVIDUAL/HUF/COMPANY/LLP/TRUST
+  entityLocked: boolean("entity_locked").default(false),
+  amlRiskLevel: varchar("aml_risk_level"), // LOW/MEDIUM/HIGH/CRITICAL
+  amlScreeningId: varchar("aml_screening_id"),
+  ckycConfidenceScore: decimal("ckyc_confidence_score", { precision: 4, scale: 2 }),
+  ckycMissingFields: text("ckyc_missing_fields").array().default(sql`'{}'::text[]`),
+  aadhaarRequired: boolean("aadhaar_required").default(true),
+  videoKycRequired: boolean("video_kyc_required").default(false),
   currentStep: varchar("current_step").notNull().default("pan_verification"), // pan_verification/aadhaar_otp/aadhaar_verification/data_collection/completed
   stepStatus: jsonb("step_status").default({}), // Status for each step: {pan_verified: true, aadhaar_otp_sent: true, etc.}
   
