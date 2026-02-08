@@ -6,6 +6,7 @@ import { KycUpgradeBanner } from "@/components/KycUpgradeBanner";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { MobileBottomNav } from "./mobile-bottom-nav";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useLocation } from "wouter";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -13,6 +14,8 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const isMobile = useIsMobile();
+  const [location] = useLocation();
+  const isProfilePage = location.startsWith('/profile');
   
   return (
     <div className="min-h-screen bg-background">
@@ -36,8 +39,8 @@ export function AppLayout({ children }: AppLayoutProps) {
             </div>
           </div>
           
-          {/* KYC Upgrade Banner - shown for users with incomplete KYC */}
-          <KycUpgradeBanner />
+          {/* KYC Upgrade Banner - hidden on profile page which has its own KYC dashboard */}
+          {!isProfilePage && <KycUpgradeBanner />}
           
           {/* Content with responsive padding */}
           <div className={`flex-1 ${isMobile ? 'p-3 pb-20' : 'p-6'}`}>

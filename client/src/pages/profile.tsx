@@ -25,7 +25,6 @@ import { User, Shield, AlertTriangle, CheckCircle, FileText, Building2, Globe, S
 import { useLocation } from 'wouter';
 import { BankingTab } from "@/components/BankingDematTab";
 import { DematTab } from "@/components/DematTab";
-import { KYCStatusCard } from "@/components/KYCStatusCard";
 import { KYCVerificationDashboard } from "@/components/KYCVerificationDashboard";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { CurrencySelector } from "@/components/CurrencySelector";
@@ -733,9 +732,6 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
-
-      {/* KYC Status Card - Prominently displayed */}
-      <KYCStatusCard />
 
       {/* Pre-Approved Loan Offers */}
       <LoanOffersCard />
