@@ -567,13 +567,28 @@ export function registerKYCWizardRoutes(app: Express) {
         });
       }
       
-      const ckycResult = await authBridgeCKYCService.fetchCKYC({
-        panNumber: panNumber || session.panNumber,
-        fullName: (session.panVerificationData as any)?.name || '',
-        dob: session.panDob ? new Date(session.panDob).toISOString().split('T')[0] : ''
-      });
+      // Decrypt PAN if stored encrypted, or use raw PAN from request
+      let rawPan = panNumber;
+      if (!rawPan && session.panNumber) {
+        try {
+          rawPan = await PANConsentService.decryptPAN(session.panNumber);
+        } catch {
+          rawPan = session.panNumber;
+        }
+      }
+
+      let ckycResult: any = null;
+      try {
+        ckycResult = await authBridgeCKYCService.fetchCKYC({
+          panNumber: rawPan || '',
+          fullName: (session.panVerificationData as any)?.name || '',
+          dob: session.panDob ? new Date(session.panDob).toISOString().split('T')[0] : ''
+        });
+      } catch (ckycErr) {
+        console.warn('[KYC Wizard] CKYC/KRA check failed, proceeding with manual KYC flow:', (ckycErr as any)?.message);
+      }
       
-      if (ckycResult.success && ckycResult.data) {
+      if (ckycResult?.success && ckycResult?.data) {
         await storage.updateKycVerificationSession(sessionId, {
           ckycData: ckycResult.data,
           ckycFetched: true,
@@ -609,19 +624,20 @@ export function registerKYCWizardRoutes(app: Express) {
       }
       
       await storage.updateKycVerificationSession(sessionId, {
-        currentStep: "manual_kyc",
+        currentStep: "aadhaar_otp",
         stepStatus: {
           ...session.stepStatus as any,
-          ckyc_fetched: false
+          ckyc_fetched: false,
+          kra_verified: false
         }
       });
       
       res.json({
         success: true,
         ckycFound: false,
-        message: "No existing CKYC record found. Manual verification required.",
+        message: "No existing CKYC record found. Proceeding to Aadhaar verification.",
         data: {
-          requiresManualKyc: true
+          requiresManualKyc: false
         }
       });
     } catch (error) {

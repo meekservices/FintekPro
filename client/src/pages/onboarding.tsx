@@ -477,7 +477,7 @@ export default function SmartKYCOnboarding() {
     onSuccess: (data) => {
       if (data.success) {
         setAadhaarTransactionId(data.transactionId);
-        setAadhaarMasked(data.maskedAadhaar);
+        setAadhaarMasked(data.maskedAadhaar || '');
         setCurrentStep('aadhaar_verification');
         toast({
           title: "OTP Sent",
@@ -1679,7 +1679,7 @@ export default function SmartKYCOnboarding() {
           <CardTitle>Step 3: Verify OTP</CardTitle>
         </div>
         <CardDescription>
-          Enter the OTP sent to your mobile number ending with {aadhaarMasked.slice(-4)}
+          Enter the OTP sent to your mobile number ending with {(aadhaarMasked || '').slice(-4) || '****'}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
