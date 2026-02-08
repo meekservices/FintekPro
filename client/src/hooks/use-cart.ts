@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 
 export interface CartItem {
   id: string;
@@ -42,9 +43,11 @@ export interface CartResponse {
 
 export function useCart() {
   const queryClient = useQueryClient();
+  const { isAuthenticated } = useAuth();
 
   const cartQuery = useQuery<CartResponse>({
     queryKey: ["/api/cart"],
+    enabled: isAuthenticated,
   });
 
   const addToCartMutation = useMutation({

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 import type { Portfolio, PortfolioHolding, AssetAllocation, EpfHolding, PpfHolding, EpsHolding, InsuranceHolding, NpsAccount, ApyAccount } from "@shared/schema";
 
 interface EnhancedHolding extends PortfolioHolding {
@@ -47,10 +48,11 @@ export function usePortfolios(userId: string) {
 }
 
 export function usePortfoliosByPan() {
+  const { isAuthenticated } = useAuth();
   return useQuery<Portfolio[]>({
     queryKey: ['/api/portfolios/by-pan'],
     retry: false,
-    meta: { suppressError: true },
+    enabled: isAuthenticated,
   });
 }
 

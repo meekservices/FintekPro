@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 
 export type NavPosition = "left" | "top" | "bottom";
 
@@ -86,6 +87,7 @@ function applyDisplayPreferences(prefs: DisplayPreferences) {
 const UserPreferencesContext = createContext<UserPreferencesContextType | undefined>(undefined);
 
 export function UserPreferencesProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useAuth();
   const [localPreferences, setLocalPreferences] = useState<UserPreferences>(() => {
     const stored = getStoredPreferences();
     if (typeof window !== "undefined") {
@@ -102,6 +104,7 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
     queryKey: ["/api/user/preferences"],
     staleTime: 1000 * 60 * 5,
     retry: false,
+    enabled: isAuthenticated,
   });
 
   useEffect(() => {

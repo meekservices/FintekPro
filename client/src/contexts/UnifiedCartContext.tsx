@@ -1,6 +1,7 @@
 import { createContext, useContext, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 import type { UnifiedCartItem, InsertUnifiedCartItem, ProductCategory } from "@shared/schema";
 
 interface CheckoutResult {
@@ -32,12 +33,14 @@ const UnifiedCartContext = createContext<UnifiedCartContextType | undefined>(und
 
 export function UnifiedCartProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
+  const { isAuthenticated } = useAuth();
 
   const { data: cartData, isLoading, error, refetch } = useQuery<{ items: UnifiedCartItem[]; count: number }>({
     queryKey: ["/api/unified-cart"],
-    staleTime: 30 * 1000, // Cache for 30 seconds
-    refetchOnMount: false, // Don't refetch on every mount
-    placeholderData: { items: [], count: 0 }, // Show empty cart immediately
+    staleTime: 30 * 1000,
+    refetchOnMount: false,
+    placeholderData: { items: [], count: 0 },
+    enabled: isAuthenticated,
   });
 
   const items = cartData?.items || [];
@@ -180,8 +183,10 @@ export function useUnifiedCart() {
 }
 
 export function useUnifiedCartCount() {
+  const { isAuthenticated } = useAuth();
   const { data } = useQuery<{ count: number }>({
     queryKey: ["/api/unified-cart/count"],
+    enabled: isAuthenticated,
   });
   return data?.count || 0;
 }
