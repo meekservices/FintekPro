@@ -36,6 +36,19 @@ import {
   AlertCircle
 } from "lucide-react";
 
+function formatIndianCurrency(val: number | string | null | undefined): string {
+  if (val === null || val === undefined) return 'N/A';
+  const num = typeof val === 'string' ? parseFloat(val) : val;
+  if (isNaN(num)) return 'N/A';
+  const abs = Math.abs(num);
+  const sign = num < 0 ? '-' : '';
+  if (abs >= 10000000) return `${sign}₹${(abs / 10000000).toFixed(2)} Cr`;
+  if (abs >= 100000) return `${sign}₹${(abs / 100000).toFixed(2)} L`;
+  if (abs >= 1000) return `${sign}₹${abs.toLocaleString('en-IN')}`;
+  if (abs === 0) return '₹0';
+  return `${sign}₹${abs.toFixed(2)}`;
+}
+
 interface ProposalSections {
   exitLoadCalendar?: boolean;
   capitalGainsSummary?: boolean;
@@ -910,7 +923,7 @@ export default function PublicProposalPage() {
                 <div>
                   <p className="text-blue-100 text-sm">Portfolio Value</p>
                   <p className="text-2xl font-bold">
-                    ₹{(analysis?.totalValue || 0).toLocaleString('en-IN')}
+                    {formatIndianCurrency(analysis?.totalValue || 0)}
                   </p>
                 </div>
               </div>
@@ -926,8 +939,7 @@ export default function PublicProposalPage() {
                 <div>
                   <p className="text-indigo-100 text-sm">Net Investment Needed</p>
                   <p className="text-2xl font-bold">
-                    {parseFloat(proposal.totalInvestmentAmount || '0') >= 0 ? '₹' : '-₹'}
-                    {Math.abs(parseFloat(proposal.totalInvestmentAmount || '0')).toLocaleString('en-IN')}
+                    {formatIndianCurrency(proposal.totalInvestmentAmount)}
                   </p>
                 </div>
               </div>
@@ -957,7 +969,7 @@ export default function PublicProposalPage() {
                 <div>
                   <p className="text-purple-100 text-sm">Projected Value (5Y)</p>
                   <p className="text-2xl font-bold">
-                    ₹{parseFloat(proposal.projectedValue || '0').toLocaleString('en-IN')}
+                    {formatIndianCurrency(proposal.projectedValue)}
                   </p>
                 </div>
               </div>
@@ -1847,7 +1859,7 @@ export default function PublicProposalPage() {
                           </div>
                           <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
                             <p className="text-sm text-muted-foreground">Est. Tax Liability</p>
-                            <p className="text-2xl font-bold text-red-600">₹{(totalTaxLiability || 0).toLocaleString('en-IN')}</p>
+                            <p className="text-2xl font-bold text-red-600">{totalTaxLiability !== null && totalTaxLiability !== undefined ? `₹${totalTaxLiability.toLocaleString('en-IN')}` : 'N/A'}</p>
                           </div>
                         </div>
                         {holdings.length > 0 && (
@@ -1872,7 +1884,7 @@ export default function PublicProposalPage() {
                                   <TableCell className="text-right">
                                     <Badge variant={holding.taxType === 'LTCG' ? 'default' : 'secondary'}>{holding.taxType}</Badge>
                                   </TableCell>
-                                  <TableCell className="text-right">₹{(holding.estimatedTax || 0).toLocaleString('en-IN')}</TableCell>
+                                  <TableCell className="text-right">{holding.estimatedTax !== null && holding.estimatedTax !== undefined ? `₹${holding.estimatedTax.toLocaleString('en-IN')}` : 'N/A'}</TableCell>
                                 </TableRow>
                               ))}
                             </TableBody>
@@ -1966,8 +1978,8 @@ export default function PublicProposalPage() {
                   {(() => {
                     const er = proposal.analyticsData.expenseRatio as any;
                     const holdings = er?.holdings || er?.highExpenseHoldings || [];
-                    const avgRatio = er?.weightedAvgExpenseRatio || er?.averageTER || 0;
-                    const totalExpense = er?.totalAnnualExpense || holdings.reduce((sum: number, h: any) => sum + (h.annualCost || 0), 0);
+                    const avgRatio = er?.weightedAvgTER || er?.weightedAvgExpenseRatio || er?.averageTER || 0;
+                    const totalExpense = er?.totalAnnualCost || er?.totalAnnualExpense || holdings.reduce((sum: number, h: any) => sum + (h.annualCost || 0), 0);
                     
                     return (
                       <>
@@ -1980,9 +1992,9 @@ export default function PublicProposalPage() {
                             <p className="text-sm text-muted-foreground">Annual Expense Cost</p>
                             <p className="text-3xl font-bold text-red-600">₹{(totalExpense || 0).toLocaleString('en-IN')}</p>
                           </div>
-                          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-center">
-                            <p className="text-sm text-muted-foreground">High Expense Holdings</p>
-                            <p className="text-3xl font-bold text-blue-600">{holdings.length}</p>
+                          <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
+                            <p className="text-sm text-muted-foreground">Potential Savings</p>
+                            <p className="text-3xl font-bold text-green-600">{formatIndianCurrency(er?.potentialSavings || 0)}</p>
                           </div>
                         </div>
                         {holdings.length > 0 && (
@@ -2076,6 +2088,22 @@ export default function PublicProposalPage() {
                             <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
                               {concentrationRisk.topHolding} represents {(concentrationRisk.percentage || 0).toFixed(1)}% of your portfolio
                             </p>
+                          </div>
+                        )}
+                        {rh?.concentrationWarnings && rh.concentrationWarnings.length > 0 && !concentrationRisk?.isConcentrated && (
+                          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                            <div className="flex items-center gap-2 mb-2">
+                              <AlertCircle className="w-5 h-5 text-amber-600" />
+                              <p className="font-semibold text-amber-800 dark:text-amber-200">Risk Warnings</p>
+                            </div>
+                            <ul className="space-y-1">
+                              {rh.concentrationWarnings.map((warning: string, idx: number) => (
+                                <li key={idx} className="text-sm text-amber-700 dark:text-amber-300 flex items-start gap-2">
+                                  <span className="text-amber-500 mt-0.5">•</span>
+                                  {warning}
+                                </li>
+                              ))}
+                            </ul>
                           </div>
                         )}
                       </>
@@ -2243,6 +2271,7 @@ export default function PublicProposalPage() {
                     const sharpeRatio = bm?.sharpeRatio || 0;
                     const treynorRatio = bm?.treynorRatio || 0;
                     const benchmarks = bm?.benchmarks || [];
+                    const portfolioReturn = bm?.portfolioReturn;
                     
                     return (
                       <>
@@ -2266,6 +2295,29 @@ export default function PublicProposalPage() {
                             <p className="text-xl font-bold text-purple-600">{treynorRatio.toFixed(2)}</p>
                           </div>
                         </div>
+
+                        {portfolioReturn && (
+                          <div className="mb-6">
+                            <p className="text-sm font-semibold mb-3">Your Portfolio Returns</p>
+                            <div className="p-4 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
+                              <div className="grid grid-cols-3 gap-4 text-center">
+                                <div>
+                                  <p className="text-xs text-muted-foreground">1 Year</p>
+                                  <p className="text-xl font-bold text-indigo-600">{portfolioReturn.oneYear || 0}%</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-muted-foreground">3 Years</p>
+                                  <p className="text-xl font-bold text-indigo-600">{portfolioReturn.threeYear || 0}%</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-muted-foreground">5 Years</p>
+                                  <p className="text-xl font-bold text-indigo-600">{portfolioReturn.fiveYear || 0}%</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         {benchmarks.length > 0 && (
                           <div>
                             <p className="text-sm font-semibold mb-3">Market Benchmarks</p>
@@ -2345,6 +2397,193 @@ export default function PublicProposalPage() {
               </Card>
             )}
 
+            {/* Goal Gap Analysis */}
+            {proposal.proposalSections.goalGapAnalysis && proposal.investmentGoals && (
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Target className="w-5 h-5 text-indigo-600" />
+                    Goal Gap Analysis
+                  </CardTitle>
+                  <CardDescription>How your portfolio aligns with your financial goals</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const goals = proposal.investmentGoals;
+                    const currentValue = analysis?.totalValue || 0;
+                    const projectedValue = parseFloat(proposal.projectedValue || '0') || 0;
+                    const targetAmount = parseFloat(goals?.targetAmount || '0') || 0;
+                    const goalType = GOAL_TYPE_LABELS[goals?.goalType] || goals?.goalType || 'Financial Goal';
+                    const timeHorizon = goals?.timeHorizon?.replace(/_/g, ' ') || 'Not specified';
+                    const riskTolerance = goals?.riskTolerance || 'Not specified';
+
+                    const gapAmount = targetAmount > 0 ? targetAmount - currentValue : 0;
+                    const gapPercentage = targetAmount > 0 ? ((currentValue / targetAmount) * 100) : 0;
+                    const projectedGap = targetAmount > 0 ? targetAmount - projectedValue : 0;
+                    const isOnTrack = targetAmount > 0 && projectedValue >= targetAmount;
+
+                    return (
+                      <>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                          <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg text-center">
+                            <p className="text-sm text-muted-foreground">Goal</p>
+                            <p className="text-lg font-bold text-indigo-600 capitalize">{goalType}</p>
+                          </div>
+                          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-center">
+                            <p className="text-sm text-muted-foreground">Time Horizon</p>
+                            <p className="text-lg font-bold text-blue-600 capitalize">{timeHorizon}</p>
+                          </div>
+                          <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-center">
+                            <p className="text-sm text-muted-foreground">Risk Profile</p>
+                            <p className="text-lg font-bold text-purple-600 capitalize">{riskTolerance}</p>
+                          </div>
+                          <div className={`p-4 rounded-lg text-center ${isOnTrack ? 'bg-green-50 dark:bg-green-900/20' : 'bg-amber-50 dark:bg-amber-900/20'}`}>
+                            <p className="text-sm text-muted-foreground">Status</p>
+                            <p className={`text-lg font-bold ${isOnTrack ? 'text-green-600' : 'text-amber-600'}`}>
+                              {targetAmount > 0 ? (isOnTrack ? 'On Track' : 'Gap Exists') : 'No Target Set'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {targetAmount > 0 && (
+                          <div className="space-y-4">
+                            <div>
+                              <div className="flex justify-between text-sm mb-1">
+                                <span className="text-muted-foreground">Current Progress</span>
+                                <span className="font-medium">{Math.min(100, gapPercentage).toFixed(0)}%</span>
+                              </div>
+                              <div className="h-4 bg-muted rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-500"
+                                  style={{ width: `${Math.min(100, gapPercentage)}%` }}
+                                />
+                              </div>
+                              <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                                <span>Current: {formatIndianCurrency(currentValue)}</span>
+                                <span>Target: {formatIndianCurrency(targetAmount)}</span>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                              <div className="p-3 bg-muted rounded-lg">
+                                <p className="text-xs text-muted-foreground">Current Gap</p>
+                                <p className="text-lg font-bold text-red-600">{formatIndianCurrency(gapAmount)}</p>
+                              </div>
+                              <div className="p-3 bg-muted rounded-lg">
+                                <p className="text-xs text-muted-foreground">Projected Value (5Y)</p>
+                                <p className="text-lg font-bold text-green-600">{formatIndianCurrency(projectedValue)}</p>
+                              </div>
+                              <div className={`p-3 rounded-lg ${projectedGap <= 0 ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'}`}>
+                                <p className="text-xs text-muted-foreground">Projected Gap</p>
+                                <p className={`text-lg font-bold ${projectedGap <= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                  {projectedGap <= 0 ? 'Surplus: ' : ''}{formatIndianCurrency(Math.abs(projectedGap))}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {targetAmount === 0 && (
+                          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-center">
+                            <p className="text-sm text-muted-foreground">
+                              Your portfolio is configured for <strong className="capitalize">{goalType}</strong> with a <strong className="capitalize">{riskTolerance}</strong> risk profile.
+                              Set a target amount with your advisor to track goal progress.
+                            </p>
+                            <div className="mt-4 grid grid-cols-2 gap-4">
+                              <div className="p-3 bg-card rounded-lg">
+                                <p className="text-xs text-muted-foreground">Current Portfolio</p>
+                                <p className="text-lg font-bold">{formatIndianCurrency(currentValue)}</p>
+                              </div>
+                              <div className="p-3 bg-card rounded-lg">
+                                <p className="text-xs text-muted-foreground">Projected (5Y)</p>
+                                <p className="text-lg font-bold text-green-600">{formatIndianCurrency(projectedValue)}</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Priority Recommendations */}
+            {proposal.proposalSections.priorityRecommendations && recommendations.length > 0 && (
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-amber-600" />
+                    Priority Actions
+                  </CardTitle>
+                  <CardDescription>Most important recommendations ranked by priority</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const priorityOrder: Record<string, number> = { high: 1, medium: 2, low: 3 };
+                    const priorityRecs = recommendations
+                      .filter((r: any) => r.priority || r.action)
+                      .sort((a: any, b: any) => (priorityOrder[a.priority] || 3) - (priorityOrder[b.priority] || 3));
+
+                    if (priorityRecs.length === 0) {
+                      return <p className="text-muted-foreground">No priority actions identified.</p>;
+                    }
+
+                    return (
+                      <div className="space-y-3">
+                        {priorityRecs.slice(0, 8).map((rec: any, idx: number) => {
+                          const priorityColor = rec.priority === 'high' 
+                            ? 'border-l-red-500 bg-red-50 dark:bg-red-900/10' 
+                            : rec.priority === 'medium' 
+                              ? 'border-l-amber-500 bg-amber-50 dark:bg-amber-900/10' 
+                              : 'border-l-green-500 bg-green-50 dark:bg-green-900/10';
+                          const actionColor = rec.action === 'SELL' 
+                            ? 'bg-red-100 text-red-700' 
+                            : rec.action === 'BUY' 
+                              ? 'bg-green-100 text-green-700' 
+                              : rec.action === 'SWITCH' 
+                                ? 'bg-amber-100 text-amber-700' 
+                                : 'bg-blue-100 text-blue-700';
+
+                          return (
+                            <div key={idx} className={`p-4 border-l-4 rounded-lg ${priorityColor}`}>
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                    <span className="font-medium text-sm text-muted-foreground">#{idx + 1}</span>
+                                    {rec.action && (
+                                      <Badge className={actionColor}>{rec.action}</Badge>
+                                    )}
+                                    {rec.priority && (
+                                      <Badge variant="outline" className="capitalize">{rec.priority} Priority</Badge>
+                                    )}
+                                  </div>
+                                  <h4 className="font-semibold">{rec.productName}</h4>
+                                  {rec.rationale && (
+                                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{rec.rationale}</p>
+                                  )}
+                                </div>
+                                <div className="text-right flex-shrink-0">
+                                  {rec.action === 'SELL' && rec.currentValue && (
+                                    <p className="text-lg font-bold text-red-600">-{formatIndianCurrency(Math.abs(rec.changeAmount || rec.currentValue))}</p>
+                                  )}
+                                  {rec.action === 'BUY' && (
+                                    <p className="text-lg font-bold text-green-600">+{formatIndianCurrency(rec.suggestedAmount || rec.changeAmount)}</p>
+                                  )}
+                                  {rec.action === 'SWITCH' && (
+                                    <p className="text-lg font-bold text-amber-600">{formatIndianCurrency(rec.switchAmount || rec.changeAmount)}</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            )}
+
             {/* What-If Simulator */}
             {proposal.proposalSections.whatIfSimulator && proposal.analyticsData.whatIf && (
               <Card className="mb-6">
@@ -2359,39 +2598,61 @@ export default function PublicProposalPage() {
                   {(() => {
                     const wi = proposal.analyticsData.whatIf as any;
                     const scenarios = Array.isArray(wi) ? wi : (wi?.scenarios || []);
+                    const stressTest = !Array.isArray(wi) ? wi?.stressTestResult : null;
                     
-                    if (scenarios.length === 0) {
+                    if (scenarios.length === 0 && !stressTest) {
                       return <p className="text-muted-foreground">No scenario analysis available.</p>;
                     }
                     
                     return (
-                      <div className="grid gap-4">
-                        {scenarios.map((scenario: any, idx: number) => (
-                          <div key={idx} className={`p-4 border rounded-lg ${
-                            (scenario.portfolioImpact || scenario.marketChange || 0) < 0 ? 'border-red-200 bg-red-50 dark:bg-red-900/10' : 'border-green-200 bg-green-50 dark:bg-green-900/10'
-                          }`}>
-                            <h4 className="font-semibold mb-2">{scenario.name || scenario.scenario || 'Market Scenario'}</h4>
-                            {scenario.description && <p className="text-sm text-muted-foreground mb-3">{scenario.description}</p>}
-                            <div className="grid grid-cols-3 gap-4">
-                              <div className="text-center p-2 bg-card rounded">
-                                <p className="text-xs text-muted-foreground">Market Change</p>
-                                <p className={`font-semibold ${(scenario.marketChange || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                  {(scenario.marketChange || 0) >= 0 ? '+' : ''}{(scenario.marketChange || 0)}%
-                                </p>
+                      <div className="space-y-6">
+                        <div className="grid gap-4">
+                          {scenarios.map((scenario: any, idx: number) => (
+                            <div key={idx} className={`p-4 border rounded-lg ${
+                              (scenario.portfolioImpact || scenario.marketChange || 0) < 0 ? 'border-red-200 bg-red-50 dark:bg-red-900/10' : 'border-green-200 bg-green-50 dark:bg-green-900/10'
+                            }`}>
+                              <h4 className="font-semibold mb-2">{scenario.name || scenario.scenario || 'Market Scenario'}</h4>
+                              {scenario.description && <p className="text-sm text-muted-foreground mb-3">{scenario.description}</p>}
+                              <div className="grid grid-cols-3 gap-4">
+                                <div className="text-center p-2 bg-card rounded">
+                                  <p className="text-xs text-muted-foreground">Market Change</p>
+                                  <p className={`font-semibold ${(scenario.marketChange || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {(scenario.marketChange || 0) >= 0 ? '+' : ''}{(scenario.marketChange || 0)}%
+                                  </p>
+                                </div>
+                                <div className="text-center p-2 bg-card rounded">
+                                  <p className="text-xs text-muted-foreground">Portfolio Impact</p>
+                                  <p className={`font-semibold ${(scenario.portfolioImpact || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {(scenario.portfolioImpact || 0) >= 0 ? '+' : ''}{(scenario.portfolioImpact || 0)}%
+                                  </p>
+                                </div>
+                                <div className="text-center p-2 bg-card rounded">
+                                  <p className="text-xs text-muted-foreground">New Value</p>
+                                  <p className="font-semibold">{formatIndianCurrency(scenario.newValue || scenario.impact?.portfolioValue || 0)}</p>
+                                </div>
                               </div>
-                              <div className="text-center p-2 bg-card rounded">
-                                <p className="text-xs text-muted-foreground">Portfolio Impact</p>
-                                <p className={`font-semibold ${(scenario.portfolioImpact || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                  {(scenario.portfolioImpact || 0) >= 0 ? '+' : ''}{(scenario.portfolioImpact || 0)}%
-                                </p>
+                            </div>
+                          ))}
+                        </div>
+
+                        {stressTest && (
+                          <div className="p-4 bg-slate-50 dark:bg-slate-900/20 rounded-lg border border-slate-200 dark:border-slate-700">
+                            <div className="flex items-center gap-2 mb-3">
+                              <Shield className="w-5 h-5 text-slate-600" />
+                              <h4 className="font-semibold">Stress Test Summary</h4>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="p-3 bg-card rounded-lg">
+                                <p className="text-xs text-muted-foreground">Worst Case Portfolio Value</p>
+                                <p className="text-xl font-bold text-red-600">{formatIndianCurrency(stressTest.worstCase)}</p>
                               </div>
-                              <div className="text-center p-2 bg-card rounded">
-                                <p className="text-xs text-muted-foreground">New Value</p>
-                                <p className="font-semibold">₹{(scenario.newValue || scenario.impact?.portfolioValue || 0).toLocaleString('en-IN')}</p>
+                              <div className="p-3 bg-card rounded-lg">
+                                <p className="text-xs text-muted-foreground">Expected Recovery</p>
+                                <p className="text-lg font-bold text-blue-600">{stressTest.recovery || 'N/A'}</p>
                               </div>
                             </div>
                           </div>
-                        ))}
+                        )}
                       </div>
                     );
                   })()}
