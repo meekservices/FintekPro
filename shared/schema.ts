@@ -2336,6 +2336,35 @@ export const partnerClientOwnership = pgTable("partner_client_ownership", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Progressive Commission Config - per-product payout configuration
+export const commissionConfig = pgTable("commission_config", {
+  configId: varchar("config_id").primaryKey().default(sql`gen_random_uuid()`),
+  productType: varchar("product_type").notNull(),
+  agentPct: decimal("agent_pct", { precision: 5, scale: 2 }).notNull().default("70.00"),
+  platformPct: decimal("platform_pct", { precision: 5, scale: 2 }).notNull().default("15.00"),
+  uplineIncentivePct: decimal("upline_incentive_pct", { precision: 5, scale: 2 }).notNull().default("5.00"),
+  minResidualThreshold: decimal("min_residual_threshold", { precision: 10, scale: 2 }).notNull().default("1.00"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Progressive Commission Ledger - role-based entries with level offset
+export const progressiveCommissionLedger = pgTable("progressive_commission_ledger", {
+  ledgerId: varchar("ledger_id").primaryKey().default(sql`gen_random_uuid()`),
+  transactionId: varchar("transaction_id").notNull(),
+  partnerId: varchar("partner_id"),
+  role: varchar("role").notNull(),
+  levelOffset: integer("level_offset"),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Commission Execution - idempotency guard
+export const commissionExecution = pgTable("commission_execution", {
+  transactionId: varchar("transaction_id").primaryKey(),
+  executedAt: timestamp("executed_at").defaultNow(),
+});
+
 // Agents table for managing agent/distributor accounts
 export const agents = pgTable("agents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -4886,6 +4915,29 @@ export const insertPartnerClientOwnershipSchema = createInsertSchema(partnerClie
 export type InsertPartnerClientOwnership = z.infer<typeof insertPartnerClientOwnershipSchema>;
 export type PartnerClientOwnership = typeof partnerClientOwnership.$inferSelect;
 
+
+// Commission Config schemas
+export const insertCommissionConfigSchema = createInsertSchema(commissionConfig).omit({
+  configId: true,
+  createdAt: true,
+});
+export type InsertCommissionConfig = z.infer<typeof insertCommissionConfigSchema>;
+export type CommissionConfig = typeof commissionConfig.$inferSelect;
+
+// Progressive Commission Ledger schemas
+export const insertProgressiveCommissionLedgerSchema = createInsertSchema(progressiveCommissionLedger).omit({
+  ledgerId: true,
+  createdAt: true,
+});
+export type InsertProgressiveCommissionLedger = z.infer<typeof insertProgressiveCommissionLedgerSchema>;
+export type ProgressiveCommissionLedger = typeof progressiveCommissionLedger.$inferSelect;
+
+// Commission Execution schemas
+export const insertCommissionExecutionSchema = createInsertSchema(commissionExecution).omit({
+  executedAt: true,
+});
+export type InsertCommissionExecution = z.infer<typeof insertCommissionExecutionSchema>;
+export type CommissionExecution = typeof commissionExecution.$inferSelect;
 // Agent schemas
 export const insertAgentSchema = createInsertSchema(agents).omit({
   id: true,

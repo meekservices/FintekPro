@@ -1,0 +1,152 @@
+Below is an exact, execution-grade Replit BACKEND ticket for implementing the Progressive Remaining-Based MLM Payout Engine exactly as you specified.
+This is written so a backend engineer can pick it up and implement without clarifications.
+TICKET: Progressive MLM Payout Engine (Remaining-Based)
+Type: Backend – Commission Engine
+Priority: P0
+Service: CommissionPayoutService
+1. Objective
+Implement a remaining-balance MLM payout engine where:
+Agent gets a fixed %
+Platform gets a fixed %
+Each upline partner gets X% of the remaining amount
+Distribution continues up the hierarchy
+Final residual goes to Operational Expenses
+2. Inputs (Configurable)
+commission_config table (NEW)
+commission_config (
+  config_id UUID PK,
+  product_type ENUM('MF','INSURANCE','LOAN'),
+  agent_pct DECIMAL(5,2),            -- e.g. 70.00
+  platform_pct DECIMAL(5,2),         -- e.g. 15.00
+  upline_incentive_pct DECIMAL(5,2), -- e.g. 5.00
+  min_residual_threshold DECIMAL(10,2), -- e.g. 1.00
+  is_active BOOLEAN,
+  created_at TIMESTAMP
+)
+Validation Rule
+agent_pct + platform_pct < 100
+3. Ledger Tables
+commission_ledger
+commission_ledger (
+  ledger_id UUID PK,
+  transaction_id UUID,
+  partner_id UUID NULL,         -- NULL = operational account
+  role ENUM('AGENT','UPLINE','PLATFORM','OPERATIONS'),
+  level_offset INT NULL,        -- 0 = agent, 1 = immediate parent
+  amount DECIMAL(12,2),
+  created_at TIMESTAMP
+)
+4. Payout Algorithm (Authoritative)
+Entry Point
+CommissionPayoutService.processTransaction(transactionId)
+Step-by-Step Logic
+processTransaction(transactionId) {
+  txn = getTransaction(transactionId)
+  config = getActiveCommissionConfig(txn.product_type)
+
+  total = txn.gross_commission
+
+  // Step 1: Agent payout
+  agentAmount = total * (config.agent_pct / 100)
+  credit(txn.seller_partner_id, agentAmount, 'AGENT', 0)
+
+  // Step 2: Platform fee
+  platformAmount = total * (config.platform_pct / 100)
+  credit(PLATFORM_ACCOUNT, platformAmount, 'PLATFORM', null)
+
+  // Step 3: MLM Incentive Pool
+  remaining = total - agentAmount - platformAmount
+
+  level = 1
+  currentPartner = getParent(txn.seller_partner_id)
+
+  // Step 4: Progressive Upline Distribution
+  while (currentPartner && remaining >= config.min_residual_threshold) {
+
+    if (!isEligible(currentPartner)) {
+      currentPartner = getParent(currentPartner.partner_id)
+      level++
+      continue
+    }
+
+    incentive = remaining * (config.upline_incentive_pct / 100)
+
+    credit(
+      currentPartner.partner_id,
+      incentive,
+      'UPLINE',
+      level
+    )
+
+    remaining -= incentive
+    currentPartner = getParent(currentPartner.partner_id)
+    level++
+  }
+
+  // Step 5: Operational Residual
+  if (remaining > 0) {
+    credit(OPERATIONAL_ACCOUNT, remaining, 'OPERATIONS', null)
+  }
+
+  markTransactionCommissioned(transactionId)
+}
+5. Eligibility Rules (Hard Gates)
+isEligible(partner)
+Minimum checks:
+partner.status = ACTIVE
+partner.kyc_status = VERIFIED
+Optional (future extensible):
+min direct sales
+min monthly volume
+6. Edge Case Handling (MANDATORY)
+Scenario	Expected Behavior
+No parent exists	Remaining → OPERATIONS
+Parent inactive	Skip, move upward
+Parent not KYC verified	Skip, move upward
+Remaining < threshold	Stop payout
+Circular reference	Abort + alert
+Double processing	Idempotency guard
+7. Idempotency & Safety
+commission_execution table (NEW)
+commission_execution (
+  transaction_id UUID PK,
+  executed_at TIMESTAMP
+)
+Rule:
+If transaction_id exists → abort processing
+8. Audit Logging (NON-NEGOTIABLE)
+Log:
+Agent payout
+Each upline payout
+Platform fee
+Operational residual
+Each ledger insert must generate an audit_logs entry.
+9. Unit Test Scenarios (REQUIRED)
+Test Case 1: Happy Path
+Depth = 6
+All parents active
+Validate geometric decay
+Test Case 2: Missing Parent at L3
+L3 skipped
+L4 continues
+Test Case 3: Remaining < threshold
+Stop loop
+Residual credited to ops
+Test Case 4: Inactive Parent
+Skipped
+No payout leakage
+10. Acceptance Criteria
+Total distributed = total commission
+No negative balances
+No duplicate ledger entries
+All payouts traceable by transaction
+Fully configurable per product
+11. Replit Implementation Notes
+Stateless service
+DB transaction wrapping mandatory
+Precision: use DECIMAL, not float
+Loop must be capped by safety limit (e.g. max 50 levels)
+12. Deployment Checklist
+Backfill config for all product types
+Create OPERATIONAL_ACCOUNT & PLATFORM_ACCOUNT
+Enable monitoring on payout execution time
