@@ -7,7 +7,7 @@ import { authBridgeCKYCService } from '../../authbridge-ckyc-api';
 import { PANConsentService } from '../../services/pan-consent-service';
 import { db } from '../../db';
 import * as schema from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { smsService } from '../../services/sms-service';
 import { emailService } from '../../email-service';
@@ -131,8 +131,14 @@ export function registerKYCWizardRoutes(app: Express) {
       const userId = req.user!.id;
       const { entityType, targetLevel, forceNew } = req.body;
       
-      // Check for existing active session
-      const existingSession = await storage.getActiveKycSession(userId);
+      // Check for existing active session (includes expiry check)
+      let existingSession: any = null;
+      try {
+        existingSession = await storage.getActiveKycSession(userId);
+      } catch (sessionErr) {
+        console.warn('[KYC Wizard] Error fetching active session, will attempt cleanup:', sessionErr);
+      }
+
       if (existingSession && !forceNew) {
         return res.json({
           success: true,
@@ -143,6 +149,21 @@ export function registerKYCWizardRoutes(app: Express) {
             isResumed: true
           }
         });
+      }
+      
+      // Always deactivate any stale/expired sessions before creating a new one
+      // This handles cases where is_active=true but expiresAt has passed
+      try {
+        await db.update(schema.kycVerificationSessions)
+          .set({ isActive: false, completedAt: new Date() })
+          .where(
+            and(
+              eq(schema.kycVerificationSessions.userId, userId),
+              eq(schema.kycVerificationSessions.isActive, true)
+            )
+          );
+      } catch (expireErr) {
+        console.warn('[KYC Wizard] Error deactivating old sessions:', expireErr);
       }
       
       // Check user's existing KYC profile to determine starting step
@@ -164,30 +185,54 @@ export function registerKYCWizardRoutes(app: Express) {
       // If user already has verified PAN, skip to next step
       if (userProfile?.panVerifiedViaSandbox || userProfile?.panSandboxStatus === 'VALID') {
         stepStatus.pan_verified = true;
-        initialStep = 'aadhaar_verification'; // Skip to Aadhaar step
+        initialStep = 'aadhaar_verification';
         
-        // If CKYC is also verified, skip further
         if (userProfile?.ckycAuthBridgeStatus === 'found') {
           stepStatus.ckyc_fetched = true;
-          initialStep = 'risk_profiling'; // Skip to risk profiling
+          initialStep = 'risk_profiling';
         }
         
-        // If video KYC is completed
         if (userProfile?.videoKycCompleted) {
           stepStatus.aadhaar_verified = true;
-          initialStep = 'compliance_signoff'; // Skip to compliance
+          initialStep = 'compliance_signoff';
         }
       }
       
-      const session = await storage.createKycVerificationSession({
-        userId,
-        entityType: entityType || 'individual',
-        targetLevel: targetLevel || '2',
-        currentStep: initialStep,
-        stepStatus,
-        panNumber: userProfile?.panNumber || undefined,
-        panVerificationData: userProfile?.panSandboxResponse || undefined
-      });
+      let session: any;
+      try {
+        session = await storage.createKycVerificationSession({
+          userId,
+          entityType: entityType || 'individual',
+          targetLevel: targetLevel || '2',
+          currentStep: initialStep,
+          stepStatus,
+          panNumber: userProfile?.panNumber || undefined,
+          panVerificationData: userProfile?.panSandboxResponse || undefined
+        });
+      } catch (createErr: any) {
+        if (createErr?.code === '23505') {
+          // Duplicate key - deactivate all active sessions and retry once
+          await db.update(schema.kycVerificationSessions)
+            .set({ isActive: false, completedAt: new Date() })
+            .where(
+              and(
+                eq(schema.kycVerificationSessions.userId, userId),
+                eq(schema.kycVerificationSessions.isActive, true)
+              )
+            );
+          session = await storage.createKycVerificationSession({
+            userId,
+            entityType: entityType || 'individual',
+            targetLevel: targetLevel || '2',
+            currentStep: initialStep,
+            stepStatus,
+            panNumber: userProfile?.panNumber || undefined,
+            panVerificationData: userProfile?.panSandboxResponse || undefined
+          });
+        } else {
+          throw createErr;
+        }
+      }
       
       res.json({
         success: true,
