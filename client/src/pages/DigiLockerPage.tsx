@@ -240,15 +240,6 @@ export default function DigiLockerPage() {
   const totalDocuments = documents.length;
   const completionPercentage = totalDocuments > 0 ? (completedDocuments / totalDocuments) * 100 : 0;
 
-  if (isLoadingConfig) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin" />
-        <span className="ml-2">Loading DigiLocker configuration...</span>
-      </div>
-    );
-  }
-
   return (
     <div className="container mx-auto p-6 max-w-6xl" data-testid="digilocker-page">
       <div className="mb-8">
