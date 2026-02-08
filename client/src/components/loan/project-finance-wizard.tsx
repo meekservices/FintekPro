@@ -178,11 +178,23 @@ const trancheSchema = z.object({
   percentage: z.coerce.number().min(0).max(100).optional(),
 });
 
+interface DevClientInfo {
+  clientMode: "new" | "existing";
+  clientId?: string;
+  applicantName: string;
+  applicantPhone: string;
+  applicantEmail?: string;
+  applicantPan?: string;
+  employmentType: string;
+  monthlyIncome: string;
+}
+
 interface ProjectFinanceWizardProps {
   applicationId: string;
   loanSubType?: string;
   onComplete: () => void;
   agentId?: string;
+  clientInfo?: DevClientInfo;
 }
 
 function formatCurrency(val: number | undefined): string {
@@ -194,7 +206,7 @@ function formatLabel(s: string): string {
   return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export default function ProjectFinanceWizard({ applicationId, loanSubType, onComplete, agentId }: ProjectFinanceWizardProps) {
+export default function ProjectFinanceWizard({ applicationId, loanSubType, onComplete, agentId, clientInfo }: ProjectFinanceWizardProps) {
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(0);
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -276,7 +288,7 @@ export default function ProjectFinanceWizard({ applicationId, loanSubType, onCom
 
   const createProjectMutation = useMutation({
     mutationFn: async (data: any) => {
-      const mapped = {
+      const mapped: Record<string, any> = {
         developerName: data.developerCompanyName,
         developerCin: data.cin,
         developerPan: data.pan,
@@ -288,6 +300,18 @@ export default function ProjectFinanceWizard({ applicationId, loanSubType, onCom
         applicationId,
         agentId,
       };
+      if (clientInfo) {
+        mapped.metadata = {
+          clientMode: clientInfo.clientMode,
+          clientId: clientInfo.clientId,
+          applicantName: clientInfo.applicantName,
+          applicantPhone: clientInfo.applicantPhone,
+          applicantEmail: clientInfo.applicantEmail,
+          applicantPan: clientInfo.applicantPan,
+          employmentType: clientInfo.employmentType,
+          monthlyIncome: clientInfo.monthlyIncome,
+        };
+      }
       return apiRequest("/api/developer-finance/projects", { method: "POST", body: JSON.stringify(mapped) });
     },
     onSuccess: (res) => {
@@ -544,6 +568,24 @@ export default function ProjectFinanceWizard({ applicationId, loanSubType, onCom
 
   return (
     <div className="space-y-4">
+      {clientInfo && clientInfo.applicantName && (
+        <div className="flex items-center gap-3 p-3 bg-primary/5 rounded-lg border border-primary/20">
+          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+            <Building2 className="h-4 w-4 text-primary" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium">
+              Application for: {clientInfo.applicantName}
+              {clientInfo.applicantPhone && <span className="text-muted-foreground ml-2">({clientInfo.applicantPhone})</span>}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {clientInfo.clientMode === "existing" ? "Existing Client" : "New Lead"}
+              {clientInfo.applicantEmail && ` | ${clientInfo.applicantEmail}`}
+            </p>
+          </div>
+          <Badge variant="outline" className="text-xs">{loanSubType ? formatLabel(loanSubType) : "Developer Finance"}</Badge>
+        </div>
+      )}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">

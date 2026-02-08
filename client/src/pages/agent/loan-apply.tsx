@@ -164,6 +164,27 @@ export default function AgentLoanApplyPage() {
   const [devAppId, setDevAppId] = useState<string>("");
   const [clientSource, setClientSource] = useState<"existing" | "new">("new");
   const [searchQuery, setSearchQuery] = useState("");
+  const [devClientSource, setDevClientSource] = useState<"existing" | "new">("new");
+  const [devSearchQuery, setDevSearchQuery] = useState("");
+  const [devClientConfirmed, setDevClientConfirmed] = useState(false);
+  const [devClientInfo, setDevClientInfo] = useState<{
+    clientMode: "new" | "existing";
+    clientId?: string;
+    applicantName: string;
+    applicantPhone: string;
+    applicantEmail?: string;
+    applicantPan?: string;
+    employmentType: string;
+    monthlyIncome: string;
+  }>({
+    clientMode: "new",
+    applicantName: "",
+    applicantPhone: "",
+    applicantEmail: "",
+    applicantPan: "",
+    employmentType: "business",
+    monthlyIncome: "",
+  });
   const [routeDialogOpen, setRouteDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
@@ -470,7 +491,14 @@ export default function AgentLoanApplyPage() {
                 ].map((v) => (
                   <div
                     key={v.value}
-                    onClick={() => { setLoanVertical(v.value); if (v.value !== "DEVELOPER") setLoanSubType(""); }}
+                    onClick={() => {
+                      setLoanVertical(v.value);
+                      if (v.value !== "DEVELOPER") setLoanSubType("");
+                      setDevClientConfirmed(false);
+                      setDevClientInfo({ clientMode: "new", applicantName: "", applicantPhone: "", applicantEmail: "", applicantPan: "", employmentType: "business", monthlyIncome: "" });
+                      setDevClientSource("new");
+                      setDevSearchQuery("");
+                    }}
                     className={`cursor-pointer rounded-lg border-2 p-4 transition-all ${
                       loanVertical === v.value
                         ? "border-primary bg-primary/5"
@@ -486,7 +514,12 @@ export default function AgentLoanApplyPage() {
               {loanVertical === "DEVELOPER" && (
                 <div className="mt-4">
                   <Label className="text-sm font-medium">Loan Sub-Type</Label>
-                  <Select value={loanSubType} onValueChange={setLoanSubType}>
+                  <Select value={loanSubType} onValueChange={(val) => {
+                      setLoanSubType(val);
+                      setDevClientConfirmed(false);
+                      setDevClientInfo({ clientMode: "new", applicantName: "", applicantPhone: "", applicantEmail: "", applicantPan: "", employmentType: "business", monthlyIncome: "" });
+                      setDevClientSource("new");
+                    }}>
                     <SelectTrigger className="mt-1">
                       <SelectValue placeholder="Select developer finance type" />
                     </SelectTrigger>
@@ -502,15 +535,237 @@ export default function AgentLoanApplyPage() {
           </Card>
 
           {loanVertical === "DEVELOPER" && loanSubType ? (
-            <ProjectFinanceWizard
-              applicationId={devAppId}
-              loanSubType={loanSubType}
-              onComplete={() => {
-                toast({ title: "Success", description: "Developer finance application submitted successfully" });
-                setActiveTab("track");
-                queryClient.invalidateQueries({ queryKey: ["/api/agent/loans/my-applications"] });
-              }}
-            />
+            <>
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Client Selection
+                  </CardTitle>
+                  <CardDescription>Select an existing client or enter new lead details for this developer finance application</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <RadioGroup
+                    onValueChange={(value) => {
+                      setDevClientSource(value as "existing" | "new");
+                      setDevClientConfirmed(false);
+                      setDevClientInfo(prev => ({
+                        ...prev,
+                        clientMode: value as "new" | "existing",
+                        clientId: undefined,
+                        applicantName: "",
+                        applicantPhone: "",
+                        applicantEmail: "",
+                        applicantPan: "",
+                      }));
+                    }}
+                    value={devClientSource}
+                    className="flex gap-4"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="new" id="dev-new" />
+                      <Label htmlFor="dev-new">New Lead</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="existing" id="dev-existing" />
+                      <Label htmlFor="dev-existing">Existing Client/Prospect</Label>
+                    </div>
+                  </RadioGroup>
+
+                  {devClientSource === "existing" && (
+                    <div className="space-y-3">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search by name or phone..."
+                          value={devSearchQuery}
+                          onChange={(e) => setDevSearchQuery(e.target.value)}
+                          className="pl-9"
+                        />
+                      </div>
+                      {loadingClients ? (
+                        <div className="text-center py-4 text-muted-foreground">Loading clients...</div>
+                      ) : (
+                        <div className="max-h-48 overflow-y-auto space-y-2 border rounded-md p-2">
+                          {(myClients || [])
+                            .filter(c => c.name.toLowerCase().includes(devSearchQuery.toLowerCase()) || c.mobile.includes(devSearchQuery))
+                            .slice(0, 10)
+                            .map((client) => (
+                              <div
+                                key={client.id}
+                                className={`p-3 rounded-md cursor-pointer hover:bg-muted transition-colors ${
+                                  devClientInfo.clientId === client.id ? "bg-primary/10 border-primary border" : "border"
+                                }`}
+                                onClick={() => {
+                                  setDevClientInfo({
+                                    clientMode: "existing",
+                                    clientId: client.id,
+                                    applicantName: client.name,
+                                    applicantPhone: client.mobile,
+                                    applicantEmail: client.email || "",
+                                    applicantPan: client.pan || "",
+                                    employmentType: "business",
+                                    monthlyIncome: "",
+                                  });
+                                  setDevClientConfirmed(true);
+                                }}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <div className="font-medium">{client.name}</div>
+                                    <div className="text-sm text-muted-foreground">{client.mobile}</div>
+                                  </div>
+                                  <Badge variant="outline" className="text-xs capitalize">{client.type}</Badge>
+                                </div>
+                              </div>
+                            ))}
+                          {(myClients || []).filter(c => c.name.toLowerCase().includes(devSearchQuery.toLowerCase()) || c.mobile.includes(devSearchQuery)).length === 0 && (
+                            <div className="text-center py-4 text-muted-foreground">No clients found</div>
+                          )}
+                        </div>
+                      )}
+                      {devClientInfo.clientId && (
+                        <div className="mt-2 p-3 bg-primary/5 rounded-md border border-primary/20">
+                          <p className="text-sm font-medium flex items-center gap-2">
+                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+                            Selected: {devClientInfo.applicantName} ({devClientInfo.applicantPhone})
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {devClientSource === "new" && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">
+                            <User className="h-3.5 w-3.5 inline mr-1" />
+                            Full Name *
+                          </Label>
+                          <Input
+                            placeholder="Enter applicant name"
+                            value={devClientInfo.applicantName}
+                            onChange={(e) => setDevClientInfo(prev => ({ ...prev, applicantName: e.target.value }))}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">
+                            <Phone className="h-3.5 w-3.5 inline mr-1" />
+                            Phone *
+                          </Label>
+                          <Input
+                            placeholder="10-digit mobile number"
+                            value={devClientInfo.applicantPhone}
+                            onChange={(e) => setDevClientInfo(prev => ({ ...prev, applicantPhone: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">
+                            <Mail className="h-3.5 w-3.5 inline mr-1" />
+                            Email
+                          </Label>
+                          <Input
+                            placeholder="Email address"
+                            type="email"
+                            value={devClientInfo.applicantEmail || ""}
+                            onChange={(e) => setDevClientInfo(prev => ({ ...prev, applicantEmail: e.target.value }))}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">PAN</Label>
+                          <Input
+                            placeholder="ABCDE1234F"
+                            value={devClientInfo.applicantPan || ""}
+                            onChange={(e) => setDevClientInfo(prev => ({ ...prev, applicantPan: e.target.value.toUpperCase() }))}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">
+                            <Briefcase className="h-3.5 w-3.5 inline mr-1" />
+                            Employment Type
+                          </Label>
+                          <Select
+                            value={devClientInfo.employmentType}
+                            onValueChange={(val) => setDevClientInfo(prev => ({ ...prev, employmentType: val }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="salaried">Salaried</SelectItem>
+                              <SelectItem value="self_employed">Self Employed</SelectItem>
+                              <SelectItem value="business">Business Owner</SelectItem>
+                              <SelectItem value="professional">Professional</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">
+                            <IndianRupee className="h-3.5 w-3.5 inline mr-1" />
+                            Monthly Income *
+                          </Label>
+                          <Input
+                            placeholder="Monthly income"
+                            type="number"
+                            value={devClientInfo.monthlyIncome}
+                            onChange={(e) => setDevClientInfo(prev => ({ ...prev, monthlyIncome: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+                      {devClientInfo.applicantPhone && !/^[6-9]\d{9}$/.test(devClientInfo.applicantPhone) && (
+                        <p className="text-xs text-red-500">Please enter a valid 10-digit mobile number starting with 6-9</p>
+                      )}
+                      {devClientInfo.applicantPan && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(devClientInfo.applicantPan) && (
+                        <p className="text-xs text-red-500">PAN format should be ABCDE1234F</p>
+                      )}
+                      <Button
+                        type="button"
+                        className="w-full"
+                        disabled={
+                          !devClientInfo.applicantName.trim() ||
+                          !devClientInfo.applicantPhone ||
+                          !/^[6-9]\d{9}$/.test(devClientInfo.applicantPhone) ||
+                          !devClientInfo.monthlyIncome ||
+                          (!!devClientInfo.applicantPan && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(devClientInfo.applicantPan))
+                        }
+                        onClick={() => setDevClientConfirmed(true)}
+                      >
+                        <ArrowRight className="h-4 w-4 mr-2" />
+                        Continue to Project Details
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {devClientConfirmed && (
+                <ProjectFinanceWizard
+                  applicationId={devAppId}
+                  loanSubType={loanSubType}
+                  clientInfo={devClientInfo}
+                  onComplete={() => {
+                    toast({ title: "Success", description: "Developer finance application submitted successfully" });
+                    setActiveTab("track");
+                    setDevClientConfirmed(false);
+                    setDevClientInfo({
+                      clientMode: "new",
+                      applicantName: "",
+                      applicantPhone: "",
+                      applicantEmail: "",
+                      applicantPan: "",
+                      employmentType: "business",
+                      monthlyIncome: "",
+                    });
+                    queryClient.invalidateQueries({ queryKey: ["/api/agent/loans/my-applications"] });
+                  }}
+                />
+              )}
+            </>
           ) : loanVertical !== "DEVELOPER" ? (
             <>
           {showRestorePrompt && (
