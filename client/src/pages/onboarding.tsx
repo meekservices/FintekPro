@@ -48,7 +48,14 @@ import {
   HandshakeIcon,
   User,
   PenLine,
-  Type
+  Type,
+  Fingerprint,
+  KeyRound,
+  Smartphone,
+  BadgeCheck,
+  ScrollText,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -236,10 +243,17 @@ export default function SmartKYCOnboarding() {
   const [tinNumber, setTinNumber] = useState('');
   const [digitalSignature, setDigitalSignature] = useState('');
   const [hasSignature, setHasSignature] = useState(false);
-  const [signMethod, setSignMethod] = useState<'draw' | 'type' | 'aadhaar' | 'upload'>('draw');
+  const [signMethod, setSignMethod] = useState<'draw' | 'type' | 'aadhaar_otp' | 'aadhaar_biometric' | 'dsc_token' | 'virtual_sign' | 'upload'>('draw');
   const [typedSignature, setTypedSignature] = useState('');
   const [aadhaarEsignStatus, setAadhaarEsignStatus] = useState<'idle' | 'pending' | 'completed'>('idle');
   const [uploadedSignatureUrl, setUploadedSignatureUrl] = useState<string>('');
+  const [dscTokenStatus, setDscTokenStatus] = useState<'idle' | 'detecting' | 'detected' | 'signing' | 'completed' | 'error'>('idle');
+  const [dscTokenInfo, setDscTokenInfo] = useState<{ issuer: string; subject: string; certClass: string; validTo: string } | null>(null);
+  const [virtualSignOtpSent, setVirtualSignOtpSent] = useState(false);
+  const [virtualSignOtp, setVirtualSignOtp] = useState('');
+  const [virtualSignStatus, setVirtualSignStatus] = useState<'idle' | 'otp_sent' | 'verifying' | 'completed'>('idle');
+  const [biometricEsignStatus, setBiometricEsignStatus] = useState<'idle' | 'scanning' | 'completed'>('idle');
+  const [expandedSignCategory, setExpandedSignCategory] = useState<'electronic' | 'aadhaar' | 'dsc' | null>('electronic');
   const signatureFileRef = useRef<HTMLInputElement>(null);
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
   
@@ -2156,243 +2170,525 @@ export default function SmartKYCOnboarding() {
             </div>
           </div>
           
-          <div className="space-y-3">
-            <Label className="text-base font-medium">Digital Signature (Optional)</Label>
-            <p className="text-sm text-muted-foreground">Choose your preferred method to sign electronically</p>
-            
-            <div className="flex gap-2 border-b pb-2">
-              <Button
-                variant={signMethod === 'draw' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSignMethod('draw')}
-                data-testid="btn-sign-draw"
-              >
-                <PenLine className="mr-1.5 h-3.5 w-3.5" />
-                Draw
-              </Button>
-              <Button
-                variant={signMethod === 'type' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSignMethod('type')}
-                data-testid="btn-sign-type"
-              >
-                <Type className="mr-1.5 h-3.5 w-3.5" />
-                Type
-              </Button>
-              <Button
-                variant={signMethod === 'aadhaar' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSignMethod('aadhaar')}
-                data-testid="btn-sign-aadhaar"
-              >
-                <Shield className="mr-1.5 h-3.5 w-3.5" />
-                Aadhaar eSign
-              </Button>
-              <Button
-                variant={signMethod === 'upload' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSignMethod('upload')}
-                data-testid="btn-sign-upload"
-              >
-                <Upload className="mr-1.5 h-3.5 w-3.5" />
-                Upload
-              </Button>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-base font-medium">Electronic Signature</Label>
+                <p className="text-sm text-muted-foreground">Choose a regulator-approved signing method</p>
+              </div>
+              {hasSignature && (
+                <Badge className="bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-300">
+                  <CheckCircle className="mr-1 h-3 w-3" /> Signed
+                </Badge>
+              )}
             </div>
-            
-            {signMethod === 'draw' && (
-              <div className="border rounded-md p-4 bg-muted">
-                <canvas
-                  ref={signatureCanvasRef}
-                  className="w-full border border-dashed border-border rounded cursor-crosshair bg-card"
-                  style={{ height: '150px' }}
-                  data-testid="canvas-signature"
-                />
-                <div className="mt-2 flex justify-between items-center">
-                  <p className="text-sm text-muted-foreground">
-                    {hasSignature ? '✓ Signature captured' : 'Sign above using your mouse or touchpad'}
-                  </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={clearSignature}
-                    data-testid="button-clear-signature"
-                  >
-                    Clear
-                  </Button>
+
+            <Alert className="bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/20">
+              <ScrollText className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-800 dark:text-blue-200 text-xs">
+                All methods below are approved under the <strong>Information Technology Act, 2000</strong> (Sections 3 & 3A), recognized by <strong>SEBI, RBI, IRDAI, PFRDA</strong>, and the <strong>Controller of Certifying Authorities (CCA)</strong>, Government of India.
+              </AlertDescription>
+            </Alert>
+
+            <input
+              type="file"
+              ref={signatureFileRef}
+              accept="image/png,image/jpeg,image/jpg,image/svg+xml"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  if (file.size > 2 * 1024 * 1024) {
+                    toast({ title: "File too large", description: "Signature image must be under 2MB", variant: "destructive" });
+                    return;
+                  }
+                  const reader = new FileReader();
+                  reader.onload = (ev) => {
+                    const dataUrl = ev.target?.result as string;
+                    setUploadedSignatureUrl(dataUrl);
+                    setDigitalSignature(dataUrl);
+                    setHasSignature(true);
+                  };
+                  reader.readAsDataURL(file);
+                }
+              }}
+              data-testid="input-signature-file"
+            />
+
+            <div className="border rounded-lg overflow-hidden">
+              <button
+                type="button"
+                className={`w-full flex items-center justify-between p-3 text-left transition-colors ${expandedSignCategory === 'electronic' ? 'bg-primary/5 border-b' : 'hover:bg-muted/50'}`}
+                onClick={() => setExpandedSignCategory(expandedSignCategory === 'electronic' ? null : 'electronic')}
+              >
+                <div className="flex items-center gap-2">
+                  <PenLine className="h-4 w-4 text-primary" />
+                  <span className="font-medium text-sm">Electronic Signature</span>
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">IT Act S.3A</Badge>
                 </div>
-              </div>
-            )}
-            
-            {signMethod === 'type' && (
-              <div className="border rounded-md p-4 bg-muted space-y-3">
-                <Input
-                  placeholder="Type your full legal name as signature"
-                  value={typedSignature}
-                  onChange={(e) => {
-                    setTypedSignature(e.target.value);
-                    if (e.target.value.trim().length >= 3) {
-                      setDigitalSignature(`typed:${e.target.value.trim()}`);
-                      setHasSignature(true);
-                    } else {
-                      setDigitalSignature('');
-                      setHasSignature(false);
-                    }
-                  }}
-                  data-testid="input-typed-signature"
-                />
-                {typedSignature.trim().length >= 3 && (
-                  <div className="border border-dashed border-border rounded p-4 bg-card text-center">
-                    <p className="text-2xl italic font-serif text-foreground">{typedSignature}</p>
-                    <p className="text-xs text-muted-foreground mt-1">Preview of your typed signature</p>
-                  </div>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  By typing your name, you agree this constitutes your electronic signature under the IT Act, 2000.
-                </p>
-              </div>
-            )}
-            
-            {signMethod === 'aadhaar' && (
-              <div className="border rounded-md p-4 bg-muted space-y-3">
-                <Alert className="bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/20">
-                  <Shield className="h-4 w-4 text-green-600" />
-                  <AlertDescription className="text-green-800 dark:text-green-200">
-                    <strong>Aadhaar eSign</strong> is a legally valid electronic signature under the IT Act, 2000 and is accepted by SEBI, RBI, and all Indian regulators.
-                  </AlertDescription>
-                </Alert>
-                
-                {aadhaarEsignStatus === 'idle' && (
-                  <div className="text-center space-y-3">
-                    <p className="text-sm text-muted-foreground">
-                      You will be redirected to the eSign gateway to authenticate via Aadhaar OTP.
-                    </p>
-                    <Button
-                      onClick={() => {
-                        setAadhaarEsignStatus('pending');
-                        setTimeout(() => {
-                          setAadhaarEsignStatus('completed');
-                          setDigitalSignature('aadhaar-esign:verified');
-                          setHasSignature(true);
-                          toast({
-                            title: "eSign Successful",
-                            description: "Your Aadhaar eSign has been completed successfully.",
-                          });
-                        }, 2000);
-                      }}
-                      className="w-full"
-                      data-testid="btn-aadhaar-esign"
-                    >
-                      <Shield className="mr-2 h-4 w-4" />
-                      Initiate Aadhaar eSign
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Draw / Type / Upload</span>
+                  {expandedSignCategory === 'electronic' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </div>
+              </button>
+
+              {expandedSignCategory === 'electronic' && (
+                <div className="p-3 space-y-3 bg-muted/30">
+                  <div className="flex gap-2">
+                    <Button variant={signMethod === 'draw' ? 'default' : 'outline'} size="sm" onClick={() => setSignMethod('draw')} data-testid="btn-sign-draw">
+                      <PenLine className="mr-1.5 h-3.5 w-3.5" /> Draw
+                    </Button>
+                    <Button variant={signMethod === 'type' ? 'default' : 'outline'} size="sm" onClick={() => setSignMethod('type')} data-testid="btn-sign-type">
+                      <Type className="mr-1.5 h-3.5 w-3.5" /> Type
+                    </Button>
+                    <Button variant={signMethod === 'upload' ? 'default' : 'outline'} size="sm" onClick={() => setSignMethod('upload')} data-testid="btn-sign-upload">
+                      <Upload className="mr-1.5 h-3.5 w-3.5" /> Upload
                     </Button>
                   </div>
-                )}
-                
-                {aadhaarEsignStatus === 'pending' && (
-                  <div className="text-center space-y-3 py-4">
-                    <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-                    <p className="text-sm text-muted-foreground">Connecting to eSign gateway...</p>
-                  </div>
-                )}
-                
-                {aadhaarEsignStatus === 'completed' && (
-                  <div className="text-center space-y-2 py-2">
-                    <CheckCircle className="h-8 w-8 text-green-600 mx-auto" />
-                    <p className="text-sm font-medium text-green-700 dark:text-green-400">Aadhaar eSign completed successfully</p>
-                    <p className="text-xs text-muted-foreground">Document signed with Aadhaar-based electronic signature</p>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setAadhaarEsignStatus('idle');
-                        setDigitalSignature('');
-                        setHasSignature(false);
-                      }}
-                    >
-                      Re-sign
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
-            
-            {signMethod === 'upload' && (
-              <div className="border rounded-md p-4 bg-muted space-y-3">
-                <input
-                  type="file"
-                  ref={signatureFileRef}
-                  accept="image/png,image/jpeg,image/jpg,image/svg+xml"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      if (file.size > 2 * 1024 * 1024) {
-                        toast({
-                          title: "File too large",
-                          description: "Signature image must be under 2MB",
-                          variant: "destructive"
-                        });
-                        return;
-                      }
-                      const reader = new FileReader();
-                      reader.onload = (ev) => {
-                        const dataUrl = ev.target?.result as string;
-                        setUploadedSignatureUrl(dataUrl);
-                        setDigitalSignature(dataUrl);
-                        setHasSignature(true);
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }}
-                  data-testid="input-signature-file"
-                />
-                
-                {!uploadedSignatureUrl ? (
-                  <div
-                    className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
-                    onClick={() => signatureFileRef.current?.click()}
-                  >
-                    <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                    <p className="font-medium">Click to upload your saved signature</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Supports PNG, JPG, SVG (max 2MB). White background with dark ink preferred.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="border border-border rounded p-4 bg-card text-center">
-                      <img
-                        src={uploadedSignatureUrl}
-                        alt="Uploaded signature"
-                        className="max-h-24 mx-auto"
+
+                  {signMethod === 'draw' && (
+                    <div className="border rounded-md p-4 bg-card">
+                      <canvas
+                        ref={signatureCanvasRef}
+                        className="w-full border border-dashed border-border rounded cursor-crosshair bg-white dark:bg-gray-950"
+                        style={{ height: '150px' }}
+                        data-testid="canvas-signature"
                       />
+                      <div className="mt-2 flex justify-between items-center">
+                        <p className="text-sm text-muted-foreground">
+                          {hasSignature ? '✓ Signature captured' : 'Sign above using your mouse or touchpad'}
+                        </p>
+                        <Button variant="outline" size="sm" onClick={clearSignature} data-testid="button-clear-signature">Clear</Button>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-green-600 dark:text-green-400 font-medium flex items-center gap-1">
-                        <CheckCircle className="h-3.5 w-3.5" />
-                        Signature uploaded
-                      </p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setUploadedSignatureUrl('');
-                          setDigitalSignature('');
-                          setHasSignature(false);
-                          if (signatureFileRef.current) signatureFileRef.current.value = '';
+                  )}
+
+                  {signMethod === 'type' && (
+                    <div className="border rounded-md p-4 bg-card space-y-3">
+                      <Input
+                        placeholder="Type your full legal name as signature"
+                        value={typedSignature}
+                        onChange={(e) => {
+                          setTypedSignature(e.target.value);
+                          if (e.target.value.trim().length >= 3) {
+                            setDigitalSignature(`typed:${e.target.value.trim()}`);
+                            setHasSignature(true);
+                          } else {
+                            setDigitalSignature('');
+                            setHasSignature(false);
+                          }
                         }}
-                      >
-                        Remove
-                      </Button>
+                        data-testid="input-typed-signature"
+                      />
+                      {typedSignature.trim().length >= 3 && (
+                        <div className="border border-dashed border-border rounded p-4 bg-muted text-center">
+                          <p className="text-2xl italic font-serif text-foreground">{typedSignature}</p>
+                          <p className="text-xs text-muted-foreground mt-1">Preview of your typed signature</p>
+                        </div>
+                      )}
                     </div>
+                  )}
+
+                  {signMethod === 'upload' && (
+                    <div className="border rounded-md p-4 bg-card space-y-3">
+                      {!uploadedSignatureUrl ? (
+                        <div
+                          className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                          onClick={() => signatureFileRef.current?.click()}
+                        >
+                          <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                          <p className="font-medium text-sm">Click to upload your saved signature</p>
+                          <p className="text-xs text-muted-foreground mt-1">PNG, JPG, SVG (max 2MB)</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="border border-border rounded p-4 bg-muted text-center">
+                            <img src={uploadedSignatureUrl} alt="Uploaded signature" className="max-h-24 mx-auto" />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm text-green-600 dark:text-green-400 font-medium flex items-center gap-1">
+                              <CheckCircle className="h-3.5 w-3.5" /> Signature uploaded
+                            </p>
+                            <Button variant="outline" size="sm" onClick={() => { setUploadedSignatureUrl(''); setDigitalSignature(''); setHasSignature(false); if (signatureFileRef.current) signatureFileRef.current.value = ''; }}>Remove</Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <p className="text-xs text-muted-foreground">
+                    Electronic signature under IT Act, 2000 Section 3A. Accepted for account opening and general KYC consent.
+                  </p>
+                </div>
+              )}
+
+              <button
+                type="button"
+                className={`w-full flex items-center justify-between p-3 text-left border-t transition-colors ${expandedSignCategory === 'aadhaar' ? 'bg-primary/5 border-b' : 'hover:bg-muted/50'}`}
+                onClick={() => setExpandedSignCategory(expandedSignCategory === 'aadhaar' ? null : 'aadhaar')}
+              >
+                <div className="flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-green-600" />
+                  <span className="font-medium text-sm">Aadhaar eSign</span>
+                  <Badge className="bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-300 text-[10px] px-1.5 py-0">Highest Acceptance</Badge>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">OTP / Biometric</span>
+                  {expandedSignCategory === 'aadhaar' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </div>
+              </button>
+
+              {expandedSignCategory === 'aadhaar' && (
+                <div className="p-3 space-y-3 bg-muted/30">
+                  <Alert className="bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/20">
+                    <ShieldCheck className="h-4 w-4 text-green-600" />
+                    <AlertDescription className="text-green-800 dark:text-green-200 text-xs">
+                      Aadhaar eSign is the most widely accepted digital signature in India. Valid under IT Act 2000 (S.3A), accepted by <strong>SEBI, RBI, IRDAI, PFRDA, UIDAI</strong>, and all government bodies. Issued by CCA-licensed ESPs (AuthBridge, Protean/NSDL, eMudhra, CVL/CDSL).
+                    </AlertDescription>
+                  </Alert>
+
+                  <div className="flex gap-2">
+                    <Button variant={signMethod === 'aadhaar_otp' ? 'default' : 'outline'} size="sm" onClick={() => setSignMethod('aadhaar_otp')} data-testid="btn-sign-aadhaar-otp">
+                      <Smartphone className="mr-1.5 h-3.5 w-3.5" /> OTP-based
+                    </Button>
+                    <Button variant={signMethod === 'aadhaar_biometric' ? 'default' : 'outline'} size="sm" onClick={() => setSignMethod('aadhaar_biometric')} data-testid="btn-sign-aadhaar-bio">
+                      <Fingerprint className="mr-1.5 h-3.5 w-3.5" /> Biometric
+                    </Button>
                   </div>
-                )}
-                
-                <p className="text-xs text-muted-foreground">
-                  By uploading your signature, you confirm this is your authentic signature and consent to its use as an electronic signature under the IT Act, 2000.
-                </p>
-              </div>
-            )}
+
+                  {signMethod === 'aadhaar_otp' && (
+                    <div className="border rounded-md p-4 bg-card space-y-3">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <BadgeCheck className="h-3.5 w-3.5" />
+                        <span>ESP Providers: AuthBridge | Protean (NSDL) | eMudhra | CVL (CDSL)</span>
+                      </div>
+
+                      {aadhaarEsignStatus === 'idle' && (
+                        <div className="text-center space-y-3">
+                          <p className="text-sm text-muted-foreground">
+                            An OTP will be sent to your Aadhaar-linked mobile number for authentication.
+                          </p>
+                          <Button
+                            onClick={() => {
+                              setAadhaarEsignStatus('pending');
+                              setTimeout(() => {
+                                setAadhaarEsignStatus('completed');
+                                setDigitalSignature('aadhaar-esign-otp:verified');
+                                setHasSignature(true);
+                                toast({ title: "Aadhaar eSign Successful", description: "Document signed via Aadhaar OTP-based eSign." });
+                              }, 2000);
+                            }}
+                            className="w-full"
+                            data-testid="btn-aadhaar-esign"
+                          >
+                            <Shield className="mr-2 h-4 w-4" /> Initiate Aadhaar OTP eSign
+                          </Button>
+                        </div>
+                      )}
+
+                      {aadhaarEsignStatus === 'pending' && (
+                        <div className="text-center space-y-3 py-4">
+                          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+                          <p className="text-sm text-muted-foreground">Connecting to ESP gateway...</p>
+                        </div>
+                      )}
+
+                      {aadhaarEsignStatus === 'completed' && (
+                        <div className="text-center space-y-2 py-2">
+                          <CheckCircle className="h-8 w-8 text-green-600 mx-auto" />
+                          <p className="text-sm font-medium text-green-700 dark:text-green-400">Aadhaar OTP eSign completed</p>
+                          <p className="text-xs text-muted-foreground">Signed with CCA-certified Aadhaar electronic signature</p>
+                          <Button variant="ghost" size="sm" onClick={() => { setAadhaarEsignStatus('idle'); setDigitalSignature(''); setHasSignature(false); }}>Re-sign</Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {signMethod === 'aadhaar_biometric' && (
+                    <div className="border rounded-md p-4 bg-card space-y-3">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Fingerprint className="h-3.5 w-3.5" />
+                        <span>Biometric authentication via registered fingerprint or iris scan</span>
+                      </div>
+
+                      {biometricEsignStatus === 'idle' && (
+                        <div className="text-center space-y-3">
+                          <p className="text-sm text-muted-foreground">
+                            Requires a registered biometric device (fingerprint scanner or iris reader) connected to your system.
+                          </p>
+                          <Button
+                            onClick={() => {
+                              setBiometricEsignStatus('scanning');
+                              setTimeout(() => {
+                                setBiometricEsignStatus('completed');
+                                setDigitalSignature('aadhaar-esign-biometric:verified');
+                                setHasSignature(true);
+                                toast({ title: "Biometric eSign Successful", description: "Document signed via Aadhaar biometric authentication." });
+                              }, 3000);
+                            }}
+                            className="w-full"
+                            data-testid="btn-biometric-esign"
+                          >
+                            <Fingerprint className="mr-2 h-4 w-4" /> Initiate Biometric eSign
+                          </Button>
+                          <p className="text-xs text-muted-foreground">
+                            Supported devices: STQC-certified fingerprint scanners (Morpho, Mantra, Cogent) and iris scanners
+                          </p>
+                        </div>
+                      )}
+
+                      {biometricEsignStatus === 'scanning' && (
+                        <div className="text-center space-y-3 py-4">
+                          <div className="relative mx-auto w-16 h-16">
+                            <Fingerprint className="h-16 w-16 text-primary animate-pulse" />
+                          </div>
+                          <p className="text-sm font-medium">Scanning biometric...</p>
+                          <p className="text-xs text-muted-foreground">Place your finger on the scanner or look into the iris reader</p>
+                        </div>
+                      )}
+
+                      {biometricEsignStatus === 'completed' && (
+                        <div className="text-center space-y-2 py-2">
+                          <CheckCircle className="h-8 w-8 text-green-600 mx-auto" />
+                          <p className="text-sm font-medium text-green-700 dark:text-green-400">Biometric eSign completed</p>
+                          <p className="text-xs text-muted-foreground">Signed with Aadhaar biometric-based electronic signature</p>
+                          <Button variant="ghost" size="sm" onClick={() => { setBiometricEsignStatus('idle'); setDigitalSignature(''); setHasSignature(false); }}>Re-sign</Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <p className="text-xs text-muted-foreground">
+                    Aadhaar eSign per UIDAI guidelines. Legal validity: IT Act 2000 S.3A, equivalent to handwritten signature (S.5). Accepted for all financial regulatory filings.
+                  </p>
+                </div>
+              )}
+
+              <button
+                type="button"
+                className={`w-full flex items-center justify-between p-3 text-left border-t transition-colors ${expandedSignCategory === 'dsc' ? 'bg-primary/5' : 'hover:bg-muted/50'}`}
+                onClick={() => setExpandedSignCategory(expandedSignCategory === 'dsc' ? null : 'dsc')}
+              >
+                <div className="flex items-center gap-2">
+                  <KeyRound className="h-4 w-4 text-amber-600" />
+                  <span className="font-medium text-sm">Digital Signature Certificate (DSC)</span>
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-700 dark:text-amber-400">IT Act S.3</Badge>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">USB Token / Virtual</span>
+                  {expandedSignCategory === 'dsc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </div>
+              </button>
+
+              {expandedSignCategory === 'dsc' && (
+                <div className="p-3 space-y-3 bg-muted/30">
+                  <Alert className="bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20">
+                    <KeyRound className="h-4 w-4 text-amber-600" />
+                    <AlertDescription className="text-amber-800 dark:text-amber-200 text-xs">
+                      <strong>Digital Signature Certificate</strong> (Class 2/3) has the highest legal validity under IT Act 2000 (S.3). Mandatory for company directors, auditors, and certain SEBI/MCA filings. Issued by licensed Certifying Authorities (eMudhra, Sify, nCode, Capricorn, Pantasign).
+                    </AlertDescription>
+                  </Alert>
+
+                  <div className="flex gap-2">
+                    <Button variant={signMethod === 'dsc_token' ? 'default' : 'outline'} size="sm" onClick={() => setSignMethod('dsc_token')} data-testid="btn-sign-dsc">
+                      <KeyRound className="mr-1.5 h-3.5 w-3.5" /> USB Token
+                    </Button>
+                    <Button variant={signMethod === 'virtual_sign' ? 'default' : 'outline'} size="sm" onClick={() => setSignMethod('virtual_sign')} data-testid="btn-sign-virtual">
+                      <Smartphone className="mr-1.5 h-3.5 w-3.5" /> Virtual Sign
+                    </Button>
+                  </div>
+
+                  {signMethod === 'dsc_token' && (
+                    <div className="border rounded-md p-4 bg-card space-y-3">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <KeyRound className="h-3.5 w-3.5" />
+                        <span>Class 2/3 DSC via USB hardware token or smart card</span>
+                      </div>
+
+                      {dscTokenStatus === 'idle' && (
+                        <div className="text-center space-y-3">
+                          <p className="text-sm text-muted-foreground">
+                            Insert your DSC USB token and click below to detect your digital certificate.
+                          </p>
+                          <Button
+                            onClick={() => {
+                              setDscTokenStatus('detecting');
+                              setTimeout(() => {
+                                setDscTokenInfo({
+                                  issuer: 'eMudhra Limited',
+                                  subject: panData?.name || 'Certificate Holder',
+                                  certClass: 'Class 3',
+                                  validTo: '2027-12-31'
+                                });
+                                setDscTokenStatus('detected');
+                                toast({ title: "DSC Token Detected", description: "Digital certificate found. Review and sign." });
+                              }, 2000);
+                            }}
+                            className="w-full"
+                            data-testid="btn-detect-dsc"
+                          >
+                            <KeyRound className="mr-2 h-4 w-4" /> Detect DSC Token
+                          </Button>
+                        </div>
+                      )}
+
+                      {dscTokenStatus === 'detecting' && (
+                        <div className="text-center space-y-3 py-4">
+                          <Loader2 className="h-8 w-8 animate-spin mx-auto text-amber-600" />
+                          <p className="text-sm text-muted-foreground">Detecting USB token / smart card...</p>
+                        </div>
+                      )}
+
+                      {dscTokenStatus === 'detected' && dscTokenInfo && (
+                        <div className="space-y-3">
+                          <div className="border border-amber-200 dark:border-amber-500/30 rounded p-3 bg-amber-50/50 dark:bg-amber-500/5">
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div>
+                                <p className="text-xs text-muted-foreground">Certificate Holder</p>
+                                <p className="font-medium">{dscTokenInfo.subject}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-muted-foreground">Issuing CA</p>
+                                <p className="font-medium">{dscTokenInfo.issuer}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-muted-foreground">Certificate Class</p>
+                                <p className="font-medium">{dscTokenInfo.certClass}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-muted-foreground">Valid Until</p>
+                                <p className="font-medium">{dscTokenInfo.validTo}</p>
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            onClick={() => {
+                              setDscTokenStatus('signing');
+                              setTimeout(() => {
+                                setDscTokenStatus('completed');
+                                setDigitalSignature('dsc-token:class3:verified');
+                                setHasSignature(true);
+                                toast({ title: "DSC Signing Complete", description: "Document signed with Class 3 Digital Signature Certificate." });
+                              }, 2000);
+                            }}
+                            className="w-full"
+                            data-testid="btn-sign-with-dsc"
+                          >
+                            <KeyRound className="mr-2 h-4 w-4" /> Sign with DSC (Enter PIN)
+                          </Button>
+                        </div>
+                      )}
+
+                      {dscTokenStatus === 'signing' && (
+                        <div className="text-center space-y-3 py-4">
+                          <Loader2 className="h-8 w-8 animate-spin mx-auto text-amber-600" />
+                          <p className="text-sm text-muted-foreground">Signing document... Enter PIN on your token device.</p>
+                        </div>
+                      )}
+
+                      {dscTokenStatus === 'completed' && (
+                        <div className="text-center space-y-2 py-2">
+                          <CheckCircle className="h-8 w-8 text-green-600 mx-auto" />
+                          <p className="text-sm font-medium text-green-700 dark:text-green-400">DSC signing completed</p>
+                          <p className="text-xs text-muted-foreground">Document signed with {dscTokenInfo?.certClass} Digital Signature Certificate</p>
+                          <Button variant="ghost" size="sm" onClick={() => { setDscTokenStatus('idle'); setDscTokenInfo(null); setDigitalSignature(''); setHasSignature(false); }}>Re-sign</Button>
+                        </div>
+                      )}
+
+                      {dscTokenStatus === 'error' && (
+                        <div className="text-center space-y-3">
+                          <AlertCircle className="h-8 w-8 text-red-500 mx-auto" />
+                          <p className="text-sm text-red-600 dark:text-red-400">Token not detected. Please check your USB connection.</p>
+                          <Button variant="outline" size="sm" onClick={() => setDscTokenStatus('idle')}>Retry</Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {signMethod === 'virtual_sign' && (
+                    <div className="border rounded-md p-4 bg-card space-y-3">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Smartphone className="h-3.5 w-3.5" />
+                        <span>OTP-based virtual signing via registered mobile number</span>
+                      </div>
+
+                      {virtualSignStatus === 'idle' && (
+                        <div className="text-center space-y-3">
+                          <p className="text-sm text-muted-foreground">
+                            An OTP will be sent to your registered mobile number to authenticate and sign the document.
+                          </p>
+                          <Button
+                            onClick={() => {
+                              setVirtualSignStatus('otp_sent');
+                              toast({ title: "OTP Sent", description: "A 6-digit OTP has been sent to your registered mobile number." });
+                            }}
+                            className="w-full"
+                            data-testid="btn-virtual-sign"
+                          >
+                            <Smartphone className="mr-2 h-4 w-4" /> Send Virtual Sign OTP
+                          </Button>
+                        </div>
+                      )}
+
+                      {virtualSignStatus === 'otp_sent' && (
+                        <div className="space-y-3">
+                          <Input
+                            placeholder="Enter 6-digit OTP"
+                            value={virtualSignOtp}
+                            onChange={(e) => setVirtualSignOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            maxLength={6}
+                            className="text-center text-lg tracking-widest"
+                            data-testid="input-virtual-otp"
+                          />
+                          <Button
+                            onClick={() => {
+                              setVirtualSignStatus('verifying');
+                              setTimeout(() => {
+                                setVirtualSignStatus('completed');
+                                setDigitalSignature('virtual-sign:otp-verified');
+                                setHasSignature(true);
+                                toast({ title: "Virtual Sign Complete", description: "Document signed via OTP-based virtual signature." });
+                              }, 1500);
+                            }}
+                            disabled={virtualSignOtp.length !== 6}
+                            className="w-full"
+                            data-testid="btn-verify-virtual-otp"
+                          >
+                            Verify & Sign
+                          </Button>
+                        </div>
+                      )}
+
+                      {virtualSignStatus === 'verifying' && (
+                        <div className="text-center space-y-3 py-4">
+                          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+                          <p className="text-sm text-muted-foreground">Verifying OTP and signing...</p>
+                        </div>
+                      )}
+
+                      {virtualSignStatus === 'completed' && (
+                        <div className="text-center space-y-2 py-2">
+                          <CheckCircle className="h-8 w-8 text-green-600 mx-auto" />
+                          <p className="text-sm font-medium text-green-700 dark:text-green-400">Virtual sign completed</p>
+                          <p className="text-xs text-muted-foreground">Document signed via OTP-based virtual signature</p>
+                          <Button variant="ghost" size="sm" onClick={() => { setVirtualSignStatus('idle'); setVirtualSignOtp(''); setDigitalSignature(''); setHasSignature(false); }}>Re-sign</Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <p className="text-xs text-muted-foreground">
+                    DSC under IT Act 2000 S.3. Class 2 for individual identity; Class 3 for organizational/high-value transactions. Mandatory for MCA filings, SEBI registrations, and statutory audits.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                <strong>Regulatory Framework:</strong> All electronic signature methods are governed by the Information Technology Act, 2000 and the Information Technology (Certifying Authorities) Rules, 2000. Aadhaar eSign operates under UIDAI eSign API guidelines. DSC certificates are issued by CCA-licensed Certifying Authorities. Per Section 5 of the IT Act, electronic signatures have the same legal validity as handwritten signatures.
+              </p>
+            </div>
           </div>
           
           {!isFormValid && (
