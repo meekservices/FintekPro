@@ -43,14 +43,6 @@ interface DigiLockerDocument {
   fetchedAt?: string;
 }
 
-interface DigiLockerConfig {
-  orgId: string;
-  appId: string;
-  baseUrl: string;
-  redirectUri: string;
-  callbackFunction: string;
-}
-
 interface KYCData {
   name?: string;
   dateOfBirth?: string;

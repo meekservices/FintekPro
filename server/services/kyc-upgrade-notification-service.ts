@@ -12,7 +12,7 @@
  */
 
 import { db } from "../db";
-import { kycUpgradeReminders, userNotifications, users, kycVault } from "@shared/schema";
+import { kycUpgradeReminders, userNotifications, users, userProfiles, kycVault } from "@shared/schema";
 import { eq, and, lte, isNull, sql, or } from "drizzle-orm";
 import { emailService } from "../email-service";
 import { twilioVerifyService } from "./twilio-verify-service";
@@ -84,13 +84,13 @@ export class KycUpgradeNotificationService {
       const [user] = await db
         .select({
           id: users.id,
-          kycCompleted: users.kycCompleted,
-          panVerified: users.panVerified,
-          aadhaarVerified: users.aadhaarVerified,
-          bankVerified: users.bankVerified,
-          kycTier: users.kycTier,
+          panVerifiedViaSandbox: userProfiles.panVerifiedViaSandbox,
+          kycTier: userProfiles.kycTier,
+          kycLevel: userProfiles.kycLevel,
+          isProfileCompleted: userProfiles.isProfileCompleted,
         })
         .from(users)
+        .leftJoin(userProfiles, eq(users.id, userProfiles.userId))
         .where(eq(users.id, userId));
 
       if (!user) {
@@ -134,21 +134,21 @@ export class KycUpgradeNotificationService {
       const totalSteps = 5; // pan, aadhaar, bank, address, ckyc
 
       // Check PAN
-      if (!user.panVerified && !vaultData?.panVerifiedAt) {
+      if (!user.panVerifiedViaSandbox && !vaultData?.panVerifiedAt) {
         missingSteps.push('pan_verification');
       } else {
         completedSteps++;
       }
 
       // Check Aadhaar
-      if (!user.aadhaarVerified && !vaultData?.aadhaarVerifiedAt) {
+      if (!vaultData?.aadhaarVerifiedAt) {
         missingSteps.push('aadhaar_verification');
       } else {
         completedSteps++;
       }
 
-      // Check Bank
-      if (!user.bankVerified) {
+      // Check Bank (use kycLevel >= 2 as proxy for bank verification)
+      if (user.kycLevel !== '2') {
         missingSteps.push('bank_verification');
       } else {
         completedSteps++;
@@ -162,7 +162,7 @@ export class KycUpgradeNotificationService {
       }
 
       // Check CKYC
-      if (vaultData?.ckycStatus !== 'created' && vaultData?.ckycStatus !== 'verified') {
+      if (vaultData?.ckycStatus !== 'created' && vaultData?.ckycStatus !== 'verified' && vaultData?.ckycStatus !== 'found') {
         missingSteps.push('ckyc_registration');
       } else {
         completedSteps++;

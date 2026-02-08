@@ -5,8 +5,6 @@ import { CashfreeAadhaarService } from '../services/cashfree-aadhaar-service';
 import { sandboxKYCService } from '../services/sandbox-kyc-service';
 import { storage } from '../storage';
 
-const cashfreeAadhaarService = new CashfreeAadhaarService();
-
 export async function registerBBPSRoutes(app: Express): Promise<void> {
   await BBPSService.initializeBBPSData();
   
@@ -23,27 +21,14 @@ export async function registerBBPSRoutes(app: Express): Promise<void> {
       }
 
       try {
-        const digilockerResult = await digilockerService.fetchAadhaarDetails(aadhaarNumber);
-        if (digilockerResult?.success) {
-          return res.json({
-            success: true,
-            source: 'digilocker',
-            data: digilockerResult.data
-          });
-        }
-      } catch (digilockerError: any) {
-        console.warn('DigiLocker unavailable, trying Cashfree OKYC fallback:', digilockerError.message);
-      }
-
-      try {
-        const otpResponse = await cashfreeAadhaarService.generateOTP(aadhaarNumber);
+        const otpResponse = await CashfreeAadhaarService.generateOTP(aadhaarNumber);
         
-        if (otpResponse.status === 'success' && otpResponse.data?.ref_id) {
+        if (otpResponse.success && otpResponse.ref_id) {
           return res.json({
             success: true,
             source: 'cashfree_okyc',
             requiresOtp: true,
-            ref_id: otpResponse.data.ref_id,
+            ref_id: otpResponse.ref_id,
             message: 'OTP sent to Aadhaar-linked mobile. Please verify to fetch details.'
           });
         } else {
