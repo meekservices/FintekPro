@@ -656,10 +656,13 @@ export function registerKYCWizardRoutes(app: Express) {
 
   app.post("/api/kyc/wizard/risk-profiling", requireClientOrHigher, async (req: any, res) => {
     try {
-      const { sessionId, riskProfile } = req.body;
+      const { sessionId, riskProfile, investmentObjective, investmentHorizon, riskTolerance, incomeLevel, tradingExperience, ...rest } = req.body;
       const userId = req.user!.id;
       
-      if (!sessionId || !riskProfile) {
+      const riskData = riskProfile || (investmentObjective ? { investmentObjective, investmentHorizon, riskTolerance, incomeLevel, tradingExperience } : null);
+      
+      if (!sessionId || !riskData) {
+        console.error('Risk profiling validation failed:', { sessionId: !!sessionId, riskData: !!riskData, body: JSON.stringify(req.body).substring(0, 200) });
         return res.status(400).json({
           success: false,
           message: "Session ID and risk profile data are required"
@@ -676,7 +679,7 @@ export function registerKYCWizardRoutes(app: Express) {
       }
       
       await storage.updateKycVerificationSession(sessionId, {
-        riskProfileData: riskProfile,
+        riskProfileData: riskData,
         currentStep: "compliance_signoff",
         stepStatus: {
           ...session.stepStatus as any,
