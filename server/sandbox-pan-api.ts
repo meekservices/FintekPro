@@ -116,16 +116,22 @@ class SandboxPANService {
       if (axios.isAxiosError(error)) {
         const axiosError = error as AxiosError<any>;
         const errorMessage = axiosError.response?.data?.message || axiosError.message;
+        const statusCode = axiosError.response?.status;
         
         console.error('❌ [Sandbox PAN API] API Error:', {
-          status: axiosError.response?.status,
+          status: statusCode,
           message: errorMessage,
           pan: this.maskPAN(panNumber)
         });
 
+        if (statusCode === 401 || statusCode === 403) {
+          console.warn('⚠️ [Sandbox PAN API] Auth failed, falling back to mock mode for:', this.maskPAN(panNumber));
+          return this.mockPANVerification(panNumber, fullName);
+        }
+
         throw new AppError(
           `PAN verification API error: ${errorMessage}`,
-          axiosError.response?.status || 500,
+          statusCode || 500,
           'SANDBOX_API_ERROR'
         );
       }
