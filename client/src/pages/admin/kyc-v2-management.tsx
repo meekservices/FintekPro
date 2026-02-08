@@ -60,7 +60,7 @@ function EnvironmentBanner() {
     success: boolean;
     environment: string;
     fixedOtpEnabled: boolean;
-    providers: { pan: string; aadhaar: string; ckyc: string; aml: string };
+    providers: Record<string, { provider: string; status: string; environment: string }>;
   }>({
     queryKey: ["/api/kyc/environment/status"],
   });
@@ -95,20 +95,24 @@ function EnvironmentBanner() {
       </AlertTitle>
       <AlertDescription>
         <div className="flex flex-wrap gap-3 mt-1">
-          {Object.entries(data.providers || {}).map(([key, status]) => (
-            <span key={key} className="flex items-center gap-1 text-sm">
-              <span
-                className={`h-2 w-2 rounded-full ${
-                  status === "active" || status === "connected"
-                    ? "bg-green-500"
-                    : status === "sandbox"
-                      ? "bg-yellow-500"
-                      : "bg-red-500"
-                }`}
-              />
-              {key.toUpperCase()}: {String(status)}
-            </span>
-          ))}
+          {Object.entries(data.providers || {}).map(([key, info]) => {
+            const statusStr = typeof info === 'object' ? info.status : String(info);
+            const providerStr = typeof info === 'object' ? info.provider : String(info);
+            return (
+              <span key={key} className="flex items-center gap-1 text-sm">
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    statusStr === "active" || statusStr === "connected"
+                      ? "bg-green-500"
+                      : statusStr === "sandbox" || statusStr === "mock"
+                        ? "bg-yellow-500"
+                        : "bg-red-500"
+                  }`}
+                />
+                {key.toUpperCase()}: {providerStr}
+              </span>
+            );
+          })}
         </div>
       </AlertDescription>
     </Alert>
@@ -987,7 +991,7 @@ function EnvironmentStatusTab() {
     success: boolean;
     environment: string;
     fixedOtpEnabled: boolean;
-    providers: Record<string, string>;
+    providers: Record<string, { provider: string; status: string; environment: string }>;
   }>({
     queryKey: ["/api/kyc/environment/status"],
   });
@@ -1075,9 +1079,11 @@ function EnvironmentStatusTab() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-            {Object.entries(providers).map(([name, status]) => {
-              const isActive = status === "active" || status === "connected";
-              const isSandboxMode = status === "sandbox";
+            {Object.entries(providers).map(([name, info]) => {
+              const statusStr = typeof info === 'object' ? info.status : String(info);
+              const providerStr = typeof info === 'object' ? info.provider : String(info);
+              const isActive = statusStr === "active" || statusStr === "connected";
+              const isSandboxMode = statusStr === "sandbox" || statusStr === "mock";
               return (
                 <div
                   key={name}
@@ -1090,7 +1096,7 @@ function EnvironmentStatusTab() {
                   />
                   <div>
                     <p className="font-medium">{name.toUpperCase()}</p>
-                    <p className="text-sm text-muted-foreground">{String(status)}</p>
+                    <p className="text-sm text-muted-foreground">{providerStr}</p>
                   </div>
                 </div>
               );

@@ -31,7 +31,9 @@ class KycEnvironmentService {
   private flags: EnvironmentFlags;
 
   constructor() {
-    const env = (process.env.KYC_ENVIRONMENT || process.env.NODE_ENV === 'production' ? 'production' : 'sandbox') as KycEnvironment;
+    const env: KycEnvironment = process.env.KYC_ENVIRONMENT
+      ? (process.env.KYC_ENVIRONMENT as KycEnvironment)
+      : (process.env.NODE_ENV === 'production' ? 'production' : 'sandbox');
 
     this.flags = {
       environment: env,

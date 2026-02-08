@@ -50,6 +50,7 @@ export function usePortfoliosByPan() {
   return useQuery<Portfolio[]>({
     queryKey: ['/api/portfolios/by-pan'],
     retry: false,
+    meta: { suppressError: true },
   });
 }
 

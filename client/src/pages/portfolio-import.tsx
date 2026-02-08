@@ -49,7 +49,7 @@ export default function PortfolioImport() {
   const { data: existingHoldings, isLoading: holdingsLoading, refetch: refetchHoldings } = useQuery<ExternalHoldingsResponse>({
     queryKey: ['/api/portfolio/external-holdings'],
     queryFn: async () => {
-      const res = await fetch('/api/portfolio/external-holdings');
+      const res = await fetch('/api/portfolio/external-holdings', { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to fetch holdings');
       return res.json();
     },
