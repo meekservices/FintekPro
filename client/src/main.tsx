@@ -18,8 +18,8 @@ window.addEventListener('unhandledrejection', (event) => {
 
 // Enhanced error handler for dynamic import failures
 window.addEventListener('error', (event) => {
-  if (event.message?.includes('Failed to fetch dynamically imported module') ||
-      event.message?.includes('Importing a module script failed')) {
+  if (event.message && event.message.includes('Failed to fetch dynamically imported module') ||
+      event.message && event.message.includes('Importing a module script failed')) {
     console.warn('[PWA] Stale chunk detected, reloading...');
     const reloadKey = 'chunk-reload-' + window.location.pathname;
     if (!sessionStorage.getItem(reloadKey)) {

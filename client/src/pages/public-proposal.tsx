@@ -520,9 +520,9 @@ export default function PublicProposalPage() {
             others: [107, 114, 128]
           };
           
-          const allocEntries = Object.entries(pdfAnalysis.assetAllocation)
-            .filter(([_, data]: [string, any]) => data.percentage > 0)
-            .sort((a: any, b: any) => b[1].percentage - a[1].percentage);
+          const allocEntries = Object.entries(pdfAnalysis?.assetAllocation || {})
+            .filter(([_, data]: [string, any]) => data?.percentage > 0)
+            .sort((a: any, b: any) => (b[1]?.percentage || 0) - (a[1]?.percentage || 0));
           
           const barWidth = pageWidth - (margin * 2);
           const barHeight = 12;
@@ -569,7 +569,7 @@ export default function PublicProposalPage() {
           pdf.text('Key Insights', margin, yPos);
           yPos += 8;
           
-          pdfAnalysis.recommendations.slice(0, 4).forEach((insight) => {
+          (pdfAnalysis?.recommendations || []).slice(0, 4).forEach((insight) => {
             checkPageBreak(15);
             const iconColor = insight.type === 'warning' ? [234, 88, 12] : insight.type === 'opportunity' ? [22, 163, 74] : [59, 130, 246];
             pdf.setFillColor(iconColor[0], iconColor[1], iconColor[2]);
@@ -1133,20 +1133,20 @@ export default function PublicProposalPage() {
                 </div>
 
                 {/* Asset Allocation Breakdown */}
-                {Object.keys(analysis.assetAllocation).length > 0 && (
+                {Object.keys(analysis?.assetAllocation || {}).length > 0 && (
                   <div className="mt-6" data-testid="section-asset-allocation">
                     <h4 className="font-medium mb-4">Current Asset Allocation</h4>
                     <div className="space-y-3">
-                      {Object.entries(analysis.assetAllocation).map(([asset, data]) => (
+                      {Object.entries(analysis?.assetAllocation || {}).map(([asset, data]) => (
                         <div key={asset} className="flex items-center gap-4" data-testid={`row-allocation-${asset}`}>
                           <div className="w-32 text-sm font-medium capitalize" data-testid={`text-allocation-name-${asset}`}>{asset.replace('_', ' ')}</div>
                           <div className="flex-1">
-                            <Progress value={data.percentage} className="h-2" />
+                            <Progress value={data?.percentage ?? 0} className="h-2" />
                           </div>
                           <div className="w-24 text-right text-sm">
-                            <span className="font-medium" data-testid={`text-allocation-percent-${asset}`}>{data.percentage.toFixed(1)}%</span>
+                            <span className="font-medium" data-testid={`text-allocation-percent-${asset}`}>{(data?.percentage ?? 0).toFixed(1)}%</span>
                             <span className="text-muted-foreground ml-2" data-testid={`text-allocation-value-${asset}`}>
-                              (₹{data.value.toLocaleString('en-IN')})
+                              (₹{(data?.value ?? 0).toLocaleString('en-IN')})
                             </span>
                           </div>
                         </div>
@@ -1158,7 +1158,7 @@ export default function PublicProposalPage() {
             </Card>
 
             {/* Key Insights / Recommendations */}
-            {analysis.recommendations && analysis.recommendations.length > 0 && (
+            {analysis?.recommendations && analysis.recommendations.length > 0 && (
               <Card className="mb-8" data-testid="card-key-insights">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -1406,7 +1406,7 @@ export default function PublicProposalPage() {
                       <div>
                         <p className="text-sm text-muted-foreground mb-2">Current Allocation</p>
                         <div className="space-y-2">
-                          {Object.entries(analysis.portfolioComparison.currentPortfolio.assetAllocation)
+                          {Object.entries(analysis?.portfolioComparison?.currentPortfolio?.assetAllocation || {})
                             .filter(([_, val]) => val > 0)
                             .map(([asset, val]) => (
                               <div key={asset} className="flex items-center gap-2">
@@ -1425,7 +1425,7 @@ export default function PublicProposalPage() {
                       <div>
                         <p className="text-sm text-green-600 dark:text-green-400 mb-2">Proposed Allocation</p>
                         <div className="space-y-2">
-                          {Object.entries(analysis.portfolioComparison.proposedPortfolio.assetAllocation)
+                          {Object.entries(analysis?.portfolioComparison?.proposedPortfolio?.assetAllocation || {})
                             .filter(([_, val]) => val > 0)
                             .map(([asset, val]) => (
                               <div key={asset} className="flex items-center gap-2">
@@ -2597,8 +2597,8 @@ export default function PublicProposalPage() {
             </div>
             
             <div className="pt-2 border-t border-amber-200 dark:border-amber-800 mt-3">
-              <p className="text-xs">Proposal generated on: {new Date(proposal.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} | 
-              Valid until: {proposal.validUntil ? new Date(proposal.validUntil).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '30 days from generation'}</p>
+              <p className="text-xs">Proposal generated on: {proposal.createdAt && !isNaN(new Date(proposal.createdAt).getTime()) ? new Date(proposal.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'} | 
+              Valid until: {proposal.validUntil && !isNaN(new Date(proposal.validUntil).getTime()) ? new Date(proposal.validUntil).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '30 days from generation'}</p>
             </div>
           </CardContent>
         </Card>

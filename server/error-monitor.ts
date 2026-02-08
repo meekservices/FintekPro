@@ -272,6 +272,10 @@ export function globalErrorHandler(error: any, req: any, res: any, next: any) {
     context: { method: req.method, url: req.originalUrl, body: req.body }
   });
   
+  if (res.headersSent) {
+    return next(error);
+  }
+
   // Send error response
   res.status(error.status || 500).json({
     error: 'Internal server error',

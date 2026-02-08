@@ -62,6 +62,10 @@ export function errorHandler(
   res: Response,
   next: NextFunction
 ): void {
+  if (res.headersSent) {
+    return next(err);
+  }
+
   const traceId = req.traceId || res.locals.traceId || 'unknown';
   
   // Handle Zod validation errors

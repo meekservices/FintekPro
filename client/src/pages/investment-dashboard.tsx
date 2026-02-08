@@ -788,7 +788,7 @@ export default function InvestmentDashboard() {
                               <div key={asset} className="space-y-1">
                                 <div className="flex justify-between text-sm">
                                   <span className="capitalize">{asset}</span>
-                                  <span className="font-medium">{data.percentage}% ({data.count})</span>
+                                  <span className="font-medium">{data?.percentage ?? 0}% ({data?.count ?? 0})</span>
                                 </div>
                                 <Progress value={data.percentage} className="h-2" />
                               </div>

@@ -142,7 +142,7 @@ export default function AgentDSAPerformance() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Disbursed</p>
-                <p className="text-2xl font-bold text-green-600">{formatAmount(stats.overview.disbursedAmount)}</p>
+                <p className="text-2xl font-bold text-green-600">{formatAmount(stats.overview.disbursedAmount || 0)}</p>
               </div>
               <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
                 <CheckCircle className="h-5 w-5 text-green-600" />

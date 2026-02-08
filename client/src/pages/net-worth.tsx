@@ -129,22 +129,22 @@ export default function NetWorthPage() {
 
   // Prepare data for assets pie chart
   const assetsPieData = netWorthData ? [
-    { name: 'Liquid Assets', value: netWorthData.assets.breakdown.liquid.value, color: ASSET_COLORS[0] },
-    { name: 'Semi-Liquid Assets', value: netWorthData.assets.breakdown.semiLiquid.value, color: ASSET_COLORS[1] },
-    { name: 'Illiquid Assets', value: netWorthData.assets.breakdown.illiquid.value, color: ASSET_COLORS[2] },
+    { name: 'Liquid Assets', value: netWorthData.assets?.breakdown?.liquid?.value ?? 0, color: ASSET_COLORS[0] },
+    { name: 'Semi-Liquid Assets', value: netWorthData.assets?.breakdown?.semiLiquid?.value ?? 0, color: ASSET_COLORS[1] },
+    { name: 'Illiquid Assets', value: netWorthData.assets?.breakdown?.illiquid?.value ?? 0, color: ASSET_COLORS[2] },
   ].filter(item => item.value > 0) : [];
 
   // Prepare data for liabilities pie chart
   const liabilitiesPieData = netWorthData ? [
-    { name: 'Short-term (<1 year)', value: netWorthData.liabilities.breakdown.shortTerm.value, color: LIABILITY_COLORS[0] },
-    { name: 'Long-term (>1 year)', value: netWorthData.liabilities.breakdown.longTerm.value, color: LIABILITY_COLORS[1] },
+    { name: 'Short-term (<1 year)', value: netWorthData.liabilities?.breakdown?.shortTerm?.value ?? 0, color: LIABILITY_COLORS[0] },
+    { name: 'Long-term (>1 year)', value: netWorthData.liabilities?.breakdown?.longTerm?.value ?? 0, color: LIABILITY_COLORS[1] },
   ].filter(item => item.value > 0) : [];
 
   // Prepare comparison bar chart data
   const comparisonData = netWorthData ? [
-    { category: 'Assets', value: netWorthData.summary.totalAssets },
-    { category: 'Liabilities', value: netWorthData.summary.totalLiabilities },
-    { category: 'Net Worth', value: netWorthData.summary.netWorth }
+    { category: 'Assets', value: netWorthData.summary?.totalAssets ?? 0 },
+    { category: 'Liabilities', value: netWorthData.summary?.totalLiabilities ?? 0 },
+    { category: 'Net Worth', value: netWorthData.summary?.netWorth ?? 0 }
   ] : [];
 
   if (isLoading) {
@@ -443,21 +443,21 @@ export default function NetWorthPage() {
                           <div className="w-3 h-3 rounded-full bg-green-600" />
                           <span className="text-sm">Liquid</span>
                         </div>
-                        <div className="font-semibold">{formatCurrency(netWorthData.assets.breakdown.liquid.value)}</div>
+                        <div className="font-semibold">{formatCurrency(netWorthData.assets?.breakdown?.liquid?.value ?? 0)}</div>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <div className="w-3 h-3 rounded-full bg-blue-600" />
                           <span className="text-sm">Semi-Liquid</span>
                         </div>
-                        <div className="font-semibold">{formatCurrency(netWorthData.assets.breakdown.semiLiquid.value)}</div>
+                        <div className="font-semibold">{formatCurrency(netWorthData.assets?.breakdown?.semiLiquid?.value ?? 0)}</div>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <div className="w-3 h-3 rounded-full bg-orange-600" />
                           <span className="text-sm">Illiquid</span>
                         </div>
-                        <div className="font-semibold">{formatCurrency(netWorthData.assets.breakdown.illiquid.value)}</div>
+                        <div className="font-semibold">{formatCurrency(netWorthData.assets?.breakdown?.illiquid?.value ?? 0)}</div>
                       </div>
                     </div>
                   </>
@@ -495,22 +495,22 @@ export default function NetWorthPage() {
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="space-y-2 mt-4">
-                      {netWorthData.liabilities.breakdown.shortTerm.value > 0 && (
+                      {(netWorthData.liabilities?.breakdown?.shortTerm?.value ?? 0) > 0 && (
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <div className="w-3 h-3 rounded-full bg-red-600" />
                             <span className="text-sm">Short-term</span>
                           </div>
-                          <div className="font-semibold">{formatCurrency(netWorthData.liabilities.breakdown.shortTerm.value)}</div>
+                          <div className="font-semibold">{formatCurrency(netWorthData.liabilities?.breakdown?.shortTerm?.value ?? 0)}</div>
                         </div>
                       )}
-                      {netWorthData.liabilities.breakdown.longTerm.value > 0 && (
+                      {(netWorthData.liabilities?.breakdown?.longTerm?.value ?? 0) > 0 && (
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <div className="w-3 h-3 rounded-full bg-red-700" />
                             <span className="text-sm">Long-term</span>
                           </div>
-                          <div className="font-semibold">{formatCurrency(netWorthData.liabilities.breakdown.longTerm.value)}</div>
+                          <div className="font-semibold">{formatCurrency(netWorthData.liabilities?.breakdown?.longTerm?.value ?? 0)}</div>
                         </div>
                       )}
                     </div>
@@ -561,29 +561,29 @@ export default function NetWorthPage() {
                   <div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-semibold text-green-700 dark:text-green-400">Liquid Assets (24h)</span>
-                      <span className="text-xl font-bold">{formatCurrency(netWorthData.assets.breakdown.liquid.value)}</span>
+                      <span className="text-xl font-bold">{formatCurrency(netWorthData.assets?.breakdown?.liquid?.value ?? 0)}</span>
                     </div>
-                    <p className="text-sm text-muted-foreground">{netWorthData.assets.breakdown.liquid.percentage.toFixed(1)}% of total assets</p>
+                    <p className="text-sm text-muted-foreground">{(netWorthData.assets?.breakdown?.liquid?.percentage ?? 0).toFixed(1)}% of total assets</p>
                   </div>
                   <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-semibold text-blue-700 dark:text-blue-400">Semi-Liquid (1-7 days)</span>
-                      <span className="text-xl font-bold">{formatCurrency(netWorthData.assets.breakdown.semiLiquid.value)}</span>
+                      <span className="text-xl font-bold">{formatCurrency(netWorthData.assets?.breakdown?.semiLiquid?.value ?? 0)}</span>
                     </div>
-                    <p className="text-sm text-muted-foreground">{netWorthData.assets.breakdown.semiLiquid.percentage.toFixed(1)}% of total assets</p>
+                    <p className="text-sm text-muted-foreground">{(netWorthData.assets?.breakdown?.semiLiquid?.percentage ?? 0).toFixed(1)}% of total assets</p>
                   </div>
                   <div className="p-4 bg-orange-50 dark:bg-orange-950/30 rounded-lg border border-orange-200 dark:border-orange-800">
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-semibold text-orange-700 dark:text-orange-400">Illiquid (90+ days)</span>
-                      <span className="text-xl font-bold">{formatCurrency(netWorthData.assets.breakdown.illiquid.value)}</span>
+                      <span className="text-xl font-bold">{formatCurrency(netWorthData.assets?.breakdown?.illiquid?.value ?? 0)}</span>
                     </div>
-                    <p className="text-sm text-muted-foreground">{netWorthData.assets.breakdown.illiquid.percentage.toFixed(1)}% of total assets</p>
+                    <p className="text-sm text-muted-foreground">{(netWorthData.assets?.breakdown?.illiquid?.percentage ?? 0).toFixed(1)}% of total assets</p>
                   </div>
-                  {netWorthData.assets.breakdown.pending.value > 0 && (
+                  {(netWorthData.assets?.breakdown?.pending?.value ?? 0) > 0 && (
                     <div className="p-4 bg-muted/30 rounded-lg border">
                       <div className="flex items-center justify-between">
                         <span className="font-semibold">Pending Orders</span>
-                        <span className="text-xl font-bold">{formatCurrency(netWorthData.assets.breakdown.pending.value)}</span>
+                        <span className="text-xl font-bold">{formatCurrency(netWorthData.assets?.breakdown?.pending?.value ?? 0)}</span>
                       </div>
                     </div>
                   )}
@@ -626,20 +626,20 @@ export default function NetWorthPage() {
                   </ResponsiveContainer>
 
                   <div className="space-y-4">
-                    {netWorthData.liabilities.breakdown.shortTerm.value > 0 && (
+                    {(netWorthData.liabilities?.breakdown?.shortTerm?.value ?? 0) > 0 && (
                       <div className="p-4 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-800">
                         <div className="flex items-center justify-between mb-2">
                           <span className="font-semibold text-red-700 dark:text-red-400">Short-term Liabilities</span>
-                          <span className="text-xl font-bold">{formatCurrency(netWorthData.liabilities.breakdown.shortTerm.value)}</span>
+                          <span className="text-xl font-bold">{formatCurrency(netWorthData.liabilities?.breakdown?.shortTerm?.value ?? 0)}</span>
                         </div>
                         <p className="text-sm text-muted-foreground">Due within 1 year</p>
                       </div>
                     )}
-                    {netWorthData.liabilities.breakdown.longTerm.value > 0 && (
+                    {(netWorthData.liabilities?.breakdown?.longTerm?.value ?? 0) > 0 && (
                       <div className="p-4 bg-red-100 dark:bg-red-950/50 rounded-lg border border-red-300 dark:border-red-700">
                         <div className="flex items-center justify-between mb-2">
                           <span className="font-semibold text-red-800 dark:text-red-300">Long-term Liabilities</span>
-                          <span className="text-xl font-bold">{formatCurrency(netWorthData.liabilities.breakdown.longTerm.value)}</span>
+                          <span className="text-xl font-bold">{formatCurrency(netWorthData.liabilities?.breakdown?.longTerm?.value ?? 0)}</span>
                         </div>
                         <p className="text-sm text-muted-foreground">Due after 1 year</p>
                       </div>
@@ -649,7 +649,7 @@ export default function NetWorthPage() {
 
                     <div className="space-y-2">
                       <h4 className="font-semibold">Active Loans & Obligations</h4>
-                      {netWorthData.liabilities.breakdown.shortTerm.items.map((loan: any, idx: number) => (
+                      {(netWorthData.liabilities?.breakdown?.shortTerm?.items || []).map((loan: any, idx: number) => (
                         <div key={`short-${idx}`} className="p-3 bg-secondary rounded-lg">
                           <div className="flex justify-between mb-1">
                             <span className="font-medium">{loan.type}</span>
@@ -660,7 +660,7 @@ export default function NetWorthPage() {
                           </div>
                         </div>
                       ))}
-                      {netWorthData.liabilities.breakdown.longTerm.items.map((loan: any, idx: number) => (
+                      {(netWorthData.liabilities?.breakdown?.longTerm?.items || []).map((loan: any, idx: number) => (
                         <div key={`long-${idx}`} className="p-3 bg-secondary rounded-lg">
                           <div className="flex justify-between mb-1">
                             <span className="font-medium">{loan.type}</span>
@@ -671,8 +671,8 @@ export default function NetWorthPage() {
                           </div>
                         </div>
                       ))}
-                      {netWorthData.liabilities.breakdown.shortTerm.items.length === 0 && 
-                       netWorthData.liabilities.breakdown.longTerm.items.length === 0 && (
+                      {(netWorthData.liabilities?.breakdown?.shortTerm?.items?.length ?? 0) === 0 && 
+                       (netWorthData.liabilities?.breakdown?.longTerm?.items?.length ?? 0) === 0 && (
                         <p className="text-sm text-muted-foreground">No detailed loan information available</p>
                       )}
                     </div>

@@ -402,7 +402,9 @@ const formatCurrencyForPdf = (amount: number) => {
 // LOT-AWARE TAX CALCULATION (Per Fix Spec Section 4)
 // FIFO lot-wise: Equity MF < 12 months = STCG, >= 12 months = LTCG
 const calculateLotTaxStatus = (purchaseDate: string): { type: 'LTCG' | 'STCG'; holdingDays: number } => {
+  if (!purchaseDate) return { type: 'STCG', holdingDays: 0 };
   const purchaseDateObj = new Date(purchaseDate);
+  if (isNaN(purchaseDateObj.getTime())) return { type: 'STCG', holdingDays: 0 };
   const today = new Date();
   const holdingDays = Math.floor((today.getTime() - purchaseDateObj.getTime()) / (1000 * 60 * 60 * 24));
   return {
@@ -415,7 +417,9 @@ const calculateLotTaxStatus = (purchaseDate: string): { type: 'LTCG' | 'STCG'; h
 // Default: 0.5% if redeemed within 1 month, nil after
 const calculateLotExitLoad = (purchaseDate: string, exitLoadDays: number = 30, exitLoadPercent: number = 0.5): 
   { hasExitLoad: boolean; daysRemaining: number; exitLoadPercent: number } => {
+  if (!purchaseDate) return { hasExitLoad: false, daysRemaining: 0, exitLoadPercent: 0 };
   const purchaseDateObj = new Date(purchaseDate);
+  if (isNaN(purchaseDateObj.getTime())) return { hasExitLoad: false, daysRemaining: 0, exitLoadPercent: 0 };
   const today = new Date();
   const daysSincePurchase = Math.floor((today.getTime() - purchaseDateObj.getTime()) / (1000 * 60 * 60 * 24));
   const daysRemaining = Math.max(0, exitLoadDays - daysSincePurchase);
@@ -1191,9 +1195,9 @@ export default function AgentProspectWizard() {
             others: [107, 114, 128]
           };
           
-          const allocEntries = Object.entries(storedAnalysis.assetAllocation)
-            .filter(([_, data]: [string, any]) => data.percentage > 0)
-            .sort((a: any, b: any) => b[1].percentage - a[1].percentage);
+          const allocEntries = Object.entries(storedAnalysis?.assetAllocation || {})
+            .filter(([_, data]: [string, any]) => data?.percentage > 0)
+            .sort((a: any, b: any) => (b[1]?.percentage || 0) - (a[1]?.percentage || 0));
           
           const barWidth = pageWidth - (margin * 2);
           const barHeight = 12;
@@ -1241,7 +1245,7 @@ export default function AgentProspectWizard() {
           pdf.text('Key Insights', margin, yPos);
           yPos += 8;
           
-          storedAnalysis.recommendations.slice(0, 4).forEach((insight: any) => {
+          (storedAnalysis?.recommendations || []).slice(0, 4).forEach((insight: any) => {
             checkPageBreak(15);
             const iconColor = insight.type === 'warning' ? [234, 88, 12] : insight.type === 'opportunity' ? [22, 163, 74] : [59, 130, 246];
             pdf.setFillColor(iconColor[0], iconColor[1], iconColor[2]);
@@ -4587,7 +4591,7 @@ export default function AgentProspectWizard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    {Object.entries(analysis.assetAllocation).map(([type, data]) => (
+                    {Object.entries(analysis?.assetAllocation || {}).map(([type, data]) => (
                       <div key={type} className="flex items-center justify-between">
                         <span className="capitalize">{type.replace('_', ' ')}</span>
                         <div className="flex items-center gap-2">
@@ -4606,7 +4610,7 @@ export default function AgentProspectWizard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    {analysis.recommendations.map((rec, idx) => (
+                    {(analysis?.recommendations || []).map((rec, idx) => (
                       <div key={idx} className={`p-2 rounded-lg text-sm ${
                         rec.type === 'warning' ? 'bg-amber-100 dark:bg-amber-900/30' :
                         rec.type === 'suggestion' ? 'bg-blue-100 dark:bg-blue-900/30' :
@@ -4975,17 +4979,17 @@ export default function AgentProspectWizard() {
                             </Badge>
                             {holding.exitLoadFreeDate && (
                               <p className="text-xs text-muted-foreground mt-1">
-                                Free by {new Date(holding.exitLoadFreeDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
+                                Free by {holding.exitLoadFreeDate && !isNaN(new Date(holding.exitLoadFreeDate).getTime()) ? new Date(holding.exitLoadFreeDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' }) : 'N/A'}
                               </p>
                             )}
                           </div>
                         </div>
                       ))}
-                    {exitLoadData.holdings.filter(h => h.isExitLoadFree).length > 0 && (
+                    {(exitLoadData?.holdings || []).filter(h => h.isExitLoadFree).length > 0 && (
                       <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg text-sm flex items-center gap-2">
                         <CheckCircle className="h-4 w-4 text-green-600" />
                         <span className="text-green-700 dark:text-green-300">
-                          {exitLoadData.holdings.filter(h => h.isExitLoadFree).length} holdings are already exit-load-free
+                          {(exitLoadData?.holdings || []).filter(h => h.isExitLoadFree).length} holdings are already exit-load-free
                         </span>
                       </div>
                     )}
@@ -5007,7 +5011,7 @@ export default function AgentProspectWizard() {
                 <CardContent>
                   <div className="space-y-3">
                     {[
-                      ...(riskHeatmapData.concentrationWarnings?.some((w: any) => w.severity === 'critical') ? [{
+                      ...(riskHeatmapData?.concentrationWarnings?.some((w: any) => w.severity === 'critical') ? [{
                         priority: 1,
                         action: 'Reduce concentration risk',
                         reason: 'Portfolio has critical concentration in single sector/stock',
