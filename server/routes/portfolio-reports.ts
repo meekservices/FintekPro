@@ -22,13 +22,22 @@ router.get('/api/portfolio-reports/clients-portfolios', requireAuth, requireRole
 
     const clientPortfolios = await Promise.all(
       clients.map(async (client) => {
-        const clientPortfolios = await db.select()
-          .from(portfolios)
-          .where(eq(portfolios.userId, client.id));
-        return {
-          ...client,
-          portfolios: clientPortfolios,
-        };
+        try {
+          const clientPortfolioList = await db.select({
+            id: portfolios.id,
+            userId: portfolios.userId,
+            name: portfolios.name,
+            totalValue: portfolios.totalValue,
+            source: portfolios.source,
+          }).from(portfolios)
+            .where(eq(portfolios.userId, client.id));
+          return {
+            ...client,
+            portfolios: clientPortfolioList,
+          };
+        } catch {
+          return { ...client, portfolios: [] };
+        }
       })
     );
 
@@ -204,7 +213,16 @@ router.get('/api/portfolio-reports/templates', requireAuth, requireRole('agent',
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const templates = await reportOrchestratorService.getTemplates(userId);
+    let templates: any[] = [];
+    try {
+      templates = await reportOrchestratorService.getTemplates(userId);
+    } catch (err: any) {
+      if (err?.code === '42P01') {
+        templates = [];
+      } else {
+        throw err;
+      }
+    }
     res.json({ success: true, templates });
   } catch (error) {
     console.error('[Portfolio Reports] Error fetching templates:', error);
