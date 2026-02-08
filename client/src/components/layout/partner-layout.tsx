@@ -94,6 +94,29 @@ const partnerNavSections: NavSection[] = [
     ]
   },
   {
+    section: "Earnings & Compliance",
+    items: [
+      {
+        title: "Payout Statement",
+        href: "/partner-portal?tab=statement",
+        icon: Wallet,
+        description: "Auditable payout records"
+      },
+      {
+        title: "How Earnings Work",
+        href: "/partner-portal?tab=earnings",
+        icon: BarChart3,
+        description: "Earnings calculation explained"
+      },
+      {
+        title: "Compliance",
+        href: "/partner-portal?tab=compliance",
+        icon: AlertCircle,
+        description: "Regulatory disclosures"
+      }
+    ]
+  },
+  {
     section: "Support & Settings",
     items: [
       {

@@ -2365,6 +2365,35 @@ export const commissionExecution = pgTable("commission_execution", {
   executedAt: timestamp("executed_at").defaultNow(),
 });
 
+
+// Dispute Cases - commission dispute tracking
+export const disputeCases = pgTable("dispute_cases", {
+  disputeId: varchar("dispute_id").primaryKey().default(sql`gen_random_uuid()`),
+  transactionId: varchar("transaction_id").notNull(),
+  raisedByPartnerId: varchar("raised_by_partner_id").notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("OPEN"),
+  reasonCode: varchar("reason_code", { length: 100 }).notNull(),
+  description: text("description"),
+  resolvedBy: varchar("resolved_by"),
+  resolutionNotes: text("resolution_notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Reversal Ledger - mirror entries for reversed commissions (never deletions)
+export const reversalLedger = pgTable("reversal_ledger", {
+  reversalId: varchar("reversal_id").primaryKey().default(sql`gen_random_uuid()`),
+  originalLedgerId: varchar("original_ledger_id").notNull(),
+  transactionId: varchar("transaction_id").notNull(),
+  partnerId: varchar("partner_id"),
+  reversalAmount: decimal("reversal_amount", { precision: 12, scale: 2 }).notNull(),
+  reversalType: varchar("reversal_type", { length: 30 }).notNull().default("FULL"),
+  walletDebited: boolean("wallet_debited").default(false),
+  negativeCarryForward: decimal("negative_carry_forward", { precision: 12, scale: 2 }).default("0.00"),
+  disputeId: varchar("dispute_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Agents table for managing agent/distributor accounts
 export const agents = pgTable("agents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -4938,6 +4967,24 @@ export const insertCommissionExecutionSchema = createInsertSchema(commissionExec
 });
 export type InsertCommissionExecution = z.infer<typeof insertCommissionExecutionSchema>;
 export type CommissionExecution = typeof commissionExecution.$inferSelect;
+
+// Dispute Cases schemas
+export const insertDisputeCaseSchema = createInsertSchema(disputeCases).omit({
+  disputeId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertDisputeCase = z.infer<typeof insertDisputeCaseSchema>;
+export type DisputeCase = typeof disputeCases.$inferSelect;
+
+// Reversal Ledger schemas
+export const insertReversalLedgerSchema = createInsertSchema(reversalLedger).omit({
+  reversalId: true,
+  createdAt: true,
+});
+export type InsertReversalLedger = z.infer<typeof insertReversalLedgerSchema>;
+export type ReversalLedger = typeof reversalLedger.$inferSelect;
+
 // Agent schemas
 export const insertAgentSchema = createInsertSchema(agents).omit({
   id: true,

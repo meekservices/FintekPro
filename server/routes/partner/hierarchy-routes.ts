@@ -4,6 +4,8 @@ import { partnerHierarchyService } from "../../services/partner-hierarchy-servic
 import { commissionWaterfallEngine } from "../../services/commission-waterfall-engine";
 import { partnerAuditService } from "../../services/partner-audit-service";
 import { commissionPayoutService } from "../../services/commission-payout-service";
+import { partnerStatementService } from "../../services/partner-statement-service";
+import { commissionDisputeService } from "../../services/commission-dispute-service";
 
 const createPartnerSchema = z.object({
   companyName: z.string().min(1),
@@ -643,6 +645,171 @@ export function registerPartnerHierarchyRoutes(app: Express) {
     }
   });
 
+  // === PARTNER PAYOUT STATEMENT API ===
+  app.get("/api/partner-hierarchy/payout-statement/:partnerId", requirePartnerOrAdmin, async (req: any, res) => {
+    try {
+      const { from_date, to_date, group_by } = req.query;
+      const statement = await partnerStatementService.getPayoutStatement(req.params.partnerId, {
+        fromDate: from_date as string,
+        toDate: to_date as string,
+        groupBy: (group_by as 'transaction' | 'day' | 'month') || 'transaction',
+      });
+
+      res.json(statement);
+    } catch (error: any) {
+      console.error("Error fetching payout statement:", error);
+      res.status(500).json({ error: "Failed to fetch payout statement" });
+    }
+  });
+
+  // === COMMISSION DISPUTE & REVERSAL ENGINE ===
+  const disputeSchema = z.object({
+    transactionId: z.string().min(1),
+    reasonCode: z.string().min(1),
+    description: z.string().optional(),
+  });
+
+  app.post("/api/commission/dispute", requirePartnerOrAdmin, async (req: any, res) => {
+    try {
+      const parsed = disputeSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
+      }
+
+      const partnerId = req.user.partnerId || req.user.id;
+      const result = await commissionDisputeService.createDispute({
+        transactionId: parsed.data.transactionId,
+        raisedByPartnerId: partnerId,
+        reasonCode: parsed.data.reasonCode,
+        description: parsed.data.description,
+      });
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+
+      res.status(201).json(result.dispute);
+    } catch (error: any) {
+      console.error("Error creating dispute:", error);
+      res.status(500).json({ error: "Failed to create dispute" });
+    }
+  });
+
+  app.get("/api/commission/disputes", requirePartnerOrAdmin, async (req: any, res) => {
+    try {
+      const isAdmin = req.user.roles?.includes("admin") || req.user.roles?.includes("superadmin");
+      const filters: any = {};
+
+      if (!isAdmin) {
+        filters.partnerId = req.user.partnerId || req.user.id;
+      } else {
+        if (req.query.partner_id) filters.partnerId = req.query.partner_id;
+      }
+
+      if (req.query.status) filters.status = req.query.status;
+      if (req.query.transaction_id) filters.transactionId = req.query.transaction_id;
+      if (req.query.limit) filters.limit = parseInt(req.query.limit as string);
+
+      const disputes = await commissionDisputeService.getDisputes(filters);
+      res.json(disputes);
+    } catch (error: any) {
+      console.error("Error fetching disputes:", error);
+      res.status(500).json({ error: "Failed to fetch disputes" });
+    }
+  });
+
+  app.get("/api/commission/dispute/:disputeId", requirePartnerOrAdmin, async (req: any, res) => {
+    try {
+      const dispute = await commissionDisputeService.getDisputeById(req.params.disputeId);
+      if (!dispute) {
+        return res.status(404).json({ error: "Dispute not found" });
+      }
+
+      const isAdmin = req.user.roles?.includes("admin") || req.user.roles?.includes("superadmin");
+      const partnerId = req.user.partnerId || req.user.id;
+      if (!isAdmin && dispute.raisedByPartnerId !== partnerId) {
+        return res.status(403).json({ error: "Not authorized to view this dispute" });
+      }
+
+      res.json(dispute);
+    } catch (error: any) {
+      console.error("Error fetching dispute:", error);
+      res.status(500).json({ error: "Failed to fetch dispute" });
+    }
+  });
+
+  const updateDisputeSchema = z.object({
+    status: z.enum(["UNDER_REVIEW", "RESOLVED", "REJECTED"]),
+    resolutionNotes: z.string().optional(),
+  });
+
+  app.patch("/api/commission/dispute/:disputeId", requireAdmin, async (req: any, res) => {
+    try {
+      const parsed = updateDisputeSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
+      }
+
+      const result = await commissionDisputeService.updateDisputeStatus(
+        req.params.disputeId,
+        parsed.data.status,
+        req.user.id,
+        parsed.data.resolutionNotes,
+      );
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+
+      res.json({ success: true, message: `Dispute status updated to ${parsed.data.status}` });
+    } catch (error: any) {
+      console.error("Error updating dispute:", error);
+      res.status(500).json({ error: "Failed to update dispute" });
+    }
+  });
+
+  const reversalSchema = z.object({
+    transactionId: z.string().min(1),
+    partnerId: z.string().min(1),
+    disputeId: z.string().optional(),
+  });
+
+  app.post("/api/commission/reversal", requireAdmin, async (req: any, res) => {
+    try {
+      const parsed = reversalSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
+      }
+
+      const result = await commissionDisputeService.processReversal({
+        transactionId: parsed.data.transactionId,
+        partnerId: parsed.data.partnerId,
+        disputeId: parsed.data.disputeId,
+        processedBy: req.user.id,
+      });
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+
+      res.json({ success: true, reversals: result.reversals });
+    } catch (error: any) {
+      console.error("Error processing reversal:", error);
+      res.status(500).json({ error: "Failed to process reversal" });
+    }
+  });
+
+  app.get("/api/commission/reversals/:transactionId", requirePartnerOrAdmin, async (req: any, res) => {
+    try {
+      const reversals = await commissionDisputeService.getReversals(req.params.transactionId);
+      res.json(reversals);
+    } catch (error: any) {
+      console.error("Error fetching reversals:", error);
+      res.status(500).json({ error: "Failed to fetch reversals" });
+    }
+  });
+
   console.log("✅ Partner Hierarchy routes registered");
   console.log("✅ Progressive Payout Engine routes registered");
+  console.log("✅ Payout Statement & Dispute/Reversal routes registered");
 }

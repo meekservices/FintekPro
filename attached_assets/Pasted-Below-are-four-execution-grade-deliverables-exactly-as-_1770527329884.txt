@@ -1,0 +1,146 @@
+Below are four execution-grade deliverables, exactly as requested, aligned to your progressive remaining-based MLM payout engine and written so they can be implemented, audited, and disclosed without ambiguity.
+I’ve kept this regulator-safe, fintech-grade, not marketing fluff.
+1️⃣ Partner Payout Statement API (Backend Ticket)
+TICKET: Partner Payout Statement Service
+Type: Backend – API
+Priority: P0
+Service: PartnerStatementService
+Objective
+Provide transaction-level, auditable payout statements to partners.
+Endpoint
+GET /api/partners/{partnerId}/payout-statement
+Query Params
+from_date (YYYY-MM-DD)
+to_date (YYYY-MM-DD)
+group_by = ['transaction','day','month']
+Response Schema
+{
+  partner_id: UUID,
+  period: { from, to },
+  summary: {
+    total_earned,
+    agent_income,
+    upline_income,
+    incentives_income,
+    paid_amount,
+    pending_amount
+  },
+  entries: [
+    {
+      transaction_id,
+      role: 'AGENT' | 'UPLINE' | 'PLATFORM' | 'OPERATIONS',
+      level_offset,
+      gross_transaction_amount,
+      payout_amount,
+      payout_type: 'FIXED' | 'INCENTIVE',
+      payout_status,
+      created_at
+    }
+  ]
+}
+Rules
+Partner sees only their own ledger
+No downline earnings visibility
+Immutable historical data
+Acceptance Criteria
+Matches commission ledger exactly
+Totals reconcile to wallet balance
+Exportable to PDF/CSV
+2️⃣ Dispute & Reversal Workflow (Backend Ticket)
+TICKET: Commission Dispute & Reversal Engine
+Type: Backend – Compliance / Finance
+Priority: P0
+Service: CommissionDisputeService
+A. Dispute Flow
+Endpoint
+POST /api/commission/dispute
+Input
+{
+  transaction_id,
+  reason_code,
+  description
+}
+dispute_cases table
+dispute_cases (
+  dispute_id UUID PK,
+  transaction_id UUID,
+  raised_by_partner_id UUID,
+  status ENUM('OPEN','UNDER_REVIEW','RESOLVED','REJECTED'),
+  created_at
+)
+B. Reversal Rules (CRITICAL)
+Reversals are mirror entries, never deletions
+reversal_ledger
+reversal_ledger (
+  reversal_id UUID,
+  original_ledger_id UUID,
+  partner_id UUID,
+  reversal_amount,
+  created_at
+)
+Reversal Logic
+Debit wallet if balance sufficient
+Else mark as negative carry-forward
+Full audit trail mandatory
+Acceptance Criteria
+No ledger rows deleted
+Every reversal traceable
+Wallet balances never inconsistent
+3️⃣ Partner-Facing Explainer Copy (UI / Agreement Ready)
+This text can be used as-is in:
+Partner dashboard
+Partner agreement
+Onboarding screens
+How Your Earnings Are Calculated
+FintekPro uses a performance-linked incentive model based on real financial transactions.
+1. Direct Earnings (Agent Income)
+When you sell a financial product, you receive a fixed percentage of the commission earned from that transaction.
+This is your primary income.
+2. Upline Incentives (Team Income)
+If partners are working under you, you may receive incentives based on their successful transactions.
+Incentives are calculated as a percentage of the remaining distributable amount
+Earlier incentives reduce the base for deeper levels
+This ensures fairness and long-term sustainability
+3. No Income for Recruitment
+You do not earn anything simply for adding partners.
+Income is generated only when real financial products are sold to real clients.
+4. Transparency
+For every transaction, you can see:
+Who sold it
+Your role in the transaction
+How your payout was calculated
+Final credited amount
+No hidden deductions. No manual overrides.
+4️⃣ SEBI / RBI Disclosure Appendix (Regulator-Safe)
+This section should be attached to agreements, compliance decks, and audits.
+Commission & Incentive Disclosure
+Nature of Platform
+FintekPro is a financial distribution platform facilitating the sale of regulated financial products through registered partners.
+Nature of Earnings
+All partner earnings are derived only from completed financial transactions
+No partner is paid for recruitment, onboarding, or hierarchy creation
+Incentive Structure
+Incentives are calculated from actual commission received
+Distribution follows a progressive remaining-based incentive mechanism
+Incentive amounts decrease at higher hierarchy levels naturally
+Risk & Sustainability Controls
+Platform fees are deducted upfront
+Residual amounts are retained for operational stability
+Incentive eligibility is subject to KYC and compliance status
+Transparency & Auditability
+Every payout is recorded in an immutable ledger
+Full transaction-to-payout traceability exists
+Dispute and reversal mechanisms are in place
+Regulatory Alignment
+This model:
+Does not constitute a money circulation scheme
+Does not promise fixed or assured returns
+Rewards only real economic activity
+Final Note (Founder-Level Clarity)
+What you’ve designed is:
+❌ Not illegal MLM
+❌ Not recruitment-based
+✅ A controlled incentive waterfall
+✅ Technically auditable
+✅ Regulator defensible
+This is enterprise-grade if implemented exactly as above.

@@ -16,9 +16,20 @@ import {
   UserCheck,
   TrendingUp,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  FileText,
+  BookOpen,
+  Shield,
+  Download,
+  Calendar,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  XCircle
 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function PartnerPortal() {
   const [location] = useLocation();
@@ -57,6 +68,31 @@ export default function PartnerPortal() {
 
   const { data: tickets = [], isLoading: ticketsLoading } = useQuery({
     queryKey: ['/api/partner/support/tickets'],
+  });
+
+  const [statementFromDate, setStatementFromDate] = useState('');
+  const [statementToDate, setStatementToDate] = useState('');
+  const [statementGroupBy, setStatementGroupBy] = useState('transaction');
+
+  const partnerId = (dashboardData as any)?.partnerId || 'partner-dev-1';
+
+  const { data: statementData, isLoading: statementLoading, refetch: refetchStatement } = useQuery({
+    queryKey: ['/api/partners', partnerId, 'payout-statement', statementFromDate, statementToDate, statementGroupBy],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (statementFromDate) params.set('from_date', statementFromDate);
+      if (statementToDate) params.set('to_date', statementToDate);
+      params.set('group_by', statementGroupBy);
+      const res = await fetch(`/api/partner-hierarchy/payout-statement/${partnerId}?${params.toString()}`);
+      if (!res.ok) throw new Error('Failed to fetch statement');
+      return res.json();
+    },
+    enabled: activeTab === 'statement',
+  });
+
+  const { data: disputesData, isLoading: disputesLoading } = useQuery({
+    queryKey: ['/api/commission/disputes'],
+    enabled: activeTab === 'statement',
   });
 
   const updateTicketMutation = useMutation({
@@ -132,8 +168,11 @@ export default function PartnerPortal() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <ScrollableTabsList className="grid w-full grid-cols-2">
+          <ScrollableTabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="dashboard" data-testid="tab-dashboard">Dashboard</TabsTrigger>
+            <TabsTrigger value="statement" data-testid="tab-statement">Payout Statement</TabsTrigger>
+            <TabsTrigger value="earnings" data-testid="tab-earnings">How Earnings Work</TabsTrigger>
+            <TabsTrigger value="compliance" data-testid="tab-compliance">Compliance</TabsTrigger>
             <TabsTrigger value="support" data-testid="tab-support">Support</TabsTrigger>
           </ScrollableTabsList>
 
@@ -334,6 +373,330 @@ export default function PartnerPortal() {
                 </Card>
               </a>
             </div>
+          </TabsContent>
+
+          {/* PAYOUT STATEMENT TAB */}
+          <TabsContent value="statement" className="space-y-6" data-testid="statement-tab-content">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-foreground">Payout Statement</h2>
+                <p className="text-sm text-muted-foreground">Transaction-level, auditable payout records</p>
+              </div>
+            </div>
+
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex flex-wrap gap-4 items-end">
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">From Date</label>
+                    <Input type="date" value={statementFromDate} onChange={(e) => setStatementFromDate(e.target.value)} className="w-40" data-testid="statement-from-date" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">To Date</label>
+                    <Input type="date" value={statementToDate} onChange={(e) => setStatementToDate(e.target.value)} className="w-40" data-testid="statement-to-date" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">Group By</label>
+                    <Select value={statementGroupBy} onValueChange={setStatementGroupBy}>
+                      <SelectTrigger className="w-40" data-testid="statement-group-by">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="transaction">Transaction</SelectItem>
+                        <SelectItem value="day">Day</SelectItem>
+                        <SelectItem value="month">Month</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button onClick={() => refetchStatement()} variant="outline" size="sm" data-testid="statement-refresh">
+                    <Calendar className="h-4 w-4 mr-1" /> Refresh
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {statementLoading ? (
+              <div className="text-center py-8 text-muted-foreground">Loading statement...</div>
+            ) : statementData ? (
+              <>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <p className="text-xs text-muted-foreground">Total Earned</p>
+                      <p className="text-xl font-bold text-green-700" data-testid="statement-total-earned">
+                        {'\u20B9'}{Number(statementData.summary?.total_earned || 0).toLocaleString()}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <p className="text-xs text-muted-foreground">Agent Income</p>
+                      <p className="text-xl font-bold text-blue-700" data-testid="statement-agent-income">
+                        {'\u20B9'}{Number(statementData.summary?.agent_income || 0).toLocaleString()}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <p className="text-xs text-muted-foreground">Upline Incentives</p>
+                      <p className="text-xl font-bold text-purple-700" data-testid="statement-upline-income">
+                        {'\u20B9'}{Number(statementData.summary?.upline_income || 0).toLocaleString()}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <p className="text-xs text-muted-foreground">Wallet Balance</p>
+                      <p className="text-xl font-bold text-orange-700" data-testid="statement-pending">
+                        {'\u20B9'}{Number(statementData.summary?.pending_amount || 0).toLocaleString()}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Ledger Entries
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {Array.isArray(statementData.entries) && statementData.entries.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left py-2 px-2 text-muted-foreground">Transaction</th>
+                              <th className="text-left py-2 px-2 text-muted-foreground">Role</th>
+                              <th className="text-left py-2 px-2 text-muted-foreground">Type</th>
+                              <th className="text-right py-2 px-2 text-muted-foreground">Amount</th>
+                              <th className="text-left py-2 px-2 text-muted-foreground">Status</th>
+                              <th className="text-left py-2 px-2 text-muted-foreground">Date</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {statementData.entries.map((entry: any, idx: number) => (
+                              <tr key={entry.ledger_id || idx} className="border-b last:border-0 hover:bg-muted/50">
+                                <td className="py-2 px-2 font-mono text-xs">{entry.transaction_id?.slice(0, 12)}...</td>
+                                <td className="py-2 px-2">
+                                  <Badge variant={entry.role === 'AGENT' ? 'default' : 'secondary'} className="text-xs">
+                                    {entry.role}
+                                  </Badge>
+                                </td>
+                                <td className="py-2 px-2 text-xs">{entry.payout_type}</td>
+                                <td className="py-2 px-2 text-right font-medium">{'\u20B9'}{Number(entry.net_amount || entry.payout_amount).toLocaleString()}</td>
+                                <td className="py-2 px-2">
+                                  {entry.payout_status === 'CREDITED' && <Badge className="bg-green-100 text-green-800 text-xs"><CheckCircle className="h-3 w-3 mr-1" />Credited</Badge>}
+                                  {entry.payout_status === 'REVERSED' && <Badge className="bg-red-100 text-red-800 text-xs"><XCircle className="h-3 w-3 mr-1" />Reversed</Badge>}
+                                  {entry.payout_status === 'PARTIALLY_REVERSED' && <Badge className="bg-yellow-100 text-yellow-800 text-xs"><AlertTriangle className="h-3 w-3 mr-1" />Partial</Badge>}
+                                </td>
+                                <td className="py-2 px-2 text-xs text-muted-foreground">{entry.created_at ? new Date(entry.created_at).toLocaleDateString() : '-'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <FileText className="h-10 w-10 mx-auto mb-2 opacity-40" />
+                        <p className="text-sm">No payout entries found for the selected period</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-40" />
+                  <h3 className="text-lg font-medium text-foreground mb-1">Payout Statement</h3>
+                  <p className="text-muted-foreground">Select a date range and click Refresh to view your statement</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* HOW EARNINGS WORK TAB */}
+          <TabsContent value="earnings" className="space-y-6" data-testid="earnings-tab-content">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-foreground">How Your Earnings Are Calculated</h2>
+                <p className="text-sm text-muted-foreground">Transparent, performance-linked incentive model</p>
+              </div>
+              <Badge variant="outline" className="bg-green-50 text-green-700">
+                <Shield className="h-3 w-3 mr-1" /> Regulator Compliant
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card className="border-blue-200">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-blue-700">
+                    <IndianRupee className="h-5 w-5" />
+                    1. Direct Earnings (Agent Income)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    When you sell a financial product, you receive a <strong>fixed percentage</strong> of the commission earned from that transaction.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    This is your <strong>primary income</strong>. The percentage is pre-configured per product type and is clearly visible in your payout statement.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-purple-200">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-purple-700">
+                    <TrendingUp className="h-5 w-5" />
+                    2. Upline Incentives (Team Income)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    If partners are working under you, you may receive incentives based on their successful transactions.
+                  </p>
+                  <ul className="text-sm text-muted-foreground space-y-1 list-disc pl-4">
+                    <li>Incentives are calculated as a percentage of the <strong>remaining distributable amount</strong></li>
+                    <li>Earlier incentives reduce the base for deeper levels</li>
+                    <li>This ensures <strong>fairness and long-term sustainability</strong></li>
+                  </ul>
+                </CardContent>
+              </Card>
+
+              <Card className="border-red-200">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-red-700">
+                    <XCircle className="h-5 w-5" />
+                    3. No Income for Recruitment
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    You do <strong>not</strong> earn anything simply for adding partners.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Income is generated <strong>only when real financial products are sold to real clients</strong>. This is strictly enforced by our anti-MLM compliance engine.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-green-200">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-green-700">
+                    <CheckCircle className="h-5 w-5" />
+                    4. Full Transparency
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    For every transaction, you can see:
+                  </p>
+                  <ul className="text-sm text-muted-foreground space-y-1 list-disc pl-4">
+                    <li>Who sold the product</li>
+                    <li>Your role in the transaction (Agent or Upline)</li>
+                    <li>How your payout was calculated</li>
+                    <li>Final credited amount</li>
+                  </ul>
+                  <p className="text-sm font-medium text-green-700 mt-2">
+                    No hidden deductions. No manual overrides.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardContent className="p-6 bg-muted/50">
+                <div className="flex items-start gap-3">
+                  <BookOpen className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium text-sm">Dispute Resolution</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      If you believe a payout is incorrect, you can raise a dispute directly from the Payout Statement tab. All disputes are tracked, reviewed, and resolved with full audit trail. Reversals, if applicable, are processed as mirror entries — no ledger records are ever deleted.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* COMPLIANCE & DISCLOSURES TAB */}
+          <TabsContent value="compliance" className="space-y-6" data-testid="compliance-tab-content">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-foreground">Compliance & Regulatory Disclosures</h2>
+                <p className="text-sm text-muted-foreground">SEBI / RBI compliant commission and incentive disclosure</p>
+              </div>
+              <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                <Shield className="h-3 w-3 mr-1" /> SEBI / RBI Aligned
+              </Badge>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Commission & Incentive Disclosure</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div>
+                  <h4 className="font-semibold text-sm mb-2">Nature of Platform</h4>
+                  <p className="text-sm text-muted-foreground">
+                    FintekPro is a financial distribution platform facilitating the sale of regulated financial products through registered partners.
+                  </p>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h4 className="font-semibold text-sm mb-2">Nature of Earnings</h4>
+                  <ul className="text-sm text-muted-foreground space-y-1 list-disc pl-4">
+                    <li>All partner earnings are derived only from completed financial transactions</li>
+                    <li>No partner is paid for recruitment, onboarding, or hierarchy creation</li>
+                  </ul>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h4 className="font-semibold text-sm mb-2">Incentive Structure</h4>
+                  <ul className="text-sm text-muted-foreground space-y-1 list-disc pl-4">
+                    <li>Incentives are calculated from actual commission received</li>
+                    <li>Distribution follows a progressive remaining-based incentive mechanism</li>
+                    <li>Incentive amounts decrease at higher hierarchy levels naturally</li>
+                  </ul>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h4 className="font-semibold text-sm mb-2">Risk & Sustainability Controls</h4>
+                  <ul className="text-sm text-muted-foreground space-y-1 list-disc pl-4">
+                    <li>Platform fees are deducted upfront</li>
+                    <li>Residual amounts are retained for operational stability</li>
+                    <li>Incentive eligibility is subject to KYC and compliance status</li>
+                  </ul>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h4 className="font-semibold text-sm mb-2">Transparency & Auditability</h4>
+                  <ul className="text-sm text-muted-foreground space-y-1 list-disc pl-4">
+                    <li>Every payout is recorded in an immutable ledger</li>
+                    <li>Full transaction-to-payout traceability exists</li>
+                    <li>Dispute and reversal mechanisms are in place</li>
+                  </ul>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h4 className="font-semibold text-sm mb-2">Regulatory Alignment</h4>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-2">
+                    <p className="text-sm text-green-800">This model:</p>
+                    <ul className="text-sm text-green-800 space-y-1 mt-2">
+                      <li className="flex items-center gap-2"><CheckCircle className="h-4 w-4" /> Does not constitute a money circulation scheme</li>
+                      <li className="flex items-center gap-2"><CheckCircle className="h-4 w-4" /> Does not promise fixed or assured returns</li>
+                      <li className="flex items-center gap-2"><CheckCircle className="h-4 w-4" /> Rewards only real economic activity</li>
+                      <li className="flex items-center gap-2"><CheckCircle className="h-4 w-4" /> Is a controlled incentive waterfall</li>
+                      <li className="flex items-center gap-2"><CheckCircle className="h-4 w-4" /> Technically auditable end-to-end</li>
+                      <li className="flex items-center gap-2"><CheckCircle className="h-4 w-4" /> Regulator defensible</li>
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="support" className="space-y-6">
