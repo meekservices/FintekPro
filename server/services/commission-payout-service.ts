@@ -22,14 +22,6 @@ export class CommissionPayoutService {
     productType: string;
     sellerPartnerId: string;
   }): Promise<{ success: boolean; ledgerEntries?: any[]; error?: string }> {
-    const existing = await db.select().from(commissionExecution)
-      .where(eq(commissionExecution.transactionId, data.transactionId))
-      .limit(1);
-
-    if (existing.length > 0) {
-      return { success: false, error: "Transaction already processed (idempotency guard)" };
-    }
-
     const antiMLM = this.validateAntiMLM(data.productType);
     if (!antiMLM.valid) {
       return { success: false, error: antiMLM.error };
@@ -56,131 +48,166 @@ export class CommissionPayoutService {
     const total = data.grossCommission;
     const uplineIncentivePct = parseFloat(config.uplineIncentivePct?.toString() || '0');
     const minResidualThreshold = parseFloat(config.minResidualThreshold?.toString() || '0');
-    const ledgerEntries: any[] = [];
 
-    const agentAmount = this.round2(total * (agentPct / 100));
-    const agentEntry = await this.credit(data.transactionId, data.sellerPartnerId, agentAmount, 'AGENT', 0);
-    ledgerEntries.push(agentEntry);
+    try {
+      const result = await db.transaction(async (tx) => {
+        try {
+          await tx.insert(commissionExecution).values({
+            transactionId: data.transactionId,
+          });
+        } catch (e: any) {
+          if (e.code === '23505') {
+            throw new Error("IDEMPOTENCY_DUPLICATE");
+          }
+          throw e;
+        }
 
-    const platformAmount = this.round2(total * (platformPct / 100));
-    const platformEntry = await this.credit(data.transactionId, PLATFORM_ACCOUNT, platformAmount, 'PLATFORM', null);
-    ledgerEntries.push(platformEntry);
+        const partnerChainResult = await tx.execute(sql`
+          WITH RECURSIVE chain AS (
+            SELECT id, company_name, partner_level, hierarchy_partner_type,
+                   parent_partner_id, kyc_status, hierarchy_status, is_active, 0 as depth
+            FROM partners WHERE id = ${data.sellerPartnerId}
+            UNION ALL
+            SELECT p.id, p.company_name, p.partner_level, p.hierarchy_partner_type,
+                   p.parent_partner_id, p.kyc_status, p.hierarchy_status, p.is_active, c.depth + 1
+            FROM partners p
+            INNER JOIN chain c ON c.parent_partner_id = p.id
+            WHERE c.depth < ${MAX_UPLINE_LEVELS}
+          )
+          SELECT * FROM chain ORDER BY depth ASC
+        `);
+        const allPartners = (partnerChainResult as any).rows || partnerChainResult || [];
+        const sellerPartner = allPartners.length > 0 ? allPartners[0] : null;
+        const partnerChain = allPartners.filter((p: any) => p.depth > 0);
 
-    let remaining = this.round2(total - agentAmount - platformAmount);
+        const ledgerEntries: any[] = [];
 
-    let level = 1;
-    let currentPartnerId = await this.getParentId(data.sellerPartnerId);
-    const visitedIds = new Set<string>();
+        const agentAmount = this.round2(total * (agentPct / 100));
+        const [agentEntry] = await tx.insert(progressiveCommissionLedger).values({
+          transactionId: data.transactionId,
+          partnerId: data.sellerPartnerId,
+          role: 'AGENT',
+          levelOffset: 0,
+          amount: agentAmount.toFixed(2),
+        }).returning();
+        ledgerEntries.push(agentEntry);
 
-    while (currentPartnerId && remaining >= minResidualThreshold && level <= MAX_UPLINE_LEVELS) {
-      if (visitedIds.has(currentPartnerId)) {
-        await this.logAudit("SYSTEM", "CIRCULAR_REFERENCE_DETECTED", "commission", data.transactionId, {
-          circularPartnerId: currentPartnerId,
-          level,
+        const platformAmount = this.round2(total * (platformPct / 100));
+        const [platformEntry] = await tx.insert(progressiveCommissionLedger).values({
+          transactionId: data.transactionId,
+          partnerId: PLATFORM_ACCOUNT,
+          role: 'PLATFORM',
+          levelOffset: null,
+          amount: platformAmount.toFixed(2),
+        }).returning();
+        ledgerEntries.push(platformEntry);
+
+        let remaining = this.round2(total - agentAmount - platformAmount);
+
+        let level = 1;
+        const visitedIds = new Set<string>();
+
+        for (const upline of partnerChain) {
+          if (remaining < minResidualThreshold || level > MAX_UPLINE_LEVELS) break;
+
+          if (visitedIds.has(upline.id)) {
+            await tx.insert(partnerAuditLogs).values({
+              actorId: "SYSTEM",
+              action: "CIRCULAR_REFERENCE_DETECTED",
+              entityType: "commission",
+              entityId: data.transactionId,
+              metadata: { circularPartnerId: upline.id, level },
+            });
+            break;
+          }
+          visitedIds.add(upline.id);
+
+          const eligible = this.checkEligibility(upline);
+          if (!eligible) {
+            level++;
+            continue;
+          }
+
+          const incentive = this.round2(remaining * (uplineIncentivePct / 100));
+          if (incentive <= 0) break;
+
+          const [uplineEntry] = await tx.insert(progressiveCommissionLedger).values({
+            transactionId: data.transactionId,
+            partnerId: upline.id,
+            role: 'UPLINE',
+            levelOffset: level,
+            amount: incentive.toFixed(2),
+          }).returning();
+          ledgerEntries.push(uplineEntry);
+
+          await this.creditWalletTx(tx, upline.id, incentive);
+
+          remaining = this.round2(remaining - incentive);
+          level++;
+        }
+
+        if (remaining > 0) {
+          const [opsEntry] = await tx.insert(progressiveCommissionLedger).values({
+            transactionId: data.transactionId,
+            partnerId: null,
+            role: 'OPERATIONS',
+            levelOffset: null,
+            amount: remaining.toFixed(2),
+          }).returning();
+          ledgerEntries.push(opsEntry);
+        }
+
+        if (sellerPartner &&
+            (sellerPartner.kyc_status === 'VERIFIED' || sellerPartner.kycStatus === 'VERIFIED') &&
+            (sellerPartner.hierarchy_status === 'ACTIVE' || sellerPartner.hierarchyStatus === 'ACTIVE' ||
+             sellerPartner.is_active === true || sellerPartner.isActive === true)) {
+          await this.creditWalletTx(tx, data.sellerPartnerId, agentAmount);
+        }
+
+        await tx.insert(partnerAuditLogs).values({
+          actorId: "SYSTEM",
+          action: "COMMISSION_PROCESSED",
+          entityType: "commission",
+          entityId: data.transactionId,
+          metadata: {
+            grossCommission: total,
+            productType: data.productType,
+            sellerPartnerId: data.sellerPartnerId,
+            entriesCount: ledgerEntries.length,
+            agentAmount,
+            platformAmount,
+            operationalResidual: remaining > 0 ? remaining : 0,
+          },
         });
-        break;
+
+        return ledgerEntries;
+      });
+
+      return { success: true, ledgerEntries: result };
+    } catch (e: any) {
+      if (e.message === "IDEMPOTENCY_DUPLICATE") {
+        return { success: false, error: "Transaction already processed (idempotency guard)" };
       }
-      visitedIds.add(currentPartnerId);
-
-      const eligible = await this.isEligible(currentPartnerId);
-      if (!eligible) {
-        currentPartnerId = await this.getParentId(currentPartnerId);
-        level++;
-        continue;
-      }
-
-      const incentive = this.round2(remaining * (uplineIncentivePct / 100));
-      if (incentive <= 0) break;
-
-      const uplineEntry = await this.credit(data.transactionId, currentPartnerId, incentive, 'UPLINE', level);
-      ledgerEntries.push(uplineEntry);
-
-      await this.creditWallet(currentPartnerId, incentive);
-
-      remaining = this.round2(remaining - incentive);
-      currentPartnerId = await this.getParentId(currentPartnerId);
-      level++;
+      throw e;
     }
-
-    if (remaining > 0) {
-      const opsEntry = await this.credit(data.transactionId, null, remaining, 'OPERATIONS', null);
-      ledgerEntries.push(opsEntry);
-    }
-
-    const sellerPartner = await this.getPartner(data.sellerPartnerId);
-    if (sellerPartner && sellerPartner.kycStatus === 'VERIFIED' && sellerPartner.hierarchyStatus === 'ACTIVE') {
-      await this.creditWallet(data.sellerPartnerId, agentAmount);
-    }
-
-    await db.insert(commissionExecution).values({
-      transactionId: data.transactionId,
-    });
-
-    await this.logAudit("SYSTEM", "COMMISSION_PROCESSED", "commission", data.transactionId, {
-      grossCommission: total,
-      productType: data.productType,
-      sellerPartnerId: data.sellerPartnerId,
-      entriesCount: ledgerEntries.length,
-      agentAmount,
-      platformAmount,
-      operationalResidual: remaining > 0 ? remaining : 0,
-    });
-
-    return { success: true, ledgerEntries };
   }
 
-  private async credit(
-    transactionId: string,
-    partnerId: string | null,
-    amount: number,
-    role: string,
-    levelOffset: number | null,
-  ): Promise<any> {
-    const [entry] = await db.insert(progressiveCommissionLedger).values({
-      transactionId,
-      partnerId,
-      role,
-      levelOffset,
-      amount: amount.toFixed(2),
-    }).returning();
-
-    await this.logAudit("SYSTEM", "COMMISSION_CREDITED", "ledger", entry.ledgerId, {
-      transactionId,
-      partnerId: partnerId || OPERATIONAL_ACCOUNT,
-      role,
-      levelOffset,
-      amount: amount.toFixed(2),
-    });
-
-    return entry;
-  }
-
-  private async isEligible(partnerId: string): Promise<boolean> {
-    const partner = await this.getPartner(partnerId);
+  private checkEligibility(partner: any): boolean {
     if (!partner) return false;
-    if (partner.hierarchyStatus !== 'ACTIVE' && partner.isActive !== true) return false;
-    if (partner.kycStatus !== 'VERIFIED') return false;
+    const isActive = partner.hierarchy_status === 'ACTIVE' || partner.hierarchyStatus === 'ACTIVE' ||
+                     partner.is_active === true || partner.isActive === true;
+    if (!isActive) return false;
+    const kycVerified = partner.kyc_status === 'VERIFIED' || partner.kycStatus === 'VERIFIED';
+    if (!kycVerified) return false;
     return true;
   }
 
-  private async getParentId(partnerId: string): Promise<string | null> {
-    const partner = await this.getPartner(partnerId);
-    return partner?.parentPartnerId || null;
-  }
-
-  private async getPartner(partnerId: string): Promise<any> {
-    const [partner] = await db.select().from(partners)
-      .where(eq(partners.id, partnerId))
-      .limit(1);
-    return partner || null;
-  }
-
-  private async creditWallet(partnerId: string, amount: number): Promise<void> {
-    const existing = await db.select().from(partnerWallets)
+  private async creditWalletTx(tx: any, partnerId: string, amount: number): Promise<void> {
+    const existing = await tx.select().from(partnerWallets)
       .where(eq(partnerWallets.partnerId, partnerId)).limit(1);
 
     if (existing.length === 0) {
-      await db.insert(partnerWallets).values({
+      await tx.insert(partnerWallets).values({
         partnerId,
         balance: amount.toFixed(2),
         totalCredited: amount.toFixed(2),
@@ -188,23 +215,13 @@ export class CommissionPayoutService {
         lastTransactionAt: new Date(),
       });
     } else {
-      await db.update(partnerWallets).set({
+      await tx.update(partnerWallets).set({
         balance: sql`${partnerWallets.balance} + ${amount.toFixed(2)}::decimal`,
         totalCredited: sql`${partnerWallets.totalCredited} + ${amount.toFixed(2)}::decimal`,
         lastTransactionAt: new Date(),
         updatedAt: new Date(),
       }).where(eq(partnerWallets.partnerId, partnerId));
     }
-  }
-
-  private async logAudit(actorId: string, action: string, entityType: string, entityId: string, metadata: any): Promise<void> {
-    await db.insert(partnerAuditLogs).values({
-      actorId,
-      action,
-      entityType,
-      entityId,
-      metadata,
-    });
   }
 
   private validateAntiMLM(transactionType: string): { valid: boolean; error?: string } {
