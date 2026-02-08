@@ -119,7 +119,7 @@ interface AnalyticsData {
     sectorAllocation?: Array<{ sector: string; value: number; percentage: number }>;
     sectorExposure?: Record<string, { value: number; percentage: number; riskLevel: string }>;
     concentrationRisk?: { topHolding: string; percentage: number; isConcentrated: boolean };
-    concentrationWarnings?: string[];
+    concentrationWarnings?: Array<string | { name?: string; type?: string; severity?: string; threshold?: number; percentage?: number }>;
   };
   benchmark?: {
     alpha: number;
@@ -2097,10 +2097,12 @@ export default function PublicProposalPage() {
                               <p className="font-semibold text-amber-800 dark:text-amber-200">Risk Warnings</p>
                             </div>
                             <ul className="space-y-1">
-                              {rh.concentrationWarnings.map((warning: string, idx: number) => (
+                              {rh.concentrationWarnings.map((warning: any, idx: number) => (
                                 <li key={idx} className="text-sm text-amber-700 dark:text-amber-300 flex items-start gap-2">
                                   <span className="text-amber-500 mt-0.5">•</span>
-                                  {warning}
+                                  {typeof warning === 'string' 
+                                    ? warning 
+                                    : `${warning.name || warning.type || 'Warning'}: ${warning.percentage != null ? `${warning.percentage}%` : ''} ${warning.severity ? `(${warning.severity})` : ''}`}
                                 </li>
                               ))}
                             </ul>
