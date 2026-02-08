@@ -1,0 +1,190 @@
+Below are EXACT, Replit-ready backend + frontend tickets, written in engineering execution format, scoped to Sandbox + TruthScreen redesign, and agent-assisted KYC made error-free.
+This is structured so you can copy-paste each ticket directly into Replit Issues / Linear / Jira.
+EPIC: KYC Wizard v2 – Sandbox + TruthScreen
+Objective:
+Rebuild KYC Wizard & Agent Prospect Flow with deterministic PAN routing, CKYC-first logic, AML-driven tiering, and zero-consent leakage, using
+Sandbox.co.in + TruthScreen
+BACKEND TICKETS
+BE-KYC-001: KYC Orchestrator Service (Core)
+Type: Backend
+Priority: P0
+Description
+Create a central KYC Orchestrator Service to manage step flow, provider calls, decision logic, and state transitions.
+Acceptance Criteria
+Single source of truth for KYC state
+Stateless provider adapters
+Deterministic step resolution
+API
+POST   /api/kyc/session
+GET    /api/kyc/session/:id
+PATCH  /api/kyc/session/:id/step
+POST   /api/kyc/session/:id/complete
+Data Model
+{
+  "kyc_session_id": "uuid",
+  "user_id": "uuid",
+  "initiated_by": "agent|customer",
+  "entity_type": "INDIVIDUAL|HUF|CORP|LLP|TRUST",
+  "current_step": 3,
+  "status": "IN_PROGRESS|BLOCKED|COMPLETED",
+  "expires_at": "timestamp"
+}
+BE-KYC-002: PAN Intelligence & Entity Locking (Sandbox)
+Priority: P0
+Description
+PAN verification and hard entity detection using Sandbox.
+Rules
+Entity auto-detected from PAN 4th character
+Agent override ❌
+Admin override ⚠️ (reason + audit)
+API
+POST /api/kyc/pan/verify
+Response
+{
+  "pan_valid": true,
+  "entity_detected": "INDIVIDUAL",
+  "override_allowed": false,
+  "source": "sandbox"
+}
+BE-KYC-003: CKYC + KRA Decision Engine (TruthScreen)
+Priority: P0
+Description
+Integrate TruthScreen for CKYC lookup + KRA validation and Aadhaar decisioning.
+API
+POST /api/kyc/ckyc/check
+Logic
+if (confidence >= 0.9 && missing.length === 0)
+  skipAadhaar = true
+else
+  requireAadhaar = true
+Response
+{
+  "ckyc_found": true,
+  "confidence_score": 0.87,
+  "missing_fields": ["address"],
+  "aadhaar_required": true
+}
+BE-KYC-004: Aadhaar OTP Service (Sandbox)
+Priority: P0
+Description
+Customer-only Aadhaar OTP initiation & verification.
+APIs
+POST /api/kyc/aadhaar/otp/send
+POST /api/kyc/aadhaar/otp/verify
+Rules
+OTP trigger blocked for agents
+OTP never logged
+Test OTP = 123456 (sandbox env only)
+BE-KYC-005: AML / PEP / Sanctions (TruthScreen)
+Priority: P0
+Description
+Central AML engine for individuals & entities.
+API
+POST /api/kyc/aml/check
+Response
+{
+  "aml_score": 64,
+  "pep": false,
+  "sanctions": false,
+  "risk_level": "HIGH"
+}
+Rule
+HIGH → Video KYC + Admin review
+BE-KYC-006: Tier & Level Engine (Race-Condition Safe)
+Priority: P0
+Description
+Separate kyc_level from kyc_tier with provisional gating.
+Model
+{
+  "kyc_level": 2,
+  "kyc_tier": "enhanced",
+  "tier_status": "provisional|final"
+}
+Rule
+Product unlock only when tier_status = final
+BE-KYC-007: Agent Prospect Shell Service
+Priority: P0
+Description
+Allow agents to create non-consent prospect shells.
+API
+POST /api/agent/prospect
+Rules
+Agent cannot complete Aadhaar, FATCA, eSign
+Generates customer KYC link
+BE-KYC-008: Edit Mode & Change History
+Priority: P1
+Description
+Regulatory-safe edit mode with field locks and re-verification.
+Change Log Model
+{
+  "field": "address",
+  "old_value": "...",
+  "new_value": "...",
+  "verified_by": "digilocker",
+  "changed_by": "customer"
+}
+BE-KYC-009: DigiLocker Integration (Sandbox)
+Priority: P1
+Description
+Fetch address/name documents via Sandbox DigiLocker proxy.
+BE-KYC-010: Admin KYC Controls
+Priority: P1
+Features
+PAN collision detector
+AML override log
+Deferred CKYC retry queue
+Agent misuse heatmap
+FRONTEND TICKETS
+FE-KYC-001: KYC Wizard v2 (Customer)
+Priority: P0
+Screens
+PAN Entry (locked entity)
+CKYC Result
+Aadhaar OTP (conditional)
+Profile Completion
+Risk Profiling
+FATCA + Signature
+Completion
+UX Rules
+No skipped steps via URL
+Step resume from backend state only
+FE-KYC-002: Agent Prospect Wizard v2
+Priority: P0
+Screens
+Create Prospect
+PAN verification result
+CKYC status
+Customer action pending
+Read-only progress tracker
+❌ No Aadhaar / FATCA / Signature UI
+FE-KYC-003: KYC Dashboard (Profile)
+Priority: P0
+Tabs
+KYC Tier & Benefits
+Verification Status
+Locked / Unlocked Products
+Upgrade CTA
+FE-KYC-004: Edit KYC (Restricted UI)
+Priority: P1
+UI Rules
+Locked fields greyed out
+Address edit → DigiLocker modal
+Mobile/email → OTP modal
+FE-KYC-005: Admin KYC Console
+Priority: P1
+Views
+High-risk customers
+Video KYC pending
+Tier overrides
+CKYC failures
+NON-FUNCTIONAL (MANDATORY)
+Logging
+Provider payload hashes
+Consent IP + UA
+Step transitions
+Compliance Tags
+{
+  "regulation": "SEBI_KYC_Master_2024",
+  "provider_stack": ["Sandbox", "TruthScreen"]
+}
+NEXT (Tell me what to execute)
