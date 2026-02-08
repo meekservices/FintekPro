@@ -1939,6 +1939,9 @@ function AgentRoutes() {
           </AgentLayout>
         )}
       </Route>
+      <Route path="/report-builder">
+        {() => <Redirect to="/agent/report-builder" />}
+      </Route>
       <Route path="/agent/report-builder">
         {() => (
           <AgentLayout>
