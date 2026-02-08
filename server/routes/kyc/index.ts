@@ -182,18 +182,22 @@ export function registerKYCWizardRoutes(app: Express) {
         compliance_signed: false
       };
       
-      // If user already has verified PAN, skip to next step
+      // Regulatory flow: PAN → CKYC/KRA Check → Aadhaar (if needed) → Risk Profiling → Compliance
+      // Per RBI Master Direction on KYC (2016, amended 2024) & SEBI KRA Regulations
       if (userProfile?.panVerifiedViaSandbox || userProfile?.panSandboxStatus === 'VALID') {
         stepStatus.pan_verified = true;
-        initialStep = 'aadhaar_verification';
+        initialStep = 'ckyc_kra_check'; // Check CKYC/KRA first per data minimization
         
-        if (userProfile?.ckycAuthBridgeStatus === 'found') {
+        if (userProfile?.ckycFetchedViaAuthBridge || userProfile?.ckycAuthBridgeStatus === 'found') {
           stepStatus.ckyc_fetched = true;
+          stepStatus.kra_verified = true;
+          initialStep = 'risk_profiling'; // CKYC found, skip Aadhaar
+        } else if (userProfile?.aadhaarVerifiedViaSmartKyc) {
+          stepStatus.aadhaar_verified = true;
           initialStep = 'risk_profiling';
         }
         
-        if (userProfile?.videoKycCompleted) {
-          stepStatus.aadhaar_verified = true;
+        if (userProfile?.isProfileCompleted && stepStatus.ckyc_fetched) {
           initialStep = 'compliance_signoff';
         }
       }
@@ -326,12 +330,15 @@ export function registerKYCWizardRoutes(app: Express) {
           fatherName: verification.data.father_name
         },
         panVerifiedAt: new Date(),
-        currentStep: "aadhaar_otp",
+        currentStep: "ckyc_kra_check",
         stepStatus: {
           pan_verified: true,
+          ckyc_fetched: false,
+          kra_verified: false,
           aadhaar_otp_sent: false,
           aadhaar_verified: false,
-          data_collected: false
+          risk_profiling: false,
+          compliance_signed: false
         }
       });
       

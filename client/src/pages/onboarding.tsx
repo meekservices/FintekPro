@@ -71,6 +71,7 @@ type WizardStep =
   | 'pan_entry'
   | 'type_detection' 
   | 'pan_verification' 
+  | 'ckyc_kra_check'
   | 'aadhaar_otp' 
   | 'aadhaar_verification' 
   | 'data_collection' 
@@ -235,9 +236,11 @@ export default function SmartKYCOnboarding() {
   const [tinNumber, setTinNumber] = useState('');
   const [digitalSignature, setDigitalSignature] = useState('');
   const [hasSignature, setHasSignature] = useState(false);
-  const [signMethod, setSignMethod] = useState<'draw' | 'type' | 'aadhaar'>('draw');
+  const [signMethod, setSignMethod] = useState<'draw' | 'type' | 'aadhaar' | 'upload'>('draw');
   const [typedSignature, setTypedSignature] = useState('');
   const [aadhaarEsignStatus, setAadhaarEsignStatus] = useState<'idle' | 'pending' | 'completed'>('idle');
+  const [uploadedSignatureUrl, setUploadedSignatureUrl] = useState<string>('');
+  const signatureFileRef = useRef<HTMLInputElement>(null);
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
   
   // Start or resume session
@@ -387,26 +390,16 @@ export default function SmartKYCOnboarding() {
     },
     onSuccess: (data) => {
       if (data.success) {
-        if (data.kraStatus === 'VERIFIED') {
-          // KYC already verified - skip Aadhaar verification
+        if (data.ckycFound) {
           toast({
-            title: "KYC Already Verified!",
-            description: "Your KYC is already verified in the registry. Skipping Aadhaar verification.",
+            title: "CKYC Record Found",
+            description: "Your identity is verified via Central KYC Registry. Skipping Aadhaar verification.",
           });
-          // Move to completion step
-          setCurrentStep('data_collection');
-        } else if (data.kraStatus === 'ONHOLD') {
-          toast({
-            title: "KYC On Hold",
-            description: "Your KYC is on hold. Please complete Aadhaar verification.",
-            variant: "default"
-          });
-          setCurrentStep('aadhaar_otp');
+          setCurrentStep('risk_profiling');
         } else {
-          // NOT_FOUND or REJECTED - proceed with Aadhaar verification
           toast({
-            title: "KYC Not Found",
-            description: "No existing KYC found. Please complete Aadhaar verification.",
+            title: "CKYC Not Found",
+            description: "No existing CKYC record. Proceeding to Aadhaar verification for address proof.",
           });
           setCurrentStep('aadhaar_otp');
         }
@@ -414,12 +407,11 @@ export default function SmartKYCOnboarding() {
     },
     onError: (error) => {
       console.error('KRA check error:', error);
-      // On error, proceed with Aadhaar verification anyway
-      setCurrentStep('aadhaar_otp');
       toast({
         title: "Continuing with verification",
-        description: "Proceeding to Aadhaar verification",
+        description: "CKYC check unavailable. Proceeding to Aadhaar verification.",
       });
+      setCurrentStep('aadhaar_otp');
     }
   });
 
@@ -449,8 +441,7 @@ export default function SmartKYCOnboarding() {
           description: `PAN verified successfully for ${data.data.name}`,
         });
         
-        // After PAN verification, check KRA status
-        checkKraStatusMutation.mutate();
+        setCurrentStep('ckyc_kra_check');
       } else {
         toast({
           title: "Verification Failed",
@@ -875,12 +866,12 @@ export default function SmartKYCOnboarding() {
     const entityType = getEffectiveEntityType();
     
     if (!entityType) {
-      return ['pan_entry', 'pan_verification', 'aadhaar_otp', 'aadhaar_verification', 'data_collection', 'risk_profiling', 'compliance_signoff', 'completed'];
+      return ['pan_entry', 'pan_verification', 'ckyc_kra_check', 'aadhaar_otp', 'aadhaar_verification', 'data_collection', 'risk_profiling', 'compliance_signoff', 'completed'];
     }
     
     switch (entityType) {
       case 'individual':
-        return ['pan_entry', 'type_detection', 'pan_verification', 'aadhaar_otp', 'aadhaar_verification', 'data_collection', 'risk_profiling', 'compliance_signoff', 'completed'];
+        return ['pan_entry', 'type_detection', 'pan_verification', 'ckyc_kra_check', 'aadhaar_otp', 'aadhaar_verification', 'data_collection', 'risk_profiling', 'compliance_signoff', 'completed'];
       case 'huf':
         return ['pan_entry', 'type_detection', 'huf_details', 'pan_verification', 'data_collection', 'risk_profiling', 'compliance_signoff', 'completed'];
       case 'company':
@@ -1743,6 +1734,62 @@ export default function SmartKYCOnboarding() {
     </Card>
   );
   
+  const renderCkycKraCheckStep = () => (
+    <Card className="max-w-2xl mx-auto">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Shield className="h-6 w-6 text-primary" />
+          <CardTitle>Step 3: Central KYC Registry Check</CardTitle>
+        </div>
+        <CardDescription>
+          Checking your existing KYC records in the CKYC/KRA registry
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Alert className="bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/20">
+          <Info className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-800 dark:text-blue-200">
+            <strong>Regulatory Reference:</strong> Per RBI Master Direction on KYC (2016, amended 2024) and CERSAI CKYC Circular, we first check your existing KYC records to minimize redundant data collection.
+          </AlertDescription>
+        </Alert>
+        
+        {!checkKraStatusMutation.isPending && !checkKraStatusMutation.isSuccess && (
+          <div className="text-center space-y-4 py-6">
+            <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <FileText className="h-8 w-8 text-primary" />
+            </div>
+            <div>
+              <p className="font-medium">Ready to check CKYC/KRA Registry</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                We will search for your existing KYC records using your verified PAN. If found, Aadhaar verification can be skipped.
+              </p>
+            </div>
+            <Button
+              onClick={() => checkKraStatusMutation.mutate()}
+              className="w-full"
+              data-testid="btn-check-ckyc"
+            >
+              <Shield className="mr-2 h-4 w-4" />
+              Check CKYC/KRA Status
+            </Button>
+          </div>
+        )}
+        
+        {checkKraStatusMutation.isPending && (
+          <div className="text-center space-y-4 py-8">
+            <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" />
+            <div>
+              <p className="font-medium">Searching CKYC Registry...</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Querying Central KYC Registry and KRA databases
+              </p>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+
   const renderDataCollectionStep = () => (
     <Card className="max-w-2xl mx-auto">
       <CardHeader>
@@ -2141,6 +2188,15 @@ export default function SmartKYCOnboarding() {
                 <Shield className="mr-1.5 h-3.5 w-3.5" />
                 Aadhaar eSign
               </Button>
+              <Button
+                variant={signMethod === 'upload' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSignMethod('upload')}
+                data-testid="btn-sign-upload"
+              >
+                <Upload className="mr-1.5 h-3.5 w-3.5" />
+                Upload
+              </Button>
             </div>
             
             {signMethod === 'draw' && (
@@ -2257,6 +2313,84 @@ export default function SmartKYCOnboarding() {
                     </Button>
                   </div>
                 )}
+              </div>
+            )}
+            
+            {signMethod === 'upload' && (
+              <div className="border rounded-md p-4 bg-muted space-y-3">
+                <input
+                  type="file"
+                  ref={signatureFileRef}
+                  accept="image/png,image/jpeg,image/jpg,image/svg+xml"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (file.size > 2 * 1024 * 1024) {
+                        toast({
+                          title: "File too large",
+                          description: "Signature image must be under 2MB",
+                          variant: "destructive"
+                        });
+                        return;
+                      }
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        const dataUrl = ev.target?.result as string;
+                        setUploadedSignatureUrl(dataUrl);
+                        setDigitalSignature(dataUrl);
+                        setHasSignature(true);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  data-testid="input-signature-file"
+                />
+                
+                {!uploadedSignatureUrl ? (
+                  <div
+                    className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                    onClick={() => signatureFileRef.current?.click()}
+                  >
+                    <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                    <p className="font-medium">Click to upload your saved signature</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Supports PNG, JPG, SVG (max 2MB). White background with dark ink preferred.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="border border-border rounded p-4 bg-card text-center">
+                      <img
+                        src={uploadedSignatureUrl}
+                        alt="Uploaded signature"
+                        className="max-h-24 mx-auto"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-green-600 dark:text-green-400 font-medium flex items-center gap-1">
+                        <CheckCircle className="h-3.5 w-3.5" />
+                        Signature uploaded
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setUploadedSignatureUrl('');
+                          setDigitalSignature('');
+                          setHasSignature(false);
+                          if (signatureFileRef.current) signatureFileRef.current.value = '';
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
+                <p className="text-xs text-muted-foreground">
+                  By uploading your signature, you confirm this is your authentic signature and consent to its use as an electronic signature under the IT Act, 2000.
+                </p>
               </div>
             )}
           </div>
@@ -3814,6 +3948,7 @@ export default function SmartKYCOnboarding() {
       {currentStep === 'pan_entry' && renderPanEntryStep()}
       {currentStep === 'type_detection' && renderTypeDetectionStep()}
       {currentStep === 'pan_verification' && renderPanVerificationStep()}
+      {currentStep === 'ckyc_kra_check' && renderCkycKraCheckStep()}
       {currentStep === 'aadhaar_otp' && renderAadhaarOtpStep()}
       {currentStep === 'aadhaar_verification' && renderAadhaarVerificationStep()}
       {currentStep === 'data_collection' && renderDataCollectionStep()}
