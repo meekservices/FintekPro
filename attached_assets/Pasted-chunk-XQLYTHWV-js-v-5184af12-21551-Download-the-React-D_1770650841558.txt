@@ -1,0 +1,120 @@
+chunk-XQLYTHWV.js?v=5184af12:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+main.tsx:39 [PWA] Service Worker registered: https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/
+/api/health:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+version:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+/src/pages/agent-lead-registry.tsx:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+main.tsx:23 [PWA] Stale chunk detected, reloading...
+(anonymous) @ main.tsx:23
+invokeGuardedCallbackDev @ chunk-XQLYTHWV.js?v=5184af12:3699
+invokeGuardedCallback @ chunk-XQLYTHWV.js?v=5184af12:3733
+beginWork$1 @ chunk-XQLYTHWV.js?v=5184af12:19765
+performUnitOfWork @ chunk-XQLYTHWV.js?v=5184af12:19198
+workLoopConcurrent @ chunk-XQLYTHWV.js?v=5184af12:19189
+renderRootConcurrent @ chunk-XQLYTHWV.js?v=5184af12:19164
+performConcurrentWorkOnRoot @ chunk-XQLYTHWV.js?v=5184af12:18678
+workLoop @ chunk-XQLYTHWV.js?v=5184af12:197
+flushWork @ chunk-XQLYTHWV.js?v=5184af12:176
+performWorkUntilDeadline @ chunk-XQLYTHWV.js?v=5184af12:384
+chunk-VJA5E53X.js?v=5184af12:903 Uncaught TypeError: Failed to fetch dynamically imported module: https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-lead-registry.tsx
+csrf-token:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+manifest.json:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+lead-registry:1 Manifest fetch from https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/manifest.json failed, code 502
+main.tsx:23 [PWA] Stale chunk detected, reloading...
+(anonymous) @ main.tsx:23
+invokeGuardedCallbackDev @ chunk-XQLYTHWV.js?v=5184af12:3699
+invokeGuardedCallback @ chunk-XQLYTHWV.js?v=5184af12:3733
+beginWork$1 @ chunk-XQLYTHWV.js?v=5184af12:19765
+performUnitOfWork @ chunk-XQLYTHWV.js?v=5184af12:19198
+workLoopSync @ chunk-XQLYTHWV.js?v=5184af12:19137
+renderRootSync @ chunk-XQLYTHWV.js?v=5184af12:19116
+recoverFromConcurrentError @ chunk-XQLYTHWV.js?v=5184af12:18736
+performConcurrentWorkOnRoot @ chunk-XQLYTHWV.js?v=5184af12:18684
+workLoop @ chunk-XQLYTHWV.js?v=5184af12:197
+flushWork @ chunk-XQLYTHWV.js?v=5184af12:176
+performWorkUntilDeadline @ chunk-XQLYTHWV.js?v=5184af12:384
+chunk-VJA5E53X.js?v=5184af12:903 Uncaught TypeError: Failed to fetch dynamically imported module: https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-lead-registry.tsx
+chunk-XQLYTHWV.js?v=5184af12:14032 The above error occurred in one of your React components:
+
+    at Lazy
+    at Suspense
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:217:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=4Vhqonli63c3yve93tv2U:5087:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
+logCapturedError @ chunk-XQLYTHWV.js?v=5184af12:14032
+callback @ chunk-XQLYTHWV.js?v=5184af12:14078
+callCallback @ chunk-XQLYTHWV.js?v=5184af12:11248
+commitUpdateQueue @ chunk-XQLYTHWV.js?v=5184af12:11265
+commitLayoutEffectOnFiber @ chunk-XQLYTHWV.js?v=5184af12:17075
+commitLayoutMountEffects_complete @ chunk-XQLYTHWV.js?v=5184af12:17980
+commitLayoutEffects_begin @ chunk-XQLYTHWV.js?v=5184af12:17969
+commitLayoutEffects @ chunk-XQLYTHWV.js?v=5184af12:17920
+commitRootImpl @ chunk-XQLYTHWV.js?v=5184af12:19353
+commitRoot @ chunk-XQLYTHWV.js?v=5184af12:19277
+finishConcurrentRender @ chunk-XQLYTHWV.js?v=5184af12:18760
+performConcurrentWorkOnRoot @ chunk-XQLYTHWV.js?v=5184af12:18718
+workLoop @ chunk-XQLYTHWV.js?v=5184af12:197
+flushWork @ chunk-XQLYTHWV.js?v=5184af12:176
+performWorkUntilDeadline @ chunk-XQLYTHWV.js?v=5184af12:384
+ErrorBoundary.tsx:47 Error Boundary caught an error: TypeError: Failed to fetch dynamically imported module: https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-lead-registry.tsx Object
+componentDidCatch @ ErrorBoundary.tsx:47
+callback @ chunk-XQLYTHWV.js?v=5184af12:14084
+callCallback @ chunk-XQLYTHWV.js?v=5184af12:11248
+commitUpdateQueue @ chunk-XQLYTHWV.js?v=5184af12:11265
+commitLayoutEffectOnFiber @ chunk-XQLYTHWV.js?v=5184af12:17075
+commitLayoutMountEffects_complete @ chunk-XQLYTHWV.js?v=5184af12:17980
+commitLayoutEffects_begin @ chunk-XQLYTHWV.js?v=5184af12:17969
+commitLayoutEffects @ chunk-XQLYTHWV.js?v=5184af12:17920
+commitRootImpl @ chunk-XQLYTHWV.js?v=5184af12:19353
+commitRoot @ chunk-XQLYTHWV.js?v=5184af12:19277
+finishConcurrentRender @ chunk-XQLYTHWV.js?v=5184af12:18760
+performConcurrentWorkOnRoot @ chunk-XQLYTHWV.js?v=5184af12:18718
+workLoop @ chunk-XQLYTHWV.js?v=5184af12:197
+flushWork @ chunk-XQLYTHWV.js?v=5184af12:176
+performWorkUntilDeadline @ chunk-XQLYTHWV.js?v=5184af12:384
+/api/unified-cart:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+/api/user/preferences:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+csrf-token:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+client:536 WebSocket connection to 'wss://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/?token=BDZYQuTB0PK6' failed: 
+setupWebSocket @ client:536
+(anonymous) @ client:531
+main.tsx:14 Unhandled promise rejection: SyntaxError: Failed to construct 'WebSocket': The URL 'wss://localhost:undefined/?token=BDZYQuTB0PK6' is invalid.
+    at setupWebSocket (client:536:19)
+    at fallback (client:509:16)
+    at WebSocket.<anonymous> (client:555:7)
+(anonymous) @ main.tsx:14
+fintekpro_favicon_1770477461031.png:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+csrf-token:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+/api/errors/ingest:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+csrf-token:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+csrf-token:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+error-tracking.ts:145 [ErrorTracking] Failed to ingest error to API: ApiError: Bad Gateway
+    at throwIfResNotOk (queryClient.ts:177:13)
+    at async apiRequest (queryClient.ts:251:3)
+    at async trackError (error-tracking.ts:115:22)
+trackError @ error-tracking.ts:145
+manifest.json:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+lead-registry:1 Manifest fetch from https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/manifest.json failed, code 502
+lead-registry:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+manifest.json:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+manifest.json:1  GET https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/manifest.json 502 (Bad Gateway)
+lead-registry:1 Manifest fetch from https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/manifest.json failed, code 502
