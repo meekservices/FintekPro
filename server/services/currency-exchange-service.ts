@@ -26,33 +26,31 @@ export class CurrencyExchangeService {
     return [...this.supportedCurrencies];
   }
 
+  private async delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
   async fetchExchangeRates(baseCurrency: string = 'INR'): Promise<Record<string, number>> {
-    try {
-      const apiKey = process.env.EXCHANGE_RATE_API_KEY;
-      const url = apiKey
-        ? `https://v6.exchangerate-api.com/v6/${apiKey}/latest/${baseCurrency}`
-        : `https://api.exchangerate-api.com/v4/latest/${baseCurrency}`;
+    const apiKey = process.env.EXCHANGE_RATE_API_KEY;
+    const url = apiKey
+      ? `https://v6.exchangerate-api.com/v6/${apiKey}/latest/${baseCurrency}`
+      : `https://api.exchangerate-api.com/v4/latest/${baseCurrency}`;
 
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch exchange rates: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      const rates = apiKey ? data.conversion_rates : data.rates;
-      return rates;
-    } catch (error) {
-      console.error(`Error fetching exchange rates for ${baseCurrency}:`, error);
-      throw error;
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch exchange rates: ${response.statusText}`);
     }
+
+    const data = await response.json();
+    const rates = apiKey ? data.conversion_rates : data.rates;
+    return rates;
   }
 
   async updateCurrencyRates(baseCurrency: string = 'INR'): Promise<void> {
     try {
       const rates = await this.fetchExchangeRates(baseCurrency);
       
-      // Upsert rates into database
       for (const [targetCurrency, rate] of Object.entries(rates)) {
         if (this.supportedCurrencies.includes(targetCurrency)) {
           await db
@@ -73,9 +71,8 @@ export class CurrencyExchangeService {
         }
       }
 
-      console.log(`✅ Updated exchange rates for ${baseCurrency}`);
     } catch (error) {
-      console.error(`❌ Failed to update currency rates for ${baseCurrency}:`, error);
+      throw error;
     }
   }
 
@@ -137,22 +134,41 @@ export class CurrencyExchangeService {
   async initializeRates(): Promise<void> {
     console.log('🔄 Initializing currency exchange rates...');
     
-    // Update rates for all supported base currencies
+    let successCount = 0;
+    let failCount = 0;
+    
     for (const currency of this.supportedCurrencies) {
-      await this.updateCurrencyRates(currency);
+      try {
+        await this.updateCurrencyRates(currency);
+        successCount++;
+      } catch (err: any) {
+        failCount++;
+        if (failCount === 1) {
+          console.warn(`⚠️ Currency rate fetch limited (${err.message || 'rate limited'}). Using cached rates for remaining currencies.`);
+        }
+      }
+      if (failCount === 0) {
+        await this.delay(1500);
+      } else {
+        break;
+      }
     }
 
-    console.log('✅ Currency exchange rates initialized');
+    console.log(`✅ Currency exchange rates initialized (${successCount} updated, ${failCount > 0 ? failCount + ' using cached' : 'all fresh'})`);
   }
 
   startAutoRefresh(): void {
-    // Refresh rates every 24 hours
     this.refreshInterval = setInterval(async () => {
       console.log('🔄 Auto-refreshing currency exchange rates...');
       for (const currency of this.supportedCurrencies) {
-        await this.updateCurrencyRates(currency);
+        try {
+          await this.updateCurrencyRates(currency);
+        } catch {
+          // Silently continue - rates will use cached values
+        }
+        await this.delay(2000);
       }
-    }, 24 * 60 * 60 * 1000); // 24 hours
+    }, 24 * 60 * 60 * 1000);
 
     console.log('✅ Currency auto-refresh started (24-hour interval)');
   }
