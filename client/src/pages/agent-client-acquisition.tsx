@@ -92,20 +92,21 @@ interface ProspectClient {
 }
 
 interface AcquisitionMetrics {
-  prospects: number;
-  onboarded: number;
-  activeClients: number;
-  total: number;
-  conversionRate: number;
-  proposalStats: {
+  period?: string;
+  prospects: {
     total: number;
-    draft: number;
-    shared: number;
-    viewed: number;
+    onboarded: number;
+    activeClients: number;
     converted: number;
-    acceptanceRate: number;
   };
-  aumAcquired: string;
+  proposals: {
+    total: number;
+    converted: number;
+    conversionRate: number;
+  };
+  conversionRate: number;
+  aumAcquired: number;
+  aumFormatted: string;
 }
 
 const STATE_BADGES: Record<string, { label: string; color: string }> = {
@@ -186,24 +187,23 @@ export default function AgentClientAcquisitionPage() {
       isVerified: false
     } : null;
   };
-  const defaultProposalStats = { total: 0, draft: 0, shared: 0, viewed: 0, converted: 0, acceptanceRate: 0 };
-  const prospectData = metricsData?.prospects || {};
-  const proposalData = metricsData?.proposals || {};
+  const prospectData = metricsData?.prospects || { total: 0, onboarded: 0, activeClients: 0, converted: 0 };
+  const proposalData = metricsData?.proposals || { total: 0, converted: 0, conversionRate: 0 };
   const metrics = {
-    prospects: prospectData?.total ?? 0,
-    onboarded: prospectData?.onboarded ?? 0,
-    activeClients: prospectData?.activeClients ?? 0,
-    total: prospectData?.total ?? 0,
+    prospects: prospectData.total ?? 0,
+    onboarded: prospectData.onboarded ?? 0,
+    activeClients: prospectData.activeClients ?? 0,
+    total: prospectData.total ?? 0,
     conversionRate: metricsData?.conversionRate ?? 0,
     proposalStats: {
-      total: proposalData?.total ?? 0,
+      total: proposalData.total ?? 0,
       draft: 0,
       shared: 0,
       viewed: 0,
-      converted: proposalData?.converted ?? 0,
-      acceptanceRate: proposalData?.conversionRate ?? 0,
+      converted: proposalData.converted ?? 0,
+      acceptanceRate: proposalData.conversionRate ?? 0,
     },
-    aumAcquired: metricsData?.aumFormatted ?? metricsData?.aumAcquired ?? "₹0",
+    aumAcquired: metricsData?.aumFormatted ?? "₹0",
   };
 
   const filteredProspects = prospects.filter(p => {
