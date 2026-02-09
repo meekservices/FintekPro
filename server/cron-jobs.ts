@@ -143,6 +143,15 @@ export function initializeCronJobs(): void {
     }).catch(err => console.error('❌ Failed to load BSE benchmark service:', err));
   }, delay);
   delay += STAGGER_DELAY_MS;
+
+  staggeredStart('Benchmark Auto-Mapping', () => {
+    import('./services/mf-benchmark-mapping-service').then(({ mfBenchmarkMappingService }) => {
+      mfBenchmarkMappingService.autoMapUnmappedFunds(5000).then(result => {
+        console.log(`📊 [BenchmarkAutoMap] Auto-mapped ${result.mapped} funds, ${result.skipped} skipped`);
+      }).catch(err => console.error('❌ Benchmark auto-mapping failed:', err));
+    }).catch(err => console.error('❌ Failed to load benchmark mapping service:', err));
+  }, delay);
+  delay += STAGGER_DELAY_MS;
   
   staggeredStart('Stock Financial Enrichment', () => {
     cron.schedule('30 12 * * 1-5', async () => {
