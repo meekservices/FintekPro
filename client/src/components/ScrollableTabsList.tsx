@@ -86,8 +86,9 @@ export function ScrollableTabsList({ children, className }: ScrollableTabsListPr
         className="overflow-x-auto scrollbar-hide"
         onScroll={checkScroll}
         style={{
-          scrollbarWidth: "none", // Firefox
-          msOverflowStyle: "none", // IE/Edge
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+          WebkitOverflowScrolling: "touch",
           paddingLeft: showLeftArrow ? "48px" : "0",
           paddingRight: showRightArrow ? "48px" : "0",
         }}

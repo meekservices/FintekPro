@@ -164,11 +164,47 @@ const agentNavCategories: NavCategory[] = [
 
 const allNavItems = agentNavCategories.flatMap(cat => cat.items);
 
+const mobileNavItems = [
+  { title: "Home", href: "/agent", icon: Home },
+  { title: "Clients", href: "/agent/clients", icon: Users },
+  { title: "Leads", href: "/agent/leads", icon: Target },
+  { title: "Proposals", href: "/agent/proposals", icon: FileText },
+  { title: "More", href: "/agent/settings", icon: Settings },
+];
+
+const MobileBottomNav = memo(function MobileBottomNav({ location }: { location: string }) {
+  const [, navigate] = useLocation();
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-slate-900/95 backdrop-blur-md border-t border-border/50 safe-area-bottom">
+      <div className="flex items-center justify-around h-14">
+        {mobileNavItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = location === item.href || (item.href !== "/agent" && location.startsWith(item.href));
+          return (
+            <button
+              key={item.href}
+              onClick={() => navigate(item.href)}
+              className={cn(
+                "flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors",
+                isActive ? "text-emerald-400" : "text-muted-foreground active:text-foreground"
+              )}
+            >
+              <Icon className="h-5 w-5" />
+              <span className="text-[10px] font-medium">{item.title}</span>
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+  );
+});
+
 export function AgentLayout({ children }: AgentLayoutProps) {
   const { user, isLoading } = useAuth();
   const [location, navigate] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     if (typeof window !== 'undefined') {
+      if (window.innerWidth < 768) return false;
       const saved = localStorage.getItem('agent-sidebar-open');
       return saved !== null ? saved === 'true' : true;
     }
@@ -184,9 +220,10 @@ export function AgentLayout({ children }: AgentLayoutProps) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   
-  // Persist sidebar state
   useEffect(() => {
-    localStorage.setItem('agent-sidebar-open', String(sidebarOpen));
+    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+      localStorage.setItem('agent-sidebar-open', String(sidebarOpen));
+    }
   }, [sidebarOpen]);
   
   // Persist expanded categories
@@ -512,23 +549,23 @@ export function AgentLayout({ children }: AgentLayoutProps) {
       />
 
       <header className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-800 border-b border-border/50 sticky top-0 z-50 shadow-lg shadow-black/20">
-        <div className="flex items-center justify-between px-2 sm:px-4 py-2 sm:py-3">
+        <div className="flex items-center justify-between px-2 sm:px-4 py-1.5 sm:py-2.5">
           <div className="flex items-center gap-2 sm:gap-4">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="text-muted-foreground hover:text-foreground hover:bg-card/50 transition-all h-10 w-10 sm:h-9 sm:w-9"
+              className="text-muted-foreground hover:text-foreground hover:bg-card/50 transition-all h-9 w-9 sm:h-9 sm:w-9"
               data-testid="toggle-agent-sidebar"
               aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
             >
               {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
             <div className="flex items-center gap-2 sm:gap-3">
-              <img src={fintekproLogo} alt="FintekPro" className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg object-contain" />
+              <img src={fintekproLogo} alt="FintekPro" className="h-7 w-7 sm:h-9 sm:w-9 rounded-lg object-contain" />
               <div>
-                <h1 className="text-base sm:text-lg font-semibold text-foreground tracking-tight">FintekPro</h1>
-                <p className="text-[9px] sm:text-[10px] text-emerald-400 font-medium uppercase tracking-wider hidden xs:block">Agent Portal</p>
+                <h1 className="text-sm sm:text-lg font-semibold text-foreground tracking-tight">FintekPro</h1>
+                <p className="text-[9px] sm:text-[10px] text-emerald-400 font-medium uppercase tracking-wider hidden sm:block">Agent Portal</p>
               </div>
             </div>
           </div>
@@ -539,10 +576,10 @@ export function AgentLayout({ children }: AgentLayoutProps) {
               variant="ghost"
               size="icon"
               onClick={() => setSearchOpen(true)}
-              className="text-muted-foreground hover:text-foreground hover:bg-card/50 h-10 w-10 sm:hidden rounded-lg"
+              className="text-muted-foreground hover:text-foreground hover:bg-card/50 h-9 w-9 sm:hidden rounded-lg"
               data-testid="button-agent-search-mobile"
             >
-              <Search className="h-5 w-5" />
+              <Search className="h-4 w-4" />
             </Button>
             
             {/* Desktop search bar */}
@@ -571,10 +608,10 @@ export function AgentLayout({ children }: AgentLayoutProps) {
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="text-muted-foreground hover:text-foreground hover:bg-card/50 h-10 w-10 sm:h-9 sm:w-9 rounded-lg relative"
+                  className="text-muted-foreground hover:text-foreground hover:bg-card/50 h-9 w-9 rounded-lg relative"
                   data-testid="button-agent-notifications"
                 >
-                  <Bell className="h-5 w-5 sm:h-4 sm:w-4" />
+                  <Bell className="h-4 w-4" />
                   {unreadCount > 0 && (
                     <Badge className="absolute -top-1 -right-1 h-5 w-5 sm:h-4 sm:w-4 flex items-center justify-center p-0 text-[10px] bg-emerald-500 border-0 animate-pulse">
                       {unreadCount > 9 ? '9+' : unreadCount}
@@ -607,34 +644,25 @@ export function AgentLayout({ children }: AgentLayoutProps) {
             </Popover>
 
             <div className="flex items-center gap-1 sm:gap-3 border-l border-border/50 pl-2 sm:pl-4 ml-1 sm:ml-2">
-              {/* Mobile: just show avatar */}
-              <div className="flex sm:hidden items-center">
-                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center text-foreground text-sm font-medium shadow-inner">
-                  {user?.email?.charAt(0).toUpperCase() || 'A'}
-                </div>
+              <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center text-foreground text-xs sm:text-sm font-medium shadow-inner">
+                {user?.email?.charAt(0).toUpperCase() || 'A'}
               </div>
-              {/* Desktop: show avatar and name */}
-              <div className="hidden sm:flex items-center gap-3">
-                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center text-foreground text-sm font-medium shadow-inner">
-                  {user?.email?.charAt(0).toUpperCase() || 'A'}
-                </div>
-                <div className="text-right hidden md:block">
-                  <p className="text-sm font-medium text-foreground leading-tight">{user?.email?.split('@')[0] || 'Agent'}</p>
-                  <div className="flex items-center justify-end gap-1">
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                    <p className="text-[10px] text-emerald-400 font-medium">Active</p>
-                  </div>
+              <div className="text-right hidden md:block">
+                <p className="text-sm font-medium text-foreground leading-tight">{user?.email?.split('@')[0] || 'Agent'}</p>
+                <div className="flex items-center justify-end gap-1">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                  <p className="text-[10px] text-emerald-400 font-medium">Active</p>
                 </div>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => logoutMutation.mutate()}
-                className="text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-all h-10 w-10 sm:h-9 sm:w-9"
+                className="text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-all h-9 w-9 hidden sm:flex"
                 data-testid="button-agent-logout"
                 title="Sign Out"
               >
-                <LogOut className="h-5 w-5 sm:h-4 sm:w-4" />
+                <LogOut className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -678,32 +706,36 @@ export function AgentLayout({ children }: AgentLayoutProps) {
         </CommandList>
       </CommandDialog>
 
-      <div className="flex h-[calc(100vh-56px)] sm:h-[calc(100vh-73px)]">
-        <aside
-          data-testid="agent-sidebar"
-          className={cn(
-            "bg-background/95 backdrop-blur-sm border-r border-border/50 transition-all duration-300 flex-shrink-0",
-            "md:sticky md:top-[73px] md:h-[calc(100vh-73px)] md:relative",
-            "max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:top-[56px] sm:max-md:top-[73px] max-md:z-40 max-md:h-[calc(100vh-56px)] sm:max-md:h-[calc(100vh-73px)]",
-            sidebarOpen ? "w-[280px] sm:w-64 min-w-[280px] sm:min-w-[256px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent" : "w-0 min-w-0 overflow-hidden border-0"
-          )}
-        >
-          {sidebarOpen && sidebarContent}
-        </aside>
-
+      <div className="flex flex-1 overflow-hidden relative">
         {sidebarOpen && (
           <div 
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 md:hidden" 
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden" 
             onClick={() => setSidebarOpen(false)}
           />
         )}
 
+        <aside
+          data-testid="agent-sidebar"
+          className={cn(
+            "bg-background border-r border-border/50 flex-shrink-0 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent",
+            "md:relative md:transition-all md:duration-300 md:h-[calc(100vh-57px)] md:sticky md:top-[57px]",
+            "max-md:fixed max-md:left-0 max-md:top-[45px] max-md:z-50 max-md:h-[calc(100vh-45px)] max-md:w-[280px] max-md:shadow-2xl max-md:transition-transform max-md:duration-300 max-md:ease-in-out",
+            sidebarOpen 
+              ? "md:w-60 md:min-w-[240px] max-md:translate-x-0" 
+              : "md:w-0 md:min-w-0 md:overflow-hidden md:border-0 max-md:-translate-x-full"
+          )}
+        >
+          {sidebarContent}
+        </aside>
+
         <main className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-          <div className="max-w-7xl mx-auto px-3 py-4 sm:p-4 md:p-6 lg:p-8">
+          <div className="max-w-7xl mx-auto px-3 py-3 sm:p-4 md:p-6 lg:p-8 pb-20 md:pb-6">
             {children}
           </div>
         </main>
       </div>
+
+      <MobileBottomNav location={location} />
     </div>
   );
 }

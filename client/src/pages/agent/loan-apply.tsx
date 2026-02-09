@@ -449,14 +449,14 @@ export default function AgentLoanApplyPage() {
   const canDelete = (status: string) => ['draft', 'submitted'].includes(status);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h1 className="text-2xl font-bold">Loan Lead Submission</h1>
-          <p className="text-muted-foreground">Submit loan applications for your clients</p>
+          <h1 className="text-lg sm:text-2xl font-bold">Loan Lead Submission</h1>
+          <p className="text-muted-foreground text-sm">Submit loan applications for your clients</p>
         </div>
-        <Badge variant="outline" className="text-sm">
-          <TrendingUp className="h-4 w-4 mr-1" />
+        <Badge variant="outline" className="text-xs sm:text-sm">
+          <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
           DSA Portal
         </Badge>
       </div>
@@ -483,7 +483,7 @@ export default function AgentLoanApplyPage() {
               <CardDescription>Select the loan category to proceed</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {[
                   { value: "RETAIL" as const, label: "Retail Loans", desc: "Personal, Home, Car, Education, Gold, LAP" },
                   { value: "MSME" as const, label: "MSME Loans", desc: "Business & Working Capital" },
@@ -499,7 +499,7 @@ export default function AgentLoanApplyPage() {
                       setDevClientSource("new");
                       setDevSearchQuery("");
                     }}
-                    className={`cursor-pointer rounded-lg border-2 p-4 transition-all ${
+                    className={`cursor-pointer rounded-lg border-2 p-3 sm:p-4 transition-all ${
                       loanVertical === v.value
                         ? "border-primary bg-primary/5"
                         : "border-muted hover:border-primary/40"

@@ -569,15 +569,14 @@ export default function AgentPortal() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-blue-50/30 to-indigo-50/30 dark:from-background dark:via-blue-950/30 dark:to-indigo-950/30" data-testid="agent-portal">
-      <div className="container mx-auto p-6">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
+      <div className="space-y-4 sm:space-y-6">
+        <div className="mb-4 sm:mb-8">
+          <div className="flex items-start sm:items-center justify-between flex-wrap gap-3">
             <div>
-              <h1 className="text-3xl font-bold text-foreground" data-testid="title-partner-portal">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground" data-testid="title-partner-portal">
                 Partner Portal
               </h1>
-              <p className="text-muted-foreground mt-1">
+              <p className="text-muted-foreground mt-1 text-sm sm:text-base">
                 Welcome back, {agentProfile?.fullName || 'Partner'}
               </p>
               {agentProfile?.euinNumber && (
@@ -628,7 +627,7 @@ export default function AgentPortal() {
             ) : (
               <>
                 {/* Stats Cards */}
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4">
                   <Card data-testid="card-total-partners">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">Total Partners</CardTitle>

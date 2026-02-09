@@ -386,18 +386,18 @@ export default function AgentClientsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-blue-50/30 to-indigo-50/30 dark:from-background dark:via-blue-950/30 dark:to-indigo-950/30" data-testid="agent-clients-page">
-      <div className="container mx-auto p-6">
-        <div className="flex items-center justify-between mb-6">
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex items-start sm:items-center justify-between flex-wrap gap-3 mb-4 sm:mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-              <Users className="h-8 w-8 text-primary" />
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground flex items-center gap-2">
+              <Users className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
               Client Management
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground text-sm sm:text-base">
               Manage your clients, portfolios, and advisory sessions
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Button 
               variant="outline"
               className="border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-950"
@@ -418,14 +418,14 @@ export default function AgentClientsPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+              <CardTitle className="text-xs sm:text-sm font-medium">Total Clients</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{clients?.length || 0}</div>
+            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+              <div className="text-xl sm:text-2xl font-bold">{clients?.length || 0}</div>
             </CardContent>
           </Card>
           <Card>
@@ -1130,7 +1130,7 @@ export default function AgentClientsPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-4 gap-3 mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
             <Card className="p-3">
               <div className="text-2xl font-bold">{invitationStats?.stats?.total || 0}</div>
               <div className="text-xs text-muted-foreground">Total</div>
