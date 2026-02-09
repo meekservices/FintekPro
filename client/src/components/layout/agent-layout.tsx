@@ -338,36 +338,36 @@ export function AgentLayout({ children }: AgentLayoutProps) {
   ), [notifications, getNotificationIcon, getNotificationColor, formatTimeAgo, markAsRead]);
 
   const sidebarContent = useMemo(() => (
-    <nav className="px-2 sm:px-3 pt-1 pb-3 space-y-1 sm:space-y-0.5">
+    <nav className="px-2 sm:px-3 pt-1 pb-3">
       {agentNavCategories.map((category) => {
         const CategoryIcon = category.icon;
         const isExpanded = expandedCategories.has(category.title);
         const hasActiveItem = category.items.some(item => location === item.href);
 
         return (
-          <div key={category.title} className="space-y-1 sm:space-y-0.5">
+          <div key={category.title}>
             <button
               onClick={() => toggleCategory(category.title)}
               className={cn(
-                "flex items-center justify-between w-full px-3 py-3 sm:py-2.5 rounded-lg text-sm font-medium transition-all duration-200 touch-manipulation",
+                "flex items-center justify-between w-full px-3 py-2 sm:py-1.5 rounded-md text-sm font-medium transition-all duration-200 touch-manipulation",
                 hasActiveItem 
-                  ? "bg-card/80 text-foreground shadow-sm" 
+                  ? "bg-card/80 text-foreground" 
                   : "text-muted-foreground hover:bg-card/40 hover:text-foreground active:bg-card/60"
               )}
               data-testid={`button-category-${category.title.toLowerCase().replace(/\s+/g, '-')}`}
             >
-              <div className="flex items-center gap-2.5">
-                <CategoryIcon className={cn("h-5 w-5 sm:h-4 sm:w-4", hasActiveItem && "text-emerald-400")} />
-                <span className="text-base sm:text-sm">{category.title}</span>
+              <div className="flex items-center gap-2">
+                <CategoryIcon className={cn("h-4 w-4", hasActiveItem && "text-emerald-400")} />
+                <span className="text-[13px] sm:text-sm">{category.title}</span>
               </div>
               <ChevronRight className={cn(
-                "h-5 w-5 sm:h-4 sm:w-4 transition-transform duration-200",
+                "h-4 w-4 transition-transform duration-200",
                 isExpanded && "rotate-90"
               )} />
             </button>
 
             {isExpanded && (
-              <div className="ml-2 sm:ml-3 pl-3 border-l border-border/50 space-y-1 sm:space-y-0.5 py-1">
+              <div className="ml-3 pl-3 border-l border-border/40">
                 {category.items.map((item) => {
                   const Icon = item.icon;
                   const isActive = location === item.href;
@@ -377,25 +377,24 @@ export function AgentLayout({ children }: AgentLayoutProps) {
                       key={item.href}
                       href={item.href}
                       onClick={() => {
-                        // Close sidebar on mobile after clicking a link
                         if (window.innerWidth < 768) {
                           setSidebarOpen(false);
                         }
                       }}
                       className={cn(
-                        "flex items-center gap-2.5 px-3 py-2.5 sm:py-2 rounded-md transition-all duration-150 group touch-manipulation",
+                        "flex items-center gap-2 px-3 py-1.5 rounded-md transition-all duration-150 group touch-manipulation",
                         isActive
-                          ? "bg-gradient-to-r from-emerald-600 to-emerald-500 text-foreground shadow-md shadow-emerald-500/20"
+                          ? "bg-gradient-to-r from-emerald-600 to-emerald-500 text-foreground shadow-sm shadow-emerald-500/20"
                           : "text-muted-foreground hover:bg-card/60 hover:text-foreground active:bg-card/80"
                       )}
                       data-testid={`link-agent-${item.href.split('/').pop() || 'home'}`}
                     >
                       <Icon className={cn(
-                        "h-4 w-4 sm:h-3.5 sm:w-3.5 flex-shrink-0",
+                        "h-3.5 w-3.5 flex-shrink-0",
                         isActive ? "text-foreground" : "text-muted-foreground group-hover:text-emerald-400"
                       )} />
                       <span className={cn(
-                        "text-sm sm:text-[13px]",
+                        "text-[13px]",
                         isActive ? "font-medium" : ""
                       )}>
                         {item.title}
