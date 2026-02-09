@@ -261,7 +261,7 @@ function DocumentUploadCard({ docType, documents, onUpload, onRemove }: Document
 }
 
 interface LoanDocumentUploadProps {
-  loanType: "personal" | "home" | "car" | "business";
+  loanType: "personal" | "home" | "car" | "business" | "education" | "gold" | "lap";
   documents: UploadedDocument[];
   onDocumentsChange: (docs: UploadedDocument[]) => void;
 }

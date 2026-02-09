@@ -225,8 +225,9 @@ const AGENT_ROLES = ["agent", "sub_agent", "master_agent", "associate"];
 export default function AgentLoanApplyPage() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const userRole = (user as any)?.role || (user as any)?.roles?.[0] || "";
-  const isAgent = AGENT_ROLES.includes(userRole);
+  const userRolesAll = user?.roles || [];
+  const userRole = userRolesAll[0] || "";
+  const isAgent = userRolesAll.some((r: string) => AGENT_ROLES.includes(r));
   const [activeTab, setActiveTab] = useState("apply");
   const [loanVertical, setLoanVertical] = useState<"RETAIL" | "MSME" | "DEVELOPER">("RETAIL");
   const [loanSubType, setLoanSubType] = useState<string>("");
@@ -361,12 +362,16 @@ export default function AgentLoanApplyPage() {
 
   const routingHistory = routingHistoryData?.data || [];
 
+  const isAgentOrPartner = user && userRolesAll.some((r: string) => ['agent', 'partner', 'admin', 'superadmin', 'tester'].includes(r));
+
   const { data: leads = [], isLoading: leadsLoading } = useQuery<Lead[]>({
     queryKey: ["/api/leads"],
+    enabled: !!isAgentOrPartner,
   });
 
   const { data: claims = [], isLoading: claimsLoading } = useQuery<PayoutClaim[]>({
     queryKey: ["/api/payout-claims"],
+    enabled: !!isAgentOrPartner,
   });
 
   const routeMutation = useMutation({
@@ -1690,8 +1695,8 @@ export default function AgentLoanApplyPage() {
             </CardContent>
           </Card>
 
-          {/* Lead Registry Section */}
-          <Card className="mt-6">
+          {/* Lead Registry Section - only for agent/partner roles */}
+          {isAgentOrPartner && <Card className="mt-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Shield className="h-5 w-5 text-emerald-600" />
@@ -1792,10 +1797,10 @@ export default function AgentLoanApplyPage() {
                 </div>
               )}
             </CardContent>
-          </Card>
+          </Card>}
 
-          {/* Payout Claims Section */}
-          <Card className="mt-6">
+          {/* Payout Claims Section - only for agent/partner roles */}
+          {isAgentOrPartner && <Card className="mt-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <IndianRupee className="h-5 w-5 text-emerald-600" />
@@ -1882,7 +1887,7 @@ export default function AgentLoanApplyPage() {
                 </div>
               )}
             </CardContent>
-          </Card>
+          </Card>}
         </TabsContent>
       </Tabs>
 
