@@ -1924,19 +1924,19 @@ function AgentRoutes() {
         )}
       </Route>
       <Route path="/agent/clients/:id">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentClientProfile />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
       <Route path="/agent/lead-registry">
         {() => (
           <AgentLayout>
             <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
               <AgentLeadRegistry />
-            </Suspense>
-          </AgentLayout>
-        )}
-      </Route>
-        {() => (
-          <AgentLayout>
-            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
-              <AgentClientProfile />
             </Suspense>
           </AgentLayout>
         )}
