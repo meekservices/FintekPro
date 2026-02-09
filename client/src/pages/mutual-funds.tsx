@@ -765,7 +765,7 @@ export default function MutualFunds() {
         {
           fundName: "SBI BlueChip Fund",
           fundHouse: "SBI Mutual Fund",
-          crisil: 4,
+          smartRating: 4,
           aum: "₹32,450 Cr",
           returns: { "1M": "2.3%", "6M": "18.5%", "1Y": "14.2%", "3Y": "16.8%", "5Y": "14.5%" },
           expenseRatio: "0.58%",
@@ -774,7 +774,7 @@ export default function MutualFunds() {
         {
           fundName: "ICICI Pru BlueChip Fund",
           fundHouse: "ICICI Prudential MF",
-          crisil: 5,
+          smartRating: 5,
           aum: "₹45,678 Cr",
           returns: { "1M": "1.8%", "6M": "17.2%", "1Y": "15.4%", "3Y": "17.2%", "5Y": "15.1%" },
           expenseRatio: "0.89%",
@@ -783,7 +783,7 @@ export default function MutualFunds() {
         {
           fundName: "Axis BlueChip Fund",
           fundHouse: "Axis Mutual Fund",
-          crisil: 4,
+          smartRating: 4,
           aum: "₹28,934 Cr",
           returns: { "1M": "2.1%", "6M": "16.8%", "1Y": "13.9%", "3Y": "15.6%", "5Y": "13.8%" },
           expenseRatio: "0.45%",
@@ -799,7 +799,7 @@ export default function MutualFunds() {
         {
           fundName: "Parag Parikh Flexi Cap",
           fundHouse: "PPFAS Mutual Fund",
-          crisil: 5,
+          smartRating: 5,
           aum: "₹67,890 Cr",
           returns: { "1M": "3.2%", "6M": "21.4%", "1Y": "18.7%", "3Y": "19.8%", "5Y": "17.9%" },
           expenseRatio: "0.68%",
@@ -808,7 +808,7 @@ export default function MutualFunds() {
         {
           fundName: "Kotak Flexicap Fund",
           fundHouse: "Kotak Mutual Fund",
-          crisil: 4,
+          smartRating: 4,
           aum: "₹52,345 Cr",
           returns: { "1M": "2.8%", "6M": "19.6%", "1Y": "16.3%", "3Y": "18.1%", "5Y": "16.4%" },
           expenseRatio: "0.55%",
@@ -824,7 +824,7 @@ export default function MutualFunds() {
         {
           fundName: "Motilal Oswal Large & Midcap",
           fundHouse: "Motilal Oswal MF",
-          crisil: 5,
+          smartRating: 5,
           aum: "₹15,234 Cr",
           returns: { "1M": "4.1%", "6M": "24.2%", "1Y": "22.5%", "3Y": "21.3%", "5Y": "19.8%" },
           expenseRatio: "0.72%",
@@ -833,7 +833,7 @@ export default function MutualFunds() {
         {
           fundName: "HDFC Large and Mid Cap",
           fundHouse: "HDFC Mutual Fund",
-          crisil: 4,
+          smartRating: 4,
           aum: "₹38,567 Cr",
           returns: { "1M": "3.5%", "6M": "20.8%", "1Y": "19.2%", "3Y": "19.7%", "5Y": "18.1%" },
           expenseRatio: "0.65%",
@@ -849,7 +849,7 @@ export default function MutualFunds() {
         {
           fundName: "Axis Midcap Fund",
           fundHouse: "Axis Mutual Fund",
-          crisil: 5,
+          smartRating: 5,
           aum: "₹24,678 Cr",
           returns: { "1M": "5.2%", "6M": "28.3%", "1Y": "31.4%", "3Y": "24.8%", "5Y": "22.1%" },
           expenseRatio: "0.58%",
@@ -858,7 +858,7 @@ export default function MutualFunds() {
         {
           fundName: "DSP Midcap Fund",
           fundHouse: "DSP Mutual Fund",
-          crisil: 4,
+          smartRating: 4,
           aum: "₹19,890 Cr",
           returns: { "1M": "4.8%", "6M": "26.1%", "1Y": "28.9%", "3Y": "22.6%", "5Y": "20.4%" },
           expenseRatio: "0.67%",
@@ -874,7 +874,7 @@ export default function MutualFunds() {
         {
           fundName: "SBI Small Cap Fund",
           fundHouse: "SBI Mutual Fund",
-          crisil: 5,
+          smartRating: 5,
           aum: "₹18,234 Cr",
           returns: { "1M": "6.8%", "6M": "32.5%", "1Y": "38.2%", "3Y": "28.4%", "5Y": "24.7%" },
           expenseRatio: "0.74%",
@@ -883,7 +883,7 @@ export default function MutualFunds() {
         {
           fundName: "Nippon India Small Cap",
           fundHouse: "Nippon India MF",
-          crisil: 4,
+          smartRating: 4,
           aum: "₹22,567 Cr",
           returns: { "1M": "6.2%", "6M": "30.8%", "1Y": "35.6%", "3Y": "26.1%", "5Y": "22.9%" },
           expenseRatio: "0.69%",
@@ -958,7 +958,7 @@ export default function MutualFunds() {
                     </div>
                   </td>
                   <td className="px-6 py-4" data-testid={`fund-fintekpro-rating-${index}`}>
-                    <FintekProSmartRating rating={fund.crisil} />
+                    <FintekProSmartRating rating={fund.smartRating} />
                   </td>
                   <td className="px-6 py-4 text-sm text-foreground font-medium" data-testid={`fund-aum-${index}`}>
                     {fund.aum}

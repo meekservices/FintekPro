@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { mutualFunds, listedStocks, corporateBonds, governmentSecurities } from "@shared/schema";
-import { eq, and, desc, gte, lte, sql, inArray, ilike, or, isNotNull } from "drizzle-orm";
+import { eq, and, desc, gte, lte, sql, inArray, ilike, or, isNotNull, isNull } from "drizzle-orm";
 import { GoogleGenAI } from "@google/genai";
 import { financialMetricsCalculator } from "./financial-metrics-calculator";
 
@@ -168,6 +168,95 @@ export class FintekProRatingService {
     return ratings.sort((a, b) => b.rating.overallScore - a.rating.overallScore);
   }
 
+  async persistRating(schemeCode: string, analysis: FintekProAnalysis): Promise<boolean> {
+    try {
+      const r = analysis.rating;
+      await db.update(mutualFunds)
+        .set({
+          crisilRating: r.stars,
+          crisilCategory: r.category,
+          crisilPercentile: r.percentile.toFixed(2),
+          crisilEvaluationDate: r.evaluationDate,
+          crisilRiskAdjustedScore: r.riskAdjustedScore.toFixed(4),
+          crisilAssetQualityScore: r.qualityScore.toFixed(4),
+          crisilLiquidityScore: r.liquidityScore.toFixed(4),
+          crisilConcentrationScore: (r.concentrationScore || 80).toFixed(4),
+          crisilOverallScore: r.overallScore.toFixed(4),
+          crisilDataSource: 'calculated',
+          crisilLastUpdated: new Date(),
+        })
+        .where(eq(mutualFunds.schemeCode, schemeCode));
+      return true;
+    } catch (error: any) {
+      console.warn(`[FintekProRating] Failed to persist rating for ${schemeCode}: ${error.message}`);
+      return false;
+    }
+  }
+
+  async computeAndPersistRating(schemeCode: string): Promise<FintekProAnalysis | null> {
+    const analysis = await this.rateMutualFund(schemeCode, false);
+    if (analysis) {
+      await this.persistRating(schemeCode, analysis);
+    }
+    return analysis;
+  }
+
+  async batchComputeAndPersist(options: {
+    onlyNullRatings?: boolean;
+    batchSize?: number;
+    maxFunds?: number;
+    onProgress?: (processed: number, total: number, schemeCode: string) => void;
+  } = {}): Promise<{ processed: number; persisted: number; failed: number; errors: string[] }> {
+    const { onlyNullRatings = true, batchSize = 100, maxFunds = 50000 } = options;
+    const result = { processed: 0, persisted: 0, failed: 0, errors: [] as string[] };
+
+    const conditions: any[] = [];
+    if (onlyNullRatings) {
+      conditions.push(isNull(mutualFunds.crisilRating));
+    }
+
+    const funds = await db.select({
+      schemeCode: mutualFunds.schemeCode,
+    })
+      .from(mutualFunds)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .limit(maxFunds);
+
+    console.log(`[FintekProRating] Batch rating: ${funds.length} funds to process`);
+
+    for (let i = 0; i < funds.length; i += batchSize) {
+      const batch = funds.slice(i, i + batchSize);
+      for (const fund of batch) {
+        try {
+          const analysis = await this.rateMutualFund(fund.schemeCode, false);
+          if (analysis) {
+            const saved = await this.persistRating(fund.schemeCode, analysis);
+            if (saved) {
+              result.persisted++;
+            } else {
+              result.failed++;
+            }
+          } else {
+            result.failed++;
+          }
+          result.processed++;
+          if (options.onProgress) {
+            options.onProgress(result.processed, funds.length, fund.schemeCode);
+          }
+        } catch (error: any) {
+          result.failed++;
+          result.processed++;
+          if (result.errors.length < 50) {
+            result.errors.push(`${fund.schemeCode}: ${error.message}`);
+          }
+        }
+      }
+    }
+
+    console.log(`[FintekProRating] Batch complete: ${result.persisted} persisted, ${result.failed} failed out of ${result.processed}`);
+    return result;
+  }
+
   async getTopRated(assetClass: AssetClass, limit: number = 10): Promise<FintekProAnalysis[]> {
     try {
       switch (assetClass) {
@@ -246,7 +335,7 @@ export class FintekProRatingService {
       expenseRatio: `${expenseRatio.toFixed(2)}%`,
       aum: `₹${(aum).toFixed(0)} Cr`,
       nav: `₹${nav.toFixed(2)}`,
-      crisilRating: fund.crisilRating || 'N/A'
+      fintekproRating: fund.crisilRating ? `${fund.crisilRating}-Star` : 'Not Rated'
     };
 
     const strengths = this.generateMFStrengths(fund, overallScore, returns1y, returns3y, aum, expenseRatio);
@@ -627,7 +716,7 @@ Focus on: investment suitability, key risks, and potential. Be factual and balan
     return Math.min(100, Math.max(20, 50 + excessReturn * 3));
   }
 
-  private calculateMFQualityScore(fundHouse: string, aum: number, crisilRating?: number | null): number {
+  private calculateMFQualityScore(fundHouse: string, aum: number, existingRating?: number | null): number {
     let score = 60;
     const fundHouseLower = fundHouse.toLowerCase();
     for (const [name, bonus] of Object.entries(FUND_HOUSE_SCORES)) {
@@ -638,7 +727,7 @@ Focus on: investment suitability, key risks, and potential. Be factual and balan
     }
     if (aum > 30000) score = Math.min(100, score + 5);
     else if (aum > 10000) score = Math.min(100, score + 3);
-    if (crisilRating && crisilRating <= 2) score = Math.min(100, score + 5);
+    if (existingRating && existingRating <= 2) score = Math.min(100, score + 5);
     return score;
   }
 
@@ -830,7 +919,7 @@ Focus on: investment suitability, key risks, and potential. Be factual and balan
     if (returns1y > 15) strengths.push(`Excellent 1-year performance of ${returns1y.toFixed(1)}%`);
     if (aum > 20000) strengths.push('Large AUM indicates investor confidence');
     if (expenseRatio < 1.0) strengths.push(`Low expense ratio of ${expenseRatio.toFixed(2)}%`);
-    if (fund.crisilRating && fund.crisilRating <= 2) strengths.push('Top-tier CRISIL rating');
+    if (fund.crisilRating && fund.crisilRating <= 2) strengths.push('Top-tier FintekPro Smart Rating');
     if (score > 80) strengths.push('Strong risk-adjusted performance');
     return strengths.length > 0 ? strengths : ['Established fund with consistent track record'];
   }

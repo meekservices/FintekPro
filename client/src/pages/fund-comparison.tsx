@@ -33,7 +33,7 @@ interface FundComparisonResult {
     maxDrawdown: number;
     expenseRatio: number;
     aum: number;
-    crisilRating: number;
+    smartRating: number;
   }>;
   summary: {
     bestPerformer: string;
@@ -297,12 +297,12 @@ function ComparisonResults({ comparison }: { comparison: FundComparisonResult })
                   {comparison.funds.map((fund) => (
                     <td key={fund.schemeCode} className="p-2 text-center">
                       <div className="flex justify-center">
-                        {fund.crisilRating ? (
-                          <div className="flex" title={`${fund.crisilRating}-star FintekPro Smart Rating`}>
+                        {fund.smartRating ? (
+                          <div className="flex" title={`${fund.smartRating}-star FintekPro Smart Rating`}>
                             {[...Array(5)].map((_, i) => (
                               <Star
                                 key={i}
-                                className={`h-3 w-3 ${i < fund.crisilRating ? 'text-yellow-400 fill-current' : 'text-muted-foreground'}`}
+                                className={`h-3 w-3 ${i < fund.smartRating ? 'text-yellow-400 fill-current' : 'text-muted-foreground'}`}
                               />
                             ))}
                           </div>

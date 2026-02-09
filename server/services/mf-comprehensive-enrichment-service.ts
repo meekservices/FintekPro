@@ -40,7 +40,7 @@ interface AmfiNavRecord {
 }
 
 interface EnrichmentProgress {
-  status: 'idle' | 'phase1_amfi' | 'phase2_extdata' | 'phase3_mfapi_meta' | 'phase4_mfapi_returns' | 'phase5_defaults' | 'completed' | 'error';
+  status: 'idle' | 'phase1_amfi' | 'phase2_extdata' | 'phase3_mfapi_meta' | 'phase4_mfapi_returns' | 'phase5_defaults' | 'phase6_ratings' | 'completed' | 'error';
   currentStep: string;
   totalFunds: number;
   processedFunds: number;
@@ -49,6 +49,7 @@ interface EnrichmentProgress {
   phase3Stats: { subCategoryUpdated: number; launchDateFromNav: number; metaFetched: number };
   phase4Stats: { returnsUpdated: number; ratiosUpdated: number; fundsSynced: number };
   phase5Stats: { exitLoadDefaults: number; minSipDefaults: number; minLumpsumDefaults: number; subCategoryDefaults: number };
+  phase6Stats: { ratingsComputed: number; ratingsPersisted: number; ratingsFailed: number };
   errors: string[];
   startedAt: Date | null;
   duration: number;
@@ -67,6 +68,7 @@ function createEmptyProgress(): EnrichmentProgress {
     phase3Stats: { subCategoryUpdated: 0, launchDateFromNav: 0, metaFetched: 0 },
     phase4Stats: { returnsUpdated: 0, ratiosUpdated: 0, fundsSynced: 0 },
     phase5Stats: { exitLoadDefaults: 0, minSipDefaults: 0, minLumpsumDefaults: 0, subCategoryDefaults: 0 },
+    phase6Stats: { ratingsComputed: 0, ratingsPersisted: 0, ratingsFailed: 0 },
     errors: [],
     startedAt: null,
     duration: 0,
@@ -553,8 +555,10 @@ class MFComprehensiveEnrichmentService {
 
       await this.phase5_CategoryDefaults(batchSize, enrichmentRunId);
 
+      await this.phase6_FintekProRatings(enrichmentRunId);
+
       enrichmentProgress.status = 'completed';
-      enrichmentProgress.currentStep = 'All enrichment phases completed';
+      enrichmentProgress.currentStep = 'All enrichment phases completed (including FintekPro Smart Ratings)';
       enrichmentProgress.duration = Date.now() - enrichmentProgress.startedAt!.getTime();
       console.log(`[ComprehensiveEnrichment] All phases completed in ${enrichmentProgress.duration}ms`);
 
@@ -1027,6 +1031,64 @@ class MFComprehensiveEnrichmentService {
     return null;
   }
 
+  private async phase6_FintekProRatings(enrichmentRunId: string): Promise<void> {
+    enrichmentProgress.status = 'phase6_ratings';
+    enrichmentProgress.currentStep = 'Phase 6: Computing FintekPro Smart Ratings for unrated funds...';
+    console.log('[ComprehensiveEnrichment] Phase 6: FintekPro Smart Rating computation');
+
+    try {
+      const { default: fintekProRatingService } = await import('./fintekpro-rating-service');
+      const result = await fintekProRatingService.batchComputeAndPersist({
+        onlyNullRatings: true,
+        batchSize: 200,
+        onProgress: (processed, total, schemeCode) => {
+          enrichmentProgress.processedFunds = processed;
+          enrichmentProgress.phase6Stats.ratingsComputed = processed;
+          if (processed % 500 === 0) {
+            console.log(`[Phase6] Rated ${processed}/${total} funds (latest: ${schemeCode})`);
+          }
+        },
+      });
+
+      enrichmentProgress.phase6Stats = {
+        ratingsComputed: result.processed,
+        ratingsPersisted: result.persisted,
+        ratingsFailed: result.failed,
+      };
+
+      await this.logAuditChange(
+        'BATCH_RATING',
+        'fintekpro_smart_rating',
+        null,
+        JSON.stringify({ persisted: result.persisted, failed: result.failed }),
+        'batch_rating_run',
+        'FINTEKPRO_RATING_ENGINE',
+        enrichmentRunId,
+        {
+          version: '2.0',
+          methodology: 'FintekPro Smart Rating v2.0',
+          scoringWeights: {
+            riskAdjusted: 0.35,
+            quality: 0.25,
+            liquidity: 0.15,
+            momentum: 0.15,
+            valuation: 0.10,
+          },
+          dataInputs: ['returns_1y', 'returns_3y', 'returns_5y', 'expense_ratio', 'aum', 'fund_house', 'category'],
+          totalProcessed: result.processed,
+          totalPersisted: result.persisted,
+          totalFailed: result.failed,
+          errors: result.errors.slice(0, 10),
+        }
+      );
+
+      console.log(`[Phase6] Complete: ${result.persisted} ratings persisted, ${result.failed} failed`);
+    } catch (error: any) {
+      enrichmentProgress.errors.push(`Phase 6 rating error: ${error.message}`);
+      console.error('[Phase6] Error:', error.message);
+    }
+  }
+
   async getNullColumnStats(): Promise<Record<string, { nullCount: number; filledCount: number; total: number }>> {
     const [stats] = await db.select({
       total: sql<number>`COUNT(*)`,
@@ -1049,6 +1111,9 @@ class MFComprehensiveEnrichmentService {
       betaNull: sql<number>`COUNT(*) FILTER (WHERE ${mutualFunds.beta} IS NULL)`,
       benchmarkNull: sql<number>`COUNT(*) FILTER (WHERE ${mutualFunds.benchmarkIndex} IS NULL)`,
       isinNull: sql<number>`COUNT(*) FILTER (WHERE ${mutualFunds.isin} IS NULL)`,
+      smartRatingNull: sql<number>`COUNT(*) FILTER (WHERE ${mutualFunds.crisilRating} IS NULL)`,
+      smartRatingOverallNull: sql<number>`COUNT(*) FILTER (WHERE ${mutualFunds.crisilOverallScore} IS NULL)`,
+      smartRatingPercentileNull: sql<number>`COUNT(*) FILTER (WHERE ${mutualFunds.crisilPercentile} IS NULL)`,
     }).from(mutualFunds);
 
     const total = Number(stats?.total || 0);
@@ -1072,6 +1137,9 @@ class MFComprehensiveEnrichmentService {
       beta: Number(stats?.betaNull || 0),
       benchmark_index: Number(stats?.benchmarkNull || 0),
       isin: Number(stats?.isinNull || 0),
+      fintekpro_smart_rating: Number(stats?.smartRatingNull || 0),
+      fintekpro_overall_score: Number(stats?.smartRatingOverallNull || 0),
+      fintekpro_percentile: Number(stats?.smartRatingPercentileNull || 0),
     };
 
     const result: Record<string, { nullCount: number; filledCount: number; total: number }> = {};

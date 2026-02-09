@@ -452,7 +452,7 @@ class PickOfTheDayService {
         stoplossPrice: stoplossNav,
         returns1Y: topFund.returns1Y ? parseFloat(topFund.returns1Y) : undefined,
         returns3Y: topFund.returns3Y ? parseFloat(topFund.returns3Y) : undefined,
-        crisilRating: topFund.crisilRating,
+        smartRating: topFund.crisilRating,
         expenseRatio: topFund.expenseRatio ? parseFloat(topFund.expenseRatio) : undefined,
       });
 
@@ -479,7 +479,7 @@ class PickOfTheDayService {
           cmp: currentNav,
           returns1y: topFund.returns1Y ? parseFloat(topFund.returns1Y) : null,
           returns3y: topFund.returns3Y ? parseFloat(topFund.returns3Y) : null,
-          crisilRating: topFund.crisilRating,
+          smartRating: topFund.crisilRating,
           fundHouse: topFund.fundHouse,
           category: topFund.category,
           expenseRatio: topFund.expenseRatio ? parseFloat(topFund.expenseRatio) : null,
@@ -1347,10 +1347,10 @@ class PickOfTheDayService {
   private scoreMutualFund(fund: any): number {
     let score = 0;
     
-    const crisilRating = fund.crisilRating ? parseInt(fund.crisilRating) : 0;
-    if (crisilRating >= 5) score += 25;
-    else if (crisilRating >= 4) score += 20;
-    else if (crisilRating >= 3) score += 15;
+    const smartRating = fund.crisilRating ? parseInt(fund.crisilRating) : 0;
+    if (smartRating >= 5) score += 25;
+    else if (smartRating >= 4) score += 20;
+    else if (smartRating >= 3) score += 15;
     
     const returns1Y = fund.returns1Y ? parseFloat(fund.returns1Y) : 0;
     if (returns1Y > 20) score += 20;

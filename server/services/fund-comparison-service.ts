@@ -37,7 +37,7 @@ export interface FundMetrics {
   // Rankings and ratings
   categoryRank: number | null;
   totalFundsInCategory: number | null;
-  crisilRating: number | null;
+  smartRating: number | null;
   morningstarRating: number | null;
 }
 
@@ -148,7 +148,7 @@ export class FundComparisonService {
         
         categoryRank: null, // Would need category comparison
         totalFundsInCategory: null,
-        crisilRating: fundData.crisilRating || null,
+        smartRating: fundData.crisilRating || null,
         morningstarRating: null // Would need Morningstar integration
       };
     } catch (error) {

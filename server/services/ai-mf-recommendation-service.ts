@@ -303,8 +303,8 @@ class AIMFRecommendationService {
     const returns5y = this.sanitizeReturns(rawReturns5y, detectedCategory);
     const expenseRatio = parseFloat(fund.expenseRatio || '1.5');
     const aum = parseFloat(fund.aum || '0');
-    const crisilRating = fund.crisilRating || 3;
-    const crisilPercentile = parseFloat(fund.crisilPercentile || '50');
+    const smartRating = fund.crisilRating || 3;
+    const smartPercentile = parseFloat(fund.crisilPercentile || '50');
     const riskAdjustedScore = parseFloat(fund.crisilRiskAdjustedScore || '0');
     
     const extendedData = fund.extendedData as any || {};
@@ -317,7 +317,7 @@ class AIMFRecommendationService {
 
     // Enhanced multi-factor scoring
     const returnsScore = this.calculateReturnsScore(returns1y, returns3y, returns5y, category);
-    const sharpeEstimate = this.calculateSharpeEstimate(returns1y, returns3y, crisilPercentile, category);
+    const sharpeEstimate = this.calculateSharpeEstimate(returns1y, returns3y, smartPercentile, category);
     const consistencyScore = this.calculateConsistencyScore(returns1y, returns3y, returns5y);
     const expenseScore = this.calculateExpenseScore(expenseRatio, category);
     const aumScore = this.calculateAUMScore(aum);
@@ -326,7 +326,7 @@ class AIMFRecommendationService {
     // FintekPro proprietary rating (1-5 stars)
     const fintekproRating = this.calculateFintekProRating({
       returns1y, returns3y, returns5y,
-      expenseRatio, crisilRating, crisilPercentile,
+      expenseRatio, smartRating, smartPercentile,
       consistencyScore, sharpeEstimate, aum, category
     });
 
@@ -361,8 +361,8 @@ class AIMFRecommendationService {
         returns5y,
         expenseRatio,
         aum,
-        crisilRating,
-        crisilPercentile,
+        smartRating,
+        smartPercentile,
         sharpeEstimate,
         consistencyScore,
         exitLoadPercent: exitLoad.percent,
@@ -659,10 +659,10 @@ class AIMFRecommendationService {
   // FintekPro proprietary rating (1-5 stars)
   private calculateFintekProRating(params: {
     returns1y: number; returns3y: number; returns5y: number;
-    expenseRatio: number; crisilRating: number; crisilPercentile: number;
+    expenseRatio: number; smartRating: number; smartPercentile: number;
     consistencyScore: number; sharpeEstimate: number; aum: number; category: string;
   }): number {
-    const { returns1y, returns3y, returns5y, expenseRatio, crisilRating, crisilPercentile,
+    const { returns1y, returns3y, returns5y, expenseRatio, smartRating, smartPercentile,
             consistencyScore, sharpeEstimate, aum, category } = params;
     
     let score = 0;
@@ -693,12 +693,12 @@ class AIMFRecommendationService {
     else if (expenseRatio < 2) score += 5;
     
     // External validation (max 10 points)
-    if (crisilRating <= 1) score += 10;
-    else if (crisilRating <= 2) score += 8;
-    else if (crisilRating <= 3) score += 5;
+    if (smartRating <= 1) score += 10;
+    else if (smartRating <= 2) score += 8;
+    else if (smartRating <= 3) score += 5;
     
     // Category percentile (max 10 points)
-    score += Math.min(10, crisilPercentile / 10);
+    score += Math.min(10, smartPercentile / 10);
     
     // Convert to 1-5 star rating
     if (score >= 80) return 5;
@@ -823,14 +823,14 @@ class AIMFRecommendationService {
         exitLoadPercent: metrics.exitLoadPercent,
         exitLoadDays: metrics.exitLoadDays,
         fintekproRating: metrics.fintekproRating,
-        categoryPercentile: metrics.crisilPercentile
+        categoryPercentile: metrics.smartPercentile
       }
     };
   }
 
   // Category-aware signal determination with missing data handling
   private determineSignal(metrics: any): 'buy' | 'hold' | 'exit' {
-    const { returns1y, returns3y, returns5y, crisilRating, crisilPercentile, 
+    const { returns1y, returns3y, returns5y, smartRating, smartPercentile, 
             purchaseAllowed, fintekproRating, consistencyScore, category } = metrics;
     
     if (!purchaseAllowed) return 'hold';
@@ -848,12 +848,12 @@ class AIMFRecommendationService {
     // Both 1Y AND 3Y must be negative/poor relative to benchmarks
     if (returns1y < 0 && returns3y < 0) return 'exit';
     if (returns1y < benchmarks.expected1Y * -0.5 && returns3y < benchmarks.expected3Y * 0.3) return 'exit';
-    if (crisilRating >= 5 && crisilPercentile < 15 && returns1y < 0) return 'exit';
+    if (smartRating >= 5 && smartPercentile < 15 && returns1y < 0) return 'exit';
     
     // Strong buy signals - outperformance with quality
     if (fintekproRating >= 4 && returns1y >= benchmarks.expected1Y && purchaseAllowed) return 'buy';
     if (fintekproRating >= 3 && returns3y >= benchmarks.expected3Y * 1.2 && consistencyScore >= 60) return 'buy';
-    if (crisilRating <= 2 && crisilPercentile >= 75 && returns1y >= benchmarks.expected1Y * 0.8) return 'buy';
+    if (smartRating <= 2 && smartPercentile >= 75 && returns1y >= benchmarks.expected1Y * 0.8) return 'buy';
     
     // Additional buy signal for gold/commodity during positive trends
     if (category.includes('gold') || category.includes('commodity')) {
@@ -877,7 +877,7 @@ class AIMFRecommendationService {
     
     // Reduce confidence for missing data
     if (!metrics.returns5y || metrics.returns5y === 0) baseConfidence -= 10;
-    if (!metrics.crisilPercentile || metrics.crisilPercentile === 0) baseConfidence -= 5;
+    if (!metrics.smartPercentile || metrics.smartPercentile === 0) baseConfidence -= 5;
     
     // Adjust based on signal strength
     if (signal === 'buy' && metrics.fintekproRating >= 4) baseConfidence += 5;
@@ -890,12 +890,12 @@ class AIMFRecommendationService {
   private generateRichRationale(fund: any, metrics: any, signal: 'buy' | 'hold' | 'exit'): string {
     const parts: string[] = [];
     
-    if (metrics.crisilPercentile >= 70) {
-      parts.push(`Top ${100 - Math.round(metrics.crisilPercentile)}% in ${fund.category || 'category'}`);
-    } else if (metrics.crisilPercentile >= 50) {
+    if (metrics.smartPercentile >= 70) {
+      parts.push(`Top ${100 - Math.round(metrics.smartPercentile)}% in ${fund.category || 'category'}`);
+    } else if (metrics.smartPercentile >= 50) {
       parts.push(`Above average in ${fund.category || 'category'}`);
     } else {
-      parts.push(`Bottom ${Math.round(metrics.crisilPercentile)}% in ${fund.category || 'category'}`);
+      parts.push(`Bottom ${Math.round(metrics.smartPercentile)}% in ${fund.category || 'category'}`);
     }
     
     // Use FintekPro proprietary rating (1-5 stars)

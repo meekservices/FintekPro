@@ -110,7 +110,7 @@ export class MFAdapter implements ProductAdapter<any> {
       source: 'store',
       current_price: parseDecimal(fund.nav),
       yield_or_return: parseDecimal(fund.returns1y),
-      rating: fund.crisilRating ? `${fund.crisilRating} Star` : undefined,
+      rating: fund.crisilRating ? `${fund.crisilRating}-Star FintekPro Rating` : undefined,
       sector: fund.category || undefined,
       raw_data: fund,
       last_updated: fund.lastUpdated || new Date(),

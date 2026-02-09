@@ -406,7 +406,7 @@ export class MultiSourceMFService {
           // Sort by FintekPro rating first (1 star = best, 5 star = worst), then by returns
           const sortedFunds = ratedFunds.sort((a, b) => {
             // Priority 1: FintekPro Smart Rating (lower is better: 1 = exceptional)
-            // Rating is stored in crisilRating field (FintekPro rating system)
+            // Rating is stored in legacy crisilRating column (FintekPro Smart Rating system)
             const aRating = a.crisilRating || 5;
             const bRating = b.crisilRating || 5;
             
@@ -1172,7 +1172,7 @@ export class MultiSourceMFService {
       minInvestment: extData.minInvestment,
       exitLoad: extData.exitLoad,
       
-      // Restore CRISIL data
+      // Restore FintekPro Smart Rating data
       crisilRating: dbFund.crisilRating,
       crisilCategory: dbFund.crisilCategory,
       crisilPercentile: dbFund.crisilPercentile ? parseFloat(dbFund.crisilPercentile) : undefined,
@@ -1272,7 +1272,7 @@ export class MultiSourceMFService {
         minInvestment: fund.minInvestment,
         exitLoad: fund.exitLoad,
         provenance: fund.provenance,
-        // Include CRISIL extended fields if present
+        // Include FintekPro Smart Rating extended fields if present
         crisilRationale: fund.crisilRationale,
         crisilStrengths: fund.crisilStrengths,
         crisilConcerns: fund.crisilConcerns,
