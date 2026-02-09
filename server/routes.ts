@@ -189,6 +189,7 @@ import usTradingRoutes from "./routes/us-trading";
 import { registerAIInvestmentOrchestratorRoutes } from "./routes/ai-investment-orchestrator-routes";
 import { registerProfitOptimizedRoutes } from "./routes/profit-optimized-routes";
 import { registerAgentGovernanceRoutes } from "./routes/agent-governance-routes";
+import { registerLeadLeakageRoutes } from "./routes/lead-leakage-routes";
 import { registerAppointmentManagementRoutes } from "./routes/appointment-management-routes";
 import unifiedPortfolioRoutes from "./routes/unified-portfolio-routes";
 import aiRebalancingRoutes from "./routes/ai-rebalancing-routes";
@@ -747,6 +748,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   registerAIInvestmentOrchestratorRoutes(app);
   registerProfitOptimizedRoutes(app);
   registerAgentGovernanceRoutes(app);
+  registerLeadLeakageRoutes(app);
   registerAppointmentManagementRoutes(app);
   app.use(onboardingInvitationsRoutes);
   app.use(prospectProposalsRoutes);

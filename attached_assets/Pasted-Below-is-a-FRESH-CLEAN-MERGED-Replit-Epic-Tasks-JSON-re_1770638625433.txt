@@ -1,0 +1,325 @@
+Below is a FRESH, CLEAN, MERGED Replit Epic → Tasks JSON, rebuilt end-to-end, including:
+✅ Original system (Lead → External Processing → Payout Claim → PDD Hold)
+✅ Admin task to claim payout from Master DSA
+✅ Master DSA claim in financier confirmation format
+✅ Mandatory attachment of banker/financier confirmation email
+✅ Agent payout hold until PDD clearance
+You can directly import this JSON into Replit / Linear / Jira.
+✅ FINAL REPLIT EPIC → TASKS JSON
+(Authoritative version – replaces all previous drafts)
+{
+  "epics": [
+    {
+      "epic_id": "EPIC-01",
+      "title": "Lead Registration & First-Touch Attribution",
+      "description": "Register all loan leads with immutable first-touch attribution.",
+      "tasks": [
+        {
+          "task_id": "01-01",
+          "title": "Create lead_registry table",
+          "description": "Store PAN, mobile, first_agent_id, partner_snapshot, first_touch_timestamp. Immutable after insert.",
+          "acceptance_criteria": [
+            "First-touch created only once per PAN+mobile",
+            "No update or delete allowed"
+          ]
+        },
+        {
+          "task_id": "01-02",
+          "title": "Implement POST /leads/register",
+          "description": "Register lead with PAN, mobile, name, loan type, amount, agent_id, partner_id.",
+          "acceptance_criteria": [
+            "lead_id generated",
+            "first-touch recorded",
+            "agent + partner hierarchy locked"
+          ]
+        }
+      ]
+    },
+    {
+      "epic_id": "EPIC-02",
+      "title": "Processing Mode & Financier Selection",
+      "description": "Explicitly capture platform vs external financier processing.",
+      "tasks": [
+        {
+          "task_id": "02-01",
+          "title": "Add processing_mode to leads",
+          "description": "Enum: PLATFORM, EXTERNAL_FINANCIER. Immutable once set.",
+          "acceptance_criteria": [
+            "Mandatory before status updates",
+            "Cannot be changed"
+          ]
+        },
+        {
+          "task_id": "02-02",
+          "title": "Set processing mode API",
+          "description": "POST /leads/{lead_id}/processing-mode",
+          "acceptance_criteria": [
+            "Reject if already set",
+            "Audit logged"
+          ]
+        },
+        {
+          "task_id": "02-03",
+          "title": "Store financier & banker details",
+          "description": "Store financier name, banker name, banker mobile.",
+          "acceptance_criteria": [
+            "Financier mandatory for external processing"
+          ]
+        }
+      ]
+    },
+    {
+      "epic_id": "EPIC-03",
+      "title": "Loan Status Tracking",
+      "description": "Track high-level loan milestones.",
+      "tasks": [
+        {
+          "task_id": "03-01",
+          "title": "Implement status update API",
+          "description": "POST /leads/{lead_id}/status (LOGGED_IN, APPROVED, DISBURSED).",
+          "acceptance_criteria": [
+            "Forward-only transitions",
+            "Timestamped audit trail"
+          ]
+        }
+      ]
+    },
+    {
+      "epic_id": "EPIC-04",
+      "title": "Payout Claim Submission (Agent)",
+      "description": "Mandatory checkpoint for all commissions.",
+      "tasks": [
+        {
+          "task_id": "04-01",
+          "title": "Create payout_claims table",
+          "description": "Store claim details including PDD, subvention, team flags.",
+          "acceptance_criteria": [
+            "Claim linked to lead_id",
+            "Reject if lead registered after disbursement"
+          ]
+        },
+        {
+          "task_id": "04-02",
+          "title": "Implement POST /payout-claims",
+          "description": "Agent submits payout claim with full required fields.",
+          "acceptance_criteria": [
+            "All mandatory validations enforced",
+            "Status = PENDING_VERIFICATION"
+          ]
+        }
+      ]
+    },
+    {
+      "epic_id": "EPIC-05",
+      "title": "Proof of Disbursement Upload",
+      "description": "Allow banker/agent to upload supporting proof.",
+      "tasks": [
+        {
+          "task_id": "05-01",
+          "title": "Create proof_uploads table",
+          "description": "Store file metadata, hash, uploader, timestamp.",
+          "acceptance_criteria": [
+            "Multiple files allowed",
+            "No deletion"
+          ]
+        },
+        {
+          "task_id": "05-02",
+          "title": "Upload proof API",
+          "description": "POST /payout-claims/{claim_id}/proof (jpg, png, pdf, screenshots).",
+          "acceptance_criteria": [
+            "Upload does not auto-approve claim"
+          ]
+        }
+      ]
+    },
+    {
+      "epic_id": "EPIC-06",
+      "title": "Banker Email Confirmation",
+      "description": "Primary verification via banker confirmation email.",
+      "tasks": [
+        {
+          "task_id": "06-01",
+          "title": "Send banker confirmation email",
+          "description": "Auto-email from support@fintekpro.com using mandatory confirmation format.",
+          "acceptance_criteria": [
+            "Email logged",
+            "Sent to banker + senior + admin CC"
+          ]
+        },
+        {
+          "task_id": "06-02",
+          "title": "Admin mark financier confirmation",
+          "description": "Admin verifies reply and marks CONFIRMED_BY_FINANCIER.",
+          "acceptance_criteria": [
+            "Email ID stored",
+            "Timestamp captured"
+          ]
+        }
+      ]
+    },
+    {
+      "epic_id": "EPIC-07",
+      "title": "PDD Exception Handling",
+      "description": "Allow claimability to Master DSA even if PDD not cleared.",
+      "tasks": [
+        {
+          "task_id": "07-01",
+          "title": "Add PDD exception fields",
+          "description": "Add pdd_exception_allowed_by_financier flag.",
+          "acceptance_criteria": [
+            "Allowed only with explicit banker wording"
+          ]
+        },
+        {
+          "task_id": "07-02",
+          "title": "Decision engine for PDD scenarios",
+          "description": "Approve, hold, or reject based on PDD + confirmation.",
+          "acceptance_criteria": [
+            "Matches approved decision matrix"
+          ]
+        }
+      ]
+    },
+    {
+      "epic_id": "EPIC-08",
+      "title": "Commission Ledger & Partner Waterfall",
+      "description": "Auditable commission distribution.",
+      "tasks": [
+        {
+          "task_id": "08-01",
+          "title": "Create commission ledger entry",
+          "description": "Create ledger entry on claim approval.",
+          "acceptance_criteria": [
+            "No deletion",
+            "Mirror entries for reversals"
+          ]
+        },
+        {
+          "task_id": "08-02",
+          "title": "Execute partner waterfall",
+          "description": "Partner → Sub-partner → Agent distribution.",
+          "acceptance_criteria": [
+            "Agent payout ON_HOLD_PDD if PDD not cleared"
+          ]
+        }
+      ]
+    },
+    {
+      "epic_id": "EPIC-09",
+      "title": "Agent Payout Hold & Release",
+      "description": "Strict payout control until PDD clearance.",
+      "tasks": [
+        {
+          "task_id": "09-01",
+          "title": "Enforce agent payout hold",
+          "description": "Block agent payout unless PDD CLEARED.",
+          "acceptance_criteria": [
+            "No admin override"
+          ]
+        },
+        {
+          "task_id": "09-02",
+          "title": "Confirm PDD clearance",
+          "description": "POST /payout-claims/{claim_id}/pdd-clearance",
+          "acceptance_criteria": [
+            "Requires banker confirmation",
+            "Releases agent payout"
+          ]
+        }
+      ]
+    },
+    {
+      "epic_id": "EPIC-10",
+      "title": "Admin Claim Payout from Master DSA",
+      "description": "Admin workflow to claim commission from Master DSA using financier confirmation format.",
+      "tasks": [
+        {
+          "task_id": "10-01",
+          "title": "Create master_dsa_claims table",
+          "description": "Track Master DSA claims with linkage to payout_claim.",
+          "acceptance_criteria": [
+            "One-to-one mapping with payout_claim",
+            "Immutable after submission"
+          ]
+        },
+        {
+          "task_id": "10-02",
+          "title": "Generate Master DSA claim in financier format",
+          "description": "System generates claim email body using exact financier confirmation format.",
+          "acceptance_criteria": [
+            "Auto-filled",
+            "Manual edits disabled"
+          ]
+        },
+        {
+          "task_id": "10-03",
+          "title": "Attach financier confirmation email copy",
+          "description": "Mandatory attachment of banker confirmation email (eml/pdf).",
+          "acceptance_criteria": [
+            "Claim blocked if attachment missing",
+            "Attachment hash stored"
+          ]
+        },
+        {
+          "task_id": "10-04",
+          "title": "Send Master DSA claim email",
+          "description": "Send from support@fintekpro.com to Master DSA with attachments.",
+          "acceptance_criteria": [
+            "Email logged with message_id"
+          ]
+        },
+        {
+          "task_id": "10-05",
+          "title": "Track Master DSA claim lifecycle",
+          "description": "Statuses: SUBMITTED, ACKNOWLEDGED, PAID, DISPUTED, REJECTED.",
+          "acceptance_criteria": [
+            "Audit log for each transition"
+          ]
+        },
+        {
+          "task_id": "10-06",
+          "title": "Reconcile Master DSA payout",
+          "description": "Record payout received and reconcile with expected commission.",
+          "acceptance_criteria": [
+            "Partial payments supported",
+            "Discrepancies flagged"
+          ]
+        },
+        {
+          "task_id": "10-07",
+          "title": "Ensure agent payout remains on hold until PDD cleared",
+          "description": "Master DSA payment must not trigger agent payout if PDD not cleared.",
+          "acceptance_criteria": [
+            "Agent payout only released on PDD clearance"
+          ]
+        }
+      ]
+    },
+    {
+      "epic_id": "EPIC-11",
+      "title": "Clawback & Reversal Safety",
+      "description": "Safe handling of reversals.",
+      "tasks": [
+        {
+          "task_id": "11-01",
+          "title": "Implement commission clawback",
+          "description": "Create negative mirror ledger on reversals or failed PDD.",
+          "acceptance_criteria": [
+            "Agent notified",
+            "Audit preserved"
+          ]
+        }
+      ]
+    }
+  ]
+}
+✅ WHAT THIS FINAL VERSION ACHIEVES
+One single confirmation format across:
+Banker → FintekPro → Master DSA
+Clear separation of:
+Master DSA cash flow
+Agent payout risk
+Zero ambiguity in disputes
+Fully RBI / DSA audit-safe
+Exactly matches real-world Indian lending ops

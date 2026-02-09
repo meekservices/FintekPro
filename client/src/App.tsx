@@ -173,6 +173,7 @@ const AgentResearchAnalytics = lazy(() => import("@/pages/agent-research-analyti
 const AgentTreasuryPage = lazy(() => import("@/pages/agent-treasury"));
 const AgentRevenueCockpit = lazy(() => import("@/pages/agent-revenue-cockpit"));
 const AgentLeadPipeline = lazy(() => import("@/pages/agent-lead-pipeline"));
+const AgentLeadRegistry = lazy(() => import("@/pages/agent-lead-registry"));
 const AgentClientProfile = lazy(() => import("@/pages/agent-client-profile"));
 const AgentTasks = lazy(() => import("@/pages/agent-tasks"));
 const AgentReportsHub = lazy(() => import("@/pages/agent-reports-hub"));
@@ -1923,6 +1924,15 @@ function AgentRoutes() {
         )}
       </Route>
       <Route path="/agent/clients/:id">
+      <Route path="/agent/lead-registry">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentLeadRegistry />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
         {() => (
           <AgentLayout>
             <Suspense fallback={<LoadingState variant="agent-dashboard" />}>

@@ -30751,3 +30751,175 @@ export const VIDEO_KYC_REASONS = {
 export const MAKER_CHECKER_ENTITY_TYPES = [
   "COMPANY", "HUF", "TRUST", "AOP", "BOI", "HIGH_VALUE_INDIVIDUAL",
 ] as const;
+
+// ==================== LEAD LEAKAGE PREVENTION SYSTEM ====================
+
+export const leadProcessingModeEnum = pgEnum("lead_processing_mode", [
+  "PLATFORM",
+  "EXTERNAL_FINANCIER",
+]);
+
+export const leadStatusEnum = pgEnum("lead_status", [
+  "REGISTERED",
+  "LOGGED_IN",
+  "APPROVED",
+  "DISBURSED",
+]);
+
+export const payoutClaimStatusEnum = pgEnum("payout_claim_status", [
+  "PENDING_VERIFICATION",
+  "CONFIRMED_BY_FINANCIER",
+  "APPROVED",
+  "ON_HOLD_PDD",
+  "REJECTED",
+  "CLAWED_BACK",
+]);
+
+export const pddStatusEnum = pgEnum("pdd_status", [
+  "NOT_APPLICABLE",
+  "PENDING",
+  "CLEARED",
+  "EXCEPTION_ALLOWED",
+]);
+
+export const leadRegistry = pgTable("lead_registry", {
+  leadId: varchar("lead_id").primaryKey().default(sql`gen_random_uuid()`),
+  pan: varchar("pan", { length: 10 }).notNull(),
+  mobile: varchar("mobile", { length: 15 }).notNull(),
+  customerName: varchar("customer_name", { length: 200 }).notNull(),
+  loanType: varchar("loan_type", { length: 50 }).notNull(),
+  approxAmount: decimal("approx_amount", { precision: 15, scale: 2 }),
+  firstAgentId: varchar("first_agent_id").notNull(),
+  firstPartnerId: varchar("first_partner_id").notNull(),
+  partnerHierarchySnapshot: jsonb("partner_hierarchy_snapshot").default({}),
+  processingMode: leadProcessingModeEnum("processing_mode"),
+  financierName: varchar("financier_name", { length: 200 }),
+  bankerName: varchar("banker_name", { length: 200 }),
+  bankerMobile: varchar("banker_mobile", { length: 15 }),
+  bankerEmail: varchar("banker_email", { length: 200 }),
+  financierSetAt: timestamp("financier_set_at"),
+  processingModeSetAt: timestamp("processing_mode_set_at"),
+  status: leadStatusEnum("status").notNull().default("REGISTERED"),
+  statusHistory: jsonb("status_history").default([]),
+  firstTouchTimestamp: timestamp("first_touch_timestamp").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("idx_lead_registry_pan_mobile").on(table.pan, table.mobile),
+  index("idx_lead_registry_agent").on(table.firstAgentId),
+  index("idx_lead_registry_partner").on(table.firstPartnerId),
+  index("idx_lead_registry_status").on(table.status),
+]);
+
+export const payoutClaims = pgTable("payout_claims", {
+  claimId: varchar("claim_id").primaryKey().default(sql`gen_random_uuid()`),
+  leadId: varchar("lead_id").references(() => leadRegistry.leadId).notNull(),
+  agentId: varchar("agent_id").notNull(),
+  partnerId: varchar("partner_id").notNull(),
+  disbursementAmount: decimal("disbursement_amount", { precision: 15, scale: 2 }).notNull(),
+  disbursementDate: date("disbursement_date").notNull(),
+  loanAccountNumber: varchar("loan_account_number", { length: 50 }),
+  financierName: varchar("financier_name", { length: 200 }).notNull(),
+  pddStatus: pddStatusEnum("pdd_status").notNull().default("PENDING"),
+  pddExceptionAllowedByFinancier: boolean("pdd_exception_allowed_by_financier").default(false),
+  pddClearedAt: timestamp("pdd_cleared_at"),
+  subventionFlag: boolean("subvention_flag").default(false),
+  teamCase: boolean("team_case").default(false),
+  teamMembers: jsonb("team_members").default([]),
+  transactionStatus: varchar("transaction_status", { length: 50 }).default("ACTIVE"),
+  status: payoutClaimStatusEnum("status").notNull().default("PENDING_VERIFICATION"),
+  bankerConfirmationEmailId: varchar("banker_confirmation_email_id"),
+  bankerConfirmedAt: timestamp("banker_confirmed_at"),
+  confirmedByAdminId: varchar("confirmed_by_admin_id"),
+  approvedAt: timestamp("approved_at"),
+  rejectedAt: timestamp("rejected_at"),
+  rejectionReason: text("rejection_reason"),
+  commissionLedgerId: varchar("commission_ledger_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_payout_claims_lead").on(table.leadId),
+  index("idx_payout_claims_agent").on(table.agentId),
+  index("idx_payout_claims_status").on(table.status),
+]);
+
+export const proofUploads = pgTable("proof_uploads", {
+  proofId: varchar("proof_id").primaryKey().default(sql`gen_random_uuid()`),
+  claimId: varchar("claim_id").references(() => payoutClaims.claimId).notNull(),
+  fileName: varchar("file_name", { length: 500 }).notNull(),
+  fileType: varchar("file_type", { length: 20 }).notNull(),
+  fileSize: integer("file_size").notNull(),
+  fileHash: varchar("file_hash", { length: 64 }).notNull(),
+  storagePath: varchar("storage_path", { length: 1000 }).notNull(),
+  uploaderRole: varchar("uploader_role", { length: 30 }).notNull(),
+  uploaderId: varchar("uploader_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_proof_uploads_claim").on(table.claimId),
+]);
+
+export const bankerConfirmationEmails = pgTable("banker_confirmation_emails", {
+  emailId: varchar("email_id").primaryKey().default(sql`gen_random_uuid()`),
+  claimId: varchar("claim_id").references(() => payoutClaims.claimId).notNull(),
+  bankerEmail: varchar("banker_email", { length: 200 }).notNull(),
+  seniorEmail: varchar("senior_email", { length: 200 }),
+  ccAdminEmail: varchar("cc_admin_email", { length: 200 }),
+  emailSubject: text("email_subject").notNull(),
+  emailBody: text("email_body").notNull(),
+  sentAt: timestamp("sent_at").defaultNow().notNull(),
+  replyReceived: boolean("reply_received").default(false),
+  replyReceivedAt: timestamp("reply_received_at"),
+  replyContent: text("reply_content"),
+  taggedByAdminId: varchar("tagged_by_admin_id"),
+  taggedAt: timestamp("tagged_at"),
+}, (table) => [
+  index("idx_banker_emails_claim").on(table.claimId),
+]);
+
+export const leadAuditLogs = pgTable("lead_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  leadId: varchar("lead_id"),
+  claimId: varchar("claim_id"),
+  actorId: varchar("actor_id").notNull(),
+  actorRole: varchar("actor_role", { length: 30 }).notNull(),
+  action: varchar("action", { length: 100 }).notNull(),
+  details: jsonb("details").default({}),
+  ipAddress: varchar("ip_address"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_lead_audit_lead").on(table.leadId),
+  index("idx_lead_audit_claim").on(table.claimId),
+]);
+
+export const insertLeadRegistrySchema = createInsertSchema(leadRegistry).omit({
+  leadId: true, firstTouchTimestamp: true, createdAt: true, statusHistory: true,
+  processingModeSetAt: true, financierSetAt: true,
+});
+export type LeadRegistry = typeof leadRegistry.$inferSelect;
+export type InsertLeadRegistry = z.infer<typeof insertLeadRegistrySchema>;
+
+export const insertPayoutClaimSchema = createInsertSchema(payoutClaims).omit({
+  claimId: true, createdAt: true, updatedAt: true, approvedAt: true,
+  rejectedAt: true, bankerConfirmedAt: true, pddClearedAt: true,
+  commissionLedgerId: true, confirmedByAdminId: true, bankerConfirmationEmailId: true,
+});
+export type PayoutClaim = typeof payoutClaims.$inferSelect;
+export type InsertPayoutClaim = z.infer<typeof insertPayoutClaimSchema>;
+
+export const insertProofUploadSchema = createInsertSchema(proofUploads).omit({
+  proofId: true, createdAt: true,
+});
+export type ProofUpload = typeof proofUploads.$inferSelect;
+export type InsertProofUpload = z.infer<typeof insertProofUploadSchema>;
+
+export const insertBankerConfirmationEmailSchema = createInsertSchema(bankerConfirmationEmails).omit({
+  emailId: true, sentAt: true, replyReceived: true, replyReceivedAt: true,
+  replyContent: true, taggedByAdminId: true, taggedAt: true,
+});
+export type BankerConfirmationEmail = typeof bankerConfirmationEmails.$inferSelect;
+export type InsertBankerConfirmationEmail = z.infer<typeof insertBankerConfirmationEmailSchema>;
+
+export const insertLeadAuditLogSchema = createInsertSchema(leadAuditLogs).omit({
+  id: true, createdAt: true,
+});
+export type LeadAuditLog = typeof leadAuditLogs.$inferSelect;
+export type InsertLeadAuditLog = z.infer<typeof insertLeadAuditLogSchema>;
