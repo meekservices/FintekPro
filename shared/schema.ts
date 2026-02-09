@@ -30923,3 +30923,102 @@ export const insertLeadAuditLogSchema = createInsertSchema(leadAuditLogs).omit({
 });
 export type LeadAuditLog = typeof leadAuditLogs.$inferSelect;
 export type InsertLeadAuditLog = z.infer<typeof insertLeadAuditLogSchema>;
+
+export const masterDsaClaimStatusEnum = pgEnum("master_dsa_claim_status", [
+  "DRAFT",
+  "SUBMITTED",
+  "ACKNOWLEDGED",
+  "PAID",
+  "PARTIALLY_PAID",
+  "DISPUTED",
+  "REJECTED",
+]);
+
+export const masterDsaClaims = pgTable("master_dsa_claims", {
+  dsaClaimId: varchar("dsa_claim_id").primaryKey().default(sql`gen_random_uuid()`),
+  payoutClaimId: varchar("payout_claim_id").references(() => payoutClaims.claimId).notNull().unique(),
+  leadId: varchar("lead_id").references(() => leadRegistry.leadId).notNull(),
+  agentId: varchar("agent_id").notNull(),
+  partnerId: varchar("partner_id").notNull(),
+  financierName: varchar("financier_name", { length: 200 }).notNull(),
+  disbursementAmount: decimal("disbursement_amount", { precision: 15, scale: 2 }).notNull(),
+  disbursementDate: date("disbursement_date").notNull(),
+  loanAccountNumber: varchar("loan_account_number", { length: 50 }),
+  customerName: varchar("customer_name", { length: 200 }),
+  customerPan: varchar("customer_pan", { length: 10 }),
+  claimedAmount: decimal("claimed_amount", { precision: 15, scale: 2 }).notNull(),
+  paidAmount: decimal("paid_amount", { precision: 15, scale: 2 }).default("0.00"),
+  outstandingAmount: decimal("outstanding_amount", { precision: 15, scale: 2 }),
+  discrepancyFlag: boolean("discrepancy_flag").default(false),
+  discrepancyNotes: text("discrepancy_notes"),
+  emailSubject: text("email_subject"),
+  emailBody: text("email_body"),
+  emailSentAt: timestamp("email_sent_at"),
+  emailMessageId: varchar("email_message_id"),
+  masterDsaEmail: varchar("master_dsa_email", { length: 200 }),
+  masterDsaName: varchar("master_dsa_name", { length: 200 }),
+  status: masterDsaClaimStatusEnum("status").notNull().default("DRAFT"),
+  submittedAt: timestamp("submitted_at"),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  paidAt: timestamp("paid_at"),
+  disputedAt: timestamp("disputed_at"),
+  rejectedAt: timestamp("rejected_at"),
+  rejectionReason: text("rejection_reason"),
+  createdByAdminId: varchar("created_by_admin_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_master_dsa_claims_payout").on(table.payoutClaimId),
+  index("idx_master_dsa_claims_lead").on(table.leadId),
+  index("idx_master_dsa_claims_status").on(table.status),
+]);
+
+export const masterDsaAttachments = pgTable("master_dsa_attachments", {
+  attachmentId: varchar("attachment_id").primaryKey().default(sql`gen_random_uuid()`),
+  dsaClaimId: varchar("dsa_claim_id").references(() => masterDsaClaims.dsaClaimId).notNull(),
+  fileName: varchar("file_name", { length: 500 }).notNull(),
+  fileType: varchar("file_type", { length: 20 }).notNull(),
+  fileSize: integer("file_size").notNull(),
+  fileHash: varchar("file_hash", { length: 64 }).notNull(),
+  storagePath: varchar("storage_path", { length: 1000 }).notNull(),
+  attachmentType: varchar("attachment_type", { length: 50 }).notNull().default("CONFIRMATION_EMAIL"),
+  uploadedByAdminId: varchar("uploaded_by_admin_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_master_dsa_attachments_claim").on(table.dsaClaimId),
+]);
+
+export const masterDsaPayments = pgTable("master_dsa_payments", {
+  paymentId: varchar("payment_id").primaryKey().default(sql`gen_random_uuid()`),
+  dsaClaimId: varchar("dsa_claim_id").references(() => masterDsaClaims.dsaClaimId).notNull(),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  paymentDate: date("payment_date").notNull(),
+  referenceNumber: varchar("reference_number", { length: 100 }),
+  paymentMode: varchar("payment_mode", { length: 50 }),
+  notes: text("notes"),
+  recordedByAdminId: varchar("recorded_by_admin_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_master_dsa_payments_claim").on(table.dsaClaimId),
+]);
+
+export const insertMasterDsaClaimSchema = createInsertSchema(masterDsaClaims).omit({
+  dsaClaimId: true, createdAt: true, updatedAt: true, paidAmount: true,
+  outstandingAmount: true, discrepancyFlag: true, discrepancyNotes: true,
+  emailSentAt: true, emailMessageId: true, submittedAt: true,
+  acknowledgedAt: true, paidAt: true, disputedAt: true, rejectedAt: true, rejectionReason: true,
+});
+export type MasterDsaClaim = typeof masterDsaClaims.$inferSelect;
+export type InsertMasterDsaClaim = z.infer<typeof insertMasterDsaClaimSchema>;
+
+export const insertMasterDsaAttachmentSchema = createInsertSchema(masterDsaAttachments).omit({
+  attachmentId: true, createdAt: true,
+});
+export type MasterDsaAttachment = typeof masterDsaAttachments.$inferSelect;
+export type InsertMasterDsaAttachment = z.infer<typeof insertMasterDsaAttachmentSchema>;
+
+export const insertMasterDsaPaymentSchema = createInsertSchema(masterDsaPayments).omit({
+  paymentId: true, createdAt: true,
+});
+export type MasterDsaPayment = typeof masterDsaPayments.$inferSelect;
+export type InsertMasterDsaPayment = z.infer<typeof insertMasterDsaPaymentSchema>;

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { leadRegistryService } from "../services/lead-registry-service";
 import { payoutClaimService } from "../services/payout-claim-service";
 import { bankerConfirmationService } from "../services/banker-confirmation-service";
+import { masterDsaClaimService } from "../services/master-dsa-claim-service";
 
 const requireAuth = (req: any, res: Response, next: any) => {
   if (!req.user) return res.status(401).json({ error: "Authentication required" });
@@ -391,6 +392,185 @@ export function registerLeadLeakageRoutes(app: Express) {
       res.json(logs);
     } catch (error: any) {
       console.error("Error fetching audit trail:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // ======= EPIC-10: Master DSA Claim Routes (Admin Only) =======
+
+  const createDsaClaimSchema = z.object({
+    masterDsaEmail: z.string().email(),
+    masterDsaName: z.string().min(1),
+    claimedAmount: z.number().positive(),
+  });
+
+  const dsaAttachmentSchema = z.object({
+    fileName: z.string().min(1),
+    fileType: z.string().min(1),
+    fileSize: z.number(),
+    fileHash: z.string().min(1),
+    storagePath: z.string().min(1),
+    attachmentType: z.string().default("CONFIRMATION_EMAIL"),
+  });
+
+  const dsaStatusSchema = z.object({
+    status: z.enum(['ACKNOWLEDGED', 'PAID', 'PARTIALLY_PAID', 'DISPUTED', 'REJECTED']),
+    reason: z.string().optional(),
+  });
+
+  const dsaPaymentSchema = z.object({
+    amount: z.number().positive(),
+    paymentDate: z.string().min(1),
+    referenceNumber: z.string().optional(),
+    paymentMode: z.string().optional(),
+    notes: z.string().optional(),
+  });
+
+  // 18. POST /api/admin/master-dsa-claims/:payoutClaimId/create
+  app.post("/api/admin/master-dsa-claims/:payoutClaimId/create", requireAdmin, async (req: any, res: Response) => {
+    try {
+      const parsed = createDsaClaimSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
+      }
+      const result = await masterDsaClaimService.createClaimFromPayout(
+        req.params.payoutClaimId, req.user.id,
+        { ...parsed.data, claimedAmount: parsed.data.claimedAmount.toString() }
+      );
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+      res.status(201).json(result);
+    } catch (error: any) {
+      console.error("Error creating Master DSA claim:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // 19. POST /api/admin/master-dsa-claims/:dsaClaimId/attachments
+  app.post("/api/admin/master-dsa-claims/:dsaClaimId/attachments", requireAdmin, async (req: any, res: Response) => {
+    try {
+      const parsed = dsaAttachmentSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
+      }
+      const result = await masterDsaClaimService.addAttachment(req.params.dsaClaimId, {
+        ...parsed.data,
+        adminId: req.user.id,
+      });
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+      res.status(201).json(result);
+    } catch (error: any) {
+      console.error("Error adding DSA attachment:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // 20. POST /api/admin/master-dsa-claims/:dsaClaimId/submit
+  app.post("/api/admin/master-dsa-claims/:dsaClaimId/submit", requireAdmin, async (req: any, res: Response) => {
+    try {
+      const result = await masterDsaClaimService.submitClaim(req.params.dsaClaimId, req.user.id);
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+      res.status(200).json(result);
+    } catch (error: any) {
+      console.error("Error submitting DSA claim:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // 21. POST /api/admin/master-dsa-claims/:dsaClaimId/send-email
+  app.post("/api/admin/master-dsa-claims/:dsaClaimId/send-email", requireAdmin, async (req: any, res: Response) => {
+    try {
+      const result = await masterDsaClaimService.sendClaimEmail(req.params.dsaClaimId, req.user.id);
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+      res.status(200).json(result);
+    } catch (error: any) {
+      console.error("Error sending DSA claim email:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // 22. POST /api/admin/master-dsa-claims/:dsaClaimId/status
+  app.post("/api/admin/master-dsa-claims/:dsaClaimId/status", requireAdmin, async (req: any, res: Response) => {
+    try {
+      const parsed = dsaStatusSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
+      }
+      const result = await masterDsaClaimService.updateStatus(
+        req.params.dsaClaimId, parsed.data.status, req.user.id, parsed.data.reason
+      );
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+      res.status(200).json(result);
+    } catch (error: any) {
+      console.error("Error updating DSA claim status:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // 23. POST /api/admin/master-dsa-claims/:dsaClaimId/payments
+  app.post("/api/admin/master-dsa-claims/:dsaClaimId/payments", requireAdmin, async (req: any, res: Response) => {
+    try {
+      const parsed = dsaPaymentSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
+      }
+      const result = await masterDsaClaimService.recordPayment(req.params.dsaClaimId, {
+        ...parsed.data,
+        amount: parsed.data.amount.toString(),
+        adminId: req.user.id,
+      });
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+      res.status(201).json(result);
+    } catch (error: any) {
+      console.error("Error recording DSA payment:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // 24. GET /api/admin/master-dsa-claims
+  app.get("/api/admin/master-dsa-claims", requireAdmin, async (req: any, res: Response) => {
+    try {
+      const { status } = req.query;
+      const claims = await masterDsaClaimService.getAllClaims(status as string);
+      res.json(claims);
+    } catch (error: any) {
+      console.error("Error fetching DSA claims:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // 25. GET /api/admin/master-dsa-claims/:dsaClaimId
+  app.get("/api/admin/master-dsa-claims/:dsaClaimId", requireAdmin, async (req: any, res: Response) => {
+    try {
+      const result = await masterDsaClaimService.getClaimById(req.params.dsaClaimId);
+      if (!result.claim) {
+        return res.status(404).json({ error: "Master DSA claim not found" });
+      }
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error fetching DSA claim:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // 26. GET /api/admin/master-dsa-claims/by-payout/:payoutClaimId
+  app.get("/api/admin/master-dsa-claims/by-payout/:payoutClaimId", requireAdmin, async (req: any, res: Response) => {
+    try {
+      const claim = await masterDsaClaimService.getClaimByPayoutId(req.params.payoutClaimId);
+      res.json({ claim });
+    } catch (error: any) {
+      console.error("Error fetching DSA claim by payout:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
