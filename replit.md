@@ -51,6 +51,7 @@ The platform is undergoing service consolidation, including:
 - **Regulator-Grade PDF System**: Production-ready PDF generation with 20 sections, dynamic TOC, SHA256 hash embedding, and conditional section rendering.
 - **Proposal Audit Trail System**: Comprehensive audit logging with blockchain-style SHA256 checksum chaining for tamper detection, PAN hashing, and role-based override logging.
 - **Database Enrichment Infrastructure**: CLI tool providing batch enrichment operations for MF, stocks, and unlisted data.
+- **MF Comprehensive Enrichment Pipeline**: 5-phase SEBI-compliant mutual fund data enrichment with GitHub CSV AUM/category (Phase 1), ExtendedData JSONB extraction (Phase 2), MFAPI metadata sub-category/launch date (Phase 3), MFAPI returns & financial ratios (Phase 4), and category-based defaults (Phase 5). All enrichment changes are logged to `mf_enrichment_audit_logs` with enrichmentRunId for full traceability. AUM history tracked in `mf_aum_history` with anomaly detection (>20% flagged). SEBI Category Rules Engine (`mf-sebi-category-engine.ts`) seeds 37 official SEBI MF categorization rules from circular SEBI/HO/IMD/DF3/CIR/P/2017/114 into `mf_category_rules`. Internal MF APIs at `/api/funds/*` (list, detail, category filter, AUM history, audit logs, SEBI rules, null stats). Admin enrichment routes at `/api/admin/enrichment/mf/*` (comprehensive stats/progress/run, SEBI rules seed, category stats, audit logs, validate categories). DB tables: `mf_enrichment_audit_logs`, `mf_aum_history`, `mf_category_rules`.
 
 ## External Dependencies
 

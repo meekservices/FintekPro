@@ -30657,6 +30657,74 @@ export const insertKycRateLimitCounterSchema = createInsertSchema(kycRateLimitCo
 export type KycRateLimitCounter = typeof kycRateLimitCounters.$inferSelect;
 export type InsertKycRateLimitCounter = z.infer<typeof insertKycRateLimitCounterSchema>;
 
+// MF Enrichment Audit Logs - SEBI audit readiness for all MF data enrichment changes
+export const mfEnrichmentAuditLogs = pgTable("mf_enrichment_audit_logs", {
+  id: serial("id").primaryKey(),
+  schemeCode: text("scheme_code").notNull(),
+  fieldName: varchar("field_name"),
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+  changeType: varchar("change_type"),
+  source: varchar("source"),
+  enrichmentRunId: varchar("enrichment_run_id"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_mf_enrichment_audit_scheme").on(table.schemeCode),
+  index("idx_mf_enrichment_audit_created").on(table.createdAt),
+  index("idx_mf_enrichment_audit_run").on(table.enrichmentRunId),
+]);
+
+export const insertMfEnrichmentAuditLogSchema = createInsertSchema(mfEnrichmentAuditLogs).omit({
+  id: true, createdAt: true,
+});
+export type MfEnrichmentAuditLog = typeof mfEnrichmentAuditLogs.$inferSelect;
+export type InsertMfEnrichmentAuditLog = z.infer<typeof insertMfEnrichmentAuditLogSchema>;
+
+// MF AUM History - Daily AUM snapshots
+export const mfAumHistory = pgTable("mf_aum_history", {
+  id: serial("id").primaryKey(),
+  schemeCode: text("scheme_code").notNull(),
+  asOfDate: date("as_of_date").notNull(),
+  aum: decimal("aum", { precision: 15, scale: 2 }),
+  source: varchar("source"),
+  dayOverDayChangePercent: decimal("day_over_day_change_percent", { precision: 8, scale: 4 }),
+  anomalyFlag: boolean("anomaly_flag").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_mf_aum_history_unique").on(table.schemeCode, table.asOfDate),
+  index("idx_mf_aum_history_scheme").on(table.schemeCode),
+  index("idx_mf_aum_history_date").on(table.asOfDate),
+]);
+
+export const insertMfAumHistorySchema = createInsertSchema(mfAumHistory).omit({
+  id: true, createdAt: true,
+});
+export type MfAumHistory = typeof mfAumHistory.$inferSelect;
+export type InsertMfAumHistory = z.infer<typeof insertMfAumHistorySchema>;
+
+// MF Category Rules - SEBI category rules
+export const mfCategoryRules = pgTable("mf_category_rules", {
+  id: serial("id").primaryKey(),
+  category: varchar("category").notNull(),
+  subCategory: varchar("sub_category").notNull(),
+  sebiCircularRef: varchar("sebi_circular_ref"),
+  effectiveDate: date("effective_date"),
+  rules: jsonb("rules"),
+  isActive: boolean("is_active").default(true),
+  version: integer("version").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_mf_category_rules_unique").on(table.category, table.subCategory, table.version),
+]);
+
+export const insertMfCategoryRuleSchema = createInsertSchema(mfCategoryRules).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+export type MfCategoryRule = typeof mfCategoryRules.$inferSelect;
+export type InsertMfCategoryRule = z.infer<typeof insertMfCategoryRuleSchema>;
+
 // KYC Rejection Reason Codes
 export const KYC_REJECTION_REASON_CODES = {
   DOCUMENT_MISMATCH: "DOCUMENT_MISMATCH",

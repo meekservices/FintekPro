@@ -1,10 +1,10 @@
 import axios from 'axios';
 import { db } from '../db';
-import { mutualFunds } from '@shared/schema';
-import { eq, sql, isNull, or, and } from 'drizzle-orm';
+import { mutualFunds, mfEnrichmentAuditLogs, mfAumHistory } from '@shared/schema';
+import { eq, desc, sql, isNull, or, and } from 'drizzle-orm';
 
 const MFAPI_BASE_URL = 'https://api.mfapi.in/mf';
-const GITHUB_CSV_URL = 'https://raw.githubusercontent.com/InertExpert2911/Mutual_Fund_Data/main/mutual_fund_data.csv';
+const AMFI_NAV_URL = 'https://www.amfiindia.com/spages/NAVAll.txt';
 
 interface MFAPIMetadata {
   fund_house: string;
@@ -27,20 +27,20 @@ interface MFAPIResponse {
   status: string;
 }
 
-interface GitHubMFRow {
-  scheme_code: string;
-  scheme_name: string;
-  nav: string;
-  aum: string;
-  category: string;
-  fund_house: string;
-  isin_growth: string;
-  isin_dividend: string;
-  scheme_type: string;
+interface AmfiNavRecord {
+  schemeCode: string;
+  schemeName: string;
+  nav: number;
+  navDate: string;
+  fundHouse: string;
+  schemeType: string;
+  schemeCategory: string;
+  isinGrowth: string;
+  isinDividendReinvest: string;
 }
 
 interface EnrichmentProgress {
-  status: 'idle' | 'phase1_amfi' | 'phase2_github' | 'phase3_extdata' | 'phase4_mfapi_meta' | 'phase5_mfapi_returns' | 'phase6_defaults' | 'completed' | 'error';
+  status: 'idle' | 'phase1_amfi' | 'phase2_extdata' | 'phase3_mfapi_meta' | 'phase4_mfapi_returns' | 'phase5_defaults' | 'completed' | 'error';
   currentStep: string;
   totalFunds: number;
   processedFunds: number;
@@ -137,8 +137,8 @@ class MFComprehensiveEnrichmentService {
   private isRunning = false;
   private currentDelay = 800;
   private consecutiveRateLimits = 0;
-  private githubCache: Map<string, GitHubMFRow> = new Map();
-  private lastGithubFetchTime = 0;
+  private amfiCache: Map<string, AmfiNavRecord> = new Map();
+  private lastAmfiFetchTime = 0;
 
   static getInstance(): MFComprehensiveEnrichmentService {
     if (!this.instance) {
@@ -151,17 +151,93 @@ class MFComprehensiveEnrichmentService {
     return { ...enrichmentProgress };
   }
 
-  private parseCSVLine(line: string): string[] {
-    const result: string[] = [];
-    let current = '';
-    let inQuotes = false;
-    for (const char of line) {
-      if (char === '"') { inQuotes = !inQuotes; }
-      else if (char === ',' && !inQuotes) { result.push(current); current = ''; }
-      else { current += char; }
+  private async logAuditChange(
+    schemeCode: string,
+    fieldName: string,
+    oldValue: string | null,
+    newValue: string | null,
+    changeType: string,
+    source: string,
+    enrichmentRunId: string,
+    metadata?: Record<string, any>
+  ): Promise<void> {
+    try {
+      await db.insert(mfEnrichmentAuditLogs).values({
+        schemeCode,
+        fieldName,
+        oldValue,
+        newValue,
+        changeType,
+        source,
+        enrichmentRunId,
+        metadata: metadata || null,
+      });
+    } catch (error: any) {
+      console.warn(`[AuditLog] Failed to log change for ${schemeCode}.${fieldName}: ${error.message}`);
     }
-    result.push(current);
-    return result;
+  }
+
+  private async recordAumHistory(
+    schemeCode: string,
+    aum: number,
+    source: string
+  ): Promise<void> {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+
+      const previousRecords = await db.select({
+        aum: mfAumHistory.aum,
+      }).from(mfAumHistory)
+        .where(eq(mfAumHistory.schemeCode, schemeCode))
+        .orderBy(desc(mfAumHistory.asOfDate))
+        .limit(1);
+
+      let dayOverDayChangePercent: string | null = null;
+      let anomalyFlag = false;
+
+      if (previousRecords.length > 0 && previousRecords[0].aum) {
+        const prevAum = parseFloat(previousRecords[0].aum);
+        if (prevAum > 0) {
+          const changePercent = ((aum - prevAum) / prevAum) * 100;
+          dayOverDayChangePercent = changePercent.toFixed(4);
+          anomalyFlag = Math.abs(changePercent) > 20;
+        }
+      }
+
+      await db.insert(mfAumHistory).values({
+        schemeCode,
+        asOfDate: today,
+        aum: aum.toFixed(2),
+        source,
+        dayOverDayChangePercent,
+        anomalyFlag,
+      }).onConflictDoNothing();
+    } catch (error: any) {
+      console.warn(`[AumHistory] Failed to record AUM for ${schemeCode}: ${error.message}`);
+    }
+  }
+
+  async getAuditLogs(schemeCode?: string, limit?: number, changeType?: string) {
+    const conditions = [];
+    if (schemeCode) {
+      conditions.push(eq(mfEnrichmentAuditLogs.schemeCode, schemeCode));
+    }
+    if (changeType) {
+      conditions.push(eq(mfEnrichmentAuditLogs.changeType, changeType));
+    }
+
+    const query = db.select().from(mfEnrichmentAuditLogs);
+
+    if (conditions.length > 0) {
+      return await query
+        .where(conditions.length === 1 ? conditions[0] : and(...conditions))
+        .orderBy(desc(mfEnrichmentAuditLogs.createdAt))
+        .limit(limit || 100);
+    }
+
+    return await query
+      .orderBy(desc(mfEnrichmentAuditLogs.createdAt))
+      .limit(limit || 100);
   }
 
   private parseAUM(aumStr: string): number | null {
@@ -224,49 +300,89 @@ class MFComprehensiveEnrichmentService {
     return category;
   }
 
-  private async fetchGitHubData(): Promise<Map<string, GitHubMFRow>> {
+  private async fetchAmfiData(): Promise<Map<string, AmfiNavRecord>> {
     const TTL = 6 * 60 * 60 * 1000;
-    if (this.githubCache.size > 0 && Date.now() - this.lastGithubFetchTime < TTL) {
-      return this.githubCache;
+    if (this.amfiCache.size > 0 && Date.now() - this.lastAmfiFetchTime < TTL) {
+      return this.amfiCache;
     }
 
     try {
-      console.log('[ComprehensiveEnrichment] Fetching GitHub MF data...');
-      const response = await axios.get(GITHUB_CSV_URL, { timeout: 60000 });
-      const csvData = response.data as string;
-      const lines = csvData.split('\n');
-      const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/\s+/g, '_'));
-      const data = new Map<string, GitHubMFRow>();
+      console.log('[ComprehensiveEnrichment] Fetching official AMFI NAV data from amfiindia.com...');
+      const response = await axios.get(AMFI_NAV_URL, {
+        timeout: 120000,
+        responseType: 'text',
+      });
 
-      for (let i = 1; i < lines.length; i++) {
-        const values = this.parseCSVLine(lines[i]);
-        if (values.length < headers.length) continue;
-        const row: any = {};
-        headers.forEach((header, idx) => { row[header] = values[idx]?.trim() || ''; });
+      const rawData = response.data as string;
+      const lines = rawData.split('\n');
+      const data = new Map<string, AmfiNavRecord>();
 
-        const schemeCode = row.scheme_code || row.code || '';
-        if (schemeCode) {
+      let currentFundHouse = '';
+      let currentSchemeType = '';
+      let currentSchemeCategory = '';
+
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (!trimmedLine) continue;
+
+        if (!trimmedLine.includes(';') && trimmedLine.includes('Mutual Fund')) {
+          currentFundHouse = trimmedLine;
+          continue;
+        }
+
+        if (trimmedLine.startsWith('Open Ended Schemes') ||
+            trimmedLine.startsWith('Close Ended Schemes') ||
+            trimmedLine.startsWith('Interval Fund Schemes')) {
+          currentSchemeType = trimmedLine.split('(')[0].trim();
+          const categoryMatch = trimmedLine.match(/\(([^)]+)\)/);
+          currentSchemeCategory = categoryMatch ? categoryMatch[1] : '';
+          continue;
+        }
+
+        if (!trimmedLine.includes(';') &&
+            (trimmedLine === trimmedLine.toUpperCase() ||
+             trimmedLine.includes('Scheme') ||
+             trimmedLine.includes('Fund'))) {
+          if (!trimmedLine.includes('Mutual Fund')) {
+            currentSchemeCategory = trimmedLine;
+          }
+          continue;
+        }
+
+        const parts = trimmedLine.split(';');
+        if (parts.length >= 5) {
+          const schemeCode = parts[0]?.trim();
+          const isinGrowth = parts[1]?.trim() || '';
+          const isinDividendReinvest = parts[2]?.trim() || '';
+          const schemeName = parts[3]?.trim() || '';
+          const navStr = parts[4]?.trim() || '';
+          const navDate = parts[5]?.trim() || '';
+
+          if (!schemeCode || !/^\d+$/.test(schemeCode)) continue;
+          const nav = parseFloat(navStr);
+          if (isNaN(nav) || nav <= 0) continue;
+
           data.set(schemeCode, {
-            scheme_code: schemeCode,
-            scheme_name: row.scheme_name || row.scheme_nav_name || row.name || '',
-            nav: row.nav || row.scheme_nav || '',
-            aum: row.average_aum_cr || row.aum || row.assets_under_management || '',
-            category: row.scheme_category || row.category || '',
-            fund_house: row.amc || row.fund_house || '',
-            isin_growth: row['isin_div_payout/growth'] || row['isin_div_payout_growth'] || row.isin_growth || row['isin_div_payout/growth/div_reinvestment'] || row.isin || '',
-            isin_dividend: row.isin_div_reinvestment || row.isin_dividend || row.isin_div || '',
-            scheme_type: row.scheme_type || '',
+            schemeCode,
+            schemeName,
+            nav,
+            navDate,
+            fundHouse: currentFundHouse,
+            schemeType: currentSchemeType,
+            schemeCategory: currentSchemeCategory,
+            isinGrowth,
+            isinDividendReinvest,
           });
         }
       }
 
-      this.githubCache = data;
-      this.lastGithubFetchTime = Date.now();
-      console.log(`[ComprehensiveEnrichment] Loaded ${data.size} schemes from GitHub`);
+      this.amfiCache = data;
+      this.lastAmfiFetchTime = Date.now();
+      console.log(`[ComprehensiveEnrichment] Loaded ${data.size} schemes from official AMFI feed`);
       return data;
     } catch (error: any) {
-      console.warn('[ComprehensiveEnrichment] GitHub fetch failed:', error.message);
-      return this.githubCache;
+      console.warn('[ComprehensiveEnrichment] AMFI fetch failed:', error.message);
+      return this.amfiCache;
     }
   }
 
@@ -419,22 +535,23 @@ class MFComprehensiveEnrichmentService {
     enrichmentProgress.startedAt = new Date();
 
     const { maxMfapiFunds = 500, skipMfapi = false, batchSize = 500 } = options;
+    const enrichmentRunId = `enrichment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     try {
       const [countResult] = await db.select({ total: sql<number>`COUNT(*)` }).from(mutualFunds);
       enrichmentProgress.totalFunds = Number(countResult?.total || 0);
 
-      await this.phase1_GitHubEnrichment(batchSize);
+      await this.phase1_AmfiEnrichment(batchSize, enrichmentRunId);
 
-      await this.phase2_ExtendedDataExtraction(batchSize);
+      await this.phase2_ExtendedDataExtraction(batchSize, enrichmentRunId);
 
-      await this.phase3_MFAPIMetadata(maxMfapiFunds);
+      await this.phase3_MFAPIMetadata(maxMfapiFunds, enrichmentRunId);
 
       if (!skipMfapi) {
-        await this.phase4_MFAPIReturns(maxMfapiFunds);
+        await this.phase4_MFAPIReturns(maxMfapiFunds, enrichmentRunId);
       }
 
-      await this.phase5_CategoryDefaults(batchSize);
+      await this.phase5_CategoryDefaults(batchSize, enrichmentRunId);
 
       enrichmentProgress.status = 'completed';
       enrichmentProgress.currentStep = 'All enrichment phases completed';
@@ -454,14 +571,14 @@ class MFComprehensiveEnrichmentService {
     return enrichmentProgress;
   }
 
-  private async phase1_GitHubEnrichment(batchSize: number): Promise<void> {
-    enrichmentProgress.status = 'phase2_github';
-    enrichmentProgress.currentStep = 'Phase 1: Fetching GitHub AUM/category data...';
-    console.log('[ComprehensiveEnrichment] Phase 1: GitHub CSV enrichment');
+  private async phase1_AmfiEnrichment(batchSize: number, enrichmentRunId: string): Promise<void> {
+    enrichmentProgress.status = 'phase1_amfi';
+    enrichmentProgress.currentStep = 'Phase 1: Fetching official AMFI NAV feed (amfiindia.com)...';
+    console.log('[ComprehensiveEnrichment] Phase 1: Official AMFI feed enrichment');
 
-    const githubData = await this.fetchGitHubData();
-    if (githubData.size === 0) {
-      enrichmentProgress.errors.push('GitHub data fetch returned empty');
+    const amfiData = await this.fetchAmfiData();
+    if (amfiData.size === 0) {
+      enrichmentProgress.errors.push('AMFI official feed returned empty');
       return;
     }
 
@@ -469,43 +586,57 @@ class MFComprehensiveEnrichmentService {
       id: mutualFunds.id,
       schemeCode: mutualFunds.schemeCode,
       category: mutualFunds.category,
-      aum: mutualFunds.aum,
+      fundHouse: mutualFunds.fundHouse,
+      nav: mutualFunds.nav,
       isin: mutualFunds.isin,
+      isinGrowth: mutualFunds.isinGrowth,
+      isinDividendReinvest: mutualFunds.isinDividendReinvest,
+      dataSource: mutualFunds.dataSource,
     }).from(mutualFunds).where(
-      or(isNull(mutualFunds.aum), isNull(mutualFunds.category), isNull(mutualFunds.isin))
+      or(isNull(mutualFunds.category), isNull(mutualFunds.isin), isNull(mutualFunds.fundHouse), isNull(mutualFunds.nav))
     );
 
     for (let i = 0; i < funds.length; i += batchSize) {
       const batch = funds.slice(i, i + batchSize);
-      enrichmentProgress.currentStep = `Phase 1: Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(funds.length / batchSize)}`;
+      enrichmentProgress.currentStep = `Phase 1: AMFI batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(funds.length / batchSize)}`;
 
       const updatePromises = batch.map(async (fund) => {
         try {
-          const ghRow = githubData.get(fund.schemeCode);
-          if (!ghRow) return;
+          const amfiRow = amfiData.get(fund.schemeCode);
+          if (!amfiRow) return;
           const updates: Record<string, any> = {};
 
-          if (fund.aum === null && ghRow.aum) {
-            const parsedAum = this.parseAUM(ghRow.aum);
-            if (parsedAum !== null && parsedAum > 0) {
-              updates.aum = parsedAum.toString();
-              enrichmentProgress.phase1Stats.aumUpdated++;
-            }
-          }
-
-          if (fund.category === null && ghRow.category) {
-            updates.category = ghRow.category;
+          if (fund.category === null && amfiRow.schemeCategory) {
+            const fullCategory = amfiRow.schemeType
+              ? `${amfiRow.schemeType} - ${amfiRow.schemeCategory}`
+              : amfiRow.schemeCategory;
+            updates.category = fullCategory;
             enrichmentProgress.phase1Stats.categoryUpdated++;
+            await this.logAuditChange(fund.schemeCode, 'category', null, fullCategory, 'enrichment', 'AMFI', enrichmentRunId);
           }
 
-          if (!fund.isin && ghRow.isin_growth && ghRow.isin_growth !== '-' && ghRow.isin_growth !== 'N/A') {
-            updates.isin = ghRow.isin_growth;
-            updates.isinGrowth = ghRow.isin_growth;
+          if (fund.nav === null && amfiRow.nav > 0) {
+            updates.nav = amfiRow.nav.toString();
+          }
+
+          if (!fund.fundHouse && amfiRow.fundHouse) {
+            updates.fundHouse = amfiRow.fundHouse;
+          }
+
+          if (!fund.isin && amfiRow.isinGrowth && amfiRow.isinGrowth !== '-' && amfiRow.isinGrowth.length > 3) {
+            updates.isin = amfiRow.isinGrowth;
+            updates.isinGrowth = amfiRow.isinGrowth;
             enrichmentProgress.phase1Stats.isinUpdated++;
+            await this.logAuditChange(fund.schemeCode, 'isin', null, amfiRow.isinGrowth, 'enrichment', 'AMFI', enrichmentRunId);
+          }
+
+          if (!fund.isinDividendReinvest && amfiRow.isinDividendReinvest && amfiRow.isinDividendReinvest !== '-' && amfiRow.isinDividendReinvest.length > 3) {
+            updates.isinDividendReinvest = amfiRow.isinDividendReinvest;
           }
 
           if (Object.keys(updates).length > 0) {
             updates.lastVerifiedAt = new Date();
+            updates.dataSource = 'AMFI';
             await db.update(mutualFunds).set(updates).where(eq(mutualFunds.id, fund.id));
           }
         } catch (error: any) {
@@ -516,11 +647,11 @@ class MFComprehensiveEnrichmentService {
       await Promise.all(updatePromises);
     }
 
-    console.log(`[ComprehensiveEnrichment] Phase 1 done: AUM=${enrichmentProgress.phase1Stats.aumUpdated}, Category=${enrichmentProgress.phase1Stats.categoryUpdated}, ISIN=${enrichmentProgress.phase1Stats.isinUpdated}`);
+    console.log(`[ComprehensiveEnrichment] Phase 1 done: Category=${enrichmentProgress.phase1Stats.categoryUpdated}, ISIN=${enrichmentProgress.phase1Stats.isinUpdated} (source: AMFI official feed)`);
   }
 
-  private async phase2_ExtendedDataExtraction(batchSize: number): Promise<void> {
-    enrichmentProgress.status = 'phase3_extdata';
+  private async phase2_ExtendedDataExtraction(batchSize: number, enrichmentRunId: string): Promise<void> {
+    enrichmentProgress.status = 'phase2_extdata';
     enrichmentProgress.currentStep = 'Phase 2: Extracting from extendedData JSONB...';
     console.log('[ComprehensiveEnrichment] Phase 2: ExtendedData extraction');
 
@@ -582,6 +713,11 @@ class MFComprehensiveEnrichmentService {
           if (Object.keys(updates).length > 0) {
             updates.lastUpdated = new Date();
             await db.update(mutualFunds).set(updates).where(eq(mutualFunds.id, fund.id));
+            for (const [field, value] of Object.entries(updates)) {
+              if (field !== 'lastUpdated') {
+                await this.logAuditChange(fund.schemeCode, field, null, String(value), 'enrichment', 'extended_data', enrichmentRunId);
+              }
+            }
           }
         } catch (error: any) {
           enrichmentProgress.errors.push(`P2 ${fund.schemeCode}: ${error.message}`);
@@ -592,8 +728,8 @@ class MFComprehensiveEnrichmentService {
     console.log(`[ComprehensiveEnrichment] Phase 2 done: ExitLoad=${enrichmentProgress.phase2Stats.exitLoadUpdated}, MinSIP=${enrichmentProgress.phase2Stats.minSipUpdated}, MinLumpsum=${enrichmentProgress.phase2Stats.minLumpsumUpdated}, LaunchDate=${enrichmentProgress.phase2Stats.launchDateUpdated}`);
   }
 
-  private async phase3_MFAPIMetadata(maxFunds: number): Promise<void> {
-    enrichmentProgress.status = 'phase4_mfapi_meta';
+  private async phase3_MFAPIMetadata(maxFunds: number, enrichmentRunId: string): Promise<void> {
+    enrichmentProgress.status = 'phase3_mfapi_meta';
     enrichmentProgress.currentStep = 'Phase 3: Fetching MFapi.in metadata (sub-category, launch date)...';
     console.log('[ComprehensiveEnrichment] Phase 3: MFapi.in metadata enrichment');
 
@@ -642,6 +778,11 @@ class MFComprehensiveEnrichmentService {
         if (Object.keys(updates).length > 0) {
           updates.lastUpdated = new Date();
           await db.update(mutualFunds).set(updates).where(eq(mutualFunds.id, fund.id));
+          for (const [field, value] of Object.entries(updates)) {
+            if (field !== 'lastUpdated') {
+              await this.logAuditChange(fund.schemeCode, field, null, String(value), 'enrichment', 'MFAPI', enrichmentRunId);
+            }
+          }
         }
 
         await new Promise(resolve => setTimeout(resolve, this.currentDelay));
@@ -653,8 +794,8 @@ class MFComprehensiveEnrichmentService {
     console.log(`[ComprehensiveEnrichment] Phase 3 done: SubCategory=${enrichmentProgress.phase3Stats.subCategoryUpdated}, LaunchDate=${enrichmentProgress.phase3Stats.launchDateFromNav}, MetaFetched=${enrichmentProgress.phase3Stats.metaFetched}`);
   }
 
-  private async phase4_MFAPIReturns(maxFunds: number): Promise<void> {
-    enrichmentProgress.status = 'phase5_mfapi_returns';
+  private async phase4_MFAPIReturns(maxFunds: number, enrichmentRunId: string): Promise<void> {
+    enrichmentProgress.status = 'phase4_mfapi_returns';
     enrichmentProgress.currentStep = 'Phase 4: Calculating returns & ratios from MFapi.in historical NAV...';
     console.log('[ComprehensiveEnrichment] Phase 4: MFapi.in returns & ratios');
 
@@ -696,6 +837,11 @@ class MFComprehensiveEnrichmentService {
           enrichmentProgress.phase4Stats.fundsSynced++;
           if (returns.returns1y !== null) enrichmentProgress.phase4Stats.returnsUpdated++;
           if (ratios.sharpeRatio !== null) enrichmentProgress.phase4Stats.ratiosUpdated++;
+          for (const [field, value] of Object.entries(updates)) {
+            if (field !== 'lastUpdated') {
+              await this.logAuditChange(fund.schemeCode, field, null, String(value), 'enrichment', 'MFAPI_RETURNS', enrichmentRunId);
+            }
+          }
         }
 
         if (i % 20 === 0) {
@@ -711,8 +857,8 @@ class MFComprehensiveEnrichmentService {
     console.log(`[ComprehensiveEnrichment] Phase 4 done: Returns=${enrichmentProgress.phase4Stats.returnsUpdated}, Ratios=${enrichmentProgress.phase4Stats.ratiosUpdated}, Synced=${enrichmentProgress.phase4Stats.fundsSynced}`);
   }
 
-  private async phase5_CategoryDefaults(batchSize: number): Promise<void> {
-    enrichmentProgress.status = 'phase6_defaults';
+  private async phase5_CategoryDefaults(batchSize: number, enrichmentRunId: string): Promise<void> {
+    enrichmentProgress.status = 'phase5_defaults';
     enrichmentProgress.currentStep = 'Phase 5: Applying category-based defaults for remaining nulls...';
     console.log('[ComprehensiveEnrichment] Phase 5: Category-based defaults');
 
@@ -755,18 +901,21 @@ class MFComprehensiveEnrichmentService {
               updates.exitLoadDays = 365;
             }
             enrichmentProgress.phase5Stats.exitLoadDefaults++;
+            await this.logAuditChange(fund.schemeCode, 'exitLoadPercent', null, updates.exitLoadPercent, 'category_default', `category:${cat || 'unknown'}`, enrichmentRunId);
           }
 
           if (fund.minSipAmount === null) {
             const amounts = cat ? CATEGORY_MIN_AMOUNTS[cat] : null;
             updates.minSipAmount = (amounts?.sip || DEFAULT_MIN_SIP).toString();
             enrichmentProgress.phase5Stats.minSipDefaults++;
+            await this.logAuditChange(fund.schemeCode, 'minSipAmount', null, updates.minSipAmount, 'category_default', `category:${cat || 'unknown'}`, enrichmentRunId);
           }
 
           if (fund.minLumpsumAmount === null) {
             const amounts = cat ? CATEGORY_MIN_AMOUNTS[cat] : null;
             updates.minLumpsumAmount = (amounts?.lumpsum || DEFAULT_MIN_LUMPSUM).toString();
             enrichmentProgress.phase5Stats.minLumpsumDefaults++;
+            await this.logAuditChange(fund.schemeCode, 'minLumpsumAmount', null, updates.minLumpsumAmount, 'category_default', `category:${cat || 'unknown'}`, enrichmentRunId);
           }
 
           if (fund.schemeSubCategory === null && cat) {

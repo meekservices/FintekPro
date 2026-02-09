@@ -4323,6 +4323,62 @@ System Security Data:`;
     }
   });
 
+  app.post("/api/admin/enrichment/mf/sebi-rules/seed", requireAdmin, async (req, res) => {
+    try {
+      const { sebiCategoryEngine } = await import("../../services/mf-sebi-category-engine");
+      const result = await sebiCategoryEngine.seedCategoryRules();
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/admin/enrichment/mf/sebi-rules", requireAdmin, async (req, res) => {
+    try {
+      const { sebiCategoryEngine } = await import("../../services/mf-sebi-category-engine");
+      const rules = await sebiCategoryEngine.getAllRules();
+      res.json({ success: true, data: rules });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/admin/enrichment/mf/category-stats", requireAdmin, async (req, res) => {
+    try {
+      const { sebiCategoryEngine } = await import("../../services/mf-sebi-category-engine");
+      const stats = await sebiCategoryEngine.getCategoryStats();
+      res.json({ success: true, data: stats });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/admin/enrichment/mf/audit-logs", requireAdmin, async (req, res) => {
+    try {
+      const { mfComprehensiveEnrichmentService } = await import("../../services/mf-comprehensive-enrichment-service");
+      const { schemeCode, limit = '50', changeType } = req.query;
+      const logs = await mfComprehensiveEnrichmentService.getAuditLogs(
+        schemeCode as string | undefined,
+        parseInt(limit as string) || 50,
+        changeType as string | undefined
+      );
+      res.json({ success: true, data: logs });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/admin/enrichment/mf/validate-categories", requireAdmin, async (req, res) => {
+    try {
+      const { sebiCategoryEngine } = await import("../../services/mf-sebi-category-engine");
+      const { limit = '500' } = req.query;
+      const validation = await sebiCategoryEngine.validateAllSchemes(parseInt(limit as string) || 500);
+      res.json({ success: true, ...validation });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   // Stock Financial Enrichment - get stats
   app.get("/api/admin/enrichment/stocks/stats", requireAdmin, async (req, res) => {
     try {

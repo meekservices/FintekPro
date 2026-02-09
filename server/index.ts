@@ -754,6 +754,10 @@ app.use((req, res, next) => {
   registerOrderRoutes(app);
   console.log('✅ Unified Order Management routes registered');
   
+  // Register MF Enrichment & Internal Fund APIs (SEBI-compliant data pipeline)
+  const { registerMFEnrichmentRoutes } = await import('./routes/mf-enrichment-routes');
+  registerMFEnrichmentRoutes(app);
+
   // Register AI MF Recommendation routes (Smart fund recommendations with rich rationale)
   const aiMFRecommendationRoutes = await import('./routes/ai-mf-recommendation-routes');
   app.use(aiMFRecommendationRoutes.default);
