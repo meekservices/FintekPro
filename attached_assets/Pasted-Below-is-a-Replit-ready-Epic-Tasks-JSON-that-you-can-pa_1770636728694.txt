@@ -1,0 +1,247 @@
+Below is a Replit-ready Epic → Tasks JSON that you can paste directly into Replit Issues / Tasks / Linear import.
+It is strictly implementation-focused, mapped 1:1 to the system you finalized.
+No fluff. No ambiguity.
+{
+  "epics": [
+    {
+      "epic_id": "EPIC-LL-01",
+      "title": "Lead Registration & First-Touch Attribution",
+      "description": "Ensure every loan lead is registered with immutable first-touch attribution before any processing or payout.",
+      "tasks": [
+        {
+          "task_id": "LL-01-01",
+          "title": "Create lead_registry table",
+          "description": "Create lead_registry table to store PAN, mobile, first_agent_id, partner_snapshot, first_touch_timestamp. Ensure immutability after insert.",
+          "acceptance_criteria": [
+            "First-touch record created only once per PAN+mobile",
+            "Subsequent registrations reference original record",
+            "No update/delete allowed"
+          ]
+        },
+        {
+          "task_id": "LL-01-02",
+          "title": "Implement POST /leads/register API",
+          "description": "API to register a lead with PAN, mobile, customer name, loan type, approx amount, agent_id, partner_id.",
+          "acceptance_criteria": [
+            "Generates lead_id",
+            "Creates lead_registry entry",
+            "Binds agent & partner hierarchy",
+            "Timestamp captured"
+          ]
+        }
+      ]
+    },
+    {
+      "epic_id": "EPIC-LL-02",
+      "title": "Processing Mode & Financier Selection",
+      "description": "Allow agents to explicitly choose platform vs external financier-led processing.",
+      "tasks": [
+        {
+          "task_id": "LL-02-01",
+          "title": "Add processing_mode field",
+          "description": "Add processing_mode enum (PLATFORM, EXTERNAL_FINANCIER) to leads table. Field becomes immutable once set.",
+          "acceptance_criteria": [
+            "Processing mode mandatory before status updates",
+            "Cannot be changed once set"
+          ]
+        },
+        {
+          "task_id": "LL-02-02",
+          "title": "Implement POST /leads/{lead_id}/processing-mode",
+          "description": "API to set processing mode for a lead.",
+          "acceptance_criteria": [
+            "Rejects if already set",
+            "Audit log created"
+          ]
+        },
+        {
+          "task_id": "LL-02-03",
+          "title": "Implement financier & banker selection",
+          "description": "API to store financier name, banker name, banker mobile for external processing.",
+          "acceptance_criteria": [
+            "Financier mandatory for EXTERNAL_FINANCIER",
+            "Stored with timestamp"
+          ]
+        }
+      ]
+    },
+    {
+      "epic_id": "EPIC-LL-03",
+      "title": "Loan Status Tracking",
+      "description": "Track high-level loan milestones without enforcing document uploads.",
+      "tasks": [
+        {
+          "task_id": "LL-03-01",
+          "title": "Implement POST /leads/{lead_id}/status",
+          "description": "Allow status updates: LOGGED_IN, APPROVED, DISBURSED.",
+          "acceptance_criteria": [
+            "Only forward transitions allowed",
+            "Each change logged with timestamp and actor"
+          ]
+        }
+      ]
+    },
+    {
+      "epic_id": "EPIC-LL-04",
+      "title": "Payout Claim Submission",
+      "description": "Single mandatory checkpoint for all commissions.",
+      "tasks": [
+        {
+          "task_id": "LL-04-01",
+          "title": "Create payout_claims table",
+          "description": "Table to store claim data including disbursement, PDD status, subvention, team flags.",
+          "acceptance_criteria": [
+            "Claim must reference valid lead_id",
+            "Reject if lead registered after disbursement"
+          ]
+        },
+        {
+          "task_id": "LL-04-02",
+          "title": "Implement POST /payout-claims API",
+          "description": "Agent submits payout claim with mandatory fields including PDD status and transaction status.",
+          "acceptance_criteria": [
+            "Validations enforced",
+            "Claim status defaults to PENDING_VERIFICATION"
+          ]
+        }
+      ]
+    },
+    {
+      "epic_id": "EPIC-LL-05",
+      "title": "Proof of Disbursement Upload",
+      "description": "Allow banker or agent to upload supporting proof files.",
+      "tasks": [
+        {
+          "task_id": "LL-05-01",
+          "title": "Implement proof_uploads table",
+          "description": "Store file metadata, hash, uploader role, timestamp linked to claim_id.",
+          "acceptance_criteria": [
+            "Multiple files allowed",
+            "No file deletion"
+          ]
+        },
+        {
+          "task_id": "LL-05-02",
+          "title": "Implement POST /payout-claims/{claim_id}/proof",
+          "description": "Upload proof in jpg, jpeg, png, pdf, screenshots.",
+          "acceptance_criteria": [
+            "File size limit enforced",
+            "Proof does not auto-approve claim"
+          ]
+        }
+      ]
+    },
+    {
+      "epic_id": "EPIC-LL-06",
+      "title": "Banker Email Confirmation Engine",
+      "description": "Primary verification via banker reply email.",
+      "tasks": [
+        {
+          "task_id": "LL-06-01",
+          "title": "Auto-send banker confirmation email",
+          "description": "Send email from support@fintekpro.com to banker, senior, CC admin with required template.",
+          "acceptance_criteria": [
+            "Triggered on payout claim submission",
+            "Email logged and traceable"
+          ]
+        },
+        {
+          "task_id": "LL-06-02",
+          "title": "Admin email confirmation tagging",
+          "description": "Admin marks claim as CONFIRMED_BY_FINANCIER after verifying reply.",
+          "acceptance_criteria": [
+            "Email ID stored",
+            "Timestamp captured"
+          ]
+        }
+      ]
+    },
+    {
+      "epic_id": "EPIC-LL-07",
+      "title": "PDD Exception Handling",
+      "description": "Support claimable cases where PDD is not cleared.",
+      "tasks": [
+        {
+          "task_id": "LL-07-01",
+          "title": "Add PDD exception fields",
+          "description": "Add pdd_exception_allowed_by_financier flag and mandatory banker wording check.",
+          "acceptance_criteria": [
+            "Only allowed if banker confirmation explicitly permits"
+          ]
+        },
+        {
+          "task_id": "LL-07-02",
+          "title": "Decision matrix implementation",
+          "description": "Approve, hold, or reject claims based on PDD status and confirmation.",
+          "acceptance_criteria": [
+            "Matches defined decision table"
+          ]
+        }
+      ]
+    },
+    {
+      "epic_id": "EPIC-LL-08",
+      "title": "Commission Ledger & Partner Waterfall",
+      "description": "Create auditable commission entries and distribute across hierarchy.",
+      "tasks": [
+        {
+          "task_id": "LL-08-01",
+          "title": "Ledger entry on claim approval",
+          "description": "Create commission ledger entry with pdd_exception and agent payout status.",
+          "acceptance_criteria": [
+            "No deletions allowed",
+            "Mirror entries for reversals"
+          ]
+        },
+        {
+          "task_id": "LL-08-02",
+          "title": "Trigger partner waterfall",
+          "description": "Distribute commission across Partner → Sub-partner → Agent.",
+          "acceptance_criteria": [
+            "Agent payout marked ON_HOLD_PDD if PDD not cleared"
+          ]
+        }
+      ]
+    },
+    {
+      "epic_id": "EPIC-LL-09",
+      "title": "Agent Payout Hold & Release",
+      "description": "Strictly hold agent payout until PDD clearance.",
+      "tasks": [
+        {
+          "task_id": "LL-09-01",
+          "title": "Enforce agent payout hold",
+          "description": "Block agent payout release if pdd_status != CLEARED.",
+          "acceptance_criteria": [
+            "No admin override possible"
+          ]
+        },
+        {
+          "task_id": "LL-09-02",
+          "title": "Implement PDD clearance confirmation API",
+          "description": "POST /payout-claims/{claim_id}/pdd-clearance",
+          "acceptance_criteria": [
+            "Requires banker confirmation",
+            "Releases agent payout"
+          ]
+        }
+      ]
+    },
+    {
+      "epic_id": "EPIC-LL-10",
+      "title": "Clawback & Reversal Safety",
+      "description": "Handle reversals safely with full audit.",
+      "tasks": [
+        {
+          "task_id": "LL-10-01",
+          "title": "Implement commission clawback",
+          "description": "Auto-create negative mirror ledger on reversal or failed PDD.",
+          "acceptance_criteria": [
+            "Agent notified",
+            "Audit preserved"
+          ]
+        }
+      ]
+    }
+  ]
+}
