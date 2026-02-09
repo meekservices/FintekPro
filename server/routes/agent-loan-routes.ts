@@ -3,6 +3,7 @@ import { db } from "../db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { nanoid } from "nanoid";
+import { leadRegistryService } from "../services/lead-registry-service";
 import {
   dsaLoanApplications,
   dsaLoanDocuments,
@@ -25,7 +26,7 @@ import {
 
 const router = Router();
 
-const AGENT_ROLES = ["agent", "sub_agent", "master_agent", "associate"];
+const AGENT_ROLES = ["agent", "sub_agent", "master_agent", "associate", "tester"];
 
 async function requireAgentRole(req: Request, res: Response, next: NextFunction) {
   const user = (req as any).user;
@@ -171,6 +172,11 @@ const createAgentApplicationSchema = z.object({
   existingLoans: z.number().int().optional(),
   existingEmiAmount: z.number().optional(),
   creditScore: z.number().int().min(300).max(900).optional(),
+  processingMode: z.enum(["PLATFORM", "EXTERNAL_FINANCIER"]).default("PLATFORM"),
+  financierName: z.string().optional(),
+  bankerName: z.string().optional(),
+  bankerMobile: z.string().optional(),
+  bankerEmail: z.string().email().optional(),
   routingMode: z.enum(["auto", "manual"]).default("auto"),
   targetBanks: z.array(z.string()).optional(),
   dsaCode: z.string().optional(),
@@ -212,6 +218,53 @@ router.post("/applications", async (req: Request, res: Response) => {
 
     const applicationNumber = generateApplicationNumber();
 
+    let leadRegistryId: string | undefined;
+    try {
+      if (parsed.applicantPan && parsed.applicantPhone) {
+        const loanTypeMap: Record<string, string> = {
+          personal: "Personal Loan", home: "Home Loan", car: "Car Loan",
+          business: "Business Loan", education: "Education Loan",
+          gold: "Gold Loan", lap: "Loan Against Property", las: "Loan Against Securities",
+        };
+        const leadResult = await leadRegistryService.registerLead({
+          pan: parsed.applicantPan,
+          mobile: parsed.applicantPhone,
+          customerName: parsed.applicantName,
+          loanType: loanTypeMap[parsed.loanType] || parsed.loanType,
+          approxAmount: parsed.requestedAmount.toString(),
+          agentId,
+          partnerId: agentId,
+          ipAddress: req.ip,
+        });
+        if (leadResult.success) {
+          leadRegistryId = leadResult.lead.leadId;
+          if (!leadResult.lead.processingMode) {
+            await leadRegistryService.setProcessingMode(
+              leadResult.lead.leadId,
+              parsed.processingMode,
+              agentId,
+              req.ip,
+            );
+          }
+          if (parsed.processingMode === "EXTERNAL_FINANCIER" && parsed.financierName) {
+            try {
+              await leadRegistryService.setFinancierDetails(
+                leadResult.lead.leadId,
+                {
+                  financierName: parsed.financierName,
+                  bankerName: parsed.bankerName || "",
+                  bankerMobile: parsed.bankerMobile || "",
+                  bankerEmail: parsed.bankerEmail || "",
+                },
+                agentId,
+                req.ip,
+              );
+            } catch (_) {}
+          }
+        }
+      }
+    } catch (_) {}
+
     const [application] = await db
       .insert(dsaLoanApplications)
       .values({
@@ -249,11 +302,16 @@ router.post("/applications", async (req: Request, res: Response) => {
         assistedByAgent: true,
         clientMode: parsed.clientMode as any,
         clientId: parsed.clientId,
-        routingMode: parsed.routingMode as any,
-        targetBanks: parsed.targetBanks || [],
+        processingMode: parsed.processingMode,
+        financierName: parsed.financierName,
+        bankerName: parsed.bankerName,
+        bankerMobile: parsed.bankerMobile,
+        bankerEmail: parsed.bankerEmail,
+        leadRegistryId,
+        routingMode: parsed.processingMode === "PLATFORM" ? (parsed.routingMode as any) : undefined,
+        targetBanks: parsed.processingMode === "PLATFORM" ? (parsed.targetBanks || []) : [],
         dsaCode: parsed.dsaCode,
         subDsaCode: parsed.subDsaCode,
-        // SUB-DSA GOVERNANCE: Hard-coded - Do not trust frontend
         originationMode: AGENT_ASSISTED_DEFAULTS.originationMode,
         routingIntent: AGENT_ASSISTED_DEFAULTS.routingIntent,
         workflowOwner: AGENT_ASSISTED_DEFAULTS.workflowOwner,
@@ -265,15 +323,16 @@ router.post("/applications", async (req: Request, res: Response) => {
       applicationId: application.id,
       agentId,
       actionType: "create",
-      actionDescription: `Created loan application for ${parsed.applicantName}`,
-      newValue: { loanType: parsed.loanType, amount: parsed.requestedAmount, clientMode: parsed.clientMode },
+      actionDescription: `Created loan application for ${parsed.applicantName} (${parsed.processingMode})`,
+      newValue: { loanType: parsed.loanType, amount: parsed.requestedAmount, clientMode: parsed.clientMode, processingMode: parsed.processingMode },
       req,
     });
 
     res.status(201).json({
       success: true,
       data: application,
-      message: "Agent-assisted loan application created successfully",
+      leadRegistryId,
+      message: `Loan lead ${parsed.processingMode === "EXTERNAL_FINANCIER" ? "(bank-processed)" : "(agent-processed)"} created successfully`,
     });
   } catch (error: any) {
     if (error instanceof z.ZodError) {

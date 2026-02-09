@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -104,7 +105,8 @@ function getValidTransitions(currentStatus: string): string[] {
 export default function AgentLeadRegistry() {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const [activeTab, setActiveTab] = useState("register");
+  const [, navigate] = useLocation();
+  const [activeTab, setActiveTab] = useState("leads");
 
   const [regForm, setRegForm] = useState({
     pan: "",
@@ -316,217 +318,28 @@ export default function AgentLeadRegistry() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Tab 1: Register Lead */}
+          {/* Tab 1: Register Lead - Redirects to Loan Apply */}
           <TabsContent value="register" className="mt-6">
-            {!registeredLead ? (
-              <Card className="bg-card border-border max-w-2xl">
-                <CardHeader>
-                  <CardTitle className="text-foreground">Register New Lead</CardTitle>
-                  <CardDescription>Enter customer details to register a new lead</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="pan" className="text-muted-foreground">PAN *</Label>
-                      <Input
-                        id="pan"
-                        value={regForm.pan}
-                        onChange={(e) => setRegForm({ ...regForm, pan: e.target.value.toUpperCase().slice(0, 10) })}
-                        className="mt-1 bg-background border-border uppercase"
-                        placeholder="ABCDE1234F"
-                        maxLength={10}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="mobile" className="text-muted-foreground">Mobile *</Label>
-                      <Input
-                        id="mobile"
-                        value={regForm.mobile}
-                        onChange={(e) => setRegForm({ ...regForm, mobile: e.target.value })}
-                        className="mt-1 bg-background border-border"
-                        placeholder="9876543210"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="customerName" className="text-muted-foreground">Customer Name *</Label>
-                    <Input
-                      id="customerName"
-                      value={regForm.customerName}
-                      onChange={(e) => setRegForm({ ...regForm, customerName: e.target.value })}
-                      className="mt-1 bg-background border-border"
-                      placeholder="Full name"
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="loanType" className="text-muted-foreground">Loan Type *</Label>
-                      <Select value={regForm.loanType} onValueChange={(v) => setRegForm({ ...regForm, loanType: v })}>
-                        <SelectTrigger className="mt-1 bg-background border-border">
-                          <SelectValue placeholder="Select loan type" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-card border-border">
-                          {LOAN_TYPES.map((lt) => (
-                            <SelectItem key={lt} value={lt}>{lt}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="amount" className="text-muted-foreground">Approximate Amount (₹)</Label>
-                      <Input
-                        id="amount"
-                        type="number"
-                        value={regForm.approximateAmount}
-                        onChange={(e) => setRegForm({ ...regForm, approximateAmount: e.target.value })}
-                        className="mt-1 bg-background border-border"
-                        placeholder="1000000"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-end pt-4">
-                    <Button
-                      onClick={handleRegister}
-                      disabled={registerMutation.isPending}
-                      className="bg-emerald-600 hover:bg-emerald-700"
-                    >
-                      {registerMutation.isPending ? (
-                        <Clock className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Plus className="h-4 w-4 mr-2" />
-                      )}
-                      Register Lead
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="max-w-2xl space-y-4">
-                <Card className="bg-card border-emerald-500/30">
-                  <CardContent className="p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                      <CheckCircle className="h-6 w-6 text-emerald-500" />
-                      <div>
-                        <h3 className="text-foreground font-semibold text-lg">Lead Registered Successfully</h3>
-                        <p className="text-muted-foreground text-sm">Lead ID: {registeredLead.id}</p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Customer:</span>
-                        <span className="text-foreground ml-2">{registeredLead.customerName}</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">First Touch:</span>
-                        <span className="text-foreground ml-2">
-                          {new Date(registeredLead.firstTouchTimestamp).toLocaleString("en-IN")}
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {!showExternalForm ? (
-                  <Card className="bg-card border-border">
-                    <CardHeader>
-                      <CardTitle className="text-foreground text-base">Set Processing Mode</CardTitle>
-                      <CardDescription>Choose how this lead will be processed</CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex gap-4">
-                      <Button
-                        onClick={() =>
-                          processingModeMutation.mutate({
-                            leadId: registeredLead.id,
-                            mode: "PLATFORM",
-                          })
-                        }
-                        disabled={processingModeMutation.isPending}
-                        className="bg-blue-600 hover:bg-blue-700"
-                      >
-                        <Shield className="h-4 w-4 mr-2" />
-                        Set as Platform Processing
-                      </Button>
-                      <Button
-                        onClick={() => setShowExternalForm(true)}
-                        variant="outline"
-                        className="border-orange-500/50 text-orange-400 hover:bg-orange-500/10"
-                      >
-                        <ChevronRight className="h-4 w-4 mr-2" />
-                        Set as External Financier
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <Card className="bg-card border-border">
-                    <CardHeader>
-                      <CardTitle className="text-foreground text-base">External Financier Details</CardTitle>
-                      <CardDescription>Provide financier and banker information</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-muted-foreground">Financier Name *</Label>
-                          <Input
-                            value={financierDetails.financierName}
-                            onChange={(e) => setFinancierDetails({ ...financierDetails, financierName: e.target.value })}
-                            className="mt-1 bg-background border-border"
-                            placeholder="Bank/NBFC name"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-muted-foreground">Banker Name</Label>
-                          <Input
-                            value={financierDetails.bankerName}
-                            onChange={(e) => setFinancierDetails({ ...financierDetails, bankerName: e.target.value })}
-                            className="mt-1 bg-background border-border"
-                            placeholder="Contact person name"
-                          />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-muted-foreground">Banker Mobile</Label>
-                          <Input
-                            value={financierDetails.bankerMobile}
-                            onChange={(e) => setFinancierDetails({ ...financierDetails, bankerMobile: e.target.value })}
-                            className="mt-1 bg-background border-border"
-                            placeholder="9876543210"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-muted-foreground">Banker Email</Label>
-                          <Input
-                            value={financierDetails.bankerEmail}
-                            onChange={(e) => setFinancierDetails({ ...financierDetails, bankerEmail: e.target.value })}
-                            className="mt-1 bg-background border-border"
-                            placeholder="banker@bank.com"
-                          />
-                        </div>
-                      </div>
-                      <div className="flex gap-3 pt-2">
-                        <Button
-                          onClick={() =>
-                            processingModeMutation.mutate({
-                              leadId: registeredLead.id,
-                              mode: "EXTERNAL_FINANCIER",
-                              details: financierDetails,
-                            })
-                          }
-                          disabled={!financierDetails.financierName || processingModeMutation.isPending}
-                          className="bg-orange-600 hover:bg-orange-700"
-                        >
-                          {processingModeMutation.isPending && <Clock className="h-4 w-4 mr-2 animate-spin" />}
-                          Submit External Financier
-                        </Button>
-                        <Button variant="outline" onClick={() => setShowExternalForm(false)} className="border-border">
-                          Back
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-            )}
+            <Card className="bg-card border-border max-w-2xl">
+              <CardContent className="p-8 text-center space-y-4">
+                <div className="mx-auto w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                  <Shield className="h-8 w-8 text-emerald-500" />
+                </div>
+                <h3 className="text-foreground font-semibold text-lg">Leads are Auto-Registered</h3>
+                <p className="text-muted-foreground max-w-md mx-auto">
+                  Leads are now automatically registered when you create a loan application. 
+                  Go to the Loan Apply page to create a new lead with full loan details and choose 
+                  whether you or the bank processes it.
+                </p>
+                <Button
+                  onClick={() => navigate("/agent/loan-apply")}
+                  className="bg-emerald-600 hover:bg-emerald-700"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create New Loan Lead
+                </Button>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Tab 2: My Leads */}

@@ -15,7 +15,7 @@ const requireAdmin = (req: any, res: Response, next: any) => {
   next();
 };
 const requireAgentOrPartner = (req: any, res: Response, next: any) => {
-  if (!req.user || !['agent', 'partner', 'admin', 'superadmin'].includes(req.user.role))
+  if (!req.user || !['agent', 'partner', 'admin', 'superadmin', 'tester'].includes(req.user.role))
     return res.status(403).json({ error: "Agent or partner access required" });
   next();
 };
@@ -45,15 +45,19 @@ const statusSchema = z.object({
 
 const submitClaimSchema = z.object({
   leadId: z.string().min(1),
-  disbursementAmount: z.number(),
+  disbursementAmount: z.union([z.number(), z.string()]).transform(v => Number(v)),
   disbursementDate: z.string().min(1),
   loanAccountNumber: z.string().optional(),
-  financierName: z.string().min(1),
-  pddStatus: z.enum(['NOT_APPLICABLE', 'PENDING', 'CLEARED']),
+  financierName: z.string().optional().default(""),
+  pddStatus: z.enum(['NOT_APPLICABLE', 'PENDING', 'SUBMITTED', 'CLEARED']),
   pddExceptionAllowedByFinancier: z.boolean().optional(),
+  pddExceptionAllowed: z.boolean().optional(),
   subventionFlag: z.boolean().optional(),
   teamCase: z.boolean().optional(),
-  teamMembers: z.array(z.any()).optional(),
+  teamMembers: z.union([z.array(z.any()), z.string()]).optional().transform(v => {
+    if (typeof v === 'string') return v.split(',').map(s => s.trim()).filter(Boolean);
+    return v;
+  }),
   transactionStatus: z.string().optional(),
 });
 

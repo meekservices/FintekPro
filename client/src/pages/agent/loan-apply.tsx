@@ -41,7 +41,10 @@ import {
   Trash2,
   Eye,
   MoreVertical,
-  RefreshCw
+  RefreshCw,
+  DollarSign,
+  Calendar,
+  CreditCard
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { LoanProgressStepper, ProcessingTimeDisplay } from "@/components/loan/loan-progress-stepper";
@@ -75,6 +78,11 @@ const loanApplicationSchema = z.object({
   employmentType: z.enum(["salaried", "self_employed", "business", "professional"]),
   monthlyIncome: z.string().min(1, "Monthly income required"),
   creditScore: z.string().optional(),
+  processingMode: z.enum(["PLATFORM", "EXTERNAL_FINANCIER"]).default("PLATFORM"),
+  financierName: z.string().optional(),
+  bankerName: z.string().optional(),
+  bankerMobile: z.string().optional(),
+  bankerEmail: z.string().email("Valid email required").optional().or(z.literal("")),
   routingMode: z.enum(["auto", "manual"]).default("auto"),
   routingStrategy: z.enum(["parallel", "waterfall", "priority_first"]).default("parallel"),
   targetBanks: z.array(z.string()).optional(),
@@ -189,10 +197,21 @@ export default function AgentLoanApplyPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [eligibilityDialogOpen, setEligibilityDialogOpen] = useState(false);
+  const [payoutClaimDialogOpen, setPayoutClaimDialogOpen] = useState(false);
   const [selectedApp, setSelectedApp] = useState<any>(null);
   const [selectedBanks, setSelectedBanks] = useState<string[]>([]);
   const [eligibilityResults, setEligibilityResults] = useState<EligibilityResult[]>([]);
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
+  const [payoutClaimForm, setPayoutClaimForm] = useState({
+    disbursementAmount: "",
+    disbursementDate: "",
+    loanAccountNumber: "",
+    pddStatus: "NOT_APPLICABLE",
+    pddExceptionAllowed: false,
+    subventionFlag: false,
+    teamCase: false,
+    teamMembers: "",
+  });
 
   const form = useForm<LoanApplicationForm>({
     resolver: zodResolver(loanApplicationSchema),
@@ -209,6 +228,11 @@ export default function AgentLoanApplyPage() {
       employmentType: "salaried",
       monthlyIncome: "",
       creditScore: "",
+      processingMode: "PLATFORM",
+      financierName: "",
+      bankerName: "",
+      bankerMobile: "",
+      bankerEmail: "",
       routingMode: "auto",
       routingStrategy: "parallel",
       targetBanks: [],
@@ -334,8 +358,13 @@ export default function AgentLoanApplyPage() {
         employmentType: data.employmentType,
         monthlyIncome: parseInt(data.monthlyIncome),
         creditScore: data.creditScore ? parseInt(data.creditScore) : undefined,
-        routingMode: data.routingMode,
-        targetBanks: data.routingMode === "manual" ? data.targetBanks : undefined,
+        processingMode: data.processingMode,
+        financierName: data.processingMode === "EXTERNAL_FINANCIER" ? data.financierName : undefined,
+        bankerName: data.processingMode === "EXTERNAL_FINANCIER" ? (data.bankerName || undefined) : undefined,
+        bankerMobile: data.processingMode === "EXTERNAL_FINANCIER" ? (data.bankerMobile || undefined) : undefined,
+        bankerEmail: data.processingMode === "EXTERNAL_FINANCIER" && data.bankerEmail ? data.bankerEmail : undefined,
+        routingMode: data.processingMode === "PLATFORM" ? data.routingMode : undefined,
+        targetBanks: data.processingMode === "PLATFORM" && data.routingMode === "manual" ? data.targetBanks : undefined,
         loanPurpose: data.loanPurpose || undefined,
       };
       return apiRequest("/api/agent/loans/applications", {
@@ -353,6 +382,47 @@ export default function AgentLoanApplyPage() {
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to submit application", variant: "destructive" });
+    },
+  });
+
+  const submitPayoutClaimMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedApp) return;
+      const leadId = selectedApp.leadRegistryId;
+      if (!leadId) throw new Error("No lead registry ID found for this application");
+      return apiRequest("/api/payout-claims", {
+        method: "POST",
+        body: JSON.stringify({
+          leadId,
+          disbursementAmount: Number(payoutClaimForm.disbursementAmount),
+          disbursementDate: payoutClaimForm.disbursementDate,
+          loanAccountNumber: payoutClaimForm.loanAccountNumber || undefined,
+          financierName: selectedApp.financierName || "",
+          pddStatus: payoutClaimForm.pddStatus,
+          pddExceptionAllowed: payoutClaimForm.pddExceptionAllowed,
+          subventionFlag: payoutClaimForm.subventionFlag,
+          teamCase: payoutClaimForm.teamCase,
+          teamMembers: payoutClaimForm.teamCase ? payoutClaimForm.teamMembers : undefined,
+        }),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Payout Claim Submitted", description: "Your payout claim has been submitted for review." });
+      setPayoutClaimDialogOpen(false);
+      setPayoutClaimForm({
+        disbursementAmount: "",
+        disbursementDate: "",
+        loanAccountNumber: "",
+        pddStatus: "NOT_APPLICABLE",
+        pddExceptionAllowed: false,
+        subventionFlag: false,
+        teamCase: false,
+        teamMembers: "",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/agent/loans/my-applications"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to submit payout claim", variant: "destructive" });
     },
   });
 
@@ -1077,6 +1147,8 @@ export default function AgentLoanApplyPage() {
                       </FormItem>
                     )}
                   />
+                  {form.watch("processingMode") !== "EXTERNAL_FINANCIER" && (
+                    <>
                   <FormField
                     control={form.control}
                     name="routingMode"
@@ -1161,6 +1233,8 @@ export default function AgentLoanApplyPage() {
                       )}
                     </div>
                   )}
+                    </>
+                  )}
                   <FormField
                     control={form.control}
                     name="loanPurpose"
@@ -1177,11 +1251,128 @@ export default function AgentLoanApplyPage() {
                 </CardContent>
               </Card>
 
-              <LoanDocumentUpload
-                loanType={form.watch("loanType")}
-                documents={uploadedDocuments}
-                onDocumentsChange={setUploadedDocuments}
-              />
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Briefcase className="h-5 w-5" />
+                    Who Will Process This Loan?
+                  </CardTitle>
+                  <CardDescription>Choose whether you (agent) will collect documents and process the loan, or give the lead directly to a bank/financier</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="processingMode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div
+                              onClick={() => field.onChange("PLATFORM")}
+                              className={`cursor-pointer rounded-lg border-2 p-4 transition-all ${
+                                field.value === "PLATFORM"
+                                  ? "border-primary bg-primary/5"
+                                  : "border-muted hover:border-primary/40"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 mb-2">
+                                <FileText className="h-5 w-5 text-primary" />
+                                <p className="font-semibold text-sm">Agent Processes</p>
+                              </div>
+                              <p className="text-xs text-muted-foreground">You collect documents, process the loan through the platform, and route to banks</p>
+                            </div>
+                            <div
+                              onClick={() => field.onChange("EXTERNAL_FINANCIER")}
+                              className={`cursor-pointer rounded-lg border-2 p-4 transition-all ${
+                                field.value === "EXTERNAL_FINANCIER"
+                                  ? "border-orange-500 bg-orange-500/5"
+                                  : "border-muted hover:border-orange-500/40"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 mb-2">
+                                <Building2 className="h-5 w-5 text-orange-500" />
+                                <p className="font-semibold text-sm">Give Lead to Bank</p>
+                              </div>
+                              <p className="text-xs text-muted-foreground">You give the lead directly to the bank/financier. They handle documentation and processing</p>
+                            </div>
+                          </div>
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  {form.watch("processingMode") === "EXTERNAL_FINANCIER" && (
+                    <div className="space-y-4 pt-4 border-t">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertCircle className="h-4 w-4 text-orange-500" />
+                        <p className="text-sm font-medium text-orange-700 dark:text-orange-400">Provide bank/financier details where you are sending this lead</p>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="financierName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Financier / Bank Name *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., HDFC Bank, Bajaj Finance" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="bankerName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Banker / Contact Person Name *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Bank relationship manager name" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="bankerMobile"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Banker Mobile *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="10-digit mobile number" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="bankerEmail"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Banker Email *</FormLabel>
+                              <FormControl>
+                                <Input type="email" placeholder="banker@hdfc.com" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {form.watch("processingMode") === "PLATFORM" && (
+                <LoanDocumentUpload
+                  loanType={form.watch("loanType")}
+                  documents={uploadedDocuments}
+                  onDocumentsChange={setUploadedDocuments}
+                />
+              )}
 
               <div className="flex justify-end gap-3">
                 <Button type="button" variant="outline" onClick={() => form.reset()}>
@@ -1254,6 +1445,15 @@ export default function AgentLoanApplyPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
+                          {app.processingMode === "EXTERNAL_FINANCIER" ? (
+                            <Badge variant="outline" className="text-xs bg-orange-500/10 text-orange-600 border-orange-500/30">
+                              Bank Processes
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-600 border-blue-500/30">
+                              Agent Processes
+                            </Badge>
+                          )}
                           <Badge className={statusColors[app.status] || "bg-muted"}>
                             {app.status?.replace(/_/g, " ")}
                           </Badge>
@@ -1268,7 +1468,7 @@ export default function AgentLoanApplyPage() {
                                 <Eye className="h-4 w-4 mr-2" />
                                 View Details
                               </DropdownMenuItem>
-                              {canEdit(app.status) && (
+                              {canEdit(app.status) && app.processingMode !== "EXTERNAL_FINANCIER" && (
                                 <>
                                   <DropdownMenuItem 
                                     onClick={() => handleCheckEligibility(app)}
@@ -1286,6 +1486,22 @@ export default function AgentLoanApplyPage() {
                                     Assign Banks
                                   </DropdownMenuItem>
                                 </>
+                              )}
+                              {(app.status === "disbursed" || app.status === "approved") && app.leadRegistryId && (
+                                <DropdownMenuItem 
+                                  onClick={() => {
+                                    setSelectedApp(app);
+                                    setPayoutClaimForm(prev => ({
+                                      ...prev,
+                                      disbursementAmount: app.requestedAmount?.toString() || "",
+                                    }));
+                                    setPayoutClaimDialogOpen(true);
+                                  }}
+                                  className="text-emerald-600"
+                                >
+                                  <DollarSign className="h-4 w-4 mr-2" />
+                                  Claim Payout
+                                </DropdownMenuItem>
                               )}
                               {canDelete(app.status) && (
                                 <DropdownMenuItem 
@@ -1310,16 +1526,23 @@ export default function AgentLoanApplyPage() {
                           <span className="text-muted-foreground">Tenure</span>
                           <div className="font-medium">{app.requestedTenure} months</div>
                         </div>
-                        <div>
-                          <span className="text-muted-foreground">Banks Routed</span>
-                          <div className="font-medium">{app.routedBanks?.length || 0}</div>
-                        </div>
+                        {app.processingMode === "EXTERNAL_FINANCIER" ? (
+                          <div>
+                            <span className="text-muted-foreground">Financier</span>
+                            <div className="font-medium">{app.financierName || "—"}</div>
+                          </div>
+                        ) : (
+                          <div>
+                            <span className="text-muted-foreground">Banks Routed</span>
+                            <div className="font-medium">{app.routedBanks?.length || 0}</div>
+                          </div>
+                        )}
                         <div>
                           <span className="text-muted-foreground">Submitted</span>
                           <div className="font-medium">{formatDate(app.createdAt)}</div>
                         </div>
                         <div className="flex items-end gap-2">
-                          {canEdit(app.status) && (
+                          {canEdit(app.status) && app.processingMode !== "EXTERNAL_FINANCIER" && (
                             <Button 
                               size="sm" 
                               variant="outline"
@@ -1616,6 +1839,132 @@ export default function AgentLoanApplyPage() {
                 Route to Eligible Banks
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={payoutClaimDialogOpen} onOpenChange={setPayoutClaimDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-emerald-600" />
+              Claim Payout
+            </DialogTitle>
+            <DialogDescription>
+              Submit payout claim for {selectedApp?.applicantName} — {selectedApp?.processingMode === "EXTERNAL_FINANCIER" ? "Bank-Processed" : "Agent-Processed"} lead
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-muted/50 p-3 rounded-lg text-sm space-y-1">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Application</span>
+                <span className="font-medium">{selectedApp?.applicationNumber}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Loan Type</span>
+                <span className="font-medium capitalize">{selectedApp?.loanType}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Processing Mode</span>
+                <Badge variant={selectedApp?.processingMode === "EXTERNAL_FINANCIER" ? "secondary" : "default"} className="text-xs">
+                  {selectedApp?.processingMode === "EXTERNAL_FINANCIER" ? "Bank Processed" : "Agent Processed"}
+                </Badge>
+              </div>
+              {selectedApp?.financierName && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Financier</span>
+                  <span className="font-medium">{selectedApp.financierName}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <Label>Disbursement Amount (₹) *</Label>
+                <Input
+                  type="number"
+                  placeholder="Enter disbursed amount"
+                  value={payoutClaimForm.disbursementAmount}
+                  onChange={(e) => setPayoutClaimForm(prev => ({ ...prev, disbursementAmount: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Disbursement Date *</Label>
+                <Input
+                  type="date"
+                  value={payoutClaimForm.disbursementDate}
+                  onChange={(e) => setPayoutClaimForm(prev => ({ ...prev, disbursementDate: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Loan Account Number *</Label>
+                <Input
+                  placeholder="Enter loan account number"
+                  value={payoutClaimForm.loanAccountNumber}
+                  onChange={(e) => setPayoutClaimForm(prev => ({ ...prev, loanAccountNumber: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>PDD Status</Label>
+                <Select
+                  value={payoutClaimForm.pddStatus}
+                  onValueChange={(v) => setPayoutClaimForm(prev => ({ ...prev, pddStatus: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NOT_APPLICABLE">Not Applicable</SelectItem>
+                    <SelectItem value="PENDING">Pending</SelectItem>
+                    <SelectItem value="SUBMITTED">Submitted</SelectItem>
+                    <SelectItem value="CLEARED">Cleared</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="subvention"
+                  checked={payoutClaimForm.subventionFlag}
+                  onCheckedChange={(c) => setPayoutClaimForm(prev => ({ ...prev, subventionFlag: !!c }))}
+                />
+                <Label htmlFor="subvention" className="text-sm">Subvention Case</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="teamCase"
+                  checked={payoutClaimForm.teamCase}
+                  onCheckedChange={(c) => setPayoutClaimForm(prev => ({ ...prev, teamCase: !!c }))}
+                />
+                <Label htmlFor="teamCase" className="text-sm">Team Case (split commission)</Label>
+              </div>
+              {payoutClaimForm.teamCase && (
+                <div>
+                  <Label>Team Member IDs (comma-separated)</Label>
+                  <Input
+                    placeholder="agent-id-1, agent-id-2"
+                    value={payoutClaimForm.teamMembers}
+                    onChange={(e) => setPayoutClaimForm(prev => ({ ...prev, teamMembers: e.target.value }))}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPayoutClaimDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => submitPayoutClaimMutation.mutate()}
+              disabled={submitPayoutClaimMutation.isPending || !payoutClaimForm.disbursementAmount || !payoutClaimForm.disbursementDate || !payoutClaimForm.loanAccountNumber}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              {submitPayoutClaimMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <DollarSign className="h-4 w-4 mr-2" />
+              )}
+              Submit Payout Claim
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

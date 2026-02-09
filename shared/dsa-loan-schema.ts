@@ -246,6 +246,14 @@ export const dsaLoanApplications = pgTable("dsa_loan_applications", {
   // Commission policy version for audit trail
   commissionPolicyVersion: varchar("commission_policy_version").default("v1"),
   
+  // ============== PROCESSING MODE (Unified Lead Flow) ==============
+  processingMode: varchar("processing_mode"),
+  financierName: varchar("financier_name"),
+  bankerName: varchar("banker_name"),
+  bankerMobile: varchar("banker_mobile"),
+  bankerEmail: varchar("banker_email"),
+  leadRegistryId: varchar("lead_registry_id"),
+  
   // ============== SLA TRACKING FIELDS ==============
   slaStartAt: timestamp("sla_start_at"),
   slaExpectedBy: timestamp("sla_expected_by"),
