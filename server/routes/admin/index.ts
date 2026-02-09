@@ -4288,6 +4288,41 @@ System Security Data:`;
     }
   });
   
+  app.get("/api/admin/enrichment/mf/comprehensive/stats", requireAdmin, async (req, res) => {
+    try {
+      const { mfComprehensiveEnrichmentService } = await import("../../services/mf-comprehensive-enrichment-service");
+      const stats = await mfComprehensiveEnrichmentService.getNullColumnStats();
+      res.json({ success: true, stats });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/admin/enrichment/mf/comprehensive/progress", requireAdmin, async (req, res) => {
+    try {
+      const { mfComprehensiveEnrichmentService } = await import("../../services/mf-comprehensive-enrichment-service");
+      const progress = mfComprehensiveEnrichmentService.getProgress();
+      res.json({ success: true, progress });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.post("/api/admin/enrichment/mf/comprehensive/run", requireAdmin, async (req, res) => {
+    try {
+      const { mfComprehensiveEnrichmentService } = await import("../../services/mf-comprehensive-enrichment-service");
+      const { maxMfapiFunds = 500, skipMfapi = false, batchSize = 500 } = req.body;
+
+      mfComprehensiveEnrichmentService.runComprehensiveEnrichment({ maxMfapiFunds, skipMfapi, batchSize }).catch(err => {
+        console.error('[Comprehensive Enrichment] Failed:', err.message);
+      });
+
+      res.json({ success: true, message: 'Comprehensive enrichment started', status: 'running' });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   // Stock Financial Enrichment - get stats
   app.get("/api/admin/enrichment/stocks/stats", requireAdmin, async (req, res) => {
     try {
