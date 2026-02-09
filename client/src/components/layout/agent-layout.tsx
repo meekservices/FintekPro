@@ -45,7 +45,6 @@ import {
   Star,
   Palette,
   Banknote,
-  Store,
   ClipboardList,
   Video,
   Send,
@@ -123,7 +122,6 @@ const agentNavCategories: NavCategory[] = [
     icon: Banknote,
     items: [
       { title: "Submit Loan Lead", href: "/agent/loan-apply", icon: Plus, description: "Submit client loan application" },
-      { title: "Loan Marketplace", href: "/agent/loan-marketplace", icon: Store, description: "Browse loan products" },
       { title: "Track Applications", href: "/agent/loan-applications", icon: ClipboardList, description: "Monitor your leads" },
       { title: "DSA Performance", href: "/agent/dsa-performance", icon: BarChart3, description: "Your loan metrics" },
     ]
