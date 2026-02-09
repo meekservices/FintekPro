@@ -83,6 +83,8 @@ const backendHoldingSchema = z.object({
   productType: z.string().optional(), // Preserves original type (pms, aif, insurance)
   quantity: z.number(),
   averageCost: z.number().optional(),
+  purchasePrice: z.number().optional(),
+  purchaseDate: z.string().optional(),
   currentValue: z.number(),
   currentNav: z.number().optional(),
   investedValue: z.number().optional(),

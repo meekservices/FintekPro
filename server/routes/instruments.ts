@@ -107,6 +107,7 @@ router.get("/api/instruments/search", async (req: Request, res: Response) => {
     }
 
     const searchTerm = `%${String(q)}%`;
+    const maxResults = Number(limit);
     
     let whereConditions = or(
       ilike(instrumentMaster.isin, searchTerm),
@@ -140,7 +141,59 @@ router.get("/api/instruments/search", async (req: Request, res: Response) => {
       .from(instrumentMaster)
       .where(and(whereConditions, eq(instrumentMaster.isActive, true)))
       .orderBy(instrumentMaster.name)
-      .limit(Number(limit));
+      .limit(maxResults);
+
+    // If searching for mutual funds and instrument master has few results, also search mutualFunds table
+    const isMfSearch = !assetClass || String(assetClass) === 'mutual_fund';
+    if (isMfSearch && instruments.length < maxResults) {
+      const remainingSlots = maxResults - instruments.length;
+      const existingIsins = new Set(instruments.map(i => i.isin).filter(Boolean));
+      
+      const mfResults = await db.select({
+        id: mutualFunds.id,
+        schemeCode: mutualFunds.schemeCode,
+        schemeName: mutualFunds.schemeName,
+        category: mutualFunds.category,
+        fundHouse: mutualFunds.fundHouse,
+        nav: mutualFunds.nav,
+        riskLevel: mutualFunds.riskLevel,
+      })
+        .from(mutualFunds)
+        .where(
+          or(
+            ilike(mutualFunds.schemeName, searchTerm),
+            ilike(mutualFunds.schemeCode, searchTerm),
+            ilike(mutualFunds.fundHouse, searchTerm)
+          )
+        )
+        .orderBy(mutualFunds.schemeName)
+        .limit(remainingSlots + 10); // fetch extra to account for dedup
+
+      // Convert MF results to instrument format and deduplicate
+      for (const mf of mfResults) {
+        if (instruments.length >= maxResults) break;
+        // Skip if already in results by scheme code match
+        const mfIsin = `MF${mf.schemeCode}`;
+        if (existingIsins.has(mfIsin)) continue;
+        
+        instruments.push({
+          id: mf.id,
+          isin: mfIsin,
+          symbol: mf.schemeCode,
+          name: mf.schemeName,
+          shortName: mf.fundHouse || mf.schemeName,
+          assetClass: 'mutual_fund',
+          subType: mf.category || null,
+          category: mf.category || null,
+          issuer: mf.fundHouse || null,
+          lastPrice: mf.nav,
+          currency: 'INR',
+          riskLevel: mf.riskLevel || null,
+          priceUpdatedAt: null,
+        });
+        existingIsins.add(mfIsin);
+      }
+    }
 
     res.json({ instruments });
   } catch (error: any) {

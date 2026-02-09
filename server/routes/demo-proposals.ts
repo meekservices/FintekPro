@@ -12,9 +12,10 @@ const proposalConfigSchema = z.object({
   clientId: z.string().optional(),
   investmentGoals: z.object({
     primaryGoal: z.string(),
-    investmentHorizon: z.string(),
+    investmentHorizon: z.string().optional().default('5-10 years'),
     targetAmount: z.coerce.number().min(0),
-    monthlyContribution: z.coerce.number().min(0),
+    monthlyContribution: z.coerce.number().min(0).optional().default(0),
+    expectedReturn: z.coerce.number().optional(),
   }),
   assetAllocation: z.object({
     equity: z.coerce.number().min(0).max(100),
@@ -46,7 +47,8 @@ const proposalConfigSchema = z.object({
   riskProfile: z.object({
     score: z.coerce.number().min(0).max(100),
     category: z.enum(['conservative', 'moderate', 'aggressive', 'very_aggressive']),
-    tolerance: z.string(),
+    tolerance: z.string().optional().default('Moderate risk tolerance'),
+    description: z.string().optional(),
   }),
   sections: z.object({
     coverPage: z.boolean().optional().default(true),
@@ -76,17 +78,18 @@ const proposalConfigSchema = z.object({
     customData: z.record(z.any()).optional(),
   })).optional().default({}),
   coverPage: z.object({
-    enabled: z.boolean(),
-    title: z.string(),
-    clientName: z.string(),
-    preparedBy: z.string(),
-    date: z.string(),
+    enabled: z.boolean().optional().default(true),
+    title: z.string().optional().default('Investment Proposal'),
+    clientName: z.string().optional().default(''),
+    preparedBy: z.string().optional().default('FintekPro Financial Advisor'),
+    date: z.string().optional().transform(v => v || new Date().toLocaleDateString('en-IN')),
+    companyName: z.string().optional(),
   }),
   settings: z.object({
-    orientation: z.enum(['portrait', 'landscape']),
-    includeDisclaimer: z.boolean(),
-    includeSEBIDisclosure: z.boolean(),
-  }),
+    orientation: z.enum(['portrait', 'landscape']).optional().default('portrait'),
+    includeDisclaimer: z.boolean().optional().default(true),
+    includeSEBIDisclosure: z.boolean().optional().default(true),
+  }).optional().default({}),
 });
 
 const fundingSummarySchema = z.object({
@@ -509,8 +512,10 @@ agentDemoRouter.post("/generate-pdf", async (req: Request, res: Response) => {
     // Validate request body
     const validationResult = generatePdfRequestSchema.safeParse(req.body);
     if (!validationResult.success) {
+      console.error("[Generate PDF] Validation failed:", JSON.stringify(validationResult.error.errors, null, 2));
       return res.status(400).json({ 
         error: "Invalid request data", 
+        message: validationResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; '),
         details: validationResult.error.errors 
       });
     }
