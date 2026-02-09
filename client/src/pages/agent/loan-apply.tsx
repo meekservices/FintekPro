@@ -13,7 +13,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -44,7 +45,11 @@ import {
   RefreshCw,
   DollarSign,
   Calendar,
-  CreditCard
+  CreditCard,
+  Upload,
+  Shield,
+  AlertTriangle,
+  CheckCircle
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { LoanProgressStepper, ProcessingTimeDisplay } from "@/components/loan/loan-progress-stepper";
@@ -112,6 +117,29 @@ const statusColors: Record<string, string> = {
   disbursed: "bg-emerald-100 text-emerald-800",
 };
 
+const LEAD_STATUS_FLOW = ["REGISTERED", "LOGGED_IN", "APPROVED", "DISBURSED"];
+
+const LEAD_STATUS_COLORS: Record<string, string> = {
+  REGISTERED: "bg-gray-500/20 text-gray-600 border-gray-500/30",
+  LOGGED_IN: "bg-blue-500/20 text-blue-600 border-blue-500/30",
+  APPROVED: "bg-yellow-500/20 text-yellow-600 border-yellow-500/30",
+  DISBURSED: "bg-emerald-500/20 text-emerald-600 border-emerald-500/30",
+};
+
+const PROCESSING_MODE_COLORS: Record<string, string> = {
+  PLATFORM: "bg-blue-500/20 text-blue-600 border-blue-500/30",
+  EXTERNAL_FINANCIER: "bg-orange-500/20 text-orange-600 border-orange-500/30",
+};
+
+const CLAIM_STATUS_COLORS: Record<string, string> = {
+  PENDING_VERIFICATION: "bg-yellow-500/20 text-yellow-600 border-yellow-500/30",
+  CONFIRMED_BY_FINANCIER: "bg-blue-500/20 text-blue-600 border-blue-500/30",
+  APPROVED: "bg-emerald-500/20 text-emerald-600 border-emerald-500/30",
+  ON_HOLD_PDD: "bg-orange-500/20 text-orange-600 border-orange-500/30",
+  REJECTED: "bg-red-500/20 text-red-600 border-red-500/30",
+  CLAWED_BACK: "bg-red-500/20 text-red-600 border-red-500/30",
+};
+
 const loanTypeLabels: Record<string, string> = {
   personal: "Personal Loan",
   home: "Home Loan",
@@ -149,6 +177,39 @@ interface RoutingHistoryItem {
   approvedTenure?: number;
   offeredInterestRate?: string;
   rejectionReason?: string;
+}
+
+interface Lead {
+  id: string;
+  pan: string;
+  mobile: string;
+  customerName: string;
+  loanType: string;
+  approximateAmount?: number;
+  processingMode?: string;
+  status: string;
+  firstTouchTimestamp: string;
+  financierName?: string;
+  bankerName?: string;
+  bankerMobile?: string;
+  bankerEmail?: string;
+}
+
+interface PayoutClaim {
+  id: string;
+  leadId: string;
+  customerName?: string;
+  financierName?: string;
+  disbursementAmount: number;
+  disbursementDate: string;
+  loanAccountNumber?: string;
+  pddStatus: string;
+  pddExceptionAllowed?: boolean;
+  subventionFlag?: boolean;
+  teamCase?: boolean;
+  teamMembers?: string;
+  claimStatus: string;
+  createdAt: string;
 }
 
 const bankStatusColors: Record<string, string> = {
@@ -211,6 +272,17 @@ export default function AgentLoanApplyPage() {
     subventionFlag: false,
     teamCase: false,
     teamMembers: "",
+  });
+  const [auditDialogOpen, setAuditDialogOpen] = useState(false);
+  const [auditLead, setAuditLead] = useState<Lead | null>(null);
+  const [proofDialogOpen, setProofDialogOpen] = useState(false);
+  const [proofClaim, setProofClaim] = useState<PayoutClaim | null>(null);
+  const [proofForm, setProofForm] = useState({
+    fileName: "",
+    fileType: "",
+    fileSize: "",
+    fileHash: "",
+    storagePath: "",
   });
 
   const form = useForm<LoanApplicationForm>({
@@ -288,6 +360,14 @@ export default function AgentLoanApplyPage() {
   });
 
   const routingHistory = routingHistoryData?.data || [];
+
+  const { data: leads = [], isLoading: leadsLoading } = useQuery<Lead[]>({
+    queryKey: ["/api/leads"],
+  });
+
+  const { data: claims = [], isLoading: claimsLoading } = useQuery<PayoutClaim[]>({
+    queryKey: ["/api/payout-claims"],
+  });
 
   const routeMutation = useMutation({
     mutationFn: async ({ applicationId, bankCodes }: { applicationId: string; bankCodes: string[] }) => {
@@ -420,9 +500,43 @@ export default function AgentLoanApplyPage() {
         teamMembers: "",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/agent/loans/my-applications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payout-claims"] });
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to submit payout claim", variant: "destructive" });
+    },
+  });
+
+  const updateLeadStatusMutation = useMutation({
+    mutationFn: ({ leadId, status }: { leadId: string; status: string }) =>
+      apiRequest(`/api/leads/${leadId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      toast({ title: "Lead status updated" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to update status", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const uploadProofMutation = useMutation({
+    mutationFn: ({ claimId, proof }: { claimId: string; proof: typeof proofForm }) =>
+      apiRequest(`/api/payout-claims/${claimId}/proof`, {
+        method: "POST",
+        body: JSON.stringify(proof),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payout-claims"] });
+      toast({ title: "Proof uploaded successfully" });
+      setProofDialogOpen(false);
+      setProofClaim(null);
+      setProofForm({ fileName: "", fileType: "", fileSize: "", fileHash: "", storagePath: "" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to upload proof", description: err.message, variant: "destructive" });
     },
   });
 
@@ -462,6 +576,17 @@ export default function AgentLoanApplyPage() {
       year: "numeric",
     });
   };
+
+  function maskPan(pan: string): string {
+    if (!pan || pan.length < 4) return pan || "";
+    return "XXXXXX" + pan.slice(-4);
+  }
+
+  function getValidLeadTransitions(currentStatus: string): string[] {
+    const idx = LEAD_STATUS_FLOW.indexOf(currentStatus);
+    if (idx < 0 || idx >= LEAD_STATUS_FLOW.length - 1) return [];
+    return LEAD_STATUS_FLOW.slice(idx + 1);
+  }
 
   const applications = myApplications?.data || [];
 
@@ -1564,6 +1689,200 @@ export default function AgentLoanApplyPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Lead Registry Section */}
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-emerald-600" />
+                Lead Registry
+              </CardTitle>
+              <CardDescription>All registered leads and their current status</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {leadsLoading ? (
+                <LoadingState variant="list" count={3} />
+              ) : leads.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Shield className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                  <p>No leads registered yet. Leads are auto-registered when you submit loan applications.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Customer Name</TableHead>
+                        <TableHead>PAN</TableHead>
+                        <TableHead>Mobile</TableHead>
+                        <TableHead>Loan Type</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Processing Mode</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>First Touch</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {leads.map((lead) => {
+                        const transitions = getValidLeadTransitions(lead.status);
+                        return (
+                          <TableRow key={lead.id}>
+                            <TableCell className="font-medium">{lead.customerName}</TableCell>
+                            <TableCell className="font-mono text-sm text-muted-foreground">{maskPan(lead.pan)}</TableCell>
+                            <TableCell className="text-muted-foreground">{lead.mobile}</TableCell>
+                            <TableCell className="text-muted-foreground">{lead.loanType}</TableCell>
+                            <TableCell>{formatCurrency(lead.approximateAmount || 0)}</TableCell>
+                            <TableCell>
+                              {lead.processingMode ? (
+                                <Badge variant="outline" className={PROCESSING_MODE_COLORS[lead.processingMode] || ""}>
+                                  {lead.processingMode === "EXTERNAL_FINANCIER" ? "External" : lead.processingMode}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline">Pending</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className={LEAD_STATUS_COLORS[lead.status] || ""}>
+                                {lead.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground text-sm">
+                              {lead.firstTouchTimestamp
+                                ? new Date(lead.firstTouchTimestamp).toLocaleDateString("en-IN")
+                                : "—"}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {transitions.length > 0 && (
+                                  <Select
+                                    onValueChange={(newStatus) =>
+                                      updateLeadStatusMutation.mutate({ leadId: lead.id, status: newStatus })
+                                    }
+                                  >
+                                    <SelectTrigger className="h-8 w-[140px] text-sm">
+                                      <SelectValue placeholder="Update Status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {transitions.map((s) => (
+                                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                )}
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 text-muted-foreground hover:text-foreground"
+                                  onClick={() => {
+                                    setAuditLead(lead);
+                                    setAuditDialogOpen(true);
+                                  }}
+                                >
+                                  <Eye className="h-3 w-3 mr-1" />
+                                  Audit
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Payout Claims Section */}
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <IndianRupee className="h-5 w-5 text-emerald-600" />
+                Payout Claims
+              </CardTitle>
+              <CardDescription>Track submitted payout claims and their status</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {claimsLoading ? (
+                <LoadingState variant="list" count={3} />
+              ) : claims.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <IndianRupee className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                  <p>No payout claims submitted yet. Claims can be made for disbursed loans.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Claim ID</TableHead>
+                        <TableHead>Lead / Customer</TableHead>
+                        <TableHead>Financier</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Disbursement Date</TableHead>
+                        <TableHead>PDD Status</TableHead>
+                        <TableHead>Claim Status</TableHead>
+                        <TableHead>Created</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {claims.map((claim) => (
+                        <TableRow key={claim.id}>
+                          <TableCell className="font-mono text-sm">
+                            {claim.id.slice(0, 8)}
+                          </TableCell>
+                          <TableCell>
+                            {claim.customerName || claim.leadId?.slice(0, 8) || "—"}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">{claim.financierName || "—"}</TableCell>
+                          <TableCell>{formatCurrency(claim.disbursementAmount)}</TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {claim.disbursementDate
+                              ? new Date(claim.disbursementDate).toLocaleDateString("en-IN")
+                              : "—"}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {claim.pddStatus}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className={CLAIM_STATUS_COLORS[claim.claimStatus] || ""}
+                            >
+                              {claim.claimStatus}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-sm">
+                            {claim.createdAt
+                              ? new Date(claim.createdAt).toLocaleDateString("en-IN")
+                              : "—"}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8"
+                              onClick={() => {
+                                setProofClaim(claim);
+                                setProofDialogOpen(true);
+                              }}
+                            >
+                              <Upload className="h-3 w-3 mr-1" />
+                              Upload Proof
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
@@ -1966,6 +2285,127 @@ export default function AgentLoanApplyPage() {
               Submit Payout Claim
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Audit Trail Dialog */}
+      <Dialog open={auditDialogOpen} onOpenChange={setAuditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Audit Trail</DialogTitle>
+            <DialogDescription>
+              Activity log for {auditLead?.customerName || "this lead"}
+            </DialogDescription>
+          </DialogHeader>
+          {auditLead && (
+            <div className="space-y-3 mt-2">
+              <div className="flex items-center gap-3 p-3 bg-muted rounded-lg border">
+                <CheckCircle className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium">Lead Registered</p>
+                  <p className="text-muted-foreground text-xs">
+                    {auditLead.firstTouchTimestamp
+                      ? new Date(auditLead.firstTouchTimestamp).toLocaleString("en-IN")
+                      : "—"}
+                  </p>
+                </div>
+              </div>
+              {auditLead.processingMode && (
+                <div className="flex items-center gap-3 p-3 bg-muted rounded-lg border">
+                  <Shield className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">
+                      Processing Mode: {auditLead.processingMode}
+                    </p>
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center gap-3 p-3 bg-muted rounded-lg border">
+                <AlertTriangle className="h-4 w-4 text-yellow-500 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium">Current Status: {auditLead.status}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Upload Proof Dialog */}
+      <Dialog open={proofDialogOpen} onOpenChange={setProofDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Upload Proof</DialogTitle>
+            <DialogDescription>
+              Provide file metadata for claim {proofClaim?.id?.slice(0, 8)}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <Label>File Name</Label>
+              <Input
+                value={proofForm.fileName}
+                onChange={(e) => setProofForm({ ...proofForm, fileName: e.target.value })}
+                className="mt-1"
+                placeholder="disbursement_letter.pdf"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>File Type</Label>
+                <Input
+                  value={proofForm.fileType}
+                  onChange={(e) => setProofForm({ ...proofForm, fileType: e.target.value })}
+                  className="mt-1"
+                  placeholder="application/pdf"
+                />
+              </div>
+              <div>
+                <Label>File Size</Label>
+                <Input
+                  value={proofForm.fileSize}
+                  onChange={(e) => setProofForm({ ...proofForm, fileSize: e.target.value })}
+                  className="mt-1"
+                  placeholder="2048000"
+                />
+              </div>
+            </div>
+            <div>
+              <Label>File Hash</Label>
+              <Input
+                value={proofForm.fileHash}
+                onChange={(e) => setProofForm({ ...proofForm, fileHash: e.target.value })}
+                className="mt-1"
+                placeholder="sha256:abc123..."
+              />
+            </div>
+            <div>
+              <Label>Storage Path</Label>
+              <Input
+                value={proofForm.storagePath}
+                onChange={(e) => setProofForm({ ...proofForm, storagePath: e.target.value })}
+                className="mt-1"
+                placeholder="/proofs/claim-xyz/file.pdf"
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setProofDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  if (proofClaim) {
+                    uploadProofMutation.mutate({ claimId: proofClaim.id, proof: proofForm });
+                  }
+                }}
+                disabled={!proofForm.fileName || uploadProofMutation.isPending}
+                className="bg-emerald-600 hover:bg-emerald-700"
+              >
+                {uploadProofMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Upload Proof
+              </Button>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
