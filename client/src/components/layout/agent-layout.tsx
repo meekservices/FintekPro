@@ -715,9 +715,9 @@ export function AgentLayout({ children }: AgentLayoutProps) {
         <aside
           data-testid="agent-sidebar"
           className={cn(
-            "bg-background border-r border-border/50 flex-shrink-0 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent",
+            "bg-background flex-shrink-0 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent",
             "md:relative md:transition-all md:duration-300 md:h-[calc(100vh-57px)] md:sticky md:top-[57px]",
-            "max-md:fixed max-md:left-0 max-md:top-[45px] max-md:z-50 max-md:h-[calc(100vh-45px)] max-md:w-[280px] max-md:shadow-2xl max-md:transition-transform max-md:duration-300 max-md:ease-in-out",
+            "max-md:fixed max-md:left-0 max-md:top-[49px] max-md:z-50 max-md:h-[calc(100vh-49px)] max-md:w-[280px] max-md:shadow-2xl max-md:transition-transform max-md:duration-300 max-md:ease-in-out",
             sidebarOpen 
               ? "md:w-60 md:min-w-[240px] max-md:translate-x-0" 
               : "md:w-0 md:min-w-0 md:overflow-hidden md:border-0 max-md:-translate-x-full"
