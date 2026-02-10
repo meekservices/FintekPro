@@ -25,6 +25,7 @@ import { amfiNavScheduler } from './services/amfi-nav-scheduler';
 import { dataEnrichmentScheduler } from './services/data-enrichment-scheduler';
 import { financialMetricsRefreshScheduler } from './services/financial-metrics-refresh-scheduler';
 import { historicalNavRefreshJob } from './services/historical-nav-refresh-job';
+import { isProductionEnvironment, isEnrichmentWindow, logEnrichmentSkip } from './utils/enrichment-guard';
 
 const STAGGER_DELAY_MS = 120000;
 
@@ -49,139 +50,148 @@ export function initializeCronJobs(): void {
   }, delay);
   delay += STAGGER_DELAY_MS;
   
-  staggeredStart('MF NAV sync', () => {
-    mfSyncScheduler.start();
-    console.log('📊 [MF Sync] NAV sync scheduler started (daily refresh + startup catch-up)');
-  }, delay);
-  delay += STAGGER_DELAY_MS;
-  
-  staggeredStart('AIF NAV sync', () => {
-    aifNavSyncScheduler.start();
-    console.log('📊 [AIF Sync] NAV sync scheduler started (daily refresh at 7 AM IST)');
-  }, delay);
-  delay += STAGGER_DELAY_MS;
-  
-  staggeredStart('PMS NAV sync', () => {
-    pmsNavSyncScheduler.start();
-    console.log('📊 [PMS Sync] NAV sync scheduler started (daily refresh at 7:30 AM IST)');
-  }, delay);
-  delay += STAGGER_DELAY_MS;
-  
-  staggeredStart('Commodity sync', () => {
-    commodityPriceSyncScheduler.start();
-    console.log('📊 [Commodity Sync] Price sync scheduler started (daily refresh at 8 AM IST)');
-  }, delay);
-  delay += STAGGER_DELAY_MS;
-  
-  staggeredStart('Exit Load sync', () => {
-    exitLoadSyncScheduler.start();
-    console.log('📊 [ExitLoad Sync] Exit load sync scheduler started (monthly refresh on 1st at 3 AM IST)');
-  }, delay);
-  delay += STAGGER_DELAY_MS;
-  
-  staggeredStart('AMFI Official NAV sync', () => {
-    amfiNavScheduler.initialize();
-    console.log('📊 [AMFI NAV] Official NAV sync scheduler started (daily at 11:30 PM IST)');
-  }, delay);
-  delay += STAGGER_DELAY_MS;
-  
-  staggeredStart('Data Enrichment Scheduler', () => {
-    dataEnrichmentScheduler.initialize();
-    console.log('📊 [DataEnrichment] Master enrichment scheduler started (daily at 5 AM IST)');
-  }, delay);
-  delay += STAGGER_DELAY_MS;
-  
-  staggeredStart('Financial Metrics Refresh', () => {
-    financialMetricsRefreshScheduler.start();
-    console.log('📊 [MetricsRefresh] MF returns + stock metrics scheduler started (daily after market close)');
-  }, delay);
-  delay += STAGGER_DELAY_MS;
-  
-  staggeredStart('Historical NAV Refresh', () => {
-    historicalNavRefreshJob.initialize();
-    console.log('📊 [HistoricalNAV] Historical NAV data refresh job started (daily incremental updates)');
-  }, delay);
-  delay += STAGGER_DELAY_MS;
-  
-  staggeredStart('Benchmark Sync', () => {
-    import('./services/benchmark-sync-service').then(({ benchmarkSyncService }) => {
-      cron.schedule('0 1 * * 0', async () => {
-        console.log('[CRON] Starting weekly benchmark index sync...');
-        try {
-          const result = await benchmarkSyncService.syncAllBenchmarks();
-          console.log(`[CRON] Benchmark sync completed: ${result.synced} synced, ${result.failed.length} failed`);
-        } catch (error: any) {
-          console.error('[CRON] Benchmark sync failed:', error.message);
-        }
-      });
-      console.log('📊 [BenchmarkSync] Weekly benchmark index sync scheduled (Sunday 1 AM UTC)');
-    }).catch(err => console.error('❌ Failed to load benchmark sync service:', err));
-  }, delay);
-  delay += STAGGER_DELAY_MS;
-  
-  staggeredStart('AMFI Benchmark Ingestion', () => {
-    import('./services/amfi-benchmark-ingestion-service').then(({ amfiBenchmarkIngestionService }) => {
-      cron.schedule('0 2 * * 1', async () => {
-        console.log('[CRON] Starting weekly AMFI benchmark ingestion...');
-        try {
-          const result = await amfiBenchmarkIngestionService.syncAmfiSchemeBenchmarks();
-          console.log(`[CRON] AMFI benchmark ingestion: ${result.parsed} parsed, ${result.normalized} normalized, ${result.failed} failed`);
-        } catch (error: any) {
-          console.error('[CRON] AMFI benchmark ingestion failed:', error.message);
-        }
-      });
-      console.log('📊 [AMFIBenchmark] Weekly AMFI benchmark ingestion scheduled (Monday 2 AM UTC)');
-    }).catch(err => console.error('❌ Failed to load AMFI benchmark service:', err));
-  }, delay);
-  delay += STAGGER_DELAY_MS;
-  
-  staggeredStart('BSE Benchmark Seed', () => {
-    import('./services/bse-benchmark-service').then(({ bseBenchmarkService }) => {
-      bseBenchmarkService.seedBseIndices().then(result => {
-        console.log(`📊 [BSEBenchmark] BSE indices seeded: ${result.seeded} new, ${result.existing} existing`);
-      }).catch(err => console.error('❌ BSE index seeding failed:', err));
-    }).catch(err => console.error('❌ Failed to load BSE benchmark service:', err));
-  }, delay);
-  delay += STAGGER_DELAY_MS;
+  if (isProductionEnvironment()) {
+    staggeredStart('MF NAV sync', () => {
+      mfSyncScheduler.start();
+      console.log('📊 [MF Sync] NAV sync scheduler started (daily refresh + startup catch-up)');
+    }, delay);
+    delay += STAGGER_DELAY_MS;
+    
+    staggeredStart('AIF NAV sync', () => {
+      aifNavSyncScheduler.start();
+      console.log('📊 [AIF Sync] NAV sync scheduler started (daily refresh at 7 AM IST)');
+    }, delay);
+    delay += STAGGER_DELAY_MS;
+    
+    staggeredStart('PMS NAV sync', () => {
+      pmsNavSyncScheduler.start();
+      console.log('📊 [PMS Sync] NAV sync scheduler started (daily refresh at 7:30 AM IST)');
+    }, delay);
+    delay += STAGGER_DELAY_MS;
+    
+    staggeredStart('Commodity sync', () => {
+      commodityPriceSyncScheduler.start();
+      console.log('📊 [Commodity Sync] Price sync scheduler started (daily refresh at 8 AM IST)');
+    }, delay);
+    delay += STAGGER_DELAY_MS;
+    
+    staggeredStart('Exit Load sync', () => {
+      exitLoadSyncScheduler.start();
+      console.log('📊 [ExitLoad Sync] Exit load sync scheduler started (monthly refresh on 1st at 3 AM IST)');
+    }, delay);
+    delay += STAGGER_DELAY_MS;
+    
+    staggeredStart('AMFI Official NAV sync', () => {
+      amfiNavScheduler.initialize();
+      console.log('📊 [AMFI NAV] Official NAV sync scheduler started (daily at 11:30 PM IST)');
+    }, delay);
+    delay += STAGGER_DELAY_MS;
+    
+    staggeredStart('Data Enrichment Scheduler', () => {
+      dataEnrichmentScheduler.initialize();
+      console.log('📊 [DataEnrichment] Master enrichment scheduler started (daily at 5 AM IST)');
+    }, delay);
+    delay += STAGGER_DELAY_MS;
+    
+    staggeredStart('Financial Metrics Refresh', () => {
+      financialMetricsRefreshScheduler.start();
+      console.log('📊 [MetricsRefresh] MF returns + stock metrics scheduler started (daily after market close)');
+    }, delay);
+    delay += STAGGER_DELAY_MS;
+    
+    staggeredStart('Historical NAV Refresh', () => {
+      historicalNavRefreshJob.initialize();
+      console.log('📊 [HistoricalNAV] Historical NAV data refresh job started (daily incremental updates)');
+    }, delay);
+    delay += STAGGER_DELAY_MS;
+    
+    staggeredStart('Benchmark Sync', () => {
+      import('./services/benchmark-sync-service').then(({ benchmarkSyncService }) => {
+        cron.schedule('0 1 * * 0', async () => {
+          if (!isEnrichmentWindow()) { console.log('⏭️ [BenchmarkSync] Outside 8PM-8AM IST window, skipping'); return; }
+          console.log('[CRON] Starting weekly benchmark index sync...');
+          try {
+            const result = await benchmarkSyncService.syncAllBenchmarks();
+            console.log(`[CRON] Benchmark sync completed: ${result.synced} synced, ${result.failed.length} failed`);
+          } catch (error: any) {
+            console.error('[CRON] Benchmark sync failed:', error.message);
+          }
+        });
+        console.log('📊 [BenchmarkSync] Weekly benchmark index sync scheduled (Sunday 1 AM UTC)');
+      }).catch(err => console.error('❌ Failed to load benchmark sync service:', err));
+    }, delay);
+    delay += STAGGER_DELAY_MS;
+    
+    staggeredStart('AMFI Benchmark Ingestion', () => {
+      import('./services/amfi-benchmark-ingestion-service').then(({ amfiBenchmarkIngestionService }) => {
+        cron.schedule('0 2 * * 1', async () => {
+          if (!isEnrichmentWindow()) { console.log('⏭️ [AMFIBenchmark] Outside 8PM-8AM IST window, skipping'); return; }
+          console.log('[CRON] Starting weekly AMFI benchmark ingestion...');
+          try {
+            const result = await amfiBenchmarkIngestionService.syncAmfiSchemeBenchmarks();
+            console.log(`[CRON] AMFI benchmark ingestion: ${result.parsed} parsed, ${result.normalized} normalized, ${result.failed} failed`);
+          } catch (error: any) {
+            console.error('[CRON] AMFI benchmark ingestion failed:', error.message);
+          }
+        });
+        console.log('📊 [AMFIBenchmark] Weekly AMFI benchmark ingestion scheduled (Monday 2 AM UTC)');
+      }).catch(err => console.error('❌ Failed to load AMFI benchmark service:', err));
+    }, delay);
+    delay += STAGGER_DELAY_MS;
+    
+    staggeredStart('BSE Benchmark Seed', () => {
+      import('./services/bse-benchmark-service').then(({ bseBenchmarkService }) => {
+        bseBenchmarkService.seedBseIndices().then(result => {
+          console.log(`📊 [BSEBenchmark] BSE indices seeded: ${result.seeded} new, ${result.existing} existing`);
+        }).catch(err => console.error('❌ BSE index seeding failed:', err));
+      }).catch(err => console.error('❌ Failed to load BSE benchmark service:', err));
+    }, delay);
+    delay += STAGGER_DELAY_MS;
 
-  staggeredStart('Benchmark Auto-Mapping', () => {
-    import('./services/mf-benchmark-mapping-service').then(({ mfBenchmarkMappingService }) => {
-      mfBenchmarkMappingService.autoMapUnmappedFunds(5000).then(result => {
-        console.log(`📊 [BenchmarkAutoMap] Auto-mapped ${result.mapped} funds, ${result.skipped} skipped`);
-      }).catch(err => console.error('❌ Benchmark auto-mapping failed:', err));
-    }).catch(err => console.error('❌ Failed to load benchmark mapping service:', err));
-  }, delay);
-  delay += STAGGER_DELAY_MS;
-  
-  staggeredStart('Stock Financial Enrichment', () => {
-    cron.schedule('30 12 * * 1-5', async () => {
-      console.log('[CRON] Starting daily stock financial enrichment (6 PM IST)...');
-      try {
-        const { stockFinancialEnrichmentService } = await import('./services/stock-financial-enrichment-service');
-        await stockFinancialEnrichmentService.enrichAllStocks({ batchSize: 100, useYahoo: true, maxYahooRequests: 100 });
-        console.log('[CRON] Stock financial enrichment completed');
-      } catch (error: any) {
-        console.error('[CRON] Stock financial enrichment failed:', error.message);
-      }
-    });
-    console.log('📊 [StockEnrichment] Daily stock PE/EPS enrichment scheduled (6 PM IST weekdays)');
-  }, delay);
-  delay += STAGGER_DELAY_MS;
-  
-  staggeredStart('MF Extended Enrichment', () => {
-    cron.schedule('0 18 * * *', async () => {
-      console.log('[CRON] Starting daily MF extended enrichment (TER/AUM)...');
-      try {
-        const { mfExtendedEnrichmentService } = await import('./services/mf-extended-enrichment-service');
-        await mfExtendedEnrichmentService.enrichAllFunds({ batchSize: 200, onlyNulls: true });
-        console.log('[CRON] MF extended enrichment completed');
-      } catch (error: any) {
-        console.error('[CRON] MF extended enrichment failed:', error.message);
-      }
-    });
-    console.log('📊 [MFExtended] Daily MF TER/AUM enrichment scheduled (11:30 PM IST)');
-  }, delay);
-  delay += STAGGER_DELAY_MS;
+    staggeredStart('Benchmark Auto-Mapping', () => {
+      import('./services/mf-benchmark-mapping-service').then(({ mfBenchmarkMappingService }) => {
+        mfBenchmarkMappingService.autoMapUnmappedFunds(5000).then(result => {
+          console.log(`📊 [BenchmarkAutoMap] Auto-mapped ${result.mapped} funds, ${result.skipped} skipped`);
+        }).catch(err => console.error('❌ Benchmark auto-mapping failed:', err));
+      }).catch(err => console.error('❌ Failed to load benchmark mapping service:', err));
+    }, delay);
+    delay += STAGGER_DELAY_MS;
+    
+    staggeredStart('Stock Financial Enrichment', () => {
+      cron.schedule('30 12 * * 1-5', async () => {
+        if (!isEnrichmentWindow()) { console.log('⏭️ [StockEnrichment] Outside 8PM-8AM IST window, skipping'); return; }
+        console.log('[CRON] Starting daily stock financial enrichment (6 PM IST)...');
+        try {
+          const { stockFinancialEnrichmentService } = await import('./services/stock-financial-enrichment-service');
+          await stockFinancialEnrichmentService.enrichAllStocks({ batchSize: 100, useYahoo: true, maxYahooRequests: 100 });
+          console.log('[CRON] Stock financial enrichment completed');
+        } catch (error: any) {
+          console.error('[CRON] Stock financial enrichment failed:', error.message);
+        }
+      });
+      console.log('📊 [StockEnrichment] Daily stock PE/EPS enrichment scheduled (6 PM IST weekdays)');
+    }, delay);
+    delay += STAGGER_DELAY_MS;
+    
+    staggeredStart('MF Extended Enrichment', () => {
+      cron.schedule('0 18 * * *', async () => {
+        if (!isEnrichmentWindow()) { console.log('⏭️ [MFExtended] Outside 8PM-8AM IST window, skipping'); return; }
+        console.log('[CRON] Starting daily MF extended enrichment (TER/AUM)...');
+        try {
+          const { mfExtendedEnrichmentService } = await import('./services/mf-extended-enrichment-service');
+          await mfExtendedEnrichmentService.enrichAllFunds({ batchSize: 200, onlyNulls: true });
+          console.log('[CRON] MF extended enrichment completed');
+        } catch (error: any) {
+          console.error('[CRON] MF extended enrichment failed:', error.message);
+        }
+      });
+      console.log('📊 [MFExtended] Daily MF TER/AUM enrichment scheduled (11:30 PM IST)');
+    }, delay);
+    delay += STAGGER_DELAY_MS;
+  } else {
+    console.log('⏭️ [Enrichment] All MF/NAV/Benchmark enrichment schedulers SKIPPED (development mode)');
+    console.log('   ℹ️ These will only run on production server between 8 PM - 8 AM IST');
+  }
   
   // Probe42 Sync Job - Run every 6 hours
   cron.schedule('0 */6 * * *', async () => {
@@ -422,73 +432,80 @@ export function initializeCronJobs(): void {
   });
 
   // Live MF NAV Refresh - Run every day at 10:30 PM IST (5:00 PM UTC) after market close
-  cron.schedule('0 17 * * *', async () => {
-    console.log('[CRON] Starting live MF NAV refresh...');
-    try {
-      const { liveMFDataService } = await import('./services/live-mf-data-service');
-      const success = await liveMFDataService.refreshCache();
-      
-      if (success) {
-        const stats = liveMFDataService.getCacheStats();
-        console.log(`[CRON] Live MF NAV refreshed: ${stats.size} funds loaded from AMFI`);
+  if (isProductionEnvironment()) {
+    cron.schedule('0 17 * * *', async () => {
+      if (!isEnrichmentWindow()) { console.log('⏭️ [Live MF NAV] Outside 8PM-8AM IST window, skipping'); return; }
+      console.log('[CRON] Starting live MF NAV refresh...');
+      try {
+        const { liveMFDataService } = await import('./services/live-mf-data-service');
+        const success = await liveMFDataService.refreshCache();
         
-        // Optionally sync to database for top funds
-        const result = await liveMFDataService.updateDatabaseWithLiveData();
-        console.log(`[CRON] Database sync: ${result.updated} funds updated`);
-      } else {
-        console.warn('[CRON] Live MF NAV refresh failed');
+        if (success) {
+          const stats = liveMFDataService.getCacheStats();
+          console.log(`[CRON] Live MF NAV refreshed: ${stats.size} funds loaded from AMFI`);
+          
+          const result = await liveMFDataService.updateDatabaseWithLiveData();
+          console.log(`[CRON] Database sync: ${result.updated} funds updated`);
+        } else {
+          console.warn('[CRON] Live MF NAV refresh failed');
+        }
+      } catch (error: any) {
+        console.error('[CRON] Live MF NAV refresh failed:', error.message);
       }
-    } catch (error: any) {
-      console.error('[CRON] Live MF NAV refresh failed:', error.message);
-    }
-  });
+    });
 
-  // Morning MF NAV Pre-warm - Run at 9 AM IST (3:30 AM UTC)
-  cron.schedule('30 3 * * *', async () => {
-    console.log('[CRON] Pre-warming MF NAV cache...');
-    try {
-      const { liveMFDataService } = await import('./services/live-mf-data-service');
-      await liveMFDataService.refreshCache();
-      const stats = liveMFDataService.getCacheStats();
-      console.log(`[CRON] MF NAV cache pre-warmed: ${stats.size} funds`);
-    } catch (error: any) {
-      console.error('[CRON] MF NAV pre-warm failed:', error.message);
-    }
-  });
-
-  // MF NAV History Sync - Run daily at 11 PM IST (5:30 PM UTC) to store historical NAV data
-  cron.schedule('30 17 * * *', async () => {
-    console.log('[CRON] Starting MF NAV history sync...');
-    try {
-      const { mfDataSyncService } = await import('./services/mf-data-sync-service');
-      await mfDataSyncService.runDailySync();
-      console.log('[CRON] MF NAV history sync completed');
-    } catch (error: any) {
-      console.error('[CRON] MF NAV history sync failed:', error.message);
-    }
-  });
-
-  // Monthly Returns Calculation - Run on 1st of each month at 6 AM IST (12:30 AM UTC)
-  cron.schedule('30 0 1 * *', async () => {
-    console.log('[CRON] Starting monthly returns calculation...');
-    try {
-      const { mfDataSyncService } = await import('./services/mf-data-sync-service');
-      const { mutualFunds } = await import('@shared/schema');
-      const { db } = await import('./db');
-      
-      const funds = await db.select({ schemeCode: mutualFunds.schemeCode }).from(mutualFunds).limit(200);
-      let calculated = 0;
-      
-      for (const fund of funds) {
-        const count = await mfDataSyncService.calculateMonthlyReturnsForScheme(fund.schemeCode);
-        if (count > 0) calculated++;
+    // Morning MF NAV Pre-warm - Run at 9 AM IST (3:30 AM UTC)
+    cron.schedule('30 3 * * *', async () => {
+      if (!isProductionEnvironment()) return;
+      console.log('[CRON] Pre-warming MF NAV cache...');
+      try {
+        const { liveMFDataService } = await import('./services/live-mf-data-service');
+        await liveMFDataService.refreshCache();
+        const stats = liveMFDataService.getCacheStats();
+        console.log(`[CRON] MF NAV cache pre-warmed: ${stats.size} funds`);
+      } catch (error: any) {
+        console.error('[CRON] MF NAV pre-warm failed:', error.message);
       }
-      
-      console.log(`[CRON] Monthly returns calculated for ${calculated} funds`);
-    } catch (error: any) {
-      console.error('[CRON] Monthly returns calculation failed:', error.message);
-    }
-  });
+    });
+
+    // MF NAV History Sync - Run daily at 11 PM IST (5:30 PM UTC) to store historical NAV data
+    cron.schedule('30 17 * * *', async () => {
+      if (!isEnrichmentWindow()) { console.log('⏭️ [MF NAV History] Outside 8PM-8AM IST window, skipping'); return; }
+      console.log('[CRON] Starting MF NAV history sync...');
+      try {
+        const { mfDataSyncService } = await import('./services/mf-data-sync-service');
+        await mfDataSyncService.runDailySync();
+        console.log('[CRON] MF NAV history sync completed');
+      } catch (error: any) {
+        console.error('[CRON] MF NAV history sync failed:', error.message);
+      }
+    });
+
+    // Monthly Returns Calculation - Run on 1st of each month at 6 AM IST (12:30 AM UTC)
+    cron.schedule('30 0 1 * *', async () => {
+      if (!isEnrichmentWindow()) { console.log('⏭️ [Monthly Returns] Outside 8PM-8AM IST window, skipping'); return; }
+      console.log('[CRON] Starting monthly returns calculation...');
+      try {
+        const { mfDataSyncService } = await import('./services/mf-data-sync-service');
+        const { mutualFunds } = await import('@shared/schema');
+        const { db } = await import('./db');
+        
+        const funds = await db.select({ schemeCode: mutualFunds.schemeCode }).from(mutualFunds).limit(200);
+        let calculated = 0;
+        
+        for (const fund of funds) {
+          const count = await mfDataSyncService.calculateMonthlyReturnsForScheme(fund.schemeCode);
+          if (count > 0) calculated++;
+        }
+        
+        console.log(`[CRON] Monthly returns calculated for ${calculated} funds`);
+      } catch (error: any) {
+        console.error('[CRON] Monthly returns calculation failed:', error.message);
+      }
+    });
+  } else {
+    console.log('⏭️ [MF Cron Jobs] Live MF NAV, NAV History, Monthly Returns, NAV Pre-warm SKIPPED (development mode)');
+  }
 
   // Probe42 Prospecting Alerts - Run daily at 8 AM IST (2:30 AM UTC)
   cron.schedule('30 2 * * *', async () => {

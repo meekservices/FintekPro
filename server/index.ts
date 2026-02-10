@@ -10,9 +10,8 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 process.on('SIGHUP', () => {
-  console.log(`ℹ️ [SIGNAL] SIGHUP received and ignored at ${new Date().toISOString()} (uptime: ${(process.uptime()/60).toFixed(1)}min)`);
-  // Do NOT exit - SIGHUP is sent by the terminal/session manager and should be ignored
-  // to keep the server running. Default Node.js behavior exits on SIGHUP.
+  console.log(`ℹ️ [SIGNAL] SIGHUP received at ${new Date().toISOString()} (uptime: ${(process.uptime()/60).toFixed(1)}min) - graceful shutdown`);
+  process.exit(0);
 });
 
 // Global error handlers to prevent Neon serverless library crashes
@@ -1003,33 +1002,39 @@ app.use((req, res, next) => {
     logger.serviceError('Unlisted Marketplace Cron', 'Failed to initialize cron jobs', error instanceof Error ? error : undefined);
   }
   
-  // Initialize Financial Data Scheduler for database-driven caching (heavily delayed to reduce startup load)
-  setTimeout(() => {
-    try {
-      import('./services/financial-data-scheduler').then(({ financialDataScheduler }) => {
-        financialDataScheduler.start();
-        logger.service('Financial Data Scheduler', 'Started periodic data refresh');
-      }).catch(error => {
-        console.error('❌ Failed to start financial data scheduler:', error);
-      });
-    } catch (error) {
-      console.error('❌ Error initializing financial data scheduler:', error);
-    }
-  }, 180000); // 3 minute delay - heaviest startup task, defer significantly
-  
-  // Initialize MF Returns Scheduler (calculates live CAGR returns from historical NAV)
-  setTimeout(() => {
-    try {
-      import('./services/mf-returns-scheduler').then(({ mfReturnsScheduler }) => {
-        mfReturnsScheduler.initialize();
-        console.log('📊 [MFReturnsScheduler] Returns sync scheduler initialized');
-      }).catch(error => {
-        console.error('❌ Failed to start MF returns scheduler:', error);
-      });
-    } catch (error) {
-      console.error('❌ Error initializing MF returns scheduler:', error);
-    }
-  }, 240000); // 4 minute delay (after financial data scheduler)
+  // Initialize Financial Data Scheduler for database-driven caching (production only)
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT_DEPLOYMENT === '1';
+  if (isProduction) {
+    setTimeout(() => {
+      try {
+        import('./services/financial-data-scheduler').then(({ financialDataScheduler }) => {
+          financialDataScheduler.start();
+          logger.service('Financial Data Scheduler', 'Started periodic data refresh');
+        }).catch(error => {
+          console.error('❌ Failed to start financial data scheduler:', error);
+        });
+      } catch (error) {
+        console.error('❌ Error initializing financial data scheduler:', error);
+      }
+    }, 180000);
+    
+    // Initialize MF Returns Scheduler (calculates live CAGR returns from historical NAV)
+    setTimeout(() => {
+      try {
+        import('./services/mf-returns-scheduler').then(({ mfReturnsScheduler }) => {
+          mfReturnsScheduler.initialize();
+          console.log('📊 [MFReturnsScheduler] Returns sync scheduler initialized');
+        }).catch(error => {
+          console.error('❌ Failed to start MF returns scheduler:', error);
+        });
+      } catch (error) {
+        console.error('❌ Error initializing MF returns scheduler:', error);
+      }
+    }, 240000);
+  } else {
+    console.log('⏭️ [Financial Data Scheduler] Skipped (development mode - production only)');
+    console.log('⏭️ [MFReturnsScheduler] Skipped (development mode - production only)');
+  }
   
   // Seed default store categories if not present
   storage.seedDefaultStoreCategories().catch(error => {
@@ -1070,25 +1075,30 @@ app.use((req, res, next) => {
         console.log(`✅ [Bootstrap] ${indicesCount} market indices already exist, skipping first-run seeding`);
       }
       
-      // Check MF returns gap - enrich top funds if most are missing
-      const mfCheck = await db.execute(sql`
-        SELECT COUNT(*) as total, 
-               SUM(CASE WHEN returns_1y IS NULL THEN 1 ELSE 0 END) as missing
-        FROM mutual_funds
-      `);
-      const mfTotal = parseInt(String((mfCheck.rows[0] as any)?.total || '0'));
-      const mfMissing = parseInt(String((mfCheck.rows[0] as any)?.missing || '0'));
-      const gapPercent = mfTotal > 0 ? (mfMissing / mfTotal) * 100 : 0;
-      
-      if (gapPercent > 80 && mfTotal > 100) {
-        console.log(`🔄 [Bootstrap] MF returns gap: ${gapPercent.toFixed(1)}% missing - starting initial enrichment for top 500 funds...`);
-        try {
-          const { mfReturnsSyncService } = await import('./services/mf-returns-sync-service');
-          const result = await mfReturnsSyncService.runBatchSync(500);
-          console.log(`✅ [Bootstrap] MF returns initial enrichment: synced ${typeof result === 'object' ? JSON.stringify(result) : result}`);
-        } catch (err: any) {
-          console.error('⚠️ [Bootstrap] MF returns initial enrichment failed:', err.message);
+      // Check MF returns gap - enrich top funds if most are missing (production only)
+      const isBootstrapProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT_DEPLOYMENT === '1';
+      if (isBootstrapProduction) {
+        const mfCheck = await db.execute(sql`
+          SELECT COUNT(*) as total, 
+                 SUM(CASE WHEN returns_1y IS NULL THEN 1 ELSE 0 END) as missing
+          FROM mutual_funds
+        `);
+        const mfTotal = parseInt(String((mfCheck.rows[0] as any)?.total || '0'));
+        const mfMissing = parseInt(String((mfCheck.rows[0] as any)?.missing || '0'));
+        const gapPercent = mfTotal > 0 ? (mfMissing / mfTotal) * 100 : 0;
+        
+        if (gapPercent > 80 && mfTotal > 100) {
+          console.log(`🔄 [Bootstrap] MF returns gap: ${gapPercent.toFixed(1)}% missing - starting initial enrichment for top 500 funds...`);
+          try {
+            const { mfReturnsSyncService } = await import('./services/mf-returns-sync-service');
+            const result = await mfReturnsSyncService.runBatchSync(500);
+            console.log(`✅ [Bootstrap] MF returns initial enrichment: synced ${typeof result === 'object' ? JSON.stringify(result) : result}`);
+          } catch (err: any) {
+            console.error('⚠️ [Bootstrap] MF returns initial enrichment failed:', err.message);
+          }
         }
+      } else {
+        console.log('⏭️ [Bootstrap] MF returns enrichment skipped (development mode - production only)');
       }
     } catch (error: any) {
       console.error('❌ [Bootstrap] Data seeding failed:', error.message);
