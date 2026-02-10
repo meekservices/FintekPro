@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { pickOfTheDayService, PickCategory } from "../services/pick-of-the-day-service";
 import { db } from "../db";
-import { dailyPicks, listedStocks, mutualFunds, bondCatalog, unlistedCompanies, globalInstruments, instrumentMaster, sgbPrimaryIssues, pickWatchlist, pickPriceAlerts, investmentProposals, investmentProposalItems } from "@shared/schema";
+import { dailyPicks, listedStocks, mutualFunds, bondCatalog, unlistedCompanies, globalInstruments, instrumentMaster, sgbPrimaryIssues, pickWatchlist, pickPriceAlerts, investmentProposals, investmentProposalItems, userNotifications } from "@shared/schema";
 import { eq, like, or, sql, desc, and, count } from "drizzle-orm";
 import nodemailer from "nodemailer";
 import { z } from "zod";
@@ -40,6 +40,17 @@ const router = Router();
 const requireAuth = (req: Request, res: Response, next: NextFunction) => {
   if (!(req as any).user) {
     return res.status(401).json({ success: false, error: "Authentication required" });
+  }
+  next();
+};
+
+const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
+  if (!(req as any).user) {
+    return res.status(401).json({ success: false, error: "Authentication required" });
+  }
+  const role = (req as any).user.role;
+  if (role !== 'admin' && role !== 'superadmin') {
+    return res.status(403).json({ success: false, error: "Admin access required" });
   }
   next();
 };
@@ -176,7 +187,7 @@ router.get("/stats", async (req, res) => {
   }
 });
 
-router.post("/generate", async (req, res) => {
+router.post("/generate", requireAdmin, async (req, res) => {
   try {
     const picks = await pickOfTheDayService.generateDailyPicks();
     res.json({
@@ -190,7 +201,7 @@ router.post("/generate", async (req, res) => {
   }
 });
 
-router.post("/update-statuses", async (req, res) => {
+router.post("/update-statuses", requireAdmin, async (req, res) => {
   try {
     const result = await pickOfTheDayService.updatePickStatuses();
     res.json({
@@ -204,7 +215,7 @@ router.post("/update-statuses", async (req, res) => {
   }
 });
 
-router.get("/admin/list", requireAuth, async (req, res) => {
+router.get("/admin/list", requireAdmin, async (req, res) => {
   try {
     const { category, status, limit = "50" } = req.query;
     
@@ -231,7 +242,7 @@ router.get("/admin/list", requireAuth, async (req, res) => {
   }
 });
 
-router.get("/admin/:id", requireAuth, async (req, res) => {
+router.get("/admin/:id", requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const [pick] = await db.select().from(dailyPicks).where(eq(dailyPicks.id, parseInt(id)));
@@ -247,7 +258,7 @@ router.get("/admin/:id", requireAuth, async (req, res) => {
   }
 });
 
-router.post("/admin/create", requireAuth, async (req, res) => {
+router.post("/admin/create", requireAdmin, async (req, res) => {
   try {
     const { 
       category, instrumentId, instrumentName, isin, symbol, market,
@@ -284,7 +295,7 @@ router.post("/admin/create", requireAuth, async (req, res) => {
   }
 });
 
-router.patch("/admin/:id", requireAuth, async (req, res) => {
+router.patch("/admin/:id", requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
@@ -310,7 +321,7 @@ router.patch("/admin/:id", requireAuth, async (req, res) => {
   }
 });
 
-router.delete("/admin/:id", requireAuth, async (req, res) => {
+router.delete("/admin/:id", requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -734,87 +745,100 @@ function getDiversificationRecommendations(
 
 router.get("/stats/enhanced", requireAuth, async (req, res) => {
   try {
-    const allPicks = await db.select().from(dailyPicks);
-    
-    const completedPicks = allPicks.filter(p => ['target_hit', 'stoploss_hit', 'expired'].includes(p.status));
-    const targetHits = completedPicks.filter(p => p.status === 'target_hit');
-    const stoplossHits = completedPicks.filter(p => p.status === 'stoploss_hit');
-    
-    const hitRate = completedPicks.length > 0 
-      ? (targetHits.length / completedPicks.length) * 100 
-      : 0;
-    
-    const avgReturn = completedPicks.length > 0
-      ? completedPicks.reduce((sum, p) => sum + (parseFloat(p.returnPct || '0')), 0) / completedPicks.length
-      : 0;
-    
-    const avgDaysHeld = completedPicks.length > 0
-      ? completedPicks.reduce((sum, p) => sum + (p.daysHeld || 0), 0) / completedPicks.length
-      : 0;
-    
-    const categoryStats: Record<string, {
-      total: number;
-      targetHits: number;
-      stoplossHits: number;
-      avgReturn: number;
-      hitRate: number;
-    }> = {};
-    
-    for (const pick of completedPicks) {
-      if (!categoryStats[pick.category]) {
-        categoryStats[pick.category] = { total: 0, targetHits: 0, stoplossHits: 0, avgReturn: 0, hitRate: 0 };
-      }
-      const stat = categoryStats[pick.category];
-      stat.total++;
-      if (pick.status === 'target_hit') stat.targetHits++;
-      if (pick.status === 'stoploss_hit') stat.stoplossHits++;
-      stat.avgReturn += parseFloat(pick.returnPct || '0');
+    const overallResult = await db.execute(sql`
+      SELECT
+        COUNT(*) as total_picks,
+        COUNT(*) FILTER (WHERE status = 'live') as live_picks,
+        COUNT(*) FILTER (WHERE status IN ('target_hit','stoploss_hit','expired')) as completed_picks,
+        COUNT(*) FILTER (WHERE status = 'target_hit') as target_hits,
+        COUNT(*) FILTER (WHERE status = 'stoploss_hit') as stoploss_hits,
+        COALESCE(AVG(return_pct::numeric) FILTER (WHERE status IN ('target_hit','stoploss_hit','expired')), 0) as avg_return,
+        COALESCE(AVG(days_held) FILTER (WHERE status IN ('target_hit','stoploss_hit','expired')), 0) as avg_days_held
+      FROM daily_picks
+    `);
+
+    const r = (overallResult as any).rows?.[0] || (overallResult as any)[0] || {};
+    const completedCount = parseInt(r.completed_picks || '0');
+    const targetHitsCount = parseInt(r.target_hits || '0');
+    const hitRate = completedCount > 0 ? (targetHitsCount / completedCount) * 100 : 0;
+
+    const catResult = await db.execute(sql`
+      SELECT
+        category,
+        COUNT(*) FILTER (WHERE status IN ('target_hit','stoploss_hit','expired')) as total,
+        COUNT(*) FILTER (WHERE status = 'target_hit') as target_hits,
+        COUNT(*) FILTER (WHERE status = 'stoploss_hit') as stoploss_hits,
+        COALESCE(AVG(return_pct::numeric) FILTER (WHERE status IN ('target_hit','stoploss_hit','expired')), 0) as avg_return
+      FROM daily_picks
+      GROUP BY category
+    `);
+
+    const categoryStats: Record<string, any> = {};
+    for (const cr of ((catResult as any).rows || catResult)) {
+      const total = parseInt(cr.total || '0');
+      const th = parseInt(cr.target_hits || '0');
+      categoryStats[cr.category] = {
+        total,
+        targetHits: th,
+        stoplossHits: parseInt(cr.stoploss_hits || '0'),
+        avgReturn: Math.round(parseFloat(cr.avg_return || '0') * 100) / 100,
+        hitRate: total > 0 ? Math.round((th / total) * 100 * 100) / 100 : 0,
+      };
     }
-    
-    for (const cat of Object.keys(categoryStats)) {
-      const stat = categoryStats[cat];
-      stat.avgReturn = stat.total > 0 ? stat.avgReturn / stat.total : 0;
-      stat.hitRate = stat.total > 0 ? (stat.targetHits / stat.total) * 100 : 0;
+
+    const monthResult = await db.execute(sql`
+      SELECT
+        SUBSTRING(reco_date, 1, 7) as month,
+        COUNT(*) as picks,
+        COUNT(*) FILTER (WHERE status = 'target_hit') as hits,
+        COALESCE(AVG(return_pct::numeric), 0) as avg_return
+      FROM daily_picks
+      WHERE status IN ('target_hit','stoploss_hit','expired')
+      GROUP BY SUBSTRING(reco_date, 1, 7)
+      ORDER BY month
+    `);
+
+    const monthlyPerformance: Record<string, any> = {};
+    for (const mr of ((monthResult as any).rows || monthResult)) {
+      const picks = parseInt(mr.picks || '0');
+      monthlyPerformance[mr.month] = {
+        picks,
+        hitRate: picks > 0 ? Math.round((parseInt(mr.hits || '0') / picks) * 100 * 100) / 100 : 0,
+        avgReturn: Math.round(parseFloat(mr.avg_return || '0') * 100) / 100,
+      };
     }
-    
-    const monthlyPerformance: Record<string, { picks: number; hitRate: number; avgReturn: number }> = {};
-    for (const pick of completedPicks) {
-      const month = pick.recoDate.substring(0, 7);
-      if (!monthlyPerformance[month]) {
-        monthlyPerformance[month] = { picks: 0, hitRate: 0, avgReturn: 0 };
-      }
-      monthlyPerformance[month].picks++;
-      monthlyPerformance[month].avgReturn += parseFloat(pick.returnPct || '0');
-      if (pick.status === 'target_hit') monthlyPerformance[month].hitRate++;
+
+    const confResult = await db.execute(sql`
+      SELECT
+        (COALESCE(confidence_score, 70) / 10) * 10 as bucket,
+        COUNT(*) as predictions,
+        COUNT(*) FILTER (WHERE status = 'target_hit') as correct
+      FROM daily_picks
+      WHERE status IN ('target_hit','stoploss_hit','expired')
+      GROUP BY bucket
+      ORDER BY bucket
+    `);
+
+    const confidenceAccuracy: Record<number, { predictions: number; correct: number }> = {};
+    for (const cr of ((confResult as any).rows || confResult)) {
+      confidenceAccuracy[parseInt(cr.bucket)] = {
+        predictions: parseInt(cr.predictions || '0'),
+        correct: parseInt(cr.correct || '0'),
+      };
     }
-    
-    for (const month of Object.keys(monthlyPerformance)) {
-      const data = monthlyPerformance[month];
-      data.avgReturn = data.picks > 0 ? data.avgReturn / data.picks : 0;
-      data.hitRate = data.picks > 0 ? (data.hitRate / data.picks) * 100 : 0;
-    }
-    
-    const confidenceAccuracy = completedPicks.reduce((acc, pick) => {
-      const confidence = pick.confidenceScore || 70;
-      const bucket = Math.floor(confidence / 10) * 10;
-      if (!acc[bucket]) acc[bucket] = { predictions: 0, correct: 0 };
-      acc[bucket].predictions++;
-      if (pick.status === 'target_hit') acc[bucket].correct++;
-      return acc;
-    }, {} as Record<number, { predictions: number; correct: number }>);
-    
+
     res.json({
       success: true,
       stats: {
         overall: {
-          totalPicks: allPicks.length,
-          livePicks: allPicks.filter(p => p.status === 'live').length,
-          completedPicks: completedPicks.length,
-          targetHits: targetHits.length,
-          stoplossHits: stoplossHits.length,
+          totalPicks: parseInt(r.total_picks || '0'),
+          livePicks: parseInt(r.live_picks || '0'),
+          completedPicks: completedCount,
+          targetHits: targetHitsCount,
+          stoplossHits: parseInt(r.stoploss_hits || '0'),
           hitRate: Math.round(hitRate * 100) / 100,
-          avgReturn: Math.round(avgReturn * 100) / 100,
-          avgDaysHeld: Math.round(avgDaysHeld),
+          avgReturn: Math.round(parseFloat(r.avg_return || '0') * 100) / 100,
+          avgDaysHeld: Math.round(parseFloat(r.avg_days_held || '0')),
         },
         byCategory: categoryStats,
         monthlyTrend: monthlyPerformance,
@@ -1132,7 +1156,7 @@ function calculateSuitabilityScore(pick: any, clientProfile: {
 // PRICE REFRESH
 // ==========================================
 
-router.post("/refresh-prices", async (req, res) => {
+router.post("/refresh-prices", requireAdmin, async (req, res) => {
   try {
     console.log("[API] Triggering price refresh for live picks");
     const result = await pickOfTheDayService.refreshLivePicks();

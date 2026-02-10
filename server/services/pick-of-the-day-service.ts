@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { dailyPicks, listedStocks, mutualFunds, bondCatalog, unlistedCompanies, globalInstruments, instrumentMaster, sgbPrimaryIssues, stockFinancialMetrics, reits, invits } from "@shared/schema";
+import { dailyPicks, listedStocks, mutualFunds, bondCatalog, unlistedCompanies, globalInstruments, instrumentMaster, sgbPrimaryIssues, stockFinancialMetrics, reits, invits, pickWatchlist, userNotifications } from "@shared/schema";
 import { eq, and, desc, gte, sql, ilike, or } from "drizzle-orm";
 import { GoogleGenAI } from "@google/genai";
 import { FinancialMetricsCalculator } from "./financial-metrics-calculator";
@@ -72,16 +72,8 @@ interface StockCandidate {
 class PickOfTheDayService {
   private genAI: GoogleGenAI | null = null;
   private readonly DEFAULT_VALIDITY_DAYS = 30;
-  private readonly STOCK_TARGET_PCT = 0.15; // 15% target
-  private readonly STOCK_STOPLOSS_PCT = 0.08; // 8% stoploss
-  private readonly MF_TARGET_PCT = 0.12; // 12% target for MFs
-  private readonly MF_STOPLOSS_PCT = 0.05; // 5% stoploss for MFs
-  private readonly BOND_TARGET_PCT = 0.08; // 8% target for bonds
-  private readonly BOND_STOPLOSS_PCT = 0.03; // 3% stoploss for bonds
-  private readonly ETF_TARGET_PCT = 0.10; // 10% target for ETFs
-  private readonly ETF_STOPLOSS_PCT = 0.05; // 5% stoploss for ETFs
-  private readonly SGB_TARGET_PCT = 0.08; // 8% target for SGBs
-  private readonly SGB_STOPLOSS_PCT = 0.03; // 3% stoploss for SGBs
+  private readonly ROTATION_DAYS = 7;
+  private recentPicksCache: Map<string, Set<string>> = new Map();
 
   constructor() {
     if (process.env.GEMINI_API_KEY) {
@@ -149,6 +141,80 @@ class PickOfTheDayService {
     return Math.min(100, Math.max(0, confidence));
   }
 
+  private async getRecentlyPickedIds(category: PickCategory): Promise<Set<string>> {
+    const cacheKey = category;
+    if (this.recentPicksCache.has(cacheKey)) {
+      return this.recentPicksCache.get(cacheKey)!;
+    }
+
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - this.ROTATION_DAYS);
+    const cutoff = cutoffDate.toISOString().split('T')[0];
+
+    const recentPicks = await db
+      .select({ instrumentId: dailyPicks.instrumentId })
+      .from(dailyPicks)
+      .where(
+        and(
+          eq(dailyPicks.category, category),
+          gte(dailyPicks.recoDate, cutoff)
+        )
+      );
+
+    const ids = new Set(recentPicks.map(p => p.instrumentId).filter(Boolean) as string[]);
+    this.recentPicksCache.set(cacheKey, ids);
+    return ids;
+  }
+
+  private clearRotationCache(): void {
+    this.recentPicksCache.clear();
+  }
+
+  private filterRecentPicks<T extends { id?: string | number }>(
+    candidates: T[],
+    recentIds: Set<string>,
+    idExtractor: (item: T) => string
+  ): T[] {
+    const filtered = candidates.filter(c => !recentIds.has(idExtractor(c)));
+    if (filtered.length === 0) {
+      console.log(`[PickOfTheDay] All candidates were recently picked, allowing repeats`);
+      return candidates;
+    }
+    return filtered;
+  }
+
+  private getDynamicTargetStoploss(
+    category: PickCategory,
+    volatility?: number
+  ): { targetPct: number; stoplossPct: number } {
+    const baseTargets: Record<string, { target: number; stoploss: number }> = {
+      listed_stocks: { target: 0.15, stoploss: 0.08 },
+      mutual_funds: { target: 0.12, stoploss: 0.05 },
+      bonds: { target: 0.08, stoploss: 0.03 },
+      global_stocks: { target: 0.15, stoploss: 0.08 },
+      etfs: { target: 0.10, stoploss: 0.05 },
+      sgb: { target: 0.08, stoploss: 0.03 },
+      reits_invits: { target: 0.12, stoploss: 0.06 },
+      unlisted: { target: 0.25, stoploss: 0.15 },
+      fixed_deposits: { target: 0, stoploss: 0 },
+    };
+
+    const base = baseTargets[category] || { target: 0.12, stoploss: 0.06 };
+
+    if (!volatility || volatility <= 0 || category === 'fixed_deposits') {
+      return { targetPct: base.target, stoplossPct: base.stoploss };
+    }
+
+    const volFactor = volatility / 20;
+    const adjustedTarget = Math.min(base.target * (0.7 + 0.3 * volFactor), base.target * 1.5);
+    const adjustedStoploss = Math.min(base.stoploss * (0.7 + 0.3 * volFactor), base.stoploss * 1.5);
+
+    return {
+      targetPct: Math.round(adjustedTarget * 1000) / 1000,
+      stoplossPct: Math.round(adjustedStoploss * 1000) / 1000,
+    };
+  }
+
   async getTodaysPicks(): Promise<DailyPickData[]> {
     const today = new Date().toISOString().split('T')[0];
     
@@ -195,75 +261,50 @@ class PickOfTheDayService {
     avgReturn: number;
     byCategory: Record<string, { total: number; hits: number; hitRate: number }>;
   }> {
-    const allPicks = await db.select().from(dailyPicks);
-    
-    const stats = {
-      totalPicks: allPicks.length,
-      livePicks: 0,
-      targetHits: 0,
-      stoplossHits: 0,
-      expired: 0,
-      hitRate: 0,
-      avgReturn: 0,
-      byCategory: {} as Record<string, { total: number; hits: number; hitRate: number }>,
-    };
+    const overallResult = await db.execute(sql`
+      SELECT
+        COUNT(*) as total_picks,
+        COUNT(*) FILTER (WHERE status = 'live') as live_picks,
+        COUNT(*) FILTER (WHERE status = 'target_hit') as target_hits,
+        COUNT(*) FILTER (WHERE status = 'stoploss_hit') as stoploss_hits,
+        COUNT(*) FILTER (WHERE status = 'expired') as expired,
+        COALESCE(AVG(return_pct::numeric) FILTER (WHERE return_pct IS NOT NULL), 0) as avg_return
+      FROM daily_picks
+    `);
 
-    let totalReturn = 0;
-    let closedPicks = 0;
+    const row = (overallResult as any).rows?.[0] || (overallResult as any)[0] || {};
+    const totalPicks = parseInt(row.total_picks || '0');
+    const livePicks = parseInt(row.live_picks || '0');
+    const targetHits = parseInt(row.target_hits || '0');
+    const stoplossHits = parseInt(row.stoploss_hits || '0');
+    const expired = parseInt(row.expired || '0');
+    const avgReturn = Math.round(parseFloat(row.avg_return || '0') * 100) / 100;
 
-    for (const pick of allPicks) {
-      const category = pick.category;
-      if (!stats.byCategory[category]) {
-        stats.byCategory[category] = { total: 0, hits: 0, hitRate: 0 };
-      }
-      stats.byCategory[category].total++;
+    const closedTotal = targetHits + stoplossHits + expired;
+    const hitRate = closedTotal > 0 ? Math.round((targetHits / closedTotal) * 100) : 0;
 
-      switch (pick.status) {
-        case 'live':
-          stats.livePicks++;
-          break;
-        case 'target_hit':
-          stats.targetHits++;
-          stats.byCategory[category].hits++;
-          closedPicks++;
-          if (pick.returnPct) totalReturn += parseFloat(pick.returnPct);
-          break;
-        case 'stoploss_hit':
-          stats.stoplossHits++;
-          closedPicks++;
-          if (pick.returnPct) totalReturn += parseFloat(pick.returnPct);
-          break;
-        case 'expired':
-          stats.expired++;
-          closedPicks++;
-          if (pick.returnPct) totalReturn += parseFloat(pick.returnPct);
-          break;
-      }
+    const categoryResult = await db.execute(sql`
+      SELECT
+        category,
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE status = 'target_hit') as hits
+      FROM daily_picks
+      GROUP BY category
+    `);
+
+    const byCategory: Record<string, { total: number; hits: number; hitRate: number }> = {};
+    const catRows = (categoryResult as any).rows || categoryResult;
+    for (const catRow of catRows) {
+      const catTotal = parseInt(catRow.total || '0');
+      const catHits = parseInt(catRow.hits || '0');
+      byCategory[catRow.category] = {
+        total: catTotal,
+        hits: catHits,
+        hitRate: catTotal > 0 ? Math.round((catHits / catTotal) * 100) : 0,
+      };
     }
 
-    const closedForHitRate = stats.targetHits + stats.stoplossHits + stats.expired;
-    stats.hitRate = closedForHitRate > 0 ? 
-      Math.round((stats.targetHits / closedForHitRate) * 100) : 0;
-    
-    let liveReturn = 0;
-    let liveReturnCount = 0;
-    for (const pick of allPicks) {
-      if (pick.status === 'live' && pick.returnPct) {
-        liveReturn += parseFloat(pick.returnPct);
-        liveReturnCount++;
-      }
-    }
-    const allReturnPicks = closedPicks + liveReturnCount;
-    const allReturnTotal = totalReturn + liveReturn;
-    stats.avgReturn = allReturnPicks > 0 ? Math.round((allReturnTotal / allReturnPicks) * 100) / 100 : 0;
-
-    for (const cat in stats.byCategory) {
-      const catStats = stats.byCategory[cat];
-      catStats.hitRate = catStats.total > 0 ? 
-        Math.round((catStats.hits / catStats.total) * 100) : 0;
-    }
-
-    return stats;
+    return { totalPicks, livePicks, targetHits, stoplossHits, expired, hitRate, avgReturn, byCategory };
   }
 
   async generateDailyPicks(): Promise<DailyPickData[]> {
@@ -278,6 +319,8 @@ class PickOfTheDayService {
       console.log(`[PickOfTheDay] Picks already exist for ${today}`);
       return existingPicks.map(this.transformPick);
     }
+
+    this.clearRotationCache();
 
     const picks: DailyPickData[] = [];
 
@@ -335,15 +378,23 @@ class PickOfTheDayService {
         return null;
       }
 
-      const scoredStocks = stocks.map(stock => ({
-        stock,
-        score: this.scoreStock(stock),
-      })).sort((a, b) => b.score - a.score);
+      const recentIds = await this.getRecentlyPickedIds('listed_stocks');
+      const freshStocks = this.filterRecentPicks(stocks, recentIds, s => s.id);
+
+      const scoredStocksRaw = await Promise.all(
+        freshStocks.map(async stock => ({
+          stock,
+          score: await this.scoreStock(stock),
+        }))
+      );
+      const scoredStocks = scoredStocksRaw.sort((a, b) => b.score - a.score);
 
       const topStock = scoredStocks[0].stock;
       const currentPrice = parseFloat(topStock.currentPrice || "0");
-      const targetPrice = Math.round(currentPrice * (1 + this.STOCK_TARGET_PCT) * 100) / 100;
-      const stoplossPrice = Math.round(currentPrice * (1 - this.STOCK_STOPLOSS_PCT) * 100) / 100;
+      const volatility = topStock.volatility ? parseFloat(topStock.volatility) : undefined;
+      const { targetPct, stoplossPct } = this.getDynamicTargetStoploss('listed_stocks', volatility);
+      const targetPrice = Math.round(currentPrice * (1 + targetPct) * 100) / 100;
+      const stoplossPrice = Math.round(currentPrice * (1 - stoplossPct) * 100) / 100;
 
       const rationale = await this.generateRationale({
         category: 'listed_stocks',
@@ -432,15 +483,19 @@ class PickOfTheDayService {
         return null;
       }
 
-      const scoredFunds = investableFunds.map(fund => ({
+      const recentIds = await this.getRecentlyPickedIds('mutual_funds');
+      const freshFunds = this.filterRecentPicks(investableFunds, recentIds, f => f.schemeCode);
+
+      const scoredFunds = freshFunds.map(fund => ({
         fund,
         score: this.scoreMutualFund(fund),
       })).sort((a, b) => b.score - a.score);
 
       const topFund = scoredFunds[0].fund;
       const currentNav = parseFloat(topFund.nav || "0");
-      const targetNav = Math.round(currentNav * (1 + this.MF_TARGET_PCT) * 100) / 100;
-      const stoplossNav = Math.round(currentNav * (1 - this.MF_STOPLOSS_PCT) * 100) / 100;
+      const { targetPct, stoplossPct } = this.getDynamicTargetStoploss('mutual_funds');
+      const targetNav = Math.round(currentNav * (1 + targetPct) * 100) / 100;
+      const stoplossNav = Math.round(currentNav * (1 - stoplossPct) * 100) / 100;
 
       const rationale = await this.generateRationale({
         category: 'mutual_funds',
@@ -510,15 +565,19 @@ class PickOfTheDayService {
         return null;
       }
 
-      const scoredBonds = bonds.map(bond => ({
+      const recentIds = await this.getRecentlyPickedIds('bonds');
+      const freshBonds = this.filterRecentPicks(bonds, recentIds, b => b.id?.toString() || '');
+
+      const scoredBonds = freshBonds.map(bond => ({
         bond,
         score: this.scoreBond(bond),
       })).sort((a, b) => b.score - a.score);
 
       const topBond = scoredBonds[0].bond;
       const currentPrice = parseFloat(topBond.cleanPrice || "100");
-      const targetPrice = Math.round(currentPrice * (1 + this.BOND_TARGET_PCT) * 100) / 100;
-      const stoplossPrice = Math.round(currentPrice * (1 - this.BOND_STOPLOSS_PCT) * 100) / 100;
+      const { targetPct, stoplossPct } = this.getDynamicTargetStoploss('bonds');
+      const targetPrice = Math.round(currentPrice * (1 + targetPct) * 100) / 100;
+      const stoplossPrice = Math.round(currentPrice * (1 - stoplossPct) * 100) / 100;
 
       const rationale = await this.generateRationale({
         category: 'bonds',
@@ -590,16 +649,19 @@ class PickOfTheDayService {
         return null;
       }
 
-      const scoredCompanies = companies.map(company => ({
+      const recentIds = await this.getRecentlyPickedIds('unlisted');
+      const freshCompanies = this.filterRecentPicks(companies, recentIds, c => c.id);
+
+      const scoredCompanies = freshCompanies.map(company => ({
         company,
         score: this.scoreUnlisted(company),
       })).sort((a, b) => b.score - a.score);
 
       const topCompany = scoredCompanies[0].company;
-      // Use published price if available, otherwise fall back to draft price
       const currentPrice = parseFloat(topCompany.publishedBuyPrice || topCompany.draftBuyPrice || "0");
-      const targetPrice = Math.round(currentPrice * 1.25 * 100) / 100;
-      const stoplossPrice = Math.round(currentPrice * 0.85 * 100) / 100;
+      const { targetPct, stoplossPct } = this.getDynamicTargetStoploss('unlisted');
+      const targetPrice = Math.round(currentPrice * (1 + targetPct) * 100) / 100;
+      const stoplossPrice = Math.round(currentPrice * (1 - stoplossPct) * 100) / 100;
 
       const rationale = await this.generateRationale({
         category: 'unlisted',
@@ -719,20 +781,23 @@ class PickOfTheDayService {
         return null;
       }
 
-      const scoredInstruments = instruments.map(inst => ({
+      const recentIds = await this.getRecentlyPickedIds('global_stocks');
+      const freshInstruments = this.filterRecentPicks(instruments, recentIds, i => i.id);
+
+      const scoredInstruments = freshInstruments.map(inst => ({
         instrument: inst,
         score: this.scoreGlobalStock(inst),
       })).sort((a, b) => b.score - a.score);
 
       const topInstrument = scoredInstruments[0].instrument;
-      // Use lastPrice or a mock price based on known stock values
       const mockPrices: Record<string, number> = {
         AAPL: 185.50, MSFT: 378.90, GOOGL: 142.50, AMZN: 178.25, TSLA: 248.50,
         META: 495.75, NVDA: 485.50, JPM: 195.25, V: 275.50, JNJ: 156.75
       };
       const currentPrice = parseFloat(topInstrument.lastPrice || "0") || mockPrices[topInstrument.symbol || ''] || 100;
-      const targetPrice = Math.round(currentPrice * (1 + this.STOCK_TARGET_PCT) * 100) / 100;
-      const stoplossPrice = Math.round(currentPrice * (1 - this.STOCK_STOPLOSS_PCT) * 100) / 100;
+      const { targetPct, stoplossPct } = this.getDynamicTargetStoploss('global_stocks');
+      const targetPrice = Math.round(currentPrice * (1 + targetPct) * 100) / 100;
+      const stoplossPrice = Math.round(currentPrice * (1 - stoplossPct) * 100) / 100;
       const market = this.mapMarketCode(topInstrument.market);
 
       const rationale = await this.generateRationale({
@@ -841,15 +906,19 @@ class PickOfTheDayService {
         return null;
       }
 
-      const scoredETFs = investableETFs.map(etf => ({
+      const recentIds = await this.getRecentlyPickedIds('etfs');
+      const freshETFs = this.filterRecentPicks(investableETFs, recentIds, e => e.id);
+
+      const scoredETFs = freshETFs.map(etf => ({
         etf,
         score: this.scoreETF(etf),
       })).sort((a, b) => b.score - a.score);
 
       const topETF = scoredETFs[0].etf;
       const currentPrice = parseFloat(topETF.lastPrice || "0");
-      const targetPrice = Math.round(currentPrice * (1 + this.ETF_TARGET_PCT) * 100) / 100;
-      const stoplossPrice = Math.round(currentPrice * (1 - this.ETF_STOPLOSS_PCT) * 100) / 100;
+      const { targetPct, stoplossPct } = this.getDynamicTargetStoploss('etfs');
+      const targetPrice = Math.round(currentPrice * (1 + targetPct) * 100) / 100;
+      const stoplossPrice = Math.round(currentPrice * (1 - stoplossPct) * 100) / 100;
 
       const rationale = await this.generateRationale({
         category: 'etfs',
@@ -935,8 +1004,9 @@ class PickOfTheDayService {
 
   private async createSGBPick(sgb: any): Promise<DailyPickData> {
     const issuePrice = parseFloat(sgb.issuePrice || sgb.issuePricePerGram || "0");
-    const targetPrice = Math.round(issuePrice * (1 + this.SGB_TARGET_PCT) * 100) / 100;
-    const stoplossPrice = Math.round(issuePrice * (1 - this.SGB_STOPLOSS_PCT) * 100) / 100;
+    const { targetPct, stoplossPct } = this.getDynamicTargetStoploss('sgb');
+    const targetPrice = Math.round(issuePrice * (1 + targetPct) * 100) / 100;
+    const stoplossPrice = Math.round(issuePrice * (1 - stoplossPct) * 100) / 100;
 
     const rationale = await this.generateRationale({
       category: 'sgb',
@@ -1013,15 +1083,21 @@ class PickOfTheDayService {
         return null;
       }
 
-      const scoredReits = allReitsInvits.map(reit => ({
+      const recentIds = await this.getRecentlyPickedIds('reits_invits');
+      const freshReitsInvits = this.filterRecentPicks(
+        allReitsInvits, recentIds, r => String(r.id)
+      );
+
+      const scoredReits = freshReitsInvits.map(reit => ({
         reit,
         score: this.scoreREIT(reit),
       })).sort((a, b) => b.score - a.score);
 
       const topReit = scoredReits[0].reit;
       const currentPrice = parseFloat(String(topReit.currentPrice || topReit.current_price || "0"));
-      const targetPrice = Math.round(currentPrice * 1.12 * 100) / 100;
-      const stoplossPrice = Math.round(currentPrice * 0.94 * 100) / 100;
+      const { targetPct, stoplossPct } = this.getDynamicTargetStoploss('reits_invits');
+      const targetPrice = Math.round(currentPrice * (1 + targetPct) * 100) / 100;
+      const stoplossPrice = Math.round(currentPrice * (1 - stoplossPct) * 100) / 100;
 
       const rationale = await this.generateRationale({
         category: 'reits_invits',
@@ -1074,14 +1150,44 @@ class PickOfTheDayService {
   private scoreREIT(reit: any): number {
     let score = 0;
     
-    const name = reit.name?.toLowerCase() || '';
-    if (name.includes('embassy') || name.includes('brookfield')) score += 20;
-    else if (name.includes('mindspace') || name.includes('nexus')) score += 18;
-    else score += 10;
+    const dividendYield = parseFloat(String(reit.dividendYield || '0'));
+    if (dividendYield >= 7) score += 25;
+    else if (dividendYield >= 5) score += 20;
+    else if (dividendYield >= 3) score += 12;
+    else if (dividendYield > 0) score += 5;
 
-    const price = parseFloat(reit.lastPrice || '0');
-    if (price > 200 && price < 1000) score += 15;
-    else if (price > 0) score += 8;
+    const nav = parseFloat(String(reit.nav || '0'));
+    const price = parseFloat(String(reit.currentPrice || reit.current_price || reit.lastPrice || '0'));
+    if (nav > 0 && price > 0) {
+      const navDiscount = ((nav - price) / nav) * 100;
+      if (navDiscount > 10) score += 20;
+      else if (navDiscount > 5) score += 15;
+      else if (navDiscount > 0) score += 8;
+    }
+
+    if (price > 200 && price < 1000) score += 10;
+    else if (price > 0) score += 5;
+
+    const name = reit.name?.toLowerCase() || '';
+    if (name.includes('embassy') || name.includes('brookfield')) score += 5;
+    else if (name.includes('mindspace') || name.includes('nexus')) score += 4;
+
+    return score;
+  }
+
+  private scoreFD(fd: any): number {
+    let score = 0;
+
+    const issuer = fd.issuer?.toLowerCase() || '';
+    if (issuer.includes('sbi') || issuer.includes('hdfc') || issuer.includes('icici')) score += 25;
+    else if (issuer.includes('axis') || issuer.includes('kotak') || issuer.includes('bajaj')) score += 20;
+    else if (issuer.includes('bank') || issuer.includes('finance')) score += 12;
+    else score += 5;
+
+    const name = fd.name?.toLowerCase() || '';
+    if (name.includes('senior citizen') || name.includes('senior')) score += 10;
+    if (name.includes('tax') || name.includes('5 year')) score += 8;
+    if (name.includes('cumulative')) score += 5;
 
     return score;
   }
@@ -1113,7 +1219,15 @@ class PickOfTheDayService {
         return null;
       }
 
-      const topFD = fds[0];
+      const recentIds = await this.getRecentlyPickedIds('fixed_deposits');
+      const freshFDs = this.filterRecentPicks(fds, recentIds, f => f.id);
+
+      const scoredFDs = freshFDs.map(fd => ({
+        fd,
+        score: this.scoreFD(fd),
+      })).sort((a, b) => b.score - a.score);
+
+      const topFD = scoredFDs[0].fd;
 
       const rationale = await this.generateRationale({
         category: 'fixed_deposits',
@@ -1194,7 +1308,7 @@ class PickOfTheDayService {
     return score;
   }
 
-  private scoreStock(stock: any): number {
+  private async scoreStock(stock: any): Promise<number> {
     let score = 0;
     
     const analystRating = stock.analystRating?.toLowerCase() || '';
@@ -1216,8 +1330,7 @@ class PickOfTheDayService {
     else if (stock.marketCap === 'Mid Cap') score += 8;
     else if (stock.marketCap === 'Small Cap') score += 5;
     
-    // Advanced Financial Metrics Integration
-    const advancedMetrics = this.calculateAdvancedMetricsForStock(stock);
+    const advancedMetrics = await this.calculateAdvancedMetricsForStock(stock);
     
     // Piotroski F-Score (0-9): Higher is better financial health
     if (advancedMetrics.piotroskiFScore !== undefined) {
@@ -1253,14 +1366,14 @@ class PickOfTheDayService {
     return Math.max(0, score);
   }
 
-  private calculateAdvancedMetricsForStock(stock: any): {
+  private async calculateAdvancedMetricsForStock(stock: any): Promise<{
     piotroskiFScore?: number;
     altmanZScore?: number;
     pegRatio?: number;
     roic?: number;
     evToEbitda?: number;
     earningsQuality?: number;
-  } {
+  }> {
     const metrics: any = {};
     
     try {
@@ -1274,21 +1387,38 @@ class PickOfTheDayService {
       const revenue = parseFloat(stock.revenue || 0);
       const assetTurnover = revenue > 0 && totalAssets > 0 ? revenue / totalAssets : 0;
       
-      // Calculate Piotroski F-Score
+      try {
+        const stockId = stock.id || stock.instrumentId;
+        if (stockId) {
+          const dbMetrics = await db
+            .select({
+              piotroskiFScore: stockFinancialMetrics.piotroskiFScore,
+              altmanZScore: stockFinancialMetrics.altmanZScore,
+              roic: stockFinancialMetrics.roic,
+              evToEbitda: stockFinancialMetrics.evToEbitda,
+              earningsQuality: stockFinancialMetrics.earningsQuality,
+              pegRatio: stockFinancialMetrics.pegRatio,
+            })
+            .from(stockFinancialMetrics)
+            .where(eq(stockFinancialMetrics.stockId, String(stockId)))
+            .orderBy(desc(stockFinancialMetrics.fiscalYear))
+            .limit(1);
+
+          if (dbMetrics.length > 0) {
+            const m = dbMetrics[0];
+            if (m.piotroskiFScore !== null) metrics.piotroskiFScore = m.piotroskiFScore;
+            if (m.altmanZScore) metrics.altmanZScore = parseFloat(String(m.altmanZScore));
+            if (m.roic) metrics.roic = parseFloat(String(m.roic));
+            if (m.evToEbitda) metrics.evToEbitda = parseFloat(String(m.evToEbitda));
+            if (m.earningsQuality) metrics.earningsQuality = parseFloat(String(m.earningsQuality));
+            if (m.pegRatio) metrics.pegRatio = parseFloat(String(m.pegRatio));
+            return metrics;
+          }
+        }
+      } catch {
+      }
+
       if (netIncome && totalAssets && operatingCashFlow) {
-        const currentData = {
-          netIncome, totalAssets, operatingCashFlow, 
-          totalDebt: longTermDebt, currentAssets: totalAssets * 0.4,
-          currentLiabilities: totalAssets * 0.3, sharesOutstanding,
-          grossProfit: revenue * grossMargin, revenue
-        };
-        const prevData = {
-          netIncome: netIncome * 0.9, totalAssets, 
-          totalDebt: longTermDebt, currentAssets: totalAssets * 0.4,
-          currentLiabilities: totalAssets * 0.3, sharesOutstanding,
-          grossProfit: revenue * 0.95 * grossMargin, revenue: revenue * 0.95
-        };
-        metrics.piotroskiFScore = financialMetricsCalculator.calculatePiotroskiFScore(currentData, prevData);
       }
       
       // Calculate Altman Z-Score
@@ -1587,11 +1717,54 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
           })
           .where(eq(dailyPicks.id, pick.id));
         
-        if (newStatus !== 'live') updated++;
+        if (newStatus !== 'live') {
+          updated++;
+          await this.notifyWatchlistSubscribers(pick, newStatus, currentPrice, returnPct);
+        }
       }
     }
 
     return { updated, details };
+  }
+
+  private async notifyWatchlistSubscribers(
+    pick: any, newStatus: string, currentPrice: number, returnPct: number
+  ): Promise<void> {
+    try {
+      const subscribers = await db
+        .select({ userId: pickWatchlist.userId })
+        .from(pickWatchlist)
+        .where(eq(pickWatchlist.pickId, pick.id));
+
+      if (subscribers.length === 0) return;
+
+      const isTarget = newStatus === 'target_hit';
+      const title = isTarget
+        ? `Target Hit: ${pick.instrumentName}`
+        : newStatus === 'stoploss_hit'
+          ? `Stoploss Hit: ${pick.instrumentName}`
+          : `Pick Expired: ${pick.instrumentName}`;
+      const message = isTarget
+        ? `${pick.instrumentName} has hit the target price of ₹${parseFloat(pick.targetPrice).toLocaleString()} with a return of +${returnPct.toFixed(1)}%. Consider booking profits.`
+        : newStatus === 'stoploss_hit'
+          ? `${pick.instrumentName} has hit the stoploss at ₹${currentPrice.toLocaleString()} (${returnPct.toFixed(1)}%). The position has been flagged for exit.`
+          : `${pick.instrumentName} recommendation has expired with ${returnPct.toFixed(1)}% return.`;
+
+      for (const sub of subscribers) {
+        await db.insert(userNotifications).values({
+          userId: sub.userId,
+          type: isTarget ? 'info' : 'alert',
+          title,
+          message,
+          actionUrl: '/agent/picks',
+          priority: newStatus === 'stoploss_hit' ? 'high' : 'medium',
+        });
+      }
+
+      console.log(`[PickOfTheDay] Notified ${subscribers.length} subscribers about ${pick.instrumentName} ${newStatus}`);
+    } catch (error) {
+      console.error(`[PickOfTheDay] Error notifying subscribers:`, error);
+    }
   }
 
   private async getCurrentPrice(pick: any): Promise<number | null> {
