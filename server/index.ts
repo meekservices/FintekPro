@@ -1,5 +1,20 @@
 // FintekPro Server - Main entry point
 
+// Signal handlers to diagnose unexpected process termination
+process.on('SIGTERM', () => {
+  console.log(`⚠️ [SIGNAL] SIGTERM received at ${new Date().toISOString()} (uptime: ${(process.uptime()/60).toFixed(1)}min, RSS: ${(process.memoryUsage().rss/1024/1024).toFixed(0)}MB)`);
+  process.exit(0);
+});
+process.on('SIGINT', () => {
+  console.log(`⚠️ [SIGNAL] SIGINT received at ${new Date().toISOString()} (uptime: ${(process.uptime()/60).toFixed(1)}min)`);
+  process.exit(0);
+});
+process.on('SIGHUP', () => {
+  console.log(`ℹ️ [SIGNAL] SIGHUP received and ignored at ${new Date().toISOString()} (uptime: ${(process.uptime()/60).toFixed(1)}min)`);
+  // Do NOT exit - SIGHUP is sent by the terminal/session manager and should be ignored
+  // to keep the server running. Default Node.js behavior exits on SIGHUP.
+});
+
 // Global error handlers to prevent Neon serverless library crashes
 // The @neondatabase/serverless v0.10.4 has a bug where it tries to set
 // a read-only property on ErrorEvent when handling connection terminations
@@ -746,7 +761,7 @@ app.use((req, res, next) => {
   console.log('✅ Pick of the Day routes registered');
 
   const { pickOfTheDayService } = await import('./services/pick-of-the-day-service');
-  setTimeout(() => pickOfTheDayService.startDailyScheduler(), 15000);
+  setTimeout(() => pickOfTheDayService.startDailyScheduler(), 60000);
   
   // Register MF Order Execution routes (SEBI-compliant buy/sell order management)
   const mfOrdersRoutes = await import('./routes/mf-orders');
@@ -877,7 +892,7 @@ app.use((req, res, next) => {
     } catch (error) {
       console.error('❌ Error importing bond catalog service:', error);
     }
-  }, 5000); // 5 second delay
+  }, 30000); // 30 second delay
   
   // Initialize Alert Monitoring Service
   try {
@@ -904,7 +919,7 @@ app.use((req, res, next) => {
     } catch (error) {
       console.error('❌ Error importing currency exchange service:', error);
     }
-  }, 10000); // 10 second delay (after bond catalog)
+  }, 45000); // 45 second delay (after bond catalog)
   
   // Initialize Session Cleanup Cron Job
   try {
@@ -988,7 +1003,7 @@ app.use((req, res, next) => {
     logger.serviceError('Unlisted Marketplace Cron', 'Failed to initialize cron jobs', error instanceof Error ? error : undefined);
   }
   
-  // Initialize Financial Data Scheduler for database-driven caching (delayed to reduce startup load)
+  // Initialize Financial Data Scheduler for database-driven caching (heavily delayed to reduce startup load)
   setTimeout(() => {
     try {
       import('./services/financial-data-scheduler').then(({ financialDataScheduler }) => {
@@ -1000,7 +1015,7 @@ app.use((req, res, next) => {
     } catch (error) {
       console.error('❌ Error initializing financial data scheduler:', error);
     }
-  }, 15000); // 15 second delay (after currency exchange)
+  }, 180000); // 3 minute delay - heaviest startup task, defer significantly
   
   // Initialize MF Returns Scheduler (calculates live CAGR returns from historical NAV)
   setTimeout(() => {
@@ -1014,7 +1029,7 @@ app.use((req, res, next) => {
     } catch (error) {
       console.error('❌ Error initializing MF returns scheduler:', error);
     }
-  }, 45000); // 45 second delay (after financial data scheduler)
+  }, 240000); // 4 minute delay (after financial data scheduler)
   
   // Seed default store categories if not present
   storage.seedDefaultStoreCategories().catch(error => {

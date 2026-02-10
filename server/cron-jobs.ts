@@ -26,22 +26,22 @@ import { dataEnrichmentScheduler } from './services/data-enrichment-scheduler';
 import { financialMetricsRefreshScheduler } from './services/financial-metrics-refresh-scheduler';
 import { historicalNavRefreshJob } from './services/historical-nav-refresh-job';
 
-const STAGGER_DELAY_MS = 30000;
+const STAGGER_DELAY_MS = 120000;
+
+const activeTimers: NodeJS.Timeout[] = [];
 
 function staggeredStart(name: string, startFn: () => void, delayMs: number): void {
-  setTimeout(() => {
+  const timer = setTimeout(() => {
     console.log(`🚀 [StaggeredStart] Starting ${name}...`);
     startFn();
   }, delayMs);
+  activeTimers.push(timer);
 }
 
-/**
- * Initialize scheduled cron jobs with staggered startup to reduce resource contention
- */
 export function initializeCronJobs(): void {
-  console.log('Initializing cron jobs (staggered startup enabled)...');
+  console.log('Initializing cron jobs (staggered startup enabled, 120s intervals)...');
 
-  let delay = 0;
+  let delay = 60000;
 
   staggeredStart('REIT/InvIT refresh', () => {
     reitInvitDataService.startScheduledRefresh(6);
