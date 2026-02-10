@@ -546,7 +546,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
         isLoading={pushLoading}
       />
 
-      <header className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-800 border-b border-border/50 sticky top-0 z-50 shadow-lg shadow-black/20">
+      <header className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-800 border-b border-border sticky top-0 z-50 shadow-lg shadow-black/20 backdrop-blur supports-[backdrop-filter]:bg-slate-900/95">
         <div className="flex items-center justify-between px-2 sm:px-4 py-1.5 sm:py-2.5">
           <div className="flex items-center gap-2 sm:gap-4">
             <Button
@@ -715,18 +715,18 @@ export function AgentLayout({ children }: AgentLayoutProps) {
         <aside
           data-testid="agent-sidebar"
           className={cn(
-            "bg-background flex-shrink-0 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent",
-            "md:relative md:transition-all md:duration-300 md:h-[calc(100vh-57px)] md:sticky md:top-[57px]",
+            "bg-card flex-shrink-0 overflow-y-auto shadow-lg border-r border-border scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent transition-all duration-300 ease-in-out",
+            "md:relative md:h-[calc(100vh-57px)] md:sticky md:top-[57px]",
             "max-md:fixed max-md:left-0 max-md:top-[49px] max-md:z-50 max-md:h-[calc(100vh-49px)] max-md:w-[280px] max-md:shadow-2xl max-md:transition-transform max-md:duration-300 max-md:ease-in-out",
             sidebarOpen 
               ? "md:w-60 md:min-w-[240px] max-md:translate-x-0" 
-              : "md:w-0 md:min-w-0 md:overflow-hidden md:border-0 max-md:-translate-x-full"
+              : "md:w-0 md:min-w-0 md:overflow-hidden md:border-0 md:shadow-none max-md:-translate-x-full"
           )}
         >
           {sidebarContent}
         </aside>
 
-        <main className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+        <main className="flex-1 overflow-y-auto bg-secondary/30 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
           <div className="max-w-7xl mx-auto px-3 py-3 sm:p-4 md:p-6 lg:p-8 pb-20 md:pb-6">
             {children}
           </div>
