@@ -107,8 +107,16 @@ async function enrichPicksWithDataSource(picks: any[]) {
 
 router.get("/today", async (req, res) => {
   try {
-    const rawPicks = await pickOfTheDayService.getTodaysPicks();
+    let rawPicks = await pickOfTheDayService.getTodaysPicks();
+    let isFallback = false;
+
+    if (rawPicks.length === 0) {
+      rawPicks = await pickOfTheDayService.getMostRecentPicks();
+      isFallback = rawPicks.length > 0;
+    }
+
     const { picks, categoryLastUpdated } = await enrichPicksWithDataSource(rawPicks);
+    const fallbackDate = isFallback && picks.length > 0 ? picks[0].recoDate : undefined;
     
     res.json({
       success: true,
@@ -118,7 +126,13 @@ router.get("/today", async (req, res) => {
       lastRefreshedAt: new Date().toISOString(),
       dataSources: DATA_SOURCES,
       disclaimer: REGULATORY_DISCLAIMER,
-      message: picks.length === 0 ? "No picks generated for today yet. Use admin panel to generate picks." : undefined,
+      isFallback,
+      fallbackDate,
+      message: picks.length === 0 
+        ? "No picks generated yet. Picks will be auto-generated daily at 9:00 AM IST." 
+        : isFallback 
+          ? `Showing most recent picks from ${fallbackDate}. Today's picks will be generated shortly.`
+          : undefined,
     });
   } catch (error) {
     console.error("[API] Error fetching today's picks:", error);

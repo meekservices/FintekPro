@@ -2017,6 +2017,76 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
       statusUpdatedAt: pick.statusUpdatedAt,
     };
   }
+
+  async startDailyScheduler(): Promise<void> {
+    await this.catchUpIfNeeded();
+
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const istNow = new Date(now.getTime() + istOffset);
+    const target = new Date(istNow);
+    target.setHours(9, 0, 0, 0);
+    if (istNow >= target) {
+      target.setDate(target.getDate() + 1);
+    }
+    const msUntilNext = target.getTime() - istNow.getTime();
+
+    setTimeout(() => {
+      this.scheduledGenerate();
+      setInterval(() => this.scheduledGenerate(), 24 * 60 * 60 * 1000);
+    }, msUntilNext);
+
+    const hoursUntil = Math.round(msUntilNext / (1000 * 60 * 60) * 10) / 10;
+    console.log(`📅 [PickOfTheDay] Daily auto-generation scheduled at 9:00 AM IST (next run in ${hoursUntil}h)`);
+  }
+
+  private async catchUpIfNeeded(): Promise<void> {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const existing = await db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(dailyPicks)
+        .where(eq(dailyPicks.recoDate, today));
+
+      const count = Number(existing[0]?.count || 0);
+      if (count === 0) {
+        console.log(`🔄 [PickOfTheDay] No picks for today (${today}), generating on startup...`);
+        const picks = await this.generateDailyPicks();
+        console.log(`✅ [PickOfTheDay] Startup catch-up: generated ${picks.length} picks`);
+      } else {
+        console.log(`✅ [PickOfTheDay] Picks already exist for today (${today}): ${count} picks`);
+      }
+    } catch (error) {
+      console.error(`❌ [PickOfTheDay] Startup catch-up failed:`, error);
+    }
+  }
+
+  private async scheduledGenerate(): Promise<void> {
+    try {
+      console.log(`📅 [PickOfTheDay] Running scheduled daily generation...`);
+      const picks = await this.generateDailyPicks();
+      console.log(`✅ [PickOfTheDay] Scheduled generation complete: ${picks.length} picks`);
+    } catch (error) {
+      console.error(`❌ [PickOfTheDay] Scheduled generation failed:`, error);
+    }
+  }
+
+  async getMostRecentPicks(): Promise<DailyPickData[]> {
+    const latestDate = await db
+      .select({ maxDate: sql<string>`MAX(reco_date)` })
+      .from(dailyPicks);
+
+    const recoDate = latestDate[0]?.maxDate;
+    if (!recoDate) return [];
+
+    const picks = await db
+      .select()
+      .from(dailyPicks)
+      .where(eq(dailyPicks.recoDate, recoDate))
+      .orderBy(dailyPicks.category);
+
+    return picks.map(this.transformPick);
+  }
 }
 
 export const pickOfTheDayService = new PickOfTheDayService();

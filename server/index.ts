@@ -744,6 +744,9 @@ app.use((req, res, next) => {
   const pickOfTheDayRoutes = await import('./routes/pick-of-the-day');
   app.use('/api/picks', pickOfTheDayRoutes.default);
   console.log('✅ Pick of the Day routes registered');
+
+  const { pickOfTheDayService } = await import('./services/pick-of-the-day-service');
+  setTimeout(() => pickOfTheDayService.startDailyScheduler(), 15000);
   
   // Register MF Order Execution routes (SEBI-compliant buy/sell order management)
   const mfOrdersRoutes = await import('./routes/mf-orders');
