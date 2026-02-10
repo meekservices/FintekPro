@@ -537,7 +537,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="h-screen bg-background text-foreground flex flex-col overflow-hidden">
       <NotificationPermissionBanner
         isSupported={isSupported}
         permission={permission}
@@ -546,7 +546,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
         isLoading={pushLoading}
       />
 
-      <header className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-800 border-b border-border sticky top-0 z-50 shadow-lg shadow-black/20 backdrop-blur supports-[backdrop-filter]:bg-slate-900/95">
+      <header className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-800 border-b border-border z-50 shadow-lg shadow-black/20 backdrop-blur supports-[backdrop-filter]:bg-slate-900/95 flex-shrink-0">
         <div className="flex items-center justify-between px-2 sm:px-4 py-1.5 sm:py-2.5">
           <div className="flex items-center gap-2 sm:gap-4">
             <Button
@@ -704,7 +704,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
         </CommandList>
       </CommandDialog>
 
-      <div className="flex flex-1 overflow-hidden relative">
+      <div className="flex flex-1 overflow-hidden relative min-h-0">
         {sidebarOpen && (
           <div 
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden" 
@@ -716,7 +716,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
           data-testid="agent-sidebar"
           className={cn(
             "bg-card flex-shrink-0 overflow-y-auto shadow-lg border-r border-border scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent transition-all duration-300 ease-in-out",
-            "md:relative md:h-[calc(100vh-57px)] md:sticky md:top-[57px]",
+            "md:relative md:h-full",
             "max-md:fixed max-md:left-0 max-md:top-[49px] max-md:z-50 max-md:h-[calc(100vh-49px)] max-md:w-[280px] max-md:shadow-2xl max-md:transition-transform max-md:duration-300 max-md:ease-in-out",
             sidebarOpen 
               ? "md:w-60 md:min-w-[240px] max-md:translate-x-0" 
