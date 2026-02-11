@@ -162,12 +162,21 @@ class McaFinancialRefreshScheduler {
         onlyUnlisted: true,
       });
 
-      if (staleResult.companiesRefreshed > 0) {
-        console.log(`[MCA Refresh] Enriched ${staleResult.companiesRefreshed}/${staleResult.companiesChecked} stale companies from API`);
-      } else if (staleResult.companiesChecked === 0) {
+      if (!staleResult) {
+        console.log('[MCA Refresh] No result from stale companies refresh');
+        return;
+      }
+
+      const companiesRefreshed = staleResult.companiesRefreshed ?? 0;
+      const companiesChecked = staleResult.companiesChecked ?? 0;
+      const errors = staleResult.errors ?? [];
+
+      if (companiesRefreshed > 0) {
+        console.log(`[MCA Refresh] Enriched ${companiesRefreshed}/${companiesChecked} stale companies from API`);
+      } else if (companiesChecked === 0) {
         console.log('[MCA Refresh] No stale companies found');
       } else {
-        console.log(`[MCA Refresh] Failed to enrich stale companies: ${staleResult.errors.slice(0, 3).join(', ')}`);
+        console.log(`[MCA Refresh] Failed to enrich stale companies: ${errors.slice(0, 3).join(', ')}`);
       }
     } catch (error: any) {
       console.error('[MCA Refresh] Error refreshing stale companies:', error.message);
@@ -231,7 +240,8 @@ class McaFinancialRefreshScheduler {
       LIMIT 20
     `);
 
-    for (const row of companiesWithStaleData.rows as any[]) {
+    const staleDataRows = companiesWithStaleData.rows ?? [];
+    for (const row of staleDataRows as any[]) {
       if (!jobs.find(j => j.cin === row.cin)) {
         jobs.push({
           cin: row.cin,
@@ -253,7 +263,8 @@ class McaFinancialRefreshScheduler {
       LIMIT 10
     `);
 
-    for (const row of lowCoverageCompanies.rows as any[]) {
+    const lowCoverageRows = lowCoverageCompanies.rows ?? [];
+    for (const row of lowCoverageRows as any[]) {
       if (!jobs.find(j => j.cin === row.cin)) {
         jobs.push({
           cin: row.cin,
