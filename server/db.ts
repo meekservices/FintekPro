@@ -12,13 +12,14 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// Pool configuration with improved resilience
+const isProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT_DEPLOYMENT === '1';
+
 const POOL_CONFIG = {
   connectionString: process.env.DATABASE_URL,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 15000,
-  allowExitOnIdle: false, // Keep pool alive even when idle
+  max: isProduction ? 40 : 20,
+  idleTimeoutMillis: isProduction ? 60000 : 30000,
+  connectionTimeoutMillis: 20000,
+  allowExitOnIdle: false,
 };
 
 export const pool = new Pool(POOL_CONFIG);
