@@ -22690,6 +22690,10 @@ export const screenerFinancials = pgTable("screener_financials", {
   operatingCashFlow: decimal("operating_cash_flow", { precision: 20, scale: 2 }),
   freeCashFlow: decimal("free_cash_flow", { precision: 20, scale: 2 }),
   capitalExpenditure: decimal("capital_expenditure", { precision: 20, scale: 2 }),
+  return1y: decimal("return_1y", { precision: 10, scale: 4 }),
+  return2y: decimal("return_2y", { precision: 10, scale: 4 }),
+  return3y: decimal("return_3y", { precision: 10, scale: 4 }),
+  return5y: decimal("return_5y", { precision: 10, scale: 4 }),
   lastUpdated: timestamp("last_updated").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
