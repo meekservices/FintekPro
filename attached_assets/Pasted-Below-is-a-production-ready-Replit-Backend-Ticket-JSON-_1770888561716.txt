@@ -1,0 +1,177 @@
+Below is a production-ready Replit Backend Ticket JSON to implement the FintekPro Screener Upgrade using FinancialModelingPrep Free Plan, DB-first architecture, and upgrade-ready abstraction.
+This is structured as:
+Epic → Tasks → Subtasks → Acceptance Criteria
+{
+  "epic": {
+    "id": "EPIC-SCREENER-DB-FIRST",
+    "title": "FintekPro Screener Upgrade – DB-First Architecture with FMP Free Plan",
+    "objective": "Build database-first screener engine using FinancialModelingPrep free plan for batch ingestion with upgrade-ready provider abstraction.",
+    "priority": "HIGH",
+    "owner": "Backend Team",
+    "status": "OPEN"
+  },
+  "tasks": [
+    {
+      "id": "TASK-01",
+      "title": "Create Data Provider Abstraction Layer",
+      "description": "Implement pluggable data provider architecture to allow seamless upgrade from FMP Free to paid tiers or alternate providers.",
+      "subtasks": [
+        {
+          "id": "TASK-01-01",
+          "title": "Create IDataProvider Interface",
+          "deliverables": [
+            "getCompanyProfile(symbol)",
+            "getRatios(symbol)",
+            "getIncomeStatement(symbol)",
+            "getBalanceSheet(symbol)",
+            "getCashFlow(symbol)",
+            "getHistoricalPrices(symbol, period)"
+          ]
+        },
+        {
+          "id": "TASK-01-02",
+          "title": "Implement FMPFreeProvider",
+          "notes": "Respect 250 calls/day limit and rate throttling"
+        },
+        {
+          "id": "TASK-01-03",
+          "title": "Add Provider Config Switch",
+          "notes": "Environment variable driven provider selection"
+        }
+      ],
+      "acceptance_criteria": [
+        "Switching provider requires no change in screener logic",
+        "Rate limit handling implemented",
+        "Centralized API error handling"
+      ]
+    },
+    {
+      "id": "TASK-02",
+      "title": "Design Screener Database Schema",
+      "description": "Create normalized schema optimized for filter queries.",
+      "tables": [
+        "stocks_master",
+        "financial_ratios",
+        "income_statement",
+        "balance_sheet",
+        "cash_flow",
+        "price_history",
+        "derived_metrics"
+      ],
+      "acceptance_criteria": [
+        "Indexed on market_cap, pe_ratio, roe, sector",
+        "Supports filtering within <200ms for 500 stocks",
+        "Supports historical financial storage"
+      ]
+    },
+    {
+      "id": "TASK-03",
+      "title": "Implement Data Enrichment Cron Jobs",
+      "description": "Batch ingestion jobs to enrich DB without user-triggered API calls.",
+      "subtasks": [
+        {
+          "id": "TASK-03-01",
+          "title": "Daily EOD Price Update Job",
+          "frequency": "Daily 6:30 PM IST"
+        },
+        {
+          "id": "TASK-03-02",
+          "title": "Weekly Financial Ratio Update",
+          "frequency": "Sunday 3:00 AM IST"
+        },
+        {
+          "id": "TASK-03-03",
+          "title": "Monthly Metadata Sync",
+          "frequency": "1st of Month"
+        }
+      ],
+      "acceptance_criteria": [
+        "No live API calls during user request",
+        "Job retries on failure",
+        "Logging + monitoring implemented"
+      ]
+    },
+    {
+      "id": "TASK-04",
+      "title": "Build Screener Query Engine",
+      "description": "Create filter engine that queries only internal database.",
+      "features": [
+        "Filter by PE, ROE, Market Cap",
+        "Revenue Growth filter",
+        "Debt/Equity filter",
+        "Sector filter",
+        "Custom composite scoring"
+      ],
+      "acceptance_criteria": [
+        "All filters execute from DB only",
+        "Response time <300ms",
+        "Supports pagination"
+      ]
+    },
+    {
+      "id": "TASK-05",
+      "title": "Derived Metrics Engine",
+      "description": "Compute proprietary metrics for differentiation.",
+      "metrics": [
+        "Growth Score",
+        "Quality Score",
+        "Value Score",
+        "Risk Score",
+        "Composite FintekPro Rating"
+      ],
+      "acceptance_criteria": [
+        "Scores stored in derived_metrics table",
+        "Scores recalculated weekly",
+        "No dependency on external API scoring"
+      ]
+    },
+    {
+      "id": "TASK-06",
+      "title": "Rate Limit & Usage Monitor",
+      "description": "Protect free plan quota.",
+      "features": [
+        "Track daily API call count",
+        "Auto-stop ingestion at 220 calls",
+        "Send admin alert at 80% usage"
+      ],
+      "acceptance_criteria": [
+        "No 429 errors in logs",
+        "Daily usage dashboard available"
+      ]
+    },
+    {
+      "id": "TASK-07",
+      "title": "Upgrade-Ready Architecture Validation",
+      "description": "Prepare for transition to paid plan.",
+      "checks": [
+        "API key stored in secure vault",
+        "Provider abstraction tested with mock premium provider",
+        "No business logic tied to FMP response format"
+      ],
+      "acceptance_criteria": [
+        "Upgrade requires config change only",
+        "Zero DB schema modification on upgrade"
+      ]
+    }
+  ],
+  "non_functional_requirements": {
+    "performance": "Screener query <300ms",
+    "scalability": "Supports 10,000 concurrent users",
+    "security": "API keys encrypted",
+    "logging": "All ingestion jobs logged",
+    "compliance": "No redistribution beyond license terms"
+  },
+  "deployment_plan": {
+    "phase_1": "Deploy DB schema + ingestion jobs",
+    "phase_2": "Backfill 500 priority stocks",
+    "phase_3": "Enable screener UI filters",
+    "phase_4": "Activate scoring engine"
+  }
+}
+What This Ticket Achieves
+✔ Database-first architecture
+✔ Zero per-user API cost
+✔ Rate-limit safe
+✔ Upgrade-ready
+✔ Scalable to paid FMP or EODHD later
+✔ Protects FintekPro IP via proprietary scoring
