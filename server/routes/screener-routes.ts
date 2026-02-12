@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { queryScreener, getStockDetail, getScreenerStats, type ScreenerFilters } from '../services/screener/screener-query-engine';
-import { enrichStockProfiles, enrichFinancialRatios, enrichPriceHistory, seedScreenerFromFmp } from '../services/screener/enrichment-service';
+import { enrichStockProfiles, enrichFinancialRatios, enrichPriceHistory, seedScreenerFromFmp, seedFromListedStocks, isProductionEnrichmentAllowed } from '../services/screener/enrichment-service';
 import { recalculateAllMetrics } from '../services/screener/derived-metrics-engine';
 import { fmpUsageMonitor } from '../services/screener/fmp-usage-monitor';
 
@@ -77,8 +77,21 @@ router.post('/api/screener/admin/seed', async (req, res) => {
   }
 });
 
+router.post('/api/screener/admin/seed-from-db', async (req, res) => {
+  try {
+    const limit = req.body?.limit || 50;
+    const result = await seedFromListedStocks(limit);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: 'DB seed failed', message: err.message });
+  }
+});
+
 router.post('/api/screener/admin/enrich/profiles', async (req, res) => {
   try {
+    if (!isProductionEnrichmentAllowed() && !req.body?.force) {
+      return res.json({ task: 'stock_profiles', processed: 0, errors: 0, skipped: 0, apiCallsUsed: 0, remaining: 0, message: 'FMP enrichment restricted to production. Use force=true to override.' });
+    }
     const batchSize = req.body?.batchSize || 10;
     const result = await enrichStockProfiles(batchSize);
     res.json(result);
@@ -89,6 +102,9 @@ router.post('/api/screener/admin/enrich/profiles', async (req, res) => {
 
 router.post('/api/screener/admin/enrich/ratios', async (req, res) => {
   try {
+    if (!isProductionEnrichmentAllowed() && !req.body?.force) {
+      return res.json({ task: 'financial_ratios', processed: 0, errors: 0, skipped: 0, apiCallsUsed: 0, remaining: 0, message: 'FMP enrichment restricted to production. Use force=true to override.' });
+    }
     const batchSize = req.body?.batchSize || 5;
     const result = await enrichFinancialRatios(batchSize);
     res.json(result);
@@ -99,6 +115,9 @@ router.post('/api/screener/admin/enrich/ratios', async (req, res) => {
 
 router.post('/api/screener/admin/enrich/prices', async (req, res) => {
   try {
+    if (!isProductionEnrichmentAllowed() && !req.body?.force) {
+      return res.json({ task: 'price_history', processed: 0, errors: 0, skipped: 0, apiCallsUsed: 0, remaining: 0, message: 'FMP enrichment restricted to production. Use force=true to override.' });
+    }
     const batchSize = req.body?.batchSize || 3;
     const result = await enrichPriceHistory(batchSize);
     res.json(result);

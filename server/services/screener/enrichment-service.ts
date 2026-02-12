@@ -246,6 +246,76 @@ export async function seedScreenerFromFmp(exchange = 'NSE', limit = 50): Promise
   return { task: 'seed_screener', processed, errors, skipped, apiCallsUsed: apiCalls, remaining: stats.remaining };
 }
 
+export async function seedFromListedStocks(limit = 50): Promise<EnrichmentResult> {
+  let processed = 0, errors = 0, skipped = 0;
+
+  try {
+    const result = await db.execute(sql`
+      INSERT INTO screener_stocks (symbol, company_name, exchange, isin, sector, industry, market_cap_category, country, currency, is_active, current_price, market_cap_value, data_source, created_at, updated_at)
+      SELECT 
+        ls.symbol,
+        ls.company_name,
+        COALESCE(CASE WHEN ls.nse_code IS NOT NULL AND ls.nse_code != '' THEN 'NSE' ELSE 'BSE' END, 'NSE'),
+        ls.isin,
+        ls.sector,
+        ls.industry,
+        ls.market_cap,
+        COALESCE(ls.country, 'IN'),
+        COALESCE(ls.currency, 'INR'),
+        true,
+        ls.current_price::numeric,
+        ls.market_cap_value::numeric,
+        'listed_stocks',
+        NOW(),
+        NOW()
+      FROM listed_stocks ls
+      WHERE ls.is_published = true
+        AND ls.symbol IS NOT NULL
+        AND ls.symbol != ''
+        AND NOT EXISTS (SELECT 1 FROM screener_stocks ss WHERE ss.symbol = ls.symbol)
+      LIMIT ${limit}
+    `);
+    processed = (result as any)?.rowCount || 0;
+
+    const finResult = await db.execute(sql`
+      INSERT INTO screener_financials (symbol, period, fiscal_year, pe_ratio, pb_ratio, dividend_yield, eps, book_value, roe, roce, last_updated, created_at)
+      SELECT 
+        ls.symbol,
+        'annual',
+        2025,
+        ls.pe_ratio::numeric,
+        ls.pb_ratio::numeric,
+        ls.dividend_yield::numeric,
+        ls.eps::numeric,
+        ls.book_value::numeric,
+        ls.roe::numeric,
+        ls.roce::numeric,
+        NOW(),
+        NOW()
+      FROM listed_stocks ls
+      INNER JOIN screener_stocks ss ON ss.symbol = ls.symbol
+      WHERE ls.is_published = true
+        AND (ls.pe_ratio IS NOT NULL OR ls.pb_ratio IS NOT NULL)
+        AND NOT EXISTS (SELECT 1 FROM screener_financials sf WHERE sf.symbol = ls.symbol)
+    `);
+    const financialsAdded = (finResult as any)?.rowCount || 0;
+
+    console.log(`[Screener Seed] Seeded ${processed} stocks, ${financialsAdded} financials from listed_stocks`);
+  } catch (err: any) {
+    console.error('[Screener Seed] Error:', err.message);
+    errors++;
+  }
+
+  return { task: 'seed_from_listed_stocks', processed, errors, skipped, apiCallsUsed: 0, remaining: 0 };
+}
+
+export function isProductionEnrichmentAllowed(): boolean {
+  const env = process.env.NODE_ENV || 'development';
+  if (env === 'production') return true;
+  console.log('[Enrichment] Bulk FMP enrichment skipped (development mode - production only)');
+  return false;
+}
+
 function categorizeMarketCap(cap: number): string {
   if (!cap || cap <= 0) return 'unknown';
   const crores = cap / 10000000;
