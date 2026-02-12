@@ -41,7 +41,12 @@ export interface ScreenerResult {
   roe: string | null;
   debtToEquity: string | null;
   dividendYield: string | null;
+  eps: string | null;
   netProfitMargin: string | null;
+  return1y: string | null;
+  return2y: string | null;
+  return3y: string | null;
+  return5y: string | null;
   compositeScore: string | null;
   fintekRating: number | null;
   growthScore: string | null;
@@ -135,7 +140,12 @@ export async function queryScreener(filters: ScreenerFilters): Promise<ScreenerR
       roe: screenerFinancials.roe,
       debtToEquity: screenerFinancials.debtToEquity,
       dividendYield: screenerFinancials.dividendYield,
+      eps: screenerFinancials.eps,
       netProfitMargin: screenerFinancials.netProfitMargin,
+      return1y: screenerFinancials.return1y,
+      return2y: screenerFinancials.return2y,
+      return3y: screenerFinancials.return3y,
+      return5y: screenerFinancials.return5y,
       compositeScore: screenerDerivedMetrics.compositeScore,
       fintekRating: screenerDerivedMetrics.fintekRating,
       growthScore: screenerDerivedMetrics.growthScore,

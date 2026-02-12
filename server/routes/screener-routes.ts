@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { queryScreener, getStockDetail, getScreenerStats, getScreenerDistribution, type ScreenerFilters } from '../services/screener/screener-query-engine';
-import { enrichStockProfiles, enrichFinancialRatios, enrichPriceHistory, seedScreenerFromFmp, seedFromListedStocks, isProductionEnrichmentAllowed } from '../services/screener/enrichment-service';
+import { enrichStockProfiles, enrichFinancialRatios, enrichPriceHistory, seedScreenerFromFmp, seedFromListedStocks, seedUnlistedToScreener, isProductionEnrichmentAllowed, runDailyEnrichmentBatch, getEnrichmentProgress } from '../services/screener/enrichment-service';
 import { recalculateAllMetrics } from '../services/screener/derived-metrics-engine';
 import { fmpUsageMonitor } from '../services/screener/fmp-usage-monitor';
 
@@ -75,6 +75,16 @@ router.get('/api/screener/distribution', async (req, res) => {
   }
 });
 
+router.get('/api/screener/admin/enrichment-progress', async (req, res) => {
+  try {
+    const progress = await getEnrichmentProgress();
+    const apiUsage = await fmpUsageMonitor.getDailyStats();
+    res.json({ progress, apiUsage });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to get enrichment progress', message: err.message });
+  }
+});
+
 router.post('/api/screener/admin/seed', async (req, res) => {
   try {
     const exchange = (req.body?.exchange as string) || 'NSE';
@@ -93,6 +103,16 @@ router.post('/api/screener/admin/seed-from-db', async (req, res) => {
     res.json(result);
   } catch (err: any) {
     res.status(500).json({ error: 'DB seed failed', message: err.message });
+  }
+});
+
+router.post('/api/screener/admin/seed-unlisted', async (req, res) => {
+  try {
+    const limit = req.body?.limit || 50;
+    const result = await seedUnlistedToScreener(limit);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Unlisted seed failed', message: err.message });
   }
 });
 
@@ -132,6 +152,22 @@ router.post('/api/screener/admin/enrich/prices', async (req, res) => {
     res.json(result);
   } catch (err: any) {
     res.status(500).json({ error: 'Price enrichment failed', message: err.message });
+  }
+});
+
+router.post('/api/screener/admin/enrich/daily-batch', async (req, res) => {
+  try {
+    if (!isProductionEnrichmentAllowed() && !req.body?.force) {
+      return res.json({ message: 'Daily enrichment restricted to production. Use force=true to override.', totalApiCalls: 0 });
+    }
+    const result = await runDailyEnrichmentBatch({
+      ratiosBatchSize: req.body?.ratiosBatchSize || 150,
+      pricesBatchSize: req.body?.pricesBatchSize || 90,
+      maxApiCalls: req.body?.maxApiCalls || 240,
+    });
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Daily enrichment batch failed', message: err.message });
   }
 });
 

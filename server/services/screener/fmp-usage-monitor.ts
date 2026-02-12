@@ -2,8 +2,8 @@ import { db } from '../../db';
 import { fmpUsageLog } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 
-const DAILY_LIMIT = 250;
-const AUTO_STOP_THRESHOLD = 220;
+const DAILY_LIMIT = 249;
+const AUTO_STOP_THRESHOLD = 245;
 const ALERT_THRESHOLD = 0.8;
 
 class FmpUsageMonitor {

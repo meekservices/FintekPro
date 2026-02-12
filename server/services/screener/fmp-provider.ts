@@ -161,7 +161,7 @@ class FMPFreeProvider implements IDataProvider {
     const data = await this.fetchWithRateLimit<any>(`/historical-price-full/${symbol}`, params);
     if (!data?.historical) return [];
 
-    return data.historical.slice(0, 365).map((h: any) => ({
+    return data.historical.map((h: any) => ({
       symbol,
       date: h.date,
       open: h.open,

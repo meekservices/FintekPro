@@ -12,6 +12,7 @@ export interface EnrichmentResult {
   skipped: number;
   apiCallsUsed: number;
   remaining: number;
+  details?: any;
 }
 
 export async function enrichStockProfiles(batchSize = 10): Promise<EnrichmentResult> {
@@ -55,6 +56,7 @@ export async function enrichStockProfiles(batchSize = 10): Promise<EnrichmentRes
         skipped++;
       }
     } catch (err: any) {
+      console.error(`[Enrichment] Profile error for ${stock.symbol}: ${err.message}`);
       errors++;
     }
   }
@@ -66,59 +68,74 @@ export async function enrichStockProfiles(batchSize = 10): Promise<EnrichmentRes
 export async function enrichFinancialRatios(batchSize = 5): Promise<EnrichmentResult> {
   const provider = getDataProvider();
   let processed = 0, errors = 0, skipped = 0, apiCalls = 0;
+  const errorDetails: string[] = [];
 
-  const stocks = await db
-    .select()
-    .from(screenerStocks)
-    .where(eq(screenerStocks.isActive, true))
-    .orderBy(sql`RANDOM()`)
-    .limit(batchSize);
+  const stocks = await db.execute(sql`
+    SELECT ss.id, ss.symbol, ss.fmp_symbol, ss.data_source
+    FROM screener_stocks ss
+    LEFT JOIN screener_financials sf ON sf.symbol = ss.symbol
+    WHERE ss.is_active = true
+      AND (
+        sf.roe IS NULL 
+        OR sf.pb_ratio IS NULL 
+        OR sf.debt_to_equity IS NULL 
+        OR sf.dividend_yield IS NULL
+        OR sf.operating_margin IS NULL
+        OR sf.net_profit_margin IS NULL
+      )
+    ORDER BY 
+      CASE WHEN sf.last_updated IS NULL THEN 0 ELSE 1 END,
+      sf.last_updated ASC NULLS FIRST
+    LIMIT ${batchSize}
+  `);
 
-  for (const stock of stocks) {
+  const stockRows = (stocks as any).rows || stocks;
+
+  for (const stock of stockRows) {
     if (!(await fmpUsageMonitor.canMakeCall())) {
-      skipped += stocks.length - processed - errors;
+      skipped += stockRows.length - processed - errors;
       break;
     }
 
     try {
-      const fmpSymbol = stock.fmpSymbol || `${stock.symbol}.NS`;
+      const fmpSymbol = stock.fmp_symbol || `${stock.symbol}.NS`;
       const ratios = await provider.getRatios(fmpSymbol);
       apiCalls++;
 
       if (ratios) {
-        const values = {
+        const values: Record<string, any> = {
           symbol: stock.symbol,
           period: ratios.period || 'annual',
           fiscalYear: ratios.date ? parseInt(ratios.date.split('-')[0]) : new Date().getFullYear(),
           fiscalDate: ratios.date,
-          peRatio: ratios.peRatio?.toString(),
-          pbRatio: ratios.pbRatio?.toString(),
-          evToEbitda: ratios.evToEbitda?.toString(),
-          priceToSales: ratios.priceToSales?.toString(),
-          roe: ratios.roe?.toString(),
-          roa: ratios.roa?.toString(),
-          netProfitMargin: ratios.netProfitMargin?.toString(),
-          operatingMargin: ratios.operatingMargin?.toString(),
-          grossMargin: ratios.grossMargin?.toString(),
-          debtToEquity: ratios.debtToEquity?.toString(),
-          currentRatio: ratios.currentRatio?.toString(),
-          quickRatio: ratios.quickRatio?.toString(),
-          interestCoverage: ratios.interestCoverage?.toString(),
-          eps: ratios.eps?.toString(),
-          bookValue: ratios.bookValue?.toString(),
-          dividendYield: ratios.dividendYield?.toString(),
-          dividendPayout: ratios.dividendPayout?.toString(),
-          freeCashFlowPerShare: ratios.freeCashFlowPerShare?.toString(),
           lastUpdated: new Date(),
         };
+
+        if (ratios.peRatio != null) values.peRatio = ratios.peRatio.toString();
+        if (ratios.pbRatio != null) values.pbRatio = ratios.pbRatio.toString();
+        if (ratios.evToEbitda != null) values.evToEbitda = ratios.evToEbitda.toString();
+        if (ratios.priceToSales != null) values.priceToSales = ratios.priceToSales.toString();
+        if (ratios.roe != null) values.roe = ratios.roe.toString();
+        if (ratios.roa != null) values.roa = ratios.roa.toString();
+        if (ratios.netProfitMargin != null) values.netProfitMargin = ratios.netProfitMargin.toString();
+        if (ratios.operatingMargin != null) values.operatingMargin = ratios.operatingMargin.toString();
+        if (ratios.grossMargin != null) values.grossMargin = ratios.grossMargin.toString();
+        if (ratios.debtToEquity != null) values.debtToEquity = ratios.debtToEquity.toString();
+        if (ratios.currentRatio != null) values.currentRatio = ratios.currentRatio.toString();
+        if (ratios.quickRatio != null) values.quickRatio = ratios.quickRatio.toString();
+        if (ratios.interestCoverage != null) values.interestCoverage = ratios.interestCoverage.toString();
+        if (ratios.eps != null) values.eps = ratios.eps.toString();
+        if (ratios.bookValue != null) values.bookValue = ratios.bookValue.toString();
+        if (ratios.dividendYield != null) values.dividendYield = ratios.dividendYield.toString();
+        if (ratios.dividendPayout != null) values.dividendPayout = ratios.dividendPayout.toString();
+        if (ratios.freeCashFlowPerShare != null) values.freeCashFlowPerShare = ratios.freeCashFlowPerShare.toString();
+        if (ratios.revenueGrowth != null) values.revenueGrowth = ratios.revenueGrowth.toString();
+        if (ratios.earningsGrowth != null) values.earningsGrowth = ratios.earningsGrowth.toString();
 
         const [existing] = await db
           .select({ id: screenerFinancials.id })
           .from(screenerFinancials)
-          .where(and(
-            eq(screenerFinancials.symbol, stock.symbol),
-            eq(screenerFinancials.period, ratios.period || 'annual')
-          ))
+          .where(eq(screenerFinancials.symbol, stock.symbol))
           .limit(1);
 
         if (existing) {
@@ -127,43 +144,56 @@ export async function enrichFinancialRatios(batchSize = 5): Promise<EnrichmentRe
           await db.insert(screenerFinancials).values(values);
         }
 
+        await db.update(screenerStocks).set({
+          lastFmpSync: new Date(),
+          updatedAt: new Date(),
+        }).where(eq(screenerStocks.symbol, stock.symbol));
+
         await calculateDerivedMetrics(stock.symbol);
         processed++;
+        console.log(`[Enrichment] Ratios enriched: ${stock.symbol} (PB=${ratios.pbRatio}, ROE=${ratios.roe}, D/E=${ratios.debtToEquity})`);
       } else {
         skipped++;
+        errorDetails.push(`${stock.symbol}: No data returned from FMP`);
       }
     } catch (err: any) {
       errors++;
+      errorDetails.push(`${stock.symbol}: ${err.message}`);
+      console.error(`[Enrichment] Ratio error for ${stock.symbol}: ${err.message}`);
     }
   }
 
   const stats = await fmpUsageMonitor.getDailyStats();
-  return { task: 'financial_ratios', processed, errors, skipped, apiCallsUsed: apiCalls, remaining: stats.remaining };
+  return { task: 'financial_ratios', processed, errors, skipped, apiCallsUsed: apiCalls, remaining: stats.remaining, details: { errors: errorDetails } };
 }
 
 export async function enrichPriceHistory(batchSize = 3): Promise<EnrichmentResult> {
   const provider = getDataProvider();
   let processed = 0, errors = 0, skipped = 0, apiCalls = 0;
 
-  const stocks = await db
-    .select()
-    .from(screenerStocks)
-    .where(eq(screenerStocks.isActive, true))
-    .orderBy(sql`RANDOM()`)
-    .limit(batchSize);
+  const stocks = await db.execute(sql`
+    SELECT ss.id, ss.symbol, ss.fmp_symbol, ss.data_source
+    FROM screener_stocks ss
+    LEFT JOIN screener_financials sf ON sf.symbol = ss.symbol
+    WHERE ss.is_active = true
+      AND sf.return_1y IS NULL
+    ORDER BY ss.market_cap_value::numeric DESC NULLS LAST
+    LIMIT ${batchSize}
+  `);
 
+  const stockRows = (stocks as any).rows || stocks;
   const today = new Date().toISOString().split('T')[0];
-  const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const fiveYearsAgo = new Date(Date.now() - 5 * 365.25 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-  for (const stock of stocks) {
+  for (const stock of stockRows) {
     if (!(await fmpUsageMonitor.canMakeCall())) {
-      skipped += stocks.length - processed - errors;
+      skipped += stockRows.length - processed - errors;
       break;
     }
 
     try {
-      const fmpSymbol = stock.fmpSymbol || `${stock.symbol}.NS`;
-      const prices = await provider.getHistoricalPrices(fmpSymbol, oneYearAgo, today);
+      const fmpSymbol = stock.fmp_symbol || `${stock.symbol}.NS`;
+      const prices = await provider.getHistoricalPrices(fmpSymbol, fiveYearsAgo, today);
       apiCalls++;
 
       if (prices.length > 0) {
@@ -185,17 +215,194 @@ export async function enrichPriceHistory(batchSize = 3): Promise<EnrichmentResul
           await db.insert(screenerPriceHistory).values(batchInserts.slice(i, i + 50));
         }
 
+        await calculateReturnsFromPriceHistory(stock.symbol, prices);
         processed++;
+        console.log(`[Enrichment] Price history stored: ${stock.symbol} (${prices.length} records, ${fiveYearsAgo} to ${today})`);
       } else {
         skipped++;
       }
     } catch (err: any) {
       errors++;
+      console.error(`[Enrichment] Price history error for ${stock.symbol}: ${err.message}`);
     }
   }
 
   const stats = await fmpUsageMonitor.getDailyStats();
   return { task: 'price_history', processed, errors, skipped, apiCallsUsed: apiCalls, remaining: stats.remaining };
+}
+
+export async function calculateReturnsFromPriceHistory(
+  symbol: string,
+  prices?: { date: string; close: number; adjClose: number }[]
+): Promise<{ return1y?: number; return2y?: number; return3y?: number; return5y?: number } | null> {
+  let priceData = prices;
+  if (!priceData) {
+    const dbPrices = await db
+      .select({ date: screenerPriceHistory.date, close: screenerPriceHistory.close, adjClose: screenerPriceHistory.adjClose })
+      .from(screenerPriceHistory)
+      .where(eq(screenerPriceHistory.symbol, symbol))
+      .orderBy(sql`${screenerPriceHistory.date} DESC`);
+
+    if (dbPrices.length === 0) return null;
+    priceData = dbPrices.map(p => ({
+      date: p.date,
+      close: parseFloat(p.close || '0'),
+      adjClose: parseFloat(p.adjClose || p.close || '0'),
+    }));
+  }
+
+  const sortedPrices = [...priceData].sort((a, b) => b.date.localeCompare(a.date));
+  if (sortedPrices.length === 0) return null;
+
+  const latestPrice = sortedPrices[0].adjClose || sortedPrices[0].close;
+  if (!latestPrice || latestPrice <= 0) return null;
+
+  function findPriceNearDate(targetDate: string): number | null {
+    const target = new Date(targetDate).getTime();
+    let closest: { price: number; diff: number } | null = null;
+    for (const p of sortedPrices) {
+      const diff = Math.abs(new Date(p.date).getTime() - target);
+      const price = p.adjClose || p.close;
+      if (price > 0 && (closest === null || diff < closest.diff)) {
+        closest = { price, diff };
+      }
+      if (diff > 30 * 24 * 60 * 60 * 1000 && closest) break;
+    }
+    if (closest && closest.diff <= 15 * 24 * 60 * 60 * 1000) return closest.price;
+    return null;
+  }
+
+  const now = new Date();
+  const returns: { return1y?: number; return2y?: number; return3y?: number; return5y?: number } = {};
+
+  const price1yAgo = findPriceNearDate(new Date(now.getTime() - 365.25 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+  if (price1yAgo) returns.return1y = (latestPrice - price1yAgo) / price1yAgo;
+
+  const price2yAgo = findPriceNearDate(new Date(now.getTime() - 2 * 365.25 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+  if (price2yAgo) returns.return2y = (latestPrice - price2yAgo) / price2yAgo;
+
+  const price3yAgo = findPriceNearDate(new Date(now.getTime() - 3 * 365.25 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+  if (price3yAgo) returns.return3y = (latestPrice - price3yAgo) / price3yAgo;
+
+  const price5yAgo = findPriceNearDate(new Date(now.getTime() - 5 * 365.25 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+  if (price5yAgo) returns.return5y = (latestPrice - price5yAgo) / price5yAgo;
+
+  const updateValues: Record<string, any> = { lastUpdated: new Date() };
+  if (returns.return1y != null) updateValues.return1y = returns.return1y.toFixed(4);
+  if (returns.return2y != null) updateValues.return2y = returns.return2y.toFixed(4);
+  if (returns.return3y != null) updateValues.return3y = returns.return3y.toFixed(4);
+  if (returns.return5y != null) updateValues.return5y = returns.return5y.toFixed(4);
+
+  if (Object.keys(updateValues).length > 1) {
+    const [existing] = await db
+      .select({ id: screenerFinancials.id })
+      .from(screenerFinancials)
+      .where(eq(screenerFinancials.symbol, symbol))
+      .limit(1);
+
+    if (existing) {
+      await db.update(screenerFinancials).set(updateValues).where(eq(screenerFinancials.id, existing.id));
+    } else {
+      await db.insert(screenerFinancials).values({
+        symbol,
+        period: 'annual',
+        fiscalYear: new Date().getFullYear(),
+        ...updateValues,
+      });
+    }
+
+    console.log(`[Returns] ${symbol}: 1Y=${returns.return1y != null ? (returns.return1y * 100).toFixed(1) + '%' : 'N/A'}, 2Y=${returns.return2y != null ? (returns.return2y * 100).toFixed(1) + '%' : 'N/A'}, 3Y=${returns.return3y != null ? (returns.return3y * 100).toFixed(1) + '%' : 'N/A'}, 5Y=${returns.return5y != null ? (returns.return5y * 100).toFixed(1) + '%' : 'N/A'}`);
+  }
+
+  return returns;
+}
+
+export async function runDailyEnrichmentBatch(options?: {
+  ratiosBatchSize?: number;
+  pricesBatchSize?: number;
+  maxApiCalls?: number;
+}): Promise<{
+  ratios: EnrichmentResult;
+  prices: EnrichmentResult;
+  totalApiCalls: number;
+  remaining: number;
+}> {
+  const ratiosBatch = options?.ratiosBatchSize || 120;
+  const pricesBatch = options?.pricesBatchSize || 80;
+  const maxCalls = options?.maxApiCalls || 240;
+
+  console.log(`[DailyEnrichment] Starting daily batch: ratios=${ratiosBatch}, prices=${pricesBatch}, maxCalls=${maxCalls}`);
+
+  const initialStats = await fmpUsageMonitor.getDailyStats();
+  const availableCalls = Math.min(maxCalls, initialStats.remaining);
+  
+  const ratiosAllocation = Math.floor(availableCalls * 0.6);
+  const pricesAllocation = availableCalls - ratiosAllocation;
+
+  const actualRatiosBatch = Math.min(ratiosBatch, ratiosAllocation);
+  const actualPricesBatch = Math.min(pricesBatch, pricesAllocation);
+
+  console.log(`[DailyEnrichment] Available: ${availableCalls} calls. Ratios: ${actualRatiosBatch}, Prices: ${actualPricesBatch}`);
+
+  const ratiosResult = await enrichFinancialRatios(actualRatiosBatch);
+  const pricesResult = await enrichPriceHistory(actualPricesBatch);
+
+  const totalApiCalls = ratiosResult.apiCallsUsed + pricesResult.apiCallsUsed;
+  const finalStats = await fmpUsageMonitor.getDailyStats();
+
+  console.log(`[DailyEnrichment] Complete: ${totalApiCalls} API calls used. Ratios: ${ratiosResult.processed} enriched, Prices: ${pricesResult.processed} enriched. Remaining: ${finalStats.remaining}`);
+
+  return {
+    ratios: ratiosResult,
+    prices: pricesResult,
+    totalApiCalls,
+    remaining: finalStats.remaining,
+  };
+}
+
+export async function getEnrichmentProgress(): Promise<{
+  total: number;
+  withRatios: number;
+  withReturns: number;
+  missingRatios: number;
+  missingReturns: number;
+  enrichmentPercent: number;
+  estimatedDaysRemaining: number;
+}> {
+  const result = await db.execute(sql`
+    SELECT
+      (SELECT COUNT(*) FROM screener_stocks WHERE is_active = true) as total,
+      (SELECT COUNT(*) FROM screener_financials WHERE roe IS NOT NULL OR pb_ratio IS NOT NULL OR debt_to_equity IS NOT NULL) as with_ratios,
+      (SELECT COUNT(*) FROM screener_financials WHERE return_1y IS NOT NULL) as with_returns,
+      (SELECT COUNT(*) FROM screener_stocks ss 
+       LEFT JOIN screener_financials sf ON sf.symbol = ss.symbol
+       WHERE ss.is_active = true AND (sf.roe IS NULL AND sf.pb_ratio IS NULL AND sf.debt_to_equity IS NULL)) as missing_ratios,
+      (SELECT COUNT(*) FROM screener_stocks ss 
+       LEFT JOIN screener_financials sf ON sf.symbol = ss.symbol
+       WHERE ss.is_active = true AND sf.return_1y IS NULL) as missing_returns
+  `);
+
+  const row = ((result as any).rows || result)[0];
+  const total = Number(row.total);
+  const withRatios = Number(row.with_ratios);
+  const withReturns = Number(row.with_returns);
+  const missingRatios = Number(row.missing_ratios);
+  const missingReturns = Number(row.missing_returns);
+  const totalMissing = missingRatios + missingReturns;
+  const enriched = withRatios + withReturns;
+  const enrichmentPercent = total > 0 ? Math.round((enriched / (total * 2)) * 100) : 0;
+  const callsPerDay = 240;
+  const estimatedDaysRemaining = totalMissing > 0 ? Math.ceil(totalMissing / callsPerDay) : 0;
+
+  return {
+    total,
+    withRatios,
+    withReturns,
+    missingRatios,
+    missingReturns,
+    enrichmentPercent,
+    estimatedDaysRemaining,
+  };
 }
 
 export async function seedScreenerFromFmp(exchange = 'NSE', limit = 50): Promise<EnrichmentResult> {
@@ -307,6 +514,66 @@ export async function seedFromListedStocks(limit = 50): Promise<EnrichmentResult
   }
 
   return { task: 'seed_from_listed_stocks', processed, errors, skipped, apiCallsUsed: 0, remaining: 0 };
+}
+
+export async function seedUnlistedToScreener(limit = 50): Promise<EnrichmentResult> {
+  let processed = 0, errors = 0, skipped = 0;
+
+  try {
+    const result = await db.execute(sql`
+      INSERT INTO screener_stocks (symbol, company_name, exchange, isin, sector, industry, market_cap_category, country, currency, is_active, current_price, data_source, created_at, updated_at)
+      SELECT 
+        COALESCE(uc.cin, uc.id::text),
+        uc.name,
+        'UNLISTED',
+        uc.isin,
+        uc.sector,
+        uc.industry,
+        'Small Cap',
+        COALESCE(uc.country, 'IN'),
+        COALESCE(uc.currency, 'INR'),
+        true,
+        uc.published_buy_price::numeric,
+        'unlisted',
+        NOW(),
+        NOW()
+      FROM unlisted_companies uc
+      WHERE uc.name IS NOT NULL
+        AND uc.name != ''
+        AND uc.status = 'active'
+        AND NOT EXISTS (
+          SELECT 1 FROM screener_stocks ss 
+          WHERE ss.symbol = COALESCE(uc.cin, uc.id::text)
+        )
+      LIMIT ${limit}
+    `);
+    processed = (result as any)?.rowCount || 0;
+
+    if (processed > 0) {
+      const finResult = await db.execute(sql`
+        INSERT INTO screener_financials (symbol, period, fiscal_year, pe_ratio, last_updated, created_at)
+        SELECT 
+          ss.symbol,
+          'annual',
+          2025,
+          cr.pe_ratio::numeric,
+          NOW(),
+          NOW()
+        FROM screener_stocks ss
+        INNER JOIN unlisted_companies uc ON COALESCE(uc.cin, uc.id::text) = ss.symbol
+        LEFT JOIN company_ratios cr ON cr.company_id = uc.id
+        WHERE ss.data_source = 'unlisted'
+          AND NOT EXISTS (SELECT 1 FROM screener_financials sf WHERE sf.symbol = ss.symbol)
+      `);
+      const financialsAdded = (finResult as any)?.rowCount || 0;
+      console.log(`[Screener Seed] Seeded ${processed} unlisted stocks, ${financialsAdded} financials`);
+    }
+  } catch (err: any) {
+    console.error('[Screener Seed] Unlisted seed error:', err.message);
+    errors++;
+  }
+
+  return { task: 'seed_unlisted', processed, errors, skipped, apiCallsUsed: 0, remaining: 0 };
 }
 
 export function isProductionEnrichmentAllowed(): boolean {
