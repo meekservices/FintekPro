@@ -143,12 +143,12 @@ router.get("/api/instruments/search", async (req: Request, res: Response) => {
       .orderBy(instrumentMaster.name)
       .limit(maxResults);
 
-    // If searching for mutual funds and instrument master has few results, also search mutualFunds table
-    const isMfSearch = !assetClass || String(assetClass) === 'mutual_fund';
-    if (isMfSearch && instruments.length < maxResults) {
+    const existingIsins = new Set(instruments.map(i => i.isin).filter(Boolean));
+    const assetClassStr = assetClass ? String(assetClass) : '';
+
+    // Fallback: search mutualFunds table for mutual funds
+    if ((!assetClassStr || assetClassStr === 'mutual_fund') && instruments.length < maxResults) {
       const remainingSlots = maxResults - instruments.length;
-      const existingIsins = new Set(instruments.map(i => i.isin).filter(Boolean));
-      
       const mfResults = await db.select({
         id: mutualFunds.id,
         schemeCode: mutualFunds.schemeCode,
@@ -167,31 +167,134 @@ router.get("/api/instruments/search", async (req: Request, res: Response) => {
           )
         )
         .orderBy(mutualFunds.schemeName)
-        .limit(remainingSlots + 10); // fetch extra to account for dedup
+        .limit(remainingSlots + 10);
 
-      // Convert MF results to instrument format and deduplicate
       for (const mf of mfResults) {
         if (instruments.length >= maxResults) break;
-        // Skip if already in results by scheme code match
         const mfIsin = `MF${mf.schemeCode}`;
         if (existingIsins.has(mfIsin)) continue;
-        
         instruments.push({
-          id: mf.id,
-          isin: mfIsin,
-          symbol: mf.schemeCode,
-          name: mf.schemeName,
-          shortName: mf.fundHouse || mf.schemeName,
-          assetClass: 'mutual_fund',
-          subType: mf.category || null,
-          category: mf.category || null,
-          issuer: mf.fundHouse || null,
-          lastPrice: mf.nav,
-          currency: 'INR',
-          riskLevel: mf.riskLevel || null,
+          id: mf.id, isin: mfIsin, symbol: mf.schemeCode,
+          name: mf.schemeName, shortName: mf.fundHouse || mf.schemeName,
+          assetClass: 'mutual_fund', subType: mf.category || null,
+          category: mf.category || null, issuer: mf.fundHouse || null,
+          lastPrice: mf.nav, currency: 'INR', riskLevel: mf.riskLevel || null,
           priceUpdatedAt: null,
         });
         existingIsins.add(mfIsin);
+      }
+    }
+
+    // Fallback: search mutualFunds table for ETFs (ETF schemes are stored in MF table)
+    if (assetClassStr === 'etf' && instruments.length < maxResults) {
+      const remainingSlots = maxResults - instruments.length;
+      const etfResults = await db.select({
+        id: mutualFunds.id,
+        schemeCode: mutualFunds.schemeCode,
+        schemeName: mutualFunds.schemeName,
+        category: mutualFunds.category,
+        fundHouse: mutualFunds.fundHouse,
+        nav: mutualFunds.nav,
+        riskLevel: mutualFunds.riskLevel,
+      })
+        .from(mutualFunds)
+        .where(
+          and(
+            or(
+              ilike(mutualFunds.schemeName, searchTerm),
+              ilike(mutualFunds.schemeCode, searchTerm),
+              ilike(mutualFunds.fundHouse, searchTerm)
+            ),
+            or(
+              ilike(mutualFunds.schemeName, '%ETF%'),
+              ilike(mutualFunds.schemeName, '%Exchange Traded%'),
+              ilike(mutualFunds.category, '%ETF%')
+            )
+          )
+        )
+        .orderBy(mutualFunds.schemeName)
+        .limit(remainingSlots + 10);
+
+      for (const etf of etfResults) {
+        if (instruments.length >= maxResults) break;
+        const etfIsin = `ETF${etf.schemeCode}`;
+        if (existingIsins.has(etfIsin)) continue;
+        instruments.push({
+          id: etf.id, isin: etfIsin, symbol: etf.schemeCode,
+          name: etf.schemeName, shortName: etf.fundHouse || etf.schemeName,
+          assetClass: 'etf', subType: etf.category || null,
+          category: etf.category || null, issuer: etf.fundHouse || null,
+          lastPrice: etf.nav, currency: 'INR', riskLevel: etf.riskLevel || null,
+          priceUpdatedAt: null,
+        });
+        existingIsins.add(etfIsin);
+      }
+    }
+
+    // Fallback: search bondCatalog table for bonds (3,020 bonds)
+    if (assetClassStr === 'bond' && instruments.length < maxResults) {
+      const remainingSlots = maxResults - instruments.length;
+      const bondResults = await db.select({
+        id: bondCatalog.id,
+        isin: bondCatalog.isin,
+        bondName: bondCatalog.bondName,
+        issuerName: bondCatalog.issuerName,
+        instrumentType: bondCatalog.instrumentType,
+        couponRate: bondCatalog.couponRate,
+        maturityDate: bondCatalog.maturityDate,
+        creditRating: bondCatalog.creditRating,
+        faceValue: bondCatalog.faceValue,
+        cleanPrice: bondCatalog.cleanPrice,
+      })
+        .from(bondCatalog)
+        .where(
+          or(
+            ilike(bondCatalog.bondName, searchTerm),
+            ilike(bondCatalog.issuerName, searchTerm),
+            ilike(bondCatalog.isin, searchTerm)
+          )
+        )
+        .orderBy(bondCatalog.bondName)
+        .limit(remainingSlots + 10);
+
+      for (const bond of bondResults) {
+        if (instruments.length >= maxResults) break;
+        const bondIsin = bond.isin || `BOND${bond.id}`;
+        if (existingIsins.has(bondIsin)) continue;
+        const price = bond.cleanPrice ? String(bond.cleanPrice) : bond.faceValue ? String(bond.faceValue) : null;
+        instruments.push({
+          id: bond.id, isin: bondIsin, symbol: bond.isin || '',
+          name: bond.bondName || bond.issuerName || '',
+          shortName: bond.issuerName || bond.bondName || '',
+          assetClass: 'bond', subType: bond.instrumentType || null,
+          category: bond.instrumentType || null, issuer: bond.issuerName || null,
+          lastPrice: price, currency: 'INR', riskLevel: bond.creditRating || null,
+          priceUpdatedAt: null,
+        });
+        existingIsins.add(bondIsin);
+      }
+    }
+
+    // Fallback: search hardcoded LISTED_STOCKS for equity when instrumentMaster has few results
+    if (assetClassStr === 'equity' && instruments.length < maxResults) {
+      const query = String(q).toLowerCase();
+      const stockMatches = LISTED_STOCKS.filter(s =>
+        s.name.toLowerCase().includes(query) ||
+        s.symbol.toLowerCase().includes(query) ||
+        s.isin.toLowerCase().includes(query)
+      );
+      for (const stock of stockMatches) {
+        if (instruments.length >= maxResults) break;
+        if (existingIsins.has(stock.isin)) continue;
+        instruments.push({
+          id: stock.isin, isin: stock.isin, symbol: stock.symbol,
+          name: stock.name, shortName: stock.symbol,
+          assetClass: 'equity', subType: stock.sector || null,
+          category: stock.industry || null, issuer: null,
+          lastPrice: null, currency: 'INR', riskLevel: null,
+          priceUpdatedAt: null,
+        });
+        existingIsins.add(stock.isin);
       }
     }
 
