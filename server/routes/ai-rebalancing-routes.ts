@@ -189,16 +189,19 @@ router.post('/api/ai/generate-rebalance-proposal', requireAuth, async (req: Requ
       return sum + executableHoldings.reduce((s, h) => s + Math.abs(h.suggestedChange), 0);
     }, 0);
 
+    const proposalNumber = `RBL-${Date.now().toString(36).toUpperCase()}`;
     const [proposal] = await db.insert(aiProposals).values({
       id: proposalId,
-      userId,
-      proposalType: 'rebalancing',
+      clientId: userId,
+      proposalNumber,
+      title: `AI Rebalancing Proposal - ${includeExternal ? 'Unified Portfolio' : 'FintekPro Only'}`,
+      description: `Risk profile: ${riskProfile?.riskCategory || 'moderate'}`,
       status: 'pending_review',
       totalInvestmentAmount: totalValue.toString(),
       diagnosticsId: null,
-      riskCategory: riskProfile?.riskCategory || 'moderate',
-      notes: `AI Rebalancing Proposal - ${includeExternal ? 'Unified Portfolio' : 'FintekPro Only'}`,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      aiGeneratedAt: new Date(),
+      aiEngineVersion: '1.0.0',
     }).returning();
 
     const proposalItems = [];
@@ -208,24 +211,17 @@ router.post('/api/ai/generate-rebalance-proposal', requireAuth, async (req: Requ
           const [item] = await db.insert(aiProposalItems).values({
             id: nanoid(),
             proposalId,
-            productType: rec.assetType.toLowerCase(),
+            recommendationType: rec.action.toUpperCase(),
+            assetClass: rec.assetType.toLowerCase(),
             productId: holding.symbol,
-            productName: `${holding.symbol} (${holding.source})`,
+            schemeName: `${holding.symbol} (${holding.source})`,
             isin: null,
             amount: Math.abs(holding.suggestedChange).toString(),
             rationale: `${rec.action === 'sell' ? 'Reduce' : 'Increase'} allocation to reach ${rec.targetPercent}% target`,
+            problemIdentified: `Asset drift of ${rec.drift.toFixed(1)}% from target allocation`,
+            portfolioImpactSummary: `Current: ${rec.currentPercent.toFixed(1)}% → Target: ${rec.targetPercent}%`,
             status: holding.actionType === 'executable' ? 'pending' : 'advisory',
-            riskRating: 5,
-            suitabilityScore: 80,
-            expectedReturn: null,
-            metadata: {
-              action: rec.action,
-              actionType: holding.actionType,
-              source: holding.source,
-              drift: rec.drift,
-              currentPercent: rec.currentPercent,
-              targetPercent: rec.targetPercent,
-            },
+            priority: 1,
           }).returning();
           proposalItems.push(item);
         }
@@ -361,23 +357,17 @@ router.post('/api/ai/generate-goal-proposal', requireAuth, async (req: Request, 
         const [item] = await db.insert(aiProposalItems).values({
           id: nanoid(),
           proposalId,
-          productType: rec.type,
+          recommendationType: 'BUY',
+          assetClass: rec.type,
           productId: `${rec.type}_${goal.id || goal.name}`,
-          productName: rec.name,
+          schemeName: rec.name,
           isin: null,
           amount: amount.toString(),
           rationale: `Recommended for "${goal.name}" goal with ${yearsToGoal.toFixed(1)} years horizon`,
+          problemIdentified: `Investment gap of ₹${goalGap.toLocaleString('en-IN')} for "${goal.name}"`,
+          portfolioImpactSummary: `${rec.allocation}% allocation, monthly SIP ₹${Math.round(monthlyRequired * rec.allocation / 100).toLocaleString('en-IN')}`,
           status: 'pending',
-          riskRating: rec.type.includes('equity') ? 7 : rec.type.includes('debt') ? 3 : 5,
-          suitabilityScore: 85,
-          expectedReturn: rec.type.includes('equity') ? '12-15%' : rec.type.includes('debt') ? '7-9%' : '8-10%',
-          metadata: {
-            goalId: goal.id,
-            goalName: goal.name,
-            allocation: rec.allocation,
-            monthlyRequired,
-            yearsToGoal,
-          },
+          priority: 1,
         }).returning();
         proposalItems.push(item);
       }
@@ -450,16 +440,19 @@ router.post('/api/ai/generate-retirement-proposal', requireAuth, async (req: Req
 
     const proposalId = nanoid();
 
+    const retProposalNumber = `RET-${Date.now().toString(36).toUpperCase()}`;
     const [proposal] = await db.insert(aiProposals).values({
       id: proposalId,
-      userId,
-      proposalType: 'retirement',
+      clientId: userId,
+      proposalNumber: retProposalNumber,
+      title: `AI Retirement Proposal - Target corpus: ₹${(requiredCorpus / 10000000).toFixed(2)} Cr`,
+      description: `Risk profile: ${riskProfile?.riskCategory || 'moderate'}. ${yearsToRetirement} years to retirement.`,
       status: 'pending_review',
       totalInvestmentAmount: remainingCorpus.toString(),
       diagnosticsId: null,
-      riskCategory: riskProfile?.riskCategory || 'moderate',
-      notes: `AI Retirement Proposal - Target corpus: ₹${(requiredCorpus / 10000000).toFixed(2)} Cr`,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      aiGeneratedAt: new Date(),
+      aiEngineVersion: '1.0.0',
     }).returning();
 
     let recommendations: { type: string; allocation: number; name: string }[];
@@ -496,22 +489,17 @@ router.post('/api/ai/generate-retirement-proposal', requireAuth, async (req: Req
       const [item] = await db.insert(aiProposalItems).values({
         id: nanoid(),
         proposalId,
-        productType: rec.type,
+        recommendationType: 'BUY',
+        assetClass: rec.type,
         productId: `retirement_${rec.type}`,
-        productName: rec.name,
+        schemeName: rec.name,
         isin: null,
         amount: lumpsum.toString(),
         rationale: `Retirement allocation for ${yearsToRetirement} years horizon`,
+        problemIdentified: `Corpus gap of ₹${Math.round(remainingCorpus).toLocaleString('en-IN')} for retirement`,
+        portfolioImpactSummary: `${rec.allocation}% allocation, monthly SIP ₹${Math.round(monthlySip).toLocaleString('en-IN')}`,
         status: 'pending',
-        riskRating: rec.type.includes('equity') ? 7 : rec.type.includes('debt') ? 3 : 5,
-        suitabilityScore: 90,
-        expectedReturn: rec.type.includes('equity') ? '12-14%' : rec.type.includes('debt') ? '7-8%' : '8-10%',
-        metadata: {
-          allocation: rec.allocation,
-          monthlySip,
-          yearsToRetirement,
-          investmentType: 'retirement',
-        },
+        priority: 1,
       }).returning();
       proposalItems.push(item);
     }
