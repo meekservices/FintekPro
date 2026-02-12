@@ -4522,8 +4522,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         data: yieldCurve,
         message: "Government securities yield curve across all tenors"
       });
-    } catch (error) {
-      console.error("Error fetching yield curve:", error);
+    } catch (error: any) {
+      console.warn(`[NSE] Yield curve fetch failed: ${error?.message || 'Unknown error'}`);
       res.status(500).json({
         status: "error",
         error: "Failed to fetch yield curve data"
@@ -4549,8 +4549,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         filters: params,
         count: auctions.length
       });
-    } catch (error) {
-      console.error("Error fetching historical auctions:", error);
+    } catch (error: any) {
+      console.warn(`[NSE] Historical auctions fetch failed: ${error?.message || 'Unknown error'}`);
       res.status(500).json({
         status: "error",
         error: "Failed to fetch historical auction data"
@@ -4569,8 +4569,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         count: sgbs.length,
         message: "Sovereign Gold Bonds - gold-backed government securities"
       });
-    } catch (error) {
-      console.error("Error fetching SGB data:", error);
+    } catch (error: any) {
+      console.warn(`[NSE] SGB data fetch failed: ${error?.message || 'Unknown error'}`);
       res.status(500).json({
         status: "error",
         error: "Failed to fetch SGB data"
@@ -5055,8 +5055,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         data: auctions,
         count: auctions.length
       });
-    } catch (error) {
-      console.error("Error fetching NSE NCB auctions:", error);
+    } catch (error: any) {
+      console.warn(`[NSE] NCB auctions fetch failed: ${error?.message || 'Unknown error'}`);
       res.status(500).json({
         status: "error",
         error: "Failed to fetch G-Sec auctions"

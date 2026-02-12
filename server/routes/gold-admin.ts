@@ -10,7 +10,7 @@ router.get("/sgb-issues", async (req: Request, res: Response) => {
     const issues = await db.select().from(sgbPrimaryIssues).orderBy(sgbPrimaryIssues.issueOpenDate);
     res.json({ success: true, issues });
   } catch (error) {
-    console.error("Error fetching SGB issues:", error);
+    console.warn(`[Gold] SGB issues fetch failed: ${(error as any)?.message || 'Unknown error'}`);
     res.json({ success: true, issues: [] });
   }
 });
@@ -23,7 +23,7 @@ router.get("/products", async (req: Request, res: Response) => {
       .where(eq(governmentSecurities.securityType, "sgb"));
     res.json({ success: true, products });
   } catch (error) {
-    console.error("Error fetching gold products:", error);
+    console.warn(`[Gold] Products fetch failed: ${(error as any)?.message || 'Unknown error'}`);
     res.json({ success: true, products: [] });
   }
 });

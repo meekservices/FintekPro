@@ -126,8 +126,9 @@ export class BSEBondApiService {
       });
 
       return response.data.bonds || [];
-    } catch (error) {
-      console.error('Error fetching tradable bonds:', error);
+    } catch (error: any) {
+      const msg = error?.code === 'ETIMEDOUT' ? `ETIMEDOUT ${error?.address}:${error?.port}` : (error?.message || 'Unknown error');
+      console.warn(`[BSE Bond] Tradable bonds fetch failed: ${msg} — using demo data`);
       return this.getDemoBonds();
     }
   }
@@ -281,7 +282,7 @@ export class BSEBondApiService {
         executionDetails: response.data.execution
       };
     } catch (error: any) {
-      console.error('Error placing bond order:', error);
+      console.warn(`[BSE Bond] Order placement failed: ${error?.message || 'Unknown error'}`);
       return {
         success: false,
         message: error.response?.data?.message || 'Failed to place bond order'
@@ -367,8 +368,8 @@ export class BSEBondApiService {
       );
 
       return response.data;
-    } catch (error) {
-      console.error('Error fetching bond order status:', error);
+    } catch (error: any) {
+      console.warn(`[BSE Bond] Order status fetch failed: ${error?.message || 'Unknown error'}`);
       throw error;
     }
   }
@@ -394,8 +395,8 @@ export class BSEBondApiService {
       );
 
       return response.data;
-    } catch (error) {
-      console.error('Error fetching bond details:', error);
+    } catch (error: any) {
+      console.warn(`[BSE Bond] Bond details fetch failed: ${error?.message || 'Unknown error'}`);
       return null;
     }
   }
@@ -424,8 +425,8 @@ export class BSEBondApiService {
         }
         return true;
       });
-    } catch (error) {
-      console.error('Error searching bonds:', error);
+    } catch (error: any) {
+      console.warn(`[BSE Bond] Bond search failed: ${error?.message || 'Unknown error'}`);
       return [];
     }
   }
@@ -572,8 +573,8 @@ export class BSEBondApiService {
         
         return true;
       });
-    } catch (error) {
-      console.error('Error fetching bonds by maturity:', error);
+    } catch (error: any) {
+      console.warn(`[BSE Bond] Bonds by maturity fetch failed: ${error?.message || 'Unknown error'}`);
       return [];
     }
   }
@@ -598,8 +599,9 @@ export class BSEBondApiService {
       );
 
       return response.data.bonds || [];
-    } catch (error) {
-      console.error('Error fetching tax-free bonds:', error);
+    } catch (error: any) {
+      const msg = error?.code === 'ETIMEDOUT' ? `ETIMEDOUT ${error?.address}:${error?.port}` : (error?.message || 'Unknown error');
+      console.warn(`[BSE Bond] Tax-free bonds fetch failed: ${msg} — using demo data`);
       return this.getDemoTaxFreeBonds();
     }
   }
@@ -679,8 +681,9 @@ export class BSEBondApiService {
       );
 
       return response.data.bonds || [];
-    } catch (error) {
-      console.error('Error fetching infrastructure bonds:', error);
+    } catch (error: any) {
+      const msg = error?.code === 'ETIMEDOUT' ? `ETIMEDOUT ${error?.address}:${error?.port}` : (error?.message || 'Unknown error');
+      console.warn(`[BSE Bond] Infrastructure bonds fetch failed: ${msg} — using demo data`);
       return this.getDemoInfrastructureBonds();
     }
   }

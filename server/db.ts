@@ -16,7 +16,7 @@ const isProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT
 
 const POOL_CONFIG = {
   connectionString: process.env.DATABASE_URL,
-  max: isProduction ? 40 : 20,
+  max: isProduction ? 50 : 20,
   idleTimeoutMillis: isProduction ? 60000 : 30000,
   connectionTimeoutMillis: 20000,
   allowExitOnIdle: false,
@@ -26,6 +26,7 @@ export const pool = new Pool(POOL_CONFIG);
 
 // Track pool health metrics
 let poolHealthWarnings = 0;
+let waitingWarnings = 0;
 const MAX_WARNINGS_BEFORE_LOG = 5;
 
 pool.on('error', (err) => {
@@ -33,8 +34,12 @@ pool.on('error', (err) => {
   // Don't crash the server on pool errors - the pool will auto-recover
 });
 
+let connectCount = 0;
 pool.on('connect', () => {
-  console.log('[DB Pool] New client connected');
+  connectCount++;
+  if (connectCount <= 5 || connectCount % 10 === 0) {
+    console.log(`[DB Pool] Client connected (total: ${connectCount})`);
+  }
 });
 
 // Monitor pool usage and warn before exhaustion
@@ -55,9 +60,14 @@ function checkPoolHealth() {
     poolHealthWarnings = 0;
   }
   
-  // Critical warning if clients are waiting for connections
   if (waiting > 0) {
-    console.warn(`[DB Pool] ⚠️ ${waiting} clients waiting for connections - consider increasing pool size`);
+    waitingWarnings++;
+    if (waitingWarnings >= MAX_WARNINGS_BEFORE_LOG) {
+      console.warn(`[DB Pool] ⚠️ ${waiting} clients waiting for connections (pool: ${total - idle}/${maxConnections} active, ${idle} idle)`);
+      waitingWarnings = 0;
+    }
+  } else {
+    waitingWarnings = 0;
   }
 }
 
