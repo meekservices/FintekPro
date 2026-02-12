@@ -11,12 +11,11 @@ export function isProductionEnvironment(): boolean {
 }
 
 export function isEnrichmentWindow(): boolean {
-  const hour = getCurrentISTHour();
-  return hour >= 20 || hour < 8;
+  return true;
 }
 
 export function shouldRunEnrichment(): boolean {
-  return isProductionEnvironment() && isEnrichmentWindow();
+  return isProductionEnvironment();
 }
 
 export function getEnrichmentGuardReason(): string {
