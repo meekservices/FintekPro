@@ -22625,6 +22625,134 @@ export const reitInvitHoldings = pgTable("reit_invit_holdings", {
   index("idx_reit_invit_holdings_asset").on(table.assetType, table.assetId),
 ]);
 
+// ==========================================
+// FintekPro Screener - DB-First Architecture
+// ==========================================
+
+export const screenerStocks = pgTable("screener_stocks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  symbol: varchar("symbol").notNull().unique(),
+  companyName: text("company_name").notNull(),
+  exchange: varchar("exchange").default("NSE"),
+  isin: varchar("isin"),
+  sector: varchar("sector"),
+  industry: varchar("industry"),
+  marketCapCategory: varchar("market_cap_category"),
+  country: varchar("country").default("IN"),
+  currency: varchar("currency").default("INR"),
+  isActive: boolean("is_active").default(true),
+  currentPrice: decimal("current_price", { precision: 15, scale: 2 }),
+  marketCapValue: decimal("market_cap_value", { precision: 20, scale: 2 }),
+  fmpSymbol: varchar("fmp_symbol"),
+  lastFmpSync: timestamp("last_fmp_sync"),
+  dataSource: varchar("data_source").default("fmp"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_screener_stocks_symbol").on(table.symbol),
+  index("idx_screener_stocks_sector").on(table.sector),
+  index("idx_screener_stocks_market_cap").on(table.marketCapCategory),
+  index("idx_screener_stocks_active").on(table.isActive),
+]);
+
+export const screenerFinancials = pgTable("screener_financials", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  symbol: varchar("symbol").notNull(),
+  period: varchar("period").notNull().default("annual"),
+  fiscalYear: integer("fiscal_year"),
+  fiscalDate: varchar("fiscal_date"),
+  peRatio: decimal("pe_ratio", { precision: 10, scale: 2 }),
+  pbRatio: decimal("pb_ratio", { precision: 10, scale: 2 }),
+  evToEbitda: decimal("ev_to_ebitda", { precision: 10, scale: 2 }),
+  priceToSales: decimal("price_to_sales", { precision: 10, scale: 2 }),
+  roe: decimal("roe", { precision: 10, scale: 4 }),
+  roce: decimal("roce", { precision: 10, scale: 4 }),
+  roa: decimal("roa", { precision: 10, scale: 4 }),
+  netProfitMargin: decimal("net_profit_margin", { precision: 10, scale: 4 }),
+  operatingMargin: decimal("operating_margin", { precision: 10, scale: 4 }),
+  grossMargin: decimal("gross_margin", { precision: 10, scale: 4 }),
+  debtToEquity: decimal("debt_to_equity", { precision: 10, scale: 4 }),
+  currentRatio: decimal("current_ratio", { precision: 10, scale: 4 }),
+  quickRatio: decimal("quick_ratio", { precision: 10, scale: 4 }),
+  interestCoverage: decimal("interest_coverage", { precision: 10, scale: 2 }),
+  eps: decimal("eps", { precision: 15, scale: 2 }),
+  bookValue: decimal("book_value", { precision: 15, scale: 2 }),
+  dividendYield: decimal("dividend_yield", { precision: 8, scale: 4 }),
+  dividendPayout: decimal("dividend_payout", { precision: 8, scale: 4 }),
+  revenueGrowth: decimal("revenue_growth", { precision: 10, scale: 4 }),
+  earningsGrowth: decimal("earnings_growth", { precision: 10, scale: 4 }),
+  freeCashFlowPerShare: decimal("free_cash_flow_per_share", { precision: 15, scale: 2 }),
+  revenue: decimal("revenue", { precision: 20, scale: 2 }),
+  netIncome: decimal("net_income", { precision: 20, scale: 2 }),
+  totalDebt: decimal("total_debt", { precision: 20, scale: 2 }),
+  totalEquity: decimal("total_equity", { precision: 20, scale: 2 }),
+  totalAssets: decimal("total_assets", { precision: 20, scale: 2 }),
+  operatingCashFlow: decimal("operating_cash_flow", { precision: 20, scale: 2 }),
+  freeCashFlow: decimal("free_cash_flow", { precision: 20, scale: 2 }),
+  capitalExpenditure: decimal("capital_expenditure", { precision: 20, scale: 2 }),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_screener_fin_symbol").on(table.symbol),
+  index("idx_screener_fin_period").on(table.symbol, table.period),
+  index("idx_screener_fin_pe").on(table.peRatio),
+  index("idx_screener_fin_roe").on(table.roe),
+  index("idx_screener_fin_de").on(table.debtToEquity),
+]);
+
+export const screenerPriceHistory = pgTable("screener_price_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  symbol: varchar("symbol").notNull(),
+  date: varchar("date").notNull(),
+  open: decimal("open", { precision: 15, scale: 2 }),
+  high: decimal("high", { precision: 15, scale: 2 }),
+  low: decimal("low", { precision: 15, scale: 2 }),
+  close: decimal("close", { precision: 15, scale: 2 }),
+  adjClose: decimal("adj_close", { precision: 15, scale: 2 }),
+  volume: decimal("volume", { precision: 20, scale: 0 }),
+  changePercent: decimal("change_percent", { precision: 10, scale: 4 }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_screener_price_symbol").on(table.symbol),
+  index("idx_screener_price_date").on(table.symbol, table.date),
+]);
+
+export const screenerDerivedMetrics = pgTable("screener_derived_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  symbol: varchar("symbol").notNull().unique(),
+  growthScore: decimal("growth_score", { precision: 5, scale: 2 }),
+  qualityScore: decimal("quality_score", { precision: 5, scale: 2 }),
+  valueScore: decimal("value_score", { precision: 5, scale: 2 }),
+  riskScore: decimal("risk_score", { precision: 5, scale: 2 }),
+  compositeScore: decimal("composite_score", { precision: 5, scale: 2 }),
+  fintekRating: integer("fintek_rating"),
+  momentumScore: decimal("momentum_score", { precision: 5, scale: 2 }),
+  revenueGrowth3Y: decimal("revenue_growth_3y", { precision: 10, scale: 4 }),
+  earningsGrowth3Y: decimal("earnings_growth_3y", { precision: 10, scale: 4 }),
+  scoringMetadata: jsonb("scoring_metadata"),
+  lastCalculated: timestamp("last_calculated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_screener_derived_symbol").on(table.symbol),
+  index("idx_screener_derived_composite").on(table.compositeScore),
+  index("idx_screener_derived_rating").on(table.fintekRating),
+]);
+
+export const fmpUsageLog = pgTable("fmp_usage_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  date: varchar("date").notNull(),
+  provider: varchar("provider").notNull().default("fmp"),
+  callCount: integer("call_count").notNull().default(0),
+  dailyLimit: integer("daily_limit").notNull().default(250),
+  lastAlertLevel: varchar("last_alert_level"),
+  lastCallAt: timestamp("last_call_at"),
+  callDetails: jsonb("call_details"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_fmp_usage_date").on(table.date),
+  index("idx_fmp_usage_provider").on(table.provider, table.date),
+]);
+
 // Insert Schemas and Types for REIT
 export const insertReitSchema = createInsertSchema(reits).omit({
   id: true,
