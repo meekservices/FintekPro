@@ -6,13 +6,23 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Filter, Search, Save, Play, TrendingUp, TrendingDown, Percent, IndianRupee, ArrowUpDown, ArrowUp, ArrowDown, Star, BarChart3, RefreshCw, ChevronLeft, ChevronRight, Database, Loader2, Activity } from "lucide-react";
-import { useState, useMemo } from "react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import {
+  Filter, Search, Save, Play, TrendingUp, TrendingDown, Percent, IndianRupee,
+  ArrowUpDown, ArrowUp, ArrowDown, Star, BarChart3, RefreshCw, ChevronLeft,
+  ChevronRight, Database, Loader2, Activity, PieChart, Target, Shield,
+  Zap, Eye, X, SlidersHorizontal, Download, LayoutGrid, List, Info,
+  Building2, Sparkles
+} from "lucide-react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 type ScreenerType = "mutual_fund" | "stock" | "bond" | "etf";
+type ViewMode = "table" | "cards";
 
 interface ScreenerCriteria {
   field: string;
@@ -44,20 +54,27 @@ function formatMarketCap(val: string | number | null | undefined): string {
   if (val == null || val === '') return '-';
   const n = typeof val === 'string' ? parseFloat(val) : val;
   if (isNaN(n)) return '-';
-  const crores = n / 10000000;
-  if (crores >= 100000) return `₹${(crores / 100000).toFixed(1)}L Cr`;
-  if (crores >= 1000) return `₹${(crores / 1000).toFixed(1)}K Cr`;
-  return `₹${crores.toFixed(0)} Cr`;
+  if (n >= 1000000) return `₹${(n / 100000).toFixed(1)}L Cr`;
+  if (n >= 10000) return `₹${(n / 1000).toFixed(1)}K Cr`;
+  if (n >= 100) return `₹${n.toFixed(0)} Cr`;
+  return `₹${n.toFixed(2)} Cr`;
+}
+
+function formatPercent(val: string | number | null | undefined, multiplier = 1): string {
+  if (val == null || val === '') return '-';
+  const n = typeof val === 'string' ? parseFloat(val) : val;
+  if (isNaN(n)) return '-';
+  return `${(n * multiplier).toFixed(1)}%`;
 }
 
 function RatingStars({ rating }: { rating: number | null }) {
-  if (!rating) return <span className="text-muted-foreground">-</span>;
+  if (!rating) return <span className="text-muted-foreground text-xs">-</span>;
   return (
     <div className="flex items-center gap-0.5">
       {Array.from({ length: 5 }, (_, i) => (
         <Star
           key={i}
-          className={`h-3.5 w-3.5 ${i < rating ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/30'}`}
+          className={`h-3 w-3 ${i < rating ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/20'}`}
         />
       ))}
     </div>
@@ -65,18 +82,152 @@ function RatingStars({ rating }: { rating: number | null }) {
 }
 
 function ScoreBadge({ score, label }: { score: string | null; label: string }) {
-  if (!score) return null;
+  if (!score) return <span className="text-muted-foreground text-xs">-</span>;
   const n = parseFloat(score);
-  if (isNaN(n)) return null;
-  const color = n >= 70 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-    : n >= 45 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-    : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
+  if (isNaN(n)) return <span className="text-muted-foreground text-xs">-</span>;
+  const color = n >= 70 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
+    : n >= 45 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800'
+    : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800';
   return (
-    <div className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${color}`}>
-      {n.toFixed(0)}
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold border ${color}`}>
+            {n.toFixed(0)}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p className="text-xs">{label}: {n.toFixed(1)}/100</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function ScoreBreakdownTooltip({ stock }: { stock: any }) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="cursor-help">
+            <ScoreBadge score={stock.compositeScore} label="Composite" />
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="left" className="w-56 p-3">
+          <div className="space-y-2">
+            <p className="font-semibold text-xs border-b pb-1">Score Breakdown</p>
+            <div className="space-y-1.5">
+              {[
+                { label: 'Growth', score: stock.growthScore, icon: TrendingUp, weight: '25%', color: 'text-blue-500' },
+                { label: 'Quality', score: stock.qualityScore, icon: Sparkles, weight: '30%', color: 'text-purple-500' },
+                { label: 'Value', score: stock.valueScore, icon: Target, weight: '25%', color: 'text-emerald-500' },
+                { label: 'Risk', score: stock.riskScore, icon: Shield, weight: '20%', color: 'text-orange-500' },
+              ].map(({ label, score, icon: Icon, weight, color }) => {
+                const s = parseFloat(score || '0');
+                return (
+                  <div key={label} className="flex items-center gap-2 text-xs">
+                    <Icon className={`h-3 w-3 ${color}`} />
+                    <span className="flex-1">{label}</span>
+                    <span className="text-muted-foreground">{weight}</span>
+                    <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${s >= 70 ? 'bg-emerald-500' : s >= 45 ? 'bg-amber-500' : 'bg-red-500'}`}
+                        style={{ width: `${s}%` }}
+                      />
+                    </div>
+                    <span className="w-8 text-right font-mono">{s.toFixed(0)}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between text-xs font-semibold">
+              <span>Composite</span>
+              <span>{parseFloat(stock.compositeScore || '0').toFixed(1)}</span>
+            </div>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function MarketCapBadge({ category }: { category: string | null }) {
+  if (!category) return null;
+  const colors: Record<string, string> = {
+    'mega': 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
+    'Mega Cap': 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
+    'large': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    'Large Cap': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    'mid': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+    'Mid Cap': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+    'small': 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+    'Small Cap': 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+    'micro': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+    'Micro Cap': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  };
+  const displayName = category.includes('Cap') ? category : `${category.charAt(0).toUpperCase() + category.slice(1)} Cap`;
+  return (
+    <Badge className={`text-[10px] font-medium border-0 ${colors[category] || 'bg-gray-100 text-gray-700'}`}>
+      {displayName}
+    </Badge>
+  );
+}
+
+function DistributionBar({ data, colorMap }: { data: { category?: string; sector?: string; rating?: number; range?: string; count: number | string }[]; colorMap: Record<string, string> }) {
+  const total = data.reduce((sum, d) => sum + Number(d.count), 0);
+  if (total === 0) return null;
+  return (
+    <div className="flex h-3 rounded-full overflow-hidden gap-0.5">
+      {data.map((d, i) => {
+        const key = d.category || d.sector || String(d.rating) || d.range || String(i);
+        const pct = (Number(d.count) / total) * 100;
+        if (pct < 1) return null;
+        return (
+          <TooltipProvider key={key}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  className={`${colorMap[key] || 'bg-gray-400'} rounded-sm transition-all hover:opacity-80`}
+                  style={{ width: `${pct}%`, minWidth: pct > 0 ? '4px' : 0 }}
+                />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">{key}: {Number(d.count).toLocaleString()} ({pct.toFixed(1)}%)</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        );
+      })}
     </div>
   );
 }
+
+const MARKET_CAP_COLORS: Record<string, string> = {
+  'Large Cap': 'bg-blue-500',
+  'Mid Cap': 'bg-emerald-500',
+  'Small Cap': 'bg-amber-500',
+  'Unknown': 'bg-gray-400',
+  'large': 'bg-blue-500',
+  'mid': 'bg-emerald-500',
+  'small': 'bg-amber-500',
+};
+
+const RATING_COLORS: Record<string, string> = {
+  '5': 'bg-emerald-500',
+  '4': 'bg-blue-500',
+  '3': 'bg-amber-500',
+  '2': 'bg-orange-500',
+  '1': 'bg-red-500',
+};
+
+const SCORE_COLORS: Record<string, string> = {
+  '80-100': 'bg-emerald-500',
+  '60-80': 'bg-blue-500',
+  '40-60': 'bg-amber-500',
+  '20-40': 'bg-orange-500',
+  '0-20': 'bg-red-500',
+};
 
 export default function AgentScreener() {
   const { toast } = useToast();
@@ -86,6 +237,9 @@ export default function AgentScreener() {
   ]);
   const [screenerName, setScreenerName] = useState("");
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: "", direction: null });
+  const [viewMode, setViewMode] = useState<ViewMode>("table");
+  const [showFilters, setShowFilters] = useState(true);
+  const [expandedStock, setExpandedStock] = useState<string | null>(null);
 
   const [dbSearch, setDbSearch] = useState("");
   const [dbSector, setDbSector] = useState("");
@@ -95,6 +249,7 @@ export default function AgentScreener() {
   const [dbMinROE, setDbMinROE] = useState("");
   const [dbMaxDE, setDbMaxDE] = useState("");
   const [dbMinRating, setDbMinRating] = useState("");
+  const [dbMinScore, setDbMinScore] = useState("");
   const [dbSortBy, setDbSortBy] = useState("compositeScore");
   const [dbSortOrder, setDbSortOrder] = useState<"asc" | "desc">("desc");
   const [dbPage, setDbPage] = useState(1);
@@ -112,19 +267,32 @@ export default function AgentScreener() {
     if (dbMinROE) params.set('minROE', dbMinROE);
     if (dbMaxDE) params.set('maxDebtToEquity', dbMaxDE);
     if (dbMinRating) params.set('minFintekRating', dbMinRating);
+    if (dbMinScore) params.set('minCompositeScore', dbMinScore);
     if (dbSortBy) params.set('sortBy', dbSortBy);
     params.set('sortOrder', dbSortOrder);
     return params.toString();
   };
 
   const { data: dbScreenerData, isLoading: dbLoading } = useQuery<any>({
-    queryKey: ['/api/screener/stocks', dbPage, dbSearch, dbSector, dbMarketCap, dbMinPE, dbMaxPE, dbMinROE, dbMaxDE, dbMinRating, dbSortBy, dbSortOrder],
+    queryKey: ['/api/screener/stocks', dbPage, dbSearch, dbSector, dbMarketCap, dbMinPE, dbMaxPE, dbMinROE, dbMaxDE, dbMinRating, dbMinScore, dbSortBy, dbSortOrder],
     queryFn: () => fetch(`/api/screener/stocks?${buildQueryParams()}`).then(r => r.json()),
   });
 
   const { data: screenerStats } = useQuery<any>({
     queryKey: ['/api/screener/stats'],
     queryFn: () => fetch('/api/screener/stats').then(r => r.json()),
+  });
+
+  const { data: distribution } = useQuery<any>({
+    queryKey: ['/api/screener/distribution'],
+    queryFn: () => fetch('/api/screener/distribution').then(r => r.json()),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: stockDetail, isLoading: detailLoading } = useQuery<any>({
+    queryKey: ['/api/screener/stocks', expandedStock],
+    queryFn: () => expandedStock ? fetch(`/api/screener/stocks/${expandedStock}`).then(r => r.json()) : null,
+    enabled: !!expandedStock,
   });
 
   const mfFields = [
@@ -180,24 +348,14 @@ export default function AgentScreener() {
       const universe = screenerType === "mutual_fund" ? "MF" : screenerType === "stock" ? "STOCK" : screenerType.toUpperCase();
       return apiRequest("/api/research-lists/screener/run", {
         method: "POST",
-        body: JSON.stringify({
-          universe,
-          filters,
-        }),
+        body: JSON.stringify({ universe, filters }),
       });
     },
     onSuccess: (data: any) => {
-      toast({
-        title: "Screener executed",
-        description: `Found ${data.results?.length || 0} matching instruments`,
-      });
+      toast({ title: "Screener executed", description: `Found ${data.results?.length || 0} matching instruments` });
     },
     onError: () => {
-      toast({
-        title: "Screener failed",
-        description: "Could not execute screener",
-        variant: "destructive",
-      });
+      toast({ title: "Screener failed", description: "Could not execute screener", variant: "destructive" });
     },
   });
 
@@ -211,18 +369,11 @@ export default function AgentScreener() {
       });
       return apiRequest("/api/research-lists/screeners", {
         method: "POST",
-        body: JSON.stringify({
-          name: screenerName,
-          screenerType,
-          criteria: dslCriteria,
-        }),
+        body: JSON.stringify({ name: screenerName, screenerType, criteria: dslCriteria }),
       });
     },
     onSuccess: () => {
-      toast({
-        title: "Screener saved",
-        description: "Your screener has been saved",
-      });
+      toast({ title: "Screener saved", description: "Your screener has been saved" });
       queryClient.invalidateQueries({ queryKey: ["/api/research-lists/screeners"] });
     },
   });
@@ -245,32 +396,22 @@ export default function AgentScreener() {
   const sortedResults = useMemo(() => {
     const results = runScreenerMutation.data?.results || [];
     if (!sortConfig.key || !sortConfig.direction) return results;
-    
     return [...results].sort((a: any, b: any) => {
       const aVal = a[sortConfig.key];
       const bVal = b[sortConfig.key];
-      
       const aNull = aVal === null || aVal === undefined || aVal === "";
       const bNull = bVal === null || bVal === undefined || bVal === "";
-      
       if (aNull && bNull) return 0;
       if (aNull) return 1;
       if (bNull) return -1;
-      
       const aNum = parseFloat(aVal);
       const bNum = parseFloat(bVal);
-      
       if (!isNaN(aNum) && !isNaN(bNum)) {
         return sortConfig.direction === "asc" ? aNum - bNum : bNum - aNum;
       }
-      
       const aStr = String(aVal).toLowerCase();
       const bStr = String(bVal).toLowerCase();
-      
-      if (sortConfig.direction === "asc") {
-        return aStr.localeCompare(bStr);
-      }
-      return bStr.localeCompare(aStr);
+      return sortConfig.direction === "asc" ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
     });
   }, [runScreenerMutation.data?.results, sortConfig]);
 
@@ -278,20 +419,16 @@ export default function AgentScreener() {
     const alignClass = align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left";
     const justifyClass = align === "right" ? "justify-end" : align === "center" ? "justify-center" : "";
     return (
-      <th 
-        className={`${alignClass} py-3 px-3 font-medium whitespace-nowrap cursor-pointer hover:bg-muted select-none transition-colors`}
+      <th
+        className={`${alignClass} py-2.5 px-3 font-medium whitespace-nowrap cursor-pointer hover:bg-muted/70 select-none transition-colors text-xs`}
         onClick={() => handleSort(sortKey)}
       >
         <div className={`flex items-center gap-1 ${justifyClass}`}>
           {label}
           {sortConfig.key === sortKey ? (
-            sortConfig.direction === "asc" ? (
-              <ArrowUp className="h-3 w-3" />
-            ) : (
-              <ArrowDown className="h-3 w-3" />
-            )
+            sortConfig.direction === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
           ) : (
-            <ArrowUpDown className="h-3 w-3 opacity-40" />
+            <ArrowUpDown className="h-3 w-3 opacity-30" />
           )}
         </div>
       </th>
@@ -313,7 +450,7 @@ export default function AgentScreener() {
     const justifyClass = align === "right" ? "justify-end" : align === "center" ? "justify-center" : "";
     return (
       <th
-        className={`${alignClass} py-3 px-3 font-medium whitespace-nowrap cursor-pointer hover:bg-muted select-none transition-colors`}
+        className={`${alignClass} py-2.5 px-3 font-medium whitespace-nowrap cursor-pointer hover:bg-muted/70 select-none transition-colors text-xs uppercase tracking-wider`}
         onClick={() => handleDbSort(sortKey)}
       >
         <div className={`flex items-center gap-1 ${justifyClass}`}>
@@ -321,7 +458,7 @@ export default function AgentScreener() {
           {dbSortBy === sortKey ? (
             dbSortOrder === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
           ) : (
-            <ArrowUpDown className="h-3 w-3 opacity-40" />
+            <ArrowUpDown className="h-3 w-3 opacity-30" />
           )}
         </div>
       </th>
@@ -329,249 +466,534 @@ export default function AgentScreener() {
   };
 
   const resetDbFilters = () => {
-    setDbSearch("");
-    setDbSector("");
-    setDbMarketCap("");
-    setDbMinPE("");
-    setDbMaxPE("");
-    setDbMinROE("");
-    setDbMaxDE("");
-    setDbMinRating("");
-    setDbPage(1);
+    setDbSearch(""); setDbSector(""); setDbMarketCap(""); setDbMinPE(""); setDbMaxPE("");
+    setDbMinROE(""); setDbMaxDE(""); setDbMinRating(""); setDbMinScore(""); setDbPage(1);
   };
+
+  const activeFilterCount = [dbSearch, dbSector, dbMarketCap, dbMinPE, dbMaxPE, dbMinROE, dbMaxDE, dbMinRating, dbMinScore].filter(Boolean).length;
 
   return (
     <AgentLayout>
-      <div className="space-y-6">
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          <Card className="border-l-4 border-l-blue-500">
+            <CardContent className="pt-4 pb-3 px-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                  <Database className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <div className="text-xl font-bold leading-none">{screenerStats?.database?.totalStocks?.toLocaleString() ?? 0}</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">Total Stocks</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-emerald-500">
+            <CardContent className="pt-4 pb-3 px-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg">
+                  <BarChart3 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                  <div className="text-xl font-bold leading-none">{screenerStats?.database?.withFinancials?.toLocaleString() ?? 0}</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">With Financials</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-amber-500">
+            <CardContent className="pt-4 pb-3 px-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-amber-50 dark:bg-amber-900/30 rounded-lg">
+                  <Star className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                  <div className="text-xl font-bold leading-none">{screenerStats?.database?.withDerivedMetrics?.toLocaleString() ?? 0}</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">Scored & Rated</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-purple-500">
+            <CardContent className="pt-4 pb-3 px-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-purple-50 dark:bg-purple-900/30 rounded-lg">
+                  <Activity className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                </div>
+                <div>
+                  <div className="text-xl font-bold leading-none">{screenerStats?.apiUsage?.remaining ?? 220}</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">API Calls Left</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-indigo-500 hidden lg:block">
+            <CardContent className="pt-4 pb-3 px-4">
+              <div className="space-y-1.5">
+                <div className="text-[11px] text-muted-foreground font-medium">Market Cap Distribution</div>
+                {distribution?.marketCap && (
+                  <DistributionBar data={distribution.marketCap} colorMap={MARKET_CAP_COLORS} />
+                )}
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                  {distribution?.marketCap?.slice(0, 3).map((d: any) => (
+                    <span key={d.category} className="flex items-center gap-1">
+                      <span className={`w-1.5 h-1.5 rounded-full ${MARKET_CAP_COLORS[d.category] || 'bg-gray-400'}`}></span>
+                      {d.category}: {Number(d.count).toLocaleString()}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         <Tabs defaultValue="db-screener" className="w-full">
           <Card>
-            <CardHeader className="pb-4 border-b">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                  <CardTitle className="flex items-center gap-2 text-xl">
+            <CardHeader className="pb-3 border-b">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
                     <Filter className="h-5 w-5 text-primary" />
-                    Investment Screener
-                  </CardTitle>
-                  <CardDescription className="mt-1.5">
-                    Filter and find instruments based on financial metrics
-                  </CardDescription>
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">Stock Screener</CardTitle>
+                    <CardDescription className="text-xs mt-0.5">
+                      Screen {screenerStats?.database?.totalStocks?.toLocaleString() || 0} stocks with {screenerStats?.database?.withDerivedMetrics?.toLocaleString() || 0} scored
+                    </CardDescription>
+                  </div>
                 </div>
-                <TabsList className="w-fit">
-                  <TabsTrigger value="db-screener" className="px-4">
-                    <Database className="h-4 w-4 mr-1.5" />
-                    Stock Screener
-                  </TabsTrigger>
-                  <TabsTrigger value="builder" className="px-4">Custom Builder</TabsTrigger>
-                  <TabsTrigger value="saved" className="px-4">Saved</TabsTrigger>
-                </TabsList>
+                <div className="flex items-center gap-2">
+                  <TabsList className="h-8">
+                    <TabsTrigger value="db-screener" className="text-xs px-3 h-7">
+                      <Database className="h-3.5 w-3.5 mr-1" />
+                      Screener
+                    </TabsTrigger>
+                    <TabsTrigger value="builder" className="text-xs px-3 h-7">
+                      <SlidersHorizontal className="h-3.5 w-3.5 mr-1" />
+                      Custom
+                    </TabsTrigger>
+                    <TabsTrigger value="saved" className="text-xs px-3 h-7">
+                      <Save className="h-3.5 w-3.5 mr-1" />
+                      Saved
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
               </div>
             </CardHeader>
 
             <TabsContent value="db-screener" className="m-0">
-              <CardContent className="pt-6">
-                <div className="space-y-4">
-                  <div className="flex flex-wrap items-end gap-3">
-                    <div className="flex-1 min-w-[200px]">
-                      <Label className="text-xs text-muted-foreground mb-1">Search</Label>
-                      <div className="relative">
-                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <CardContent className="pt-4 px-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Button
+                      variant={showFilters ? "secondary" : "outline"}
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setShowFilters(!showFilters)}
+                    >
+                      <SlidersHorizontal className="h-3 w-3 mr-1" />
+                      Filters
+                      {activeFilterCount > 0 && (
+                        <Badge className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[9px] bg-primary">{activeFilterCount}</Badge>
+                      )}
+                    </Button>
+                    <div className="flex items-center gap-2">
+                      <div className="relative w-60">
+                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                         <Input
-                          placeholder="Symbol or company name..."
-                          className="pl-9"
+                          placeholder="Search symbol or company..."
+                          className="pl-7 h-7 text-xs"
                           value={dbSearch}
                           onChange={(e) => { setDbSearch(e.target.value); setDbPage(1); }}
                         />
+                        {dbSearch && (
+                          <Button variant="ghost" size="sm" className="absolute right-0 top-0 h-7 w-7 p-0" onClick={() => setDbSearch("")}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                      <div className="flex items-center border rounded-md">
+                        <Button
+                          variant={viewMode === "table" ? "secondary" : "ghost"}
+                          size="sm" className="h-7 w-7 p-0 rounded-r-none"
+                          onClick={() => setViewMode("table")}
+                        >
+                          <List className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant={viewMode === "cards" ? "secondary" : "ghost"}
+                          size="sm" className="h-7 w-7 p-0 rounded-l-none"
+                          onClick={() => setViewMode("cards")}
+                        >
+                          <LayoutGrid className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
                     </div>
-                    <div className="w-40">
-                      <Label className="text-xs text-muted-foreground mb-1">Sector</Label>
-                      <Select value={dbSector} onValueChange={(v) => { setDbSector(v === 'all' ? '' : v); setDbPage(1); }}>
-                        <SelectTrigger><SelectValue placeholder="All Sectors" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Sectors</SelectItem>
-                          {(dbScreenerData?.filters?.sectors || []).map((s: string) => (
-                            <SelectItem key={s} value={s}>{s}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="w-32">
-                      <Label className="text-xs text-muted-foreground mb-1">Market Cap</Label>
-                      <Select value={dbMarketCap} onValueChange={(v) => { setDbMarketCap(v === 'all' ? '' : v); setDbPage(1); }}>
-                        <SelectTrigger><SelectValue placeholder="All" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All</SelectItem>
-                          <SelectItem value="mega">Mega Cap</SelectItem>
-                          <SelectItem value="large">Large Cap</SelectItem>
-                          <SelectItem value="mid">Mid Cap</SelectItem>
-                          <SelectItem value="small">Small Cap</SelectItem>
-                          <SelectItem value="micro">Micro Cap</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
                   </div>
 
-                  <div className="flex flex-wrap items-end gap-3 pb-4 border-b">
-                    <div className="w-24">
-                      <Label className="text-xs text-muted-foreground mb-1">Min P/E</Label>
-                      <Input type="number" placeholder="0" value={dbMinPE} onChange={(e) => { setDbMinPE(e.target.value); setDbPage(1); }} />
+                  {showFilters && (
+                    <div className="bg-muted/30 rounded-lg p-3 border space-y-2.5">
+                      <div className="flex flex-wrap items-end gap-2">
+                        <div className="w-36">
+                          <Label className="text-[10px] text-muted-foreground mb-0.5 block">Sector</Label>
+                          <Select value={dbSector} onValueChange={(v) => { setDbSector(v === 'all' ? '' : v); setDbPage(1); }}>
+                            <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="All Sectors" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All Sectors</SelectItem>
+                              {(dbScreenerData?.filters?.sectors || []).sort().map((s: string) => (
+                                <SelectItem key={s} value={s}>{s}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="w-28">
+                          <Label className="text-[10px] text-muted-foreground mb-0.5 block">Market Cap</Label>
+                          <Select value={dbMarketCap} onValueChange={(v) => { setDbMarketCap(v === 'all' ? '' : v); setDbPage(1); }}>
+                            <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="All" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All</SelectItem>
+                              <SelectItem value="Large Cap">Large Cap</SelectItem>
+                              <SelectItem value="Mid Cap">Mid Cap</SelectItem>
+                              <SelectItem value="Small Cap">Small Cap</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="w-20">
+                          <Label className="text-[10px] text-muted-foreground mb-0.5 block">Min P/E</Label>
+                          <Input type="number" placeholder="0" className="h-7 text-xs" value={dbMinPE} onChange={(e) => { setDbMinPE(e.target.value); setDbPage(1); }} />
+                        </div>
+                        <div className="w-20">
+                          <Label className="text-[10px] text-muted-foreground mb-0.5 block">Max P/E</Label>
+                          <Input type="number" placeholder="100" className="h-7 text-xs" value={dbMaxPE} onChange={(e) => { setDbMaxPE(e.target.value); setDbPage(1); }} />
+                        </div>
+                        <div className="w-20">
+                          <Label className="text-[10px] text-muted-foreground mb-0.5 block">Min ROE%</Label>
+                          <Input type="number" placeholder="0" className="h-7 text-xs" value={dbMinROE} onChange={(e) => { setDbMinROE(e.target.value); setDbPage(1); }} />
+                        </div>
+                        <div className="w-20">
+                          <Label className="text-[10px] text-muted-foreground mb-0.5 block">Max D/E</Label>
+                          <Input type="number" placeholder="2" className="h-7 text-xs" value={dbMaxDE} onChange={(e) => { setDbMaxDE(e.target.value); setDbPage(1); }} />
+                        </div>
+                        <div className="w-24">
+                          <Label className="text-[10px] text-muted-foreground mb-0.5 block">Min Rating</Label>
+                          <Select value={dbMinRating} onValueChange={(v) => { setDbMinRating(v === 'any' ? '' : v); setDbPage(1); }}>
+                            <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Any" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="any">Any</SelectItem>
+                              <SelectItem value="5">5 Stars</SelectItem>
+                              <SelectItem value="4">4+ Stars</SelectItem>
+                              <SelectItem value="3">3+ Stars</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="w-24">
+                          <Label className="text-[10px] text-muted-foreground mb-0.5 block">Min Score</Label>
+                          <Input type="number" placeholder="0" className="h-7 text-xs" value={dbMinScore} onChange={(e) => { setDbMinScore(e.target.value); setDbPage(1); }} />
+                        </div>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={resetDbFilters}>
+                          <RefreshCw className="h-3 w-3 mr-1" />
+                          Reset
+                        </Button>
+                      </div>
                     </div>
-                    <div className="w-24">
-                      <Label className="text-xs text-muted-foreground mb-1">Max P/E</Label>
-                      <Input type="number" placeholder="100" value={dbMaxPE} onChange={(e) => { setDbMaxPE(e.target.value); setDbPage(1); }} />
-                    </div>
-                    <div className="w-24">
-                      <Label className="text-xs text-muted-foreground mb-1">Min ROE %</Label>
-                      <Input type="number" placeholder="0" value={dbMinROE} onChange={(e) => { setDbMinROE(e.target.value); setDbPage(1); }} />
-                    </div>
-                    <div className="w-24">
-                      <Label className="text-xs text-muted-foreground mb-1">Max D/E</Label>
-                      <Input type="number" placeholder="2" value={dbMaxDE} onChange={(e) => { setDbMaxDE(e.target.value); setDbPage(1); }} />
-                    </div>
-                    <div className="w-32">
-                      <Label className="text-xs text-muted-foreground mb-1">Min Rating</Label>
-                      <Select value={dbMinRating} onValueChange={(v) => { setDbMinRating(v === 'any' ? '' : v); setDbPage(1); }}>
-                        <SelectTrigger><SelectValue placeholder="Any" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="any">Any</SelectItem>
-                          <SelectItem value="5">5 Stars</SelectItem>
-                          <SelectItem value="4">4+ Stars</SelectItem>
-                          <SelectItem value="3">3+ Stars</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={resetDbFilters}>
-                      <RefreshCw className="h-3.5 w-3.5 mr-1" />
-                      Reset
-                    </Button>
-                  </div>
+                  )}
 
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-3 text-muted-foreground">
-                      <span>{dbScreenerData?.total ?? 0} stocks found</span>
-                      {screenerStats?.database && (
-                        <span className="text-xs">
-                          DB: {screenerStats.database.totalStocks} stocks, {screenerStats.database.withFinancials} with financials, {screenerStats.database.withDerivedMetrics} scored
-                        </span>
-                      )}
+                      <span className="font-medium text-foreground">{dbScreenerData?.total?.toLocaleString() ?? 0} stocks</span>
+                      <span>Page {dbScreenerData?.page || 1} of {dbScreenerData?.totalPages || 1}</span>
                     </div>
-                    {screenerStats?.apiUsage && (
-                      <div className="flex items-center gap-2">
-                        <Activity className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">
-                          API: {screenerStats.apiUsage.count}/{screenerStats.apiUsage.limit} calls today ({screenerStats.apiUsage.remaining} remaining)
-                        </span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" className="h-6 text-[10px]" disabled={dbPage <= 1} onClick={() => setDbPage(p => Math.max(1, p - 1))}>
+                        <ChevronLeft className="h-3 w-3" />
+                        Prev
+                      </Button>
+                      <Button variant="outline" size="sm" className="h-6 text-[10px]" disabled={dbPage >= (dbScreenerData?.totalPages || 1)} onClick={() => setDbPage(p => p + 1)}>
+                        Next
+                        <ChevronRight className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
 
                   {dbLoading ? (
                     <div className="flex items-center justify-center py-16">
-                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                      <span className="ml-2 text-muted-foreground">Loading screener data...</span>
+                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                      <span className="ml-2 text-sm text-muted-foreground">Loading screener data...</span>
                     </div>
                   ) : dbScreenerData?.stocks?.length > 0 ? (
-                    <>
-                      <div className="border rounded-lg overflow-hidden">
-                        <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
-                          <table className="w-full text-sm min-w-[1200px]">
-                            <thead className="bg-card text-foreground sticky top-0 z-10 border-b">
-                              <tr>
-                                <th className="py-3 px-3 text-left font-medium">Company</th>
-                                <DbSortableHeader label="Price" sortKey="currentPrice" align="right" />
-                                <DbSortableHeader label="Market Cap" sortKey="marketCap" align="right" />
-                                <th className="py-3 px-3 text-center font-medium">Cap</th>
-                                <DbSortableHeader label="P/E" sortKey="peRatio" align="right" />
-                                <th className="py-3 px-3 text-right font-medium">P/B</th>
-                                <DbSortableHeader label="ROE %" sortKey="roe" align="right" />
-                                <th className="py-3 px-3 text-right font-medium">D/E</th>
-                                <th className="py-3 px-3 text-right font-medium">NPM %</th>
-                                <th className="py-3 px-3 text-right font-medium">Div Yield</th>
-                                <DbSortableHeader label="Score" sortKey="compositeScore" align="center" />
-                                <DbSortableHeader label="Rating" sortKey="fintekRating" align="center" />
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {dbScreenerData.stocks.map((stock: any) => (
-                                <tr key={stock.symbol} className="border-b hover:bg-muted/50 transition-colors">
-                                  <td className="py-3 px-3">
-                                    <div className="font-medium truncate max-w-[200px]" title={stock.companyName}>{stock.companyName}</div>
-                                    <div className="flex items-center gap-1.5 mt-0.5">
-                                      <Badge variant="outline" className="font-mono text-[10px] py-0">{stock.symbol}</Badge>
-                                      {stock.sector && <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">{stock.sector}</span>}
-                                    </div>
-                                  </td>
-                                  <td className="py-3 px-3 text-right font-mono text-sm">
-                                    {formatCurrency(stock.currentPrice)}
-                                  </td>
-                                  <td className="py-3 px-3 text-right font-mono text-sm">
-                                    {formatMarketCap(stock.marketCapValue)}
-                                  </td>
-                                  <td className="py-3 px-3 text-center">
-                                    {stock.marketCapCategory && (
-                                      <Badge variant="secondary" className="text-[10px] capitalize">{stock.marketCapCategory}</Badge>
-                                    )}
-                                  </td>
-                                  <td className="py-3 px-3 text-right font-mono text-sm">{formatNum(stock.peRatio)}</td>
-                                  <td className="py-3 px-3 text-right font-mono text-sm">{formatNum(stock.pbRatio)}</td>
-                                  <td className={`py-3 px-3 text-right font-mono text-sm ${parseFloat(stock.roe || '0') >= 0.15 ? 'text-green-600 dark:text-green-400' : ''}`}>
-                                    {stock.roe ? `${(parseFloat(stock.roe) * 100).toFixed(1)}%` : '-'}
-                                  </td>
-                                  <td className={`py-3 px-3 text-right font-mono text-sm ${parseFloat(stock.debtToEquity || '0') > 1.5 ? 'text-red-600 dark:text-red-400' : ''}`}>
-                                    {formatNum(stock.debtToEquity)}
-                                  </td>
-                                  <td className="py-3 px-3 text-right font-mono text-sm">
-                                    {stock.netProfitMargin ? `${(parseFloat(stock.netProfitMargin) * 100).toFixed(1)}%` : '-'}
-                                  </td>
-                                  <td className="py-3 px-3 text-right font-mono text-sm text-blue-600 dark:text-blue-400">
-                                    {stock.dividendYield ? `${(parseFloat(stock.dividendYield) * 100).toFixed(2)}%` : '-'}
-                                  </td>
-                                  <td className="py-3 px-3 text-center">
-                                    <ScoreBadge score={stock.compositeScore} label="Composite" />
-                                  </td>
-                                  <td className="py-3 px-3 text-center">
-                                    <RatingStars rating={stock.fintekRating} />
-                                  </td>
+                    viewMode === "table" ? (
+                      <>
+                        <div className="border rounded-lg overflow-hidden">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead className="bg-muted/50 text-muted-foreground sticky top-0 z-10 border-b">
+                                <tr>
+                                  <th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider w-8">#</th>
+                                  <th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider">Company</th>
+                                  <DbSortableHeader label="Price" sortKey="currentPrice" align="right" />
+                                  <DbSortableHeader label="Mkt Cap" sortKey="marketCap" align="right" />
+                                  <th className="py-2.5 px-3 text-center font-medium text-xs uppercase tracking-wider">Cap</th>
+                                  <DbSortableHeader label="P/E" sortKey="peRatio" align="right" />
+                                  <th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">EPS</th>
+                                  <DbSortableHeader label="ROE" sortKey="roe" align="right" />
+                                  <th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">D/E</th>
+                                  <DbSortableHeader label="Score" sortKey="compositeScore" align="center" />
+                                  <DbSortableHeader label="Rating" sortKey="fintekRating" align="center" />
+                                  <th className="py-2.5 px-3 text-center font-medium text-xs uppercase tracking-wider">Detail</th>
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                              </thead>
+                              <tbody>
+                                {dbScreenerData.stocks.map((stock: any, index: number) => (
+                                  <>
+                                    <tr key={stock.symbol} className={`border-b hover:bg-muted/30 transition-colors ${expandedStock === stock.symbol ? 'bg-muted/20' : ''}`}>
+                                      <td className="py-2.5 px-3 text-xs text-muted-foreground">{(dbPage - 1) * dbLimit + index + 1}</td>
+                                      <td className="py-2.5 px-3">
+                                        <div className="font-medium text-sm truncate max-w-[220px]" title={stock.companyName}>{stock.companyName}</div>
+                                        <div className="flex items-center gap-1.5 mt-0.5">
+                                          <Badge variant="outline" className="font-mono text-[10px] py-0 px-1 h-4">{stock.symbol}</Badge>
+                                          {stock.sector && <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">{stock.sector}</span>}
+                                        </div>
+                                      </td>
+                                      <td className="py-2.5 px-3 text-right font-mono text-xs">{formatCurrency(stock.currentPrice)}</td>
+                                      <td className="py-2.5 px-3 text-right font-mono text-xs">{formatMarketCap(stock.marketCapValue)}</td>
+                                      <td className="py-2.5 px-3 text-center"><MarketCapBadge category={stock.marketCapCategory} /></td>
+                                      <td className="py-2.5 px-3 text-right font-mono text-xs">{formatNum(stock.peRatio)}</td>
+                                      <td className="py-2.5 px-3 text-right font-mono text-xs">{formatNum(stock.eps)}</td>
+                                      <td className={`py-2.5 px-3 text-right font-mono text-xs ${parseFloat(stock.roe || '0') >= 0.15 ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : ''}`}>
+                                        {stock.roe ? formatPercent(stock.roe, 100) : '-'}
+                                      </td>
+                                      <td className={`py-2.5 px-3 text-right font-mono text-xs ${parseFloat(stock.debtToEquity || '0') > 1.5 ? 'text-red-600 dark:text-red-400' : ''}`}>
+                                        {formatNum(stock.debtToEquity)}
+                                      </td>
+                                      <td className="py-2.5 px-3 text-center">
+                                        <ScoreBreakdownTooltip stock={stock} />
+                                      </td>
+                                      <td className="py-2.5 px-3 text-center">
+                                        <RatingStars rating={stock.fintekRating} />
+                                      </td>
+                                      <td className="py-2.5 px-3 text-center">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 w-6 p-0"
+                                          onClick={() => setExpandedStock(expandedStock === stock.symbol ? null : stock.symbol)}
+                                        >
+                                          <Eye className={`h-3.5 w-3.5 ${expandedStock === stock.symbol ? 'text-primary' : 'text-muted-foreground'}`} />
+                                        </Button>
+                                      </td>
+                                    </tr>
+                                    {expandedStock === stock.symbol && (
+                                      <tr key={`${stock.symbol}-detail`}>
+                                        <td colSpan={12} className="bg-muted/10 border-b">
+                                          <div className="p-4">
+                                            {detailLoading ? (
+                                              <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                Loading details...
+                                              </div>
+                                            ) : stockDetail ? (
+                                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div className="space-y-3">
+                                                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                                    <Building2 className="h-3.5 w-3.5" />
+                                                    Company Info
+                                                  </h4>
+                                                  <div className="space-y-1.5 text-xs">
+                                                    <div className="flex justify-between"><span className="text-muted-foreground">Exchange</span><span className="font-medium">{stockDetail.stock?.exchange || '-'}</span></div>
+                                                    <div className="flex justify-between"><span className="text-muted-foreground">ISIN</span><span className="font-mono">{stockDetail.stock?.isin || '-'}</span></div>
+                                                    <div className="flex justify-between"><span className="text-muted-foreground">Sector</span><span className="font-medium">{stockDetail.stock?.sector || '-'}</span></div>
+                                                    <div className="flex justify-between"><span className="text-muted-foreground">Industry</span><span className="font-medium">{stockDetail.stock?.industry || '-'}</span></div>
+                                                    <div className="flex justify-between"><span className="text-muted-foreground">Data Source</span><Badge variant="outline" className="text-[9px] h-4">{stockDetail.stock?.dataSource || '-'}</Badge></div>
+                                                  </div>
+                                                </div>
+                                                <div className="space-y-3">
+                                                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                                    <BarChart3 className="h-3.5 w-3.5" />
+                                                    Financial Metrics
+                                                  </h4>
+                                                  {stockDetail.financials?.[0] ? (
+                                                    <div className="space-y-1.5 text-xs">
+                                                      <div className="flex justify-between"><span className="text-muted-foreground">P/E Ratio</span><span className="font-mono">{formatNum(stockDetail.financials[0].peRatio)}</span></div>
+                                                      <div className="flex justify-between"><span className="text-muted-foreground">P/B Ratio</span><span className="font-mono">{formatNum(stockDetail.financials[0].pbRatio)}</span></div>
+                                                      <div className="flex justify-between"><span className="text-muted-foreground">ROE</span><span className="font-mono">{stockDetail.financials[0].roe ? formatPercent(stockDetail.financials[0].roe, 100) : '-'}</span></div>
+                                                      <div className="flex justify-between"><span className="text-muted-foreground">ROA</span><span className="font-mono">{stockDetail.financials[0].roa ? formatPercent(stockDetail.financials[0].roa, 100) : '-'}</span></div>
+                                                      <div className="flex justify-between"><span className="text-muted-foreground">EPS</span><span className="font-mono">{formatNum(stockDetail.financials[0].eps)}</span></div>
+                                                      <div className="flex justify-between"><span className="text-muted-foreground">Book Value</span><span className="font-mono">{formatNum(stockDetail.financials[0].bookValue)}</span></div>
+                                                      <div className="flex justify-between"><span className="text-muted-foreground">D/E</span><span className="font-mono">{formatNum(stockDetail.financials[0].debtToEquity)}</span></div>
+                                                      <div className="flex justify-between"><span className="text-muted-foreground">Dividend Yield</span><span className="font-mono">{stockDetail.financials[0].dividendYield ? formatPercent(stockDetail.financials[0].dividendYield, 100) : '-'}</span></div>
+                                                    </div>
+                                                  ) : (
+                                                    <p className="text-xs text-muted-foreground">No financial data available</p>
+                                                  )}
+                                                </div>
+                                                <div className="space-y-3">
+                                                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                                    <Target className="h-3.5 w-3.5" />
+                                                    Score Breakdown
+                                                  </h4>
+                                                  {stockDetail.derivedMetrics ? (
+                                                    <div className="space-y-2">
+                                                      {[
+                                                        { label: 'Growth', score: stockDetail.derivedMetrics.growthScore, icon: TrendingUp, color: 'bg-blue-500', weight: '25%' },
+                                                        { label: 'Quality', score: stockDetail.derivedMetrics.qualityScore, icon: Sparkles, color: 'bg-purple-500', weight: '30%' },
+                                                        { label: 'Value', score: stockDetail.derivedMetrics.valueScore, icon: Target, color: 'bg-emerald-500', weight: '25%' },
+                                                        { label: 'Risk', score: stockDetail.derivedMetrics.riskScore, icon: Shield, color: 'bg-orange-500', weight: '20%' },
+                                                      ].map(({ label, score, icon: Icon, color, weight }) => {
+                                                        const s = parseFloat(score || '0');
+                                                        return (
+                                                          <div key={label} className="space-y-0.5">
+                                                            <div className="flex items-center justify-between text-xs">
+                                                              <span className="flex items-center gap-1.5">
+                                                                <Icon className="h-3 w-3 text-muted-foreground" />
+                                                                {label} <span className="text-muted-foreground">({weight})</span>
+                                                              </span>
+                                                              <span className="font-mono font-medium">{s.toFixed(1)}</span>
+                                                            </div>
+                                                            <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                                                              <div className={`h-full rounded-full ${color}`} style={{ width: `${s}%` }} />
+                                                            </div>
+                                                          </div>
+                                                        );
+                                                      })}
+                                                      <Separator className="my-2" />
+                                                      <div className="flex items-center justify-between">
+                                                        <span className="text-xs font-semibold">Composite Score</span>
+                                                        <div className="flex items-center gap-2">
+                                                          <ScoreBadge score={stockDetail.derivedMetrics.compositeScore} label="Composite" />
+                                                          <RatingStars rating={stockDetail.derivedMetrics.fintekRating} />
+                                                        </div>
+                                                      </div>
+                                                    </div>
+                                                  ) : (
+                                                    <p className="text-xs text-muted-foreground">No scoring data available</p>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            ) : (
+                                              <p className="text-sm text-muted-foreground">Could not load details</p>
+                                            )}
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    )}
+                                  </>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="flex items-center justify-between pt-2">
-                        <div className="text-sm text-muted-foreground">
-                          Page {dbScreenerData.page} of {dbScreenerData.totalPages}
+                        <div className="flex items-center justify-between pt-1">
+                          <div className="text-xs text-muted-foreground">
+                            Showing {((dbPage - 1) * dbLimit) + 1}-{Math.min(dbPage * dbLimit, dbScreenerData?.total || 0)} of {dbScreenerData?.total?.toLocaleString()} stocks
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button variant="outline" size="sm" className="h-7 text-xs" disabled={dbPage <= 1} onClick={() => setDbPage(1)}>
+                              First
+                            </Button>
+                            <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={dbPage <= 1} onClick={() => setDbPage(p => Math.max(1, p - 1))}>
+                              <ChevronLeft className="h-3.5 w-3.5" />
+                            </Button>
+                            {Array.from({ length: Math.min(5, dbScreenerData?.totalPages || 1) }, (_, i) => {
+                              const startPage = Math.max(1, Math.min(dbPage - 2, (dbScreenerData?.totalPages || 1) - 4));
+                              const pageNum = startPage + i;
+                              if (pageNum > (dbScreenerData?.totalPages || 1)) return null;
+                              return (
+                                <Button
+                                  key={pageNum}
+                                  variant={pageNum === dbPage ? "default" : "outline"}
+                                  size="sm"
+                                  className="h-7 w-7 p-0 text-xs"
+                                  onClick={() => setDbPage(pageNum)}
+                                >
+                                  {pageNum}
+                                </Button>
+                              );
+                            })}
+                            <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={dbPage >= (dbScreenerData?.totalPages || 1)} onClick={() => setDbPage(p => p + 1)}>
+                              <ChevronRight className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="outline" size="sm" className="h-7 text-xs" disabled={dbPage >= (dbScreenerData?.totalPages || 1)} onClick={() => setDbPage(dbScreenerData?.totalPages || 1)}>
+                              Last
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={dbPage <= 1}
-                            onClick={() => setDbPage(p => Math.max(1, p - 1))}
-                          >
-                            <ChevronLeft className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={dbPage >= (dbScreenerData?.totalPages || 1)}
-                            onClick={() => setDbPage(p => p + 1)}
-                          >
-                            <ChevronRight className="h-4 w-4" />
-                          </Button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {dbScreenerData.stocks.map((stock: any, index: number) => (
+                            <Card key={stock.symbol} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setExpandedStock(expandedStock === stock.symbol ? null : stock.symbol)}>
+                              <CardContent className="p-4">
+                                <div className="flex items-start justify-between mb-2">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-semibold text-sm truncate" title={stock.companyName}>{stock.companyName}</div>
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                      <Badge variant="outline" className="font-mono text-[10px] py-0 px-1 h-4">{stock.symbol}</Badge>
+                                      <MarketCapBadge category={stock.marketCapCategory} />
+                                    </div>
+                                  </div>
+                                  <RatingStars rating={stock.fintekRating} />
+                                </div>
+                                <div className="text-xs text-muted-foreground mb-3 truncate">{stock.sector || 'N/A'}</div>
+                                <div className="grid grid-cols-3 gap-2 text-center">
+                                  <div className="bg-muted/50 rounded p-1.5">
+                                    <div className="text-[10px] text-muted-foreground">Price</div>
+                                    <div className="text-xs font-mono font-medium">{formatCurrency(stock.currentPrice)}</div>
+                                  </div>
+                                  <div className="bg-muted/50 rounded p-1.5">
+                                    <div className="text-[10px] text-muted-foreground">P/E</div>
+                                    <div className="text-xs font-mono font-medium">{formatNum(stock.peRatio)}</div>
+                                  </div>
+                                  <div className="bg-muted/50 rounded p-1.5">
+                                    <div className="text-[10px] text-muted-foreground">Score</div>
+                                    <div className="flex justify-center"><ScoreBadge score={stock.compositeScore} label="Composite" /></div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between mt-2 pt-2 border-t">
+                                  <div className="text-[10px] text-muted-foreground">Mkt Cap: {formatMarketCap(stock.marketCapValue)}</div>
+                                  <div className="flex gap-1">
+                                    <ScoreBadge score={stock.growthScore} label="Growth" />
+                                    <ScoreBadge score={stock.qualityScore} label="Quality" />
+                                    <ScoreBadge score={stock.valueScore} label="Value" />
+                                    <ScoreBadge score={stock.riskScore} label="Risk" />
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
                         </div>
-                      </div>
-                    </>
+                        <div className="flex items-center justify-between pt-2">
+                          <div className="text-xs text-muted-foreground">
+                            Page {dbScreenerData.page} of {dbScreenerData.totalPages}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button variant="outline" size="sm" className="h-7" disabled={dbPage <= 1} onClick={() => setDbPage(p => Math.max(1, p - 1))}>
+                              <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Prev
+                            </Button>
+                            <Button variant="outline" size="sm" className="h-7" disabled={dbPage >= (dbScreenerData?.totalPages || 1)} onClick={() => setDbPage(p => p + 1)}>
+                              Next <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                            </Button>
+                          </div>
+                        </div>
+                      </>
+                    )
                   ) : (
                     <div className="text-center py-16">
-                      <Database className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+                      <Database className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
                       <p className="text-muted-foreground font-medium">No stocks match your filters</p>
                       <p className="text-sm text-muted-foreground mt-1">
                         {dbScreenerData?.total === 0 && !dbSearch && !dbSector
                           ? "The screener database is being populated. Use Admin tools to seed stock data."
                           : "Try adjusting your filters or search criteria."}
                       </p>
+                      {activeFilterCount > 0 && (
+                        <Button variant="outline" size="sm" className="mt-3" onClick={resetDbFilters}>
+                          <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                          Clear All Filters
+                        </Button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -585,9 +1007,7 @@ export default function AgentScreener() {
                     <div className="space-y-2">
                       <Label className="text-sm font-medium">Instrument Type</Label>
                       <Select value={screenerType} onValueChange={(v) => setScreenerType(v as ScreenerType)}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="mutual_fund">Mutual Funds</SelectItem>
                           <SelectItem value="stock">Stocks</SelectItem>
@@ -598,329 +1018,239 @@ export default function AgentScreener() {
                     </div>
                     <div className="space-y-2">
                       <Label className="text-sm font-medium">Screener Name (for saving)</Label>
-                      <Input
-                        placeholder="e.g., High Return Low Cost MFs"
-                        value={screenerName}
-                        onChange={(e) => setScreenerName(e.target.value)}
-                      />
+                      <Input placeholder="e.g., High Return Low Cost MFs" value={screenerName} onChange={(e) => setScreenerName(e.target.value)} />
                     </div>
                   </div>
 
-                <div className="space-y-3">
-                  <Label>Filter Criteria</Label>
-                  {criteria.map((c, index) => (
-                    <div key={index} className="flex gap-2 items-center">
-                      <Select value={c.field} onValueChange={(v) => updateCriteria(index, "field", v)}>
-                        <SelectTrigger className="w-48">
-                          <SelectValue placeholder="Select field" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {fields.map(f => (
-                            <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Select value={c.operator} onValueChange={(v) => updateCriteria(index, "operator", v)}>
-                        <SelectTrigger className="w-20">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {operators.map(o => (
-                            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Input
-                        type="number"
-                        placeholder="Value"
-                        className="w-32"
-                        value={c.value}
-                        onChange={(e) => updateCriteria(index, "value", e.target.value)}
-                      />
-                      {criteria.length > 1 && (
-                        <Button variant="ghost" size="sm" onClick={() => removeCriteria(index)}>
-                          Remove
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                  <Button variant="outline" size="sm" onClick={addCriteria}>
-                    + Add Criteria
-                  </Button>
-                </div>
-
-                <div className="flex gap-2 pt-4 border-t">
-                  <Button onClick={() => runScreenerMutation.mutate()} disabled={runScreenerMutation.isPending}>
-                    <Play className="h-4 w-4 mr-2" />
-                    Run Screener
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => saveScreenerMutation.mutate()}
-                    disabled={!screenerName || saveScreenerMutation.isPending}
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    Save Screener
-                  </Button>
-                </div>
-
-                <div className="pt-6 border-t">
-                  <h3 className="text-lg font-semibold mb-2">Screener Results</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    {runScreenerMutation.data?.results 
-                      ? `${runScreenerMutation.data.results.length} instruments match your criteria`
-                      : "Results will appear here after running the screener"
-                    }
-                  </p>
-                <div>
-                {runScreenerMutation.isPending ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Running screener...
-                  </div>
-                ) : runScreenerMutation.data?.results?.length > 0 ? (
-                  <div className="border rounded-lg overflow-hidden">
-                    <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
-                      <table className="w-full text-sm min-w-[1800px]">
-                        <thead className="bg-card text-foreground sticky top-0 z-10">
-                          <tr>
-                            <SortableHeader label="Name" sortKey="name" />
-                            <SortableHeader label="Symbol" sortKey="symbol" />
-                            <SortableHeader label="ISIN" sortKey="isin" />
-                            {screenerType === "mutual_fund" ? (
-                              <>
-                                <SortableHeader label="Category" sortKey="category" />
-                                <SortableHeader label="Fund House" sortKey="fundHouse" />
-                                <SortableHeader label="NAV" sortKey="nav" align="right" />
-                                <SortableHeader label="1Y Return" sortKey="returns1y" align="right" />
-                                <SortableHeader label="3Y Return" sortKey="returns3y" align="right" />
-                                <SortableHeader label="5Y Return" sortKey="returns5y" align="right" />
-                                <SortableHeader label="Expense %" sortKey="expenseRatio" align="right" />
-                                <SortableHeader label="AUM (Cr)" sortKey="aum" align="right" />
-                                <SortableHeader label="Risk" sortKey="riskLevel" align="center" />
-                                <SortableHeader label="Rating" sortKey="rating" align="center" />
-                              </>
-                            ) : (
-                              <>
-                                <SortableHeader label="Sector" sortKey="sector" />
-                                <SortableHeader label="Industry" sortKey="industry" />
-                                <SortableHeader label="Price" sortKey="currentPrice" align="right" />
-                                <SortableHeader label="Change %" sortKey="dayChangePercent" align="right" />
-                                <SortableHeader label="52W High" sortKey="weekHigh52" align="right" />
-                                <SortableHeader label="52W Low" sortKey="weekLow52" align="right" />
-                                <SortableHeader label="Mkt Cap (Cr)" sortKey="marketCapValue" align="right" />
-                                <SortableHeader label="Cap Type" sortKey="marketCap" align="center" />
-                                <SortableHeader label="P/E" sortKey="peRatio" align="right" />
-                                <SortableHeader label="P/B" sortKey="pbRatio" align="right" />
-                                <SortableHeader label="Div Yield %" sortKey="dividendYield" align="right" />
-                                <SortableHeader label="ROE %" sortKey="roe" align="right" />
-                                <SortableHeader label="ROCE %" sortKey="roce" align="right" />
-                              </>
-                            )}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {sortedResults.map((item: any) => (
-                            <tr key={item.id} className="border-b hover:bg-muted/50">
-                              <td className="py-3 px-3">
-                                <div className="font-medium max-w-[220px] truncate" title={item.name}>
-                                  {item.name}
-                                </div>
-                              </td>
-                              <td className="py-3 px-3">
-                                <Badge variant="outline" className="font-mono text-xs">{item.symbol}</Badge>
-                              </td>
-                              <td className="py-3 px-3 font-mono text-xs text-muted-foreground">
-                                {item.isin || "-"}
-                              </td>
-                              {screenerType === "mutual_fund" ? (
-                                <>
-                                  <td className="py-3 px-3 text-muted-foreground max-w-[150px] truncate" title={item.category}>
-                                    {item.category || "-"}
-                                  </td>
-                                  <td className="py-3 px-3 text-muted-foreground max-w-[150px] truncate" title={item.fundHouse}>
-                                    {item.fundHouse || "-"}
-                                  </td>
-                                  <td className="py-3 px-3 text-right font-mono">
-                                    ₹{parseFloat(item.nav || 0).toFixed(2)}
-                                  </td>
-                                  <td className={`py-3 px-3 text-right font-mono ${parseFloat(item.returns1y || 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
-                                    {parseFloat(item.returns1y || 0) >= 0 ? "+" : ""}{parseFloat(item.returns1y || 0).toFixed(2)}%
-                                  </td>
-                                  <td className={`py-3 px-3 text-right font-mono ${parseFloat(item.returns3y || 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
-                                    {parseFloat(item.returns3y || 0) >= 0 ? "+" : ""}{parseFloat(item.returns3y || 0).toFixed(2)}%
-                                  </td>
-                                  <td className={`py-3 px-3 text-right font-mono ${parseFloat(item.returns5y || 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
-                                    {parseFloat(item.returns5y || 0) >= 0 ? "+" : ""}{parseFloat(item.returns5y || 0).toFixed(2)}%
-                                  </td>
-                                  <td className="py-3 px-3 text-right font-mono">
-                                    {item.expenseRatio ? `${parseFloat(item.expenseRatio).toFixed(2)}%` : "-"}
-                                  </td>
-                                  <td className="py-3 px-3 text-right font-mono">
-                                    {item.aum ? `₹${parseFloat(item.aum).toLocaleString("en-IN")}` : "-"}
-                                  </td>
-                                  <td className="py-3 px-3 text-center">
-                                    <Badge variant={item.riskLevel === "Low" ? "default" : item.riskLevel === "Moderate" ? "secondary" : "destructive"} className="text-xs">
-                                      {item.riskLevel || "-"}
-                                    </Badge>
-                                  </td>
-                                  <td className="py-3 px-3 text-center">
-                                    <Badge variant="outline" className="text-xs">{item.rating || "-"}</Badge>
-                                  </td>
-                                </>
-                              ) : (
-                                <>
-                                  <td className="py-3 px-3 text-muted-foreground max-w-[150px] truncate" title={item.sector}>
-                                    {item.sector || "-"}
-                                  </td>
-                                  <td className="py-3 px-3 text-muted-foreground max-w-[150px] truncate" title={item.industry}>
-                                    {item.industry || "-"}
-                                  </td>
-                                  <td className="py-3 px-3 text-right font-mono">
-                                    ₹{parseFloat(item.currentPrice || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                                  </td>
-                                  <td className={`py-3 px-3 text-right font-mono ${parseFloat(item.dayChangePercent || 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
-                                    {parseFloat(item.dayChangePercent || 0) >= 0 ? "+" : ""}{parseFloat(item.dayChangePercent || 0).toFixed(2)}%
-                                  </td>
-                                  <td className="py-3 px-3 text-right font-mono text-green-600">
-                                    {item.weekHigh52 ? `₹${parseFloat(item.weekHigh52).toLocaleString("en-IN")}` : "-"}
-                                  </td>
-                                  <td className="py-3 px-3 text-right font-mono text-red-600">
-                                    {item.weekLow52 ? `₹${parseFloat(item.weekLow52).toLocaleString("en-IN")}` : "-"}
-                                  </td>
-                                  <td className="py-3 px-3 text-right font-mono">
-                                    {item.marketCapValue ? `₹${parseFloat(item.marketCapValue).toLocaleString("en-IN")}` : "-"}
-                                  </td>
-                                  <td className="py-3 px-3 text-center">
-                                    <Badge variant="secondary" className="text-xs">{item.marketCap || "-"}</Badge>
-                                  </td>
-                                  <td className="py-3 px-3 text-right font-mono">
-                                    {item.peRatio ? parseFloat(item.peRatio).toFixed(2) : "-"}
-                                  </td>
-                                  <td className="py-3 px-3 text-right font-mono">
-                                    {item.pbRatio ? parseFloat(item.pbRatio).toFixed(2) : "-"}
-                                  </td>
-                                  <td className="py-3 px-3 text-right font-mono text-blue-600">
-                                    {item.dividendYield ? `${parseFloat(item.dividendYield).toFixed(2)}%` : "-"}
-                                  </td>
-                                  <td className={`py-3 px-3 text-right font-mono ${parseFloat(item.roe || 0) >= 15 ? "text-green-600" : ""}`}>
-                                    {item.roe ? `${parseFloat(item.roe).toFixed(2)}%` : "-"}
-                                  </td>
-                                  <td className={`py-3 px-3 text-right font-mono ${parseFloat(item.roce || 0) >= 15 ? "text-green-600" : ""}`}>
-                                    {item.roce ? `${parseFloat(item.roce).toFixed(2)}%` : "-"}
-                                  </td>
-                                </>
-                              )}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    {runScreenerMutation.data?.results?.length === 0 
-                      ? "No instruments match your criteria. Try adjusting your filters."
-                      : "Click 'Run Screener' to search for matching instruments"
-                    }
-                  </div>
-                )}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </TabsContent>
-
-          <TabsContent value="saved" className="m-0">
-            <CardContent className="pt-6">
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">Saved Screeners</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Your saved screeners for quick access
-                  </p>
-                </div>
-                {(savedScreeners as any)?.screeners?.length > 0 ? (
-                  <div className="space-y-2">
-                    {(savedScreeners as any).screeners.map((s: any) => (
-                      <div key={s.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div>
-                          <div className="font-medium">{s.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {s.screenerType} • {s.runCount || 0} runs
-                          </div>
-                        </div>
-                        <Button variant="outline" size="sm">
-                          <Play className="h-4 w-4 mr-1" />
-                          Run
-                        </Button>
+                  <div className="space-y-3">
+                    <Label>Filter Criteria</Label>
+                    {criteria.map((c, index) => (
+                      <div key={index} className="flex gap-2 items-center">
+                        <Select value={c.field} onValueChange={(v) => updateCriteria(index, "field", v)}>
+                          <SelectTrigger className="w-48"><SelectValue placeholder="Select field" /></SelectTrigger>
+                          <SelectContent>
+                            {fields.map(f => (<SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                        <Select value={c.operator} onValueChange={(v) => updateCriteria(index, "operator", v)}>
+                          <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {operators.map(o => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                        <Input type="number" placeholder="Value" className="w-32" value={c.value} onChange={(e) => updateCriteria(index, "value", e.target.value)} />
+                        {criteria.length > 1 && (
+                          <Button variant="ghost" size="sm" onClick={() => removeCriteria(index)}>Remove</Button>
+                        )}
                       </div>
                     ))}
+                    <Button variant="outline" size="sm" onClick={addCriteria}>+ Add Criteria</Button>
                   </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No saved screeners yet. Create and save a screener to see it here.
+
+                  <div className="flex gap-2 pt-4 border-t">
+                    <Button onClick={() => runScreenerMutation.mutate()} disabled={runScreenerMutation.isPending}>
+                      <Play className="h-4 w-4 mr-2" />
+                      Run Screener
+                    </Button>
+                    <Button variant="outline" onClick={() => saveScreenerMutation.mutate()} disabled={!screenerName || saveScreenerMutation.isPending}>
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Screener
+                    </Button>
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </TabsContent>
+
+                  {runScreenerMutation.isPending ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
+                      Running screener...
+                    </div>
+                  ) : runScreenerMutation.data?.results?.length > 0 ? (
+                    <div className="border rounded-lg overflow-hidden">
+                      <div className="overflow-x-auto max-h-[500px]">
+                        <table className="w-full text-sm">
+                          <thead className="bg-muted/50 text-muted-foreground sticky top-0 z-10 border-b">
+                            <tr>
+                              <SortableHeader label="Name" sortKey="name" />
+                              <SortableHeader label="Symbol" sortKey="symbol" />
+                              <SortableHeader label="Sector" sortKey="sector" />
+                              <SortableHeader label="Price" sortKey="currentPrice" align="right" />
+                              <SortableHeader label="Mkt Cap" sortKey="marketCapValue" align="right" />
+                              <SortableHeader label="P/E" sortKey="peRatio" align="right" />
+                              <SortableHeader label="ROE %" sortKey="roe" align="right" />
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {sortedResults.map((item: any) => (
+                              <tr key={item.id || item.symbol} className="border-b hover:bg-muted/30">
+                                <td className="py-2.5 px-3 font-medium truncate max-w-[200px]" title={item.name}>{item.name}</td>
+                                <td className="py-2.5 px-3"><Badge variant="outline" className="font-mono text-[10px]">{item.symbol}</Badge></td>
+                                <td className="py-2.5 px-3 text-xs text-muted-foreground truncate max-w-[130px]">{item.sector || "-"}</td>
+                                <td className="py-2.5 px-3 text-right font-mono text-xs">{formatCurrency(item.currentPrice)}</td>
+                                <td className="py-2.5 px-3 text-right font-mono text-xs">{formatMarketCap(item.marketCapValue)}</td>
+                                <td className="py-2.5 px-3 text-right font-mono text-xs">{formatNum(item.peRatio)}</td>
+                                <td className="py-2.5 px-3 text-right font-mono text-xs">{item.roe ? `${parseFloat(item.roe).toFixed(2)}%` : '-'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      {runScreenerMutation.data?.results?.length === 0
+                        ? "No instruments match your criteria. Try adjusting your filters."
+                        : "Click 'Run Screener' to search for matching instruments"}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </TabsContent>
+
+            <TabsContent value="saved" className="m-0">
+              <CardContent className="pt-6">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">Saved Screeners</h3>
+                    <p className="text-sm text-muted-foreground mb-4">Your saved screeners for quick access</p>
+                  </div>
+                  {(savedScreeners as any)?.screeners?.length > 0 ? (
+                    <div className="space-y-2">
+                      {(savedScreeners as any).screeners.map((s: any) => (
+                        <div key={s.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30 transition-colors">
+                          <div>
+                            <div className="font-medium">{s.name}</div>
+                            <div className="text-sm text-muted-foreground">{s.screenerType} • {s.runCount || 0} runs</div>
+                          </div>
+                          <Button variant="outline" size="sm">
+                            <Play className="h-4 w-4 mr-1" />
+                            Run
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No saved screeners yet. Create and save a screener to see it here.
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </TabsContent>
           </Card>
         </Tabs>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {distribution && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <Card>
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <PieChart className="h-3.5 w-3.5" />
+                  Market Cap Distribution
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                <div className="space-y-2">
+                  {distribution.marketCap?.map((d: any) => {
+                    const total = distribution.marketCap.reduce((s: number, x: any) => s + Number(x.count), 0);
+                    const pct = total > 0 ? (Number(d.count) / total) * 100 : 0;
+                    return (
+                      <div key={d.category} className="flex items-center gap-2 text-xs">
+                        <span className={`w-2 h-2 rounded-full ${MARKET_CAP_COLORS[d.category] || 'bg-gray-400'}`}></span>
+                        <span className="flex-1">{d.category}</span>
+                        <span className="font-mono text-muted-foreground">{Number(d.count).toLocaleString()}</span>
+                        <span className="font-mono w-12 text-right">{pct.toFixed(1)}%</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <Star className="h-3.5 w-3.5" />
+                  Rating Distribution
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                <div className="space-y-2">
+                  {distribution.ratings?.map((d: any) => {
+                    const total = distribution.ratings.reduce((s: number, x: any) => s + Number(x.count), 0);
+                    const pct = total > 0 ? (Number(d.count) / total) * 100 : 0;
+                    return (
+                      <div key={d.rating} className="flex items-center gap-2 text-xs">
+                        <span className={`w-2 h-2 rounded-full ${RATING_COLORS[String(d.rating)] || 'bg-gray-400'}`}></span>
+                        <span className="flex-1 flex items-center gap-1">
+                          {d.rating} Star{d.rating !== 1 ? 's' : ''}
+                          <RatingStars rating={d.rating} />
+                        </span>
+                        <span className="font-mono text-muted-foreground">{Number(d.count).toLocaleString()}</span>
+                        <span className="font-mono w-12 text-right">{pct.toFixed(1)}%</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <Target className="h-3.5 w-3.5" />
+                  Score Distribution
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                <div className="space-y-2">
+                  {distribution.scoreRanges?.map((d: any) => {
+                    const total = distribution.scoreRanges.reduce((s: number, x: any) => s + Number(x.count), 0);
+                    const pct = total > 0 ? (Number(d.count) / total) * 100 : 0;
+                    return (
+                      <div key={d.range} className="flex items-center gap-2 text-xs">
+                        <span className={`w-2 h-2 rounded-full ${SCORE_COLORS[d.range] || 'bg-gray-400'}`}></span>
+                        <span className="flex-1">Score {d.range}</span>
+                        <span className="font-mono text-muted-foreground">{Number(d.count).toLocaleString()}</span>
+                        <div className="w-20 h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full ${SCORE_COLORS[d.range] || 'bg-gray-400'}`} style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="font-mono w-12 text-right">{pct.toFixed(1)}%</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {distribution?.sectors && (
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <Database className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <div className="text-2xl font-bold">{screenerStats?.database?.totalStocks ?? 0}</div>
-                  <div className="text-sm text-muted-foreground">Stocks in DB</div>
-                </div>
+            <CardHeader className="pb-2 pt-4 px-4">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <Building2 className="h-3.5 w-3.5" />
+                Top 20 Sectors by Stock Count
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2">
+                {distribution.sectors.map((d: any) => {
+                  const total = distribution.sectors.reduce((s: number, x: any) => s + Number(x.count), 0);
+                  const pct = total > 0 ? (Number(d.count) / total) * 100 : 0;
+                  return (
+                    <div
+                      key={d.sector}
+                      className="flex items-center justify-between p-2 bg-muted/30 rounded-md hover:bg-muted/50 transition-colors cursor-pointer text-xs"
+                      onClick={() => { setDbSector(d.sector); setDbPage(1); }}
+                    >
+                      <span className="truncate flex-1 mr-2" title={d.sector}>{d.sector}</span>
+                      <Badge variant="secondary" className="text-[10px] h-4 px-1.5 shrink-0">{Number(d.count)}</Badge>
+                    </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
-                  <BarChart3 className="h-5 w-5 text-green-600 dark:text-green-400" />
-                </div>
-                <div>
-                  <div className="text-2xl font-bold">{screenerStats?.database?.withFinancials ?? 0}</div>
-                  <div className="text-sm text-muted-foreground">With Financials</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-amber-100 dark:bg-amber-900 rounded-lg">
-                  <Star className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                </div>
-                <div>
-                  <div className="text-2xl font-bold">{screenerStats?.database?.withDerivedMetrics ?? 0}</div>
-                  <div className="text-sm text-muted-foreground">Scored & Rated</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                  <Activity className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div>
-                  <div className="text-2xl font-bold">{screenerStats?.apiUsage?.remaining ?? 220}</div>
-                  <div className="text-sm text-muted-foreground">API Calls Left</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        )}
       </div>
     </AgentLayout>
   );

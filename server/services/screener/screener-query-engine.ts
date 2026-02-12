@@ -228,3 +228,46 @@ export async function getScreenerStats() {
     withDerivedMetrics: Number(derivedCount?.count || 0),
   };
 }
+
+export async function getScreenerDistribution() {
+  const marketCapDist = await db.execute(sql`
+    SELECT market_cap_category as category, COUNT(*) as count 
+    FROM screener_stocks WHERE is_active = true AND market_cap_category IS NOT NULL 
+    GROUP BY market_cap_category ORDER BY count DESC
+  `);
+
+  const sectorDist = await db.execute(sql`
+    SELECT sector, COUNT(*) as count 
+    FROM screener_stocks WHERE is_active = true AND sector IS NOT NULL 
+    GROUP BY sector ORDER BY count DESC LIMIT 20
+  `);
+
+  const ratingDist = await db.execute(sql`
+    SELECT fintek_rating as rating, COUNT(*) as count 
+    FROM screener_derived_metrics dm 
+    INNER JOIN screener_stocks ss ON ss.symbol = dm.symbol AND ss.is_active = true
+    GROUP BY fintek_rating ORDER BY fintek_rating DESC
+  `);
+
+  const scoreDistribution = await db.execute(sql`
+    SELECT 
+      CASE 
+        WHEN composite_score::numeric >= 80 THEN '80-100'
+        WHEN composite_score::numeric >= 60 THEN '60-80'
+        WHEN composite_score::numeric >= 40 THEN '40-60'
+        WHEN composite_score::numeric >= 20 THEN '20-40'
+        ELSE '0-20'
+      END as range,
+      COUNT(*) as count
+    FROM screener_derived_metrics dm
+    INNER JOIN screener_stocks ss ON ss.symbol = dm.symbol AND ss.is_active = true
+    GROUP BY range ORDER BY range
+  `);
+
+  return {
+    marketCap: (marketCapDist as any).rows || marketCapDist,
+    sectors: (sectorDist as any).rows || sectorDist,
+    ratings: (ratingDist as any).rows || ratingDist,
+    scoreRanges: (scoreDistribution as any).rows || scoreDistribution,
+  };
+}

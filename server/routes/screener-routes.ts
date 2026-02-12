@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { queryScreener, getStockDetail, getScreenerStats, type ScreenerFilters } from '../services/screener/screener-query-engine';
+import { queryScreener, getStockDetail, getScreenerStats, getScreenerDistribution, type ScreenerFilters } from '../services/screener/screener-query-engine';
 import { enrichStockProfiles, enrichFinancialRatios, enrichPriceHistory, seedScreenerFromFmp, seedFromListedStocks, isProductionEnrichmentAllowed } from '../services/screener/enrichment-service';
 import { recalculateAllMetrics } from '../services/screener/derived-metrics-engine';
 import { fmpUsageMonitor } from '../services/screener/fmp-usage-monitor';
@@ -63,6 +63,15 @@ router.get('/api/screener/stats', async (req, res) => {
     res.json({ database: dbStats, apiUsage });
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to get stats', message: err.message });
+  }
+});
+
+router.get('/api/screener/distribution', async (req, res) => {
+  try {
+    const distribution = await getScreenerDistribution();
+    res.json(distribution);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to get distribution', message: err.message });
   }
 });
 

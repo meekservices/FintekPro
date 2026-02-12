@@ -108,26 +108,92 @@ export async function calculateDerivedMetrics(symbol: string): Promise<void> {
 }
 
 export async function recalculateAllMetrics(): Promise<{ processed: number; errors: number }> {
-  const stocks = await db
-    .select({ symbol: screenerStocks.symbol })
-    .from(screenerStocks)
-    .where(eq(screenerStocks.isActive, true));
-
   let processed = 0;
   let errors = 0;
 
-  for (const stock of stocks) {
-    try {
-      await calculateDerivedMetrics(stock.symbol);
-      processed++;
-    } catch (err: any) {
-      errors++;
-      if (errors <= 3) {
-        console.warn(`[DerivedMetrics] Error for ${stock.symbol}: ${err.message}`);
-      }
-    }
+  try {
+    const result = await db.execute(sql`
+      INSERT INTO screener_derived_metrics (symbol, growth_score, quality_score, value_score, risk_score, composite_score, fintek_rating, last_calculated)
+      SELECT
+        sf.symbol,
+        ROUND(LEAST(100, GREATEST(0,
+          (CASE WHEN sf.revenue_growth IS NOT NULL THEN LEAST(100, GREATEST(0, ((sf.revenue_growth::numeric + 0.2) / 0.7) * 100)) ELSE 50 END) * 0.5 +
+          (CASE WHEN sf.earnings_growth IS NOT NULL THEN LEAST(100, GREATEST(0, ((sf.earnings_growth::numeric + 0.3) / 0.9) * 100)) ELSE 50 END) * 0.5
+        )), 2) as growth_score,
+        ROUND(LEAST(100, GREATEST(0,
+          (CASE WHEN sf.roe IS NOT NULL THEN LEAST(100, GREATEST(0, (sf.roe::numeric / 0.35) * 100)) ELSE 50 END) * 0.3 +
+          (CASE WHEN sf.roa IS NOT NULL THEN LEAST(100, GREATEST(0, (sf.roa::numeric / 0.2) * 100)) ELSE 50 END) * 0.2 +
+          (CASE WHEN sf.net_profit_margin IS NOT NULL THEN LEAST(100, GREATEST(0, (sf.net_profit_margin::numeric / 0.3) * 100)) ELSE 50 END) * 0.25 +
+          (CASE WHEN sf.operating_margin IS NOT NULL THEN LEAST(100, GREATEST(0, (sf.operating_margin::numeric / 0.35) * 100)) ELSE 50 END) * 0.25
+        )), 2) as quality_score,
+        ROUND(LEAST(100, GREATEST(0,
+          (CASE WHEN sf.pe_ratio IS NOT NULL THEN LEAST(100, GREATEST(0, ((50 - sf.pe_ratio::numeric + 50) / 100) * 100)) ELSE 50 END) * 0.4 +
+          (CASE WHEN sf.pb_ratio IS NOT NULL THEN LEAST(100, GREATEST(0, ((5 - sf.pb_ratio::numeric + 5) / 10) * 100)) ELSE 50 END) * 0.3 +
+          (CASE WHEN sf.dividend_yield IS NOT NULL THEN LEAST(100, GREATEST(0, (sf.dividend_yield::numeric / 0.08) * 100)) ELSE 50 END) * 0.3
+        )), 2) as value_score,
+        ROUND(LEAST(100, GREATEST(0,
+          (CASE WHEN sf.debt_to_equity IS NOT NULL THEN LEAST(100, GREATEST(0, ((2 - sf.debt_to_equity::numeric + 3) / 6) * 100)) ELSE 50 END) * 0.5 +
+          (CASE WHEN sf.current_ratio IS NOT NULL THEN LEAST(100, GREATEST(0, (sf.current_ratio::numeric / 3) * 100)) ELSE 50 END) * 0.5
+        )), 2) as risk_score,
+        0 as composite_score,
+        3 as fintek_rating,
+        NOW() as last_calculated
+      FROM screener_financials sf
+      INNER JOIN screener_stocks ss ON ss.symbol = sf.symbol AND ss.is_active = true
+      WHERE NOT EXISTS (SELECT 1 FROM screener_derived_metrics dm WHERE dm.symbol = sf.symbol)
+      ON CONFLICT (symbol) DO NOTHING
+    `);
+    const inserted = (result as any)?.rowCount || 0;
+
+    const updateResult = await db.execute(sql`
+      UPDATE screener_derived_metrics dm SET
+        growth_score = sub.growth_score,
+        quality_score = sub.quality_score,
+        value_score = sub.value_score,
+        risk_score = sub.risk_score,
+        composite_score = ROUND(sub.growth_score * 0.25 + sub.quality_score * 0.30 + sub.value_score * 0.25 + sub.risk_score * 0.20, 2),
+        fintek_rating = CASE
+          WHEN (sub.growth_score * 0.25 + sub.quality_score * 0.30 + sub.value_score * 0.25 + sub.risk_score * 0.20) >= 80 THEN 5
+          WHEN (sub.growth_score * 0.25 + sub.quality_score * 0.30 + sub.value_score * 0.25 + sub.risk_score * 0.20) >= 65 THEN 4
+          WHEN (sub.growth_score * 0.25 + sub.quality_score * 0.30 + sub.value_score * 0.25 + sub.risk_score * 0.20) >= 45 THEN 3
+          WHEN (sub.growth_score * 0.25 + sub.quality_score * 0.30 + sub.value_score * 0.25 + sub.risk_score * 0.20) >= 25 THEN 2
+          ELSE 1
+        END,
+        last_calculated = NOW()
+      FROM (
+        SELECT
+          sf.symbol,
+          ROUND(LEAST(100, GREATEST(0,
+            (CASE WHEN sf.revenue_growth IS NOT NULL THEN LEAST(100, GREATEST(0, ((sf.revenue_growth::numeric + 0.2) / 0.7) * 100)) ELSE 50 END) * 0.5 +
+            (CASE WHEN sf.earnings_growth IS NOT NULL THEN LEAST(100, GREATEST(0, ((sf.earnings_growth::numeric + 0.3) / 0.9) * 100)) ELSE 50 END) * 0.5
+          )), 2) as growth_score,
+          ROUND(LEAST(100, GREATEST(0,
+            (CASE WHEN sf.roe IS NOT NULL THEN LEAST(100, GREATEST(0, (sf.roe::numeric / 0.35) * 100)) ELSE 50 END) * 0.3 +
+            (CASE WHEN sf.roa IS NOT NULL THEN LEAST(100, GREATEST(0, (sf.roa::numeric / 0.2) * 100)) ELSE 50 END) * 0.2 +
+            (CASE WHEN sf.net_profit_margin IS NOT NULL THEN LEAST(100, GREATEST(0, (sf.net_profit_margin::numeric / 0.3) * 100)) ELSE 50 END) * 0.25 +
+            (CASE WHEN sf.operating_margin IS NOT NULL THEN LEAST(100, GREATEST(0, (sf.operating_margin::numeric / 0.35) * 100)) ELSE 50 END) * 0.25
+          )), 2) as quality_score,
+          ROUND(LEAST(100, GREATEST(0,
+            (CASE WHEN sf.pe_ratio IS NOT NULL THEN LEAST(100, GREATEST(0, ((50 - sf.pe_ratio::numeric + 50) / 100) * 100)) ELSE 50 END) * 0.4 +
+            (CASE WHEN sf.pb_ratio IS NOT NULL THEN LEAST(100, GREATEST(0, ((5 - sf.pb_ratio::numeric + 5) / 10) * 100)) ELSE 50 END) * 0.3 +
+            (CASE WHEN sf.dividend_yield IS NOT NULL THEN LEAST(100, GREATEST(0, (sf.dividend_yield::numeric / 0.08) * 100)) ELSE 50 END) * 0.3
+          )), 2) as value_score,
+          ROUND(LEAST(100, GREATEST(0,
+            (CASE WHEN sf.debt_to_equity IS NOT NULL THEN LEAST(100, GREATEST(0, ((2 - sf.debt_to_equity::numeric + 3) / 6) * 100)) ELSE 50 END) * 0.5 +
+            (CASE WHEN sf.current_ratio IS NOT NULL THEN LEAST(100, GREATEST(0, (sf.current_ratio::numeric / 3) * 100)) ELSE 50 END) * 0.5
+          )), 2) as risk_score
+        FROM screener_financials sf
+        INNER JOIN screener_stocks ss ON ss.symbol = sf.symbol AND ss.is_active = true
+      ) sub
+      WHERE dm.symbol = sub.symbol
+    `);
+    processed = (updateResult as any)?.rowCount || 0;
+
+    console.log(`[DerivedMetrics] Bulk recalculation: ${inserted} inserted, ${processed} updated`);
+  } catch (err: any) {
+    console.error(`[DerivedMetrics] Bulk recalculation error: ${err.message}`);
+    errors++;
   }
 
-  console.log(`[DerivedMetrics] Recalculation complete: ${processed} processed, ${errors} errors`);
   return { processed, errors };
 }
