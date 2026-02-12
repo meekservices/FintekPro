@@ -1,0 +1,173 @@
+
+Time
+Deployment
+Source
+Log
+2026-02-12 09:31:35.81
+34da9371
+User
+at async MutualFundsRefreshJob.refreshPopularFunds (file:///home/runner/workspace/dist/index.js:195559:28)
+2026-02-12 09:34:06.21
+34da9371
+User
+at async BondCatalogService.refreshAllBonds (file:///home/runner/workspace/dist/index.js:123823:58) {
+2026-02-12 09:34:06.21
+34da9371
+User
+at AxiosError.from (file:///home/runner/workspace/node_modules/axios/lib/core/AxiosError.js:96:14)
+2026-02-12 09:34:06.21
+34da9371
+User
+Error fetching tax-free bonds: AxiosError: connect ETIMEDOUT 43.228.176.174:443
+2026-02-12 09:34:06.21
+34da9371
+User
+at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+2026-02-12 09:34:06.21
+34da9371
+User
+socket: [Function: handleRequestSocket]
+2026-02-12 09:34:06.21
+34da9371
+User
+allowAbsoluteUrls: true,
+2026-02-12 09:34:06.21
+34da9371
+User
+},
+2026-02-12 09:34:06.21
+34da9371
+User
+adapter: [ 'xhr', 'http', 'fetch' ],
+2026-02-12 09:34:06.21
+34da9371
+User
+prefinish: undefined,
+2026-02-12 09:34:06.21
+34da9371
+User
+forcedJSONParsing: true,
+2026-02-12 09:34:06.21
+34da9371
+User
+config: {
+2026-02-12 09:34:06.21
+34da9371
+User
+_writableState: WritableState {
+2026-02-12 09:34:06.21
+34da9371
+User
+error: [Function: handleRequestError],
+2026-02-12 09:34:06.21
+34da9371
+User
+'Content-Type': undefined,
+2026-02-12 09:34:06.21
+34da9371
+User
+at ClientRequest.emit (node:events:524:28)
+2026-02-12 09:34:06.21
+34da9371
+User
+at TLSSocket.socketErrorListener (node:_http_client:504:5)
+2026-02-12 09:34:06.21
+34da9371
+User
+port: 443,
+2026-02-12 09:34:06.21
+34da9371
+User
+corked: 0,
+2026-02-12 09:34:06.21
+34da9371
+User
+at emitErrorEvent (node:_http_client:101:11)
+2026-02-12 09:34:06.21
+34da9371
+User
+address: '43.228.176.174',
+2026-02-12 09:34:08.71
+34da9371
+User
+port: 443,
+2026-02-12 09:34:08.71
+34da9371
+User
+transformRequest: [ [Function: transformRequest] ],
+2026-02-12 09:34:08.71
+34da9371
+User
+'Accept-Encoding': 'gzip, compress, deflate, br'
+2026-02-12 09:34:08.71
+34da9371
+User
+code: 'ETIMEDOUT',
+2026-02-12 09:34:08.71
+34da9371
+User
+at TLSSocket.emit (node:events:524:28)
+2026-02-12 09:34:08.71
+34da9371
+User
+at emitErrorEvent (node:_http_client:101:11)
+2026-02-12 09:34:08.71
+34da9371
+User
+at emitErrorNT (node:internal/streams/destroy:169:8)
+2026-02-12 09:34:08.71
+34da9371
+User
+maxContentLength: -1,
+2026-02-12 09:34:08.71
+34da9371
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-02-12 09:34:08.71
+34da9371
+User
+syscall: 'connect',
+2026-02-12 09:34:08.71
+34da9371
+User
+},
+2026-02-12 09:34:08.71
+34da9371
+User
+at TLSSocket.socketErrorListener (node:_http_client:504:5)
+2026-02-12 09:34:08.71
+34da9371
+User
+at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+2026-02-12 09:34:08.71
+34da9371
+User
+},
+2026-02-12 09:34:08.71
+34da9371
+User
+at ClientRequest.emit (node:events:524:28)
+2026-02-12 09:34:08.71
+34da9371
+User
+at async BondCatalogService.refreshAllBonds (file:///home/runner/workspace/dist/index.js:123823:58) {
+2026-02-12 09:34:08.71
+34da9371
+User
+validateStatus: [Function: validateStatus],
+2026-02-12 09:34:08.71
+34da9371
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-02-12 09:34:08.71
+34da9371
+User
+at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+2026-02-12 09:34:08.71
+34da9371
+User
+at RedirectableRequest.emit (node:events:524:28)
+2026-02-12 09:34:08.71
+34da9371
+User
+request: Writable {
