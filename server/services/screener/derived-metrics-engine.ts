@@ -29,6 +29,9 @@ export async function calculateDerivedMetrics(symbol: string): Promise<void> {
 
   const revGrowth = safeNum(financials.revenueGrowth);
   const earnGrowth = safeNum(financials.earningsGrowth);
+  const ret1y = safeNum(financials.return1y);
+  const ret3y = safeNum(financials.return3y);
+  const ret5y = safeNum(financials.return5y);
   const roe = safeNum(financials.roe);
   const roa = safeNum(financials.roa);
   const npm = safeNum(financials.netProfitMargin);
@@ -39,10 +42,35 @@ export async function calculateDerivedMetrics(symbol: string): Promise<void> {
   const cr = safeNum(financials.currentRatio);
   const divYield = safeNum(financials.dividendYield);
 
-  const growthScore = clamp(
-    (normalize(revGrowth, -0.2, 0.5) * 0.5 + normalize(earnGrowth, -0.3, 0.6) * 0.5),
-    0, 100
-  );
+  const hasReturns = ret1y != null || ret3y != null || ret5y != null;
+  const hasFundamentals = revGrowth != null || earnGrowth != null;
+
+  let growthScore: number;
+  if (hasReturns && hasFundamentals) {
+    const retScore = clamp(
+      (normalize(ret1y, -0.3, 0.5) * 0.4 +
+       normalize(ret3y, -0.2, 1.5) * 0.3 +
+       normalize(ret5y, -0.1, 3.0) * 0.3),
+      0, 100
+    );
+    const fundScore = clamp(
+      (normalize(revGrowth, -0.2, 0.5) * 0.5 + normalize(earnGrowth, -0.3, 0.6) * 0.5),
+      0, 100
+    );
+    growthScore = clamp(fundScore * 0.5 + retScore * 0.5, 0, 100);
+  } else if (hasReturns) {
+    growthScore = clamp(
+      (normalize(ret1y, -0.3, 0.5) * 0.4 +
+       normalize(ret3y, -0.2, 1.5) * 0.3 +
+       normalize(ret5y, -0.1, 3.0) * 0.3),
+      0, 100
+    );
+  } else {
+    growthScore = clamp(
+      (normalize(revGrowth, -0.2, 0.5) * 0.5 + normalize(earnGrowth, -0.3, 0.6) * 0.5),
+      0, 100
+    );
+  }
 
   const qualityScore = clamp(
     (normalize(roe, 0, 0.35) * 0.3 +
@@ -89,6 +117,10 @@ export async function calculateDerivedMetrics(symbol: string): Promise<void> {
       dyScore: Math.round(dyScore),
       deScore: Math.round(deScore),
       crScore: Math.round(crScore),
+      ret1yScore: ret1y != null ? Math.round(normalize(ret1y, -0.3, 0.5)) : null,
+      ret3yScore: ret3y != null ? Math.round(normalize(ret3y, -0.2, 1.5)) : null,
+      ret5yScore: ret5y != null ? Math.round(normalize(ret5y, -0.1, 3.0)) : null,
+      hasReturnData: hasReturns,
       calculatedAt: new Date().toISOString(),
     },
     lastCalculated: new Date(),
@@ -117,8 +149,24 @@ export async function recalculateAllMetrics(): Promise<{ processed: number; erro
       SELECT
         sf.symbol,
         ROUND(LEAST(100, GREATEST(0,
-          (CASE WHEN sf.revenue_growth IS NOT NULL THEN LEAST(100, GREATEST(0, ((sf.revenue_growth::numeric + 0.2) / 0.7) * 100)) ELSE 50 END) * 0.5 +
-          (CASE WHEN sf.earnings_growth IS NOT NULL THEN LEAST(100, GREATEST(0, ((sf.earnings_growth::numeric + 0.3) / 0.9) * 100)) ELSE 50 END) * 0.5
+          CASE 
+            WHEN sf.return_1y IS NOT NULL OR sf.return_3y IS NOT NULL THEN
+              CASE 
+                WHEN sf.revenue_growth IS NOT NULL THEN
+                  (LEAST(100, GREATEST(0, ((COALESCE(sf.revenue_growth::numeric, 0) + 0.2) / 0.7) * 100)) * 0.5 +
+                   LEAST(100, GREATEST(0, ((COALESCE(sf.earnings_growth::numeric, 0) + 0.3) / 0.9) * 100)) * 0.5) * 0.5 +
+                  (LEAST(100, GREATEST(0, ((COALESCE(sf.return_1y::numeric, 0) + 0.3) / 0.8) * 100)) * 0.4 +
+                   LEAST(100, GREATEST(0, ((COALESCE(sf.return_3y::numeric, 0) + 0.2) / 1.7) * 100)) * 0.3 +
+                   LEAST(100, GREATEST(0, ((COALESCE(sf.return_5y::numeric, 0) + 0.1) / 3.1) * 100)) * 0.3) * 0.5
+                ELSE
+                  LEAST(100, GREATEST(0, ((COALESCE(sf.return_1y::numeric, 0) + 0.3) / 0.8) * 100)) * 0.4 +
+                  LEAST(100, GREATEST(0, ((COALESCE(sf.return_3y::numeric, 0) + 0.2) / 1.7) * 100)) * 0.3 +
+                  LEAST(100, GREATEST(0, ((COALESCE(sf.return_5y::numeric, 0) + 0.1) / 3.1) * 100)) * 0.3
+              END
+            ELSE
+              (CASE WHEN sf.revenue_growth IS NOT NULL THEN LEAST(100, GREATEST(0, ((sf.revenue_growth::numeric + 0.2) / 0.7) * 100)) ELSE 50 END) * 0.5 +
+              (CASE WHEN sf.earnings_growth IS NOT NULL THEN LEAST(100, GREATEST(0, ((sf.earnings_growth::numeric + 0.3) / 0.9) * 100)) ELSE 50 END) * 0.5
+          END
         )), 2) as growth_score,
         ROUND(LEAST(100, GREATEST(0,
           (CASE WHEN sf.roe IS NOT NULL THEN LEAST(100, GREATEST(0, (sf.roe::numeric / 0.35) * 100)) ELSE 50 END) * 0.3 +
@@ -164,8 +212,24 @@ export async function recalculateAllMetrics(): Promise<{ processed: number; erro
         SELECT
           sf.symbol,
           ROUND(LEAST(100, GREATEST(0,
-            (CASE WHEN sf.revenue_growth IS NOT NULL THEN LEAST(100, GREATEST(0, ((sf.revenue_growth::numeric + 0.2) / 0.7) * 100)) ELSE 50 END) * 0.5 +
-            (CASE WHEN sf.earnings_growth IS NOT NULL THEN LEAST(100, GREATEST(0, ((sf.earnings_growth::numeric + 0.3) / 0.9) * 100)) ELSE 50 END) * 0.5
+            CASE 
+              WHEN sf.return_1y IS NOT NULL OR sf.return_3y IS NOT NULL THEN
+                CASE 
+                  WHEN sf.revenue_growth IS NOT NULL THEN
+                    (LEAST(100, GREATEST(0, ((COALESCE(sf.revenue_growth::numeric, 0) + 0.2) / 0.7) * 100)) * 0.5 +
+                     LEAST(100, GREATEST(0, ((COALESCE(sf.earnings_growth::numeric, 0) + 0.3) / 0.9) * 100)) * 0.5) * 0.5 +
+                    (LEAST(100, GREATEST(0, ((COALESCE(sf.return_1y::numeric, 0) + 0.3) / 0.8) * 100)) * 0.4 +
+                     LEAST(100, GREATEST(0, ((COALESCE(sf.return_3y::numeric, 0) + 0.2) / 1.7) * 100)) * 0.3 +
+                     LEAST(100, GREATEST(0, ((COALESCE(sf.return_5y::numeric, 0) + 0.1) / 3.1) * 100)) * 0.3) * 0.5
+                  ELSE
+                    LEAST(100, GREATEST(0, ((COALESCE(sf.return_1y::numeric, 0) + 0.3) / 0.8) * 100)) * 0.4 +
+                    LEAST(100, GREATEST(0, ((COALESCE(sf.return_3y::numeric, 0) + 0.2) / 1.7) * 100)) * 0.3 +
+                    LEAST(100, GREATEST(0, ((COALESCE(sf.return_5y::numeric, 0) + 0.1) / 3.1) * 100)) * 0.3
+                END
+              ELSE
+                (CASE WHEN sf.revenue_growth IS NOT NULL THEN LEAST(100, GREATEST(0, ((sf.revenue_growth::numeric + 0.2) / 0.7) * 100)) ELSE 50 END) * 0.5 +
+                (CASE WHEN sf.earnings_growth IS NOT NULL THEN LEAST(100, GREATEST(0, ((sf.earnings_growth::numeric + 0.3) / 0.9) * 100)) ELSE 50 END) * 0.5
+            END
           )), 2) as growth_score,
           ROUND(LEAST(100, GREATEST(0,
             (CASE WHEN sf.roe IS NOT NULL THEN LEAST(100, GREATEST(0, (sf.roe::numeric / 0.35) * 100)) ELSE 50 END) * 0.3 +

@@ -9,12 +9,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
 import {
   Filter, Search, Save, Play, TrendingUp, TrendingDown, Percent, IndianRupee,
   ArrowUpDown, ArrowUp, ArrowDown, Star, BarChart3, RefreshCw, ChevronLeft,
   ChevronRight, Database, Loader2, Activity, PieChart, Target, Shield,
   Zap, Eye, X, SlidersHorizontal, Download, LayoutGrid, List, Info,
-  Building2, Sparkles
+  Building2, Sparkles, Settings, Clock, AlertTriangle, CheckCircle2, Calculator
 } from "lucide-react";
 import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -294,6 +295,81 @@ export default function AgentScreener() {
     queryFn: () => expandedStock ? fetch(`/api/screener/stocks/${expandedStock}`).then(r => r.json()) : null,
     enabled: !!expandedStock,
   });
+
+  const { data: enrichmentProgress, refetch: refetchProgress } = useQuery<any>({
+    queryKey: ['/api/screener/admin/enrichment-progress'],
+    queryFn: () => fetch('/api/screener/admin/enrichment-progress').then(r => r.json()),
+    staleTime: 30000,
+  });
+
+  const seedFromDbMutation = useMutation({
+    mutationFn: async () => apiRequest('/api/screener/admin/seed-from-db', { method: 'POST', body: JSON.stringify({ limit: 500 }) }),
+    onSuccess: (data: any) => {
+      toast({ title: 'Seeding complete', description: `Seeded ${data.processed} stocks from listed stocks database` });
+      queryClient.invalidateQueries({ queryKey: ['/api/screener/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/screener/stocks'] });
+      refetchProgress();
+    },
+    onError: () => toast({ title: 'Seed failed', variant: 'destructive' }),
+  });
+
+  const seedUnlistedMutation = useMutation({
+    mutationFn: async () => apiRequest('/api/screener/admin/seed-unlisted', { method: 'POST', body: JSON.stringify({ limit: 200 }) }),
+    onSuccess: (data: any) => {
+      toast({ title: 'Unlisted seeding complete', description: `Seeded ${data.processed} unlisted/private companies` });
+      queryClient.invalidateQueries({ queryKey: ['/api/screener/stats'] });
+      refetchProgress();
+    },
+    onError: () => toast({ title: 'Unlisted seed failed', variant: 'destructive' }),
+  });
+
+  const enrichRatiosMutation = useMutation({
+    mutationFn: async () => apiRequest('/api/screener/admin/enrich/ratios', { method: 'POST', body: JSON.stringify({ batchSize: 10, force: true }) }),
+    onSuccess: (data: any) => {
+      toast({ title: 'Ratios enrichment complete', description: `${data.processed} stocks enriched, ${data.remaining} API calls remaining` });
+      queryClient.invalidateQueries({ queryKey: ['/api/screener/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/screener/stocks'] });
+      refetchProgress();
+    },
+    onError: () => toast({ title: 'Enrichment failed', variant: 'destructive' }),
+  });
+
+  const enrichPricesMutation = useMutation({
+    mutationFn: async () => apiRequest('/api/screener/admin/enrich/prices', { method: 'POST', body: JSON.stringify({ batchSize: 5, force: true }) }),
+    onSuccess: (data: any) => {
+      toast({ title: 'Price history enrichment complete', description: `${data.processed} stocks enriched with price history & returns` });
+      queryClient.invalidateQueries({ queryKey: ['/api/screener/stats'] });
+      refetchProgress();
+    },
+    onError: () => toast({ title: 'Price enrichment failed', variant: 'destructive' }),
+  });
+
+  const dailyBatchMutation = useMutation({
+    mutationFn: async () => apiRequest('/api/screener/admin/enrich/daily-batch', { method: 'POST', body: JSON.stringify({ force: true }) }),
+    onSuccess: (data: any) => {
+      toast({ title: 'Daily batch complete', description: `${data.totalApiCalls} API calls used. Ratios: ${data.ratios?.processed}, Prices: ${data.prices?.processed}` });
+      queryClient.invalidateQueries({ queryKey: ['/api/screener/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/screener/stocks'] });
+      refetchProgress();
+    },
+    onError: () => toast({ title: 'Daily batch failed', variant: 'destructive' }),
+  });
+
+  const recalcMetricsMutation = useMutation({
+    mutationFn: async () => apiRequest('/api/screener/admin/recalculate-metrics', { method: 'POST' }),
+    onSuccess: (data: any) => {
+      toast({ title: 'Metrics recalculated', description: `${data.processed} stocks rescored with latest financial data` });
+      queryClient.invalidateQueries({ queryKey: ['/api/screener/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/screener/stocks'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/screener/distribution'] });
+      refetchProgress();
+    },
+    onError: () => toast({ title: 'Recalculation failed', variant: 'destructive' }),
+  });
+
+  const isAnyMutationPending = seedFromDbMutation.isPending || seedUnlistedMutation.isPending ||
+    enrichRatiosMutation.isPending || enrichPricesMutation.isPending ||
+    dailyBatchMutation.isPending || recalcMetricsMutation.isPending;
 
   const mfFields = [
     { value: "returns_1y", label: "1Y Returns (%)" },
@@ -577,6 +653,10 @@ export default function AgentScreener() {
                       <Save className="h-3.5 w-3.5 mr-1" />
                       Saved
                     </TabsTrigger>
+                    <TabsTrigger value="admin" className="text-xs px-3 h-7">
+                      <Settings className="h-3.5 w-3.5 mr-1" />
+                      Admin
+                    </TabsTrigger>
                   </TabsList>
                 </div>
               </div>
@@ -822,6 +902,11 @@ export default function AgentScreener() {
                                                       <div className="flex justify-between"><span className="text-muted-foreground">Book Value</span><span className="font-mono">{formatNum(stockDetail.financials[0].bookValue)}</span></div>
                                                       <div className="flex justify-between"><span className="text-muted-foreground">D/E</span><span className="font-mono">{formatNum(stockDetail.financials[0].debtToEquity)}</span></div>
                                                       <div className="flex justify-between"><span className="text-muted-foreground">Dividend Yield</span><span className="font-mono">{stockDetail.financials[0].dividendYield ? formatPercent(stockDetail.financials[0].dividendYield, 100) : '-'}</span></div>
+                                                      <Separator className="my-1" />
+                                                      <div className="flex justify-between"><span className="text-muted-foreground">1Y Return</span><span className={`font-mono ${parseFloat(stockDetail.financials[0].return1y || '0') >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{stockDetail.financials[0].return1y ? formatPercent(stockDetail.financials[0].return1y, 100) : '-'}</span></div>
+                                                      <div className="flex justify-between"><span className="text-muted-foreground">2Y Return</span><span className={`font-mono ${parseFloat(stockDetail.financials[0].return2y || '0') >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{stockDetail.financials[0].return2y ? formatPercent(stockDetail.financials[0].return2y, 100) : '-'}</span></div>
+                                                      <div className="flex justify-between"><span className="text-muted-foreground">3Y Return</span><span className={`font-mono ${parseFloat(stockDetail.financials[0].return3y || '0') >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{stockDetail.financials[0].return3y ? formatPercent(stockDetail.financials[0].return3y, 100) : '-'}</span></div>
+                                                      <div className="flex justify-between"><span className="text-muted-foreground">5Y Return</span><span className={`font-mono ${parseFloat(stockDetail.financials[0].return5y || '0') >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{stockDetail.financials[0].return5y ? formatPercent(stockDetail.financials[0].return5y, 100) : '-'}</span></div>
                                                     </div>
                                                   ) : (
                                                     <p className="text-xs text-muted-foreground">No financial data available</p>
@@ -1132,6 +1217,255 @@ export default function AgentScreener() {
                       No saved screeners yet. Create and save a screener to see it here.
                     </div>
                   )}
+                </div>
+              </CardContent>
+            </TabsContent>
+
+            <TabsContent value="admin" className="m-0">
+              <CardContent className="pt-4 px-4">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <Card className="border-l-4 border-l-blue-500">
+                      <CardContent className="pt-4 pb-3 px-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Enrichment Progress</span>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => refetchProgress()}>
+                            <RefreshCw className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        <div className="text-2xl font-bold">{enrichmentProgress?.progress?.enrichmentPercent ?? 0}%</div>
+                        <Progress value={enrichmentProgress?.progress?.enrichmentPercent ?? 0} className="h-2 mt-2" />
+                        <div className="flex items-center gap-1 mt-2 text-[11px] text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          ~{enrichmentProgress?.progress?.estimatedDaysRemaining ?? '?'} days remaining
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-l-4 border-l-emerald-500">
+                      <CardContent className="pt-4 pb-3 px-4">
+                        <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Data Coverage</div>
+                        <div className="space-y-2 text-xs">
+                          <div className="flex justify-between items-center">
+                            <span className="text-muted-foreground">Total Stocks</span>
+                            <span className="font-bold">{enrichmentProgress?.progress?.total?.toLocaleString() ?? 0}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="flex items-center gap-1 text-muted-foreground">
+                              <CheckCircle2 className="h-3 w-3 text-emerald-500" /> With Ratios
+                            </span>
+                            <span className="font-medium">{enrichmentProgress?.progress?.withRatios?.toLocaleString() ?? 0}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="flex items-center gap-1 text-muted-foreground">
+                              <CheckCircle2 className="h-3 w-3 text-blue-500" /> With Returns
+                            </span>
+                            <span className="font-medium">{enrichmentProgress?.progress?.withReturns?.toLocaleString() ?? 0}</span>
+                          </div>
+                          <Separator />
+                          <div className="flex justify-between items-center">
+                            <span className="flex items-center gap-1 text-muted-foreground">
+                              <AlertTriangle className="h-3 w-3 text-amber-500" /> Missing Ratios
+                            </span>
+                            <span className="font-medium text-amber-600">{enrichmentProgress?.progress?.missingRatios?.toLocaleString() ?? 0}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="flex items-center gap-1 text-muted-foreground">
+                              <AlertTriangle className="h-3 w-3 text-orange-500" /> Missing Returns
+                            </span>
+                            <span className="font-medium text-orange-600">{enrichmentProgress?.progress?.missingReturns?.toLocaleString() ?? 0}</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-l-4 border-l-purple-500">
+                      <CardContent className="pt-4 pb-3 px-4">
+                        <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">FMP API Usage (Today)</div>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-2xl font-bold">{enrichmentProgress?.apiUsage?.count ?? 0}</span>
+                            <span className="text-xs text-muted-foreground">/ {enrichmentProgress?.apiUsage?.limit ?? 249}</span>
+                          </div>
+                          <Progress
+                            value={enrichmentProgress?.apiUsage?.percentUsed ?? 0}
+                            className={`h-2 ${(enrichmentProgress?.apiUsage?.percentUsed ?? 0) > 80 ? '[&>div]:bg-red-500' : ''}`}
+                          />
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-muted-foreground">
+                              {enrichmentProgress?.apiUsage?.remaining ?? 245} calls remaining
+                            </span>
+                            {enrichmentProgress?.apiUsage?.alertLevel === 'LIMIT_REACHED' ? (
+                              <Badge variant="destructive" className="text-[9px] h-4">Limit Reached</Badge>
+                            ) : enrichmentProgress?.apiUsage?.alertLevel === 'WARNING_80PCT' ? (
+                              <Badge className="text-[9px] h-4 bg-amber-500">80% Used</Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-[9px] h-4">OK</Badge>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground mt-1">
+                            Daily limit: {enrichmentProgress?.apiUsage?.limit ?? 249} calls | Auto-stop: 245
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <Card>
+                    <CardHeader className="pb-2 pt-4 px-4">
+                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                        <Zap className="h-4 w-4 text-primary" />
+                        Enrichment Controls
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        Seed data sources and trigger enrichment pipelines. FMP calls are rate-limited to 249/day.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <div className="border rounded-lg p-3 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Database className="h-4 w-4 text-blue-500" />
+                            <span className="text-sm font-medium">Seed Listed Stocks</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">Import stocks from the listed stocks database (no API calls)</p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full h-7 text-xs"
+                            disabled={isAnyMutationPending}
+                            onClick={() => seedFromDbMutation.mutate()}
+                          >
+                            {seedFromDbMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Play className="h-3 w-3 mr-1" />}
+                            Seed from DB
+                          </Button>
+                        </div>
+
+                        <div className="border rounded-lg p-3 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Building2 className="h-4 w-4 text-purple-500" />
+                            <span className="text-sm font-medium">Seed Private Companies</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">Import unlisted/private companies into the screener pipeline</p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full h-7 text-xs"
+                            disabled={isAnyMutationPending}
+                            onClick={() => seedUnlistedMutation.mutate()}
+                          >
+                            {seedUnlistedMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Play className="h-3 w-3 mr-1" />}
+                            Seed Unlisted
+                          </Button>
+                        </div>
+
+                        <div className="border rounded-lg p-3 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <BarChart3 className="h-4 w-4 text-emerald-500" />
+                            <span className="text-sm font-medium">Enrich Financial Ratios</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">Fetch PE, PB, ROE, D/E, margins, EPS from FMP (10 stocks/batch)</p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full h-7 text-xs"
+                            disabled={isAnyMutationPending}
+                            onClick={() => enrichRatiosMutation.mutate()}
+                          >
+                            {enrichRatiosMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <TrendingUp className="h-3 w-3 mr-1" />}
+                            Enrich Ratios (10)
+                          </Button>
+                        </div>
+
+                        <div className="border rounded-lg p-3 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Activity className="h-4 w-4 text-orange-500" />
+                            <span className="text-sm font-medium">Fetch Price History</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">5-year price history + calculate 1Y/2Y/3Y/5Y returns (5 stocks/batch)</p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full h-7 text-xs"
+                            disabled={isAnyMutationPending}
+                            onClick={() => enrichPricesMutation.mutate()}
+                          >
+                            {enrichPricesMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <TrendingUp className="h-3 w-3 mr-1" />}
+                            Fetch Prices (5)
+                          </Button>
+                        </div>
+
+                        <div className="border rounded-lg p-3 space-y-2 border-primary/30 bg-primary/5">
+                          <div className="flex items-center gap-2">
+                            <Zap className="h-4 w-4 text-primary" />
+                            <span className="text-sm font-medium">Run Daily Batch</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">60/40 split: ratios + prices using available API budget (~240 calls)</p>
+                          <Button
+                            size="sm"
+                            className="w-full h-7 text-xs"
+                            disabled={isAnyMutationPending}
+                            onClick={() => dailyBatchMutation.mutate()}
+                          >
+                            {dailyBatchMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Play className="h-3 w-3 mr-1" />}
+                            Run Daily Batch
+                          </Button>
+                        </div>
+
+                        <div className="border rounded-lg p-3 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Calculator className="h-4 w-4 text-amber-500" />
+                            <span className="text-sm font-medium">Recalculate Scores</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">Recompute Growth/Quality/Value/Risk scores and FintekRating for all stocks</p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full h-7 text-xs"
+                            disabled={isAnyMutationPending}
+                            onClick={() => recalcMetricsMutation.mutate()}
+                          >
+                            {recalcMetricsMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                            Recalculate All
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2 pt-4 px-4">
+                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                        <Info className="h-4 w-4" />
+                        Pipeline Information
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                        <div className="space-y-2">
+                          <h4 className="font-semibold text-sm">Scoring Engine</h4>
+                          <div className="space-y-1 text-muted-foreground">
+                            <p>Growth Score (25%): Revenue growth, earnings growth, and 1Y/3Y/5Y price returns</p>
+                            <p>Quality Score (30%): ROE, ROA, net profit margin, operating margin</p>
+                            <p>Value Score (25%): P/E ratio, P/B ratio, dividend yield</p>
+                            <p>Risk Score (20%): Debt-to-equity ratio, current ratio</p>
+                            <p className="font-medium text-foreground mt-1">FintekRating: 1-5 stars based on composite score</p>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <h4 className="font-semibold text-sm">API Limits</h4>
+                          <div className="space-y-1 text-muted-foreground">
+                            <p>FMP Free Tier: 249 calls/day</p>
+                            <p>Auto-stop threshold: 245 calls (safety margin)</p>
+                            <p>Daily batch: ~240 calls (60% ratios, 40% prices)</p>
+                            <p>Enrichment priority: Stocks missing ROE, PB, D/E first</p>
+                            <p>Price history: 5 years of data per stock</p>
+                            <p className="font-medium text-foreground mt-1">Production mode required for scheduled enrichment</p>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
               </CardContent>
             </TabsContent>
