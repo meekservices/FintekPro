@@ -27,22 +27,39 @@ export async function calculateDerivedMetrics(symbol: string): Promise<void> {
 
   if (!financials) return;
 
-  const revGrowth = safeNum(financials.revenueGrowth);
-  const earnGrowth = safeNum(financials.earningsGrowth);
+  const growthRows = await db.execute(sql`SELECT * FROM screener_growth_metrics WHERE symbol = ${symbol} ORDER BY date DESC LIMIT 1`);
+  const growthData = (growthRows as any).rows?.[0] || null;
+
+  const keyMetricRows = await db.execute(sql`SELECT * FROM screener_key_metrics WHERE symbol = ${symbol} ORDER BY date DESC LIMIT 1`);
+  const keyMetricData = (keyMetricRows as any).rows?.[0] || null;
+
+  const dcfRows = await db.execute(sql`SELECT * FROM screener_dcf_valuations WHERE symbol = ${symbol} ORDER BY date DESC LIMIT 1`);
+  const dcfData = (dcfRows as any).rows?.[0] || null;
+
+  const ratingRows = await db.execute(sql`SELECT * FROM screener_company_ratings WHERE symbol = ${symbol} ORDER BY date DESC LIMIT 1`);
+  const ratingData = (ratingRows as any).rows?.[0] || null;
+
+  const revGrowth = safeNum(growthData?.revenue_growth) ?? safeNum(financials.revenueGrowth);
+  const earnGrowth = safeNum(growthData?.net_income_growth) ?? safeNum(financials.earningsGrowth);
+  const fcfGrowth = safeNum(growthData?.free_cash_flow_growth);
+  const epsGrowth = safeNum(growthData?.eps_growth);
   const ret1y = safeNum(financials.return1y);
   const ret3y = safeNum(financials.return3y);
   const ret5y = safeNum(financials.return5y);
-  const roe = safeNum(financials.roe);
+  const roe = safeNum(keyMetricData?.roe) ?? safeNum(financials.roe);
   const roa = safeNum(financials.roa);
+  const roic = safeNum(keyMetricData?.roic);
   const npm = safeNum(financials.netProfitMargin);
   const opm = safeNum(financials.operatingMargin);
-  const pe = safeNum(financials.peRatio);
-  const pb = safeNum(financials.pbRatio);
-  const de = safeNum(financials.debtToEquity);
-  const cr = safeNum(financials.currentRatio);
-  const divYield = safeNum(financials.dividendYield);
+  const pe = safeNum(keyMetricData?.pe_ratio) ?? safeNum(financials.peRatio);
+  const pb = safeNum(keyMetricData?.pb_ratio) ?? safeNum(financials.pbRatio);
+  const de = safeNum(keyMetricData?.debt_to_equity) ?? safeNum(financials.debtToEquity);
+  const cr = safeNum(keyMetricData?.current_ratio) ?? safeNum(financials.currentRatio);
+  const divYield = safeNum(keyMetricData?.dividend_yield) ?? safeNum(financials.dividendYield);
+  const grahamNumber = safeNum(keyMetricData?.graham_number);
 
   const hasReturns = ret1y != null || ret3y != null || ret5y != null;
+  const hasEnrichedGrowth = fcfGrowth != null || epsGrowth != null;
   const hasFundamentals = revGrowth != null || earnGrowth != null;
 
   let growthScore: number;
@@ -53,10 +70,21 @@ export async function calculateDerivedMetrics(symbol: string): Promise<void> {
        normalize(ret5y, -0.1, 3.0) * 0.3),
       0, 100
     );
-    const fundScore = clamp(
-      (normalize(revGrowth, -0.2, 0.5) * 0.5 + normalize(earnGrowth, -0.3, 0.6) * 0.5),
-      0, 100
-    );
+    let fundScore: number;
+    if (hasEnrichedGrowth) {
+      fundScore = clamp(
+        (normalize(revGrowth, -0.2, 0.5) * 0.3 +
+         normalize(earnGrowth, -0.3, 0.6) * 0.3 +
+         normalize(fcfGrowth, -0.3, 0.5) * 0.2 +
+         normalize(epsGrowth, -0.3, 0.6) * 0.2),
+        0, 100
+      );
+    } else {
+      fundScore = clamp(
+        (normalize(revGrowth, -0.2, 0.5) * 0.5 + normalize(earnGrowth, -0.3, 0.6) * 0.5),
+        0, 100
+      );
+    }
     growthScore = clamp(fundScore * 0.5 + retScore * 0.5, 0, 100);
   } else if (hasReturns) {
     growthScore = clamp(
@@ -72,18 +100,37 @@ export async function calculateDerivedMetrics(symbol: string): Promise<void> {
     );
   }
 
-  const qualityScore = clamp(
-    (normalize(roe, 0, 0.35) * 0.3 +
-     normalize(roa, 0, 0.2) * 0.2 +
-     normalize(npm, 0, 0.3) * 0.25 +
-     normalize(opm, 0, 0.35) * 0.25),
-    0, 100
-  );
+  const qualityScore = roic != null
+    ? clamp(
+        (normalize(roe, 0, 0.35) * 0.25 +
+         normalize(roa, 0, 0.2) * 0.15 +
+         normalize(roic, 0, 0.25) * 0.15 +
+         normalize(npm, 0, 0.3) * 0.225 +
+         normalize(opm, 0, 0.35) * 0.225),
+        0, 100
+      )
+    : clamp(
+        (normalize(roe, 0, 0.35) * 0.3 +
+         normalize(roa, 0, 0.2) * 0.2 +
+         normalize(npm, 0, 0.3) * 0.25 +
+         normalize(opm, 0, 0.35) * 0.25),
+        0, 100
+      );
+
+  const dcfValue = safeNum(dcfData?.dcf);
+  const stockPrice = safeNum(dcfData?.stock_price);
+  const dcfUpside = dcfValue != null && stockPrice != null && stockPrice > 0
+    ? (dcfValue - stockPrice) / stockPrice
+    : null;
 
   const peScore = pe != null ? normalize(50 - pe, -50, 50) : 50;
   const pbScore = pb != null ? normalize(5 - pb, -5, 5) : 50;
   const dyScore = divYield != null ? normalize(divYield, 0, 0.08) : 50;
-  const valueScore = clamp(peScore * 0.4 + pbScore * 0.3 + dyScore * 0.3, 0, 100);
+  const dcfScore = dcfUpside != null ? normalize(dcfUpside, -0.5, 1.0) : null;
+
+  const valueScore = dcfScore != null
+    ? clamp(peScore * 0.3 + pbScore * 0.2 + dyScore * 0.2 + dcfScore * 0.3, 0, 100)
+    : clamp(peScore * 0.4 + pbScore * 0.3 + dyScore * 0.3, 0, 100);
 
   const deScore = de != null ? normalize(2 - de, -3, 3) : 50;
   const crScore = cr != null ? normalize(cr, 0, 3) : 50;
@@ -115,12 +162,21 @@ export async function calculateDerivedMetrics(symbol: string): Promise<void> {
       peScore: Math.round(peScore),
       pbScore: Math.round(pbScore),
       dyScore: Math.round(dyScore),
+      dcfScore: dcfScore != null ? Math.round(dcfScore) : null,
+      dcfUpside: dcfUpside != null ? +(dcfUpside * 100).toFixed(1) : null,
       deScore: Math.round(deScore),
       crScore: Math.round(crScore),
+      roicScore: roic != null ? Math.round(normalize(roic, 0, 0.25)) : null,
+      fcfGrowthScore: fcfGrowth != null ? Math.round(normalize(fcfGrowth, -0.3, 0.5)) : null,
       ret1yScore: ret1y != null ? Math.round(normalize(ret1y, -0.3, 0.5)) : null,
       ret3yScore: ret3y != null ? Math.round(normalize(ret3y, -0.2, 1.5)) : null,
       ret5yScore: ret5y != null ? Math.round(normalize(ret5y, -0.1, 3.0)) : null,
+      fmpRating: ratingData?.rating ?? null,
+      fmpRatingScore: safeNum(ratingData?.rating_score),
+      grahamNumber: grahamNumber,
       hasReturnData: hasReturns,
+      hasEnrichedGrowth,
+      hasDCF: dcfData != null,
       calculatedAt: new Date().toISOString(),
     },
     lastCalculated: new Date(),

@@ -297,8 +297,8 @@ export default function AgentScreener() {
   });
 
   const { data: enrichmentProgress, refetch: refetchProgress } = useQuery<any>({
-    queryKey: ['/api/screener/admin/enrichment-progress'],
-    queryFn: () => fetch('/api/screener/admin/enrichment-progress').then(r => r.json()),
+    queryKey: ['/api/screener/admin/extended-progress'],
+    queryFn: () => fetch('/api/screener/admin/extended-progress').then(r => r.json()),
     staleTime: 30000,
   });
 
@@ -367,9 +367,33 @@ export default function AgentScreener() {
     onError: () => toast({ title: 'Recalculation failed', variant: 'destructive' }),
   });
 
+  const enrichTier1Mutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/screener/admin/enrich/tier/1', { force: true, budget: 20 }),
+    onSuccess: () => { toast({ title: 'Tier 1 enrichment started' }); refetchProgress(); },
+  });
+  const enrichTier2Mutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/screener/admin/enrich/tier/2', { force: true, budget: 15 }),
+    onSuccess: () => { toast({ title: 'Tier 2 enrichment started' }); refetchProgress(); },
+  });
+  const enrichTier3Mutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/screener/admin/enrich/tier/3', { force: true, budget: 10 }),
+    onSuccess: () => { toast({ title: 'Tier 3 enrichment started' }); refetchProgress(); },
+  });
+  const enrichTier4Mutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/screener/admin/enrich/tier/4', { force: true, budget: 10 }),
+    onSuccess: () => { toast({ title: 'Tier 4 enrichment started' }); refetchProgress(); },
+  });
+  const priorityBatchMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/screener/admin/enrich/priority-batch', { force: true, maxApiCalls: 240 }),
+    onSuccess: () => { toast({ title: 'Priority batch enrichment complete' }); refetchProgress(); },
+  });
+
   const isAnyMutationPending = seedFromDbMutation.isPending || seedUnlistedMutation.isPending ||
     enrichRatiosMutation.isPending || enrichPricesMutation.isPending ||
-    dailyBatchMutation.isPending || recalcMetricsMutation.isPending;
+    dailyBatchMutation.isPending || recalcMetricsMutation.isPending ||
+    enrichTier1Mutation.isPending || enrichTier2Mutation.isPending ||
+    enrichTier3Mutation.isPending || enrichTier4Mutation.isPending ||
+    priorityBatchMutation.isPending;
 
   const mfFields = [
     { value: "returns_1y", label: "1Y Returns (%)" },
@@ -1224,11 +1248,11 @@ export default function AgentScreener() {
             <TabsContent value="admin" className="m-0">
               <CardContent className="pt-4 px-4">
                 <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                     <Card className="border-l-4 border-l-blue-500">
                       <CardContent className="pt-4 pb-3 px-4">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Enrichment Progress</span>
+                          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Overall Progress</span>
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => refetchProgress()}>
                             <RefreshCw className="h-3 w-3" />
                           </Button>
@@ -1242,70 +1266,67 @@ export default function AgentScreener() {
                       </CardContent>
                     </Card>
 
-                    <Card className="border-l-4 border-l-emerald-500">
+                    <Card className="border-l-4 border-l-purple-500">
                       <CardContent className="pt-4 pb-3 px-4">
-                        <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Data Coverage</div>
-                        <div className="space-y-2 text-xs">
-                          <div className="flex justify-between items-center">
-                            <span className="text-muted-foreground">Total Stocks</span>
-                            <span className="font-bold">{enrichmentProgress?.progress?.total?.toLocaleString() ?? 0}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="flex items-center gap-1 text-muted-foreground">
-                              <CheckCircle2 className="h-3 w-3 text-emerald-500" /> With Ratios
-                            </span>
-                            <span className="font-medium">{enrichmentProgress?.progress?.withRatios?.toLocaleString() ?? 0}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="flex items-center gap-1 text-muted-foreground">
-                              <CheckCircle2 className="h-3 w-3 text-blue-500" /> With Returns
-                            </span>
-                            <span className="font-medium">{enrichmentProgress?.progress?.withReturns?.toLocaleString() ?? 0}</span>
-                          </div>
-                          <Separator />
-                          <div className="flex justify-between items-center">
-                            <span className="flex items-center gap-1 text-muted-foreground">
-                              <AlertTriangle className="h-3 w-3 text-amber-500" /> Missing Ratios
-                            </span>
-                            <span className="font-medium text-amber-600">{enrichmentProgress?.progress?.missingRatios?.toLocaleString() ?? 0}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="flex items-center gap-1 text-muted-foreground">
-                              <AlertTriangle className="h-3 w-3 text-orange-500" /> Missing Returns
-                            </span>
-                            <span className="font-medium text-orange-600">{enrichmentProgress?.progress?.missingReturns?.toLocaleString() ?? 0}</span>
-                          </div>
+                        <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">FMP API Usage</div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-2xl font-bold">{enrichmentProgress?.apiUsage?.count ?? 0}</span>
+                          <span className="text-xs text-muted-foreground">/ {enrichmentProgress?.apiUsage?.limit ?? 249}</span>
+                        </div>
+                        <Progress
+                          value={enrichmentProgress?.apiUsage?.percentUsed ?? 0}
+                          className={`h-2 mt-2 ${(enrichmentProgress?.apiUsage?.percentUsed ?? 0) > 80 ? '[&>div]:bg-red-500' : ''}`}
+                        />
+                        <div className="flex items-center justify-between text-[11px] mt-2">
+                          <span className="text-muted-foreground">{enrichmentProgress?.apiUsage?.remaining ?? 245} remaining</span>
+                          {enrichmentProgress?.apiUsage?.alertLevel === 'LIMIT_REACHED' ? (
+                            <Badge variant="destructive" className="text-[9px] h-4">Limit</Badge>
+                          ) : enrichmentProgress?.apiUsage?.alertLevel === 'WARNING_80PCT' ? (
+                            <Badge className="text-[9px] h-4 bg-amber-500">80%</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-[9px] h-4">OK</Badge>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
 
-                    <Card className="border-l-4 border-l-purple-500">
+                    <Card className="border-l-4 border-l-emerald-500">
                       <CardContent className="pt-4 pb-3 px-4">
-                        <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">FMP API Usage (Today)</div>
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-2xl font-bold">{enrichmentProgress?.apiUsage?.count ?? 0}</span>
-                            <span className="text-xs text-muted-foreground">/ {enrichmentProgress?.apiUsage?.limit ?? 249}</span>
+                        <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Tier Progress</div>
+                        <div className="space-y-1.5 text-xs">
+                          <div className="flex justify-between items-center">
+                            <span className="text-muted-foreground">T1: Fundamentals</span>
+                            <span className="font-bold">{enrichmentProgress?.tiers?.tier1Percent ?? 0}%</span>
                           </div>
-                          <Progress
-                            value={enrichmentProgress?.apiUsage?.percentUsed ?? 0}
-                            className={`h-2 ${(enrichmentProgress?.apiUsage?.percentUsed ?? 0) > 80 ? '[&>div]:bg-red-500' : ''}`}
-                          />
-                          <div className="flex items-center justify-between text-[11px]">
-                            <span className="text-muted-foreground">
-                              {enrichmentProgress?.apiUsage?.remaining ?? 245} calls remaining
-                            </span>
-                            {enrichmentProgress?.apiUsage?.alertLevel === 'LIMIT_REACHED' ? (
-                              <Badge variant="destructive" className="text-[9px] h-4">Limit Reached</Badge>
-                            ) : enrichmentProgress?.apiUsage?.alertLevel === 'WARNING_80PCT' ? (
-                              <Badge className="text-[9px] h-4 bg-amber-500">80% Used</Badge>
-                            ) : (
-                              <Badge variant="secondary" className="text-[9px] h-4">OK</Badge>
-                            )}
+                          <Progress value={enrichmentProgress?.tiers?.tier1Percent ?? 0} className="h-1.5" />
+                          <div className="flex justify-between items-center">
+                            <span className="text-muted-foreground">T2: Analyst/Events</span>
+                            <span className="font-bold">{enrichmentProgress?.tiers?.tier2Percent ?? 0}%</span>
                           </div>
-                          <div className="text-[10px] text-muted-foreground mt-1">
-                            Daily limit: {enrichmentProgress?.apiUsage?.limit ?? 249} calls | Auto-stop: 245
+                          <Progress value={enrichmentProgress?.tiers?.tier2Percent ?? 0} className="h-1.5" />
+                          <div className="flex justify-between items-center">
+                            <span className="text-muted-foreground">T3: Intelligence</span>
+                            <span className="font-bold">{enrichmentProgress?.tiers?.tier3Percent ?? 0}%</span>
                           </div>
+                          <Progress value={enrichmentProgress?.tiers?.tier3Percent ?? 0} className="h-1.5" />
+                          <div className="flex justify-between items-center">
+                            <span className="text-muted-foreground">T4: Prices/Market</span>
+                            <span className="font-bold">{enrichmentProgress?.tiers?.tier4Percent ?? 0}%</span>
+                          </div>
+                          <Progress value={enrichmentProgress?.tiers?.tier4Percent ?? 0} className="h-1.5" />
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-l-4 border-l-amber-500">
+                      <CardContent className="pt-4 pb-3 px-4">
+                        <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Calendars & Events</div>
+                        <div className="space-y-1.5 text-xs">
+                          <div className="flex justify-between"><span className="text-muted-foreground">Earnings</span><span className="font-bold">{enrichmentProgress?.calendars?.earningsCount ?? 0}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Dividends</span><span className="font-bold">{enrichmentProgress?.calendars?.dividendCount ?? 0}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Splits</span><span className="font-bold">{enrichmentProgress?.calendars?.splitCount ?? 0}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">IPOs</span><span className="font-bold">{enrichmentProgress?.calendars?.ipoCount ?? 0}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Economic</span><span className="font-bold">{enrichmentProgress?.calendars?.economicCount ?? 0}</span></div>
                         </div>
                       </CardContent>
                     </Card>
@@ -1314,11 +1335,72 @@ export default function AgentScreener() {
                   <Card>
                     <CardHeader className="pb-2 pt-4 px-4">
                       <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                        <Database className="h-4 w-4 text-emerald-500" />
+                        Data Coverage ({enrichmentProgress?.progress?.total?.toLocaleString() ?? 0} stocks)
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-4">
+                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 text-xs">
+                        <div className="border rounded p-2 text-center">
+                          <div className="font-bold text-lg">{enrichmentProgress?.progress?.withRatios?.toLocaleString() ?? 0}</div>
+                          <div className="text-muted-foreground">Ratios</div>
+                        </div>
+                        <div className="border rounded p-2 text-center">
+                          <div className="font-bold text-lg">{enrichmentProgress?.progress?.withReturns?.toLocaleString() ?? 0}</div>
+                          <div className="text-muted-foreground">Returns</div>
+                        </div>
+                        <div className="border rounded p-2 text-center">
+                          <div className="font-bold text-lg">{enrichmentProgress?.progress?.withGrowth?.toLocaleString() ?? 0}</div>
+                          <div className="text-muted-foreground">Growth</div>
+                        </div>
+                        <div className="border rounded p-2 text-center">
+                          <div className="font-bold text-lg">{enrichmentProgress?.progress?.withKeyMetrics?.toLocaleString() ?? 0}</div>
+                          <div className="text-muted-foreground">Key Metrics</div>
+                        </div>
+                        <div className="border rounded p-2 text-center">
+                          <div className="font-bold text-lg">{enrichmentProgress?.progress?.withDCF?.toLocaleString() ?? 0}</div>
+                          <div className="text-muted-foreground">DCF</div>
+                        </div>
+                        <div className="border rounded p-2 text-center">
+                          <div className="font-bold text-lg">{enrichmentProgress?.progress?.withRatings?.toLocaleString() ?? 0}</div>
+                          <div className="text-muted-foreground">Ratings</div>
+                        </div>
+                        <div className="border rounded p-2 text-center">
+                          <div className="font-bold text-lg">{enrichmentProgress?.progress?.withAnalystTargets?.toLocaleString() ?? 0}</div>
+                          <div className="text-muted-foreground">Targets</div>
+                        </div>
+                        <div className="border rounded p-2 text-center">
+                          <div className="font-bold text-lg">{enrichmentProgress?.progress?.withAnalystGrades?.toLocaleString() ?? 0}</div>
+                          <div className="text-muted-foreground">Grades</div>
+                        </div>
+                        <div className="border rounded p-2 text-center">
+                          <div className="font-bold text-lg">{enrichmentProgress?.progress?.withInstitutionalHolders?.toLocaleString() ?? 0}</div>
+                          <div className="text-muted-foreground">Institutional</div>
+                        </div>
+                        <div className="border rounded p-2 text-center">
+                          <div className="font-bold text-lg">{enrichmentProgress?.progress?.withInsiderTrades?.toLocaleString() ?? 0}</div>
+                          <div className="text-muted-foreground">Insider</div>
+                        </div>
+                        <div className="border rounded p-2 text-center">
+                          <div className="font-bold text-lg">{enrichmentProgress?.progress?.withNews?.toLocaleString() ?? 0}</div>
+                          <div className="text-muted-foreground">News</div>
+                        </div>
+                        <div className="border rounded p-2 text-center">
+                          <div className="font-bold text-lg">{enrichmentProgress?.progress?.withTechnicals?.toLocaleString() ?? 0}</div>
+                          <div className="text-muted-foreground">Technicals</div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2 pt-4 px-4">
+                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
                         <Zap className="h-4 w-4 text-primary" />
                         Enrichment Controls
                       </CardTitle>
                       <CardDescription className="text-xs">
-                        Seed data sources and trigger enrichment pipelines. FMP calls are rate-limited to 249/day.
+                        Budget: 249 calls/day | Auto-stop: 245 | Priority: Tier 1 (40%) → Tier 2 (30%) → Tier 3 (20%) → Tier 4 (10%)
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="px-4 pb-4">
@@ -1328,14 +1410,8 @@ export default function AgentScreener() {
                             <Database className="h-4 w-4 text-blue-500" />
                             <span className="text-sm font-medium">Seed Listed Stocks</span>
                           </div>
-                          <p className="text-[11px] text-muted-foreground">Import stocks from the listed stocks database (no API calls)</p>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="w-full h-7 text-xs"
-                            disabled={isAnyMutationPending}
-                            onClick={() => seedFromDbMutation.mutate()}
-                          >
+                          <p className="text-[11px] text-muted-foreground">Import from listed_stocks DB (no API calls)</p>
+                          <Button size="sm" variant="outline" className="w-full h-7 text-xs" disabled={isAnyMutationPending} onClick={() => seedFromDbMutation.mutate()}>
                             {seedFromDbMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Play className="h-3 w-3 mr-1" />}
                             Seed from DB
                           </Button>
@@ -1346,69 +1422,10 @@ export default function AgentScreener() {
                             <Building2 className="h-4 w-4 text-purple-500" />
                             <span className="text-sm font-medium">Seed Private Companies</span>
                           </div>
-                          <p className="text-[11px] text-muted-foreground">Import unlisted/private companies into the screener pipeline</p>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="w-full h-7 text-xs"
-                            disabled={isAnyMutationPending}
-                            onClick={() => seedUnlistedMutation.mutate()}
-                          >
+                          <p className="text-[11px] text-muted-foreground">Import unlisted companies (no API calls)</p>
+                          <Button size="sm" variant="outline" className="w-full h-7 text-xs" disabled={isAnyMutationPending} onClick={() => seedUnlistedMutation.mutate()}>
                             {seedUnlistedMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Play className="h-3 w-3 mr-1" />}
                             Seed Unlisted
-                          </Button>
-                        </div>
-
-                        <div className="border rounded-lg p-3 space-y-2">
-                          <div className="flex items-center gap-2">
-                            <BarChart3 className="h-4 w-4 text-emerald-500" />
-                            <span className="text-sm font-medium">Enrich Financial Ratios</span>
-                          </div>
-                          <p className="text-[11px] text-muted-foreground">Fetch PE, PB, ROE, D/E, margins, EPS from FMP (10 stocks/batch)</p>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="w-full h-7 text-xs"
-                            disabled={isAnyMutationPending}
-                            onClick={() => enrichRatiosMutation.mutate()}
-                          >
-                            {enrichRatiosMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <TrendingUp className="h-3 w-3 mr-1" />}
-                            Enrich Ratios (10)
-                          </Button>
-                        </div>
-
-                        <div className="border rounded-lg p-3 space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Activity className="h-4 w-4 text-orange-500" />
-                            <span className="text-sm font-medium">Fetch Price History</span>
-                          </div>
-                          <p className="text-[11px] text-muted-foreground">5-year price history + calculate 1Y/2Y/3Y/5Y returns (5 stocks/batch)</p>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="w-full h-7 text-xs"
-                            disabled={isAnyMutationPending}
-                            onClick={() => enrichPricesMutation.mutate()}
-                          >
-                            {enrichPricesMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <TrendingUp className="h-3 w-3 mr-1" />}
-                            Fetch Prices (5)
-                          </Button>
-                        </div>
-
-                        <div className="border rounded-lg p-3 space-y-2 border-primary/30 bg-primary/5">
-                          <div className="flex items-center gap-2">
-                            <Zap className="h-4 w-4 text-primary" />
-                            <span className="text-sm font-medium">Run Daily Batch</span>
-                          </div>
-                          <p className="text-[11px] text-muted-foreground">60/40 split: ratios + prices using available API budget (~240 calls)</p>
-                          <Button
-                            size="sm"
-                            className="w-full h-7 text-xs"
-                            disabled={isAnyMutationPending}
-                            onClick={() => dailyBatchMutation.mutate()}
-                          >
-                            {dailyBatchMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Play className="h-3 w-3 mr-1" />}
-                            Run Daily Batch
                           </Button>
                         </div>
 
@@ -1417,16 +1434,74 @@ export default function AgentScreener() {
                             <Calculator className="h-4 w-4 text-amber-500" />
                             <span className="text-sm font-medium">Recalculate Scores</span>
                           </div>
-                          <p className="text-[11px] text-muted-foreground">Recompute Growth/Quality/Value/Risk scores and FintekRating for all stocks</p>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="w-full h-7 text-xs"
-                            disabled={isAnyMutationPending}
-                            onClick={() => recalcMetricsMutation.mutate()}
-                          >
+                          <p className="text-[11px] text-muted-foreground">Recompute all derived metrics and FintekRating</p>
+                          <Button size="sm" variant="outline" className="w-full h-7 text-xs" disabled={isAnyMutationPending} onClick={() => recalcMetricsMutation.mutate()}>
                             {recalcMetricsMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
                             Recalculate All
+                          </Button>
+                        </div>
+
+                        <div className="border rounded-lg p-3 space-y-2 border-blue-500/30 bg-blue-500/5">
+                          <div className="flex items-center gap-2">
+                            <BarChart3 className="h-4 w-4 text-blue-600" />
+                            <span className="text-sm font-medium">Tier 1: Fundamentals</span>
+                            <Badge variant="secondary" className="text-[9px] h-4 ml-auto">{enrichmentProgress?.tiers?.tier1Percent ?? 0}%</Badge>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">Ratios, Growth, Key Metrics, DCF, Ratings (20 calls)</p>
+                          <Button size="sm" variant="outline" className="w-full h-7 text-xs border-blue-500/30" disabled={isAnyMutationPending} onClick={() => enrichTier1Mutation.mutate()}>
+                            {enrichTier1Mutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <TrendingUp className="h-3 w-3 mr-1" />}
+                            Enrich Tier 1
+                          </Button>
+                        </div>
+
+                        <div className="border rounded-lg p-3 space-y-2 border-emerald-500/30 bg-emerald-500/5">
+                          <div className="flex items-center gap-2">
+                            <Target className="h-4 w-4 text-emerald-600" />
+                            <span className="text-sm font-medium">Tier 2: Analyst & Events</span>
+                            <Badge variant="secondary" className="text-[9px] h-4 ml-auto">{enrichmentProgress?.tiers?.tier2Percent ?? 0}%</Badge>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">Targets, Grades, Earnings/Dividend/Split/IPO Calendar (15 calls)</p>
+                          <Button size="sm" variant="outline" className="w-full h-7 text-xs border-emerald-500/30" disabled={isAnyMutationPending} onClick={() => enrichTier2Mutation.mutate()}>
+                            {enrichTier2Mutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <TrendingUp className="h-3 w-3 mr-1" />}
+                            Enrich Tier 2
+                          </Button>
+                        </div>
+
+                        <div className="border rounded-lg p-3 space-y-2 border-orange-500/30 bg-orange-500/5">
+                          <div className="flex items-center gap-2">
+                            <Eye className="h-4 w-4 text-orange-600" />
+                            <span className="text-sm font-medium">Tier 3: Intelligence</span>
+                            <Badge variant="secondary" className="text-[9px] h-4 ml-auto">{enrichmentProgress?.tiers?.tier3Percent ?? 0}%</Badge>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">Institutional, Insider, News, Sector, Technicals (10 calls)</p>
+                          <Button size="sm" variant="outline" className="w-full h-7 text-xs border-orange-500/30" disabled={isAnyMutationPending} onClick={() => enrichTier3Mutation.mutate()}>
+                            {enrichTier3Mutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <TrendingUp className="h-3 w-3 mr-1" />}
+                            Enrich Tier 3
+                          </Button>
+                        </div>
+
+                        <div className="border rounded-lg p-3 space-y-2 border-purple-500/30 bg-purple-500/5">
+                          <div className="flex items-center gap-2">
+                            <Activity className="h-4 w-4 text-purple-600" />
+                            <span className="text-sm font-medium">Tier 4: Prices & Market</span>
+                            <Badge variant="secondary" className="text-[9px] h-4 ml-auto">{enrichmentProgress?.tiers?.tier4Percent ?? 0}%</Badge>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">Price history, returns, market data (10 calls)</p>
+                          <Button size="sm" variant="outline" className="w-full h-7 text-xs border-purple-500/30" disabled={isAnyMutationPending} onClick={() => enrichTier4Mutation.mutate()}>
+                            {enrichTier4Mutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <TrendingUp className="h-3 w-3 mr-1" />}
+                            Enrich Tier 4
+                          </Button>
+                        </div>
+
+                        <div className="border rounded-lg p-3 space-y-2 border-primary/30 bg-primary/5 md:col-span-2">
+                          <div className="flex items-center gap-2">
+                            <Zap className="h-4 w-4 text-primary" />
+                            <span className="text-sm font-medium">Priority Batch (All Tiers)</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">Runs all 4 tiers with budget split: T1=40%, T2=30%, T3=20%, T4=10% (~240 API calls)</p>
+                          <Button size="sm" className="w-full h-7 text-xs" disabled={isAnyMutationPending} onClick={() => priorityBatchMutation.mutate()}>
+                            {priorityBatchMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Play className="h-3 w-3 mr-1" />}
+                            Run Priority Batch
                           </Button>
                         </div>
                       </div>
@@ -1437,30 +1512,54 @@ export default function AgentScreener() {
                     <CardHeader className="pb-2 pt-4 px-4">
                       <CardTitle className="text-sm font-semibold flex items-center gap-2">
                         <Info className="h-4 w-4" />
-                        Pipeline Information
+                        FMP Endpoint Coverage
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="px-4 pb-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                         <div className="space-y-2">
-                          <h4 className="font-semibold text-sm">Scoring Engine</h4>
+                          <h4 className="font-semibold text-sm">Tier 1: Fundamentals (40% budget)</h4>
                           <div className="space-y-1 text-muted-foreground">
-                            <p>Growth Score (25%): Revenue growth, earnings growth, and 1Y/3Y/5Y price returns</p>
-                            <p>Quality Score (30%): ROE, ROA, net profit margin, operating margin</p>
-                            <p>Value Score (25%): P/E ratio, P/B ratio, dividend yield</p>
-                            <p>Risk Score (20%): Debt-to-equity ratio, current ratio</p>
-                            <p className="font-medium text-foreground mt-1">FintekRating: 1-5 stars based on composite score</p>
+                            <p>/ratios — PE, PB, ROE, D/E, margins, EPS</p>
+                            <p>/financial-growth — Revenue, earnings, FCF growth</p>
+                            <p>/key-metrics — ROIC, Graham Number, EV ratios</p>
+                            <p>/discounted-cash-flow — Intrinsic value DCF</p>
+                            <p>/rating — FMP company rating (S&P style)</p>
+                            <p>/income-statement, /balance-sheet, /cash-flow</p>
+                          </div>
+                          <h4 className="font-semibold text-sm mt-3">Tier 2: Analyst & Events (30% budget)</h4>
+                          <div className="space-y-1 text-muted-foreground">
+                            <p>/price-target — Analyst consensus price targets</p>
+                            <p>/upgrades-downgrades — Rating changes</p>
+                            <p>/earning_calendar — Upcoming earnings</p>
+                            <p>/stock_dividend_calendar — Dividend dates</p>
+                            <p>/stock_split_calendar — Split events</p>
+                            <p>/ipo_calendar — Upcoming IPOs</p>
+                            <p>/economic_calendar — Economic events</p>
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <h4 className="font-semibold text-sm">API Limits</h4>
+                          <h4 className="font-semibold text-sm">Tier 3: Intelligence (20% budget)</h4>
                           <div className="space-y-1 text-muted-foreground">
-                            <p>FMP Free Tier: 249 calls/day</p>
-                            <p>Auto-stop threshold: 245 calls (safety margin)</p>
-                            <p>Daily batch: ~240 calls (60% ratios, 40% prices)</p>
-                            <p>Enrichment priority: Stocks missing ROE, PB, D/E first</p>
-                            <p>Price history: 5 years of data per stock</p>
-                            <p className="font-medium text-foreground mt-1">Production mode required for scheduled enrichment</p>
+                            <p>/institutional-holder — FII/DII ownership</p>
+                            <p>/insider-trading — Insider buy/sell activity</p>
+                            <p>/stock_news — Stock-specific news</p>
+                            <p>/sector-performance — Sector returns</p>
+                            <p>/technical_indicator — RSI, SMA, EMA, MACD</p>
+                          </div>
+                          <h4 className="font-semibold text-sm mt-3">Tier 4: Prices & Market (10% budget)</h4>
+                          <div className="space-y-1 text-muted-foreground">
+                            <p>/historical-price-full — 5Y price history</p>
+                            <p>/quote (batch) — Multi-symbol quotes</p>
+                            <p>/sector-performance — Market overview</p>
+                            <p>/market-risk-premium — Equity risk premium</p>
+                            <p>/treasury — Risk-free rates</p>
+                          </div>
+                          <h4 className="font-semibold text-sm mt-3">Scoring Engine</h4>
+                          <div className="space-y-1 text-muted-foreground">
+                            <p className="font-medium text-foreground">FintekRating: 1-5 stars (composite score)</p>
+                            <p>Growth 25% | Quality 30% | Value 25% | Risk 20%</p>
+                            <p>Growth blends fundamentals + price returns 50/50</p>
                           </div>
                         </div>
                       </div>

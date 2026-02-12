@@ -1,8 +1,11 @@
 import { Router } from 'express';
+import { db } from '../db';
+import { sql } from 'drizzle-orm';
 import { queryScreener, getStockDetail, getScreenerStats, getScreenerDistribution, type ScreenerFilters } from '../services/screener/screener-query-engine';
 import { enrichStockProfiles, enrichFinancialRatios, enrichPriceHistory, seedScreenerFromFmp, seedFromListedStocks, seedUnlistedToScreener, isProductionEnrichmentAllowed, runDailyEnrichmentBatch, getEnrichmentProgress } from '../services/screener/enrichment-service';
 import { recalculateAllMetrics } from '../services/screener/derived-metrics-engine';
 import { fmpUsageMonitor } from '../services/screener/fmp-usage-monitor';
+import { runPriorityEnrichmentBatch, enrichSingleTier, getExtendedEnrichmentProgress } from '../services/screener/priority-enrichment-scheduler';
 
 const router = Router();
 
@@ -187,6 +190,159 @@ router.get('/api/screener/admin/api-usage', async (req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to get API usage', message: err.message });
   }
+});
+
+router.get('/api/screener/admin/extended-progress', async (req, res) => {
+  try {
+    const progress = await getExtendedEnrichmentProgress();
+    const apiUsage = await fmpUsageMonitor.getDailyStats();
+    res.json({ ...progress, apiUsage });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to get extended progress', message: err.message });
+  }
+});
+
+router.post('/api/screener/admin/enrich/priority-batch', async (req, res) => {
+  try {
+    if (!isProductionEnrichmentAllowed() && !req.body?.force) {
+      return res.json({ message: 'Priority enrichment restricted to production. Use force=true to override.', totalApiCalls: 0 });
+    }
+    const budgetSplit = req.body?.budgetSplit || undefined;
+    const maxApiCalls = req.body?.maxApiCalls || 240;
+    const result = await runPriorityEnrichmentBatch(budgetSplit, maxApiCalls);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Priority batch failed', message: err.message });
+  }
+});
+
+router.post('/api/screener/admin/enrich/tier/:tierNumber', async (req, res) => {
+  try {
+    if (!isProductionEnrichmentAllowed() && !req.body?.force) {
+      return res.json({ message: 'Tier enrichment restricted to production. Use force=true to override.', totalApiCalls: 0 });
+    }
+    const tierNumber = parseInt(req.params.tierNumber) as 1 | 2 | 3 | 4;
+    if (![1, 2, 3, 4].includes(tierNumber)) {
+      return res.status(400).json({ error: 'Invalid tier number. Must be 1-4.' });
+    }
+    const budget = req.body?.budget || 50;
+    const result = await enrichSingleTier(tierNumber, budget);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: `Tier ${req.params.tierNumber} enrichment failed`, message: err.message });
+  }
+});
+
+router.get('/api/screener/stocks/:symbol/growth', async (req, res) => {
+  try {
+    const result = await db.execute(sql`SELECT * FROM screener_growth_metrics WHERE symbol = ${req.params.symbol} ORDER BY date DESC LIMIT 5`);
+    res.json({ data: (result as any).rows || result });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/api/screener/stocks/:symbol/key-metrics', async (req, res) => {
+  try {
+    const result = await db.execute(sql`SELECT * FROM screener_key_metrics WHERE symbol = ${req.params.symbol} ORDER BY date DESC LIMIT 5`);
+    res.json({ data: (result as any).rows || result });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/api/screener/stocks/:symbol/dcf', async (req, res) => {
+  try {
+    const result = await db.execute(sql`SELECT * FROM screener_dcf_valuations WHERE symbol = ${req.params.symbol} ORDER BY date DESC LIMIT 1`);
+    res.json({ data: (result as any).rows || result });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/api/screener/stocks/:symbol/rating', async (req, res) => {
+  try {
+    const result = await db.execute(sql`SELECT * FROM screener_company_ratings WHERE symbol = ${req.params.symbol} ORDER BY date DESC LIMIT 1`);
+    res.json({ data: (result as any).rows || result });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/api/screener/stocks/:symbol/analyst-targets', async (req, res) => {
+  try {
+    const result = await db.execute(sql`SELECT * FROM screener_analyst_targets WHERE symbol = ${req.params.symbol} ORDER BY published_date DESC LIMIT 10`);
+    res.json({ data: (result as any).rows || result });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/api/screener/stocks/:symbol/analyst-grades', async (req, res) => {
+  try {
+    const result = await db.execute(sql`SELECT * FROM screener_analyst_grades WHERE symbol = ${req.params.symbol} ORDER BY published_date DESC LIMIT 10`);
+    res.json({ data: (result as any).rows || result });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/api/screener/stocks/:symbol/institutional-holders', async (req, res) => {
+  try {
+    const result = await db.execute(sql`SELECT * FROM screener_institutional_holders WHERE symbol = ${req.params.symbol} ORDER BY date_reported DESC LIMIT 20`);
+    res.json({ data: (result as any).rows || result });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/api/screener/stocks/:symbol/insider-trades', async (req, res) => {
+  try {
+    const result = await db.execute(sql`SELECT * FROM screener_insider_trades WHERE symbol = ${req.params.symbol} ORDER BY transaction_date DESC LIMIT 20`);
+    res.json({ data: (result as any).rows || result });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/api/screener/stocks/:symbol/news', async (req, res) => {
+  try {
+    const result = await db.execute(sql`SELECT * FROM screener_stock_news WHERE symbol = ${req.params.symbol} ORDER BY published_date DESC LIMIT 10`);
+    res.json({ data: (result as any).rows || result });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/api/screener/stocks/:symbol/technicals', async (req, res) => {
+  try {
+    const result = await db.execute(sql`SELECT * FROM screener_technical_indicators WHERE symbol = ${req.params.symbol} ORDER BY date DESC LIMIT 1`);
+    res.json({ data: (result as any).rows || result });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/api/screener/calendar/earnings', async (req, res) => {
+  try {
+    const result = await db.execute(sql`SELECT * FROM screener_earnings_calendar ORDER BY date ASC LIMIT 100`);
+    res.json({ data: (result as any).rows || result });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/api/screener/calendar/dividends', async (req, res) => {
+  try {
+    const result = await db.execute(sql`SELECT * FROM screener_dividend_calendar ORDER BY date ASC LIMIT 100`);
+    res.json({ data: (result as any).rows || result });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/api/screener/calendar/splits', async (req, res) => {
+  try {
+    const result = await db.execute(sql`SELECT * FROM screener_split_calendar ORDER BY date ASC LIMIT 100`);
+    res.json({ data: (result as any).rows || result });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/api/screener/calendar/ipos', async (req, res) => {
+  try {
+    const result = await db.execute(sql`SELECT * FROM screener_ipo_calendar ORDER BY date ASC LIMIT 100`);
+    res.json({ data: (result as any).rows || result });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/api/screener/calendar/economic', async (req, res) => {
+  try {
+    const result = await db.execute(sql`SELECT * FROM screener_economic_calendar ORDER BY date ASC LIMIT 100`);
+    res.json({ data: (result as any).rows || result });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/api/screener/sector-performance', async (req, res) => {
+  try {
+    const result = await db.execute(sql`SELECT * FROM screener_sector_performance ORDER BY date DESC, changes_percentage DESC LIMIT 50`);
+    res.json({ data: (result as any).rows || result });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 export default router;

@@ -205,9 +205,253 @@ class FMPFreeProvider implements IDataProvider {
       volume: data[0].volume || 0,
     };
   }
+
+  async getBatchQuotes(symbols: string[]): Promise<Array<{ symbol: string; price: number; change: number; changePercent: number; volume: number }>> {
+    const joined = symbols.join(',');
+    const data = await this.fetchWithRateLimit<any[]>(`/quote/${joined}`);
+    if (!data) return [];
+    return data.map((q: any) => ({
+      symbol: q.symbol,
+      price: q.price || 0,
+      change: q.change || 0,
+      changePercent: q.changesPercentage || 0,
+      volume: q.volume || 0,
+    }));
+  }
+
+  async getFinancialGrowth(symbol: string, limit = 5): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>(`/financial-growth/${symbol}`, { limit: String(limit) });
+    return data || [];
+  }
+
+  async getKeyMetrics(symbol: string, limit = 1): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>(`/key-metrics/${symbol}`, { limit: String(limit) });
+    return data || [];
+  }
+
+  async getEnterpriseValues(symbol: string, limit = 1): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>(`/enterprise-values/${symbol}`, { limit: String(limit) });
+    return data || [];
+  }
+
+  async getDCF(symbol: string): Promise<{ symbol: string; dcf: number; stockPrice: number; date: string } | null> {
+    const data = await this.fetchWithRateLimit<any[]>(`/discounted-cash-flow/${symbol}`);
+    if (!data || !data[0]) return null;
+    return {
+      symbol: data[0].symbol || symbol,
+      dcf: data[0].dcf || 0,
+      stockPrice: data[0].stockPrice || data[0]['Stock Price'] || 0,
+      date: data[0].date || new Date().toISOString().split('T')[0],
+    };
+  }
+
+  async getHistoricalDCF(symbol: string): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>(`/historical-discounted-cash-flow-statement/${symbol}`);
+    return data || [];
+  }
+
+  async getRating(symbol: string): Promise<any | null> {
+    const data = await this.fetchWithRateLimit<any[]>(`/rating/${symbol}`);
+    if (!data || !data[0]) return null;
+    return data[0];
+  }
+
+  async getHistoricalRating(symbol: string, limit = 10): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>(`/historical-rating/${symbol}`, { limit: String(limit) });
+    return data || [];
+  }
+
+  async getPriceTarget(symbol: string): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>(`/price-target/${symbol}`);
+    return data || [];
+  }
+
+  async getUpgradesDowngrades(symbol: string): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>(`/upgrades-downgrades/${symbol}`);
+    return data || [];
+  }
+
+  async getAnalystEstimates(symbol: string, limit = 5): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>(`/analyst-estimates/${symbol}`, { limit: String(limit) });
+    return data || [];
+  }
+
+  async getStockGrade(symbol: string): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>(`/grade/${symbol}`);
+    return data || [];
+  }
+
+  async getEarningsCalendar(from?: string, to?: string): Promise<any[]> {
+    const params: Record<string, string> = {};
+    if (from) params.from = from;
+    if (to) params.to = to;
+    const data = await this.fetchWithRateLimit<any[]>('/earning_calendar', params);
+    return data || [];
+  }
+
+  async getHistoricalEarnings(symbol: string): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>(`/historical/earning_calendar/${symbol}`);
+    return data || [];
+  }
+
+  async getDividendCalendar(from?: string, to?: string): Promise<any[]> {
+    const params: Record<string, string> = {};
+    if (from) params.from = from;
+    if (to) params.to = to;
+    const data = await this.fetchWithRateLimit<any[]>('/stock_dividend_calendar', params);
+    return data || [];
+  }
+
+  async getHistoricalDividends(symbol: string): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any>(`/historical-price-full/stock_dividend/${symbol}`);
+    return data?.historical || [];
+  }
+
+  async getSplitCalendar(from?: string, to?: string): Promise<any[]> {
+    const params: Record<string, string> = {};
+    if (from) params.from = from;
+    if (to) params.to = to;
+    const data = await this.fetchWithRateLimit<any[]>('/stock_split_calendar', params);
+    return data || [];
+  }
+
+  async getIPOCalendar(from?: string, to?: string): Promise<any[]> {
+    const params: Record<string, string> = {};
+    if (from) params.from = from;
+    if (to) params.to = to;
+    const data = await this.fetchWithRateLimit<any[]>('/ipo_calendar', params);
+    return data || [];
+  }
+
+  async getEconomicCalendar(from?: string, to?: string): Promise<any[]> {
+    const params: Record<string, string> = {};
+    if (from) params.from = from;
+    if (to) params.to = to;
+    const data = await this.fetchWithRateLimit<any[]>('/economic_calendar', params);
+    return data || [];
+  }
+
+  async getInstitutionalHolders(symbol: string): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>(`/institutional-holder/${symbol}`);
+    return data || [];
+  }
+
+  async getInsiderTrading(symbol: string, limit = 50): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>('/insider-trading', { symbol, limit: String(limit) });
+    return data || [];
+  }
+
+  async getMutualFundHolders(symbol: string): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>(`/mutual-fund-holder/${symbol}`);
+    return data || [];
+  }
+
+  async getStockNews(symbol: string, limit = 20): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>('/stock_news', { tickers: symbol, limit: String(limit) });
+    return data || [];
+  }
+
+  async getGeneralNews(limit = 20): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>('/general_news', { limit: String(limit) });
+    return data || [];
+  }
+
+  async getPressReleases(symbol: string, limit = 10): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>(`/press-releases/${symbol}`, { limit: String(limit) });
+    return data || [];
+  }
+
+  async getSectorPerformance(): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>('/sector-performance');
+    return data || [];
+  }
+
+  async getTechnicalIndicator(symbol: string, timeframe = 'daily', type = 'sma', period = 50): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>(
+      `/technical_indicator/${timeframe}/${symbol}`,
+      { period: String(period), type }
+    );
+    return data || [];
+  }
+
+  async getETFHolders(symbol: string): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>(`/etf-holder/${symbol}`);
+    return data || [];
+  }
+
+  async getETFSectorWeightings(symbol: string): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>(`/etf-sector-weightings/${symbol}`);
+    return data || [];
+  }
+
+  async getETFInfo(symbol: string): Promise<any | null> {
+    const data = await this.fetchWithRateLimit<any[]>(`/etf-info`, { symbol });
+    if (!data || !data[0]) return null;
+    return data[0];
+  }
+
+  async searchSymbol(query: string, limit = 10): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>('/search', { query, limit: String(limit) });
+    return data || [];
+  }
+
+  async searchByISIN(isin: string): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>(`/search`, { query: isin });
+    return data || [];
+  }
+
+  async getStockList(): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>('/stock/list');
+    return data || [];
+  }
+
+  async getMarketRiskPremium(): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>('/market-risk-premium');
+    return data || [];
+  }
+
+  async getTreasuryRates(): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>('/treasury');
+    return data || [];
+  }
+
+  async getSP500Constituents(): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>('/sp500_constituent');
+    return data || [];
+  }
+
+  async getCompanyOutlook(symbol: string): Promise<any | null> {
+    const data = await this.fetchWithRateLimit<any>(`/company-outlook`, { symbol });
+    return data || null;
+  }
+
+  async getKeyExecutives(symbol: string): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>(`/key-executives/${symbol}`);
+    return data || [];
+  }
+
+  async getSharesFloat(symbol: string): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>(`/shares_float`, { symbol });
+    return data || [];
+  }
+
+  async getIncomeStatementGrowth(symbol: string, limit = 5): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>(`/income-statement-growth/${symbol}`, { limit: String(limit) });
+    return data || [];
+  }
+
+  async getBalanceSheetGrowth(symbol: string, limit = 5): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>(`/balance-sheet-statement-growth/${symbol}`, { limit: String(limit) });
+    return data || [];
+  }
+
+  async getCashFlowGrowth(symbol: string, limit = 5): Promise<any[]> {
+    const data = await this.fetchWithRateLimit<any[]>(`/cash-flow-statement-growth/${symbol}`, { limit: String(limit) });
+    return data || [];
+  }
 }
 
-let providerInstance: IDataProvider | null = null;
+let providerInstance: FMPFreeProvider | null = null;
 
 export function getDataProvider(): IDataProvider {
   if (!providerInstance) {
@@ -216,6 +460,15 @@ export function getDataProvider(): IDataProvider {
   return providerInstance;
 }
 
-export function setDataProvider(provider: IDataProvider): void {
-  providerInstance = provider;
+export function getExtendedProvider(): FMPFreeProvider {
+  if (!providerInstance) {
+    providerInstance = new FMPFreeProvider();
+  }
+  return providerInstance;
 }
+
+export function setDataProvider(provider: IDataProvider): void {
+  providerInstance = provider as FMPFreeProvider;
+}
+
+export type { FMPFreeProvider };
