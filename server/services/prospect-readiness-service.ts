@@ -78,14 +78,21 @@ export class ProspectReadinessService {
       };
     }
 
-    const status = (prospect.readinessStatus || 'INITIAL') as ReadinessStatus;
+    let status = (prospect.readinessStatus || 'INITIAL') as ReadinessStatus;
     const statusOrder = this.getStatusOrder();
+
+    const hasHoldings = Array.isArray(prospect.currentPortfolio) && (prospect.currentPortfolio as any[]).length > 0;
+    if (hasHoldings && status === 'INITIAL') {
+      status = 'HOLDINGS_IMPORTED';
+      this.advanceOnHoldingsImport(prospectId).catch(() => {});
+    }
+
     const currentOrder = statusOrder[status];
 
     const completedSteps: string[] = [];
     const missingSteps: string[] = [];
 
-    if (currentOrder >= 1) completedSteps.push('Holdings Imported');
+    if (currentOrder >= 1 || hasHoldings) completedSteps.push('Holdings Imported');
     else missingSteps.push('Import holdings (CAS statement or manual entry)');
 
     if (currentOrder >= 2) completedSteps.push('Risk Profile Completed');
@@ -190,12 +197,8 @@ export class ProspectReadinessService {
     missingSteps?: string[] 
   }> {
     const readiness = await this.checkReadiness(prospectId);
-    const statusOrder = this.getStatusOrder();
-    const currentOrder = statusOrder[readiness.currentStatus];
     
-    // Allow proposal generation once holdings are imported (status >= HOLDINGS_IMPORTED)
-    // Risk profile and tax profile are optional - client can complete later
-    if (currentOrder >= 1) {
+    if (readiness.completedSteps.includes('Holdings Imported')) {
       return { allowed: true };
     }
 

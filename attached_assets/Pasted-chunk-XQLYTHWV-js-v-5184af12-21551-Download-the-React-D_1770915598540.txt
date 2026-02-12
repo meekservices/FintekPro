@@ -1,0 +1,790 @@
+chunk-XQLYTHWV.js?v=5184af12:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+main.tsx:39 [PWA] Service Worker registered: https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/
+/api/user:1  Failed to load resource: the server responded with a status of 401 (Unauthorized)
+agent-prospect-wizard.tsx:1527 [Holdings] Loaded saved holdings (backend): 0
+agent-prospect-wizard.tsx:1566 [Goals] Loaded saved goals: 0
+agent-prospect-wizard.tsx:1623 [Goals] Auto-saved 0 goals
+agent-prospect-wizard.tsx:2432 [Holdings] Adding holding: Object -> backend format: Object
+agent-prospect-wizard.tsx:2437 [Holdings] Add result: Object
+agent-prospect-wizard.tsx:2441 [Holdings] Add success: Object
+agent-prospect-wizard.tsx:2461 [Holdings] Updating holding at index: 0 Object -> backend format: Object
+agent-prospect-wizard.tsx:2466 [Holdings] Update result: Object
+agent-prospect-wizard.tsx:2470 [Holdings] Update success: Object
+agent-prospect-wizard.tsx:2432 [Holdings] Adding holding: Object -> backend format: Object
+agent-prospect-wizard.tsx:2437 [Holdings] Add result: Object
+agent-prospect-wizard.tsx:2441 [Holdings] Add success: Object
+proposal-builder:1 Unchecked runtime.lastError: The message port closed before a response was received.
+proposal-builder:1 Unchecked runtime.lastError: The message port closed before a response was received.
+proposal-builder:1 Unchecked runtime.lastError: The message port closed before a response was received.
+proposal-builder:1 Unchecked runtime.lastError: The message port closed before a response was received.
+agent-prospect-wizard.tsx:2432 [Holdings] Adding holding: Object -> backend format: Object
+agent-prospect-wizard.tsx:2437 [Holdings] Add result: Object
+agent-prospect-wizard.tsx:2441 [Holdings] Add success: Object
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64
+react_jsx-dev-runtime.js?v=5184af12:64 Warning: Invalid prop `data-replit-metadata` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+    at AgentProspectWizard (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/pages/agent-prospect-wizard.tsx:377:21)
+    at div
+    at main
+    at div
+    at div
+    at AgentLayout (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/layout/agent-layout.tsx:213:31)
+    at Route (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:323:16)
+    at Switch (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5184af12:379:17)
+    at AgentRoutes
+    at Suspense
+    at Router (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/App.tsx?v=F4OwVtwu30qf2m6YPwFvF:5042:61)
+    at Provider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2M7HY3UG.js?v=5184af12:38:15)
+    at TooltipProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5184af12:64:5)
+    at UnifiedCartProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/UnifiedCartContext.tsx:23:39)
+    at UserPreferencesProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-user-preferences.tsx:72:43)
+    at QueryClientProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5184af12:2805:3)
+    at ThemeProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/theme-context.tsx:115:33)
+    at LowDataProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/LowDataContext.tsx:22:35)
+    at NetworkProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/hooks/use-network-state.tsx:22:35)
+    at ErrorBoundary (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/components/ErrorBoundary.tsx:14:5)
+    at App
+    at SessionProvider (https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/src/contexts/session-context.tsx:32:35)
+printWarning @ react_jsx-dev-runtime.js?v=5184af12:64

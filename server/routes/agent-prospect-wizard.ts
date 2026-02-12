@@ -508,6 +508,9 @@ router.post("/prospects/:id/portfolio/save", async (req: Request, res: Response)
     
     // Update prospect portfolio
     await agentProspectWizardService.updateProspectPortfolio(req.params.id, finalHoldings);
+    if (finalHoldings.length > 0) {
+      await prospectReadinessService.advanceOnHoldingsImport(req.params.id);
+    }
     
     console.log(`[Agent Wizard] Saved ${normalizedHoldings.length} imported holdings for prospect ${req.params.id} from source: ${source || 'unknown'}`);
     
@@ -1775,6 +1778,7 @@ router.post("/prospects/:id/holdings", async (req: Request, res: Response) => {
     const updatedHoldings = [...currentHoldings, { ...newHolding, addedAt: new Date().toISOString() }];
 
     await agentProspectWizardService.updateProspectPortfolio(req.params.id, updatedHoldings);
+    await prospectReadinessService.advanceOnHoldingsImport(req.params.id);
     res.json({ success: true, holdings: updatedHoldings, message: "Holding added successfully" });
   } catch (error: any) {
     console.error("[Agent Wizard] Error adding holding:", error);
@@ -1940,6 +1944,9 @@ router.post("/prospects/:id/holdings/merge", async (req: Request, res: Response)
     const mergedHoldings = Array.from(existingMap.values());
 
     await agentProspectWizardService.updateProspectPortfolio(req.params.id, mergedHoldings);
+    if (mergedHoldings.length > 0) {
+      await prospectReadinessService.advanceOnHoldingsImport(req.params.id);
+    }
     res.json({ 
       success: true, 
       holdings: mergedHoldings, 
