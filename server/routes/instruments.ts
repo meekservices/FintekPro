@@ -9,6 +9,7 @@ import {
 } from "@shared/schema";
 import { eq, ilike, or, and, sql, desc, inArray } from "drizzle-orm";
 import { NseIndia } from "stock-nse-india";
+import { unifiedStockPriceService } from "../services/unified-stock-price-service";
 
 const router = Router();
 
@@ -1140,6 +1141,7 @@ router.get("/api/instruments/price/:isin", async (req: Request, res: Response) =
     const [instrument] = await db.select({
       id: instrumentMaster.id,
       isin: instrumentMaster.isin,
+      symbol: instrumentMaster.symbol,
       name: instrumentMaster.name,
       shortName: instrumentMaster.shortName,
       assetClass: instrumentMaster.assetClass,
@@ -1152,14 +1154,29 @@ router.get("/api/instruments/price/:isin", async (req: Request, res: Response) =
       .limit(1);
 
     if (instrument) {
+      let currentPrice = instrument.lastPrice ? parseFloat(instrument.lastPrice) : null;
+      let priceSource = "instrument_master";
+
+      if (!currentPrice && instrument.assetClass === 'equity' && instrument.symbol) {
+        try {
+          const livePrice = await unifiedStockPriceService.getPrice(instrument.symbol, 'NSE');
+          if (livePrice && livePrice.price) {
+            currentPrice = livePrice.price;
+            priceSource = livePrice.source === 'BSE' ? "live_bse" : "live_nse";
+          }
+        } catch (e) {
+          // Live price fetch failed, continue with null
+        }
+      }
+
       return res.json({
         success: true,
-        source: "instrument_master",
+        source: priceSource,
         data: {
           isin: instrument.isin,
           name: instrument.name || instrument.shortName,
           assetClass: instrument.assetClass,
-          currentPrice: instrument.lastPrice ? parseFloat(instrument.lastPrice) : null,
+          currentPrice,
           currency: instrument.currency || "INR",
           priceUpdatedAt: instrument.priceUpdatedAt,
         }
@@ -1232,19 +1249,28 @@ router.get("/api/instruments/price/:isin", async (req: Request, res: Response) =
     // Check listed stocks
     const listedStock = LISTED_STOCKS.find(s => s.isin === isinUpper);
     if (listedStock) {
+      let currentPrice: number | null = null;
+      let priceSource = "listed_stocks";
+      try {
+        const livePrice = await unifiedStockPriceService.getPrice(listedStock.symbol, 'NSE');
+        if (livePrice && livePrice.price) {
+          currentPrice = livePrice.price;
+          priceSource = livePrice.source === 'BSE' ? "live_bse" : "live_nse";
+        }
+      } catch (e) {}
+
       return res.json({
         success: true,
-        source: "listed_stocks",
+        source: priceSource,
         data: {
           isin: listedStock.isin,
           symbol: listedStock.symbol,
           name: listedStock.name,
           sector: listedStock.sector,
           assetClass: "equity",
-          currentPrice: null, // Would need real-time fetch
+          currentPrice,
           currency: "INR",
-          priceUpdatedAt: null,
-          note: "Real-time price requires market data fetch"
+          priceUpdatedAt: currentPrice ? new Date() : null,
         }
       });
     }

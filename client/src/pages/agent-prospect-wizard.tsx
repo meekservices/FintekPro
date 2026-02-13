@@ -1673,28 +1673,64 @@ export default function AgentProspectWizard() {
     return () => clearTimeout(debounceTimer);
   }, [productSearchQuery, newHolding.productType]);
 
-  // Handle selecting a product from search results
-  const selectProduct = (instrument: any) => {
-    const price = parseFloat(instrument.lastPrice) || parseFloat(instrument.nav) || 0;
-    setNewHolding({
-      ...newHolding,
-      productName: instrument.name || instrument.shortName,
-      isin: instrument.isin,
-      currentValue: price * (newHolding.quantity || 1)
-    });
-    setSelectedInstrumentPrice(price);
-    setProductSearchQuery(instrument.name || instrument.shortName);
-    setShowProductDropdown(false);
+  const [isFetchingPrice, setIsFetchingPrice] = useState(false);
+  const priceFetchRef = useRef(0);
+
+  const fetchLivePrice = async (isin: string, fetchId: number): Promise<number> => {
+    try {
+      setIsFetchingPrice(true);
+      const res = await fetch(`/api/instruments/price/${encodeURIComponent(isin)}`);
+      if (priceFetchRef.current !== fetchId) return 0;
+      if (res.ok) {
+        const data = await res.json();
+        return parseFloat(data.data?.currentPrice) || parseFloat(data.price) || parseFloat(data.lastPrice) || parseFloat(data.nav) || 0;
+      }
+    } catch (err) {
+      console.error("Price fetch error:", err);
+    } finally {
+      if (priceFetchRef.current === fetchId) {
+        setIsFetchingPrice(false);
+      }
+    }
+    return 0;
   };
 
-  // Recalculate current value when units change
+  const selectProduct = async (instrument: any) => {
+    const fetchId = ++priceFetchRef.current;
+    let price = parseFloat(instrument.lastPrice) || parseFloat(instrument.nav) || 0;
+    const name = instrument.name || instrument.shortName;
+    const isin = instrument.isin;
+
+    setSelectedInstrumentPrice(price > 0 ? price : null);
+    setNewHolding(prev => ({
+      ...prev,
+      productName: name,
+      isin: isin,
+      currentValue: price > 0 ? price * (prev.quantity || 1) : 0
+    }));
+    setProductSearchQuery(name);
+    setShowProductDropdown(false);
+
+    if (price <= 0 && isin) {
+      price = await fetchLivePrice(isin, fetchId);
+      if (priceFetchRef.current !== fetchId) return;
+    }
+
+    if (price > 0) {
+      setSelectedInstrumentPrice(price);
+      setNewHolding(prev => ({
+        ...prev,
+        currentValue: price * (prev.quantity || 1)
+      }));
+    }
+  };
+
   const handleUnitsChange = (units: number) => {
-    const calculatedValue = selectedInstrumentPrice ? units * selectedInstrumentPrice : newHolding.currentValue || 0;
-    setNewHolding({
-      ...newHolding,
+    setNewHolding(prev => ({
+      ...prev,
       quantity: units,
-      currentValue: selectedInstrumentPrice ? calculatedValue : newHolding.currentValue || 0
-    });
+      currentValue: selectedInstrumentPrice ? units * selectedInstrumentPrice : prev.currentValue || 0
+    }));
   };
 
   useEffect(() => {
@@ -4107,25 +4143,37 @@ export default function AgentProspectWizard() {
                         onChange={(e) => handleUnitsChange(parseFloat(e.target.value) || 0)}
                         data-testid="product-units-input"
                       />
-                      {selectedInstrumentPrice && (
-                        <p className="text-xs text-muted-foreground">
-                          Price: ₹{selectedInstrumentPrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                      {isFetchingPrice && (
+                        <p className="text-xs text-blue-600 flex items-center gap-1">
+                          <Loader2 className="h-3 w-3 animate-spin" /> Fetching price...
                         </p>
                       )}
+                      {!isFetchingPrice && selectedInstrumentPrice ? (
+                        <p className="text-xs text-green-600">
+                          ₹{selectedInstrumentPrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })} / unit
+                        </p>
+                      ) : null}
                     </div>
                     <div className="space-y-2">
                       <Label>Current Value (₹)</Label>
-                      <Input 
-                        type="number"
-                        placeholder="100000"
-                        value={newHolding.currentValue || ''}
-                        onChange={(e) => setNewHolding({ ...newHolding, currentValue: parseFloat(e.target.value) || 0 })}
-                        data-testid="product-value-input"
-                        className={selectedInstrumentPrice ? "bg-muted/30" : ""}
-                      />
-                      {selectedInstrumentPrice && newHolding.quantity && (
-                        <p className="text-xs text-green-600">Auto-calculated from units × price</p>
-                      )}
+                      <div className="relative">
+                        <Input 
+                          type="number"
+                          placeholder="100000"
+                          value={newHolding.currentValue || ''}
+                          onChange={(e) => setNewHolding({ ...newHolding, currentValue: parseFloat(e.target.value) || 0 })}
+                          data-testid="product-value-input"
+                          className={selectedInstrumentPrice ? "bg-muted/30" : ""}
+                        />
+                        {isFetchingPrice && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+                      {selectedInstrumentPrice && newHolding.quantity ? (
+                        <p className="text-xs text-green-600">Auto: {newHolding.quantity} × ₹{selectedInstrumentPrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
+                      ) : null}
                     </div>
                     <div className="space-y-2">
                       <Label className="flex items-center gap-1">
@@ -4289,6 +4337,8 @@ export default function AgentProspectWizard() {
                     <TableRow>
                       <TableHead>Product</TableHead>
                       <TableHead>Type</TableHead>
+                      <TableHead className="text-right">Units</TableHead>
+                      <TableHead className="text-right">Price</TableHead>
                       <TableHead className="text-right">Value</TableHead>
                       <TableHead className="w-28">Purchase Date</TableHead>
                       <TableHead className="w-24 text-center">Actions</TableHead>
@@ -4381,6 +4431,12 @@ export default function AgentProspectWizard() {
                         <TableCell>
                           <Badge variant="outline">{PRODUCT_TYPES.find(t => t.value === holding.productType)?.label}</Badge>
                         </TableCell>
+                        <TableCell className="text-right text-sm text-muted-foreground">
+                          {holding.quantity ? holding.quantity.toLocaleString('en-IN', { maximumFractionDigits: 4 }) : '-'}
+                        </TableCell>
+                        <TableCell className="text-right text-sm text-muted-foreground">
+                          {holding.quantity && holding.currentValue ? formatCurrency(holding.currentValue / holding.quantity) : '-'}
+                        </TableCell>
                         <TableCell className="text-right">{formatCurrency(holding.currentValue)}</TableCell>
                         <TableCell>
                           {editingHoldingIndex === idx ? (
@@ -4467,7 +4523,7 @@ export default function AgentProspectWizard() {
                       </TableRow>
                     )})}
                     <TableRow className="bg-muted/50">
-                      <TableCell colSpan={2} className="font-semibold">Total Portfolio Value</TableCell>
+                      <TableCell colSpan={4} className="font-semibold">Total Portfolio Value</TableCell>
                       <TableCell className="text-right font-bold text-lg">{formatCurrency(totalPortfolioValue)}</TableCell>
                       <TableCell></TableCell>
                       <TableCell></TableCell>
