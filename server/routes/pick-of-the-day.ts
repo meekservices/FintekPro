@@ -48,8 +48,11 @@ const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
   if (!(req as any).user) {
     return res.status(401).json({ success: false, error: "Authentication required" });
   }
-  const role = (req as any).user.role;
-  if (role !== 'admin' && role !== 'superadmin') {
+  const user = (req as any).user;
+  const role = user.role;
+  const roles: string[] = Array.isArray(user.roles) ? user.roles : [];
+  const isAdmin = role === 'admin' || role === 'superadmin' || roles.includes('admin') || roles.includes('superadmin');
+  if (!isAdmin) {
     return res.status(403).json({ success: false, error: "Admin access required" });
   }
   next();
