@@ -1045,19 +1045,21 @@ app.use((req, res, next) => {
     console.error('❌ Failed to seed store categories:', error);
   });
 
-  // First-run data bootstrap: seed benchmark indices and trigger initial enrichment
-  // Only runs if benchmark NAV data is empty (indicates first deployment)
+  // Comprehensive data bootstrap: seed all reference data
   setTimeout(async () => {
     try {
+      const { runProductionBootstrap } = await import('./production-bootstrap');
+      await runProductionBootstrap();
+
       const { db } = await import('./db');
       const { sql } = await import('drizzle-orm');
-      
+
       const indicesCheck = await db.execute(sql`SELECT COUNT(*) as cnt FROM market_indices`);
       const indicesCount = parseInt(String((indicesCheck.rows[0] as any)?.cnt || '0'));
-      
-      if (indicesCount === 0) {
-        console.log('🔄 [Bootstrap] First-run detected: seeding benchmark index data...');
-        
+
+      if (indicesCount <= 7) {
+        console.log('🔄 [Bootstrap] Seeding benchmark index data...');
+
         try {
           const { bseBenchmarkService } = await import('./services/bse-benchmark-service');
           const bseResult = await bseBenchmarkService.seedBseIndices();
@@ -1065,7 +1067,7 @@ app.use((req, res, next) => {
         } catch (err: any) {
           console.error('⚠️ [Bootstrap] BSE index seeding failed:', err.message);
         }
-        
+
         try {
           const { amfiBenchmarkIngestionService } = await import('./services/amfi-benchmark-ingestion-service');
           const amfiResult = await amfiBenchmarkIngestionService.syncAmfiSchemeBenchmarks();
@@ -1073,13 +1075,12 @@ app.use((req, res, next) => {
         } catch (err: any) {
           console.error('⚠️ [Bootstrap] AMFI benchmark ingestion failed:', err.message);
         }
-        
-        console.log('✅ [Bootstrap] First-run data seeding completed');
+
+        console.log('✅ [Bootstrap] Benchmark data seeding completed');
       } else {
-        console.log(`✅ [Bootstrap] ${indicesCount} market indices already exist, skipping first-run seeding`);
+        console.log(`✅ [Bootstrap] ${indicesCount} market indices already exist`);
       }
-      
-      // Check MF returns gap - enrich top funds if most are missing (production only)
+
       const isBootstrapProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT_DEPLOYMENT === '1';
       if (isBootstrapProduction) {
         const mfCheck = await db.execute(sql`
@@ -1090,7 +1091,7 @@ app.use((req, res, next) => {
         const mfTotal = parseInt(String((mfCheck.rows[0] as any)?.total || '0'));
         const mfMissing = parseInt(String((mfCheck.rows[0] as any)?.missing || '0'));
         const gapPercent = mfTotal > 0 ? (mfMissing / mfTotal) * 100 : 0;
-        
+
         if (gapPercent > 80 && mfTotal > 100) {
           console.log(`🔄 [Bootstrap] MF returns gap: ${gapPercent.toFixed(1)}% missing - starting initial enrichment for top 500 funds...`);
           try {
@@ -1107,5 +1108,5 @@ app.use((req, res, next) => {
     } catch (error: any) {
       console.error('❌ [Bootstrap] Data seeding failed:', error.message);
     }
-  }, 60000); // 60 second delay to let other services initialize first
+  }, 60000);
 })();
