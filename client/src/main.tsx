@@ -3,9 +3,9 @@ import App from "./App";
 import "./index.css";
 import { SessionProvider } from "@/contexts/session-context";
 import { SessionExpiredDialog } from "@/components/ui/session-expired-dialog";
-import { BUILD_TIMESTAMP } from "@shared/version";
+import { APP_VERSION } from "@shared/version";
 
-const SW_VERSION = encodeURIComponent(BUILD_TIMESTAMP);
+const SW_VERSION = APP_VERSION;
 
 // Vite chunk loading error handler for stale cached chunks after deployments
 window.addEventListener('vite:preloadError', () => {
