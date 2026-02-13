@@ -835,6 +835,11 @@ interface CkycProvidersResponse {
     environment: string;
     truthscreenConfigured: boolean;
     sandboxConfigured: boolean;
+    cashfreeConfigured: boolean;
+    bseStarConfigured: boolean;
+    kraConfigured: boolean;
+    nsdlCkycConfigured: boolean;
+    digilockerConfigured: boolean;
   };
 }
 
@@ -919,9 +924,13 @@ function CkycProviderSettings() {
     switch (code) {
       case 'truthscreen': return <Shield className="h-5 w-5 text-blue-600" />;
       case 'sandbox': return <Zap className="h-5 w-5 text-green-600" />;
-      case 'nsdl': return <FileText className="h-5 w-5 text-purple-600" />;
-      case 'cersai_reference': return <FileText className="h-5 w-5 text-purple-600" />;
+      case 'cashfree': return <Activity className="h-5 w-5 text-violet-600" />;
+      case 'bse_star': return <FileText className="h-5 w-5 text-red-600" />;
+      case 'nsdl': return <Shield className="h-5 w-5 text-purple-600" />;
+      case 'kra': return <FileText className="h-5 w-5 text-teal-600" />;
       case 'offline_aadhaar': return <FileText className="h-5 w-5 text-orange-600" />;
+      case 'digilocker': return <FileText className="h-5 w-5 text-indigo-600" />;
+      case 'cersai_reference': return <FileText className="h-5 w-5 text-purple-600" />;
       case 'vkyc': return <Eye className="h-5 w-5 text-indigo-600" />;
       case 'manual': return <Users className="h-5 w-5 text-gray-600" />;
       default: return <Settings className="h-5 w-5" />;
@@ -940,6 +949,12 @@ function CkycProviderSettings() {
   const isCredentialConfigured = (code: string) => {
     if (code === 'truthscreen') return meta?.truthscreenConfigured;
     if (code === 'sandbox') return meta?.sandboxConfigured;
+    if (code === 'cashfree') return meta?.cashfreeConfigured;
+    if (code === 'bse_star') return meta?.bseStarConfigured;
+    if (code === 'kra') return meta?.kraConfigured;
+    if (code === 'nsdl') return meta?.nsdlCkycConfigured;
+    if (code === 'digilocker') return meta?.digilockerConfigured;
+    if (code === 'offline_aadhaar') return true;
     return false;
   };
 
@@ -956,7 +971,9 @@ function CkycProviderSettings() {
       description: "Identity verification via PAN card with government data sources",
       icon: <FileText className="h-5 w-5 text-amber-600" />,
       providers: [
-        { code: 'sandbox', name: 'Sandbox.co.in', description: 'PAN verification via Sandbox.co.in API', data: sandbox, role: 'Primary' },
+        { code: 'sandbox', name: 'Sandbox.co.in', description: 'PAN verification via Sandbox.co.in API', data: sandbox, role: 'Primary', configured: meta?.sandboxConfigured },
+        { code: 'cashfree', name: 'Cashfree', description: 'PAN verification via Cashfree Verification Suite', data: null, role: 'Available', configured: meta?.cashfreeConfigured },
+        { code: 'bse_star', name: 'BSE Star MFD', description: 'PAN verification via BSE Star MFD API', data: null, role: 'Available', configured: meta?.bseStarConfigured },
       ],
     },
     {
@@ -964,8 +981,10 @@ function CkycProviderSettings() {
       description: "Aadhaar-based identity verification with OTP or offline XML",
       icon: <Shield className="h-5 w-5 text-green-600" />,
       providers: [
-        { code: 'sandbox', name: 'Sandbox.co.in', description: 'Aadhaar OTP verification via Sandbox API', data: sandbox, role: 'Primary' },
-        { code: 'truthscreen', name: 'TruthScreen', description: 'Aadhaar verification via TruthScreen API', data: truthscreen, role: 'Fallback' },
+        { code: 'sandbox', name: 'Sandbox.co.in', description: 'Aadhaar OTP verification via Sandbox API', data: sandbox, role: 'Primary', configured: meta?.sandboxConfigured },
+        { code: 'truthscreen', name: 'TruthScreen', description: 'Aadhaar eKYC & PAN-Aadhaar linkage via TruthScreen', data: truthscreen, role: 'Fallback', configured: meta?.truthscreenConfigured },
+        { code: 'cashfree', name: 'Cashfree', description: 'Aadhaar OKYC (OTP-based) via Cashfree API', data: null, role: 'Available', configured: meta?.cashfreeConfigured },
+        { code: 'offline_aadhaar', name: 'Offline Aadhaar XML', description: 'UIDAI offline XML verification (no API needed)', data: providers.find(p => p.providerCode === 'offline_aadhaar') || null, role: 'Fallback', configured: true },
       ],
     },
     {
@@ -973,13 +992,22 @@ function CkycProviderSettings() {
       description: "Central KYC (CKYC) record lookup via KIN/PAN from CERSAI registry",
       icon: <Shield className="h-5 w-5 text-blue-600" />,
       providers: [
-        { code: 'truthscreen', name: 'TruthScreen', description: 'CKYC record lookup via TruthScreen CKYC API', data: truthscreen, role: 'Primary' },
-        { code: 'nsdl', name: 'NSDL CKYC', description: 'Direct NSDL CKYC registry (credentials pending)', data: null, role: 'Non-functional' },
+        { code: 'truthscreen', name: 'TruthScreen', description: 'CKYC/KRA record lookup via TruthScreen API', data: truthscreen, role: 'Primary', configured: meta?.truthscreenConfigured },
+        { code: 'nsdl', name: 'NSDL CKYC', description: 'Direct NSDL CKYC registry lookup', data: null, role: 'Non-functional', configured: meta?.nsdlCkycConfigured },
+        { code: 'kra', name: 'KRA (NSDL/CVL)', description: 'KYC Registration Agency status check via NSDL/CVL KRA', data: null, role: 'Available', configured: meta?.kraConfigured },
+      ],
+    },
+    {
+      title: "Document Verification",
+      description: "Government document pull and verification via DigiLocker",
+      icon: <FileText className="h-5 w-5 text-indigo-600" />,
+      providers: [
+        { code: 'digilocker', name: 'DigiLocker', description: 'Government document pull (Aadhaar, PAN, DL) via DigiLocker API', data: null, role: 'Available', configured: meta?.digilockerConfigured },
       ],
     },
   ];
 
-  const otherProviders = providers.filter(p => p.providerCode !== 'truthscreen' && p.providerCode !== 'sandbox');
+  const otherProviders = providers.filter(p => !['truthscreen', 'sandbox', 'offline_aadhaar'].includes(p.providerCode));
 
   return (
     <div className="space-y-6">
@@ -992,7 +1020,7 @@ function CkycProviderSettings() {
                 KYC Verification Providers
               </CardTitle>
               <CardDescription>
-                Provider mapping by verification type. PAN uses Sandbox, Aadhaar uses Sandbox/TruthScreen, CKYC uses TruthScreen/NSDL.
+                All KYC service providers available in FintekPro, organized by verification type. Active providers are highlighted; configure credentials to enable additional providers.
               </CardDescription>
             </div>
             <Button
@@ -1020,9 +1048,11 @@ function CkycProviderSettings() {
                 <div className="grid gap-3 md:grid-cols-2 pl-7">
                   {category.providers.map((prov) => {
                     const isNonFunctional = prov.role === 'Non-functional';
+                    const isAvailableOnly = prov.role === 'Available';
                     const provData = prov.data;
+                    const hasCredentials = prov.configured;
                     return (
-                      <Card key={`${category.title}-${prov.code}`} className={`border transition-colors ${isNonFunctional ? 'border-dashed border-muted opacity-60' : provData?.isEnabled ? 'border-primary/50 bg-primary/5' : 'border-muted'}`}>
+                      <Card key={`${category.title}-${prov.code}`} className={`border transition-colors ${isNonFunctional ? 'border-dashed border-muted opacity-60' : isAvailableOnly && !hasCredentials ? 'border-dashed border-muted opacity-70' : provData?.isEnabled ? 'border-primary/50 bg-primary/5' : 'border-muted'}`}>
                         <CardContent className="p-4 space-y-3">
                           <div className="flex items-start justify-between">
                             <div className="flex items-center gap-3">
@@ -1049,20 +1079,20 @@ function CkycProviderSettings() {
                               <Badge variant="destructive" className="text-xs">
                                 <XCircle size={12} className="mr-1" />Credentials Pending
                               </Badge>
-                            ) : provData ? (
+                            ) : (
                               <>
-                                {getHealthBadge(provData.healthStatus)}
-                                {isCredentialConfigured(prov.code) ? (
+                                {provData && getHealthBadge(provData.healthStatus)}
+                                {hasCredentials ? (
                                   <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs">
                                     <CheckCircle size={12} className="mr-1" />Credentials Set
                                   </Badge>
                                 ) : (
-                                  <Badge variant="destructive" className="text-xs">
-                                    <XCircle size={12} className="mr-1" />Missing Credentials
+                                  <Badge variant="outline" className="text-xs border-orange-300 text-orange-700 dark:text-orange-400">
+                                    <AlertCircle size={12} className="mr-1" />Not Configured
                                   </Badge>
                                 )}
                               </>
-                            ) : null}
+                            )}
                           </div>
 
                           {!isNonFunctional && provData && (
