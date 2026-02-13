@@ -3,6 +3,7 @@ import { mutualFunds, listedStocks, corporateBonds, governmentSecurities } from 
 import { eq, and, desc, gte, lte, sql, inArray, ilike, or, isNotNull, isNull } from "drizzle-orm";
 import { GoogleGenAI } from "@google/genai";
 import { financialMetricsCalculator } from "./financial-metrics-calculator";
+import { getEnrichedStockSnapshot } from './screener/enriched-stock-data';
 
 export type AssetClass = 'mutual_fund' | 'stock' | 'bond' | 'government_security' | 'reit' | 'commodity';
 
@@ -373,23 +374,45 @@ export class FintekProRatingService {
     if (stocks.length === 0) return null;
     const stock = stocks[0];
 
+    const enriched = await getEnrichedStockSnapshot(stock.symbol || stockId);
+
     const currentPrice = parseFloat(stock.currentPrice?.toString() || '0');
-    const peRatio = parseFloat(stock.peRatio?.toString() || '25');
-    const pbRatio = parseFloat(stock.pbRatio?.toString() || '3');
-    const roe = parseFloat(stock.roe?.toString() || '15');
-    const marketCap = parseFloat(stock.marketCap?.toString() || '10000');
+    const peRatio = enriched?.fundamentals?.peRatio ?? parseFloat(stock.peRatio?.toString() || '25');
+    const pbRatio = enriched?.fundamentals?.pbRatio ?? parseFloat(stock.pbRatio?.toString() || '3');
+    const roe = enriched?.fundamentals?.roe ?? parseFloat(stock.roe?.toString() || '15');
+    const marketCap = enriched?.fundamentals?.marketCap ?? parseFloat(stock.marketCap?.toString() || '10000');
     const returns1y = parseFloat(stock.returns1y?.toString() || '0');
     const returns3y = parseFloat(stock.returns3y?.toString() || '0');
     const beta = parseFloat(stock.beta?.toString() || '1');
+    const debtToEquity = enriched?.fundamentals?.debtToEquity ?? parseFloat(stock.debtToEquity?.toString() || '1');
+    const enrichedRoic = enriched?.fundamentals?.roic ?? null;
+    const enrichedEvToEbitda = enriched?.fundamentals?.evToEbitda ?? null;
+    const enrichedInterestCoverage = enriched?.fundamentals?.interestCoverage ?? null;
+    const enrichedDividendYield = enriched?.fundamentals?.dividendYield ?? null;
+
+    const hasEnrichedData = !!enriched;
 
     const riskAdjustedScore = this.calculateStockRiskAdjustedScore(returns1y, returns3y, beta);
-    let qualityScore = this.calculateStockQualityScore(roe, stock.debtToEquity?.toString(), stock.sector || '');
+    let qualityScore = this.calculateStockQualityScore(roe, debtToEquity.toString(), stock.sector || '');
     const liquidityScore = this.calculateStockLiquidityScore(marketCap, stock.avgVolume?.toString());
-    const momentumScore = this.calculateMomentumScore(returns1y, returns3y);
+    let momentumScore = this.calculateMomentumScore(returns1y, returns3y);
     let valuationScore = this.calculateStockValuationScore(peRatio, pbRatio, stock.sector || '');
     
     const advancedMetrics = this.calculateAdvancedMetricsForStock(stock);
-    
+
+    if (enrichedRoic != null) {
+      advancedMetrics.roic = enrichedRoic;
+    }
+    if (enrichedEvToEbitda != null) {
+      advancedMetrics.evToEbitda = enrichedEvToEbitda;
+    }
+    if (enriched?.growth?.epsGrowth != null && enriched.growth.epsGrowth > 0 && peRatio > 0) {
+      const epsGrowthPct = enriched.growth.epsGrowth > 1 ? enriched.growth.epsGrowth / 100 : enriched.growth.epsGrowth;
+      if (epsGrowthPct > 0) {
+        advancedMetrics.pegRatio = peRatio / (epsGrowthPct * 100);
+      }
+    }
+
     if (advancedMetrics.piotroskiFScore !== undefined) {
       if (advancedMetrics.piotroskiFScore >= 8) qualityScore += 15;
       else if (advancedMetrics.piotroskiFScore >= 6) qualityScore += 8;
@@ -408,9 +431,49 @@ export class FintekProRatingService {
     if (advancedMetrics.roic !== undefined && advancedMetrics.roic > 15) {
       qualityScore += 10;
     }
+
+    if (enriched?.companyRating?.ratingScore != null) {
+      const fmpScore = enriched.companyRating.ratingScore;
+      if (fmpScore >= 4) qualityScore += 12;
+      else if (fmpScore >= 3) qualityScore += 6;
+      else if (fmpScore <= 1) qualityScore -= 8;
+    }
+
+    if (enrichedInterestCoverage != null) {
+      if (enrichedInterestCoverage > 5) qualityScore += 5;
+      else if (enrichedInterestCoverage < 1.5) qualityScore -= 8;
+    }
+
+    if (enriched?.growth) {
+      const g = enriched.growth;
+      let growthBoost = 0;
+      if (g.revenueGrowth != null && g.revenueGrowth > 10) growthBoost += 5;
+      if (g.epsGrowth != null && g.epsGrowth > 15) growthBoost += 5;
+      if (g.freeCashFlowGrowth != null && g.freeCashFlowGrowth > 10) growthBoost += 5;
+      if (g.revenueGrowth != null && g.revenueGrowth < -10) growthBoost -= 5;
+      if (g.epsGrowth != null && g.epsGrowth < -15) growthBoost -= 5;
+      momentumScore += growthBoost;
+    }
+
+    if (enriched?.dcf?.upsidePercent != null) {
+      const upside = enriched.dcf.upsidePercent;
+      if (upside > 30) valuationScore += 15;
+      else if (upside > 15) valuationScore += 10;
+      else if (upside > 0) valuationScore += 5;
+      else if (upside < -20) valuationScore -= 10;
+    }
+
+    if (enriched?.technicals?.rsi != null) {
+      const rsi = enriched.technicals.rsi;
+      if (rsi >= 30 && rsi <= 50) momentumScore += 8;
+      else if (rsi > 50 && rsi <= 70) momentumScore += 0;
+      else if (rsi > 70) momentumScore -= 8;
+      else if (rsi < 30) momentumScore += 4;
+    }
     
     qualityScore = Math.min(100, Math.max(0, qualityScore));
     valuationScore = Math.min(100, Math.max(0, valuationScore));
+    momentumScore = Math.min(100, Math.max(0, momentumScore));
 
     const overallScore = (
       riskAdjustedScore * 0.30 +
@@ -423,6 +486,9 @@ export class FintekProRatingService {
     const stars = this.scoreToStars(overallScore);
     const percentile = this.scoreToPercentile(overallScore);
 
+    const dataSource: 'database' | 'calculated' | 'ai_enhanced' = 
+      includeAI && this.genAI ? 'ai_enhanced' : hasEnrichedData ? 'database' : 'calculated';
+
     const rating: FintekProRating = {
       rating: stars,
       stars,
@@ -431,18 +497,18 @@ export class FintekProRatingService {
       evaluationDate: new Date(),
       riskAdjustedScore,
       qualityScore,
-      assetQualityScore: qualityScore, // Backward compatibility
-      concentrationScore: 80, // Default concentration score for backward compatibility
+      assetQualityScore: qualityScore,
+      concentrationScore: 80,
       liquidityScore,
       momentumScore,
       valuationScore,
       overallScore,
       confidenceLevel: marketCap > 50000 ? 'high' : marketCap > 10000 ? 'medium' : 'low',
-      dataSource: includeAI && this.genAI ? 'ai_enhanced' : 'database',
+      dataSource,
       advancedMetrics
     };
 
-    const keyMetrics = {
+    const keyMetrics: Record<string, number | string> = {
       currentPrice: `₹${currentPrice.toFixed(2)}`,
       peRatio: peRatio.toFixed(2),
       pbRatio: pbRatio.toFixed(2),
@@ -453,10 +519,28 @@ export class FintekProRatingService {
       sector: stock.sector || 'N/A'
     };
 
+    if (enrichedRoic != null) keyMetrics.roic = `${enrichedRoic.toFixed(2)}%`;
+    if (enriched?.growth?.epsGrowth != null) keyMetrics.epsGrowth = `${enriched.growth.epsGrowth.toFixed(2)}%`;
+    if (enriched?.dcf?.upsidePercent != null) keyMetrics.dcfUpside = `${enriched.dcf.upsidePercent.toFixed(1)}%`;
+    if (enriched?.companyRating?.ratingScore != null) keyMetrics.fmpRating = enriched.companyRating.ratingScore;
+    if (enriched?.fundamentals?.grahamNumber != null) keyMetrics.grahamNumber = `₹${enriched.fundamentals.grahamNumber.toFixed(2)}`;
+    if (enrichedEvToEbitda != null) keyMetrics.evToEbitda = enrichedEvToEbitda.toFixed(2);
+    if (enriched?.technicals?.rsi != null) keyMetrics.rsi = enriched.technicals.rsi.toFixed(1);
+
     const strengths = this.generateStockStrengths(stock, overallScore, returns1y, roe, peRatio);
     const concerns = this.generateStockConcerns(stock, overallScore, returns1y, peRatio, beta);
     const recommendation = this.generateRecommendation(stars, overallScore);
-    const rationale = this.generateStockRationale(stock, rating, keyMetrics);
+
+    let rationale = this.generateStockRationale(stock, rating, keyMetrics);
+    if (enriched?.dcf?.upsidePercent != null) {
+      rationale += ` DCF analysis suggests ${enriched.dcf.upsidePercent > 0 ? 'an upside' : 'a downside'} of ${enriched.dcf.upsidePercent.toFixed(1)}%.`;
+    }
+    if (enrichedRoic != null && enrichedRoic > 15) {
+      rationale += ` ROIC of ${enrichedRoic.toFixed(1)}% indicates strong capital efficiency.`;
+    }
+    if (enriched?.analystTargets && enriched.analystTargets.count > 0 && enriched.analystTargets.avgPriceTarget != null) {
+      rationale += ` Analyst consensus target: ₹${enriched.analystTargets.avgPriceTarget.toFixed(0)} (${enriched.analystTargets.count} analysts).`;
+    }
 
     let aiInsights: string | undefined;
     if (includeAI && this.genAI) {

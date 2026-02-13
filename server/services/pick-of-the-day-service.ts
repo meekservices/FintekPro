@@ -9,6 +9,8 @@ import {
   logFilteredInstrument 
 } from "./regulatory-investability-service";
 import { currencyExchangeService } from "./currency-exchange-service";
+import { getEnrichedStockSnapshot, getEnrichedStockSnapshots } from './screener/enriched-stock-data';
+import type { EnrichedStockSnapshot } from './screener/enriched-stock-data';
 
 const financialMetricsCalculator = new FinancialMetricsCalculator();
 
@@ -381,20 +383,56 @@ class PickOfTheDayService {
       const recentIds = await this.getRecentlyPickedIds('listed_stocks');
       const freshStocks = this.filterRecentPicks(stocks, recentIds, s => s.id);
 
+      const stockSymbols = freshStocks.map(s => s.symbol).filter(Boolean) as string[];
+      let enrichedSnapshots: Map<string, EnrichedStockSnapshot> = new Map();
+      try {
+        enrichedSnapshots = await getEnrichedStockSnapshots(stockSymbols);
+      } catch (err) {
+        console.warn("[PickOfTheDay] Failed to fetch enriched snapshots, continuing without:", err);
+      }
+
       const scoredStocksRaw = await Promise.all(
-        freshStocks.map(async stock => ({
-          stock,
-          score: await this.scoreStock(stock),
-        }))
+        freshStocks.map(async stock => {
+          const enriched = stock.symbol ? enrichedSnapshots.get(stock.symbol.toUpperCase()) || null : null;
+          return {
+            stock,
+            enriched,
+            score: await this.scoreStock(stock, enriched),
+          };
+        })
       );
       const scoredStocks = scoredStocksRaw.sort((a, b) => b.score - a.score);
 
       const topStock = scoredStocks[0].stock;
+      const topEnriched = scoredStocks[0].enriched;
       const currentPrice = parseFloat(topStock.currentPrice || "0");
       const volatility = topStock.volatility ? parseFloat(topStock.volatility) : undefined;
       const { targetPct, stoplossPct } = this.getDynamicTargetStoploss('listed_stocks', volatility);
       const targetPrice = Math.round(currentPrice * (1 + targetPct) * 100) / 100;
       const stoplossPrice = Math.round(currentPrice * (1 - stoplossPct) * 100) / 100;
+
+      const enrichedRationaleData: Record<string, any> = {};
+      if (topEnriched) {
+        if (topEnriched.dcf?.upsidePercent != null) {
+          enrichedRationaleData.dcfUpside = topEnriched.dcf.upsidePercent;
+        }
+        if (topEnriched.fundamentals?.roic != null) {
+          enrichedRationaleData.roic = topEnriched.fundamentals.roic;
+        }
+        if (topEnriched.growth?.epsGrowth != null) {
+          enrichedRationaleData.epsGrowth = topEnriched.growth.epsGrowth;
+        }
+        if (topEnriched.companyRating?.ratingRecommendation) {
+          enrichedRationaleData.companyRating = topEnriched.companyRating.ratingRecommendation;
+        }
+        if (topEnriched.technicals?.rsi != null) {
+          enrichedRationaleData.rsi = topEnriched.technicals.rsi;
+        }
+        if (topEnriched.analystTargets?.avgPriceTarget != null) {
+          enrichedRationaleData.analystAvgTarget = topEnriched.analystTargets.avgPriceTarget;
+          enrichedRationaleData.analystCount = topEnriched.analystTargets.count;
+        }
+      }
 
       const rationale = await this.generateRationale({
         category: 'listed_stocks',
@@ -407,9 +445,9 @@ class PickOfTheDayService {
         peRatio: topStock.peRatio ? parseFloat(topStock.peRatio) : undefined,
         returns1Y: topStock.returns1Y ? parseFloat(topStock.returns1Y) : undefined,
         analystRating: topStock.analystRating,
+        ...enrichedRationaleData,
       });
 
-      // Determine exchange from available data
       const exchange = topStock.nseCode ? 'NSE' : (topStock.bseCode ? 'BSE' : 'NSE');
       
       return {
@@ -442,6 +480,13 @@ class PickOfTheDayService {
           marketCap: topStock.marketCap,
           analystRating: topStock.analystRating,
           dividendYield: topStock.dividendYield ? parseFloat(topStock.dividendYield) : null,
+          roic: topEnriched?.fundamentals?.roic ?? null,
+          epsGrowth: topEnriched?.growth?.epsGrowth ?? null,
+          dcfUpside: topEnriched?.dcf?.upsidePercent ?? null,
+          enrichedRating: topEnriched?.companyRating?.ratingRecommendation ?? null,
+          rsi: topEnriched?.technicals?.rsi ?? null,
+          institutionalHolderCount: topEnriched?.institutional?.totalCount ?? null,
+          analystAvgTarget: topEnriched?.analystTargets?.avgPriceTarget ?? null,
         },
       };
     } catch (error) {
@@ -1308,7 +1353,7 @@ class PickOfTheDayService {
     return score;
   }
 
-  private async scoreStock(stock: any): Promise<number> {
+  private async scoreStock(stock: any, enriched?: EnrichedStockSnapshot | null): Promise<number> {
     let score = 0;
     
     const analystRating = stock.analystRating?.toLowerCase() || '';
@@ -1332,35 +1377,92 @@ class PickOfTheDayService {
     
     const advancedMetrics = await this.calculateAdvancedMetricsForStock(stock);
     
-    // Piotroski F-Score (0-9): Higher is better financial health
     if (advancedMetrics.piotroskiFScore !== undefined) {
       if (advancedMetrics.piotroskiFScore >= 8) score += 15;
       else if (advancedMetrics.piotroskiFScore >= 6) score += 10;
       else if (advancedMetrics.piotroskiFScore < 4) score -= 5;
     }
     
-    // Altman Z-Score: Financial distress indicator
     if (advancedMetrics.altmanZScore !== undefined) {
-      if (advancedMetrics.altmanZScore > 2.99) score += 10; // Safe zone
-      else if (advancedMetrics.altmanZScore < 1.81) score -= 10; // Distress zone
+      if (advancedMetrics.altmanZScore > 2.99) score += 10;
+      else if (advancedMetrics.altmanZScore < 1.81) score -= 10;
     }
     
-    // PEG Ratio: Growth-adjusted valuation
     if (advancedMetrics.pegRatio !== undefined) {
       if (advancedMetrics.pegRatio > 0 && advancedMetrics.pegRatio < 1) score += 10;
       else if (advancedMetrics.pegRatio >= 1 && advancedMetrics.pegRatio < 1.5) score += 5;
     }
     
-    // ROIC: Return on Invested Capital
     if (advancedMetrics.roic !== undefined) {
       if (advancedMetrics.roic > 20) score += 10;
       else if (advancedMetrics.roic > 15) score += 5;
     }
     
-    // EV/EBITDA: Enterprise value multiple
     if (advancedMetrics.evToEbitda !== undefined) {
       if (advancedMetrics.evToEbitda > 0 && advancedMetrics.evToEbitda < 10) score += 5;
       else if (advancedMetrics.evToEbitda > 20) score -= 5;
+    }
+
+    if (enriched) {
+      if (enriched.fundamentals) {
+        const f = enriched.fundamentals;
+        if (f.roe != null && f.roe > 15) score += 8;
+        else if (f.roe != null && f.roe > 10) score += 4;
+        if (f.roic != null && f.roic > 20) score += 8;
+        else if (f.roic != null && f.roic > 12) score += 4;
+        if (f.debtToEquity != null && f.debtToEquity >= 0 && f.debtToEquity < 0.5) score += 6;
+        else if (f.debtToEquity != null && f.debtToEquity >= 0.5 && f.debtToEquity < 1.0) score += 3;
+        else if (f.debtToEquity != null && f.debtToEquity > 2.0) score -= 4;
+        if (f.peRatio != null && f.peRatio > 0 && f.peRatio < 15) score += 5;
+        else if (f.peRatio != null && f.peRatio >= 15 && f.peRatio < 25) score += 3;
+      }
+
+      if (enriched.growth) {
+        const g = enriched.growth;
+        if (g.epsGrowth != null && g.epsGrowth > 20) score += 8;
+        else if (g.epsGrowth != null && g.epsGrowth > 10) score += 5;
+        else if (g.epsGrowth != null && g.epsGrowth > 0) score += 2;
+        if (g.revenueGrowth != null && g.revenueGrowth > 15) score += 6;
+        else if (g.revenueGrowth != null && g.revenueGrowth > 5) score += 3;
+        if (g.freeCashFlowGrowth != null && g.freeCashFlowGrowth > 10) score += 5;
+        else if (g.freeCashFlowGrowth != null && g.freeCashFlowGrowth > 0) score += 2;
+      }
+
+      if (enriched.dcf) {
+        const upside = enriched.dcf.upsidePercent;
+        if (upside != null && upside > 30) score += 10;
+        else if (upside != null && upside > 15) score += 7;
+        else if (upside != null && upside > 0) score += 4;
+        else if (upside != null && upside < -20) score -= 5;
+      }
+
+      if (enriched.companyRating) {
+        const rs = enriched.companyRating.ratingScore;
+        if (rs != null && rs >= 4) score += 10;
+        else if (rs != null && rs > 3) score += 6;
+        else if (rs != null && rs >= 3) score += 3;
+      }
+
+      if (enriched.technicals) {
+        const rsi = enriched.technicals.rsi;
+        if (rsi != null) {
+          if (rsi >= 30 && rsi <= 50) score += 8;
+          else if (rsi > 50 && rsi <= 70) score += 2;
+          else if (rsi > 70) score -= 6;
+          else if (rsi < 30) score += 4;
+        }
+      }
+
+      if (enriched.analystTargets) {
+        const at = enriched.analystTargets;
+        if (at.avgPriceTarget != null && stock.currentPrice) {
+          const curPrice = parseFloat(stock.currentPrice);
+          if (curPrice > 0 && at.avgPriceTarget > curPrice * 1.15) score += 8;
+          else if (curPrice > 0 && at.avgPriceTarget > curPrice * 1.05) score += 4;
+          else if (curPrice > 0 && at.avgPriceTarget < curPrice * 0.9) score -= 4;
+        }
+        if (at.count >= 5) score += 3;
+      }
     }
     
     return Math.max(0, score);
@@ -1566,6 +1668,26 @@ class PickOfTheDayService {
       'unlisted': 'Unlisted Stock',
     }[params.category] || 'Investment';
 
+    let enrichedContext = '';
+    if (params.dcfUpside != null) {
+      enrichedContext += `\nDCF Upside: ${params.dcfUpside}%`;
+    }
+    if (params.roic != null) {
+      enrichedContext += `\nROIC: ${params.roic.toFixed(1)}%`;
+    }
+    if (params.epsGrowth != null) {
+      enrichedContext += `\nEPS Growth: ${params.epsGrowth.toFixed(1)}%`;
+    }
+    if (params.companyRating) {
+      enrichedContext += `\nCompany Rating: ${params.companyRating}`;
+    }
+    if (params.rsi != null) {
+      enrichedContext += `\nRSI: ${params.rsi.toFixed(1)}`;
+    }
+    if (params.analystAvgTarget != null) {
+      enrichedContext += `\nAnalyst Avg Target: ₹${params.analystAvgTarget.toFixed(0)} (${params.analystCount || 0} analysts)`;
+    }
+
     return `Generate a concise, professional investment rationale for today's ${categoryName} pick.
 
 Product: ${params.name}
@@ -1578,7 +1700,7 @@ ${params.fintekproRating ? `FintekPro Rating: ${params.fintekproRating}/5` : ''}
 ${params.peRatio ? `P/E Ratio: ${params.peRatio}` : ''}
 ${params.returns1Y ? `1Y Returns: ${params.returns1Y}%` : ''}
 ${params.yield ? `Yield: ${params.yield}%` : ''}
-${params.creditRating ? `Credit Rating: ${params.creditRating}` : ''}
+${params.creditRating ? `Credit Rating: ${params.creditRating}` : ''}${enrichedContext}
 
 Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on key strengths, recent catalysts, and risk-reward. Be specific and actionable. Do not use markdown formatting.`;
   }
@@ -1586,14 +1708,28 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
   private generateFallbackRationale(params: any): string {
     const upside = Math.round((params.targetPrice / params.currentPrice - 1) * 100);
     
+    let enrichedInsights = '';
+    if (params.dcfUpside != null) {
+      enrichedInsights += ` DCF analysis shows ${params.dcfUpside > 0 ? '+' : ''}${params.dcfUpside}% upside.`;
+    }
+    if (params.roic != null) {
+      enrichedInsights += ` ROIC of ${params.roic.toFixed(1)}% indicates ${params.roic > 15 ? 'a quality' : 'an adequate'} business.`;
+    }
+    if (params.epsGrowth != null && params.epsGrowth > 0) {
+      enrichedInsights += ` EPS growth at ${params.epsGrowth.toFixed(1)}% signals earnings momentum.`;
+    }
+    if (params.analystAvgTarget != null && params.analystCount > 0) {
+      enrichedInsights += ` ${params.analystCount} analysts set an average target of ₹${params.analystAvgTarget.toFixed(0)}.`;
+    }
+
     const categoryRationales: Record<string, string> = {
-      'listed_stocks': `${params.name} shows strong fundamentals with ${params.fintekproRating ? `a ${params.fintekproRating}-star FintekPro rating` : 'solid metrics'}${params.returns1Y ? ` and ${params.returns1Y}% 1-year returns` : ''}. With ${upside}% upside potential to target, this stock offers an attractive risk-reward profile for growth-oriented investors.`,
+      'listed_stocks': `${params.name} shows strong fundamentals with ${params.fintekproRating ? `a ${params.fintekproRating}-star FintekPro rating` : 'solid metrics'}${params.returns1Y ? ` and ${params.returns1Y}% 1-year returns` : ''}. With ${upside}% upside potential to target, this stock offers an attractive risk-reward profile for growth-oriented investors.${enrichedInsights}`,
       'mutual_funds': `${params.name} from ${params.fundHouse || 'a top AMC'} demonstrates consistent performance${params.returns1Y ? ` with ${params.returns1Y}% trailing returns` : ''}. ${params.fintekproRating ? `Rated ${params.fintekproRating} stars by FintekPro, ` : ''}this fund is well-suited for investors seeking quality exposure to ${params.category2 || 'diversified assets'}.`,
       'bonds': `${params.name} offers an attractive yield${params.yield ? ` of ${params.yield}%` : ''}${params.creditRating ? ` with ${params.creditRating} credit rating` : ''}. This fixed-income pick provides stable returns with capital preservation focus, ideal for conservative portfolios.`,
       'unlisted': `${params.name} in the ${params.sector || 'growth'} sector presents a compelling pre-listing opportunity${params.ipoStatus ? ` with ${params.ipoStatus}` : ''}. High potential returns with 25% target upside for investors with higher risk appetite.`,
     };
 
-    return categoryRationales[params.category] || `${params.name} is selected as today's top pick based on comprehensive analysis of fundamentals, technicals, and market conditions. Target upside of ${upside}% with defined risk management.`;
+    return categoryRationales[params.category] || `${params.name} is selected as today's top pick based on comprehensive analysis of fundamentals, technicals, and market conditions. Target upside of ${upside}% with defined risk management.${enrichedInsights}`;
   }
 
   private getRiskLevel(volatility: number): string {

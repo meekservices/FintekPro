@@ -24,6 +24,7 @@ import { aiResponseCacheService } from "./ai-response-cache-service";
 import { aiRecommendationTrackingService } from "./ai-recommendation-tracking-service";
 import { abTestingService } from "./ab-testing-service";
 import { nanoid } from "nanoid";
+import { getEnrichedStockSnapshot } from './screener/enriched-stock-data';
 
 // ============================================================================
 // TYPES & INTERFACES
@@ -306,36 +307,83 @@ class UnifiedAIRecommendationEngine {
       return { ...cached, cacheHit: true };
     }
 
+    let enrichedProduct = product;
+    if (product.category === 'stocks' && product.ticker) {
+      try {
+        const snapshot = await getEnrichedStockSnapshot(product.ticker);
+        if (snapshot) {
+          enrichedProduct = {
+            ...product,
+            rawData: {
+              ...(product.rawData || {}),
+              enrichedFMP: {
+                fundamentals: snapshot.fundamentals ? {
+                  PE: snapshot.fundamentals.peRatio,
+                  PB: snapshot.fundamentals.pbRatio,
+                  ROE: snapshot.fundamentals.roe,
+                  ROIC: snapshot.fundamentals.roic,
+                  debtToEquity: snapshot.fundamentals.debtToEquity,
+                  evToEbitda: snapshot.fundamentals.evToEbitda,
+                } : null,
+                growth: snapshot.growth ? {
+                  revenueGrowth: snapshot.growth.revenueGrowth,
+                  epsGrowth: snapshot.growth.epsGrowth,
+                  fcfGrowth: snapshot.growth.freeCashFlowGrowth,
+                } : null,
+                dcf: snapshot.dcf ? {
+                  intrinsicValue: snapshot.dcf.dcfValue,
+                  upsidePercent: snapshot.dcf.upsidePercent,
+                } : null,
+                companyRating: snapshot.companyRating ? {
+                  rating: snapshot.companyRating.rating,
+                  recommendation: snapshot.companyRating.ratingRecommendation,
+                } : null,
+                analystTargets: snapshot.analystTargets ? {
+                  avgPriceTarget: snapshot.analystTargets.avgPriceTarget,
+                  count: snapshot.analystTargets.count,
+                } : null,
+                technicals: snapshot.technicals ? {
+                  RSI: snapshot.technicals.rsi,
+                  SMA50: snapshot.technicals.sma50,
+                  SMA200: snapshot.technicals.sma200,
+                } : null,
+              },
+            },
+          };
+        }
+      } catch (err: any) {
+        console.warn(`[UnifiedAI] Could not fetch enriched data for ${product.ticker}:`, err.message);
+      }
+    }
+
     let analysis: ProductAnalysis;
     let modelUsed: 'gemini' | 'openai' | 'rule_based' = 'rule_based';
 
     try {
-      // Try Gemini first
       if (this.gemini) {
-        analysis = await this.analyzeWithGemini(product, clientProfile);
+        analysis = await this.analyzeWithGemini(enrichedProduct, clientProfile);
         modelUsed = 'gemini';
       } else if (this.openai) {
-        analysis = await this.analyzeWithOpenAI(product, clientProfile);
+        analysis = await this.analyzeWithOpenAI(enrichedProduct, clientProfile);
         modelUsed = 'openai';
       } else {
-        analysis = this.analyzeWithRules(product, clientProfile);
+        analysis = this.analyzeWithRules(enrichedProduct, clientProfile);
         modelUsed = 'rule_based';
       }
     } catch (error: any) {
-      console.error(`[UnifiedAI] Primary analysis failed for ${product.name}:`, error.message);
+      console.error(`[UnifiedAI] Primary analysis failed for ${enrichedProduct.name}:`, error.message);
       
-      // Fallback to OpenAI if Gemini failed
       if (modelUsed === 'gemini' && this.openai) {
         try {
-          analysis = await this.analyzeWithOpenAI(product, clientProfile);
+          analysis = await this.analyzeWithOpenAI(enrichedProduct, clientProfile);
           modelUsed = 'openai';
         } catch (fallbackError: any) {
           console.error(`[UnifiedAI] OpenAI fallback also failed:`, fallbackError.message);
-          analysis = this.analyzeWithRules(product, clientProfile);
+          analysis = this.analyzeWithRules(enrichedProduct, clientProfile);
           modelUsed = 'rule_based';
         }
       } else {
-        analysis = this.analyzeWithRules(product, clientProfile);
+        analysis = this.analyzeWithRules(enrichedProduct, clientProfile);
         modelUsed = 'rule_based';
       }
     }
@@ -602,6 +650,30 @@ Valuation:
 - P/E Ratio: ${product.peRatio ?? 'N/A'}
 - Dividend Yield: ${product.dividendYield ?? 'N/A'}%
 `;
+
+    const enriched = product.rawData?.enrichedFMP;
+    if (enriched) {
+      prompt += `\nEnriched FMP Screener Data:`;
+      if (enriched.fundamentals) {
+        prompt += `\nFundamentals: PE=${enriched.fundamentals.PE ?? 'N/A'}, PB=${enriched.fundamentals.PB ?? 'N/A'}, ROE=${enriched.fundamentals.ROE ?? 'N/A'}, ROIC=${enriched.fundamentals.ROIC ?? 'N/A'}, D/E=${enriched.fundamentals.debtToEquity ?? 'N/A'}, EV/EBITDA=${enriched.fundamentals.evToEbitda ?? 'N/A'}`;
+      }
+      if (enriched.growth) {
+        prompt += `\nGrowth: Revenue=${enriched.growth.revenueGrowth ?? 'N/A'}, EPS=${enriched.growth.epsGrowth ?? 'N/A'}, FCF=${enriched.growth.fcfGrowth ?? 'N/A'}`;
+      }
+      if (enriched.dcf) {
+        prompt += `\nDCF: Intrinsic Value=${enriched.dcf.intrinsicValue ?? 'N/A'}, Upside=${enriched.dcf.upsidePercent ?? 'N/A'}%`;
+      }
+      if (enriched.companyRating) {
+        prompt += `\nCompany Rating: ${enriched.companyRating.rating ?? 'N/A'}, Recommendation=${enriched.companyRating.recommendation ?? 'N/A'}`;
+      }
+      if (enriched.analystTargets) {
+        prompt += `\nAnalyst Targets: Avg Price Target=${enriched.analystTargets.avgPriceTarget ?? 'N/A'}, Count=${enriched.analystTargets.count ?? 'N/A'}`;
+      }
+      if (enriched.technicals) {
+        prompt += `\nTechnicals: RSI=${enriched.technicals.RSI ?? 'N/A'}, SMA50=${enriched.technicals.SMA50 ?? 'N/A'}, SMA200=${enriched.technicals.SMA200 ?? 'N/A'}`;
+      }
+      prompt += '\n';
+    }
 
     if (clientProfile) {
       prompt += `

@@ -14,6 +14,7 @@
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, and, desc, sql, avg } from 'drizzle-orm';
+import { getEnrichedStockSnapshot, EnrichedStockSnapshot } from './screener/enriched-stock-data';
 
 // ===================================================================
 // TYPE DEFINITIONS
@@ -181,16 +182,25 @@ class IntrinsicValueCalculatorService {
   async calculateListedStockValue(symbol: string): Promise<IntrinsicValueResult> {
     this.auditLog = [];
     
-    const stockData = await this.fetchListedStockData(symbol);
+    const [stockData, enriched] = await Promise.all([
+      this.fetchListedStockData(symbol),
+      getEnrichedStockSnapshot(symbol).catch(() => null),
+    ]);
     
     if (!stockData) {
       return this.createInsufficientDataResult(symbol, 'listed');
     }
 
-    const dcfResult = await this.calculateDCF(stockData);
-    const grahamResult = this.calculateGrahamValue(stockData);
-    const relativeResult = await this.calculateRelativeValuation(stockData);
-    const bookValueResult = this.calculateBookValue(stockData);
+    if (enriched) {
+      this.addAuditEntry('EnrichedData', 'FMP enriched snapshot loaded', 
+        { symbol, hasFundamentals: enriched.fundamentals ? 'yes' : 'no', hasGrowth: enriched.growth ? 'yes' : 'no', hasDCF: enriched.dcf ? 'yes' : 'no' }, 
+        null, 'FMP enriched');
+    }
+
+    const dcfResult = await this.calculateDCF(stockData, enriched);
+    const grahamResult = this.calculateGrahamValue(stockData, enriched);
+    const relativeResult = await this.calculateRelativeValuation(stockData, enriched);
+    const bookValueResult = this.calculateBookValue(stockData, enriched);
 
     return this.compileResults(symbol, stockData, 'listed', {
       dcf: dcfResult,
@@ -240,10 +250,92 @@ class IntrinsicValueCalculatorService {
    * WACC = (E/V × Re) + (D/V × Rd × (1-T))
    * Where: Re = Rf + β × (Rm - Rf)
    */
-  private async calculateDCF(stockData: StockFinancialData): Promise<DCFResult | null> {
+  private async calculateDCF(stockData: StockFinancialData, enriched?: EnrichedStockSnapshot | null): Promise<DCFResult | null> {
     const { freeCashFlows, sharesOutstanding, totalDebt, cash, beta } = stockData;
 
+    if (enriched?.dcf?.dcfValue && enriched.dcf.dcfValue > 0) {
+      const dcfValue = enriched.dcf.dcfValue;
+      const stockPrice = enriched.dcf.stockPrice || stockData.currentPrice || 0;
+      this.addAuditEntry('DCF', 'FMP DCF valuation used directly', 
+        { dcfValue, stockPrice, upsidePercent: enriched.dcf.upsidePercent != null ? enriched.dcf.upsidePercent : 'N/A' }, 
+        dcfValue, 'FMP DCF');
+
+      return {
+        method: 'dcf',
+        intrinsicValue: dcfValue * (sharesOutstanding || 1),
+        intrinsicValuePerShare: Math.round(dcfValue * 100) / 100,
+        presentValueOfFCF: 0,
+        terminalValue: 0,
+        presentValueOfTerminalValue: 0,
+        enterpriseValue: dcfValue * (sharesOutstanding || 1),
+        inputs: {
+          projectedFCFs: [],
+          wacc: 0,
+          terminalGrowthRate: DEFAULT_TERMINAL_GROWTH_RATE,
+          projectionYears: 5,
+          fcfGrowthRate: enriched?.growth?.freeCashFlowGrowth || 0,
+        },
+        formula: 'FMP DCF Model (pre-computed)',
+        confidence: 'high',
+        dataSource: 'FMP DCF',
+      };
+    }
+
     if (!freeCashFlows || freeCashFlows.length < 2 || !sharesOutstanding || sharesOutstanding <= 0) {
+      if (enriched?.fundamentals?.freeCashFlowPerShare && enriched.fundamentals.freeCashFlowPerShare > 0 && sharesOutstanding && sharesOutstanding > 0) {
+        const fcfPerShare = enriched.fundamentals.freeCashFlowPerShare;
+        const fcfGrowth = enriched?.growth?.freeCashFlowGrowth || 10;
+        const cappedGrowth = Math.min(Math.max(fcfGrowth, 0), 25);
+        const wacc = this.calculateWACC(stockData);
+        const terminalGrowthRate = DEFAULT_TERMINAL_GROWTH_RATE;
+        const projectionYears = 5;
+        const currentFCF = fcfPerShare * sharesOutstanding;
+
+        const projectedFCFs: number[] = [];
+        let fcf = currentFCF;
+        for (let i = 1; i <= projectionYears; i++) {
+          fcf = fcf * (1 + cappedGrowth / 100);
+          projectedFCFs.push(fcf);
+        }
+
+        let pvOfFCF = 0;
+        for (let i = 0; i < projectedFCFs.length; i++) {
+          pvOfFCF += projectedFCFs[i] / Math.pow(1 + wacc / 100, i + 1);
+        }
+
+        const terminalFCF = projectedFCFs[projectedFCFs.length - 1];
+        const terminalValue = (terminalFCF * (1 + terminalGrowthRate / 100)) / ((wacc - terminalGrowthRate) / 100);
+        const pvOfTerminalValue = terminalValue / Math.pow(1 + wacc / 100, projectionYears);
+        const enterpriseValue = pvOfFCF + pvOfTerminalValue;
+        const netDebt = (totalDebt || 0) - (cash || 0);
+        const equityValue = enterpriseValue - netDebt;
+        const intrinsicValuePerShare = equityValue / sharesOutstanding;
+
+        this.addAuditEntry('DCF', 'DCF using FMP enriched FCF per share', 
+          { fcfPerShare, fcfGrowth: cappedGrowth, wacc, sharesOutstanding }, 
+          intrinsicValuePerShare, 'FMP enriched');
+
+        return {
+          method: 'dcf',
+          intrinsicValue: equityValue,
+          intrinsicValuePerShare: Math.round(intrinsicValuePerShare * 100) / 100,
+          presentValueOfFCF: Math.round(pvOfFCF * 100) / 100,
+          terminalValue: Math.round(terminalValue * 100) / 100,
+          presentValueOfTerminalValue: Math.round(pvOfTerminalValue * 100) / 100,
+          enterpriseValue: Math.round(enterpriseValue * 100) / 100,
+          inputs: {
+            projectedFCFs: projectedFCFs.map(f => Math.round(f)),
+            wacc: Math.round(wacc * 100) / 100,
+            terminalGrowthRate,
+            projectionYears,
+            fcfGrowthRate: Math.round(cappedGrowth * 100) / 100,
+          },
+          formula: `DCF using FMP freeCashFlowPerShare=${fcfPerShare}, growth=${cappedGrowth}%`,
+          confidence: 'high',
+          dataSource: 'FMP enriched',
+        };
+      }
+
       this.addAuditEntry('DCF', 'Insufficient FCF history', {}, null, 'N/A', 'Requires minimum 2 years of FCF data');
       return null;
     }
@@ -254,7 +346,10 @@ class IntrinsicValueCalculatorService {
       return null;
     }
 
-    const fcfGrowthRate = this.calculateHistoricalGrowthRate(freeCashFlows);
+    let fcfGrowthRate = this.calculateHistoricalGrowthRate(freeCashFlows);
+    if (enriched?.growth?.freeCashFlowGrowth != null && enriched.growth.freeCashFlowGrowth > -50) {
+      fcfGrowthRate = enriched.growth.freeCashFlowGrowth;
+    }
     const projectedGrowthRate = Math.min(fcfGrowthRate, 25);
     
     const wacc = this.calculateWACC(stockData);
@@ -390,12 +485,47 @@ class IntrinsicValueCalculatorService {
    * 
    * Margin of Safety = (Intrinsic Value - Current Price) / Intrinsic Value
    */
-  private calculateGrahamValue(stockData: StockFinancialData): GrahamResult | null {
-    const { eps, epsGrowthRate, currentPrice } = stockData;
+  private calculateGrahamValue(stockData: StockFinancialData, enriched?: EnrichedStockSnapshot | null): GrahamResult | null {
+    const { currentPrice } = stockData;
+    let { eps, epsGrowthRate } = stockData;
+
+    if (enriched?.fundamentals?.earningsYield && enriched.fundamentals.earningsYield > 0 && currentPrice && currentPrice > 0) {
+      const enrichedEps = enriched.fundamentals.earningsYield * currentPrice / 100;
+      if (enrichedEps > 0 && (!eps || eps <= 0)) {
+        eps = enrichedEps;
+      }
+    }
 
     if (!eps || eps <= 0) {
+      if (enriched?.fundamentals?.grahamNumber && enriched.fundamentals.grahamNumber > 0) {
+        const grahamNumber = enriched.fundamentals.grahamNumber;
+        let marginOfSafety = 0;
+        if (currentPrice && currentPrice > 0) {
+          marginOfSafety = ((grahamNumber - currentPrice) / grahamNumber) * 100;
+        }
+        this.addAuditEntry('Graham', 'FMP Graham Number used directly', 
+          { grahamNumber, currentPrice: currentPrice || 'N/A' }, grahamNumber, 'FMP Graham Number');
+        return {
+          method: 'graham',
+          intrinsicValue: Math.round(grahamNumber * 100) / 100,
+          marginOfSafety: Math.round(marginOfSafety * 100) / 100,
+          inputs: {
+            eps: 0,
+            epsGrowthRate: 0,
+            aaa_bond_yield: DEFAULT_AAA_BOND_YIELD,
+            no_growth_pe: GRAHAM_NO_GROWTH_PE,
+          },
+          formula: 'FMP Graham Number (pre-computed)',
+          confidence: 'high',
+          dataSource: 'FMP Graham Number',
+        };
+      }
       this.addAuditEntry('Graham', 'No positive EPS', { eps: eps || 'N/A' }, null, 'N/A', 'Graham formula requires positive EPS');
       return null;
+    }
+
+    if (enriched?.growth?.epsGrowth != null) {
+      epsGrowthRate = enriched.growth.epsGrowth;
     }
 
     const growthRate = epsGrowthRate || 5;
@@ -410,7 +540,9 @@ class IntrinsicValueCalculatorService {
       marginOfSafety = ((intrinsicValue - currentPrice) / intrinsicValue) * 100;
     }
 
-    const confidence = this.assessGrahamConfidence(eps, cappedGrowthRate, epsGrowthRate);
+    const usedEnrichedGrowth = enriched?.growth?.epsGrowth != null;
+    const confidence = usedEnrichedGrowth ? 'high' as const : this.assessGrahamConfidence(eps, cappedGrowthRate, epsGrowthRate);
+    const dataSource = usedEnrichedGrowth ? 'FMP enriched + financial_statements' : 'financial_statements';
 
     const formula = `V = EPS × (8.5 + 2g) × (4.4/Y) = ${eps.toFixed(2)} × (8.5 + 2×${cappedGrowthRate.toFixed(1)}) × (4.4/${aaaBondYield})`;
 
@@ -420,7 +552,8 @@ class IntrinsicValueCalculatorService {
       noGrowthPE: GRAHAM_NO_GROWTH_PE,
       aaaBondYield: `${aaaBondYield}% (${MARKET_DATA_SOURCES.aaaBondYield.source}, as of ${MARKET_DATA_SOURCES.aaaBondYield.asOf})`,
       grahamMultiplier: 4.4 / aaaBondYield,
-    }, intrinsicValue, `financial_statements (AAA Yield: ${MARKET_DATA_SOURCES.aaaBondYield.source})`);
+      enrichedGrowthUsed: usedEnrichedGrowth ? 'yes' : 'no',
+    }, intrinsicValue, dataSource);
 
     return {
       method: 'graham',
@@ -434,7 +567,7 @@ class IntrinsicValueCalculatorService {
       },
       formula,
       confidence,
-      dataSource: 'financial_statements',
+      dataSource,
     };
   }
 
@@ -452,8 +585,23 @@ class IntrinsicValueCalculatorService {
    * 
    * Composite = Weighted average of available methods
    */
-  private async calculateRelativeValuation(stockData: StockFinancialData): Promise<RelativeValuationResult | null> {
-    const { eps, bookValuePerShare, ebitda, totalDebt, cash, sharesOutstanding, sector } = stockData;
+  private async calculateRelativeValuation(stockData: StockFinancialData, enriched?: EnrichedStockSnapshot | null): Promise<RelativeValuationResult | null> {
+    const { totalDebt, cash, sharesOutstanding, sector } = stockData;
+    let { eps, bookValuePerShare, ebitda } = stockData;
+
+    if (enriched?.fundamentals) {
+      if (enriched.fundamentals.peRatio && enriched.fundamentals.peRatio > 0 && stockData.currentPrice && stockData.currentPrice > 0) {
+        const enrichedEps = stockData.currentPrice / enriched.fundamentals.peRatio;
+        if (enrichedEps > 0) eps = enrichedEps;
+      }
+      if (enriched.fundamentals.bookValuePerShare && enriched.fundamentals.bookValuePerShare > 0) {
+        bookValuePerShare = enriched.fundamentals.bookValuePerShare;
+      }
+      if (enriched.fundamentals.evToEbitda && enriched.fundamentals.evToEbitda > 0 && enriched.fundamentals.enterpriseValue) {
+        const enrichedEbitda = enriched.fundamentals.enterpriseValue / enriched.fundamentals.evToEbitda;
+        if (enrichedEbitda > 0) ebitda = enrichedEbitda;
+      }
+    }
 
     if (!sector) {
       this.addAuditEntry('Relative', 'No sector data', {}, null, 'N/A', 'Sector classification required for relative valuation');
@@ -505,7 +653,9 @@ class IntrinsicValueCalculatorService {
     }
 
     const compositeValue = valueMethods.reduce((a, b) => a + b, 0) / valueMethods.length;
-    const confidence = this.assessRelativeConfidence(valueMethods.length, sectorAverages.peerCount);
+    const usedEnrichedRelative = !!enriched?.fundamentals;
+    const confidence = usedEnrichedRelative ? 'high' as const : this.assessRelativeConfidence(valueMethods.length, sectorAverages.peerCount);
+    const relativeDataSource = usedEnrichedRelative ? 'FMP enriched + sector_database' : 'sector_database';
 
     return {
       method: 'relative',
@@ -524,7 +674,7 @@ class IntrinsicValueCalculatorService {
       },
       formula: `Composite = Average of P/E, P/B, EV/EBITDA based valuations`,
       confidence,
-      dataSource: 'sector_database',
+      dataSource: relativeDataSource,
     };
   }
 
@@ -573,8 +723,35 @@ class IntrinsicValueCalculatorService {
    * Tangible Book Value = (Total Assets - Intangibles - Total Liabilities) / Shares
    * Intrinsic Value = NAV × (1 - Margin of Safety)
    */
-  private calculateBookValue(stockData: StockFinancialData): BookValueResult | null {
+  private calculateBookValue(stockData: StockFinancialData, enriched?: EnrichedStockSnapshot | null): BookValueResult | null {
     const { totalAssets, totalLiabilities, intangibleAssets, sharesOutstanding } = stockData;
+
+    if (enriched?.fundamentals?.bookValuePerShare && enriched.fundamentals.bookValuePerShare > 0 && sharesOutstanding && sharesOutstanding > 0) {
+      const bvps = enriched.fundamentals.bookValuePerShare;
+      const marginOfSafety = DEFAULT_MARGIN_OF_SAFETY;
+      const intrinsicValue = bvps * (1 - marginOfSafety);
+
+      this.addAuditEntry('BookValue', 'FMP enriched bookValuePerShare used', 
+        { bookValuePerShare: bvps, marginOfSafety: `${marginOfSafety * 100}%` }, 
+        intrinsicValue, 'FMP enriched');
+
+      return {
+        method: 'book_value',
+        intrinsicValue: Math.round(intrinsicValue * 100) / 100,
+        netAssetValue: Math.round(bvps * 100) / 100,
+        tangibleBookValue: Math.round(bvps * 100) / 100,
+        inputs: {
+          totalAssets: totalAssets || 0,
+          totalLiabilities: totalLiabilities || 0,
+          intangibleAssets: intangibleAssets || 0,
+          sharesOutstanding,
+          marginOfSafety,
+        },
+        formula: `Intrinsic = FMP BVPS × (1 - MoS) = ${bvps.toFixed(2)} × ${(1 - marginOfSafety).toFixed(2)}`,
+        confidence: 'high',
+        dataSource: 'FMP enriched',
+      };
+    }
 
     if (!totalAssets || !sharesOutstanding || sharesOutstanding <= 0) {
       this.addAuditEntry('BookValue', 'Insufficient balance sheet data', {}, null, 'N/A', 'Requires total assets and shares outstanding');

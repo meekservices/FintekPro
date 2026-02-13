@@ -3,6 +3,7 @@ import { listedStocks, stockFinancialMetrics } from "@shared/schema";
 import { eq, and, desc, asc, gte, lte, sql, inArray, ilike, or, isNotNull } from "drizzle-orm";
 import { GoogleGenAI } from "@google/genai";
 import { financialMetricsCalculator } from "./financial-metrics-calculator";
+import { getEnrichedStockSnapshot, type EnrichedStockSnapshot } from './screener/enriched-stock-data';
 
 export interface StockRecommendation {
   id: string;
@@ -256,17 +257,69 @@ class AIStockRecommendationService {
       
       const enhancedStocks = await Promise.all(
         stocks.map(async (stock) => {
+          let enrichedSnapshot: EnrichedStockSnapshot | null = null;
+          try {
+            enrichedSnapshot = await getEnrichedStockSnapshot(stock.symbol);
+          } catch (err) {
+            console.log(`[EnrichedData] Could not fetch enriched snapshot for ${stock.symbol}`);
+          }
+
+          const ef = enrichedSnapshot?.fundamentals;
+          const eg = enrichedSnapshot?.growth;
+          const et = enrichedSnapshot?.technicals;
+          const ed = enrichedSnapshot?.dcf;
+          const er = enrichedSnapshot?.companyRating;
+          const cachedFundamentals = this.FUNDAMENTALS_CACHE[stock.symbol] || {};
+
+          const enrichedBase: any = {};
+          if (ef) {
+            enrichedBase.peRatio = ef.peRatio ?? stock.peRatio ?? cachedFundamentals.peRatio;
+            enrichedBase.pbRatio = ef.pbRatio ?? stock.pbRatio ?? cachedFundamentals.pbRatio;
+            enrichedBase.roe = ef.roe ?? stock.roe ?? cachedFundamentals.roe;
+            enrichedBase.roic = ef.roic ?? cachedFundamentals.roic;
+            enrichedBase.debtToEquity = ef.debtToEquity ?? stock.debtToEquity ?? cachedFundamentals.debtToEquity;
+            enrichedBase.currentRatio = ef.currentRatio ?? stock.currentRatio ?? cachedFundamentals.currentRatio;
+            enrichedBase.dividendYield = ef.dividendYield ?? stock.dividendYield ?? cachedFundamentals.dividendYield;
+            enrichedBase.evToEbitda = ef.evToEbitda ?? cachedFundamentals.evToEbitda;
+          } else {
+            enrichedBase.peRatio = stock.peRatio || cachedFundamentals.peRatio;
+            enrichedBase.pbRatio = stock.pbRatio || cachedFundamentals.pbRatio;
+            enrichedBase.roe = stock.roe || cachedFundamentals.roe;
+            enrichedBase.dividendYield = stock.dividendYield || cachedFundamentals.dividendYield;
+          }
+          enrichedBase.roce = stock.roce || cachedFundamentals.roce;
+
+          if (eg) {
+            enrichedBase.revenueGrowth = eg.revenueGrowth;
+            enrichedBase.epsGrowth = eg.epsGrowth;
+            enrichedBase.fcfGrowth = eg.freeCashFlowGrowth;
+          }
+
+          if (et) {
+            enrichedBase.enrichedRsi = et.rsi;
+            enrichedBase.enrichedSma50 = et.sma50;
+            enrichedBase.enrichedSma200 = et.sma200;
+            enrichedBase.enrichedEma20 = et.ema20;
+            enrichedBase.enrichedMacd = et.macd;
+          }
+
+          if (ed) {
+            enrichedBase.dcfValue = ed.dcfValue;
+            enrichedBase.dcfUpside = ed.upsidePercent;
+          }
+
+          if (er) {
+            enrichedBase.fmpRating = er.rating;
+            enrichedBase.ratingScore = er.ratingScore;
+          }
+
           try {
             const quote = await yahooFinance.quote(`${stock.symbol}.NS`);
-            const cachedFundamentals = this.FUNDAMENTALS_CACHE[stock.symbol] || {};
             
             return {
               ...stock,
-              peRatio: stock.peRatio || cachedFundamentals.peRatio,
-              roe: stock.roe || cachedFundamentals.roe,
-              roce: stock.roce || cachedFundamentals.roce,
-              pbRatio: stock.pbRatio || cachedFundamentals.pbRatio,
-              dividendYield: stock.dividendYield || cachedFundamentals.dividendYield,
+              ...enrichedBase,
+              enrichedSnapshot,
               liveData: {
                 currentPrice: quote?.regularMarketPrice || stock.currentPrice,
                 previousClose: quote?.regularMarketPreviousClose,
@@ -274,28 +327,35 @@ class AIStockRecommendationService {
                 dayChangePercent: quote?.regularMarketChangePercent,
                 weekHigh52: quote?.fiftyTwoWeekHigh,
                 weekLow52: quote?.fiftyTwoWeekLow,
-                movingAvg50: quote?.fiftyDayAverage,
-                movingAvg200: quote?.twoHundredDayAverage,
+                movingAvg50: quote?.fiftyDayAverage || enrichedBase.enrichedSma50,
+                movingAvg200: quote?.twoHundredDayAverage || enrichedBase.enrichedSma200,
                 volume: quote?.regularMarketVolume,
                 avgVolume: quote?.averageDailyVolume10Day,
                 marketCap: quote?.marketCap,
-                peRatio: quote?.trailingPE || stock.peRatio || cachedFundamentals.peRatio,
-                pbRatio: quote?.priceToBook || stock.pbRatio || cachedFundamentals.pbRatio,
+                peRatio: quote?.trailingPE || enrichedBase.peRatio,
+                pbRatio: quote?.priceToBook || enrichedBase.pbRatio,
                 eps: quote?.epsTrailingTwelveMonths,
-                dividendYield: quote?.dividendYield ? quote.dividendYield * 100 : (stock.dividendYield || cachedFundamentals.dividendYield),
-                roe: stock.roe || cachedFundamentals.roe,
-                roce: stock.roce || cachedFundamentals.roce
+                dividendYield: quote?.dividendYield ? quote.dividendYield * 100 : enrichedBase.dividendYield,
+                roe: enrichedBase.roe || stock.roe || cachedFundamentals.roe,
+                roce: enrichedBase.roce || stock.roce || cachedFundamentals.roce
               }
             };
           } catch (err) {
-            console.log(`Using cached data for ${stock.symbol}`);
-            const cachedFundamentals = this.FUNDAMENTALS_CACHE[stock.symbol] || {};
+            console.log(`Using cached/enriched data for ${stock.symbol}`);
             return {
               ...stock,
-              peRatio: stock.peRatio || cachedFundamentals.peRatio,
-              roe: stock.roe || cachedFundamentals.roe,
-              roce: stock.roce || cachedFundamentals.roce,
-              liveData: {}
+              ...enrichedBase,
+              enrichedSnapshot,
+              liveData: {
+                currentPrice: stock.currentPrice,
+                movingAvg50: enrichedBase.enrichedSma50,
+                movingAvg200: enrichedBase.enrichedSma200,
+                peRatio: enrichedBase.peRatio,
+                pbRatio: enrichedBase.pbRatio,
+                roe: enrichedBase.roe,
+                roce: enrichedBase.roce,
+                dividendYield: enrichedBase.dividendYield
+              }
             };
           }
         })
@@ -312,6 +372,8 @@ class AIStockRecommendationService {
     const stock = stockData;
     const live = stockData.liveData || {};
     const cachedFundamentals = this.FUNDAMENTALS_CACHE[stock.symbol] || {};
+    
+    const enriched = stockData.enrichedSnapshot as EnrichedStockSnapshot | undefined;
     
     const peRatio = parseFloat(live.peRatio || stock.peRatio || cachedFundamentals.peRatio || 25);
     const roe = parseFloat(stock.roe || cachedFundamentals.roe || 15);
@@ -343,6 +405,13 @@ class AIStockRecommendationService {
     if (advancedMetrics.evToEbitda !== undefined) {
       if (advancedMetrics.evToEbitda < 8) valuationScore += 10;
       else if (advancedMetrics.evToEbitda < 12) valuationScore += 5;
+    }
+    
+    if (enriched?.dcf?.upsidePercent != null) {
+      const dcfUpside = enriched.dcf.upsidePercent;
+      if (dcfUpside > 20) valuationScore += 15;
+      else if (dcfUpside > 10) valuationScore += 10;
+      else if (dcfUpside > 0) valuationScore += 5;
     }
     
     let qualityScore = 0;
@@ -380,6 +449,12 @@ class AIStockRecommendationService {
       else if (advancedMetrics.roic > 10) qualityScore += 5;
     }
     
+    if (enriched?.companyRating?.ratingScore != null) {
+      const rs = enriched.companyRating.ratingScore;
+      if (rs > 4) qualityScore += 15;
+      else if (rs > 3) qualityScore += 10;
+    }
+    
     let momentumScore = 50;
     if (returns1Y > 40) momentumScore = 100;
     else if (returns1Y > 25) momentumScore = 85;
@@ -392,6 +467,12 @@ class AIStockRecommendationService {
     else if (returns3M > 5) momentumScore += 10;
     else if (returns3M >= 0) momentumScore += 5;
     
+    if (enriched?.growth?.epsGrowth != null) {
+      const eg = enriched.growth.epsGrowth * 100;
+      if (eg > 20) momentumScore += 15;
+      else if (eg > 10) momentumScore += 10;
+    }
+
     const isBluechip = this.FUNDAMENTALS_CACHE[stock.symbol] !== undefined;
     if (isBluechip && momentumScore < 70) {
       momentumScore += 15;
@@ -527,11 +608,20 @@ class AIStockRecommendationService {
         metrics.evToEbitda = financialMetricsCalculator.calculateEVtoEBITDA(enterpriseValue, ebitda);
       }
       
+      const enrichedSnap = stock.enrichedSnapshot as EnrichedStockSnapshot | undefined;
+      if (metrics.evToEbitda === undefined && enrichedSnap?.fundamentals?.evToEbitda != null) {
+        metrics.evToEbitda = enrichedSnap.fundamentals.evToEbitda;
+      }
+      
       const investedCapital = parseFloat(stock.investedCapital || cachedFundamentals.investedCapital || totalAssets * 0.7);
       const taxRate = parseFloat(stock.taxRate || 0.25);
       if (ebit && investedCapital && investedCapital > 0) {
         const nopat = ebit * (1 - taxRate);
         metrics.roic = financialMetricsCalculator.calculateROIC(nopat, investedCapital);
+      }
+      
+      if (metrics.roic === undefined && enrichedSnap?.fundamentals?.roic != null) {
+        metrics.roic = enrichedSnap.fundamentals.roic;
       }
     } catch (error) {
       console.warn('[AIStockRecommendation] Error calculating advanced metrics:', error);
@@ -767,6 +857,9 @@ Provide analysis in JSON format:
     const stock = scored.stock;
     const live = scored.liveData || {};
     const cachedFundamentals = this.FUNDAMENTALS_CACHE[stock.symbol] || {};
+    const enriched = stock.enrichedSnapshot as EnrichedStockSnapshot | undefined;
+    const ef = enriched?.fundamentals;
+    const et = enriched?.technicals;
     const currentPrice = parseFloat(live.currentPrice || stock.currentPrice || 100);
     
     const targetPricePercent = aiAnalysis.targetPricePercent || 15;
@@ -783,8 +876,10 @@ Provide analysis in JSON format:
       'long_term': 365
     };
 
-    const rsi = this.calculateRSI(scored);
-    const macd = scored.technicalScore > 60 ? 'Bullish' : scored.technicalScore < 40 ? 'Bearish' : 'Neutral';
+    const rsi = et?.rsi ?? this.calculateRSI(scored);
+    const macdStr = et?.macd != null
+      ? (et.macd > 0 ? 'Bullish' : et.macd < 0 ? 'Bearish' : 'Neutral')
+      : (scored.technicalScore > 60 ? 'Bullish' : scored.technicalScore < 40 ? 'Bearish' : 'Neutral');
     const volumeTrend = (live.volume && live.avgVolume) ? 
       (live.volume > live.avgVolume * 1.2 ? 'High' : live.volume < live.avgVolume * 0.8 ? 'Low' : 'Normal') : 'Normal';
 
@@ -812,19 +907,21 @@ Provide analysis in JSON format:
       timeHorizonDays: timeHorizonDays[timeHorizon] || 180,
       
       fundamentals: {
-        peRatio: this.safeParseFloat(live.peRatio ?? stock.peRatio ?? cachedFundamentals.peRatio),
-        pbRatio: this.safeParseFloat(live.pbRatio ?? stock.pbRatio ?? cachedFundamentals.pbRatio),
-        roe: this.safeParseFloat(live.roe ?? stock.roe ?? cachedFundamentals.roe),
+        peRatio: this.safeParseFloat(ef?.peRatio ?? live.peRatio ?? stock.peRatio ?? cachedFundamentals.peRatio),
+        pbRatio: this.safeParseFloat(ef?.pbRatio ?? live.pbRatio ?? stock.pbRatio ?? cachedFundamentals.pbRatio),
+        roe: this.safeParseFloat(ef?.roe ?? live.roe ?? stock.roe ?? cachedFundamentals.roe),
         roce: this.safeParseFloat(live.roce ?? stock.roce ?? cachedFundamentals.roce),
-        eps: this.safeParseFloat(live.eps ?? stock.eps),
-        dividendYield: this.safeParseFloat(live.dividendYield ?? stock.dividendYield ?? cachedFundamentals.dividendYield)
+        eps: this.safeParseFloat(ef?.eps ?? live.eps ?? stock.eps),
+        dividendYield: this.safeParseFloat(ef?.dividendYield ?? live.dividendYield ?? stock.dividendYield ?? cachedFundamentals.dividendYield),
+        debtToEquity: this.safeParseFloat(ef?.debtToEquity ?? stock.debtToEquity ?? cachedFundamentals.debtToEquity),
+        currentRatio: this.safeParseFloat(ef?.currentRatio ?? stock.currentRatio ?? cachedFundamentals.currentRatio),
       },
       
       technicals: {
         rsi,
-        macd,
-        movingAvg50: parseFloat(live.movingAvg50) || currentPrice * 0.95,
-        movingAvg200: parseFloat(live.movingAvg200) || currentPrice * 0.90,
+        macd: macdStr,
+        movingAvg50: et?.sma50 ?? (parseFloat(live.movingAvg50) || currentPrice * 0.95),
+        movingAvg200: et?.sma200 ?? (parseFloat(live.movingAvg200) || currentPrice * 0.90),
         weekHigh52: parseFloat(live.weekHigh52 || stock.weekHigh52) || currentPrice * 1.2,
         weekLow52: parseFloat(live.weekLow52 || stock.weekLow52) || currentPrice * 0.7,
         volumeTrend

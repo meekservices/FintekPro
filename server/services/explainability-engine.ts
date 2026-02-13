@@ -8,6 +8,8 @@
  * - Regulatory compliance disclosures
  */
 
+import { getEnrichedStockSnapshot } from './screener/enriched-stock-data';
+
 // ============================================================================
 // TYPES & INTERFACES
 // ============================================================================
@@ -875,6 +877,85 @@ export class ExplainabilityEngine {
     };
   }
   
+  async generateEnrichedReasons(symbol: string): Promise<RecommendationReason[]> {
+    const enrichedReasons: RecommendationReason[] = [];
+    try {
+      const snapshot = await getEnrichedStockSnapshot(symbol);
+      if (!snapshot) return enrichedReasons;
+
+      if (snapshot.dcf?.upsidePercent != null) {
+        enrichedReasons.push({
+          category: 'return_potential',
+          weight: 15,
+          description: `Intrinsic value analysis shows ${snapshot.dcf.upsidePercent}% upside potential`,
+          impact: snapshot.dcf.upsidePercent > 10 ? 'positive' : snapshot.dcf.upsidePercent < -10 ? 'negative' : 'neutral',
+          dataPoints: { dcfValue: snapshot.dcf.dcfValue, stockPrice: snapshot.dcf.stockPrice, upsidePercent: snapshot.dcf.upsidePercent }
+        });
+      }
+
+      if (snapshot.fundamentals?.roic != null) {
+        enrichedReasons.push({
+          category: 'return_potential',
+          weight: 12,
+          description: `Return on invested capital of ${(snapshot.fundamentals.roic * 100).toFixed(1)}% indicates ${snapshot.fundamentals.roic > 0.15 ? 'strong' : 'moderate'} capital efficiency`,
+          impact: snapshot.fundamentals.roic > 0.15 ? 'positive' : snapshot.fundamentals.roic > 0.08 ? 'neutral' : 'negative',
+          dataPoints: { roic: snapshot.fundamentals.roic }
+        });
+      }
+
+      if (snapshot.analystTargets && snapshot.analystTargets.count > 0 && snapshot.analystTargets.avgPriceTarget != null) {
+        enrichedReasons.push({
+          category: 'market_conditions',
+          weight: 10,
+          description: `${snapshot.analystTargets.count} analysts set average target of ₹${Math.round(snapshot.analystTargets.avgPriceTarget)}`,
+          impact: 'neutral',
+          dataPoints: { analystCount: snapshot.analystTargets.count, avgTarget: snapshot.analystTargets.avgPriceTarget }
+        });
+      }
+
+      if (snapshot.institutional && snapshot.institutional.totalCount > 0) {
+        const totalWeightPercent = snapshot.institutional.topHolders.reduce((sum, h) => sum + (h.weightPercent || 0), 0);
+        enrichedReasons.push({
+          category: 'market_conditions',
+          weight: 8,
+          description: `${snapshot.institutional.totalCount} institutional holders with total ${totalWeightPercent.toFixed(1)}% ownership`,
+          impact: snapshot.institutional.totalCount > 5 ? 'positive' : 'neutral',
+          dataPoints: { institutionalCount: snapshot.institutional.totalCount, totalWeight: totalWeightPercent }
+        });
+      }
+
+      if (snapshot.growth?.epsGrowth != null || snapshot.growth?.revenueGrowth != null) {
+        const epsG = snapshot.growth?.epsGrowth;
+        const revG = snapshot.growth?.revenueGrowth;
+        const parts: string[] = [];
+        if (epsG != null) parts.push(`EPS growth of ${(epsG * 100).toFixed(1)}%`);
+        if (revG != null) parts.push(`revenue growth of ${(revG * 100).toFixed(1)}%`);
+        enrichedReasons.push({
+          category: 'return_potential',
+          weight: 14,
+          description: parts.join(' and '),
+          impact: (epsG != null && epsG > 0.1) || (revG != null && revG > 0.1) ? 'positive' : 'neutral',
+          dataPoints: { epsGrowth: epsG, revenueGrowth: revG }
+        });
+      }
+
+      if (snapshot.technicals?.rsi != null) {
+        const rsi = snapshot.technicals.rsi;
+        const condition = rsi < 30 ? 'oversold' : rsi > 70 ? 'overbought' : 'neutral';
+        enrichedReasons.push({
+          category: 'market_conditions',
+          weight: 8,
+          description: `RSI at ${rsi.toFixed(0)} suggests ${condition} conditions`,
+          impact: condition === 'oversold' ? 'positive' : condition === 'overbought' ? 'negative' : 'neutral',
+          dataPoints: { rsi, condition }
+        });
+      }
+    } catch (error: any) {
+      console.error(`[ExplainabilityEngine] Failed to fetch enriched reasons for ${symbol}:`, error.message);
+    }
+    return enrichedReasons;
+  }
+
   /**
    * Generate human-readable summary of recommendation
    */

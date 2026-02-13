@@ -20,6 +20,7 @@ import {
 } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { FinancialCalculations, CashFlow, XIRRResult, CAGRResult } from './financial-calculations';
+import { getEnrichedStockSnapshot, getEnrichedStockSnapshots } from './screener/enriched-stock-data';
 
 interface PortfolioSummary {
   totalInvested: number;
@@ -66,6 +67,20 @@ interface RiskProfile {
   equityExposure: number;
   debtExposure: number;
   recommendation: string;
+}
+
+interface EnrichedHoldingMetrics {
+  fundamentalHealth: number | null;
+  valuationGap: number | null;
+  growthOutlook: number | null;
+}
+
+interface EnrichedPortfolioMetrics {
+  avgPE: number | null;
+  avgROE: number | null;
+  avgROIC: number | null;
+  avgDCFUpside: number | null;
+  holdingEnrichments: Record<string, EnrichedHoldingMetrics>;
 }
 
 export class PortfolioAnalytics {
@@ -317,6 +332,63 @@ export class PortfolioAnalytics {
     };
   }
 
+  static async getEnrichedPortfolioMetrics(userId: string): Promise<EnrichedPortfolioMetrics | null> {
+    try {
+      const mfAndDematHoldings = await db.select().from(comprehensiveHoldings).where(eq(comprehensiveHoldings.userId, userId));
+
+      const stockSymbols = mfAndDematHoldings
+        .filter(h => h.symbol && (h.assetClass === 'equity' || h.assetClass === 'Equity'))
+        .map(h => h.symbol as string)
+        .filter(Boolean);
+
+      if (stockSymbols.length === 0) {
+        return null;
+      }
+
+      const uniqueSymbols = [...new Set(stockSymbols)];
+      const snapshots = await getEnrichedStockSnapshots(uniqueSymbols);
+
+      if (snapshots.size === 0) {
+        return null;
+      }
+
+      const holdingEnrichments: Record<string, EnrichedHoldingMetrics> = {};
+      const peValues: number[] = [];
+      const roeValues: number[] = [];
+      const roicValues: number[] = [];
+      const dcfUpsideValues: number[] = [];
+
+      for (const symbol of uniqueSymbols) {
+        const snapshot = snapshots.get(symbol.toUpperCase());
+        if (!snapshot) continue;
+
+        const fundamentalHealth = snapshot.derivedMetrics?.qualityScore ?? null;
+        const valuationGap = snapshot.dcf?.upsidePercent ?? null;
+        const growthOutlook = snapshot.derivedMetrics?.growthScore ?? null;
+
+        holdingEnrichments[symbol] = { fundamentalHealth, valuationGap, growthOutlook };
+
+        if (snapshot.fundamentals?.peRatio != null) peValues.push(snapshot.fundamentals.peRatio);
+        if (snapshot.fundamentals?.roe != null) roeValues.push(snapshot.fundamentals.roe);
+        if (snapshot.fundamentals?.roic != null) roicValues.push(snapshot.fundamentals.roic);
+        if (snapshot.dcf?.upsidePercent != null) dcfUpsideValues.push(snapshot.dcf.upsidePercent);
+      }
+
+      const avg = (arr: number[]) => arr.length > 0 ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 100) / 100 : null;
+
+      return {
+        avgPE: avg(peValues),
+        avgROE: avg(roeValues),
+        avgROIC: avg(roicValues),
+        avgDCFUpside: avg(dcfUpsideValues),
+        holdingEnrichments,
+      };
+    } catch (error: any) {
+      console.error(`[PortfolioAnalytics] Failed to fetch enriched metrics for user ${userId}:`, error.message);
+      return null;
+    }
+  }
+
   /**
    * Map asset class from holdings to allocation categories
    */
@@ -438,7 +510,9 @@ export type {
   AssetAllocation, 
   AllocationItem, 
   CategoryPerformance, 
-  RiskProfile 
+  RiskProfile,
+  EnrichedHoldingMetrics,
+  EnrichedPortfolioMetrics
 };
 
 // Fix for allocation type error

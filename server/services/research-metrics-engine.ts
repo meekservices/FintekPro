@@ -3,6 +3,23 @@
  * Calculates portfolio performance metrics: CAGR, Standard Deviation, Sharpe Ratio, Max Drawdown
  */
 
+import { getEnrichedStockSnapshot } from './screener/enriched-stock-data';
+
+export interface EnrichedMetrics {
+  roic?: number | null;
+  evToEbitda?: number | null;
+  grahamNumber?: number | null;
+  interestCoverage?: number | null;
+  earningsYield?: number | null;
+  epsGrowth?: number | null;
+  revenueGrowth?: number | null;
+  freeCashFlowGrowth?: number | null;
+  dcfValue?: number | null;
+  upsidePercent?: number | null;
+  fmpRating?: string | null;
+  ratingScore?: number | null;
+}
+
 export interface MetricsInput {
   returns: number[];
   riskFreeRate?: number;
@@ -386,6 +403,51 @@ export class ResearchMetricsEngine {
       allocation: Math.round((h.value / totalValue) * 100 * 100) / 100,
       color: sectorColors[h.sector] || '#6B7280',
     }));
+  }
+
+  async calculateAllMetricsWithEnriched(
+    symbol: string,
+    returns: number[],
+    prices: number[],
+    benchmarkReturns?: number[]
+  ): Promise<PortfolioMetrics & { enriched?: EnrichedMetrics }> {
+    const baseMetrics = this.calculateAllMetrics(returns, prices, benchmarkReturns);
+
+    let enriched: EnrichedMetrics | undefined;
+    try {
+      const snapshot = await getEnrichedStockSnapshot(symbol);
+      if (snapshot) {
+        enriched = {};
+
+        if (snapshot.fundamentals) {
+          enriched.roic = snapshot.fundamentals.roic;
+          enriched.evToEbitda = snapshot.fundamentals.evToEbitda;
+          enriched.grahamNumber = snapshot.fundamentals.grahamNumber;
+          enriched.interestCoverage = snapshot.fundamentals.interestCoverage;
+          enriched.earningsYield = snapshot.fundamentals.earningsYield;
+        }
+
+        if (snapshot.growth) {
+          enriched.epsGrowth = snapshot.growth.epsGrowth;
+          enriched.revenueGrowth = snapshot.growth.revenueGrowth;
+          enriched.freeCashFlowGrowth = snapshot.growth.freeCashFlowGrowth;
+        }
+
+        if (snapshot.dcf) {
+          enriched.dcfValue = snapshot.dcf.dcfValue;
+          enriched.upsidePercent = snapshot.dcf.upsidePercent;
+        }
+
+        if (snapshot.companyRating) {
+          enriched.fmpRating = snapshot.companyRating.rating;
+          enriched.ratingScore = snapshot.companyRating.ratingScore;
+        }
+      }
+    } catch (error: any) {
+      console.error(`[ResearchMetricsEngine] Failed to fetch enriched data for ${symbol}:`, error.message);
+    }
+
+    return { ...baseMetrics, enriched };
   }
 }
 

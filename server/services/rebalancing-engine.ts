@@ -13,6 +13,7 @@ import {
   type ClientProfile, 
   type ProductCategory 
 } from './unified-ai-recommendation-engine';
+import { getEnrichedStockSnapshot, getEnrichedStockSnapshots } from './screener/enriched-stock-data';
 
 export type RebalanceReason = 
   | 'DRIFT_THRESHOLD_EXCEEDED'
@@ -811,6 +812,44 @@ class AIEnhancedRebalancingService {
       trackingId: recommendations.trackingId,
     };
   }
+}
+
+export async function getEnrichedRebalanceReasons(symbol: string): Promise<string[]> {
+  const reasons: string[] = [];
+
+  try {
+    const snapshot = await getEnrichedStockSnapshot(symbol);
+    if (!snapshot) return reasons;
+
+    if (snapshot.dcf?.upsidePercent != null && snapshot.dcf.upsidePercent < -20) {
+      reasons.push(`Overvalued - DCF shows ${Math.abs(snapshot.dcf.upsidePercent).toFixed(1)}% downside`);
+    }
+
+    if (snapshot.fundamentals?.roic != null && snapshot.fundamentals.roic < 5) {
+      reasons.push(`Low capital efficiency - ROIC at ${snapshot.fundamentals.roic.toFixed(1)}%`);
+    }
+
+    if (snapshot.technicals?.rsi != null && snapshot.technicals.rsi > 70) {
+      reasons.push(`Technically overbought - RSI at ${snapshot.technicals.rsi.toFixed(1)}`);
+    }
+
+    if (snapshot.analystGrades?.latestGrades?.length) {
+      const downgrade = snapshot.analystGrades.latestGrades.find(
+        g => g.action?.toLowerCase() === 'downgrade' || g.action?.toLowerCase() === 'down'
+      );
+      if (downgrade) {
+        reasons.push(`Recent analyst downgrade from ${downgrade.previousGrade || 'N/A'} to ${downgrade.newGrade || 'N/A'}`);
+      }
+    }
+
+    if (snapshot.growth?.epsGrowth != null && snapshot.growth.epsGrowth < 0) {
+      reasons.push(`Declining earnings - EPS growth at ${(snapshot.growth.epsGrowth * 100).toFixed(1)}%`);
+    }
+  } catch (error: any) {
+    console.error(`[RebalancingEngine] Error fetching enriched rebalance reasons for ${symbol}:`, error.message);
+  }
+
+  return reasons;
 }
 
 export const aiEnhancedRebalancingService = new AIEnhancedRebalancingService();
