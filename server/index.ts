@@ -81,6 +81,7 @@ import { subdomainDetection } from "./subdomain-middleware";
 import { initializeCronJobs } from "./cron-jobs";
 import { requestContextMiddleware } from "./middleware/request-context";
 import { errorMonitoringMiddleware, globalErrorHandler } from "./error-monitor";
+import { latencyTrackingMiddleware } from "./services/request-latency-tracker";
 import { sensitiveDataMaskingMiddleware } from "./middleware/sensitive-data-masking";
 import { setupGracefulShutdown } from "./graceful-shutdown";
 import { auditTrailMiddleware } from "./middleware/audit-trail";
@@ -167,6 +168,9 @@ app.use(requestContextMiddleware);
 
 // Error monitoring middleware - tracks response times and slow requests
 app.use(errorMonitoringMiddleware);
+
+// Request latency tracking middleware - feeds slow endpoint data to Activity Centre
+app.use(latencyTrackingMiddleware);
 
 // Security middleware
 app.use(helmet({

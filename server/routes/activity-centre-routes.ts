@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { activityInsightsService } from "../services/activity-insights-service";
+import { requestLatencyTracker } from "../services/request-latency-tracker";
 
 const router = Router();
 
@@ -77,6 +78,17 @@ router.get("/security-alerts", async (req, res) => {
   } catch (error) {
     console.error("[ActivityCentre] Error fetching security alerts:", error);
     res.status(500).json({ success: false, message: "Failed to fetch security alerts" });
+  }
+});
+
+router.get("/latency", async (req, res) => {
+  try {
+    const metrics = requestLatencyTracker.getMetrics();
+    const slowEndpoints = requestLatencyTracker.getSlowEndpoints();
+    res.json({ success: true, metrics, slowEndpoints });
+  } catch (error) {
+    console.error("[ActivityCentre] Error fetching latency metrics:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch latency metrics" });
   }
 });
 

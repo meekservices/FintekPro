@@ -2,10 +2,13 @@ import { db } from "../db";
 import { 
   users, errorLedger, immutableAuditLogs, 
   kycAuditLogs, storeAuditLogs, aiAuditLogs, agentComplianceAuditLogs,
-  knowledgeAuditLogs, bondMarketplaceAuditLogs, bondOrders, unlistedDeals
+  knowledgeAuditLogs, bondMarketplaceAuditLogs, bondOrders, unlistedDeals,
+  mfOrders
 } from "@shared/schema";
-import { eq, sql, desc, gte, and, count, lt, isNotNull, isNull, or, notInArray } from "drizzle-orm";
+import { eq, sql, desc, gte, and, count, lt, isNotNull, isNull, or, notInArray, ne, inArray } from "drizzle-orm";
 import { aiService } from "./ai-service";
+import { complianceMonitor } from "../compliance-monitor";
+import { requestLatencyTracker } from "./request-latency-tracker";
 
 interface ActivityMetrics {
   errors: {
@@ -62,6 +65,8 @@ class ActivityInsightsService {
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
     try {
+      const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+
       const [
         errorStats,
         criticalErrors,
@@ -70,7 +75,18 @@ class ActivityInsightsService {
         dormantUsers,
         incompleteKycUsers,
         pendingBondOrders,
-        pendingUnlistedDeals
+        pendingUnlistedDeals,
+        yesterdayErrors,
+        completedBondOrders,
+        completedUnlistedDeals,
+        completedMfOrders,
+        cancelledBondOrders,
+        cancelledMfOrders,
+        cancelledUnlistedDeals,
+        pendingMfOrders,
+        pendingBondValue,
+        pendingUnlistedValue,
+        authSecurityEvents
       ] = await Promise.all([
         db.select({ count: count() }).from(errorLedger).where(gte(errorLedger.createdAt, oneDayAgo)).catch(() => [{ count: 0 }]),
         db.select({ count: count() }).from(errorLedger).where(and(
@@ -87,7 +103,69 @@ class ActivityInsightsService {
           sql`"is_active" = true AND ("kyc_status" IS NULL OR "kyc_status" NOT IN ('verified', 'approved'))`
         ).catch(() => [{ count: 0 }]),
         db.select({ count: count() }).from(bondOrders).where(eq(bondOrders.orderStatus, 'pending')).catch(() => [{ count: 0 }]),
-        db.select({ count: count() }).from(unlistedDeals).where(eq(unlistedDeals.status, 'pending')).catch(() => [{ count: 0 }])
+        db.select({ count: count() }).from(unlistedDeals).where(eq(unlistedDeals.status, 'pending')).catch(() => [{ count: 0 }]),
+        db.select({ count: count() }).from(errorLedger).where(and(
+          gte(errorLedger.createdAt, twoDaysAgo),
+          lt(errorLedger.createdAt, oneDayAgo)
+        )).catch(() => [{ count: 0 }]),
+        db.select({ count: count() }).from(bondOrders).where(and(
+          eq(bondOrders.orderStatus, 'executed'),
+          gte(bondOrders.createdAt, oneWeekAgo)
+        )).catch(() => [{ count: 0 }]),
+        db.select({ count: count() }).from(unlistedDeals).where(and(
+          eq(unlistedDeals.status, 'completed'),
+          gte(unlistedDeals.createdAt, oneWeekAgo)
+        )).catch(() => [{ count: 0 }]),
+        db.select({ count: count() }).from(mfOrders).where(and(
+          inArray(mfOrders.status, ['settled', 'reconciled']),
+          gte(mfOrders.createdAt, oneWeekAgo)
+        )).catch(() => [{ count: 0 }]),
+        db.select({ 
+          count: count(),
+          totalValue: sql<number>`COALESCE(SUM(CAST("gross_amount" AS numeric)), 0)`
+        }).from(bondOrders).where(and(
+          eq(bondOrders.orderStatus, 'cancelled'),
+          gte(bondOrders.createdAt, oneWeekAgo)
+        )).catch(() => [{ count: 0, totalValue: 0 }]),
+        db.select({ 
+          count: count(),
+          totalValue: sql<number>`COALESCE(SUM(CAST("amount" AS numeric)), 0)`
+        }).from(mfOrders).where(and(
+          inArray(mfOrders.status, ['cancelled', 'failed']),
+          gte(mfOrders.createdAt, oneWeekAgo)
+        )).catch(() => [{ count: 0, totalValue: 0 }]),
+        db.select({ 
+          count: count(),
+          totalValue: sql<number>`COALESCE(SUM(CAST("total_value" AS numeric)), 0)`
+        }).from(unlistedDeals).where(and(
+          inArray(unlistedDeals.status, ['cancelled', 'failed']),
+          gte(unlistedDeals.createdAt, oneWeekAgo)
+        )).catch(() => [{ count: 0, totalValue: 0 }]),
+        db.select({ 
+          count: count(),
+          totalValue: sql<number>`COALESCE(SUM(CAST("amount" AS numeric)), 0)`
+        }).from(mfOrders).where(
+          inArray(mfOrders.status, ['created', 'pending_payment'])
+        ).catch(() => [{ count: 0, totalValue: 0 }]),
+        db.select({ 
+          count: count(),
+          totalValue: sql<number>`COALESCE(SUM(CAST("gross_amount" AS numeric)), 0)`
+        }).from(bondOrders).where(
+          eq(bondOrders.orderStatus, 'pending')
+        ).catch(() => [{ count: 0, totalValue: 0 }]),
+        db.select({ 
+          count: count(),
+          totalValue: sql<number>`COALESCE(SUM(CAST("total_value" AS numeric)), 0)`
+        }).from(unlistedDeals).where(
+          eq(unlistedDeals.status, 'pending')
+        ).catch(() => [{ count: 0, totalValue: 0 }]),
+        db.select({
+          eventType: immutableAuditLogs.eventType,
+          action: immutableAuditLogs.action
+        }).from(immutableAuditLogs).where(and(
+          gte(immutableAuditLogs.timestamp, oneDayAgo),
+          sql`${immutableAuditLogs.eventType} IN ('security', 'authentication', 'authorization', 'login')`
+        )).catch(() => [])
       ]);
 
       const errorsByModule = await db.select({
@@ -108,12 +186,61 @@ class ActivityInsightsService {
         .filter(([_, count]) => count > 10)
         .map(([module]) => module);
 
+      const todayCount = errorStats[0]?.count || 0;
+      const yesterdayCount = yesterdayErrors[0]?.count || 0;
+      let errorTrend: 'increasing' | 'decreasing' | 'stable' = 'stable';
+      if (yesterdayCount > 0) {
+        const changePercent = ((todayCount - yesterdayCount) / yesterdayCount) * 100;
+        if (changePercent > 20) errorTrend = 'increasing';
+        else if (changePercent < -20) errorTrend = 'decreasing';
+      } else if (todayCount > 5) {
+        errorTrend = 'increasing';
+      }
+
+      const complianceReport = complianceMonitor.getComplianceReport('day');
+      const complianceAlerts = complianceMonitor.getAlerts();
+
+      const auditFailedLogins = (authSecurityEvents as any[]).filter(
+        (e: any) => (e.eventType === 'authentication' || e.eventType === 'login') && 
+        (e.action?.toLowerCase().includes('fail') || e.action?.toLowerCase().includes('denied'))
+      ).length;
+      const complianceFailedLogins = complianceReport.summary.failedLogins || 0;
+      const failedLogins = Math.max(auditFailedLogins, complianceFailedLogins);
+
+      const auditRateLimitEvents = (authSecurityEvents as any[]).filter(
+        (e: any) => e.action?.toLowerCase().includes('rate') || e.action?.toLowerCase().includes('throttl') || e.action?.toLowerCase().includes('blocked')
+      ).length;
+      const complianceRateLimits = complianceAlerts.filter(
+        a => a.alertType === 'suspicious_ip' || a.description?.toLowerCase().includes('rate limit')
+      ).length;
+      const rateLimitViolations = auditRateLimitEvents + complianceRateLimits;
+
+      const auditSuspicious = (authSecurityEvents as any[]).filter(
+        (e: any) => e.eventType === 'security' && (e.action?.toLowerCase().includes('suspicious') || e.action?.toLowerCase().includes('breach') || e.action?.toLowerCase().includes('unauthorized'))
+      ).length;
+      const complianceSuspicious = complianceAlerts.filter(
+        a => !a.resolved && (a.severity === 'high' || a.severity === 'critical')
+      ).length;
+      const suspiciousActivity = auditSuspicious + complianceSuspicious;
+
+      const abandonedCarts = (cancelledBondOrders[0]?.count || 0) + (cancelledMfOrders[0]?.count || 0) + (cancelledUnlistedDeals[0]?.count || 0);
+      const completedDeals = (completedBondOrders[0]?.count || 0) + (completedUnlistedDeals[0]?.count || 0) + (completedMfOrders[0]?.count || 0);
+      const pendingMfValue = Number(pendingMfOrders[0]?.totalValue || 0);
+      const pendingBondVal = Number(pendingBondValue[0]?.totalValue || 0);
+      const pendingUnlistedVal = Number(pendingUnlistedValue[0]?.totalValue || 0);
+      const cancelledBondVal = Number(cancelledBondOrders[0]?.totalValue || 0);
+      const cancelledMfVal = Number(cancelledMfOrders[0]?.totalValue || 0);
+      const cancelledUnlistedVal = Number(cancelledUnlistedDeals[0]?.totalValue || 0);
+      const potentialRevenue = pendingMfValue + pendingBondVal + pendingUnlistedVal + cancelledBondVal + cancelledMfVal + cancelledUnlistedVal;
+
+      const slowEndpoints = requestLatencyTracker.getSlowEndpoints();
+
       return {
         errors: {
-          total: errorStats[0]?.count || 0,
+          total: todayCount,
           critical: criticalErrors[0]?.count || 0,
           byModule: moduleErrors,
-          trend: 'stable'
+          trend: errorTrend
         },
         users: {
           activeToday: activeUsers[0]?.count || 0,
@@ -122,18 +249,18 @@ class ActivityInsightsService {
           incompleteKyc: incompleteKycUsers[0]?.count || 0
         },
         revenue: {
-          pendingOrders: (pendingBondOrders[0]?.count || 0) + (pendingUnlistedDeals[0]?.count || 0),
-          abandonedCarts: 0,
-          completedDeals: 0,
-          potentialRevenue: 0
+          pendingOrders: (pendingBondOrders[0]?.count || 0) + (pendingUnlistedDeals[0]?.count || 0) + (pendingMfOrders[0]?.count || 0),
+          abandonedCarts,
+          completedDeals,
+          potentialRevenue: Math.round(potentialRevenue)
         },
         security: {
-          failedLogins: 0,
-          rateLimitViolations: 0,
-          suspiciousActivity: 0
+          failedLogins,
+          rateLimitViolations,
+          suspiciousActivity
         },
         performance: {
-          slowEndpoints: [],
+          slowEndpoints,
           highErrorRateModules: highErrorModules
         }
       };
