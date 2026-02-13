@@ -992,8 +992,10 @@ export default function SmartKYCOnboarding() {
     
     switch (entityType) {
       case 'individual':
-        startSessionMutation.mutate(false);
         setCurrentStep('pan_verification');
+        if (!sessionId) {
+          startSessionMutation.mutate(false);
+        }
         break;
       case 'huf':
         setCurrentStep('huf_details');
@@ -1686,7 +1688,7 @@ export default function SmartKYCOnboarding() {
       <CardHeader>
         <div className="flex items-center gap-2">
           <Shield className="h-6 w-6 text-primary" />
-          <CardTitle>Step 2: Aadhaar Verification</CardTitle>
+          <CardTitle>Step 3: Aadhaar Verification</CardTitle>
         </div>
         <CardDescription>
           Enter your Aadhaar number to receive OTP for verification
@@ -1761,7 +1763,7 @@ export default function SmartKYCOnboarding() {
       <CardHeader>
         <div className="flex items-center gap-2">
           <Shield className="h-6 w-6 text-primary" />
-          <CardTitle>Step 3: Verify OTP</CardTitle>
+          <CardTitle>Step 4: Verify OTP</CardTitle>
         </div>
         <CardDescription>
           Enter the OTP sent to your mobile number ending with {(aadhaarMasked || '').slice(-4) || '****'}
@@ -1827,7 +1829,7 @@ export default function SmartKYCOnboarding() {
       <CardHeader>
         <div className="flex items-center gap-2">
           <Shield className="h-6 w-6 text-primary" />
-          <CardTitle>Step 3: Central KYC Registry Check</CardTitle>
+          <CardTitle>Step 2: Central KYC Registry Check</CardTitle>
         </div>
         <CardDescription>
           Checking your existing KYC records in the CKYC/KRA registry
@@ -1915,7 +1917,7 @@ export default function SmartKYCOnboarding() {
       <CardHeader>
         <div className="flex items-center gap-2">
           <CheckCircle className="h-6 w-6 text-green-600" />
-          <CardTitle>Step 4: Auto-Populated Information</CardTitle>
+          <CardTitle>Step 5: Auto-Populated Information</CardTitle>
         </div>
         <CardDescription>
           Review your information fetched from verified sources
@@ -2024,7 +2026,7 @@ export default function SmartKYCOnboarding() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <Shield className="h-6 w-6 text-primary" />
-            <CardTitle>Step 5: Risk Profiling</CardTitle>
+            <CardTitle>Step 6: Risk Profiling</CardTitle>
           </div>
           <CardDescription>
             Help us understand your investment profile and risk appetite
@@ -2179,7 +2181,7 @@ export default function SmartKYCOnboarding() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <FileText className="h-6 w-6 text-primary" />
-            <CardTitle>Step 6: Compliance & Declarations</CardTitle>
+            <CardTitle>Step 7: Compliance & Declarations</CardTitle>
           </div>
           <CardDescription>
             Review and accept the required compliance declarations

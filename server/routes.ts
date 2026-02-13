@@ -1403,11 +1403,27 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         });
       }
 
-      // Use Cashfree PAN verification service
+      const { sandboxPANService } = await import('./sandbox-pan-api');
+      try {
+        const sandboxResult = await sandboxPANService.verifyPAN(normalizedPan, name || "Name Not Provided");
+        if (sandboxResult && sandboxResult.status === 'success' && sandboxResult.data) {
+          return res.json({
+            success: true,
+            verified: sandboxResult.data.status === 'VALID',
+            name: sandboxResult.data.full_name || null,
+            panType: sandboxResult.data.category || null,
+            panStatus: sandboxResult.data.status || null,
+            aadhaarLinked: sandboxResult.data.aadhaar_linked || false,
+            message: sandboxResult.message || 'PAN verified via Sandbox'
+          });
+        }
+      } catch (sandboxErr) {
+        console.warn('[KYC] Sandbox PAN verification failed, falling back to Cashfree:', sandboxErr instanceof Error ? sandboxErr.message : sandboxErr);
+      }
+
       const { CashfreePANService } = await import('./services/cashfree-pan-service');
       const result = await CashfreePANService.verifyPAN(normalizedPan, name || "Name Not Provided");
       
-      // Map response to expected format
       res.json({
         success: result.success,
         verified: result.verified,
