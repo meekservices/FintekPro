@@ -919,6 +919,7 @@ function CkycProviderSettings() {
     switch (code) {
       case 'truthscreen': return <Shield className="h-5 w-5 text-blue-600" />;
       case 'sandbox': return <Zap className="h-5 w-5 text-green-600" />;
+      case 'nsdl': return <FileText className="h-5 w-5 text-purple-600" />;
       case 'cersai_reference': return <FileText className="h-5 w-5 text-purple-600" />;
       case 'offline_aadhaar': return <FileText className="h-5 w-5 text-orange-600" />;
       case 'vkyc': return <Eye className="h-5 w-5 text-indigo-600" />;
@@ -939,14 +940,45 @@ function CkycProviderSettings() {
   const isCredentialConfigured = (code: string) => {
     if (code === 'truthscreen') return meta?.truthscreenConfigured;
     if (code === 'sandbox') return meta?.sandboxConfigured;
-    return true;
+    return false;
   };
 
   if (isLoading) {
     return <div className="text-center py-8">Loading provider settings...</div>;
   }
 
-  const apiProviders = providers.filter(p => p.providerCode === 'truthscreen' || p.providerCode === 'sandbox');
+  const truthscreen = providers.find(p => p.providerCode === 'truthscreen');
+  const sandbox = providers.find(p => p.providerCode === 'sandbox');
+
+  const verificationCategories = [
+    {
+      title: "PAN Verification",
+      description: "Identity verification via PAN card with government data sources",
+      icon: <FileText className="h-5 w-5 text-amber-600" />,
+      providers: [
+        { code: 'sandbox', name: 'Sandbox.co.in', description: 'PAN verification via Sandbox.co.in API', data: sandbox, role: 'Primary' },
+      ],
+    },
+    {
+      title: "Aadhaar Verification",
+      description: "Aadhaar-based identity verification with OTP or offline XML",
+      icon: <Shield className="h-5 w-5 text-green-600" />,
+      providers: [
+        { code: 'sandbox', name: 'Sandbox.co.in', description: 'Aadhaar OTP verification via Sandbox API', data: sandbox, role: 'Primary' },
+        { code: 'truthscreen', name: 'TruthScreen', description: 'Aadhaar verification via TruthScreen API', data: truthscreen, role: 'Fallback' },
+      ],
+    },
+    {
+      title: "CKYC Lookup",
+      description: "Central KYC (CKYC) record lookup via KIN/PAN from CERSAI registry",
+      icon: <Shield className="h-5 w-5 text-blue-600" />,
+      providers: [
+        { code: 'truthscreen', name: 'TruthScreen', description: 'CKYC record lookup via TruthScreen CKYC API', data: truthscreen, role: 'Primary' },
+        { code: 'nsdl', name: 'NSDL CKYC', description: 'Direct NSDL CKYC registry (credentials pending)', data: null, role: 'Non-functional' },
+      ],
+    },
+  ];
+
   const otherProviders = providers.filter(p => p.providerCode !== 'truthscreen' && p.providerCode !== 'sandbox');
 
   return (
@@ -960,8 +992,7 @@ function CkycProviderSettings() {
                 KYC Verification Providers
               </CardTitle>
               <CardDescription>
-                Choose between Sandbox.co.in and TruthScreen as your primary KYC verification provider.
-                Enable/disable providers and set priority order.
+                Provider mapping by verification type. PAN uses Sandbox, Aadhaar uses Sandbox/TruthScreen, CKYC uses TruthScreen/NSDL.
               </CardDescription>
             </div>
             <Button
@@ -976,71 +1007,97 @@ function CkycProviderSettings() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">API Providers (Primary)</h3>
-            <div className="grid gap-4 md:grid-cols-2">
-              {apiProviders.map((provider) => (
-                <Card key={provider.providerCode} className={`border-2 transition-colors ${provider.isEnabled ? 'border-primary/50 bg-primary/5' : 'border-muted'}`}>
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        {getProviderIcon(provider.providerCode)}
-                        <div>
-                          <h4 className="font-semibold">{provider.providerName}</h4>
-                          <p className="text-xs text-muted-foreground">{provider.providerDescription}</p>
-                        </div>
-                      </div>
-                      <Switch
-                        checked={provider.isEnabled}
-                        onCheckedChange={(checked) => toggleMutation.mutate({ code: provider.providerCode, enabled: checked })}
-                        disabled={toggleMutation.isPending}
-                      />
-                    </div>
+          <div className="space-y-6">
+            {verificationCategories.map((category) => (
+              <div key={category.title} className="space-y-3">
+                <div className="flex items-center gap-2">
+                  {category.icon}
+                  <div>
+                    <h3 className="text-sm font-semibold">{category.title}</h3>
+                    <p className="text-xs text-muted-foreground">{category.description}</p>
+                  </div>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2 pl-7">
+                  {category.providers.map((prov) => {
+                    const isNonFunctional = prov.role === 'Non-functional';
+                    const provData = prov.data;
+                    return (
+                      <Card key={`${category.title}-${prov.code}`} className={`border transition-colors ${isNonFunctional ? 'border-dashed border-muted opacity-60' : provData?.isEnabled ? 'border-primary/50 bg-primary/5' : 'border-muted'}`}>
+                        <CardContent className="p-4 space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-3">
+                              {getProviderIcon(prov.code)}
+                              <div>
+                                <h4 className="font-semibold text-sm">{prov.name}</h4>
+                                <p className="text-xs text-muted-foreground">{prov.description}</p>
+                              </div>
+                            </div>
+                            {!isNonFunctional && provData && (
+                              <Switch
+                                checked={provData.isEnabled}
+                                onCheckedChange={(checked) => toggleMutation.mutate({ code: prov.code, enabled: checked })}
+                                disabled={toggleMutation.isPending}
+                              />
+                            )}
+                          </div>
 
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {getHealthBadge(provider.healthStatus)}
-                      {isCredentialConfigured(provider.providerCode) ? (
-                        <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                          <CheckCircle size={12} className="mr-1" />Credentials Set
-                        </Badge>
-                      ) : (
-                        <Badge variant="destructive">
-                          <XCircle size={12} className="mr-1" />Missing Credentials
-                        </Badge>
-                      )}
-                      <Badge variant="outline">
-                        <ArrowUpDown size={12} className="mr-1" />Priority: {provider.priority}
-                      </Badge>
-                    </div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant={prov.role === 'Primary' ? 'default' : prov.role === 'Fallback' ? 'secondary' : 'outline'} className="text-xs">
+                              {prov.role}
+                            </Badge>
+                            {isNonFunctional ? (
+                              <Badge variant="destructive" className="text-xs">
+                                <XCircle size={12} className="mr-1" />Credentials Pending
+                              </Badge>
+                            ) : provData ? (
+                              <>
+                                {getHealthBadge(provData.healthStatus)}
+                                {isCredentialConfigured(prov.code) ? (
+                                  <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs">
+                                    <CheckCircle size={12} className="mr-1" />Credentials Set
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="destructive" className="text-xs">
+                                    <XCircle size={12} className="mr-1" />Missing Credentials
+                                  </Badge>
+                                )}
+                              </>
+                            ) : null}
+                          </div>
 
-                    <div className="flex items-center gap-2">
-                      <Label className="text-xs">Priority:</Label>
-                      <Select
-                        value={String(provider.priority)}
-                        onValueChange={(val) => priorityMutation.mutate({ code: provider.providerCode, priority: parseInt(val) })}
-                      >
-                        <SelectTrigger className="w-20 h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1">1 (Highest)</SelectItem>
-                          <SelectItem value="2">2</SelectItem>
-                          <SelectItem value="3">3</SelectItem>
-                          <SelectItem value="4">4</SelectItem>
-                          <SelectItem value="5">5</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                          {!isNonFunctional && provData && (
+                            <div className="flex items-center gap-2">
+                              <Label className="text-xs">Priority:</Label>
+                              <Select
+                                value={String(provData.priority)}
+                                onValueChange={(val) => priorityMutation.mutate({ code: prov.code, priority: parseInt(val) })}
+                              >
+                                <SelectTrigger className="w-20 h-8">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="1">1 (Highest)</SelectItem>
+                                  <SelectItem value="2">2</SelectItem>
+                                  <SelectItem value="3">3</SelectItem>
+                                  <SelectItem value="4">4</SelectItem>
+                                  <SelectItem value="5">5</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
 
-                    {provider.lastHealthCheck && (
-                      <p className="text-xs text-muted-foreground">
-                        Last checked: {new Date(provider.lastHealthCheck).toLocaleString()}
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                          {provData?.lastHealthCheck && (
+                            <p className="text-xs text-muted-foreground">
+                              Last checked: {new Date(provData.lastHealthCheck).toLocaleString()}
+                            </p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
 
             {otherProviders.length > 0 && (
               <>
@@ -1077,7 +1134,7 @@ function CkycProviderSettings() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Activity size={20} />
-            Test CKYC Verification
+            Test KYC Verification
           </CardTitle>
           <CardDescription>
             Test the current provider configuration with a sample PAN number
