@@ -57,6 +57,7 @@ SANDBOX_API_SECRET = "secret_test_6d7c3bf350974741a5067b1e0fcbf5ad"
 POLYGON_S3_ENDPOINT = "https://files.massive.com"
 POLYGON_S3_BUCKET = "flatfiles"
 ZOHO_DATACENTER = "in"
+TRUTHSCREEN_BASE_URL = "https://www.truthscreen.com"
 
 [userenv.production]
 CASHFREE_ENVIRONMENT = "PRODUCTION"

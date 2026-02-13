@@ -16,7 +16,7 @@ export class TruthScreenCkycAdapter implements ICkycProviderAdapter {
   constructor() {
     this.username = process.env.TRUTHSCREEN_USERNAME || '';
     this.password = process.env.TRUTHSCREEN_PASSWORD || '';
-    this.baseUrl = process.env.TRUTHSCREEN_BASE_URL || 'https://www.truthscreen.com/api/v2.2/';
+    this.baseUrl = process.env.TRUTHSCREEN_BASE_URL || 'https://www.truthscreen.com';
   }
   
   isConfigured(): boolean {
@@ -40,7 +40,7 @@ export class TruthScreenCkycAdapter implements ICkycProviderAdapter {
       const credentials = Buffer.from(`${this.username}:${this.password}`).toString('base64');
       
       const response = await axios.post(
-        `${this.baseUrl}ckyc/search`,
+        `${this.baseUrl}/Ckyc/api/ckyc-status`,
         {
           pan: request.panNumber.toUpperCase(),
           name: request.fullName,
@@ -140,7 +140,7 @@ export class TruthScreenCkycAdapter implements ICkycProviderAdapter {
       const axios = (await import('axios')).default;
       const credentials = Buffer.from(`${this.username}:${this.password}`).toString('base64');
       
-      await axios.get(`${this.baseUrl}health`, {
+      await axios.get(`${this.baseUrl}/health`, {
         headers: { 'Authorization': `Basic ${credentials}` },
         timeout: 5000
       });
