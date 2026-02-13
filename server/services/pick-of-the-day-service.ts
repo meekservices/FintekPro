@@ -9,6 +9,7 @@ import {
   logFilteredInstrument 
 } from "./regulatory-investability-service";
 import { currencyExchangeService } from "./currency-exchange-service";
+import { derivativesService } from './derivatives-service';
 import { getEnrichedStockSnapshot, getEnrichedStockSnapshots } from './screener/enriched-stock-data';
 import type { EnrichedStockSnapshot } from './screener/enriched-stock-data';
 
@@ -23,7 +24,8 @@ export type PickCategory =
   | 'etfs' 
   | 'reits_invits' 
   | 'fixed_deposits' 
-  | 'sgb';
+  | 'sgb'
+  | 'derivatives';
 
 export type PickStatus = 'live' | 'target_hit' | 'stoploss_hit' | 'expired';
 
@@ -352,6 +354,9 @@ class PickOfTheDayService {
 
     const fdPick = await this.generateFixedDepositPick();
     if (fdPick) picks.push(fdPick);
+
+    const derivativesPick = await this.generateDerivativesPick();
+    if (derivativesPick) picks.push(derivativesPick);
 
     for (const pick of picks) {
       await this.savePick(pick);
@@ -1309,6 +1314,241 @@ class PickOfTheDayService {
       console.error("[PickOfTheDay] Error generating Fixed Deposit pick:", error);
       return null;
     }
+  }
+
+  private async generateDerivativesPick(): Promise<DailyPickData | null> {
+    try {
+      const { symbols, lotSizes } = await derivativesService.getAvailableSymbols();
+
+      const indexSymbols = ['NIFTY', 'BANKNIFTY', 'FINNIFTY'];
+      const stockSymbols = symbols.filter(s => !indexSymbols.includes(s) && !['MIDCPNIFTY'].includes(s));
+
+      const recentDerivatives = this.recentPicksCache.get('derivatives') || new Set<string>();
+
+      const useIndex = Math.random() > 0.4;
+      const candidatePool = useIndex ? indexSymbols : stockSymbols;
+      const availableCandidates = candidatePool.filter(s => !recentDerivatives.has(s));
+      const selectedSymbol = availableCandidates.length > 0
+        ? availableCandidates[Math.floor(Math.random() * availableCandidates.length)]
+        : candidatePool[Math.floor(Math.random() * candidatePool.length)];
+
+      const chain = await derivativesService.getOptionsChain(selectedSymbol);
+      const spotPrice = chain.underlyingValue;
+      const nearestExpiry = chain.expiryDates[0];
+      const lotSize = lotSizes[selectedSymbol] || 50;
+
+      const strategies = [
+        { name: 'Bull Call Spread', outlook: 'bullish', risk: 'medium' },
+        { name: 'Bear Put Spread', outlook: 'bearish', risk: 'medium' },
+        { name: 'Long Call', outlook: 'bullish', risk: 'high' },
+        { name: 'Long Put', outlook: 'bearish', risk: 'high' },
+        { name: 'Iron Condor', outlook: 'neutral', risk: 'low' },
+        { name: 'Long Straddle', outlook: 'volatile', risk: 'high' },
+        { name: 'Covered Call', outlook: 'neutral', risk: 'medium' },
+      ];
+
+      const strategy = strategies[Math.floor(Math.random() * strategies.length)];
+      const isIndex = indexSymbols.includes(selectedSymbol);
+      const strikeInterval = isIndex ? (selectedSymbol === 'BANKNIFTY' ? 100 : 50) : this.getDerivativeStrikeInterval(spotPrice);
+      const atmStrike = Math.round(spotPrice / strikeInterval) * strikeInterval;
+
+      const atmCall = chain.options.calls.find(c => c.strikePrice === atmStrike);
+      const atmPut = chain.options.puts.find(p => p.strikePrice === atmStrike);
+      const otmCallStrike = atmStrike + strikeInterval * 2;
+      const otmPutStrike = atmStrike - strikeInterval * 2;
+      const otmCall = chain.options.calls.find(c => c.strikePrice === otmCallStrike);
+      const otmPut = chain.options.puts.find(p => p.strikePrice === otmPutStrike);
+
+      let entryPrice: number;
+      let targetPrice: number;
+      let stoplossPrice: number;
+      let maxProfit: number | string;
+      let maxLoss: number | string;
+      let breakeven: number[];
+      let strategyLegs: string;
+      let marginRequired: number;
+
+      const callPremium = atmCall?.lastPrice || spotPrice * 0.02;
+      const putPremium = atmPut?.lastPrice || spotPrice * 0.02;
+      const otmCallPremium = otmCall?.lastPrice || spotPrice * 0.01;
+      const otmPutPremium = otmPut?.lastPrice || spotPrice * 0.01;
+      const iv = atmCall?.impliedVolatility || 20;
+
+      switch (strategy.name) {
+        case 'Bull Call Spread':
+          entryPrice = (callPremium - otmCallPremium) * lotSize;
+          maxProfit = (otmCallStrike - atmStrike - callPremium + otmCallPremium) * lotSize;
+          maxLoss = entryPrice;
+          breakeven = [atmStrike + callPremium - otmCallPremium];
+          targetPrice = entryPrice * 1.6;
+          stoplossPrice = entryPrice * 0.4;
+          strategyLegs = `Buy ${atmStrike} CE @ ₹${callPremium.toFixed(1)}, Sell ${otmCallStrike} CE @ ₹${otmCallPremium.toFixed(1)}`;
+          marginRequired = entryPrice * 1.2;
+          break;
+        case 'Bear Put Spread':
+          entryPrice = (putPremium - otmPutPremium) * lotSize;
+          maxProfit = (atmStrike - otmPutStrike - putPremium + otmPutPremium) * lotSize;
+          maxLoss = entryPrice;
+          breakeven = [atmStrike - putPremium + otmPutPremium];
+          targetPrice = entryPrice * 1.6;
+          stoplossPrice = entryPrice * 0.4;
+          strategyLegs = `Buy ${atmStrike} PE @ ₹${putPremium.toFixed(1)}, Sell ${otmPutStrike} PE @ ₹${otmPutPremium.toFixed(1)}`;
+          marginRequired = entryPrice * 1.2;
+          break;
+        case 'Long Call':
+          entryPrice = callPremium * lotSize;
+          maxProfit = -1;
+          maxLoss = entryPrice;
+          breakeven = [atmStrike + callPremium];
+          targetPrice = callPremium * 1.5 * lotSize;
+          stoplossPrice = callPremium * 0.5 * lotSize;
+          strategyLegs = `Buy ${atmStrike} CE @ ₹${callPremium.toFixed(1)}`;
+          marginRequired = entryPrice;
+          break;
+        case 'Long Put':
+          entryPrice = putPremium * lotSize;
+          maxProfit = (atmStrike - putPremium) * lotSize;
+          maxLoss = entryPrice;
+          breakeven = [atmStrike - putPremium];
+          targetPrice = putPremium * 1.5 * lotSize;
+          stoplossPrice = putPremium * 0.5 * lotSize;
+          strategyLegs = `Buy ${atmStrike} PE @ ₹${putPremium.toFixed(1)}`;
+          marginRequired = entryPrice;
+          break;
+        case 'Iron Condor':
+          const netCredit = (otmCallPremium + otmPutPremium - (otmCall ? chain.options.calls.find(c => c.strikePrice === otmCallStrike + strikeInterval * 2)?.lastPrice || otmCallPremium * 0.3 : otmCallPremium * 0.3) - (otmPut ? chain.options.puts.find(p => p.strikePrice === otmPutStrike - strikeInterval * 2)?.lastPrice || otmPutPremium * 0.3 : otmPutPremium * 0.3)) * lotSize;
+          entryPrice = Math.abs(netCredit);
+          maxProfit = Math.abs(netCredit);
+          maxLoss = (strikeInterval * 2 * lotSize) - Math.abs(netCredit);
+          breakeven = [otmPutStrike + netCredit / lotSize, otmCallStrike - netCredit / lotSize];
+          targetPrice = entryPrice * 0.8;
+          stoplossPrice = entryPrice * 2;
+          strategyLegs = `Sell ${otmCallStrike} CE, Buy ${otmCallStrike + strikeInterval * 2} CE, Sell ${otmPutStrike} PE, Buy ${otmPutStrike - strikeInterval * 2} PE`;
+          marginRequired = typeof maxLoss === 'number' ? maxLoss * 1.5 : entryPrice * 3;
+          break;
+        case 'Long Straddle':
+          entryPrice = (callPremium + putPremium) * lotSize;
+          maxProfit = -1;
+          maxLoss = entryPrice;
+          breakeven = [atmStrike - callPremium - putPremium, atmStrike + callPremium + putPremium];
+          targetPrice = entryPrice * 1.5;
+          stoplossPrice = entryPrice * 0.4;
+          strategyLegs = `Buy ${atmStrike} CE @ ₹${callPremium.toFixed(1)}, Buy ${atmStrike} PE @ ₹${putPremium.toFixed(1)}`;
+          marginRequired = entryPrice;
+          break;
+        default:
+          entryPrice = spotPrice * lotSize - otmCallPremium * lotSize;
+          maxProfit = (otmCallStrike - spotPrice + otmCallPremium) * lotSize;
+          maxLoss = (spotPrice - otmCallPremium) * lotSize;
+          breakeven = [spotPrice - otmCallPremium];
+          targetPrice = entryPrice + (typeof maxProfit === 'number' ? maxProfit * 0.7 : 0);
+          stoplossPrice = entryPrice * 0.95;
+          strategyLegs = `Buy ${selectedSymbol} Futures, Sell ${otmCallStrike} CE @ ₹${otmCallPremium.toFixed(1)}`;
+          marginRequired = spotPrice * lotSize * 0.15;
+          break;
+      }
+
+      const daysToExpiry = Math.max(1, Math.ceil((new Date(nearestExpiry).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+      const greeks = derivativesService.calculateGreeks(
+        spotPrice, atmStrike, daysToExpiry, iv / 100, 0.06,
+        strategy.outlook === 'bearish' ? 'put' : 'call'
+      );
+
+      let rationale = '';
+      if (this.genAI) {
+        try {
+          rationale = await this.generateRationale({
+            type: 'derivatives',
+            name: `${selectedSymbol} ${strategy.name}`,
+            strategy: strategy.name,
+            symbol: selectedSymbol,
+            spotPrice,
+            strikePrice: atmStrike,
+            expiry: nearestExpiry,
+            iv,
+            outlook: strategy.outlook,
+            lotSize,
+            entryPrice: Math.round(entryPrice),
+            maxProfit: maxProfit === -1 ? 'Unlimited' : `₹${Math.round(typeof maxProfit === 'number' ? maxProfit : 0).toLocaleString()}`,
+            maxLoss: `₹${Math.round(typeof maxLoss === 'number' ? maxLoss : 0).toLocaleString()}`,
+          });
+        } catch (e) {
+          console.error("[PickOfTheDay] AI rationale failed for derivatives:", e);
+        }
+      }
+
+      if (!rationale) {
+        rationale = `${strategy.name} on ${selectedSymbol} with ${strategy.outlook} outlook. ${strategyLegs}. Spot at ₹${spotPrice.toFixed(0)}, IV at ${iv.toFixed(1)}%. ` +
+          `Max profit: ${maxProfit === -1 ? 'Unlimited' : `₹${Math.round(typeof maxProfit === 'number' ? maxProfit : 0).toLocaleString()}`}, ` +
+          `Max loss: ₹${Math.round(typeof maxLoss === 'number' ? maxLoss : 0).toLocaleString()}. ` +
+          `Lot size: ${lotSize}, Expiry: ${nearestExpiry}. Suitable for ${strategy.outlook} market view with ${strategy.risk} risk appetite.`;
+      }
+
+      if (!this.recentPicksCache.has('derivatives')) {
+        this.recentPicksCache.set('derivatives', new Set());
+      }
+      this.recentPicksCache.get('derivatives')!.add(selectedSymbol);
+
+      const expiryDate = new Date(nearestExpiry);
+      const suitableProfiles = strategy.risk === 'low'
+        ? ['conservative', 'moderate', 'aggressive']
+        : strategy.risk === 'medium'
+        ? ['moderate', 'aggressive']
+        : ['aggressive', 'very_aggressive'];
+
+      return {
+        category: 'derivatives',
+        instrumentName: `${selectedSymbol} ${strategy.name}`,
+        symbol: selectedSymbol,
+        exchange: 'NSE',
+        recoDate: new Date().toISOString().split('T')[0],
+        recoPrice: Math.round(entryPrice * 100) / 100,
+        targetPrice: Math.round(targetPrice * 100) / 100,
+        stoplossPrice: Math.round(stoplossPrice * 100) / 100,
+        status: 'live',
+        expiryDate: expiryDate.toISOString().split('T')[0],
+        rationale,
+        riskLevel: strategy.risk,
+        suitableFor: suitableProfiles,
+        timeHorizon: 'short_term',
+        confidenceScore: 60 + Math.floor(Math.random() * 25),
+        sectorCategory: isIndex ? 'Index Derivatives' : 'Stock Derivatives',
+        keyMetrics: {
+          strategy: strategy.name,
+          outlook: strategy.outlook,
+          lotSize,
+          strikePrice: atmStrike,
+          spotPrice: Math.round(spotPrice * 100) / 100,
+          optionType: strategy.outlook === 'bearish' ? 'PE' : strategy.outlook === 'bullish' ? 'CE' : 'CE+PE',
+          impliedVolatility: Math.round(iv * 100) / 100,
+          marginRequired: Math.round(marginRequired),
+          maxProfit: maxProfit === -1 ? 'Unlimited' : Math.round(typeof maxProfit === 'number' ? maxProfit : 0),
+          maxLoss: Math.round(typeof maxLoss === 'number' ? maxLoss : 0),
+          breakeven: breakeven.map(b => Math.round(b * 100) / 100),
+          legs: strategyLegs,
+          expiry: nearestExpiry,
+          daysToExpiry,
+          greeks: {
+            delta: greeks.delta,
+            theta: greeks.theta,
+            vega: greeks.vega,
+            gamma: greeks.gamma,
+            iv: greeks.impliedVolatility,
+          },
+        },
+      };
+    } catch (error) {
+      console.error("[PickOfTheDay] Failed to generate derivatives pick:", error);
+      return null;
+    }
+  }
+
+  private getDerivativeStrikeInterval(price: number): number {
+    if (price < 100) return 2.5;
+    if (price < 500) return 5;
+    if (price < 1000) return 10;
+    if (price < 5000) return 25;
+    return 50;
   }
 
   private scoreETF(etf: any): number {

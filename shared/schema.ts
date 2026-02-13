@@ -29438,7 +29438,8 @@ export const pickCategoryEnum = pgEnum("pick_category", [
   "etfs",
   "reits_invits",
   "fixed_deposits",
-  "sgb"
+  "sgb",
+  "derivatives"
 ]);
 
 export const pickStatusEnum = pgEnum("pick_status", [

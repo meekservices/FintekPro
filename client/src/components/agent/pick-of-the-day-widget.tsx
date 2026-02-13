@@ -16,6 +16,7 @@ import {
   Building2,
   Globe,
   Coins,
+  Activity,
 } from "lucide-react";
 
 interface DailyPick {
@@ -66,6 +67,7 @@ const categoryIcons: Record<string, any> = {
   reits_invits: Building2,
   fixed_deposits: Shield,
   sgb: Coins,
+  derivatives: Activity,
 };
 
 const categoryLabels: Record<string, string> = {
@@ -78,6 +80,7 @@ const categoryLabels: Record<string, string> = {
   reits_invits: "REIT/InvIT",
   fixed_deposits: "Fixed Deposit",
   sgb: "Sovereign Gold Bond",
+  derivatives: "Derivatives",
 };
 
 const statusColors: Record<string, string> = {

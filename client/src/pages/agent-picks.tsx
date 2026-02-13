@@ -46,6 +46,7 @@ import {
   Timer,
   PieChart,
   AlertTriangle,
+  Activity,
 } from "lucide-react";
 
 interface DailyPick {
@@ -134,6 +135,7 @@ const categoryIcons: Record<string, any> = {
   reits_invits: Building2,
   fixed_deposits: Shield,
   sgb: Coins,
+  derivatives: Activity,
 };
 
 const categoryLabels: Record<string, string> = {
@@ -146,6 +148,7 @@ const categoryLabels: Record<string, string> = {
   reits_invits: "REITs/InvITs",
   fixed_deposits: "Fixed Deposits",
   sgb: "SGBs",
+  derivatives: "Derivatives (F&O)",
 };
 
 // Currency helper for global stocks (USD) vs domestic (INR)
@@ -200,6 +203,7 @@ const allCategories = [
   { key: "reits_invits", label: "REITs", icon: Building2 },
   { key: "fixed_deposits", label: "FDs", icon: Shield },
   { key: "sgb", label: "SGBs", icon: Coins },
+  { key: "derivatives", label: "F&O", icon: Activity },
 ];
 
 const marketFilters = [
@@ -1099,6 +1103,16 @@ function PickCard({
                   {pick.category === 'sgb' && pick.keyMetrics?.seriesCode && (
                     <span className="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-1.5 py-0.5 rounded">Series: {pick.keyMetrics.seriesCode}</span>
                   )}
+                  {pick.category === 'derivatives' && pick.keyMetrics?.strategy && (
+                    <span className="text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 px-1.5 py-0.5 rounded font-medium">
+                      {pick.keyMetrics.strategy}
+                    </span>
+                  )}
+                  {pick.category === 'derivatives' && pick.keyMetrics?.expiry && (
+                    <span className="text-xs bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 px-1.5 py-0.5 rounded">
+                      Exp: {new Date(pick.keyMetrics.expiry).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -1232,6 +1246,67 @@ function PickCard({
                     <span className="font-medium">{typeof value === 'number' ? value.toFixed(2) : value}</span>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {showDetails && pick.category === 'derivatives' && pick.keyMetrics && (
+              <div className="mt-3 pt-3 border-t">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                  {pick.keyMetrics.strategy && (
+                    <div>
+                      <span className="text-muted-foreground">Strategy: </span>
+                      <span className="font-medium">{pick.keyMetrics.strategy}</span>
+                    </div>
+                  )}
+                  {pick.keyMetrics.lotSize && (
+                    <div>
+                      <span className="text-muted-foreground">Lot Size: </span>
+                      <span className="font-medium">{pick.keyMetrics.lotSize}</span>
+                    </div>
+                  )}
+                  {pick.keyMetrics.marginRequired && (
+                    <div>
+                      <span className="text-muted-foreground">Margin: </span>
+                      <span className="font-medium">₹{Number(pick.keyMetrics.marginRequired).toLocaleString()}</span>
+                    </div>
+                  )}
+                  {pick.keyMetrics.impliedVolatility && (
+                    <div>
+                      <span className="text-muted-foreground">IV: </span>
+                      <span className="font-medium">{pick.keyMetrics.impliedVolatility}%</span>
+                    </div>
+                  )}
+                  {pick.keyMetrics.maxProfit !== undefined && (
+                    <div>
+                      <span className="text-muted-foreground">Max Profit: </span>
+                      <span className="font-medium text-green-600">{pick.keyMetrics.maxProfit === 'Unlimited' ? '∞' : `₹${Number(pick.keyMetrics.maxProfit).toLocaleString()}`}</span>
+                    </div>
+                  )}
+                  {pick.keyMetrics.maxLoss !== undefined && (
+                    <div>
+                      <span className="text-muted-foreground">Max Loss: </span>
+                      <span className="font-medium text-red-600">₹{Number(pick.keyMetrics.maxLoss).toLocaleString()}</span>
+                    </div>
+                  )}
+                  {pick.keyMetrics.breakeven && (
+                    <div>
+                      <span className="text-muted-foreground">Breakeven: </span>
+                      <span className="font-medium">{Array.isArray(pick.keyMetrics.breakeven) ? pick.keyMetrics.breakeven.map((b: number) => `₹${b.toLocaleString()}`).join(', ') : `₹${pick.keyMetrics.breakeven}`}</span>
+                    </div>
+                  )}
+                  {pick.keyMetrics.greeks && (
+                    <div>
+                      <span className="text-muted-foreground">Greeks: </span>
+                      <span className="font-medium">Δ{pick.keyMetrics.greeks.delta} Θ{pick.keyMetrics.greeks.theta} V{pick.keyMetrics.greeks.vega}</span>
+                    </div>
+                  )}
+                </div>
+                {pick.keyMetrics.legs && (
+                  <div className="mt-2 p-2 bg-muted/50 rounded text-xs">
+                    <span className="text-muted-foreground">Legs: </span>
+                    <span className="font-mono">{pick.keyMetrics.legs}</span>
+                  </div>
+                )}
               </div>
             )}
 

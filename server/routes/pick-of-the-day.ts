@@ -69,6 +69,7 @@ const DATA_SOURCES: Record<string, { name: string; type: string; refreshInterval
   reits_invits: { name: "NSE India / Yahoo Finance", type: "Daily pricing", refreshInterval: "Every 6 hours" },
   sgb: { name: "RBI / Gold Spot Price", type: "Gold-linked valuation", refreshInterval: "Daily" },
   unlisted: { name: "FintekPro OTC Desk", type: "Dealer quote", refreshInterval: "On update" },
+  derivatives: { name: "NSE F&O Data / Options Chain", type: "Real-time (15-min delay)", refreshInterval: "Every 4 hours" },
 };
 
 async function enrichPicksWithDataSource(picks: any[]) {
