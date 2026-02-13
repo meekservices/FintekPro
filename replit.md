@@ -10,14 +10,6 @@ Ask before making major changes.
 Do not make changes to the folder `Z`.
 Do not make changes to the file `Y`.
 
-## Testing Policy — Single Central Test Account
-- **test@fintekpro.com** is the ONLY test account for all FintekPro testing.
-- Password: `Test@123456`, OTP: `123456` (fixed for tester role).
-- Roles: superadmin, admin, partner, agent, client, user, tester.
-- All dev fallbacks use id `central-test-user` and email `test@fintekpro.com`.
-- Do NOT create additional demo/test user IDs (demo-user-1, demo@partner.com, admin-dev-1, etc.).
-- Scripts: `server/seed-test-user.ts` creates/resets the central account; `create-admin-user.ts` and `update-admin-password.ts` both redirect to `seedTestUser()`.
-
 ## System Architecture
 
 ### UI/UX Decisions
@@ -26,65 +18,57 @@ The frontend uses React 18, TypeScript, shadcn/ui (Radix UI), Tailwind CSS, and 
 ### Technical Implementations
 The frontend leverages Vite, Wouter for routing, TanStack Query for state management, and React Hook Form with Zod for validation. The backend is an Express.js application with TypeScript, using PostgreSQL via Drizzle ORM, exposed through a RESTful API. Authentication includes mandatory two-factor OTP, unified login via Passport.js, and comprehensive KYC with PAN verification. An Admin portal is also part of the system.
 
-The platform includes a SEBI/RBI-compliant Unlisted Marketplace with a multi-methodology price suggestion engine. A Multi-Source Financial Data Enrichment System integrates providers with priority-based source selection. An API cost optimization system minimizes external calls via request deduplication and AI response caching. A Centralized Portfolio Import System supports diverse import sources with a unified type system and AI fallback for parsing, including a `unified-pdf-parser.ts` for financial documents. A `cas-statement-service.ts` handles CAMS/KFintech CAS PDF parsing with a FIFO Lot Ledger. A Unified Portfolio Storage System consolidates portfolio data, and a `unified-holdings-reader-service.ts` provides a single entry point for reading holdings. The platform includes a Capital Gains & Tax Optimization System.
+The platform includes a SEBI/RBI-compliant Unlisted Marketplace with a multi-methodology price suggestion engine. A Multi-Source Financial Data Enrichment System integrates providers with priority-based source selection. An API cost optimization system minimizes external calls via request deduplication and AI response caching. A Centralized Portfolio Import System supports diverse import sources with a unified type system and AI fallback for parsing, including a `unified-pdf-parser.ts` for financial documents and `cas-statement-service.ts` for CAMS/KFintech CAS PDF parsing. A Unified Portfolio Storage System consolidates portfolio data, and a `unified-holdings-reader-service.ts` provides a single entry point for reading holdings. The platform includes a Capital Gains & Tax Optimization System.
 
-FintekPro integrates a Comprehensive Zoho Ecosystem (CRM, Books, Campaigns, Meeting, Sign). It features a Profit-Optimized AI Recommendation Engine and a Unified AI Recommendation Engine. A Stock Enrichment System consolidates listed stocks, and an ISIN Intelligence Layer provides automatic instrument classification. The Agent Knowledge Hub provides market intelligence and a Gemini-powered Daily AI Market Brief Engine. A **DB-First Stock Screener** (`server/services/screener/`) uses FMP with rate-limited data ingestion (249 API calls/day, auto-stop at 245), integrating ALL 41+ FMP endpoints across a **4-Tier Priority Queue Enrichment System** with budget allocation (T1=40%, T2=30%, T3=20%, T4=10%). Tier 1 (Fundamentals): ratios, financial-growth, key-metrics, DCF, ratings, income/balance/cashflow statements. Tier 2 (Analyst & Events): price-target, upgrades-downgrades, earnings/dividend/split/IPO/economic calendars. Tier 3 (Intelligence): institutional-holder, insider-trading, stock-news, sector-performance, technical-indicators. Tier 4 (Prices & Market): historical prices, batch quotes, market risk premium. The **derived metrics scoring engine** uses enriched data (FCF growth, EPS growth, ROIC, DCF upside) when available, with graceful fallback to base financials: Growth 25% (blends fundamentals + returns 50/50), Quality 30% (ROE/ROA/ROIC/margins), Value 25% (PE/PB/DY/DCF upside), Risk 20% (D/E, current ratio). FintekRating 1-5 stars. Seeds from `listed_stocks` for zero-cost dev testing. FMP enrichment routes are production-only by default. Core DB tables: `screener_stocks`, `screener_financials`, `screener_price_history`, `screener_derived_metrics`, `fmp_usage_log`. Extended DB tables (16): `screener_growth_metrics`, `screener_key_metrics`, `screener_dcf_valuations`, `screener_company_ratings`, `screener_analyst_targets`, `screener_analyst_grades`, `screener_earnings_calendar`, `screener_dividend_calendar`, `screener_split_calendar`, `screener_ipo_calendar`, `screener_economic_calendar`, `screener_institutional_holders`, `screener_insider_trades`, `screener_stock_news`, `screener_sector_performance`, `screener_technical_indicators`. Key services: `priority-enrichment-scheduler.ts` (4-tier batch orchestrator), `fmp-provider.ts` (41+ endpoint methods). Admin endpoints: `/api/screener/admin/seed-from-db`, `/api/screener/admin/enrich/*`, `/api/screener/admin/enrich/tier/:tierNumber`, `/api/screener/admin/enrich/priority-batch`, `/api/screener/admin/extended-progress`, `/api/screener/admin/recalculate-metrics`. Data access endpoints: `/api/screener/stocks/:symbol/{growth,key-metrics,dcf,rating,analyst-targets,analyst-grades,institutional-holders,insider-trades,news,technicals}`, `/api/screener/calendar/{earnings,dividends,splits,ipos,economic}`, `/api/screener/sector-performance`.
+FintekPro integrates a Comprehensive Zoho Ecosystem (CRM, Books, Campaigns, Meeting, Sign). It features a Profit-Optimized AI Recommendation Engine and a Unified AI Recommendation Engine. A Stock Enrichment System consolidates listed stocks, and an ISIN Intelligence Layer provides automatic instrument classification. The Agent Knowledge Hub provides market intelligence and a Gemini-powered Daily AI Market Brief Engine. A DB-First Stock Screener uses FMP with a 4-Tier Priority Queue Enrichment System and a derived metrics scoring engine.
 
 The system supports SEBI/RBI-compliant payment handling, FEMA compliance, and international transaction management. It offers Offline & Slow-Internet Resilience via PWA capabilities. A DSA Multi-Financier Loan Routing System ensures RBI Digital Lending Directions 2025 compliance. A Bank OAuth Integration Infrastructure provides secure bank API connectivity. An MCA Integration System manages company financial data, and a Database-First Data Enrichment System optimizes access for unlisted shares.
 
-A **Builder Funding & Project Finance Module** extends the DSA loan system with a DEVELOPER vertical and 8 sub-types (BUILDER_FUNDING, PROJECT_FUNDING, CONSTRUCTION_FINANCE, LRD, LAND_FINANCE, INVENTORY_FINANCE, MEZZANINE, BRIDGE). It features a 10-step Project Finance Wizard with a funding structure calculator and credit summary with a 10-rule scoring engine. An **Intelligent Lender Matching Engine** (`POST /api/developer-finance/match-lenders`) provides credit-desk–grade auto-shortlisting of banks/NBFCs/AIFs across 5 lender categories, scoring each lender against 9 criteria.
+A Builder Funding & Project Finance Module extends the DSA loan system with a DEVELOPER vertical and 8 sub-types, featuring a 10-step Project Finance Wizard and an Intelligent Lender Matching Engine.
 
-A **Multi-Level Partner Hierarchy System** enables hierarchical partner onboarding (Partner → Sub-Partner → Agent) with controlled delegation, commission waterfall, client ownership protection, and audit-ready compliance. A **Partner Payout Statement Service** (`partner-statement-service.ts`) provides transaction-level, auditable payout statements. A **Commission Dispute & Reversal Engine** (`commission-dispute-service.ts`) handles commission disputes and reversals with full audit trails. The **Partner Portal UI** includes "Payout Statement," "How Earnings Work," and "Compliance & Disclosures" tabs.
+A Multi-Level Partner Hierarchy System enables hierarchical partner onboarding with controlled delegation, commission waterfall, client ownership protection, and audit-ready compliance. A Partner Payout Statement Service provides transaction-level, auditable payout statements. A Commission Dispute & Reversal Engine handles disputes and reversals with full audit trails. The Partner Portal UI includes "Payout Statement," "How Earnings Work," and "Compliance & Disclosures" tabs.
+
+The platform is undergoing service consolidation, including: UnifiedOrderNotificationService, Unified AI Recommendation Engine, Cache Services, MF Live Returns System, Benchmark Data Infrastructure (with AMFI and BSE parsers), and KYC Orchestrators (three-layer architecture with CKYC, Onboarding, and Workflow Orchestrators, extended with KYC Wizard v2). Enhancements include Proposal Builder enhancements, a Regulator-Grade PDF System, a Proposal Audit Trail System, a Database Enrichment Infrastructure, a MF Comprehensive Enrichment Pipeline, and a Lead Leakage Prevention & Detection System.
 
 ### System Design Choices
 FintekPro uses a subdomain-based portal architecture for Admin, Partner, and Client portals with role-based access control. A Financial Metrics Engine provides 40+ derived ratios. It utilizes a Centralized Service Registry pattern for singleton management. A Staggered Startup System prevents resource contention, and Fast Boot Optimization ensures quick server responsiveness. A Regulatory Gaps Tracker monitors compliance across various regulators.
 
-### Service Consolidation Architecture
-The platform is undergoing service consolidation, including:
-- **UnifiedOrderNotificationService**: Centralized order notification handling.
-- **Unified AI Recommendation Engine**: Single entry point for all AI-powered investment recommendations.
-- **Cache Services**: Three overlapping cache layers for various data types.
-- **MF Live Returns System**: Replaces static MF returns with live CAGR calculations, including risk-adjusted return metrics and benchmark-relative metrics.
-- **Benchmark Data Infrastructure**: Manages market index historical data, fund-to-benchmark mapping, and daily ingestion of index data. This includes an **AMFI Benchmark Auto-Parser** and a **BSE Benchmark Parsing Extension**.
-- **KYC Orchestrators**: A three-layer architecture comprising CKYC, Onboarding, and Workflow Orchestrators. Extended with KYC Wizard v2 including: Video KYC Infrastructure (`kyc-video-service.ts`), Maker-Checker Workflow Engine (`kyc-maker-checker-service.ts`), Rejection/Dispute/Re-KYC Flow (`kyc-rejection-service.ts`), Product Eligibility Rule Engine (`kyc-product-eligibility-service.ts`), SEBI/RBI Audit Pack Generator (`kyc-audit-pack-service.ts`), Webhook + Async Retry Framework with DLQ (`kyc-webhook-service.ts`), Environment & Provider Control Flags (`kyc-environment-service.ts`), AES-256-GCM Encryption for Aadhaar/PAN (`kyc-encryption-service.ts`), Rate Limiting with auto-lock (`kyc-rate-limiter-service.ts`). Routes in `server/routes/kyc/v2-extensions.ts`. Frontend pages: `/admin/kyc-v2-management` (6-tab admin console), `/product-eligibility`, `/kyc-rejections`. DB tables: `kyc_video_sessions`, `kyc_approvals`, `kyc_rejection_events`, `kyc_product_eligibility_rules`, `kyc_audit_packs`, `kyc_webhook_events`, `kyc_rate_limit_counters`.
-- **Proposal Builder Enhancements**: Production-grade enhancements for investment advisory proposals including `Phase Validation Gates`, a `What-If Simulator`, and `Goal-Aware Benchmark Mapping`.
-- **Regulator-Grade PDF System**: Production-ready PDF generation with 20 sections, dynamic TOC, SHA256 hash embedding, and conditional section rendering.
-- **Proposal Audit Trail System**: Comprehensive audit logging with blockchain-style SHA256 checksum chaining for tamper detection, PAN hashing, and role-based override logging.
-- **Database Enrichment Infrastructure**: CLI tool providing batch enrichment operations for MF, stocks, and unlisted data.
-- **MF Comprehensive Enrichment Pipeline**: 5-phase SEBI-compliant mutual fund data enrichment with GitHub CSV AUM/category (Phase 1), ExtendedData JSONB extraction (Phase 2), MFAPI metadata sub-category/launch date (Phase 3), MFAPI returns & financial ratios (Phase 4), and category-based defaults (Phase 5). All enrichment changes are logged to `mf_enrichment_audit_logs` with enrichmentRunId for full traceability. AUM history tracked in `mf_aum_history` with anomaly detection (>20% flagged). SEBI Category Rules Engine (`mf-sebi-category-engine.ts`) seeds 37 official SEBI MF categorization rules from circular SEBI/HO/IMD/DF3/CIR/P/2017/114 into `mf_category_rules`. Internal MF APIs at `/api/funds/*` (list, detail, category filter, AUM history, audit logs, SEBI rules, null stats). Admin enrichment routes at `/api/admin/enrichment/mf/*` (comprehensive stats/progress/run, SEBI rules seed, category stats, audit logs, validate categories). DB tables: `mf_enrichment_audit_logs`, `mf_aum_history`, `mf_category_rules`.
-- **Lead Leakage Prevention & Detection System**: 10-epic system preventing agents from bypassing the platform to send leads directly to financiers. Features: Lead Registry with immutable first-touch attribution (PAN+mobile uniqueness), Processing Mode selection (PLATFORM vs EXTERNAL_FINANCIER with lock-once), forward-only loan status tracking (REGISTERED→LOGGED_IN→APPROVED→DISBURSED), Payout Claims with anti-fraud timestamp validation, Proof of Disbursement uploads (hash-verified, no deletion), Banker Email Confirmation Engine (auto-send on claim submission with HTML template), PDD Decision Matrix (approve/hold/reject based on PDD status and financier confirmation), Agent Payout Hold until PDD clearance, Commission Clawback with negative mirror ledger entries. Services: `lead-registry-service.ts`, `payout-claim-service.ts`, `banker-confirmation-service.ts`. Routes: `lead-leakage-routes.ts` (17 endpoints). DB tables: `lead_registry`, `payout_claims`, `proof_uploads`, `banker_confirmation_emails`, `lead_audit_logs`. Enums: `lead_processing_mode`, `lead_status`, `payout_claim_status`, `pdd_status`. Frontend: `/agent/lead-registry` (3-tab dashboard: Register Lead, My Leads, Payout Claims).
+A Production Bootstrap & Self-Healing Data System provides automated, idempotent reference data seeding on every server startup, covering Market Indices, Feature Flags, Commodities, REITs, InvITs, Screener Stocks, and Bond Catalog. Zoho CRM Auto-Bootstrap provides `ZohoConnectionResolver.bootstrapFromEnvVars()` to auto-create Zoho CRM connections from environment variables.
 
 ## External Dependencies
 
 ### Third-Party APIs
-- Probe42
-- Finnhub
-- Yahoo Finance
-- BSE Star MFD API
-- NSE NCB & BSE Bond API
-- Bajaj Finance Integration
-- Tata Capital Integration
-- exchangerate-api.com
-- Google Gemini API
-- Cashfree Verification Suite API
-- Sandbox.co.in API (MCA)
-- AuthBridge CKYC API
-- AuthBridge Aadhaar eSign API
-- Protean (NSDL) Aadhaar eSign API
-- Protean KRA API
-- Cashfree (Payment Gateway, Payout API)
-- PhonePe (Payment Gateway)
-- Twilio
-- Nodemailer
-- AMFI Registry API (Simulated)
-- Turtlefin Insurance API
-- CIBIL
-- Zoho CRM
-- Zoho Books
-- Zoho Campaigns
-- Zoho Meeting
-- Zoho Sign
-- Alpha Vantage
+- FMP (Financial Modeling Prep) - 41+ endpoints for stock fundamentals, ratios, DCF, analyst data, earnings, technical indicators
+- Probe42 - Company intelligence and corporate data
+- Finnhub - Real-time market data and news
+- Yahoo Finance - Stock quotes and historical data
+- BSE Star MFD API - Mutual fund transactions
+- NSE NCB & BSE Bond API - Bond catalog and trading
+- Bajaj Finance Integration - Loan processing
+- Tata Capital Integration - Loan processing
+- exchangerate-api.com - Currency exchange rates
+- Google Gemini API - AI recommendations, market briefs, analysis
+- OpenAI API - AI fallback for recommendations
+- Cashfree Verification Suite API - KYC verification
+- Sandbox.co.in API (MCA) - Company filings and MCA data
+- AuthBridge CKYC API - Central KYC integration
+- AuthBridge Aadhaar eSign API - Electronic signatures
+- Protean (NSDL) Aadhaar eSign API - Electronic signatures
+- Protean KRA API - KYC Registration Agency
+- Cashfree (Payment Gateway, Payout API) - Payment processing
+- PhonePe (Payment Gateway) - UPI payments
+- Twilio - SMS, WhatsApp messaging
+- Nodemailer - Email service
+- AMFI Registry API - Mutual fund scheme data
+- Turtlefin Insurance API - Insurance products
+- CIBIL - Credit scoring
+- Zoho CRM - Customer relationship management (auto-bootstrap)
+- Zoho Books - Accounting and invoicing
+- Zoho Campaigns - Email marketing
+- Zoho Meeting - Video conferencing
+- Zoho Sign - Digital signatures
+- Alpha Vantage - Market data
+- Polygon.io - US market data (flat files via S3)
 
 ### Database Services
 - Neon Database (PostgreSQL)
