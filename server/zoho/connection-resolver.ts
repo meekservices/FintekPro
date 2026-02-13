@@ -1,6 +1,6 @@
 import { db } from '../db';
 import { zohoConnections } from '@shared/schema';
-import { eq, and, or } from 'drizzle-orm';
+import { eq, and, or, sql } from 'drizzle-orm';
 
 export interface ResolvedConnection {
   connectionId: string;
@@ -9,19 +9,91 @@ export interface ResolvedConnection {
   masterAgentId?: string;
 }
 
+let envBootstrapAttempted = false;
+
 export class ZohoConnectionResolver {
-  /**
-   * Resolve the appropriate Zoho connection for an agent.
-   * Priority:
-   * 1. Agent's own connection (if they have one)
-   * 2. Master connection (isMaster = true)
-   * 3. Default connection (isDefault = true)
-   * 
-   * Returns null if no connection is available (graceful skip)
-   */
+
+  static async bootstrapFromEnvVars(): Promise<ResolvedConnection | null> {
+    if (envBootstrapAttempted) return null;
+    envBootstrapAttempted = true;
+
+    const refreshToken = process.env.ZOHO_REFRESH_TOKEN;
+    const clientId = process.env.ZOHO_CLIENT_ID;
+    const clientSecret = process.env.ZOHO_CLIENT_SECRET;
+    const dataCenter = process.env.ZOHO_DATACENTER || 'in';
+
+    if (!refreshToken || !clientId || !clientSecret) {
+      return null;
+    }
+
+    try {
+      const [existingCheck] = await db
+        .select({ id: zohoConnections.id, zohoDataCenter: zohoConnections.zohoDataCenter })
+        .from(zohoConnections)
+        .where(eq(zohoConnections.status, 'active'))
+        .limit(1);
+
+      if (existingCheck) {
+        return {
+          connectionId: existingCheck.id,
+          zohoDataCenter: existingCheck.zohoDataCenter || dataCenter,
+          isMaster: true,
+        };
+      }
+
+      console.log('[ZohoConnectionResolver] No DB connections found, bootstrapping from env vars...');
+      const { ZohoOAuthService } = await import('./oauth');
+      const oauthService = new ZohoOAuthService(dataCenter);
+      const tokenResponse = await oauthService.refreshAccessToken(refreshToken);
+
+      if (!tokenResponse?.access_token) {
+        console.error('[ZohoConnectionResolver] Bootstrap failed: no access token returned');
+        return null;
+      }
+
+      const { encryptionService } = await import('../encryption-service');
+      const encryptedAccessToken = encryptionService.encrypt(tokenResponse.access_token);
+      const encryptedRefreshToken = encryptionService.encrypt(refreshToken);
+
+      if (!encryptedAccessToken || !encryptedRefreshToken) {
+        console.error('[ZohoConnectionResolver] Encryption service unavailable, aborting bootstrap for security');
+        return null;
+      }
+
+      const expiresInMs = (tokenResponse.expires_in && typeof tokenResponse.expires_in === 'number')
+        ? tokenResponse.expires_in * 1000
+        : 3600 * 1000;
+      const expiresAt = new Date(Date.now() + expiresInMs);
+
+      const [connection] = await db.insert(zohoConnections).values({
+        connectionName: 'Auto-provisioned (env)',
+        zohoDataCenter: dataCenter,
+        accessToken: encryptedAccessToken,
+        refreshToken: encryptedRefreshToken,
+        tokenType: tokenResponse.token_type || 'Bearer',
+        expiresAt,
+        scope: tokenResponse.scope || '',
+        services: ['CRM', 'Books', 'Campaigns', 'Meeting', 'Sign'],
+        status: 'active',
+        isProduction: true,
+        isDefault: true,
+        isMaster: true,
+      }).returning();
+
+      console.log(`[ZohoConnectionResolver] Bootstrap successful, connection ID: ${connection.id}`);
+      return {
+        connectionId: connection.id,
+        zohoDataCenter: dataCenter,
+        isMaster: true,
+      };
+    } catch (error: any) {
+      console.error('[ZohoConnectionResolver] Bootstrap from env vars failed:', error.message);
+      return null;
+    }
+  }
+
   static async resolveForAgent(agentId: string): Promise<ResolvedConnection | null> {
     try {
-      // First try to find agent's own connection
       const [agentConnection] = await db
         .select()
         .from(zohoConnections)
@@ -42,7 +114,6 @@ export class ZohoConnectionResolver {
         };
       }
 
-      // Fall back to master connection
       const [masterConnection] = await db
         .select()
         .from(zohoConnections)
@@ -63,7 +134,6 @@ export class ZohoConnectionResolver {
         };
       }
 
-      // Fall back to default connection
       const [defaultConnection] = await db
         .select()
         .from(zohoConnections)
@@ -84,8 +154,7 @@ export class ZohoConnectionResolver {
         };
       }
 
-      // No connection available
-      return null;
+      return await ZohoConnectionResolver.bootstrapFromEnvVars();
     } catch (error) {
       console.warn('ZohoConnectionResolver: Error resolving connection:', error);
       return null;
@@ -118,7 +187,6 @@ export class ZohoConnectionResolver {
         };
       }
 
-      // Fall back to default if no master is configured
       const [defaultConnection] = await db
         .select()
         .from(zohoConnections)
@@ -139,7 +207,7 @@ export class ZohoConnectionResolver {
         };
       }
 
-      return null;
+      return await ZohoConnectionResolver.bootstrapFromEnvVars();
     } catch (error) {
       console.warn('ZohoConnectionResolver: Error getting master connection:', error);
       return null;
@@ -260,7 +328,10 @@ export async function getZohoConnectionId(): Promise<string | null> {
       )
       .limit(1);
 
-    return connection?.id || null;
+    if (connection?.id) return connection.id;
+
+    const bootstrapped = await ZohoConnectionResolver.bootstrapFromEnvVars();
+    return bootstrapped?.connectionId || null;
   } catch (error) {
     console.warn('getZohoConnectionId: Error fetching connection:', error);
     return null;
