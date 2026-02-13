@@ -80,6 +80,11 @@ adapterLoaders.set('truthscreen', async () => {
   return new TruthScreenCkycAdapter();
 });
 
+adapterLoaders.set('sandbox', async () => {
+  const { SandboxCkycAdapter } = await import('./adapters/sandbox-ckyc-adapter');
+  return new SandboxCkycAdapter();
+});
+
 adapterLoaders.set('cersai_reference', async () => {
   const { CersaiCkycAdapter } = await import('./adapters/cersai-ckyc-adapter');
   return new CersaiCkycAdapter();

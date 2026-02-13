@@ -43,6 +43,7 @@ router.get('/providers', async (req: Request, res: Response) => {
         total: providers.length,
         environment: process.env.NODE_ENV || 'development',
         truthscreenConfigured: !!(process.env.TRUTHSCREEN_USERNAME && process.env.TRUTHSCREEN_PASSWORD),
+        sandboxConfigured: !!(process.env.SANDBOX_API_KEY && process.env.SANDBOX_API_SECRET),
       },
     });
   } catch (error) {
@@ -467,6 +468,7 @@ router.get('/config', async (req: Request, res: Response) => {
           enabled: enabledProviders.length,
           configured: {
             truthscreen: !!(process.env.TRUTHSCREEN_USERNAME && process.env.TRUTHSCREEN_PASSWORD),
+            sandbox: !!(process.env.SANDBOX_API_KEY && process.env.SANDBOX_API_SECRET),
             cersai: !!process.env.CERSAI_API_KEY,
             vkyc: !!process.env.VKYC_API_KEY,
           },

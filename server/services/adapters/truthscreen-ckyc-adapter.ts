@@ -1,9 +1,11 @@
 /**
  * TruthScreen CKYC Provider Adapter
- * Wraps existing TruthScreen integration for CKYC verification
+ * Uses AES-256-CBC encrypted payloads per TruthScreen API specification
+ * Authentication: username header + password-based encryption
  */
 
 import type { ICkycProviderAdapter, CkycVerificationRequest, CkycVerificationResult, CkycProviderHealth } from '../ckyc-provider-adapter';
+import CryptoJS from 'crypto-js';
 
 export class TruthScreenCkycAdapter implements ICkycProviderAdapter {
   readonly providerCode = 'truthscreen';
@@ -27,6 +29,54 @@ export class TruthScreenCkycAdapter implements ICkycProviderAdapter {
     return !this.isConfigured();
   }
   
+  private encrypt(payload: object): string {
+    const jsonString = JSON.stringify(payload);
+    const key = CryptoJS.enc.Utf8.parse(this.password.padEnd(32, '0').substring(0, 32));
+    const iv = CryptoJS.lib.WordArray.random(16);
+    
+    const encrypted = CryptoJS.AES.encrypt(jsonString, key, {
+      iv: iv,
+      mode: CryptoJS.mode.CBC,
+      padding: CryptoJS.pad.Pkcs7
+    });
+    
+    const ciphertextBase64 = encrypted.ciphertext.toString(CryptoJS.enc.Base64);
+    const ivBase64 = iv.toString(CryptoJS.enc.Base64);
+    
+    return `${ciphertextBase64}:${ivBase64}`;
+  }
+  
+  private decrypt(encryptedData: string): any {
+    const [ciphertextBase64, ivBase64] = encryptedData.split(':');
+    if (!ciphertextBase64 || !ivBase64) {
+      throw new Error('Invalid encrypted data format from TruthScreen');
+    }
+    
+    const key = CryptoJS.enc.Utf8.parse(this.password.padEnd(32, '0').substring(0, 32));
+    const iv = CryptoJS.enc.Base64.parse(ivBase64);
+    const ciphertext = CryptoJS.enc.Base64.parse(ciphertextBase64);
+    
+    const cipherParams = CryptoJS.lib.CipherParams.create({
+      ciphertext: ciphertext
+    });
+    
+    const decrypted = CryptoJS.AES.decrypt(cipherParams, key, {
+      iv: iv,
+      mode: CryptoJS.mode.CBC,
+      padding: CryptoJS.pad.Pkcs7
+    });
+    
+    const decryptedString = decrypted.toString(CryptoJS.enc.Utf8);
+    return JSON.parse(decryptedString);
+  }
+  
+  private getHeaders() {
+    return {
+      'Content-Type': 'application/json',
+      'username': this.username
+    };
+  }
+  
   async verify(request: CkycVerificationRequest): Promise<CkycVerificationResult> {
     const startTime = Date.now();
     
@@ -37,55 +87,89 @@ export class TruthScreenCkycAdapter implements ICkycProviderAdapter {
       
       const axios = (await import('axios')).default;
       
-      const credentials = Buffer.from(`${this.username}:${this.password}`).toString('base64');
+      const payload = {
+        docType: 'CKYC_STATUS',
+        panNumber: request.panNumber.toUpperCase()
+      };
+      
+      const encryptedPayload = this.encrypt(payload);
       
       const response = await axios.post(
         `${this.baseUrl}/Ckyc/api/ckyc-status`,
+        { requestData: encryptedPayload },
         {
-          pan: request.panNumber.toUpperCase(),
-          name: request.fullName,
-          dob: request.dateOfBirth
-        },
-        {
-          headers: {
-            'Authorization': `Basic ${credentials}`,
-            'Content-Type': 'application/json'
-          },
+          headers: this.getHeaders(),
           timeout: 30000
         }
       );
       
       const responseTimeMs = Date.now() - startTime;
       
-      if (response.data?.status === 'success' && response.data?.data?.kin) {
-        const data = response.data.data;
+      let decryptedResponse: any;
+      try {
+        decryptedResponse = response.data?.responseData 
+          ? this.decrypt(response.data.responseData)
+          : response.data;
+      } catch (decryptErr) {
+        console.warn('[TruthScreen CKYC] Failed to decrypt response, using raw:', decryptErr);
+        decryptedResponse = response.data;
+      }
+      
+      if (decryptedResponse?.ckycNumber || decryptedResponse?.cKYCId || decryptedResponse?.kin) {
+        const kin = decryptedResponse.ckycNumber || decryptedResponse.cKYCId || decryptedResponse.kin;
+        const isValidated = decryptedResponse.kycFlag === 'VALIDATED' || 
+                           decryptedResponse.status === 'KYC_VALIDATED' ||
+                           decryptedResponse.isKycValidated === true;
+        
         return {
           success: true,
           found: true,
           provider: this.providerCode,
-          kin: data.kin,
-          status: 'active',
-          verificationLevel: data.kyc_type?.toLowerCase() === 'simplified' ? 'simplified' : 'normal',
+          kin,
+          status: isValidated ? 'active' : 'pending',
+          verificationLevel: 'normal',
           data: {
-            fullName: data.full_name || data.name || request.fullName,
-            fatherName: data.father_name,
-            motherName: data.mother_name,
-            dateOfBirth: data.dob || request.dateOfBirth,
-            gender: data.gender || 'Unknown',
+            fullName: decryptedResponse.full_name || decryptedResponse.name || request.fullName,
+            fatherName: decryptedResponse.father_name,
+            motherName: decryptedResponse.mother_name,
+            dateOfBirth: decryptedResponse.dob || request.dateOfBirth,
+            gender: decryptedResponse.gender || 'Unknown',
             address: {
-              line1: data.address?.line1 || data.address || '',
-              line2: data.address?.line2,
-              city: data.address?.city || data.city || '',
-              state: data.address?.state || data.state || '',
-              pincode: data.address?.pincode || data.pincode || '',
-              country: data.address?.country || 'India'
+              line1: decryptedResponse.address?.line1 || decryptedResponse.address || '',
+              line2: decryptedResponse.address?.line2,
+              city: decryptedResponse.address?.city || decryptedResponse.city || '',
+              state: decryptedResponse.address?.state || decryptedResponse.state || '',
+              pincode: decryptedResponse.address?.pincode || decryptedResponse.pincode || '',
+              country: decryptedResponse.address?.country || 'India'
             },
-            mobile: data.mobile,
-            email: data.email,
-            kycDate: data.kyc_date
+            mobile: decryptedResponse.mobile,
+            email: decryptedResponse.email,
+            kycDate: decryptedResponse.kyc_date || decryptedResponse.ckycApplicationDate
           },
           responseTimeMs,
           message: 'CKYC record found via TruthScreen'
+        };
+      }
+      
+      if (decryptedResponse?.status === 'success' || decryptedResponse?.kraRecords) {
+        const kraRecords = decryptedResponse.kraRecords || [];
+        const validatedRecord = kraRecords.find((r: any) => 
+          r.statusDescription?.toUpperCase().includes('VALIDATED') ||
+          r.modifyStatus?.toUpperCase().includes('VALIDATED')
+        );
+        const isKycValidated = !!validatedRecord || 
+          decryptedResponse.kycFlag === 'VALIDATED' ||
+          decryptedResponse.status === 'KYC_VALIDATED';
+        
+        return {
+          success: true,
+          found: isKycValidated,
+          provider: this.providerCode,
+          kin: decryptedResponse.ckycNumber || decryptedResponse.cKYCId,
+          status: isKycValidated ? 'active' : 'not_found',
+          verificationLevel: 'normal',
+          responseTimeMs,
+          message: isKycValidated ? 'KYC is validated via TruthScreen' : 'KYC status retrieved but not validated'
         };
       }
       
@@ -95,13 +179,23 @@ export class TruthScreenCkycAdapter implements ICkycProviderAdapter {
         provider: this.providerCode,
         status: 'not_found',
         responseTimeMs,
-        message: response.data?.message || 'CKYC record not found'
+        message: decryptedResponse?.message || decryptedResponse?.msg || 'CKYC record not found'
       };
       
     } catch (error: any) {
       const responseTimeMs = Date.now() - startTime;
       
-      if (error.response?.status === 404 || error.response?.data?.status === 'not_found') {
+      console.error('[TruthScreen CKYC] Verification error:', error.message);
+      if (error.response?.data) {
+        try {
+          const decryptedError = this.decrypt(error.response.data.responseData);
+          console.error('[TruthScreen CKYC] Decrypted error:', JSON.stringify(decryptedError));
+        } catch (e) {
+          console.error('[TruthScreen CKYC] Raw error response:', JSON.stringify(error.response.data).substring(0, 500));
+        }
+      }
+      
+      if (error.response?.status === 404 || error.response?.status === 9) {
         return {
           success: true,
           found: false,
@@ -138,12 +232,22 @@ export class TruthScreenCkycAdapter implements ICkycProviderAdapter {
     
     try {
       const axios = (await import('axios')).default;
-      const credentials = Buffer.from(`${this.username}:${this.password}`).toString('base64');
       
-      await axios.get(`${this.baseUrl}/health`, {
-        headers: { 'Authorization': `Basic ${credentials}` },
-        timeout: 5000
-      });
+      const testPayload = {
+        docType: 2,
+        docNumber: 'XXXXX0000X',
+        transID: `health-${Date.now()}`
+      };
+      const encryptedPayload = this.encrypt(testPayload);
+      
+      await axios.post(
+        `${this.baseUrl}/v1/apicall/nid/idsearch`,
+        { requestData: encryptedPayload },
+        {
+          headers: this.getHeaders(),
+          timeout: 10000
+        }
+      );
       
       return {
         provider: this.providerCode,
@@ -152,12 +256,13 @@ export class TruthScreenCkycAdapter implements ICkycProviderAdapter {
         lastChecked: new Date()
       };
     } catch (error: any) {
+      const isApiError = error.response?.status && error.response.status < 500;
       return {
         provider: this.providerCode,
-        healthy: false,
+        healthy: isApiError,
         latencyMs: Date.now() - startTime,
         lastChecked: new Date(),
-        errorMessage: error.message
+        errorMessage: isApiError ? 'API reachable (test PAN rejected as expected)' : error.message
       };
     }
   }

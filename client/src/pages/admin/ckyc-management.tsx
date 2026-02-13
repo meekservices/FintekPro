@@ -12,6 +12,7 @@ import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { Switch } from "@/components/ui/switch";
 import { 
   Bell, 
   Mail, 
@@ -27,7 +28,12 @@ import {
   Pause,
   Trash2,
   Eye,
-  Send
+  Send,
+  Shield,
+  Activity,
+  RefreshCw,
+  ArrowUpDown,
+  Zap
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -270,6 +276,10 @@ export default function CkycManagement() {
             <TabsTrigger value="logs" className="flex items-center gap-2 flex-shrink-0">
               <Settings size={16} />
               Action Logs
+            </TabsTrigger>
+            <TabsTrigger value="providers" className="flex items-center gap-2 flex-shrink-0">
+              <Shield size={16} />
+              Provider Settings
             </TabsTrigger>
           </ScrollableTabsList>
         </div>
@@ -518,6 +528,10 @@ export default function CkycManagement() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="providers" className="space-y-4">
+          <CkycProviderSettings />
         </TabsContent>
       </Tabs>
 
@@ -797,5 +811,330 @@ function ProgressStepDialog({ open, onOpenChange, selectedRecord, onSubmit, isLo
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+interface CkycProvider {
+  id: number;
+  providerCode: string;
+  providerName: string;
+  providerDescription: string;
+  priority: number;
+  isEnabled: boolean;
+  healthStatus: string;
+  lastHealthCheck?: string;
+  environment: string;
+  eligibilityRules?: Record<string, unknown>;
+}
+
+interface CkycProvidersResponse {
+  success: boolean;
+  data: CkycProvider[];
+  meta: {
+    total: number;
+    environment: string;
+    truthscreenConfigured: boolean;
+    sandboxConfigured: boolean;
+  };
+}
+
+function CkycProviderSettings() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [testPan, setTestPan] = useState("");
+  const [testName, setTestName] = useState("");
+  const [testDob, setTestDob] = useState("");
+  const [testResult, setTestResult] = useState<any>(null);
+
+  const { data: providersResponse, isLoading } = useQuery<CkycProvidersResponse>({
+    queryKey: ["/api/admin/ckyc/providers"],
+  });
+
+  const providers = providersResponse?.data || [];
+  const meta = providersResponse?.meta;
+
+  const toggleMutation = useMutation({
+    mutationFn: async ({ code, enabled }: { code: string; enabled: boolean }) => {
+      return await apiRequest(`/api/admin/ckyc/providers/${code}/toggle`, {
+        method: "PATCH",
+        body: JSON.stringify({ enabled }),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Provider status updated" });
+      qc.invalidateQueries({ queryKey: ["/api/admin/ckyc/providers"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const priorityMutation = useMutation({
+    mutationFn: async ({ code, priority }: { code: string; priority: number }) => {
+      return await apiRequest(`/api/admin/ckyc/providers/${code}/priority`, {
+        method: "PATCH",
+        body: JSON.stringify({ priority }),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Provider priority updated" });
+      qc.invalidateQueries({ queryKey: ["/api/admin/ckyc/providers"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const healthCheckMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("/api/admin/ckyc/health-check-all", { method: "POST" });
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Health checks completed" });
+      qc.invalidateQueries({ queryKey: ["/api/admin/ckyc/providers"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const testVerifyMutation = useMutation({
+    mutationFn: async (data: { panNumber: string; fullName: string; dateOfBirth: string }) => {
+      const res = await apiRequest("/api/admin/ckyc/verify", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setTestResult(data);
+      toast({ title: "Test Complete", description: "CKYC verification test completed" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const getProviderIcon = (code: string) => {
+    switch (code) {
+      case 'truthscreen': return <Shield className="h-5 w-5 text-blue-600" />;
+      case 'sandbox': return <Zap className="h-5 w-5 text-green-600" />;
+      case 'cersai_reference': return <FileText className="h-5 w-5 text-purple-600" />;
+      case 'offline_aadhaar': return <FileText className="h-5 w-5 text-orange-600" />;
+      case 'vkyc': return <Eye className="h-5 w-5 text-indigo-600" />;
+      case 'manual': return <Users className="h-5 w-5 text-gray-600" />;
+      default: return <Settings className="h-5 w-5" />;
+    }
+  };
+
+  const getHealthBadge = (status: string) => {
+    switch (status) {
+      case 'healthy': return <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"><CheckCircle size={12} className="mr-1" />Healthy</Badge>;
+      case 'unhealthy': return <Badge variant="destructive"><XCircle size={12} className="mr-1" />Unhealthy</Badge>;
+      case 'degraded': return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"><AlertCircle size={12} className="mr-1" />Degraded</Badge>;
+      default: return <Badge variant="outline"><Clock size={12} className="mr-1" />Unknown</Badge>;
+    }
+  };
+
+  const isCredentialConfigured = (code: string) => {
+    if (code === 'truthscreen') return meta?.truthscreenConfigured;
+    if (code === 'sandbox') return meta?.sandboxConfigured;
+    return true;
+  };
+
+  if (isLoading) {
+    return <div className="text-center py-8">Loading provider settings...</div>;
+  }
+
+  const apiProviders = providers.filter(p => p.providerCode === 'truthscreen' || p.providerCode === 'sandbox');
+  const otherProviders = providers.filter(p => p.providerCode !== 'truthscreen' && p.providerCode !== 'sandbox');
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Shield size={20} />
+                KYC Verification Providers
+              </CardTitle>
+              <CardDescription>
+                Choose between Sandbox.co.in and TruthScreen as your primary KYC verification provider.
+                Enable/disable providers and set priority order.
+              </CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => healthCheckMutation.mutate()}
+              disabled={healthCheckMutation.isPending}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw size={16} className={healthCheckMutation.isPending ? "animate-spin" : ""} />
+              {healthCheckMutation.isPending ? "Checking..." : "Health Check All"}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">API Providers (Primary)</h3>
+            <div className="grid gap-4 md:grid-cols-2">
+              {apiProviders.map((provider) => (
+                <Card key={provider.providerCode} className={`border-2 transition-colors ${provider.isEnabled ? 'border-primary/50 bg-primary/5' : 'border-muted'}`}>
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        {getProviderIcon(provider.providerCode)}
+                        <div>
+                          <h4 className="font-semibold">{provider.providerName}</h4>
+                          <p className="text-xs text-muted-foreground">{provider.providerDescription}</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={provider.isEnabled}
+                        onCheckedChange={(checked) => toggleMutation.mutate({ code: provider.providerCode, enabled: checked })}
+                        disabled={toggleMutation.isPending}
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {getHealthBadge(provider.healthStatus)}
+                      {isCredentialConfigured(provider.providerCode) ? (
+                        <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                          <CheckCircle size={12} className="mr-1" />Credentials Set
+                        </Badge>
+                      ) : (
+                        <Badge variant="destructive">
+                          <XCircle size={12} className="mr-1" />Missing Credentials
+                        </Badge>
+                      )}
+                      <Badge variant="outline">
+                        <ArrowUpDown size={12} className="mr-1" />Priority: {provider.priority}
+                      </Badge>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs">Priority:</Label>
+                      <Select
+                        value={String(provider.priority)}
+                        onValueChange={(val) => priorityMutation.mutate({ code: provider.providerCode, priority: parseInt(val) })}
+                      >
+                        <SelectTrigger className="w-20 h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1 (Highest)</SelectItem>
+                          <SelectItem value="2">2</SelectItem>
+                          <SelectItem value="3">3</SelectItem>
+                          <SelectItem value="4">4</SelectItem>
+                          <SelectItem value="5">5</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {provider.lastHealthCheck && (
+                      <p className="text-xs text-muted-foreground">
+                        Last checked: {new Date(provider.lastHealthCheck).toLocaleString()}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {otherProviders.length > 0 && (
+              <>
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mt-6">Other Verification Methods</h3>
+                <div className="space-y-2">
+                  {otherProviders.map((provider) => (
+                    <div key={provider.providerCode} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        {getProviderIcon(provider.providerCode)}
+                        <div>
+                          <span className="font-medium text-sm">{provider.providerName}</span>
+                          <p className="text-xs text-muted-foreground">{provider.providerDescription}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {getHealthBadge(provider.healthStatus)}
+                        <Badge variant="outline">P{provider.priority}</Badge>
+                        <Switch
+                          checked={provider.isEnabled}
+                          onCheckedChange={(checked) => toggleMutation.mutate({ code: provider.providerCode, enabled: checked })}
+                          disabled={toggleMutation.isPending}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity size={20} />
+            Test CKYC Verification
+          </CardTitle>
+          <CardDescription>
+            Test the current provider configuration with a sample PAN number
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-3">
+            <div>
+              <Label htmlFor="test-pan">PAN Number</Label>
+              <Input
+                id="test-pan"
+                placeholder="ABCDE1234F"
+                value={testPan}
+                onChange={(e) => setTestPan(e.target.value.toUpperCase())}
+                maxLength={10}
+              />
+            </div>
+            <div>
+              <Label htmlFor="test-name">Full Name</Label>
+              <Input
+                id="test-name"
+                placeholder="Full Name"
+                value={testName}
+                onChange={(e) => setTestName(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="test-dob">Date of Birth</Label>
+              <Input
+                id="test-dob"
+                type="date"
+                value={testDob}
+                onChange={(e) => setTestDob(e.target.value)}
+              />
+            </div>
+          </div>
+          <Button
+            onClick={() => testVerifyMutation.mutate({ panNumber: testPan, fullName: testName, dateOfBirth: testDob })}
+            disabled={testVerifyMutation.isPending || !testPan || !testName || !testDob}
+            className="flex items-center gap-2"
+          >
+            <Play size={16} />
+            {testVerifyMutation.isPending ? "Verifying..." : "Test Verification"}
+          </Button>
+
+          {testResult && (
+            <Card className="bg-muted/50">
+              <CardContent className="p-4">
+                <h4 className="font-semibold mb-2">Verification Result</h4>
+                <pre className="text-xs overflow-auto max-h-64 bg-background p-3 rounded border">
+                  {JSON.stringify(testResult, null, 2)}
+                </pre>
+              </CardContent>
+            </Card>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }

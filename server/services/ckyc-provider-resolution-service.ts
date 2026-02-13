@@ -25,6 +25,7 @@ import { ckycEnvironmentService, type CkycVerificationStatus, type CkycDeferralR
 // Provider codes
 export type CkycProviderCode = 
   | 'truthscreen' 
+  | 'sandbox'
   | 'cersai_reference' 
   | 'offline_aadhaar' 
   | 'vkyc' 
@@ -50,10 +51,21 @@ const DEFAULT_PROVIDERS: Array<{
     },
   },
   {
+    providerCode: 'sandbox',
+    providerName: 'Sandbox.co.in KYC API',
+    providerDescription: 'PAN verification and KYC status via Sandbox.co.in API with government data sources',
+    priority: 2,
+    eligibilityRules: {
+      requiresAadhaarConsent: false,
+      allowedRiskCategories: ['low', 'medium', 'high'],
+      requiresApiCredentials: true,
+    },
+  },
+  {
     providerCode: 'cersai_reference',
     providerName: 'CERSAI Reference CKYC',
     providerDescription: 'CKYC verification using existing CKYC reference number from CERSAI registry',
-    priority: 2,
+    priority: 3,
     eligibilityRules: {
       requiresAadhaarConsent: false,
       allowedRiskCategories: ['low', 'medium'],
@@ -178,6 +190,8 @@ export class CkycProviderResolutionService {
     switch (providerCode) {
       case 'truthscreen':
         return !!(process.env.TRUTHSCREEN_USERNAME && process.env.TRUTHSCREEN_PASSWORD);
+      case 'sandbox':
+        return !!(process.env.SANDBOX_API_KEY && process.env.SANDBOX_API_SECRET);
       case 'cersai_reference':
       case 'offline_aadhaar':
       case 'vkyc':
