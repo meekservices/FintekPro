@@ -1,6 +1,9 @@
 import { db } from '../../db';
 import { sql } from 'drizzle-orm';
 
+const snapshotCache = new Map<string, { data: EnrichedStockSnapshot; expiresAt: number }>();
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
 export interface EnrichedStockSnapshot {
   symbol: string;
   fetchedAt: string;
@@ -145,6 +148,11 @@ export async function getEnrichedStockSnapshot(symbol: string): Promise<Enriched
 
   const upperSymbol = symbol.toUpperCase();
 
+  const cached = snapshotCache.get(upperSymbol);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data;
+  }
+
   try {
     const [keyMetricsRes, growthRes, dcfRes, ratingRes, targetsRes, gradesRes, techRes, instRes, insiderRes, newsRes, derivedRes] = await Promise.all([
       db.execute(sql`SELECT * FROM screener_key_metrics WHERE symbol = ${upperSymbol} ORDER BY date DESC LIMIT 1`).catch(() => ({ rows: [] })),
@@ -199,7 +207,7 @@ export async function getEnrichedStockSnapshot(symbol: string): Promise<Enriched
       }
     }
 
-    return {
+    const snapshot: EnrichedStockSnapshot = {
       symbol: upperSymbol,
       fetchedAt: new Date().toISOString(),
 
@@ -325,6 +333,9 @@ export async function getEnrichedStockSnapshot(symbol: string): Promise<Enriched
         fintekRating: safeNum(dm.fintek_rating),
       } : null,
     };
+
+    snapshotCache.set(upperSymbol, { data: snapshot, expiresAt: Date.now() + CACHE_TTL_MS });
+    return snapshot;
   } catch (error: any) {
     console.error(`[EnrichedStockData] Error fetching snapshot for ${symbol}:`, error.message);
     return null;
