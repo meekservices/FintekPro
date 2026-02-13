@@ -1404,7 +1404,7 @@ TCS     Tata Consultancy        25      3850.00"
                         <div className="bg-muted/50 rounded p-2">
                           <span className="text-muted-foreground">Total Value:</span>
                           <span className="ml-1 font-medium">
-                            {formatCurrency(parsedHoldings.reduce((sum: number, h: any) => sum + (h.quantity * h.averagePrice), 0))}
+                            {formatCurrency((Array.isArray(parsedHoldings) ? parsedHoldings : []).reduce((sum: number, h: any) => sum + (h.quantity * h.averagePrice), 0))}
                           </span>
                         </div>
                         <div className="bg-muted/50 rounded p-2">
@@ -1583,7 +1583,7 @@ TCS     Tata Consultancy        25      3850.00"
                       <div className="flex items-center justify-between text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
                         <span>{casPreviewHoldings.length} holdings ready to import</span>
                         <span className="font-medium">
-                          Total Value: {formatCurrency(casPreviewHoldings.reduce((sum, h) => sum + h.currentValue, 0))}
+                          Total Value: {formatCurrency((Array.isArray(casPreviewHoldings) ? casPreviewHoldings : []).reduce((sum, h) => sum + h.currentValue, 0))}
                         </span>
                       </div>
                     </div>
@@ -1784,8 +1784,8 @@ TCS     Tata Consultancy        25      3850.00"
               <CardContent>
                 {/* Tax Summary Card */}
                 {(() => {
-                  const stcgHoldings = portfolio.holdings.filter((h: any) => h.taxType === 'STCG' && h.gainLoss > 0);
-                  const ltcgHoldings = portfolio.holdings.filter((h: any) => h.taxType === 'LTCG' && h.gainLoss > 0);
+                  const stcgHoldings = (Array.isArray(portfolio.holdings) ? portfolio.holdings : []).filter((h: any) => h.taxType === 'STCG' && h.gainLoss > 0);
+                  const ltcgHoldings = (Array.isArray(portfolio.holdings) ? portfolio.holdings : []).filter((h: any) => h.taxType === 'LTCG' && h.gainLoss > 0);
                   const totalSTCG = stcgHoldings.reduce((sum: number, h: any) => sum + h.gainLoss, 0);
                   const totalLTCG = ltcgHoldings.reduce((sum: number, h: any) => sum + h.gainLoss, 0);
                   const stcgTax = totalSTCG * 0.20;

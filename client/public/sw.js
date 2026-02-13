@@ -1,5 +1,6 @@
-const VERSION = '9';
-const BUILD_TIMESTAMP = '1737016500000';
+const SW_URL = new URL(self.location.href);
+const VERSION = SW_URL.searchParams.get('v') || '10';
+const BUILD_TIMESTAMP = VERSION;
 const CACHE_PREFIX = 'fintekpro';
 const STATIC_CACHE_NAME = `${CACHE_PREFIX}-static-v${VERSION}`;
 const DYNAMIC_CACHE_NAME = `${CACHE_PREFIX}-dynamic-v${VERSION}`;
@@ -90,6 +91,17 @@ self.addEventListener('activate', (event) => {
             return caches.delete(name);
           })
       );
+    }).then(async () => {
+      const cache = await caches.open(STATIC_CACHE_NAME);
+      const keys = await cache.keys();
+      await Promise.all(
+        keys
+          .filter((req) => req.url.match(/\.(js|mjs)$/))
+          .map((req) => {
+            console.log('[ServiceWorker] Clearing cached JS on activate:', req.url);
+            return cache.delete(req);
+          })
+      );
     }).then(() => {
       console.log('[ServiceWorker] Claiming all clients');
       return self.clients.claim();
@@ -114,17 +126,18 @@ function shouldCacheApi(url) {
   return CACHED_API_ROUTES.some(route => url.includes(route));
 }
 
+function isViteHashedAsset(pathname) {
+  return pathname.includes('/assets/') && pathname.match(/\.(js|mjs)$/);
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-http/https requests (e.g., chrome-extension://, data:, etc.)
   if (!url.protocol.startsWith('http')) {
     return;
   }
 
-  // CRITICAL: Never intercept API routes - let them pass through to the server
-  // This prevents the service worker from returning cached HTML for API calls
   if (url.pathname.startsWith('/api/')) {
     return;
   }
@@ -138,11 +151,25 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (url.pathname.match(/\.(js|mjs)$/) && !url.pathname.includes('/src/')) {
-    event.respondWith(networkFirstWithCache(request, STATIC_CACHE_NAME, 5000));
+    if (isViteHashedAsset(url.pathname)) {
+      event.respondWith(networkOnly(request));
+    } else {
+      event.respondWith(networkFirstWithCache(request, STATIC_CACHE_NAME, 5000));
+    }
   } else if (url.pathname.match(/\.(css|woff2?|ttf|eot|png|jpg|jpeg|gif|ico|webp)$/)) {
     event.respondWith(cacheFirstWithNetwork(request));
   }
 });
+
+async function networkOnly(request) {
+  try {
+    const response = await fetch(request);
+    return response;
+  } catch (error) {
+    console.log('[ServiceWorker] Network-only fetch failed (Vite hashed asset):', request.url);
+    throw error;
+  }
+}
 
 async function networkFirstWithCache(request, cacheName, timeout = 30000) {
   try {
@@ -155,6 +182,11 @@ async function networkFirstWithCache(request, cacheName, timeout = 30000) {
     if (networkResponse.ok) {
       const cache = await caches.open(cacheName);
       cache.put(request, networkResponse.clone());
+    } else if (networkResponse.status === 404) {
+      const cache = await caches.open(cacheName);
+      await cache.delete(request);
+      console.log('[ServiceWorker] Got 404, cleared cache entry:', request.url);
+      return networkResponse;
     }
     
     return networkResponse;
@@ -209,5 +241,4 @@ self.addEventListener('message', (event) => {
     return;
   }
   
-  // Ignore unknown messages silently to prevent channel errors
 });

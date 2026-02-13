@@ -679,17 +679,17 @@ const RECOMMENDATION_CATEGORIES = [
   };
 
   // Calculate portfolio summary with proper guards against NaN
-  const totalPortfolioValue = (quickHoldings || []).reduce((sum, h) => sum + (h.currentValue || 0), 0);
-  const holdingsWithValue = (quickHoldings || []).filter(h => (h.currentValue || 0) > 0 && h.returns1y !== null);
+  const totalPortfolioValue = (Array.isArray(quickHoldings) ? quickHoldings : []).reduce((sum, h) => sum + (h.currentValue || 0), 0);
+  const holdingsWithValue = (Array.isArray(quickHoldings) ? quickHoldings : []).filter(h => (h.currentValue || 0) > 0 && h.returns1y !== null);
   const weightedReturnNumerator = holdingsWithValue.reduce((sum, h) => sum + ((h.returns1y || 0) * (h.currentValue || 0)), 0);
   
   const portfolioSummary = {
     totalValue: totalPortfolioValue,
-    totalHoldings: quickHoldings.filter(h => h.productName).length,
+    totalHoldings: (Array.isArray(quickHoldings) ? quickHoldings : []).filter(h => h.productName).length,
     weightedReturn: totalPortfolioValue > 0 && holdingsWithValue.length > 0
       ? weightedReturnNumerator / totalPortfolioValue
       : 0,
-    assetAllocation: quickHoldings.filter(h => (h.currentValue || 0) > 0).reduce((acc, h) => {
+    assetAllocation: (Array.isArray(quickHoldings) ? quickHoldings : []).filter(h => (h.currentValue || 0) > 0).reduce((acc, h) => {
       const type = PRODUCT_TYPES.find(p => p.value === h.productType)?.label || h.productType;
       acc[type] = (acc[type] || 0) + (h.currentValue || 0);
       return acc;

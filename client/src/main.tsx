@@ -3,6 +3,9 @@ import App from "./App";
 import "./index.css";
 import { SessionProvider } from "@/contexts/session-context";
 import { SessionExpiredDialog } from "@/components/ui/session-expired-dialog";
+import { BUILD_TIMESTAMP } from "@shared/version";
+
+const SW_VERSION = encodeURIComponent(BUILD_TIMESTAMP);
 
 // Vite chunk loading error handler for stale cached chunks after deployments
 window.addEventListener('vite:preloadError', () => {
@@ -34,7 +37,7 @@ window.addEventListener('error', (event) => {
 // Register Service Worker for PWA functionality
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
+    navigator.serviceWorker.register(`/sw.js?v=${SW_VERSION}`)
       .then((registration) => {
         console.log('[PWA] Service Worker registered:', registration.scope);
         

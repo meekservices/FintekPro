@@ -696,7 +696,7 @@ export default function AgentProspectWizard() {
   };
   
   // Calculate total portfolio value for eligibility checks
-  const totalPortfolioValue = holdings.reduce((sum, h) => sum + (h.currentValue || 0), 0) + freshInvestmentAmount;
+  const totalPortfolioValue = (Array.isArray(holdings) ? holdings : []).reduce((sum, h) => sum + (h.currentValue || 0), 0) + freshInvestmentAmount;
   
   // Handle category toggle with allocation redistribution
   const handleCategoryToggle = (categoryId: string, checked: boolean) => {
@@ -3307,13 +3307,13 @@ export default function AgentProspectWizard() {
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-blue-600">
-                      ₹{(investmentGoals.reduce((sum, g) => sum + g.targetAmount, 0) / 100000).toFixed(1)}L
+                      ₹{((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + g.targetAmount, 0) / 100000).toFixed(1)}L
                     </p>
                     <p className="text-xs text-muted-foreground">Total Target</p>
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-green-600">
-                      ₹{(investmentGoals.reduce((sum, g) => sum + g.monthlyContribution, 0)).toLocaleString()}
+                      ₹{((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + g.monthlyContribution, 0)).toLocaleString()}
                     </p>
                     <p className="text-xs text-muted-foreground">Monthly SIP</p>
                   </div>
@@ -3726,14 +3726,14 @@ export default function AgentProspectWizard() {
                             <span className="text-muted-foreground">{casPreviewHoldings.length} holdings ready to import</span>
                             <div className="text-right space-y-1">
                               <div className="text-muted-foreground">
-                                Invested: {formatCurrency(casPreviewHoldings.reduce((sum, h) => sum + (h.investedValue || 0), 0))}
+                                Invested: {formatCurrency((Array.isArray(casPreviewHoldings) ? casPreviewHoldings : []).reduce((sum, h) => sum + (h.investedValue || 0), 0))}
                               </div>
                               <div className="font-semibold">
-                                Current Value: {formatCurrency(casPreviewHoldings.reduce((sum, h) => sum + h.currentValue, 0))}
+                                Current Value: {formatCurrency((Array.isArray(casPreviewHoldings) ? casPreviewHoldings : []).reduce((sum, h) => sum + h.currentValue, 0))}
                               </div>
                               {(() => {
-                                const totalInvested = casPreviewHoldings.reduce((sum, h) => sum + (h.investedValue || 0), 0);
-                                const totalCurrent = casPreviewHoldings.reduce((sum, h) => sum + h.currentValue, 0);
+                                const totalInvested = (Array.isArray(casPreviewHoldings) ? casPreviewHoldings : []).reduce((sum, h) => sum + (h.investedValue || 0), 0);
+                                const totalCurrent = (Array.isArray(casPreviewHoldings) ? casPreviewHoldings : []).reduce((sum, h) => sum + h.currentValue, 0);
                                 const totalGain = totalCurrent - totalInvested;
                                 const gainPercent = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0;
                                 return totalInvested > 0 ? (
@@ -5041,11 +5041,11 @@ export default function AgentProspectWizard() {
                           </div>
                         </div>
                       ))}
-                    {(exitLoadData?.holdings || []).filter(h => h.isExitLoadFree).length > 0 && (
+                    {(Array.isArray(exitLoadData?.holdings) ? exitLoadData.holdings : []).filter(h => h.isExitLoadFree).length > 0 && (
                       <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg text-sm flex items-center gap-2">
                         <CheckCircle className="h-4 w-4 text-green-600" />
                         <span className="text-green-700 dark:text-green-300">
-                          {(exitLoadData?.holdings || []).filter(h => h.isExitLoadFree).length} holdings are already exit-load-free
+                          {(Array.isArray(exitLoadData?.holdings) ? exitLoadData.holdings : []).filter(h => h.isExitLoadFree).length} holdings are already exit-load-free
                         </span>
                       </div>
                     )}
@@ -6438,22 +6438,22 @@ export default function AgentProspectWizard() {
               <div className="space-y-4">
                 <h4 className="font-medium">Recommended Monthly SIP</h4>
                 <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <p className="text-3xl font-bold text-blue-600">{formatCurrency(investmentGoals.reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000)}</p>
+                  <p className="text-3xl font-bold text-blue-600">{formatCurrency((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000)}</p>
                   <p className="text-sm text-muted-foreground">Based on goals & timeline</p>
                 </div>
                 
                 <div className="space-y-3">
                   <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
                     <span className="text-sm">Equity Funds SIP</span>
-                    <span className="font-semibold">{formatCurrency((investmentGoals.reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000) * 0.6)}</span>
+                    <span className="font-semibold">{formatCurrency(((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000) * 0.6)}</span>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
                     <span className="text-sm">Debt Funds SIP</span>
-                    <span className="font-semibold">{formatCurrency((investmentGoals.reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000) * 0.3)}</span>
+                    <span className="font-semibold">{formatCurrency(((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000) * 0.3)}</span>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
                     <span className="text-sm">Gold/Hybrid SIP</span>
-                    <span className="font-semibold">{formatCurrency((investmentGoals.reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000) * 0.1)}</span>
+                    <span className="font-semibold">{formatCurrency(((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000) * 0.1)}</span>
                   </div>
                 </div>
               </div>
@@ -6492,15 +6492,15 @@ export default function AgentProspectWizard() {
                   <div className="grid grid-cols-3 gap-3 text-center">
                     <div>
                       <p className="text-xs text-muted-foreground">5 Years</p>
-                      <p className="font-semibold">{formatCurrency((investmentGoals.reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000) * 60 * 1.5)}</p>
+                      <p className="font-semibold">{formatCurrency(((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000) * 60 * 1.5)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">10 Years</p>
-                      <p className="font-semibold">{formatCurrency((investmentGoals.reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000) * 120 * 2.2)}</p>
+                      <p className="font-semibold">{formatCurrency(((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000) * 120 * 2.2)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">15 Years</p>
-                      <p className="font-semibold">{formatCurrency((investmentGoals.reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000) * 180 * 3.5)}</p>
+                      <p className="font-semibold">{formatCurrency(((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000) * 180 * 3.5)}</p>
                     </div>
                   </div>
                 </div>
