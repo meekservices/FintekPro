@@ -5,6 +5,7 @@ import {
   prospectProposalEvents, 
   onboardingInvitations,
   users,
+  customerCareAgents,
   mutualFunds,
   corporateBonds,
   aifMaster,
@@ -15,6 +16,38 @@ import {
 } from "@shared/schema";
 import { eq, desc, and, sql, ilike, or } from "drizzle-orm";
 import { aiRecommendationTrackingService } from "../services/ai-recommendation-tracking-service";
+
+async function resolveAgentName(agentId: string | null, agentEmail: string | null): Promise<string | null> {
+  if (!agentId) return agentEmail?.split('@')[0] || null;
+  try {
+    const [agent] = await db.select({ 
+      firstName: users.firstName, 
+      lastName: users.lastName, 
+      email: users.email,
+      digilockrName: users.digilockerFullName
+    })
+      .from(users)
+      .where(eq(users.id, agentId));
+    if (agent?.firstName) {
+      return `${agent.firstName} ${agent.lastName || ""}`.trim();
+    }
+    if (agent?.digilockrName) {
+      return agent.digilockrName;
+    }
+    const lookupEmail = agent?.email || agentEmail;
+    if (lookupEmail) {
+      const [ccAgent] = await db.select({ fullName: customerCareAgents.fullName })
+        .from(customerCareAgents)
+        .where(eq(customerCareAgents.email, lookupEmail));
+      if (ccAgent?.fullName) {
+        return ccAgent.fullName;
+      }
+    }
+    return agent?.email?.split('@')[0] || agentEmail?.split('@')[0] || null;
+  } catch {
+    return agentEmail?.split('@')[0] || null;
+  }
+}
 
 // Helper functions to fetch store-eligible products
 async function getStoreEligibleMutualFunds(options: {
@@ -1295,7 +1328,7 @@ router.post("/api/agent/prospect-proposals", async (req: Request, res: Response)
       const [proposal] = await tx.insert(prospectProposals).values({
         shareToken,
         agentId: user.id,
-        agentName: user.firstName ? `${user.firstName} ${user.lastName || ""}`.trim() : null,
+        agentName: user.firstName ? `${user.firstName} ${user.lastName || ""}`.trim() : (user.email?.split('@')[0] || user.email || null),
         agentArnCode: user.arnCode || null,
         agentMobile: user.mobile || null,
         agentEmail: user.email || null,
@@ -1652,7 +1685,7 @@ router.get("/api/public/proposal/:shareToken", async (req: Request, res: Respons
         targetAllocation: proposal.targetAllocation,
         samplePortfolio: proposal.samplePortfolio,
         investmentGoals: proposal.investmentGoals,
-        agentName: proposal.agentName,
+        agentName: proposal.agentName || await resolveAgentName(proposal.agentId, proposal.agentEmail),
         agentMobile: proposal.agentMobile,
         agentEmail: proposal.agentEmail,
         validUntil: proposal.validUntil,
