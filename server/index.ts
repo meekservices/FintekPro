@@ -1073,24 +1073,38 @@ app.use((req, res, next) => {
         console.log(`✅ [Bootstrap] ${indicesCount} market indices already exist`);
       }
 
-      // AMFI Benchmark ingestion - runs independently of market indices count
+      // Category-based benchmark mapping - maps equity MFs to market indices using category rules
+      // This runs independently of AMFI raw benchmark text (which may not be available)
       try {
-        const amfiBenchmarkCheck = await db.execute(sql`SELECT COUNT(*) as cnt FROM amfi_scheme_benchmarks`);
-        const amfiBenchmarkCount = parseInt(String((amfiBenchmarkCheck.rows[0] as any)?.cnt || '0'));
-        if (amfiBenchmarkCount === 0) {
-          console.log('🔄 [Bootstrap] AMFI benchmark data empty - starting ingestion...');
+        const benchmarkMapCheck = await db.execute(sql`SELECT COUNT(*) as cnt FROM mf_benchmark_map`);
+        const benchmarkMapCount = parseInt(String((benchmarkMapCheck.rows[0] as any)?.cnt || '0'));
+        
+        const fundsWithIsin = await db.execute(sql`
+          SELECT COUNT(*) as cnt FROM mutual_funds WHERE isin IS NOT NULL AND isin != ''
+        `);
+        const totalFundsWithIsin = parseInt(String((fundsWithIsin.rows[0] as any)?.cnt || '0'));
+        const mappingGap = totalFundsWithIsin > 0 ? ((totalFundsWithIsin - benchmarkMapCount) / totalFundsWithIsin) * 100 : 0;
+        
+        if (benchmarkMapCount === 0 || mappingGap > 50) {
+          console.log(`🔄 [Bootstrap] Benchmark mapping gap: ${benchmarkMapCount}/${totalFundsWithIsin} mapped (${mappingGap.toFixed(1)}% unmapped) - running category-based auto-mapping...`);
+          const { mfBenchmarkMappingService } = await import('./services/mf-benchmark-mapping-service');
+          const mapResult = await mfBenchmarkMappingService.autoMapUnmappedFunds(totalFundsWithIsin);
+          console.log(`✅ [Bootstrap] Category benchmark mapping: ${mapResult.mapped} mapped, ${mapResult.skipped} skipped`);
+          
+          // Also try AMFI raw benchmark text if available
           const { amfiBenchmarkIngestionService } = await import('./services/amfi-benchmark-ingestion-service');
           const amfiResult = await amfiBenchmarkIngestionService.syncAmfiSchemeBenchmarks();
-          console.log(`✅ [Bootstrap] AMFI benchmark mapping: ${amfiResult.parsed} parsed, ${amfiResult.normalized} normalized, ${amfiResult.failed} failed`);
           if (amfiResult.normalized > 0) {
-            const mapResult = await amfiBenchmarkIngestionService.autoMapFromAmfi();
-            console.log(`✅ [Bootstrap] AMFI auto-map: ${mapResult.mapped} new, ${mapResult.updated} updated`);
+            const amfiMapResult = await amfiBenchmarkIngestionService.autoMapFromAmfi();
+            console.log(`✅ [Bootstrap] AMFI benchmark overlay: ${amfiMapResult.mapped} new, ${amfiMapResult.updated} updated (overrides category mappings with higher confidence)`);
+          } else {
+            console.log(`ℹ️ [Bootstrap] AMFI raw benchmark text not available yet - category mapping is active`);
           }
         } else {
-          console.log(`✅ [Bootstrap] AMFI benchmark data: ${amfiBenchmarkCount} records exist`);
+          console.log(`✅ [Bootstrap] Benchmark mapping: ${benchmarkMapCount}/${totalFundsWithIsin} funds mapped`);
         }
       } catch (err: any) {
-        console.error('⚠️ [Bootstrap] AMFI benchmark ingestion failed:', err.message);
+        console.error('⚠️ [Bootstrap] Benchmark mapping failed:', err.message);
       }
 
       const isBootstrapProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT_DEPLOYMENT === '1';

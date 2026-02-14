@@ -66,7 +66,11 @@ class MfBenchmarkMappingService {
   }
 
   async autoMapUnmappedFunds(limit: number = 1000): Promise<{ mapped: number; skipped: number }> {
-    console.log('[MfBenchmarkMapping] Auto-mapping unmapped funds...');
+    console.log('[MfBenchmarkMapping] Auto-mapping unmapped funds (batch mode)...');
+
+    const existingMappings = await db.select({ mfIsin: mfBenchmarkMap.mfIsin }).from(mfBenchmarkMap);
+    const mappedIsins = new Set(existingMappings.map(m => m.mfIsin));
+    console.log(`[MfBenchmarkMapping] ${mappedIsins.size} existing mappings loaded`);
 
     const fundsWithIsin = await db.select({
       isin: mutualFunds.isin,
@@ -83,16 +87,19 @@ class MfBenchmarkMappingService {
 
     let mapped = 0;
     let skipped = 0;
+    const batchInserts: Array<{
+      mfIsin: string;
+      mfSchemeCode: string | null;
+      indexCode: string;
+      confidenceScore: string;
+      source: string;
+      mappingReason: string;
+    }> = [];
 
     for (const fund of fundsWithIsin) {
       if (!fund.isin) continue;
 
-      const existingMap = await db.select()
-        .from(mfBenchmarkMap)
-        .where(eq(mfBenchmarkMap.mfIsin, fund.isin))
-        .limit(1);
-
-      if (existingMap.length > 0) {
+      if (mappedIsins.has(fund.isin)) {
         skipped++;
         continue;
       }
@@ -100,21 +107,34 @@ class MfBenchmarkMappingService {
       const benchmark = this.determineBenchmark(fund.category, fund.schemeName);
       
       if (benchmark) {
-        try {
-          await db.insert(mfBenchmarkMap).values({
-            mfIsin: fund.isin,
-            mfSchemeCode: fund.schemeCode,
-            indexCode: benchmark.indexCode,
-            confidenceScore: benchmark.confidenceScore.toString(),
-            source: 'auto',
-            mappingReason: benchmark.reason,
-          }).onConflictDoNothing();
-          mapped++;
-        } catch (error) {
-          console.error(`[MfBenchmarkMapping] Error mapping ${fund.isin}:`, error);
-        }
+        batchInserts.push({
+          mfIsin: fund.isin,
+          mfSchemeCode: fund.schemeCode,
+          indexCode: benchmark.indexCode,
+          confidenceScore: benchmark.confidenceScore.toString(),
+          source: 'auto',
+          mappingReason: benchmark.reason,
+        });
+        mapped++;
       } else {
         skipped++;
+      }
+    }
+
+    if (batchInserts.length > 0) {
+      const batchSize = 500;
+      for (let i = 0; i < batchInserts.length; i += batchSize) {
+        const batch = batchInserts.slice(i, i + batchSize);
+        try {
+          await db.insert(mfBenchmarkMap).values(batch).onConflictDoNothing();
+        } catch (error) {
+          console.error(`[MfBenchmarkMapping] Batch insert error at offset ${i}:`, error);
+          for (const item of batch) {
+            try {
+              await db.insert(mfBenchmarkMap).values(item).onConflictDoNothing();
+            } catch (e) {}
+          }
+        }
       }
     }
 
