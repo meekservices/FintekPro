@@ -123,7 +123,7 @@ export class NSENCBApiService {
 
       return response.data.auctions || [];
     } catch (error) {
-      console.error('Error fetching NSE NCB auctions:', error instanceof Error ? error.message : 'Unknown error');
+      nseWarn('auctions', `[NSE NCB] Auctions fetch failed: ${error instanceof Error ? error.message : 'Unknown error'} — using demo data`);
       // Fallback to demo data
       return this.getDemoAuctions();
     }
@@ -437,7 +437,7 @@ export class NSENCBApiService {
 
       return response.data;
     } catch (error) {
-      console.error('Error fetching G-Sec details:', error instanceof Error ? error.message : 'Unknown error');
+      nseWarn('gsec', `[NSE NCB] G-Sec details fetch failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return null;
     }
   }
@@ -464,7 +464,7 @@ export class NSENCBApiService {
 
       return response.data.yieldCurve || [];
     } catch (error) {
-      console.error('Error fetching yield curve:', error instanceof Error ? error.message : 'Unknown error');
+      nseWarn('yieldcurve', `[NSE NCB] Yield curve fetch failed: ${error instanceof Error ? error.message : 'Unknown error'} — using demo data`);
       return this.getDemoYieldCurve();
     }
   }
@@ -520,7 +520,7 @@ export class NSENCBApiService {
 
       return response.data.auctions || [];
     } catch (error) {
-      console.error('Error fetching historical auctions:', error instanceof Error ? error.message : 'Unknown error');
+      nseWarn('historical', `[NSE NCB] Historical auctions fetch failed: ${error instanceof Error ? error.message : 'Unknown error'} — using demo data`);
       return this.getDemoHistoricalAuctions(params);
     }
   }
@@ -583,7 +583,7 @@ export class NSENCBApiService {
 
       return response.data.sgbs || [];
     } catch (error) {
-      console.error('Error fetching SGB data:', error instanceof Error ? error.message : 'Unknown error');
+      nseWarn('sgb', `[NSE NCB] SGB data fetch failed: ${error instanceof Error ? error.message : 'Unknown error'} — using demo data`);
       return this.getDemoSGBData();
     }
   }
@@ -646,7 +646,7 @@ export class NSENCBApiService {
 
       return response.data.prices || [];
     } catch (error) {
-      console.error('Error fetching market prices:', error instanceof Error ? error.message : 'Unknown error');
+      nseWarn('marketprices', `[NSE NCB] Market prices fetch failed: ${error instanceof Error ? error.message : 'Unknown error'} — using demo data`);
       return this.getDemoMarketPrices(isins);
     }
   }
