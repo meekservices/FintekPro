@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { kycOrchestrationEngine } from "../services/kyc-orchestration-engine";
 import { identityTokenService } from "../services/identity-token-service";
 import { dpdpConsentService } from "../services/dpdp-consent-service";
+import { storage } from "../storage";
 import { db } from "../db";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 import {
@@ -51,6 +52,41 @@ router.post("/verify", async (req: Request, res: Response) => {
           };
         } catch (profileErr: any) {
           console.error("[KYC-ENGINE-ROUTES] Failed to update identity profile:", profileErr?.message);
+        }
+      }
+
+      if (kycStep === 'bank_verification' && result.success && result.data?.verified) {
+        const bankPayload = req.body.payload || {};
+        if (bankPayload.accountNo && bankPayload.ifsc) {
+          try {
+            const allAccounts = await storage.getUserBankAccounts(userId);
+            const activeAccounts = allAccounts.filter(a => a.isActive);
+            const existingAccount = activeAccounts.find(a => a.accountNumber === bankPayload.accountNo);
+            if (existingAccount) {
+              await storage.updateBankAccount(existingAccount.id, {
+                isVerified: true,
+                verificationStatus: 'verified',
+                verificationDate: new Date(),
+                verificationMethod: 'kyc_engine',
+              });
+            } else if (activeAccounts.length < 5) {
+              await storage.createBankAccount({
+                userId,
+                bankName: bankPayload.bankName || 'Unknown',
+                accountNumber: bankPayload.accountNo,
+                ifscCode: bankPayload.ifsc,
+                accountHolderName: bankPayload.accountHolderName || '',
+                accountType: bankPayload.accountType || 'savings',
+                isVerified: true,
+                verificationStatus: 'verified',
+                verificationDate: new Date(),
+                verificationMethod: 'kyc_engine',
+                isPrimary: activeAccounts.length === 0,
+              });
+            }
+          } catch (bankErr: any) {
+            console.error("[KYC-ENGINE-ROUTES] Failed to sync bank account:", bankErr?.message);
+          }
         }
       }
     }

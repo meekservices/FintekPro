@@ -28,6 +28,8 @@ A Builder Funding & Project Finance Module extends the DSA loan system with a DE
 
 A Multi-Level Partner Hierarchy System enables hierarchical partner onboarding with controlled delegation, commission waterfall, client ownership protection, and audit-ready compliance. A Partner Payout Statement Service provides transaction-level, auditable payout statements. A Commission Dispute & Reversal Engine handles disputes and reversals with full audit trails. The Partner Portal UI includes "Payout Statement," "How Earnings Work," and "Compliance & Disclosures" tabs.
 
+A Multi-Bank Account System supports up to 5 bank accounts per user (SEBI Circular SEBI/HO/MIRSD/POD-1/P/CIR/2024/37 & AMFI Best Practices Circular No. 135/BP/108/2023-24). Features include: `isPrimary` flag for settlement designation, auto-primary for first account, soft-delete with auto-promotion, penny-drop verification (3 attempts max, 80% name match threshold), KYC engine integration (bank_verification step auto-creates/updates bank accounts), regulatory info endpoint with SEBI/AMFI/RBI citations, and active-only account counting for limit enforcement.
+
 The platform is undergoing service consolidation, including: UnifiedOrderNotificationService, Unified AI Recommendation Engine, Cache Services, MF Live Returns System, Benchmark Data Infrastructure (with AMFI and BSE parsers), and KYC Orchestrators (three-layer architecture with CKYC, Onboarding, and Workflow Orchestrators, extended with KYC Wizard v2). Enhancements include Proposal Builder enhancements, a Regulator-Grade PDF System, a Proposal Audit Trail System, a Database Enrichment Infrastructure, a MF Comprehensive Enrichment Pipeline, and a Lead Leakage Prevention & Detection System.
 
 ### Formalized KYC Engine (Feb 2026)

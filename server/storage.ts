@@ -506,7 +506,7 @@ export interface IStorage {
   getBankAccount(id: string): Promise<UserBankAccount | undefined>;
   updateBankAccount(id: string, updates: Partial<UserBankAccount>): Promise<UserBankAccount | undefined>;
   deleteBankAccount(id: string): Promise<boolean>;
-  setDefaultBankAccount(accountId: string, defaultType: 'mutualFunds'): Promise<boolean>;
+  setDefaultBankAccount(accountId: string, defaultType: 'mutualFunds' | 'primary'): Promise<boolean>;
 
   // Demat Account Methods
   createDematAccount(dematAccount: InsertUserDematAccount): Promise<UserDematAccount>;
@@ -3689,27 +3689,109 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createBankAccount(bankAccount: InsertUserBankAccount): Promise<UserBankAccount> {
-    throw new Error("Method not implemented");
+    const existingAccounts = await db
+      .select()
+      .from(schema.userBankAccounts)
+      .where(and(
+        eq(schema.userBankAccounts.userId, bankAccount.userId!),
+        eq(schema.userBankAccounts.isActive, true)
+      ));
+
+    const dataToInsert = {
+      ...bankAccount,
+      isPrimary: existingAccounts.length === 0 ? true : (bankAccount.isPrimary ?? false),
+    };
+
+    const [account] = await db
+      .insert(schema.userBankAccounts)
+      .values(dataToInsert)
+      .returning();
+    return account;
   }
 
   async getUserBankAccounts(userId: string): Promise<UserBankAccount[]> {
-    return [];
+    return await db
+      .select()
+      .from(schema.userBankAccounts)
+      .where(eq(schema.userBankAccounts.userId, userId))
+      .orderBy(desc(schema.userBankAccounts.isPrimary), desc(schema.userBankAccounts.createdAt));
   }
 
   async getBankAccount(id: string): Promise<UserBankAccount | undefined> {
-    return undefined;
+    const [account] = await db
+      .select()
+      .from(schema.userBankAccounts)
+      .where(eq(schema.userBankAccounts.id, id));
+    return account;
   }
 
   async updateBankAccount(id: string, updates: Partial<UserBankAccount>): Promise<UserBankAccount | undefined> {
-    return undefined;
+    const [updated] = await db
+      .update(schema.userBankAccounts)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.userBankAccounts.id, id))
+      .returning();
+    return updated;
   }
 
   async deleteBankAccount(id: string): Promise<boolean> {
-    return false;
+    const account = await this.getBankAccount(id);
+    if (!account) return false;
+
+    await db
+      .update(schema.userBankAccounts)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(schema.userBankAccounts.id, id));
+
+    if (account.isPrimary) {
+      const remainingAccounts = await db
+        .select()
+        .from(schema.userBankAccounts)
+        .where(and(
+          eq(schema.userBankAccounts.userId, account.userId!),
+          eq(schema.userBankAccounts.isActive, true)
+        ))
+        .orderBy(schema.userBankAccounts.createdAt)
+        .limit(1);
+
+      if (remainingAccounts.length > 0) {
+        await db
+          .update(schema.userBankAccounts)
+          .set({ isPrimary: true, updatedAt: new Date() })
+          .where(eq(schema.userBankAccounts.id, remainingAccounts[0].id));
+      }
+    }
+
+    return true;
   }
 
-  async setDefaultBankAccount(accountId: string, defaultType: 'mutualFunds'): Promise<boolean> {
-    return false;
+  async setDefaultBankAccount(accountId: string, defaultType: 'mutualFunds' | 'primary'): Promise<boolean> {
+    const account = await this.getBankAccount(accountId);
+    if (!account || !account.isActive) return false;
+
+    if (defaultType === 'mutualFunds') {
+      await db
+        .update(schema.userBankAccounts)
+        .set({ isDefaultForMutualFunds: false, updatedAt: new Date() })
+        .where(eq(schema.userBankAccounts.userId, account.userId!));
+
+      await db
+        .update(schema.userBankAccounts)
+        .set({ isDefaultForMutualFunds: true, updatedAt: new Date() })
+        .where(eq(schema.userBankAccounts.id, accountId));
+    } else if (defaultType === 'primary') {
+      await db
+        .update(schema.userBankAccounts)
+        .set({ isPrimary: false, updatedAt: new Date() })
+        .where(eq(schema.userBankAccounts.userId, account.userId!));
+
+      await db
+        .update(schema.userBankAccounts)
+        .set({ isPrimary: true, updatedAt: new Date() })
+        .where(eq(schema.userBankAccounts.id, accountId));
+    }
+
+    return true;
   }
 
   async createDematAccount(dematAccount: InsertUserDematAccount): Promise<UserDematAccount> {

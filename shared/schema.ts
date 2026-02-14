@@ -334,6 +334,7 @@ export const userBankAccounts = pgTable("user_bank_accounts", {
   
   // Default Usage Flags
   isDefaultForMutualFunds: boolean("is_default_for_mutual_funds").default(false),
+  isPrimary: boolean("is_primary").default(false),
   
   // Status and Verification
   isActive: boolean("is_active").default(true),
@@ -351,6 +352,9 @@ export const userBankAccounts = pgTable("user_bank_accounts", {
   lastVerificationAttempt: timestamp("last_verification_attempt"), // Last attempt timestamp
   providerResponse: jsonb("provider_response"), // Full API response for audit trail
   verifiedAccountHolderName: varchar("verified_account_holder_name"), // Name returned by bank
+  
+  // Regulatory
+  regulatoryMetadata: jsonb("regulatory_metadata"),
   
   // Metadata
   createdAt: timestamp("created_at").defaultNow(),

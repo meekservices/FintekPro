@@ -21109,6 +21109,33 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   });
 
   // Bank Account Management Routes
+  // Regulatory info endpoint (must be before POST /api/bank-accounts)
+  app.get("/api/bank-accounts/regulatory-info", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const accounts = await storage.getUserBankAccounts(req.user.id);
+      const activeAccounts = accounts.filter(a => a.isActive);
+      res.json({
+        maxAccountsAllowed: 5,
+        currentActiveAccounts: activeAccounts.length,
+        remainingSlots: Math.max(0, 5 - activeAccounts.length),
+        regulatoryBasis: {
+          sebi: "SEBI Circular SEBI/HO/MIRSD/POD-1/P/CIR/2024/37 - Multiple bank account registration for trading/demat",
+          amfi: "AMFI Best Practices Circular No. 135/BP/108/2023-24 - Maximum 5 bank accounts per investor for MF transactions",
+          rbi: "RBI Master Direction on KYC - Bank account verification mandatory for financial transactions"
+        },
+        primaryAccount: activeAccounts.find(a => a.isPrimary) || null,
+        verifiedAccounts: activeAccounts.filter(a => a.isVerified).length,
+        pendingVerification: activeAccounts.filter(a => !a.isVerified).length
+      });
+    } catch (error) {
+      console.error("Error fetching regulatory info:", error);
+      res.status(500).json({ error: "Failed to fetch regulatory info" });
+    }
+  });
+
   // Get user bank accounts
   app.get("/api/bank-accounts", async (req, res) => {
     try {
@@ -21131,16 +21158,20 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         return res.status(401).json({ error: "Authentication required" });
       }
 
-      // Check if user already has 5 accounts (limit)
+      // Check if user already has 5 accounts (SEBI/AMFI regulatory limit)
       const existingAccounts = await storage.getUserBankAccounts(req.user.id);
-      if (existingAccounts.length >= 5) {
+      const activeExisting = existingAccounts.filter(a => a.isActive);
+      if (activeExisting.length >= 5) {
         return res.status(400).json({ 
-          error: "Maximum of 5 bank accounts allowed per user" 
+          error: "Maximum of 5 bank accounts allowed per user",
+          regulatoryBasis: "SEBI Circular SEBI/HO/MIRSD/POD-1/P/CIR/2024/37 & AMFI Best Practices Circular No. 135/BP/108/2023-24",
+          currentCount: activeExisting.length,
+          maxAllowed: 5
         });
       }
 
       // Validate account number uniqueness for the user
-      const duplicateAccount = existingAccounts.find(acc => 
+      const duplicateAccount = activeExisting.find(acc => 
         acc.accountNumber === req.body.accountNumber
       );
       if (duplicateAccount) {
@@ -21149,6 +21180,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         });
       }
 
+      const isFirstAccount = activeExisting.length === 0;
       const bankAccountData = {
         ...req.body,
         userId: req.user!.id,
@@ -21156,7 +21188,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         isDefaultForDematTransactions: false,
         isActive: true,
         isVerified: false,
-        verificationStatus: "pending"
+        verificationStatus: "pending",
+        isPrimary: isFirstAccount,
       };
 
       const account = await storage.createBankAccount(bankAccountData);
@@ -21207,6 +21240,16 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         return res.status(403).json({ error: "Access denied" });
       }
 
+      if (account.isPrimary) {
+        const allAccounts = await storage.getUserBankAccounts(req.user.id);
+        const otherActiveAccounts = allAccounts.filter(a => a.isActive && a.id !== account.id);
+        if (otherActiveAccounts.length > 0) {
+          return res.status(400).json({
+            error: "Cannot delete primary account while other accounts exist. Please set another account as primary first."
+          });
+        }
+      }
+
       const deleted = await storage.deleteBankAccount(req.params.id);
       if (deleted) {
         res.json({ success: true, message: "Bank account deleted successfully" });
@@ -21236,9 +21279,15 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       }
 
       const { defaultType } = req.body;
-      if (defaultType !== "mutualFunds") {
+      if (defaultType !== "mutualFunds" && defaultType !== "primary") {
         return res.status(400).json({ 
-          error: "Invalid default type. Must be 'mutualFunds'" 
+          error: "Invalid default type. Must be 'mutualFunds' or 'primary'" 
+        });
+      }
+
+      if (defaultType === "primary" && !account.isVerified) {
+        return res.status(400).json({
+          error: "Only verified accounts can be set as primary"
         });
       }
 
