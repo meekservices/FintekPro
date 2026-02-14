@@ -1068,17 +1068,29 @@ app.use((req, res, next) => {
           console.error('⚠️ [Bootstrap] BSE index seeding failed:', err.message);
         }
 
-        try {
-          const { amfiBenchmarkIngestionService } = await import('./services/amfi-benchmark-ingestion-service');
-          const amfiResult = await amfiBenchmarkIngestionService.syncAmfiSchemeBenchmarks();
-          console.log(`✅ [Bootstrap] AMFI benchmark mapping: ${amfiResult.normalized} schemes mapped`);
-        } catch (err: any) {
-          console.error('⚠️ [Bootstrap] AMFI benchmark ingestion failed:', err.message);
-        }
-
         console.log('✅ [Bootstrap] Benchmark data seeding completed');
       } else {
         console.log(`✅ [Bootstrap] ${indicesCount} market indices already exist`);
+      }
+
+      // AMFI Benchmark ingestion - runs independently of market indices count
+      try {
+        const amfiBenchmarkCheck = await db.execute(sql`SELECT COUNT(*) as cnt FROM amfi_scheme_benchmarks`);
+        const amfiBenchmarkCount = parseInt(String((amfiBenchmarkCheck.rows[0] as any)?.cnt || '0'));
+        if (amfiBenchmarkCount === 0) {
+          console.log('🔄 [Bootstrap] AMFI benchmark data empty - starting ingestion...');
+          const { amfiBenchmarkIngestionService } = await import('./services/amfi-benchmark-ingestion-service');
+          const amfiResult = await amfiBenchmarkIngestionService.syncAmfiSchemeBenchmarks();
+          console.log(`✅ [Bootstrap] AMFI benchmark mapping: ${amfiResult.parsed} parsed, ${amfiResult.normalized} normalized, ${amfiResult.failed} failed`);
+          if (amfiResult.normalized > 0) {
+            const mapResult = await amfiBenchmarkIngestionService.autoMapFromAmfi();
+            console.log(`✅ [Bootstrap] AMFI auto-map: ${mapResult.mapped} new, ${mapResult.updated} updated`);
+          }
+        } else {
+          console.log(`✅ [Bootstrap] AMFI benchmark data: ${amfiBenchmarkCount} records exist`);
+        }
+      } catch (err: any) {
+        console.error('⚠️ [Bootstrap] AMFI benchmark ingestion failed:', err.message);
       }
 
       const isBootstrapProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT_DEPLOYMENT === '1';

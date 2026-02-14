@@ -159,10 +159,84 @@ export async function runProductionBootstrap(): Promise<BootstrapResult[]> {
   results.push(await seedInvits());
   results.push(await seedScreenerStocks());
   results.push(await triggerBondCatalogRefresh());
+  results.push(await seedAifFunds());
 
   const summary = results.map(r => `${r.category}: ${r.seeded} new (${r.total} total)`).join(', ');
   console.log(`[ProductionBootstrap] Complete: ${summary}`);
   return results;
+}
+
+async function seedAifFunds(): Promise<BootstrapResult> {
+  try {
+    const aifCheck = await db.execute(sql`SELECT COUNT(*) as cnt FROM aif_master`);
+    const aifCount = parseInt(String((aifCheck.rows[0] as any)?.cnt || '0'));
+
+    if (aifCount > 0) {
+      console.log(`[ProductionBootstrap] AIF funds: ${aifCount} already exist`);
+      return { category: 'aif_funds', existing: aifCount, seeded: 0, total: aifCount };
+    }
+
+    console.log('[ProductionBootstrap] AIF funds: empty - seeding comprehensive AIF data...');
+
+    const { generateComprehensiveAifSeedData } = await import('./services/sebi-aif-scraper');
+    const { aifMaster } = await import('@shared/schema');
+    const seedData = generateComprehensiveAifSeedData();
+
+    let seeded = 0;
+    const batchSize = 50;
+
+    for (let i = 0; i < seedData.length; i += batchSize) {
+      const batch = seedData.slice(i, i + batchSize);
+      try {
+        const toInsert = batch.map(listing => ({
+          name: listing.name,
+          registrationNo: listing.registrationNo,
+          category: listing.category,
+          subcategory: listing.subcategory,
+          fundHouseName: listing.fundHouseName,
+          sponsor: listing.sponsor,
+          inceptionDate: listing.inceptionDate,
+          minInvestment: listing.minInvestment,
+          lockIn: listing.lockIn,
+          benchmark: listing.benchmark,
+          style: listing.style,
+          fundStatus: listing.fundStatus,
+          aum: listing.aum,
+          latestNav: listing.latestNav,
+          return1M: listing.return1M,
+          return3M: listing.return3M,
+          return6M: listing.return6M,
+          return1Y: listing.return1Y,
+          return3Y: listing.return3Y,
+          return5Y: listing.return5Y,
+          returnSinceInception: listing.returnSinceInception,
+          riskScore: listing.riskScore,
+          volatility: listing.volatility,
+          maxDrawdown: listing.maxDrawdown,
+          sharpeRatio: listing.sharpeRatio,
+          liquidityFrequency: listing.liquidityFrequency,
+          navFrequency: listing.navFrequency,
+          description: listing.description,
+          investmentObjective: listing.investmentObjective,
+          isPublished: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }));
+        await db.insert(aifMaster).values(toInsert).onConflictDoNothing();
+        seeded += batch.length;
+      } catch (batchError: any) {
+        console.error(`[ProductionBootstrap] AIF batch error:`, batchError.message);
+      }
+    }
+
+    const finalCheck = await db.execute(sql`SELECT COUNT(*) as cnt FROM aif_master`);
+    const finalCount = parseInt(String((finalCheck.rows[0] as any)?.cnt || '0'));
+    console.log(`[ProductionBootstrap] AIF funds: seeded ${finalCount} funds`);
+    return { category: 'aif_funds', existing: 0, seeded: finalCount, total: finalCount };
+  } catch (error: any) {
+    console.error('[ProductionBootstrap] AIF seeding failed:', error.message);
+    return { category: 'aif_funds', existing: 0, seeded: 0, total: 0 };
+  }
 }
 
 async function seedMarketIndices(): Promise<BootstrapResult> {
