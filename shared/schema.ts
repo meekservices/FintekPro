@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, index, uniqueIndex, integer, date, bigint, numeric, pgEnum, serial, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, index, uniqueIndex, integer, date, bigint, numeric, pgEnum, serial, uuid, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -31524,3 +31524,253 @@ export const insertMasterDsaPaymentSchema = createInsertSchema(masterDsaPayments
 });
 export type MasterDsaPayment = typeof masterDsaPayments.$inferSelect;
 export type InsertMasterDsaPayment = z.infer<typeof insertMasterDsaPaymentSchema>;
+
+// ============================================================
+// KYC Provider Management & Platform Infrastructure Tables
+// ============================================================
+
+// 1. kyc_providers - Master table for all KYC verification providers
+export const kycProviders = pgTable("kyc_providers", {
+  id: serial("id").primaryKey(),
+  providerCode: varchar("provider_code", { length: 50 }).unique().notNull(),
+  providerName: varchar("provider_name", { length: 200 }).notNull(),
+  providerDescription: text("provider_description"),
+  providerType: varchar("provider_type", { length: 50 }).notNull(),
+  apiEndpoint: varchar("api_endpoint", { length: 500 }),
+  pricePerCall: decimal("price_per_call", { precision: 10, scale: 2 }).default("0"),
+  isEnabled: boolean("is_enabled").default(true),
+  isConfigured: boolean("is_configured").default(false),
+  requiredEnvVars: jsonb("required_env_vars"),
+  features: jsonb("features"),
+  healthStatus: varchar("health_status", { length: 20 }).default("unknown"),
+  lastHealthCheck: timestamp("last_health_check"),
+  errorRate: real("error_rate").default(0),
+  avgLatencyMs: integer("avg_latency_ms").default(0),
+  totalCalls: integer("total_calls").default(0),
+  successfulCalls: integer("successful_calls").default(0),
+  failedCalls: integer("failed_calls").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertKycProviderSchema = createInsertSchema(kycProviders).omit({ id: true, createdAt: true, updatedAt: true });
+export type KycProvider = typeof kycProviders.$inferSelect;
+export type InsertKycProvider = z.infer<typeof insertKycProviderSchema>;
+
+// 2. kyc_provider_priority - Priority configuration per KYC step
+export const kycProviderPriority = pgTable("kyc_provider_priority", {
+  id: serial("id").primaryKey(),
+  kycStep: varchar("kyc_step", { length: 50 }).notNull(),
+  providerId: integer("provider_id").references(() => kycProviders.id).notNull(),
+  priority: integer("priority").notNull().default(1),
+  isActive: boolean("is_active").default(true),
+  productScope: jsonb("product_scope"),
+  fallbackErrorCodes: jsonb("fallback_error_codes"),
+  maxRetries: integer("max_retries").default(3),
+  timeoutMs: integer("timeout_ms").default(30000),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertKycProviderPrioritySchema = createInsertSchema(kycProviderPriority).omit({ id: true, createdAt: true, updatedAt: true });
+export type KycProviderPriority = typeof kycProviderPriority.$inferSelect;
+export type InsertKycProviderPriority = z.infer<typeof insertKycProviderPrioritySchema>;
+
+// 3. kyc_flow_versions - Versioned KYC flow configurations
+export const kycFlowVersions = pgTable("kyc_flow_versions", {
+  id: serial("id").primaryKey(),
+  version: varchar("version", { length: 20 }).notNull(),
+  flowName: varchar("flow_name", { length: 100 }).notNull(),
+  description: text("description"),
+  steps: jsonb("steps").notNull(),
+  productType: varchar("product_type", { length: 50 }).notNull(),
+  isActive: boolean("is_active").default(false),
+  regulatoryBasis: text("regulatory_basis"),
+  createdBy: varchar("created_by").references(() => users.id),
+  activatedAt: timestamp("activated_at"),
+  deactivatedAt: timestamp("deactivated_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertKycFlowVersionSchema = createInsertSchema(kycFlowVersions).omit({ id: true, createdAt: true, updatedAt: true });
+export type KycFlowVersion = typeof kycFlowVersions.$inferSelect;
+export type InsertKycFlowVersion = z.infer<typeof insertKycFlowVersionSchema>;
+
+// 4. identity_profiles - Unified identity profile
+export const identityProfiles = pgTable("identity_profiles", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  identityTokenId: varchar("identity_token_id", { length: 100 }).unique().notNull(),
+  panNumber: varchar("pan_number", { length: 10 }),
+  panVerified: boolean("pan_verified").default(false),
+  panVerifiedAt: timestamp("pan_verified_at"),
+  panProvider: varchar("pan_provider", { length: 50 }),
+  aadhaarLastFour: varchar("aadhaar_last_four", { length: 4 }),
+  aadhaarVerified: boolean("aadhaar_verified").default(false),
+  aadhaarVerifiedAt: timestamp("aadhaar_verified_at"),
+  aadhaarProvider: varchar("aadhaar_provider", { length: 50 }),
+  ckycNumber: varchar("ckyc_number", { length: 20 }),
+  ckycVerified: boolean("ckyc_verified").default(false),
+  ckycVerifiedAt: timestamp("ckyc_verified_at"),
+  ckycProvider: varchar("ckyc_provider", { length: 50 }),
+  bankVerified: boolean("bank_verified").default(false),
+  bankVerifiedAt: timestamp("bank_verified_at"),
+  bankProvider: varchar("bank_provider", { length: 50 }),
+  addressVerified: boolean("address_verified").default(false),
+  addressVerifiedAt: timestamp("address_verified_at"),
+  addressProvider: varchar("address_provider", { length: 50 }),
+  fatcaDeclared: boolean("fatca_declared").default(false),
+  fatcaDeclaredAt: timestamp("fatca_declared_at"),
+  riskCategory: varchar("risk_category", { length: 20 }),
+  riskScore: integer("risk_score"),
+  riskAssessedAt: timestamp("risk_assessed_at"),
+  kycLevel: varchar("kyc_level", { length: 20 }).default("NONE"),
+  kycVersion: integer("kyc_version").default(1),
+  overallStatus: varchar("overall_status", { length: 20 }).default("PENDING"),
+  lastVerifiedAt: timestamp("last_verified_at"),
+  expiresAt: timestamp("expires_at"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertIdentityProfileSchema = createInsertSchema(identityProfiles).omit({ id: true, createdAt: true, updatedAt: true });
+export type IdentityProfile = typeof identityProfiles.$inferSelect;
+export type InsertIdentityProfile = z.infer<typeof insertIdentityProfileSchema>;
+
+// 5. consent_logs - DPDP compliant consent tracking
+export const consentLogs = pgTable("consent_logs", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  consentType: varchar("consent_type", { length: 50 }).notNull(),
+  purposeCode: varchar("purpose_code", { length: 50 }).notNull(),
+  purposeDescription: text("purpose_description").notNull(),
+  consentGiven: boolean("consent_given").notNull(),
+  consentTimestamp: timestamp("consent_timestamp").defaultNow().notNull(),
+  withdrawnAt: timestamp("withdrawn_at"),
+  withdrawalReason: text("withdrawal_reason"),
+  ipAddress: varchar("ip_address", { length: 50 }),
+  userAgent: text("user_agent"),
+  dataRetentionDays: integer("data_retention_days").default(365),
+  retentionExpiresAt: timestamp("retention_expires_at"),
+  regulatoryBasis: varchar("regulatory_basis", { length: 100 }),
+  version: varchar("version", { length: 20 }).default("1.0"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertConsentLogSchema = createInsertSchema(consentLogs).omit({ id: true, createdAt: true });
+export type ConsentLog = typeof consentLogs.$inferSelect;
+export type InsertConsentLog = z.infer<typeof insertConsentLogSchema>;
+
+// 6. platform_audit_logs - Immutable audit trail (append-only)
+export const platformAuditLogs = pgTable("platform_audit_logs", {
+  id: serial("id").primaryKey(),
+  eventType: varchar("event_type", { length: 100 }).notNull(),
+  entityType: varchar("entity_type", { length: 50 }).notNull(),
+  entityId: varchar("entity_id", { length: 100 }).notNull(),
+  actorId: varchar("actor_id").references(() => users.id),
+  actorRole: varchar("actor_role", { length: 50 }),
+  action: varchar("action", { length: 100 }).notNull(),
+  previousState: jsonb("previous_state"),
+  newState: jsonb("new_state"),
+  changeDetails: jsonb("change_details"),
+  ipAddress: varchar("ip_address", { length: 50 }),
+  userAgent: text("user_agent"),
+  sessionId: varchar("session_id", { length: 100 }),
+  regulatoryTag: varchar("regulatory_tag", { length: 50 }),
+  severity: varchar("severity", { length: 20 }).default("INFO"),
+  isImmutable: boolean("is_immutable").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertPlatformAuditLogSchema = createInsertSchema(platformAuditLogs).omit({ id: true, createdAt: true });
+export type PlatformAuditLog = typeof platformAuditLogs.$inferSelect;
+export type InsertPlatformAuditLog = z.infer<typeof insertPlatformAuditLogSchema>;
+
+// 7. conversion_funnels - Analytics funnel tracking
+export const conversionFunnels = pgTable("conversion_funnels", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id),
+  sessionId: varchar("session_id", { length: 100 }),
+  funnelType: varchar("funnel_type", { length: 50 }).notNull(),
+  productType: varchar("product_type", { length: 50 }),
+  currentStep: varchar("current_step", { length: 50 }).notNull(),
+  stepSequence: integer("step_sequence").notNull(),
+  enteredAt: timestamp("entered_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+  droppedAt: timestamp("dropped_at"),
+  dropReason: varchar("drop_reason", { length: 200 }),
+  durationMs: integer("duration_ms"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertConversionFunnelSchema = createInsertSchema(conversionFunnels).omit({ id: true, createdAt: true });
+export type ConversionFunnel = typeof conversionFunnels.$inferSelect;
+export type InsertConversionFunnel = z.infer<typeof insertConversionFunnelSchema>;
+
+// 8. provider_metrics - Provider performance tracking
+export const providerMetrics = pgTable("provider_metrics", {
+  id: serial("id").primaryKey(),
+  providerId: integer("provider_id").references(() => kycProviders.id).notNull(),
+  metricDate: date("metric_date").notNull(),
+  totalCalls: integer("total_calls").default(0),
+  successfulCalls: integer("successful_calls").default(0),
+  failedCalls: integer("failed_calls").default(0),
+  avgLatencyMs: integer("avg_latency_ms").default(0),
+  p95LatencyMs: integer("p95_latency_ms").default(0),
+  errorCodes: jsonb("error_codes"),
+  totalCostInr: decimal("total_cost_inr", { precision: 10, scale: 2 }).default("0"),
+  fallbacksTriggered: integer("fallbacks_triggered").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertProviderMetricSchema = createInsertSchema(providerMetrics).omit({ id: true, createdAt: true });
+export type ProviderMetric = typeof providerMetrics.$inferSelect;
+export type InsertProviderMetric = z.infer<typeof insertProviderMetricSchema>;
+
+// 9. product_configurations - Admin product toggle/config
+export const productConfigurations = pgTable("product_configurations", {
+  id: serial("id").primaryKey(),
+  productCode: varchar("product_code", { length: 50 }).unique().notNull(),
+  productName: varchar("product_name", { length: 100 }).notNull(),
+  isEnabled: boolean("is_enabled").default(true),
+  requiredKycLevel: varchar("required_kyc_level", { length: 20 }).default("BASIC"),
+  requiredKycSteps: jsonb("required_kyc_steps"),
+  regulatoryRequirements: jsonb("regulatory_requirements"),
+  defaultBrokerId: varchar("default_broker_id", { length: 50 }),
+  configuration: jsonb("configuration"),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertProductConfigurationSchema = createInsertSchema(productConfigurations).omit({ id: true, createdAt: true, updatedAt: true });
+export type ProductConfiguration = typeof productConfigurations.$inferSelect;
+export type InsertProductConfiguration = z.infer<typeof insertProductConfigurationSchema>;
+
+// 10. broker_configurations - Broker/NBFC configs
+export const brokerConfigurations = pgTable("broker_configurations", {
+  id: serial("id").primaryKey(),
+  brokerCode: varchar("broker_code", { length: 50 }).unique().notNull(),
+  brokerName: varchar("broker_name", { length: 200 }).notNull(),
+  brokerType: varchar("broker_type", { length: 50 }).notNull(),
+  isEnabled: boolean("is_enabled").default(true),
+  apiEndpoint: varchar("api_endpoint", { length: 500 }),
+  apiVersion: varchar("api_version", { length: 20 }),
+  requiredEnvVars: jsonb("required_env_vars"),
+  supportedProducts: jsonb("supported_products"),
+  features: jsonb("features"),
+  healthStatus: varchar("health_status", { length: 20 }).default("unknown"),
+  lastHealthCheck: timestamp("last_health_check"),
+  configuration: jsonb("configuration"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertBrokerConfigurationSchema = createInsertSchema(brokerConfigurations).omit({ id: true, createdAt: true, updatedAt: true });
+export type BrokerConfiguration = typeof brokerConfigurations.$inferSelect;
+export type InsertBrokerConfiguration = z.infer<typeof insertBrokerConfigurationSchema>;

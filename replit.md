@@ -30,6 +30,23 @@ A Multi-Level Partner Hierarchy System enables hierarchical partner onboarding w
 
 The platform is undergoing service consolidation, including: UnifiedOrderNotificationService, Unified AI Recommendation Engine, Cache Services, MF Live Returns System, Benchmark Data Infrastructure (with AMFI and BSE parsers), and KYC Orchestrators (three-layer architecture with CKYC, Onboarding, and Workflow Orchestrators, extended with KYC Wizard v2). Enhancements include Proposal Builder enhancements, a Regulator-Grade PDF System, a Proposal Audit Trail System, a Database Enrichment Infrastructure, a MF Comprehensive Enrichment Pipeline, and a Lead Leakage Prevention & Detection System.
 
+### Formalized KYC Engine (Feb 2026)
+A rule-based KYC Orchestration Engine (`server/services/kyc-orchestration-engine.ts`) provides priority-based provider selection with automatic fallback routing. Key components:
+
+- **KYC Providers Registry** (13 providers across PAN/Aadhaar/CKYC/Bank types) stored in `kyc_providers` DB table with health metrics, cost tracking, and env var configuration
+- **Provider Priority System** (`kyc_provider_priority` table) - ordered fallback chains per KYC step with error-code-based routing and product scope filtering (LOAN/MF/DEMAT/INSURANCE/BUILDER/AIF/PMS/UNLISTED)
+- **Product Configuration Engine** (`product_configurations` table) - 8 product types with required KYC levels (NONE/BASIC/FULL/ENHANCED) and step requirements mapped to SEBI/RBI/IRDAI regulatory guidelines
+- **Identity Token Service** (`server/services/identity-token-service.ts`) - unified identity profiles with IDT-prefixed tokens, verification status tracking across PAN/Aadhaar/CKYC/Bank/Address, automatic KYC level calculation, and eligibility checking per product type
+- **DPDP Consent Layer** (`server/services/dpdp-consent-service.ts`) - Digital Personal Data Protection Act 2023 compliant consent management with 8 purpose types, retention policy enforcement, withdrawal tracking, and regulatory basis tagging
+- **Immutable Audit Trail** (`platform_audit_logs` table) - append-only audit events with regulatory tags (SEBI/RBI/PMLA/DPDP), severity levels, and actor tracking
+- **Provider Metrics** (`provider_metrics` table) - daily per-provider performance tracking with P95 latency, error codes, cost in INR, and fallback trigger counts
+- **Conversion Funnels** (`conversion_funnels` table) - step-by-step funnel tracking for KYC onboarding, loan application, MF purchase, and demat opening flows
+- **Broker Configurations** (`broker_configurations` table) - stock broker, NBFC, insurance company, and AMC integration configs
+
+API routes at `/api/kyc-engine/*` (22 endpoints) covering verification execution, identity management, consent capture/withdrawal, admin provider management, product configuration, broker configuration, audit logs, and provider health dashboard.
+
+KYC vs CKYC distinction: KYC = broad identity verification (PAN, Aadhaar, bank). CKYC = Central KYC via CERSAI registry, required specifically for MF/PMS/AIF regulated products.
+
 ### System Design Choices
 FintekPro uses a subdomain-based portal architecture for Admin, Partner, and Client portals with role-based access control. A Financial Metrics Engine provides 40+ derived ratios. It utilizes a Centralized Service Registry pattern for singleton management. A Staggered Startup System prevents resource contention, and Fast Boot Optimization ensures quick server responsiveness. A Regulatory Gaps Tracker monitors compliance across various regulators.
 

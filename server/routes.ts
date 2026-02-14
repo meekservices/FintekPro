@@ -182,6 +182,7 @@ import portfolioReportsRoutes from "./routes/portfolio-reports";
 import ckycProviderRoutes from "./routes/ckyc-provider-routes";
 import panProviderRoutes from "./routes/pan-provider-routes";
 import kycFlowRoutes from "./routes/kyc-flow-routes";
+import kycEngineRoutes from "./routes/kyc-engine-routes";
 import aiRecommendationTrackingRoutes from "./routes/ai-recommendation-tracking-routes";
 import errorTrackingRoutes from "./routes/error-tracking-routes";
 import testerDiagnosticsRoutes from "./routes/tester-diagnostics-routes";
@@ -805,6 +806,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   // KYC Flow Configuration Routes
   app.use("/api/admin/kyc", requireAdmin, kycFlowRoutes);
   console.log("✅ KYC Flow Configuration routes registered");
+
+  // KYC Engine Routes (orchestration, identity, consent, admin)
+  app.use("/api/kyc-engine", kycEngineRoutes);
+  console.log("✅ KYC Engine routes registered");
 
   // Cache Admin Routes (Data Caching & Cost Optimization)
   app.use("/api/admin/cache", requireAdmin, cacheAdminRoutes);
