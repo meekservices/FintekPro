@@ -17,11 +17,11 @@ import { requireAuth, requireRole } from '../middleware/roleMiddleware';
 const router = Router();
 
 const setProviderSchema = z.object({
-  provider: z.enum(['cashfree', 'truthscreen']),
+  provider: z.enum(['cashfree', 'truthscreen', 'sandbox', 'offline_xml']),
 });
 
 const updatePricingSchema = z.object({
-  provider: z.enum(['cashfree', 'truthscreen']),
+  provider: z.enum(['cashfree', 'truthscreen', 'sandbox', 'offline_xml']),
   pricePerVerification: z.number().min(0).max(1000),
 });
 

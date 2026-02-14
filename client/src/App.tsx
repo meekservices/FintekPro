@@ -329,6 +329,7 @@ const AdminDataProviders = lazyWithRetry(() => import("@/pages/admin/data-provid
 const AdminAadhaarConfig = lazyWithRetry(() => import("@/pages/admin-aadhaar-config"));
 const AdminPANConfig = lazyWithRetry(() => import("@/pages/admin-pan-config"));
 const AdminCkycConfig = lazyWithRetry(() => import("@/pages/admin-ckyc-config"));
+const AdminKycFlow = lazyWithRetry(() => import("@/pages/admin-kyc-flow"));
 const ExchangeFilingsAdmin = lazyWithRetry(() => import("@/pages/admin/exchange-filings"));
 const AdminApiUsage = lazyWithRetry(() => import("@/pages/admin-api-usage"));
 const AdminMFEnrichment = lazyWithRetry(() => import("@/pages/admin-mf-enrichment"));
@@ -1446,6 +1447,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <AdminCkycConfig />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/kyc-flow">
+        {() => (
+          <AdminLayout>
+            <AdminKycFlow />
           </AdminLayout>
         )}
       </Route>

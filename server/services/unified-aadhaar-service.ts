@@ -9,7 +9,7 @@
 import { CashfreeAadhaarService } from './cashfree-aadhaar-service';
 import { TruthscreenAadhaarService } from './truthscreen-aadhaar-service';
 
-export type AadhaarProvider = 'cashfree' | 'truthscreen';
+export type AadhaarProvider = 'cashfree' | 'truthscreen' | 'sandbox' | 'offline_xml';
 
 export interface AadhaarProviderConfig {
   provider: AadhaarProvider;
@@ -109,6 +109,26 @@ class UnifiedAadhaarService {
       isConfigured: false,
       features: ['Aadhaar OTP', 'eKYC Data', 'PAN-Aadhaar Linkage', 'Aadhaar Validation'],
     }],
+    ['sandbox', {
+      provider: 'sandbox',
+      name: 'Sandbox.co.in Aadhaar API',
+      description: 'Government-sourced Aadhaar verification via Sandbox.co.in with UIDAI compliance',
+      pricePerVerification: 2.50,
+      pricingCurrency: 'INR',
+      isActive: false,
+      isConfigured: false,
+      features: ['Aadhaar OTP', 'eKYC Data', 'Government Source', 'Bulk Verification', 'Sandbox Testing'],
+    }],
+    ['offline_xml', {
+      provider: 'offline_xml',
+      name: 'Aadhaar Offline XML',
+      description: 'UIDAI-compliant offline Aadhaar XML verification with digital signature validation - no API cost',
+      pricePerVerification: 0.00,
+      pricingCurrency: 'INR',
+      isActive: false,
+      isConfigured: true,
+      features: ['No API Cost', 'Offline Processing', 'XML Signature Validation', 'UIDAI Compliant', 'Privacy-First'],
+    }],
   ]);
 
   constructor() {
@@ -122,19 +142,25 @@ class UnifiedAadhaarService {
     const truthscreenConfig = this.providerConfigs.get('truthscreen')!;
     truthscreenConfig.isConfigured = TruthscreenAadhaarService.credentialsConfigured();
 
-    // Prefer Truthscreen as primary provider (lower cost: ₹3 vs ₹4)
+    const sandboxConfig = this.providerConfigs.get('sandbox')!;
+    sandboxConfig.isConfigured = !!(process.env.SANDBOX_API_KEY && process.env.SANDBOX_API_SECRET);
+
+    const offlineXmlConfig = this.providerConfigs.get('offline_xml')!;
+    offlineXmlConfig.isConfigured = true;
+
     if (truthscreenConfig.isConfigured) {
       this.activeProvider = 'truthscreen';
-      truthscreenConfig.isActive = true;
-      cashfreeConfig.isActive = false;
+      this.providerConfigs.forEach((cfg, key) => { cfg.isActive = key === 'truthscreen'; });
     } else if (cashfreeConfig.isConfigured) {
       this.activeProvider = 'cashfree';
-      cashfreeConfig.isActive = true;
-      truthscreenConfig.isActive = false;
+      this.providerConfigs.forEach((cfg, key) => { cfg.isActive = key === 'cashfree'; });
+    } else if (sandboxConfig.isConfigured) {
+      this.activeProvider = 'sandbox';
+      this.providerConfigs.forEach((cfg, key) => { cfg.isActive = key === 'sandbox'; });
     }
 
     console.log('✅ Unified Aadhaar Verification Service initialized');
-    console.log(`   Truthscreen: ${truthscreenConfig.isConfigured ? 'Configured' : 'Not Configured'}`);
+    console.log(`   Providers: Truthscreen(${truthscreenConfig.isConfigured}), Cashfree(${cashfreeConfig.isConfigured}), Sandbox(${sandboxConfig.isConfigured}), OfflineXML(true)`);
     console.log(`   Active Provider: ${this.activeProvider}`);
   }
 

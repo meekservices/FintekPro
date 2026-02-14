@@ -25,9 +25,7 @@ import { ckycEnvironmentService, type CkycVerificationStatus, type CkycDeferralR
 // Provider codes
 export type CkycProviderCode = 
   | 'truthscreen' 
-  | 'sandbox'
   | 'cersai_reference' 
-  | 'offline_aadhaar' 
   | 'vkyc' 
   | 'manual';
 
@@ -51,21 +49,10 @@ const DEFAULT_PROVIDERS: Array<{
     },
   },
   {
-    providerCode: 'sandbox',
-    providerName: 'Sandbox.co.in KYC API',
-    providerDescription: 'PAN verification and KYC status via Sandbox.co.in API with government data sources',
-    priority: 2,
-    eligibilityRules: {
-      requiresAadhaarConsent: false,
-      allowedRiskCategories: ['low', 'medium', 'high'],
-      requiresApiCredentials: true,
-    },
-  },
-  {
     providerCode: 'cersai_reference',
     providerName: 'CERSAI Reference CKYC',
     providerDescription: 'CKYC verification using existing CKYC reference number from CERSAI registry',
-    priority: 3,
+    priority: 2,
     eligibilityRules: {
       requiresAadhaarConsent: false,
       allowedRiskCategories: ['low', 'medium'],
@@ -73,21 +60,10 @@ const DEFAULT_PROVIDERS: Array<{
     },
   },
   {
-    providerCode: 'offline_aadhaar',
-    providerName: 'Aadhaar Offline XML',
-    providerDescription: 'UIDAI-compliant offline Aadhaar XML verification with signature validation',
-    priority: 3,
-    eligibilityRules: {
-      requiresAadhaarConsent: true,
-      allowedRiskCategories: ['low', 'medium'],
-      requiresXmlUpload: true,
-    },
-  },
-  {
     providerCode: 'vkyc',
     providerName: 'Video KYC (V-KYC)',
     providerDescription: 'Live video verification with geo-tagging and PAN verification',
-    priority: 4,
+    priority: 3,
     eligibilityRules: {
       requiresAadhaarConsent: false,
       allowedRiskCategories: ['low', 'medium', 'high'],
@@ -98,7 +74,7 @@ const DEFAULT_PROVIDERS: Array<{
     providerCode: 'manual',
     providerName: 'Manual CKYC',
     providerDescription: 'Admin-assisted manual CKYC verification with mandatory justification',
-    priority: 5,
+    priority: 4,
     eligibilityRules: {
       requiresAadhaarConsent: false,
       allowedRiskCategories: ['low', 'medium', 'high'],

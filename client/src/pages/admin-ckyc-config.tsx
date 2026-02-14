@@ -125,7 +125,7 @@ export default function AdminCkycConfig() {
         <div>
           <h2 className="text-2xl font-bold tracking-tight">CKYC Provider Configuration</h2>
           <p className="text-muted-foreground">
-            Manage Central KYC verification providers with priority-based fallback chain
+            Manage Central KYC (CERSAI) verification providers for regulated products - Mutual Funds, PMS, AIF
           </p>
         </div>
         <Button variant="outline" onClick={() => refetch()}>
