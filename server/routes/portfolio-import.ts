@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import fetch from 'node-fetch';
-import * as pdfParse from 'pdf-parse';
+import * as pdfParseModule from 'pdf-parse';
+const pdfParse = (pdfParseModule as any).default || pdfParseModule;
 import { db } from '../db';
 import { prospectClients, portfolios, portfolioHoldings } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';

@@ -691,10 +691,10 @@ class IntrinsicValueCalculatorService {
       const result = await db.select({
         avgPE: sql<number>`AVG(CASE WHEN CAST(pe_ratio AS DECIMAL) > 0 AND CAST(pe_ratio AS DECIMAL) < 100 THEN CAST(pe_ratio AS DECIMAL) END)`,
         avgPB: sql<number>`AVG(CASE WHEN CAST(pb_ratio AS DECIMAL) > 0 AND CAST(pb_ratio AS DECIMAL) < 20 THEN CAST(pb_ratio AS DECIMAL) END)`,
-        avgEvEbitda: sql<number>`AVG(CASE WHEN CAST(ev_to_ebitda AS DECIMAL) > 0 AND CAST(ev_to_ebitda AS DECIMAL) < 50 THEN CAST(ev_to_ebitda AS DECIMAL) END)`,
+        avgEvEbitda: sql<number>`NULL`,
         peerCount: sql<number>`COUNT(*)`,
       })
-      .from(schema.stockRatios)
+      .from(schema.listedStocks)
       .where(sql`sector = ${sector} OR industry = ${sector}`);
 
       if (result.length > 0 && result[0].peerCount > 0) {
@@ -808,19 +808,13 @@ class IntrinsicValueCalculatorService {
   private async fetchListedStockData(symbol: string): Promise<StockFinancialData | null> {
     try {
       const [stock] = await db.select()
-        .from(schema.stocks)
-        .where(eq(schema.stocks.symbol, symbol.toUpperCase()))
+        .from(schema.listedStocks)
+        .where(eq(schema.listedStocks.symbol, symbol.toUpperCase()))
         .limit(1);
 
       if (!stock) {
         return null;
       }
-
-      const [ratios] = await db.select()
-        .from(schema.stockRatios)
-        .where(eq(schema.stockRatios.stockId, stock.id))
-        .orderBy(desc(schema.stockRatios.updatedAt))
-        .limit(1);
 
       const historicalFCFs = await this.getHistoricalFCFs(stock.id, 'listed');
 
@@ -828,18 +822,18 @@ class IntrinsicValueCalculatorService {
         symbol: stock.symbol,
         companyName: stock.companyName || stock.symbol,
         currentPrice: stock.currentPrice ? Number(stock.currentPrice) : null,
-        eps: ratios?.eps ? Number(ratios.eps) : null,
-        epsGrowthRate: ratios?.epsGrowthYoy ? Number(ratios.epsGrowthYoy) : null,
-        bookValuePerShare: ratios?.bookValuePerShare ? Number(ratios.bookValuePerShare) : null,
+        eps: stock.eps ? Number(stock.eps) : null,
+        epsGrowthRate: null,
+        bookValuePerShare: stock.bookValue ? Number(stock.bookValue) : null,
         freeCashFlows: historicalFCFs,
-        totalAssets: ratios?.totalAssets ? Number(ratios.totalAssets) : null,
-        totalLiabilities: ratios?.totalLiabilities ? Number(ratios.totalLiabilities) : null,
-        totalDebt: ratios?.totalDebt ? Number(ratios.totalDebt) : null,
-        cash: ratios?.cash ? Number(ratios.cash) : null,
-        ebitda: ratios?.ebitda ? Number(ratios.ebitda) : null,
-        marketCap: ratios?.marketCap ? Number(ratios.marketCap) : null,
-        sharesOutstanding: ratios?.sharesOutstanding ? Number(ratios.sharesOutstanding) : null,
-        beta: stock.beta ? Number(stock.beta) : 1.0,
+        totalAssets: null,
+        totalLiabilities: null,
+        totalDebt: null,
+        cash: null,
+        ebitda: null,
+        marketCap: stock.marketCapValue ? Number(stock.marketCapValue) : null,
+        sharesOutstanding: null,
+        beta: 1.0,
         interestExpense: null,
         intangibleAssets: null,
         taxRate: 25,
@@ -863,9 +857,9 @@ class IntrinsicValueCalculatorService {
       }
 
       const financials = await db.select()
-        .from(schema.mcaFinancials)
-        .where(eq(schema.mcaFinancials.companyId, companyId))
-        .orderBy(desc(schema.mcaFinancials.financialYear))
+        .from(schema.companyFinancials)
+        .where(eq(schema.companyFinancials.companyId, companyId))
+        .orderBy(desc(schema.companyFinancials.financialYear))
         .limit(5);
 
       if (financials.length === 0) {
@@ -876,18 +870,18 @@ class IntrinsicValueCalculatorService {
       const sharesOutstanding = company.sharesOutstanding ? Number(company.sharesOutstanding) : null;
       const currentPrice = company.lastPrice ? Number(company.lastPrice) : null;
 
-      const pat = Number(latestFinancial.patCr || latestFinancial.profit_after_tax || 0) * 10000000;
-      const networth = Number(latestFinancial.networthCr || latestFinancial.total_equity || 0) * 10000000;
-      const totalAssets = Number(latestFinancial.totalAssetsCr || latestFinancial.total_assets || 0) * 10000000;
-      const totalLiabilities = Number(latestFinancial.totalLiabilitiesCr || latestFinancial.total_liabilities || 0) * 10000000;
-      const totalDebt = Number(latestFinancial.totalDebtCr || latestFinancial.long_term_borrowings || 0) * 10000000;
-      const ebitda = Number(latestFinancial.ebitdaCr || 0) * 10000000;
-      const depreciation = Number(latestFinancial.depreciationCr || latestFinancial.depreciation || 0) * 10000000;
+      const pat = Number(latestFinancial.pat || latestFinancial.netProfit || 0);
+      const networth = Number(latestFinancial.networth || 0);
+      const totalAssets = Number(latestFinancial.totalAssets || 0);
+      const totalLiabilities = Number(latestFinancial.totalLiabilities || 0);
+      const totalDebt = Number(latestFinancial.totalDebt || 0);
+      const ebitda = Number(latestFinancial.ebitda || 0);
       
       const fcfs = financials.map(f => {
-        const patVal = Number(f.patCr || f.profit_after_tax || 0) * 10000000;
-        const depVal = Number(f.depreciationCr || f.depreciation || 0) * 10000000;
-        return patVal + depVal;
+        if (f.freeCashFlow) return Number(f.freeCashFlow);
+        if (f.operatingCashFlow) return Number(f.operatingCashFlow) * 0.7;
+        const patVal = Number(f.pat || f.netProfit || 0);
+        return patVal * 0.8;
       }).filter(v => v > 0);
 
       const eps = sharesOutstanding && sharesOutstanding > 0 ? pat / sharesOutstanding : null;
@@ -895,7 +889,7 @@ class IntrinsicValueCalculatorService {
 
       let epsGrowthRate = null;
       if (financials.length >= 2) {
-        const prevPat = Number(financials[1].patCr || financials[1].profit_after_tax || 0) * 10000000;
+        const prevPat = Number(financials[1].pat || financials[1].netProfit || 0);
         if (prevPat > 0 && pat > 0) {
           epsGrowthRate = ((pat - prevPat) / prevPat) * 100;
         }
@@ -936,35 +930,22 @@ class IntrinsicValueCalculatorService {
   private async getHistoricalFCFs(stockId: string, stockType: 'listed' | 'unlisted'): Promise<number[]> {
     try {
       if (stockType === 'listed') {
+        this.addAuditEntry('FCF-Data', 'Listed stock FCF data not available', 
+          { reason: 'company_financials table is for unlisted companies only' }, 0, 'listed_stocks', 'No FCF source for listed stocks');
+        return [];
+      } else {
         const financials = await db.select({
           fiscalYear: schema.companyFinancials.fiscalYear,
           freeCashFlow: schema.companyFinancials.freeCashFlow,
           operatingCashFlow: schema.companyFinancials.operatingCashFlow,
-          netIncome: schema.companyFinancials.netIncome,
-          depreciation: schema.companyFinancials.depreciation,
+          netProfit: schema.companyFinancials.netProfit,
         })
         .from(schema.companyFinancials)
-        .where(eq(schema.companyFinancials.stockId, stockId))
+        .where(eq(schema.companyFinancials.companyId, stockId))
         .orderBy(desc(schema.companyFinancials.fiscalYear))
         .limit(5);
 
         if (financials.length === 0) {
-          const [ratios] = await db.select({
-            freeCashFlow: schema.stockRatios.freeCashFlow,
-            operatingCashFlow: schema.stockRatios.operatingCashFlow,
-          })
-          .from(schema.stockRatios)
-          .where(eq(schema.stockRatios.stockId, stockId))
-          .limit(1);
-
-          if (ratios?.freeCashFlow) {
-            const fcf = Number(ratios.freeCashFlow);
-            if (fcf > 0) {
-              this.addAuditEntry('FCF-Data', 'Single year FCF from stock_ratios', 
-                { freeCashFlow: fcf }, fcf, 'stock_ratios', 'Only 1 year available');
-              return [fcf];
-            }
-          }
           return [];
         }
 
@@ -974,10 +955,10 @@ class IntrinsicValueCalculatorService {
           
           if (fin.freeCashFlow) {
             fcf = Number(fin.freeCashFlow);
-          } else if (fin.operatingCashFlow && fin.depreciation) {
+          } else if (fin.operatingCashFlow) {
             fcf = Number(fin.operatingCashFlow) * 0.7;
-          } else if (fin.netIncome && fin.depreciation) {
-            fcf = Number(fin.netIncome) + Number(fin.depreciation);
+          } else if (fin.netProfit) {
+            fcf = Number(fin.netProfit) * 0.8;
           }
 
           if (fcf && fcf > 0) {
@@ -991,8 +972,6 @@ class IntrinsicValueCalculatorService {
         }
 
         return fcfs;
-      } else {
-        return [];
       }
     } catch (error) {
       console.error('[IntrinsicValue] Error fetching historical FCFs:', error);
