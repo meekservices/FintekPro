@@ -180,6 +180,7 @@ import meetingBookingsRoutes from "./routes/meeting-bookings";
 import sebiRiskProfilingRoutes from "./routes/sebi-risk-profiling-routes";
 import portfolioReportsRoutes from "./routes/portfolio-reports";
 import ckycProviderRoutes from "./routes/ckyc-provider-routes";
+import panProviderRoutes from "./routes/pan-provider-routes";
 import aiRecommendationTrackingRoutes from "./routes/ai-recommendation-tracking-routes";
 import errorTrackingRoutes from "./routes/error-tracking-routes";
 import testerDiagnosticsRoutes from "./routes/tester-diagnostics-routes";
@@ -795,6 +796,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   // CKYC Provider Configuration Routes
   app.use("/api/admin/ckyc", requireAdmin, ckycProviderRoutes);
   console.log("✅ CKYC Provider Configuration routes registered");
+
+  // PAN Provider Configuration Routes
+  app.use("/api/admin/pan", requireAdmin, panProviderRoutes);
+  console.log("✅ PAN Provider Configuration routes registered");
 
   // Cache Admin Routes (Data Caching & Cost Optimization)
   app.use("/api/admin/cache", requireAdmin, cacheAdminRoutes);
