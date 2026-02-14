@@ -3698,27 +3698,39 @@ System Security Data:`;
   // MF Returns Enrichment Status and Manual Sync
   app.get("/api/admin/mf-enrichment-status", requireAdmin, async (req, res) => {
     try {
-      // Get total funds count
-      const totalResult = await db.execute(sql`SELECT COUNT(*) as count FROM mutual_funds`);
-      const totalFunds = parseInt(totalResult.rows[0]?.count as string) || 0;
-      
-      // Get funds with returns populated
-      const enrichedResult = await db.execute(sql`
-        SELECT COUNT(*) as count FROM mutual_funds 
-        WHERE returns_1y IS NOT NULL
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+      res.set('Pragma', 'no-cache');
+
+      const countsResult = await db.execute(sql`
+        SELECT 
+          COUNT(*) as total,
+          COUNT(CASE WHEN returns_1y IS NOT NULL THEN 1 END) as with_returns,
+          COUNT(CASE WHEN nav IS NOT NULL THEN 1 END) as with_nav,
+          COUNT(CASE WHEN aum IS NOT NULL THEN 1 END) as with_aum,
+          COUNT(CASE WHEN expense_ratio IS NOT NULL THEN 1 END) as with_ter,
+          COUNT(CASE WHEN risk_level IS NOT NULL THEN 1 END) as with_risk,
+          COUNT(CASE WHEN sharpe_ratio IS NOT NULL THEN 1 END) as with_sharpe
+        FROM mutual_funds
       `);
-      const enrichedFunds = parseInt(enrichedResult.rows[0]?.count as string) || 0;
-      
-      // Get pending funds (no returns)
+      const row = countsResult.rows[0] as any;
+      const totalFunds = parseInt(row.total) || 0;
+      const enrichedFunds = parseInt(row.with_returns) || 0;
       const pendingFunds = totalFunds - enrichedFunds;
-      
-      // Calculate progress percentage
       const progressPercentage = totalFunds > 0 ? Math.round((enrichedFunds / totalFunds) * 100 * 100) / 100 : 0;
       
-      // Get sync service status
       const syncStatus = mfReturnsSyncService.getStatus();
       
-      // Get last synced fund info with financial ratios
+      let lastSyncTime = syncStatus.lastSyncTime?.toISOString() || null;
+      if (!lastSyncTime) {
+        const lastUpdateResult = await db.execute(sql`
+          SELECT MAX(last_updated) as last_sync FROM mutual_funds WHERE returns_1y IS NOT NULL
+        `);
+        const dbLastSync = (lastUpdateResult.rows[0] as any)?.last_sync;
+        if (dbLastSync) {
+          lastSyncTime = new Date(dbLastSync).toISOString();
+        }
+      }
+
       const lastSyncedResult = await db.execute(sql`
         SELECT scheme_code, scheme_name, isin, expense_ratio, aum, risk_level,
                returns_1y, returns_3y, returns_5y, 
@@ -3732,15 +3744,21 @@ System Security Data:`;
       
       res.json({
         success: true,
+        fetchedAt: new Date().toISOString(),
         stats: {
           totalFunds,
           enrichedFunds,
           pendingFunds,
-          progressPercentage
+          progressPercentage,
+          withNav: parseInt(row.with_nav) || 0,
+          withAum: parseInt(row.with_aum) || 0,
+          withTer: parseInt(row.with_ter) || 0,
+          withRisk: parseInt(row.with_risk) || 0,
+          withSharpe: parseInt(row.with_sharpe) || 0,
         },
         syncStatus: {
           isRunning: syncStatus.isRunning,
-          lastSyncTime: syncStatus.lastSyncTime?.toISOString() || null
+          lastSyncTime
         },
         recentlyEnriched: lastSyncedResult.rows.map((row: any) => ({
           schemeCode: row.scheme_code,
@@ -3868,10 +3886,12 @@ System Security Data:`;
 
   app.get("/api/admin/mf-benchmark-mappings", requireAdmin, async (req, res) => {
     try {
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+      res.set('Pragma', 'no-cache');
+
       const { db } = await import("../../db");
-      const { mfBenchmarkMap, mutualFunds } = await import("@shared/schema");
-      const { eq, desc, sql } = await import("drizzle-orm");
-      const { mfBenchmarkMappingService } = await import("../../services/mf-benchmark-mapping-service");
+      const { mfBenchmarkMap } = await import("@shared/schema");
+      const { desc, sql } = await import("drizzle-orm");
       
       const limit = parseInt(req.query.limit as string) || 100;
       const offset = parseInt(req.query.offset as string) || 0;
@@ -3892,12 +3912,35 @@ System Security Data:`;
       .limit(limit)
       .offset(offset);
       
-      const stats = await mfBenchmarkMappingService.getMappingStats();
+      const statsResult = await db.execute(sql`
+        SELECT 
+          COUNT(*) as total_mappings,
+          COUNT(CASE WHEN source = 'auto' THEN 1 END) as auto_mappings,
+          COUNT(CASE WHEN is_overridden = true THEN 1 END) as manual_overrides,
+          COUNT(CASE WHEN CAST(confidence_score AS FLOAT) >= 0.70 THEN 1 END) as high_confidence
+        FROM mf_benchmark_map
+      `);
+      const statsRow = statsResult.rows[0] as any;
+
+      const indexDistResult = await db.execute(sql`
+        SELECT index_code, COUNT(*) as count FROM mf_benchmark_map GROUP BY index_code ORDER BY count DESC
+      `);
+      const byIndexCode: Record<string, number> = {};
+      for (const r of indexDistResult.rows as any[]) {
+        byIndexCode[r.index_code] = parseInt(r.count);
+      }
       
       res.json({
         success: true,
+        fetchedAt: new Date().toISOString(),
         mappings,
-        stats,
+        stats: {
+          totalMappings: parseInt(statsRow.total_mappings) || 0,
+          autoMappings: parseInt(statsRow.auto_mappings) || 0,
+          manualOverrides: parseInt(statsRow.manual_overrides) || 0,
+          highConfidence: parseInt(statsRow.high_confidence) || 0,
+          byIndexCode,
+        },
         pagination: { limit, offset }
       });
     } catch (error: any) {

@@ -29,6 +29,11 @@ interface EnrichmentStats {
   enrichedFunds: number;
   pendingFunds: number;
   progressPercentage: number;
+  withNav: number;
+  withAum: number;
+  withTer: number;
+  withRisk: number;
+  withSharpe: number;
 }
 
 interface SyncStatus {
@@ -57,6 +62,7 @@ interface RecentlyEnrichedFund {
 
 interface EnrichmentStatusResponse {
   success: boolean;
+  fetchedAt: string;
   stats: EnrichmentStats;
   syncStatus: SyncStatus;
   recentlyEnriched: RecentlyEnrichedFund[];
@@ -69,14 +75,18 @@ export default function AdminMFEnrichment() {
   const { data: statusData, isLoading, refetch } = useQuery<EnrichmentStatusResponse>({
     queryKey: ['/api/admin/mf-enrichment-status'],
     refetchInterval: 5000,
+    staleTime: 0,
+    gcTime: 0,
   });
 
   const { data: benchmarkData } = useQuery<{
     success: boolean;
-    stats: { totalMappings: number; highConfidence: number };
+    stats: { totalMappings: number; highConfidence: number; byIndexCode?: Record<string, number> };
   }>({
     queryKey: ['/api/admin/mf-benchmark-mappings'],
     refetchInterval: 30000,
+    staleTime: 0,
+    gcTime: 0,
   });
 
   const syncMutation = useMutation({
@@ -225,26 +235,42 @@ export default function AdminMFEnrichment() {
               <CardDescription>Current synchronization status and last sync time</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">Status:</span>
-                  {syncStatus?.isRunning ? (
-                    <Badge variant="default" className="bg-blue-500">
-                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                      Running
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-green-600 border-green-600">
-                      Idle
-                    </Badge>
-                  )}
+              <div className="space-y-3">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">Status:</span>
+                    {syncStatus?.isRunning ? (
+                      <Badge variant="default" className="bg-blue-500">
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Running
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-green-600 border-green-600">
+                        Idle
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">Last Sync:</span>
+                    <span className="text-sm text-muted-foreground">
+                      {syncStatus?.lastSyncTime ? formatDate(syncStatus.lastSyncTime) : 'Never'}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">Last Sync:</span>
-                  <span className="text-sm text-muted-foreground">
-                    {syncStatus?.lastSyncTime ? formatDate(syncStatus.lastSyncTime) : 'Never'}
-                  </span>
-                </div>
+                {statusData?.fetchedAt && (
+                  <div className="text-xs text-muted-foreground">
+                    Data fetched: {formatDate(statusData.fetchedAt)}
+                  </div>
+                )}
+                {stats && (
+                  <div className="grid grid-cols-5 gap-2 text-xs">
+                    <div><span className="text-muted-foreground">NAV:</span> <span className="font-medium">{stats.withNav?.toLocaleString()}</span></div>
+                    <div><span className="text-muted-foreground">AUM:</span> <span className="font-medium">{stats.withAum?.toLocaleString()}</span></div>
+                    <div><span className="text-muted-foreground">TER:</span> <span className="font-medium">{stats.withTer?.toLocaleString()}</span></div>
+                    <div><span className="text-muted-foreground">Risk:</span> <span className="font-medium">{stats.withRisk?.toLocaleString()}</span></div>
+                    <div><span className="text-muted-foreground">Sharpe:</span> <span className="font-medium">{stats.withSharpe?.toLocaleString()}</span></div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
