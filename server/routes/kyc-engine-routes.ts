@@ -27,6 +27,34 @@ router.post("/verify", async (req: Request, res: Response) => {
       productType,
       payload: payload || {},
     });
+
+    if (result.success) {
+      const stepToType: Record<string, 'pan' | 'aadhaar' | 'ckyc' | 'bank' | 'address'> = {
+        pan_verification: 'pan',
+        aadhaar_verification: 'aadhaar',
+        ckyc_verification: 'ckyc',
+        bank_verification: 'bank',
+        address_verification: 'address',
+      };
+      const verificationType = stepToType[kycStep];
+      if (verificationType) {
+        try {
+          await identityTokenService.getOrCreateProfile(userId);
+          const updatedProfile = await identityTokenService.updateVerificationStatus(userId, verificationType, {
+            verified: true,
+            provider: result.providerCode,
+            details: { ...result.data, ...payload },
+          });
+          (result as any).identityProfile = {
+            kycLevel: updatedProfile?.kycLevel,
+            overallStatus: updatedProfile?.overallStatus,
+          };
+        } catch (profileErr: any) {
+          console.error("[KYC-ENGINE-ROUTES] Failed to update identity profile:", profileErr?.message);
+        }
+      }
+    }
+
     res.json({ success: true, result });
   } catch (error: any) {
     console.error("[KYC-ENGINE-ROUTES] Error in verify:", error?.message || error);
