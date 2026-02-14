@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -429,97 +428,104 @@ export default function AifSeedPage() {
       {/* Tabs and Table */}
       <Card>
         <CardContent className="pt-6">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="mb-4">
-              <TabsTrigger value="all">All ({aifs.length})</TabsTrigger>
-              <TabsTrigger value="published">Published</TabsTrigger>
-              <TabsTrigger value="unpublished">Unpublished</TabsTrigger>
-              <TabsTrigger value="category1">Category I</TabsTrigger>
-              <TabsTrigger value="category2">Category II</TabsTrigger>
-              <TabsTrigger value="category3">Category III</TabsTrigger>
-            </TabsList>
+          <div className="flex flex-wrap gap-1 mb-4">
+            {[
+              { value: "all", label: `All (${aifs.length})` },
+              { value: "published", label: `Published (${aifs.filter(a => a.isPublished).length})` },
+              { value: "unpublished", label: `Unpublished (${aifs.filter(a => !a.isPublished).length})` },
+              { value: "category1", label: `Category I (${aifs.filter(a => a.category === "Category I").length})` },
+              { value: "category2", label: `Category II (${aifs.filter(a => a.category === "Category II").length})` },
+              { value: "category3", label: `Category III (${aifs.filter(a => a.category === "Category III").length})` },
+            ].map(tab => (
+              <Button
+                key={tab.value}
+                variant={activeTab === tab.value ? "default" : "outline"}
+                size="sm"
+                onClick={() => setActiveTab(tab.value)}
+              >
+                {tab.label}
+              </Button>
+            ))}
+          </div>
 
-            <TabsContent value={activeTab}>
-              {isLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-                </div>
-              ) : filteredAifs.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                  <Layers className="w-12 h-12 mb-4" />
-                  <p>No AIFs found</p>
-                  <p className="text-sm">Import from SEBI or add manually</p>
-                </div>
-              ) : (
-                <ScrollArea className="h-[500px]">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Registration No</TableHead>
-                        <TableHead>Category</TableHead>
-                        <TableHead>Fund House</TableHead>
-                        <TableHead>Min Investment</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Published</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredAifs.map((aif) => (
-                        <TableRow key={aif.id}>
-                          <TableCell className="font-medium max-w-[200px] truncate">
-                            {aif.name}
-                          </TableCell>
-                          <TableCell className="font-mono text-xs">
-                            {aif.registrationNo || "—"}
-                          </TableCell>
-                          <TableCell>
-                            {aif.category ? (
-                              <Badge className={getCategoryBadgeColor(aif.category)}>
-                                {aif.category}
-                              </Badge>
-                            ) : "—"}
-                          </TableCell>
-                          <TableCell>{aif.fundHouseName || "—"}</TableCell>
-                          <TableCell>{formatCurrency(aif.minInvestment)}</TableCell>
-                          <TableCell>
-                            <Badge variant={aif.fundStatus === "active" ? "default" : "secondary"}>
-                              {aif.fundStatus || "active"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Switch
-                              checked={aif.isPublished}
-                              onCheckedChange={(checked) => 
-                                togglePublishMutation.mutate({ id: aif.id, isPublished: checked })
-                              }
-                              data-testid={`switch-publish-${aif.id}`}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              <Button 
-                                variant="ghost" 
-                                size="icon"
-                                onClick={() => {
-                                  setSelectedAif(aif);
-                                  setShowEditDialog(true);
-                                }}
-                                data-testid={`btn-edit-${aif.id}`}
-                              >
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
-              )}
-            </TabsContent>
-          </Tabs>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : filteredAifs.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <Layers className="w-12 h-12 mb-4" />
+              <p>No AIFs found</p>
+              <p className="text-sm">Import from SEBI or add manually</p>
+            </div>
+          ) : (
+            <ScrollArea className="h-[500px]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Registration No</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Fund House</TableHead>
+                    <TableHead>Min Investment</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Published</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredAifs.map((aif) => (
+                    <TableRow key={aif.id}>
+                      <TableCell className="font-medium max-w-[200px] truncate">
+                        {aif.name}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {aif.registrationNo || "—"}
+                      </TableCell>
+                      <TableCell>
+                        {aif.category ? (
+                          <Badge className={getCategoryBadgeColor(aif.category)}>
+                            {aif.category}
+                          </Badge>
+                        ) : "—"}
+                      </TableCell>
+                      <TableCell>{aif.fundHouseName || "—"}</TableCell>
+                      <TableCell>{formatCurrency(aif.minInvestment)}</TableCell>
+                      <TableCell>
+                        <Badge variant={aif.fundStatus === "active" ? "default" : "secondary"}>
+                          {aif.fundStatus || "active"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Switch
+                          checked={aif.isPublished}
+                          onCheckedChange={(checked) => 
+                            togglePublishMutation.mutate({ id: aif.id, isPublished: checked })
+                          }
+                          data-testid={`switch-publish-${aif.id}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => {
+                              setSelectedAif(aif);
+                              setShowEditDialog(true);
+                            }}
+                            data-testid={`btn-edit-${aif.id}`}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          )}
         </CardContent>
       </Card>
 
