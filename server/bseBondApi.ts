@@ -9,6 +9,15 @@ import { randomUUID } from "crypto";
 import axios from "axios";
 import { calculateYieldToMaturity, calculateCurrentYield, calculateAccruedInterest, calculateBondPrice } from "./bond-calculator";
 
+const bseWarnThrottle: Record<string, number> = {};
+function bseWarn(key: string, msg: string) {
+  const now = Date.now();
+  if (!bseWarnThrottle[key] || now - bseWarnThrottle[key] > 3600000) {
+    console.warn(msg);
+    bseWarnThrottle[key] = now;
+  }
+}
+
 // BSE Bond API Configuration
 const BSE_BOND_CONFIG = {
   demo: {
@@ -128,7 +137,7 @@ export class BSEBondApiService {
       return response.data.bonds || [];
     } catch (error: any) {
       const msg = error?.code === 'ETIMEDOUT' ? `ETIMEDOUT ${error?.address}:${error?.port}` : (error?.message || 'Unknown error');
-      console.warn(`[BSE Bond] Tradable bonds fetch failed: ${msg} — using demo data`);
+      bseWarn('tradable', `[BSE Bond] Tradable bonds fetch failed: ${msg} — using demo data`);
       return this.getDemoBonds();
     }
   }
@@ -601,7 +610,7 @@ export class BSEBondApiService {
       return response.data.bonds || [];
     } catch (error: any) {
       const msg = error?.code === 'ETIMEDOUT' ? `ETIMEDOUT ${error?.address}:${error?.port}` : (error?.message || 'Unknown error');
-      console.warn(`[BSE Bond] Tax-free bonds fetch failed: ${msg} — using demo data`);
+      bseWarn('taxfree', `[BSE Bond] Tax-free bonds fetch failed: ${msg} — using demo data`);
       return this.getDemoTaxFreeBonds();
     }
   }
@@ -683,7 +692,7 @@ export class BSEBondApiService {
       return response.data.bonds || [];
     } catch (error: any) {
       const msg = error?.code === 'ETIMEDOUT' ? `ETIMEDOUT ${error?.address}:${error?.port}` : (error?.message || 'Unknown error');
-      console.warn(`[BSE Bond] Infrastructure bonds fetch failed: ${msg} — using demo data`);
+      bseWarn('infra', `[BSE Bond] Infrastructure bonds fetch failed: ${msg} — using demo data`);
       return this.getDemoInfrastructureBonds();
     }
   }

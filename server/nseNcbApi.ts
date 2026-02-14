@@ -9,6 +9,15 @@ import { randomUUID } from "crypto";
 import axios from "axios";
 import { calculateYieldToMaturity, calculateBondPrice, calculateMacaulayDuration, calculateModifiedDuration } from "./bond-calculator";
 
+const nseWarnThrottle: Record<string, number> = {};
+function nseWarn(key: string, msg: string) {
+  const now = Date.now();
+  if (!nseWarnThrottle[key] || now - nseWarnThrottle[key] > 3600000) {
+    console.warn(msg);
+    nseWarnThrottle[key] = now;
+  }
+}
+
 // NSE NCB API Configuration
 const NSE_NCB_CONFIG = {
   demo: {

@@ -17,7 +17,7 @@ const isProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT
 const POOL_CONFIG = {
   connectionString: process.env.DATABASE_URL,
   max: isProduction ? 50 : 20,
-  idleTimeoutMillis: isProduction ? 60000 : 30000,
+  idleTimeoutMillis: isProduction ? 30000 : 20000,
   connectionTimeoutMillis: 20000,
   allowExitOnIdle: false,
 };
@@ -29,9 +29,17 @@ let poolHealthWarnings = 0;
 let waitingWarnings = 0;
 const MAX_WARNINGS_BEFORE_LOG = 5;
 
+let lastPoolErrorTime = 0;
+let poolErrorCount = 0;
 pool.on('error', (err) => {
-  console.error('[DB Pool] Unexpected error on idle client:', err?.message || err);
-  // Don't crash the server on pool errors - the pool will auto-recover
+  const now = Date.now();
+  poolErrorCount++;
+  if (now - lastPoolErrorTime > 10000) {
+    const suffix = poolErrorCount > 1 ? ` (${poolErrorCount} errors in last batch)` : '';
+    console.warn(`[DB Pool] Connection error (auto-recovering): ${err?.message || err}${suffix}`);
+    lastPoolErrorTime = now;
+    poolErrorCount = 0;
+  }
 });
 
 let connectCount = 0;

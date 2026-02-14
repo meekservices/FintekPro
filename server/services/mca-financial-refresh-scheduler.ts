@@ -89,10 +89,17 @@ class McaFinancialRefreshScheduler {
     };
 
     try {
-      const jobs = await this.identifyRefreshJobs();
+      let jobs: RefreshJob[] = [];
+      try {
+        jobs = await this.identifyRefreshJobs();
+      } catch (jobError: any) {
+        console.warn(`[MCA Refresh] Error identifying refresh jobs: ${jobError?.message || 'Unknown'}`);
+        jobs = [];
+      }
       console.log(`[MCA Refresh] Found ${jobs.length} companies needing refresh`);
 
       for (const job of jobs) {
+        if (!job?.cin) continue;
         result.jobsProcessed++;
         
         try {
@@ -101,7 +108,7 @@ class McaFinancialRefreshScheduler {
             'auto_refresh_scheduler'
           );
 
-          if (backfillResult.yearsUpdated > 0) {
+          if (backfillResult?.yearsUpdated > 0) {
             result.jobsSuccessful++;
             result.details.push({
               cin: job.cin,
@@ -116,7 +123,7 @@ class McaFinancialRefreshScheduler {
               companyName: job.companyName,
               success: false,
               yearsUpdated: 0,
-              error: backfillResult.errors[0] || 'No data available',
+              error: backfillResult?.errors?.[0] || 'No data available',
             });
           }
         } catch (error: any) {
@@ -126,7 +133,7 @@ class McaFinancialRefreshScheduler {
             companyName: job.companyName,
             success: false,
             yearsUpdated: 0,
-            error: error.message,
+            error: error?.message || 'Unknown error',
           });
         }
 
@@ -135,11 +142,14 @@ class McaFinancialRefreshScheduler {
 
       console.log(`[MCA Refresh] Cycle complete: ${result.jobsSuccessful}/${result.jobsProcessed} successful`);
       
-      // Also refresh stale companies that haven't been updated in 90+ days
-      await this.refreshStaleCompaniesFromApi();
+      try {
+        await this.refreshStaleCompaniesFromApi();
+      } catch (staleError: any) {
+        console.warn(`[MCA Refresh] Stale companies refresh error: ${staleError?.message || 'Unknown'}`);
+      }
       
     } catch (error: any) {
-      console.error('[MCA Refresh] Error during refresh cycle:', error.message);
+      console.error('[MCA Refresh] Error during refresh cycle:', error?.message || 'Unknown error');
     } finally {
       this.isRunning = false;
     }
