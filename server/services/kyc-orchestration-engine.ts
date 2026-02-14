@@ -42,6 +42,7 @@ class KycOrchestrationEngine {
   async executeVerification(request: VerificationRequest): Promise<VerificationResult> {
     console.log(`[KYC-ENGINE] Starting verification for step=${request.kycStep}, product=${request.productType}, user=${request.userId}`);
     const fallbackChain: string[] = [];
+    const overallStartTime = Date.now();
 
     try {
       const priorities = await db
@@ -150,7 +151,7 @@ class KycOrchestrationEngine {
         providerCode: "none",
         errorCode: "ALL_PROVIDERS_EXHAUSTED",
         errorMessage: `All providers exhausted for step ${request.kycStep}. Tried: ${fallbackChain.join(", ")}`,
-        latencyMs: Date.now() - (filteredPriorities.length > 0 ? Date.now() : 0),
+        latencyMs: Date.now() - overallStartTime,
         retryCount: 0,
         fallbackChain,
       };
@@ -162,7 +163,7 @@ class KycOrchestrationEngine {
         providerCode: "none",
         errorCode: "INTERNAL_ERROR",
         errorMessage: error?.message || "Unexpected error during verification",
-        latencyMs: 0,
+        latencyMs: Date.now() - overallStartTime,
         retryCount: 0,
         fallbackChain,
       };
@@ -297,6 +298,12 @@ class KycOrchestrationEngine {
         const newAvgLatency = Math.round(
           (currentAvg * (metric.totalCalls ?? 0) + latencyMs) / newTotal
         );
+        const p95 = Math.max(metric.p95LatencyMs ?? 0, latencyMs);
+        const existingErrors = (metric.errorCodes as Record<string, number>) || {};
+        if (errorCode) {
+          existingErrors[errorCode] = (existingErrors[errorCode] || 0) + 1;
+        }
+        const newFallbacks = (metric.fallbacksTriggered ?? 0) + (errorCode ? 1 : 0);
 
         await db
           .update(providerMetrics)
@@ -305,9 +312,16 @@ class KycOrchestrationEngine {
             successfulCalls: newSuccess,
             failedCalls: newFailed,
             avgLatencyMs: newAvgLatency,
+            p95LatencyMs: p95,
+            errorCodes: existingErrors,
+            fallbacksTriggered: newFallbacks,
           })
           .where(eq(providerMetrics.id, metric.id));
       } else {
+        const errorCodes: Record<string, number> = {};
+        if (errorCode) {
+          errorCodes[errorCode] = 1;
+        }
         await db.insert(providerMetrics).values({
           providerId,
           metricDate: today,
@@ -315,6 +329,9 @@ class KycOrchestrationEngine {
           successfulCalls: success ? 1 : 0,
           failedCalls: success ? 0 : 1,
           avgLatencyMs: latencyMs,
+          p95LatencyMs: latencyMs,
+          errorCodes: Object.keys(errorCodes).length > 0 ? errorCodes : null,
+          fallbacksTriggered: errorCode ? 1 : 0,
         });
       }
 
