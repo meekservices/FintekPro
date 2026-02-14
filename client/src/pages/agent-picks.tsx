@@ -525,8 +525,8 @@ export default function AgentPicksPage() {
                 <Percent className="h-4 w-4 text-purple-500" />
                 <span className="text-sm text-muted-foreground">Avg Return</span>
               </div>
-              <div className={`text-2xl font-bold mt-1 ${stats.avgReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {stats.avgReturn >= 0 ? '+' : ''}{stats.avgReturn.toFixed(2)}%
+              <div className={`text-2xl font-bold mt-1 ${(stats.avgReturn ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {(stats.avgReturn ?? 0) >= 0 ? '+' : ''}{(stats.avgReturn ?? 0).toFixed(2)}%
               </div>
             </CardContent>
           </Card>
@@ -1018,9 +1018,13 @@ function PickCard({
   const StatusIcon = status.icon;
   const horizon = pick.timeHorizon ? horizonConfig[pick.timeHorizon] : null;
   
-  const upside = ((pick.targetPrice - pick.recoPrice) / pick.recoPrice * 100).toFixed(1);
-  const downside = ((pick.recoPrice - pick.stoplossPrice) / pick.recoPrice * 100).toFixed(1);
-  const currentReturn = pick.currentPrice 
+  const upside = pick.targetPrice && pick.recoPrice
+    ? ((pick.targetPrice - pick.recoPrice) / pick.recoPrice * 100).toFixed(1)
+    : '0.0';
+  const downside = pick.stoplossPrice && pick.recoPrice
+    ? ((pick.recoPrice - pick.stoplossPrice) / pick.recoPrice * 100).toFixed(1)
+    : '0.0';
+  const currentReturn = pick.currentPrice && pick.recoPrice
     ? ((pick.currentPrice - pick.recoPrice) / pick.recoPrice * 100).toFixed(1)
     : null;
 
@@ -1243,7 +1247,7 @@ function PickCard({
                 {Object.entries(pick.keyMetrics).slice(0, 4).map(([key, value]) => (
                   <div key={key}>
                     <span className="text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1')}: </span>
-                    <span className="font-medium">{typeof value === 'number' ? value.toFixed(2) : value}</span>
+                    <span className="font-medium">{typeof value === 'number' ? (value ?? 0).toFixed(2) : (value ?? '—')}</span>
                   </div>
                 ))}
               </div>

@@ -140,8 +140,10 @@ export default function PickOfTheDayWidget() {
         ) : (
           picks.slice(0, 4).map((pick) => {
             const Icon = categoryIcons[pick.category] || TrendingUp;
-            const upside = ((pick.targetPrice - pick.recoPrice) / pick.recoPrice * 100).toFixed(1);
-            const currentReturn = pick.currentPrice 
+            const upside = pick.targetPrice && pick.recoPrice
+              ? ((pick.targetPrice - pick.recoPrice) / pick.recoPrice * 100).toFixed(1)
+              : '0.0';
+            const currentReturn = pick.currentPrice && pick.recoPrice
               ? ((pick.currentPrice - pick.recoPrice) / pick.recoPrice * 100).toFixed(1)
               : null;
 

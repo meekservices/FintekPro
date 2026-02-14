@@ -177,8 +177,8 @@ export default function AIStockPicks() {
     }).format(value);
   };
 
-  const formatPercent = (value: number | undefined) => {
-    if (value === undefined) return 'N/A';
+  const formatPercent = (value: number | undefined | null) => {
+    if (value === undefined || value === null) return 'N/A';
     return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
   };
 
