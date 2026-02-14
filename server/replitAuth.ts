@@ -36,7 +36,11 @@ const getOidcConfig = memoize(
   { maxAge: 3600 * 1000 }
 );
 
+let cachedSessionMiddleware: any = null;
+
 export function getSession() {
+  if (cachedSessionMiddleware) return cachedSessionMiddleware;
+  
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
   const idleTimeoutMs = 15 * 60 * 1000; // 15 minutes - RBI Digital Lending Guidelines
   const pgStore = connectPg(session);
@@ -58,9 +62,12 @@ export function getSession() {
     // Pool will automatically reconnect
   });
   
-  // Track pool connection issues
+  let sessionPoolConnections = 0;
   sessionPool.on('connect', () => {
-    console.log('[Session Pool] Client connected');
+    sessionPoolConnections++;
+    if (sessionPoolConnections <= 2 || process.env.NODE_ENV !== 'production') {
+      console.log(`[Session Pool] Client connected (${sessionPoolConnections})`);
+    }
   });
   
   const sessionStore = new pgStore({
@@ -122,9 +129,7 @@ export function getSession() {
     },
   });
   
-  // Return a wrapper that dynamically sets cookie domain based on request Host header
-  // Also handles session store errors gracefully to prevent 401 errors during transient failures
-  return (req: any, res: any, next: any) => {
+  const middleware = (req: any, res: any, next: any) => {
     const host = req.get('host') || req.headers.host || '';
     
     // If accessing via fintekpro.com domain, set cookie domain to share across subdomains
@@ -185,6 +190,9 @@ export function getSession() {
       next();
     });
   };
+  
+  cachedSessionMiddleware = middleware;
+  return middleware;
 }
 
 function updateUserSession(

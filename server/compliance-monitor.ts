@@ -57,11 +57,13 @@ class ComplianceMonitor {
       this.events = this.events.slice(-10000);
     }
 
-    console.log(`[COMPLIANCE] ${complianceEvent.eventType}: ${complianceEvent.action}`, {
-      userId: complianceEvent.userId,
-      outcome: complianceEvent.outcome,
-      riskLevel: complianceEvent.riskLevel
-    });
+    if (complianceEvent.riskLevel !== 'low' || process.env.NODE_ENV !== 'production') {
+      console.log(`[COMPLIANCE] ${complianceEvent.eventType}: ${complianceEvent.action}`, {
+        userId: complianceEvent.userId,
+        outcome: complianceEvent.outcome,
+        riskLevel: complianceEvent.riskLevel
+      });
+    }
 
     return eventId;
   }
