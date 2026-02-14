@@ -2,6 +2,7 @@ import { db } from '../../db';
 import { screenerStocks, screenerFinancials, screenerPriceHistory, screenerDerivedMetrics } from '@shared/schema';
 import { eq, and, sql, lt, isNull, asc } from 'drizzle-orm';
 import { getDataProvider } from './fmp-provider';
+import { getProviderRegistry } from './data-provider-registry';
 import { fmpUsageMonitor } from './fmp-usage-monitor';
 import { calculateDerivedMetrics } from './derived-metrics-engine';
 
@@ -13,11 +14,13 @@ export interface EnrichmentResult {
   apiCallsUsed: number;
   remaining: number;
   details?: any;
+  providerBreakdown?: Record<string, number>;
 }
 
 export async function enrichStockProfiles(batchSize = 10): Promise<EnrichmentResult> {
-  const provider = getDataProvider();
+  const registry = getProviderRegistry();
   let processed = 0, errors = 0, skipped = 0, apiCalls = 0;
+  const providerBreakdown: Record<string, number> = {};
 
   const staleCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const stocks = await db
@@ -30,17 +33,13 @@ export async function enrichStockProfiles(batchSize = 10): Promise<EnrichmentRes
     .limit(batchSize);
 
   for (const stock of stocks) {
-    if (!(await fmpUsageMonitor.canMakeCall())) {
-      skipped += stocks.length - processed - errors;
-      break;
-    }
-
     try {
       const fmpSymbol = stock.fmpSymbol || `${stock.symbol}.NS`;
-      const profile = await provider.getCompanyProfile(fmpSymbol);
+      const { result: profile, provider: providerName } = await registry.getCompanyProfile(fmpSymbol);
       apiCalls++;
 
       if (profile) {
+        providerBreakdown[providerName] = (providerBreakdown[providerName] || 0) + 1;
         await db.update(screenerStocks).set({
           companyName: profile.companyName || stock.companyName,
           sector: profile.sector || stock.sector,
@@ -49,6 +48,7 @@ export async function enrichStockProfiles(batchSize = 10): Promise<EnrichmentRes
           marketCapValue: profile.marketCap?.toString(),
           marketCapCategory: categorizeMarketCap(profile.marketCap),
           lastFmpSync: new Date(),
+          dataSource: providerName.toLowerCase(),
           updatedAt: new Date(),
         }).where(eq(screenerStocks.id, stock.id));
         processed++;
@@ -62,13 +62,14 @@ export async function enrichStockProfiles(batchSize = 10): Promise<EnrichmentRes
   }
 
   const stats = await fmpUsageMonitor.getDailyStats();
-  return { task: 'stock_profiles', processed, errors, skipped, apiCallsUsed: apiCalls, remaining: stats.remaining };
+  return { task: 'stock_profiles', processed, errors, skipped, apiCallsUsed: apiCalls, remaining: stats.remaining, providerBreakdown };
 }
 
 export async function enrichFinancialRatios(batchSize = 5): Promise<EnrichmentResult> {
-  const provider = getDataProvider();
+  const registry = getProviderRegistry();
   let processed = 0, errors = 0, skipped = 0, apiCalls = 0;
   const errorDetails: string[] = [];
+  const providerBreakdown: Record<string, number> = {};
 
   const stocks = await db.execute(sql`
     SELECT ss.id, ss.symbol, ss.fmp_symbol, ss.data_source
@@ -92,17 +93,13 @@ export async function enrichFinancialRatios(batchSize = 5): Promise<EnrichmentRe
   const stockRows = (stocks as any).rows || stocks;
 
   for (const stock of stockRows) {
-    if (!(await fmpUsageMonitor.canMakeCall())) {
-      skipped += stockRows.length - processed - errors;
-      break;
-    }
-
     try {
       const fmpSymbol = stock.fmp_symbol || `${stock.symbol}.NS`;
-      const ratios = await provider.getRatios(fmpSymbol);
+      const { result: ratios, provider: providerName } = await registry.getRatios(fmpSymbol);
       apiCalls++;
 
       if (ratios) {
+        providerBreakdown[providerName] = (providerBreakdown[providerName] || 0) + 1;
         const values: Record<string, any> = {
           symbol: stock.symbol,
           period: ratios.period || 'annual',
@@ -154,7 +151,7 @@ export async function enrichFinancialRatios(batchSize = 5): Promise<EnrichmentRe
         console.log(`[Enrichment] Ratios enriched: ${stock.symbol} (PB=${ratios.pbRatio}, ROE=${ratios.roe}, D/E=${ratios.debtToEquity})`);
       } else {
         skipped++;
-        errorDetails.push(`${stock.symbol}: No data returned from FMP`);
+        errorDetails.push(`${stock.symbol}: No data returned from any provider`);
       }
     } catch (err: any) {
       errors++;
@@ -164,12 +161,13 @@ export async function enrichFinancialRatios(batchSize = 5): Promise<EnrichmentRe
   }
 
   const stats = await fmpUsageMonitor.getDailyStats();
-  return { task: 'financial_ratios', processed, errors, skipped, apiCallsUsed: apiCalls, remaining: stats.remaining, details: { errors: errorDetails } };
+  return { task: 'financial_ratios', processed, errors, skipped, apiCallsUsed: apiCalls, remaining: stats.remaining, details: { errors: errorDetails }, providerBreakdown };
 }
 
 export async function enrichPriceHistory(batchSize = 3): Promise<EnrichmentResult> {
-  const provider = getDataProvider();
+  const registry = getProviderRegistry();
   let processed = 0, errors = 0, skipped = 0, apiCalls = 0;
+  const providerBreakdown: Record<string, number> = {};
 
   const stocks = await db.execute(sql`
     SELECT ss.id, ss.symbol, ss.fmp_symbol, ss.data_source
@@ -186,15 +184,11 @@ export async function enrichPriceHistory(batchSize = 3): Promise<EnrichmentResul
   const fiveYearsAgo = new Date(Date.now() - 5 * 365.25 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
   for (const stock of stockRows) {
-    if (!(await fmpUsageMonitor.canMakeCall())) {
-      skipped += stockRows.length - processed - errors;
-      break;
-    }
-
     try {
       const fmpSymbol = stock.fmp_symbol || `${stock.symbol}.NS`;
-      const prices = await provider.getHistoricalPrices(fmpSymbol, fiveYearsAgo, today);
+      const { result: prices, provider: providerName } = await registry.getHistoricalPrices(fmpSymbol, fiveYearsAgo, today);
       apiCalls++;
+      if (prices.length > 0) providerBreakdown[providerName] = (providerBreakdown[providerName] || 0) + 1;
 
       if (prices.length > 0) {
         await db.delete(screenerPriceHistory).where(eq(screenerPriceHistory.symbol, stock.symbol));
@@ -228,7 +222,7 @@ export async function enrichPriceHistory(batchSize = 3): Promise<EnrichmentResul
   }
 
   const stats = await fmpUsageMonitor.getDailyStats();
-  return { task: 'price_history', processed, errors, skipped, apiCallsUsed: apiCalls, remaining: stats.remaining };
+  return { task: 'price_history', processed, errors, skipped, apiCallsUsed: apiCalls, remaining: stats.remaining, providerBreakdown };
 }
 
 export async function calculateReturnsFromPriceHistory(

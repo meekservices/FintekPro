@@ -325,6 +325,7 @@ const RiskProfilingPage = lazyWithRetry(() => import("@/pages/risk-profiling"));
 const RiskQuestionnaireBuilder = lazyWithRetry(() => import("@/pages/admin/risk-questionnaire-builder"));
 const RiskComplianceExport = lazyWithRetry(() => import("@/pages/admin/risk-compliance-export"));
 const AdminDatabase = lazyWithRetry(() => import("@/pages/admin/database"));
+const AdminDataProviders = lazyWithRetry(() => import("@/pages/admin/data-providers"));
 const AdminAadhaarConfig = lazyWithRetry(() => import("@/pages/admin-aadhaar-config"));
 const ExchangeFilingsAdmin = lazyWithRetry(() => import("@/pages/admin/exchange-filings"));
 const AdminApiUsage = lazyWithRetry(() => import("@/pages/admin-api-usage"));
@@ -1465,6 +1466,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <AdminDatabase />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/data-providers">
+        {() => (
+          <AdminLayout>
+            <AdminDataProviders />
           </AdminLayout>
         )}
       </Route>

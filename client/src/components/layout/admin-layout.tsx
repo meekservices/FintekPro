@@ -227,6 +227,7 @@ const navCategories: NavCategory[] = [
       { title: "Feature Flags", href: "/admin/feature-flags", icon: Lightbulb, description: "A/B testing controls" },
       { title: "PDF Parser", href: "/admin/parser-config", icon: FileText, description: "Unified PDF parser settings" },
       { title: "Database", href: "/admin/database", icon: Database, description: "Database management" },
+      { title: "Data Providers", href: "/admin/data-providers", icon: Activity, description: "Provider health & fallback" },
     ]
   },
 ];

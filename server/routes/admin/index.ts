@@ -4795,5 +4795,76 @@ System Security Data:`;
   
   console.log("✅ Data Enrichment Admin routes registered");
 
+  app.get("/api/admin/data-providers/health", requireAdmin, async (req, res) => {
+    try {
+      const { getProviderRegistry } = await import("../../services/screener/data-provider-registry");
+      const registry = getProviderRegistry();
+      const stats = registry.getStats();
+      res.json({ success: true, ...stats });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.post("/api/admin/data-providers/reset-metrics", requireAdmin, async (req, res) => {
+    try {
+      const { getProviderRegistry } = await import("../../services/screener/data-provider-registry");
+      const registry = getProviderRegistry();
+      const { providerName } = req.body;
+      registry.resetMetrics(providerName || undefined);
+      res.json({ success: true, message: providerName ? `Metrics reset for ${providerName}` : 'All metrics reset' });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/admin/data-providers/test/:provider", requireAdmin, async (req, res) => {
+    try {
+      const { getProviderRegistry } = await import("../../services/screener/data-provider-registry");
+      const registry = getProviderRegistry();
+      const testSymbol = req.query.symbol as string || 'RELIANCE.NS';
+
+      const start = Date.now();
+      const { result: profile, provider } = await registry.getCompanyProfile(testSymbol);
+      const latency = Date.now() - start;
+
+      res.json({
+        success: true,
+        test: {
+          symbol: testSymbol,
+          provider,
+          latencyMs: latency,
+          hasData: !!profile,
+          data: profile ? { companyName: profile.companyName, sector: profile.sector, marketCap: profile.marketCap } : null,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/admin/data-providers/usage", requireAdmin, async (req, res) => {
+    try {
+      const { fmpUsageMonitor } = await import("../../services/screener/fmp-usage-monitor");
+      const { getAlphaVantageProvider } = await import("../../services/screener/alpha-vantage-provider");
+
+      const fmpStats = await fmpUsageMonitor.getDailyStats();
+      const avProvider = getAlphaVantageProvider();
+      const avStats = avProvider.getUsageStats();
+
+      res.json({
+        success: true,
+        usage: {
+          fmp: { dailyCalls: fmpStats.used, maxDaily: fmpStats.limit, remaining: fmpStats.remaining },
+          alphaVantage: avStats,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  console.log("✅ Data Provider Health routes registered");
+
   console.log("✅ Admin Panel routes registered");
 }
