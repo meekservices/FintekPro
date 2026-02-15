@@ -317,7 +317,7 @@ const FreshInvestmentDiscovery = lazyWithRetry(() => import("@/pages/fresh-inves
 const TDSCompliance = lazyWithRetry(() => import("@/pages/tds-compliance"));
 const AIProposalsPage = lazyWithRetry(() => import("@/pages/ai-proposals"));
 const AIProposalReviewPage = lazyWithRetry(() => import("@/pages/ai-proposal-review"));
-const AIStockPicks = lazyWithRetry(() => import("@/pages/ai-stock-picks"));
+const AIStockPicks = lazyWithRetry(() => import("@/pages/agent-picks"));
 const GoalsPage = lazyWithRetry(() => import("@/pages/goals"));
 const InvestableSurplusPage = lazyWithRetry(() => import("@/pages/investable-surplus"));
 const TaxComplianceForm15Page = lazyWithRetry(() => import("@/pages/tax-compliance-form15"));

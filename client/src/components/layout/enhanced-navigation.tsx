@@ -248,7 +248,7 @@ export function EnhancedNavigation() {
           name: "Pick of the Day",
           href: "/ai-stock-picks",
           icon: Star,
-          description: "Daily investment picks",
+          description: "AI picks across all products",
           badge: "AI"
         }
       ]
