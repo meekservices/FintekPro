@@ -12,6 +12,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
@@ -47,6 +50,9 @@ import {
   PieChart,
   AlertTriangle,
   Activity,
+  Star,
+  Brain,
+  RefreshCw,
 } from "lucide-react";
 
 interface DailyPick {
@@ -123,6 +129,60 @@ interface PickStats {
   hitRate: number;
   avgReturn: number;
   byCategory: Record<string, { total: number; hits: number; hitRate: number }>;
+}
+
+interface AIStockRecommendation {
+  id: string;
+  symbol: string;
+  companyName: string;
+  exchange: string;
+  sector: string;
+  marketCap: string;
+  currentPrice: number;
+  entryPrice: number;
+  targetPrice: number;
+  stopLoss: number;
+  signal: 'strong_buy' | 'buy' | 'hold' | 'sell' | 'strong_sell';
+  fintekproRating: number;
+  confidence: number;
+  riskScore: number;
+  expectedReturn: number;
+  timeHorizon: string;
+  timeHorizonDays: number;
+  fundamentals: {
+    peRatio?: number;
+    pbRatio?: number;
+    roe?: number;
+    roce?: number;
+    eps?: number;
+    dividendYield?: number;
+  };
+  technicals: {
+    rsi: number;
+    macd: string;
+    movingAvg50: number;
+    movingAvg200: number;
+    weekHigh52: number;
+    weekLow52: number;
+    volumeTrend: string;
+  };
+  returns: {
+    returns1M?: number;
+    returns3M?: number;
+    returns6M?: number;
+    returns1Y?: number;
+  };
+  rationale: string;
+  keyFactors: string[];
+  riskFactors: string[];
+  taxImplications: {
+    holdingPeriod: string;
+    stcgRate: number;
+    ltcgRate: number;
+    ltcgExemption: number;
+    taxTip: string;
+  };
+  generatedAt: string;
 }
 
 const categoryIcons: Record<string, any> = {
@@ -227,6 +287,13 @@ export default function AgentPicksPage() {
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [sharePickId, setSharePickId] = useState<number | null>(null);
   const [shareEmail, setShareEmail] = useState("");
+  const [stockRiskLevel, setStockRiskLevel] = useState("moderate");
+  const [stockTimeHorizon, setStockTimeHorizon] = useState("medium_term");
+  const [stockSector, setStockSector] = useState("all");
+  const [stockMarketCap, setStockMarketCap] = useState("all");
+  const [stockInvestmentAmount, setStockInvestmentAmount] = useState([100000]);
+  const [stockIncludeAI, setStockIncludeAI] = useState(true);
+  const [selectedAIStock, setSelectedAIStock] = useState<AIStockRecommendation | null>(null);
 
   const { data: todayData, isLoading: loadingToday } = useQuery<PicksApiResponse>({
     queryKey: ["/api/picks/today"],
@@ -251,6 +318,38 @@ export default function AgentPicksPage() {
   const { data: diversificationData } = useQuery<{ success: boolean } & DiversificationData>({
     queryKey: ["/api/picks/diversification"],
   });
+
+  const { data: aiFiltersData } = useQuery<{ success: boolean; sectors: string[]; marketCaps: string[]; riskLevels: string[]; timeHorizons: string[] }>({
+    queryKey: ['/api/ai-stock-recommendations/filters']
+  });
+
+  const { data: quickAIRecs, isLoading: quickAILoading } = useQuery<{ success: boolean; recommendations: AIStockRecommendation[] }>({
+    queryKey: ['/api/ai-stock-recommendations/quick']
+  });
+
+  const generateAIMutation = useMutation({
+    mutationFn: async (filters: any) => {
+      return apiRequest('/api/ai-stock-recommendations/generate', {
+        method: 'POST',
+        body: JSON.stringify(filters),
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  });
+
+  const handleGenerateAIStocks = () => {
+    generateAIMutation.mutate({
+      sectors: stockSector !== "all" ? [stockSector] : undefined,
+      marketCap: stockMarketCap !== "all" ? [stockMarketCap] : undefined,
+      riskLevel: stockRiskLevel,
+      timeHorizon: stockTimeHorizon,
+      investmentAmount: stockInvestmentAmount[0],
+      includeAIAnalysis: stockIncludeAI,
+      maxResults: 10
+    });
+  };
+
+  const aiRecommendations = generateAIMutation.data?.recommendations || quickAIRecs?.recommendations || [];
 
   const watchlist = watchlistData?.watchlist || [];
   const watchlistPickIds = new Set(watchlist.map(w => w.pickId));
@@ -386,6 +485,52 @@ export default function AgentPicksPage() {
     const hrs = Math.floor(mins / 60);
     if (hrs < 24) return `${hrs}h ago`;
     return `${Math.floor(hrs / 24)}d ago`;
+  };
+
+  const getSignalColor = (signal: string) => {
+    switch (signal) {
+      case 'strong_buy': return 'bg-green-600 text-white';
+      case 'buy': return 'bg-green-500 text-white';
+      case 'hold': return 'bg-yellow-500 text-black';
+      case 'sell': return 'bg-red-500 text-white';
+      case 'strong_sell': return 'bg-red-700 text-white';
+      default: return 'bg-muted text-foreground';
+    }
+  };
+
+  const getSignalText = (signal: string) => {
+    switch (signal) {
+      case 'strong_buy': return 'Strong Buy';
+      case 'buy': return 'Buy';
+      case 'hold': return 'Hold';
+      case 'sell': return 'Sell';
+      case 'strong_sell': return 'Strong Sell';
+      default: return signal;
+    }
+  };
+
+  const renderStars = (rating: number) => (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <Star
+          key={star}
+          className={`h-4 w-4 ${star <= rating ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`}
+        />
+      ))}
+    </div>
+  );
+
+  const formatCurrencyINR = (value: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 2
+    }).format(value);
+  };
+
+  const formatPercentValue = (value: number | undefined | null) => {
+    if (value === undefined || value === null) return 'N/A';
+    return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
   };
 
   const freshnessColors: Record<string, string> = {
@@ -623,6 +768,463 @@ export default function AgentPicksPage() {
                   {[1, 2, 3, 4].map((i) => (
                     <Skeleton key={i} className="h-32" />
                   ))}
+                </div>
+              ) : todayCategoryFilter === "listed_stocks" ? (
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                  <Card className="lg:col-span-1">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <BarChart3 className="h-4 w-4" />
+                        AI Filters
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <Label className="text-sm">Risk Level</Label>
+                        <Select value={stockRiskLevel} onValueChange={setStockRiskLevel}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="conservative">Conservative</SelectItem>
+                            <SelectItem value="moderate">Moderate</SelectItem>
+                            <SelectItem value="aggressive">Aggressive</SelectItem>
+                            <SelectItem value="very_aggressive">Very Aggressive</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-sm">Time Horizon</Label>
+                        <Select value={stockTimeHorizon} onValueChange={setStockTimeHorizon}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="intraday">Intraday</SelectItem>
+                            <SelectItem value="short_term">Short Term (1-3 months)</SelectItem>
+                            <SelectItem value="medium_term">Medium Term (3-12 months)</SelectItem>
+                            <SelectItem value="long_term">Long Term (1+ year)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-sm">Sector</Label>
+                        <Select value={stockSector} onValueChange={setStockSector}>
+                          <SelectTrigger><SelectValue placeholder="All Sectors" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Sectors</SelectItem>
+                            {aiFiltersData?.sectors?.map((sector) => (
+                              <SelectItem key={sector} value={sector}>{sector}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-sm">Market Cap</Label>
+                        <Select value={stockMarketCap} onValueChange={setStockMarketCap}>
+                          <SelectTrigger><SelectValue placeholder="All Market Caps" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Market Caps</SelectItem>
+                            <SelectItem value="Large Cap">Large Cap</SelectItem>
+                            <SelectItem value="Mid Cap">Mid Cap</SelectItem>
+                            <SelectItem value="Small Cap">Small Cap</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-sm">Investment Amount: {formatCurrencyINR(stockInvestmentAmount[0])}</Label>
+                        <Slider
+                          value={stockInvestmentAmount}
+                          onValueChange={setStockInvestmentAmount}
+                          min={10000}
+                          max={1000000}
+                          step={10000}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm" htmlFor="agent-ai-toggle">AI Analysis</Label>
+                        <Switch
+                          id="agent-ai-toggle"
+                          checked={stockIncludeAI}
+                          onCheckedChange={setStockIncludeAI}
+                        />
+                      </div>
+
+                      <Button className="w-full" onClick={handleGenerateAIStocks} disabled={generateAIMutation.isPending}>
+                        {generateAIMutation.isPending ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-4 w-4 mr-2" />
+                            Generate Picks
+                          </>
+                        )}
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  <div className="lg:col-span-3 space-y-6">
+                    {(generateAIMutation.isPending || quickAILoading) && (
+                      <Card>
+                        <CardContent className="py-12 text-center">
+                          <RefreshCw className="h-8 w-8 animate-spin mx-auto text-primary mb-4" />
+                          <p className="text-muted-foreground">Analyzing market data with AI...</p>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {aiRecommendations.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-4">
+                          <Brain className="h-5 w-5 text-primary" />
+                          <h3 className="font-semibold">AI Stock Recommendations</h3>
+                          <Badge variant="outline" className="text-xs flex items-center gap-1">
+                            <Sparkles className="h-3 w-3" />
+                            Gemini AI
+                          </Badge>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {aiRecommendations.map((stock) => (
+                            <Card
+                              key={stock.id}
+                              className={`cursor-pointer transition-all hover:shadow-lg ${selectedAIStock?.id === stock.id ? 'ring-2 ring-primary' : ''}`}
+                              onClick={() => setSelectedAIStock(selectedAIStock?.id === stock.id ? null : stock)}
+                            >
+                              <CardHeader className="pb-2">
+                                <div className="flex items-start justify-between">
+                                  <div>
+                                    <CardTitle className="text-lg flex items-center gap-2">
+                                      {stock.symbol}
+                                      <Badge className={getSignalColor(stock.signal)}>
+                                        {getSignalText(stock.signal)}
+                                      </Badge>
+                                    </CardTitle>
+                                    <CardDescription className="line-clamp-1">
+                                      {stock.companyName}
+                                    </CardDescription>
+                                  </div>
+                                  {renderStars(stock.fintekproRating)}
+                                </div>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="grid grid-cols-3 gap-3 mb-3">
+                                  <div className="text-center">
+                                    <p className="text-xs text-muted-foreground">Current</p>
+                                    <p className="font-semibold">{formatCurrencyINR(stock.currentPrice)}</p>
+                                  </div>
+                                  <div className="text-center">
+                                    <p className="text-xs text-muted-foreground">Target</p>
+                                    <p className="font-semibold text-green-600">{formatCurrencyINR(stock.targetPrice)}</p>
+                                  </div>
+                                  <div className="text-center">
+                                    <p className="text-xs text-muted-foreground">Stop Loss</p>
+                                    <p className="font-semibold text-red-600">{formatCurrencyINR(stock.stopLoss)}</p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center justify-between text-sm mb-2">
+                                  <span className="text-muted-foreground">Expected Return</span>
+                                  <span className={`font-medium ${stock.expectedReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {stock.expectedReturn >= 0 ? '+' : ''}{stock.expectedReturn}%
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center justify-between text-sm mb-3">
+                                  <span className="text-muted-foreground">Confidence</span>
+                                  <div className="flex items-center gap-2 w-32">
+                                    <Progress value={stock.confidence} className="h-2" />
+                                    <span className="text-xs font-medium">{stock.confidence}%</span>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <Badge variant="outline" className="text-xs">{stock.sector}</Badge>
+                                  <Badge variant="outline" className="text-xs">{stock.marketCap}</Badge>
+                                  <Badge variant="outline" className="text-xs flex items-center gap-1">
+                                    <Clock className="h-3 w-3" />
+                                    {stock.timeHorizon.replace(/_/g, ' ')}
+                                  </Badge>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedAIStock && (
+                      <Card>
+                        <CardHeader>
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="flex items-center gap-2">
+                              {selectedAIStock.symbol} - Detailed Analysis
+                            </CardTitle>
+                            <Button variant="ghost" size="sm" onClick={() => setSelectedAIStock(null)}>Close</Button>
+                          </div>
+                          <CardDescription>{selectedAIStock.companyName}</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <Tabs defaultValue="overview">
+                            <ScrollableTabsList>
+                              <TabsTrigger value="overview">Overview</TabsTrigger>
+                              <TabsTrigger value="fundamentals">Fundamentals</TabsTrigger>
+                              <TabsTrigger value="technicals">Technicals</TabsTrigger>
+                              <TabsTrigger value="tax">Tax Impact</TabsTrigger>
+                            </ScrollableTabsList>
+
+                            <TabsContent value="overview" className="space-y-4 mt-4">
+                              <div className="p-4 bg-muted/50 rounded-lg">
+                                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                  <Brain className="h-4 w-4" />
+                                  AI Rationale
+                                </h4>
+                                <p className="text-sm text-muted-foreground">{selectedAIStock.rationale}</p>
+                              </div>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <h4 className="font-semibold mb-2 flex items-center gap-2 text-green-600">
+                                    <CheckCircle className="h-4 w-4" />
+                                    Key Factors
+                                  </h4>
+                                  <ul className="space-y-1">
+                                    {selectedAIStock.keyFactors.map((factor, i) => (
+                                      <li key={i} className="text-sm flex items-start gap-2">
+                                        <ArrowUpRight className="h-4 w-4 mt-0.5 text-green-600 flex-shrink-0" />
+                                        {factor}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                                <div>
+                                  <h4 className="font-semibold mb-2 flex items-center gap-2 text-amber-600">
+                                    <AlertTriangle className="h-4 w-4" />
+                                    Risk Factors
+                                  </h4>
+                                  <ul className="space-y-1">
+                                    {selectedAIStock.riskFactors.map((risk, i) => (
+                                      <li key={i} className="text-sm flex items-start gap-2">
+                                        <ArrowDownRight className="h-4 w-4 mt-0.5 text-amber-600 flex-shrink-0" />
+                                        {risk}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              </div>
+                              <Separator />
+                              <div className="grid grid-cols-4 gap-4 text-center">
+                                <div>
+                                  <p className="text-xs text-muted-foreground mb-1">Entry Price</p>
+                                  <p className="font-semibold">{formatCurrencyINR(selectedAIStock.entryPrice)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-muted-foreground mb-1">Target Price</p>
+                                  <p className="font-semibold text-green-600">{formatCurrencyINR(selectedAIStock.targetPrice)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-muted-foreground mb-1">Stop Loss</p>
+                                  <p className="font-semibold text-red-600">{formatCurrencyINR(selectedAIStock.stopLoss)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-muted-foreground mb-1">Risk Score</p>
+                                  <p className="font-semibold">{selectedAIStock.riskScore}/10</p>
+                                </div>
+                              </div>
+                            </TabsContent>
+
+                            <TabsContent value="fundamentals" className="mt-4">
+                              <div className="grid grid-cols-3 gap-4">
+                                <div className="p-4 border rounded-lg text-center">
+                                  <p className="text-xs text-muted-foreground">P/E Ratio</p>
+                                  <p className="text-xl font-bold">{selectedAIStock.fundamentals.peRatio?.toFixed(2) || 'N/A'}</p>
+                                </div>
+                                <div className="p-4 border rounded-lg text-center">
+                                  <p className="text-xs text-muted-foreground">P/B Ratio</p>
+                                  <p className="text-xl font-bold">{selectedAIStock.fundamentals.pbRatio?.toFixed(2) || 'N/A'}</p>
+                                </div>
+                                <div className="p-4 border rounded-lg text-center">
+                                  <p className="text-xs text-muted-foreground">ROE</p>
+                                  <p className="text-xl font-bold">{selectedAIStock.fundamentals.roe?.toFixed(1) || 'N/A'}%</p>
+                                </div>
+                                <div className="p-4 border rounded-lg text-center">
+                                  <p className="text-xs text-muted-foreground">ROCE</p>
+                                  <p className="text-xl font-bold">{selectedAIStock.fundamentals.roce?.toFixed(1) || 'N/A'}%</p>
+                                </div>
+                                <div className="p-4 border rounded-lg text-center">
+                                  <p className="text-xs text-muted-foreground">EPS</p>
+                                  <p className="text-xl font-bold">{selectedAIStock.fundamentals.eps?.toFixed(2) || 'N/A'}</p>
+                                </div>
+                                <div className="p-4 border rounded-lg text-center">
+                                  <p className="text-xs text-muted-foreground">Dividend Yield</p>
+                                  <p className="text-xl font-bold">{selectedAIStock.fundamentals.dividendYield?.toFixed(2) || 'N/A'}%</p>
+                                </div>
+                              </div>
+                              <div className="mt-4 p-4 bg-muted/50 rounded-lg">
+                                <h4 className="font-semibold mb-2">Historical Returns</h4>
+                                <div className="grid grid-cols-4 gap-4 text-center">
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">1 Month</p>
+                                    <p className={`font-semibold ${(selectedAIStock.returns.returns1M || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                      {formatPercentValue(selectedAIStock.returns.returns1M)}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">3 Months</p>
+                                    <p className={`font-semibold ${(selectedAIStock.returns.returns3M || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                      {formatPercentValue(selectedAIStock.returns.returns3M)}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">6 Months</p>
+                                    <p className={`font-semibold ${(selectedAIStock.returns.returns6M || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                      {formatPercentValue(selectedAIStock.returns.returns6M)}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">1 Year</p>
+                                    <p className={`font-semibold ${(selectedAIStock.returns.returns1Y || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                      {formatPercentValue(selectedAIStock.returns.returns1Y)}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            </TabsContent>
+
+                            <TabsContent value="technicals" className="mt-4">
+                              <div className="grid grid-cols-3 gap-4">
+                                <div className="p-4 border rounded-lg text-center">
+                                  <p className="text-xs text-muted-foreground">RSI</p>
+                                  <p className={`text-xl font-bold ${selectedAIStock.technicals.rsi > 70 ? 'text-red-600' : selectedAIStock.technicals.rsi < 30 ? 'text-green-600' : ''}`}>
+                                    {selectedAIStock.technicals.rsi.toFixed(0)}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {selectedAIStock.technicals.rsi > 70 ? 'Overbought' : selectedAIStock.technicals.rsi < 30 ? 'Oversold' : 'Neutral'}
+                                  </p>
+                                </div>
+                                <div className="p-4 border rounded-lg text-center">
+                                  <p className="text-xs text-muted-foreground">MACD</p>
+                                  <p className={`text-xl font-bold ${selectedAIStock.technicals.macd === 'Bullish' ? 'text-green-600' : selectedAIStock.technicals.macd === 'Bearish' ? 'text-red-600' : ''}`}>
+                                    {selectedAIStock.technicals.macd}
+                                  </p>
+                                </div>
+                                <div className="p-4 border rounded-lg text-center">
+                                  <p className="text-xs text-muted-foreground">Volume Trend</p>
+                                  <p className="text-xl font-bold">{selectedAIStock.technicals.volumeTrend}</p>
+                                </div>
+                              </div>
+                              <div className="mt-4 grid grid-cols-2 gap-4">
+                                <div className="p-4 border rounded-lg">
+                                  <h4 className="font-semibold mb-2">Moving Averages</h4>
+                                  <div className="space-y-2">
+                                    <div className="flex justify-between">
+                                      <span className="text-sm text-muted-foreground">50 DMA</span>
+                                      <span className="font-medium">{formatCurrencyINR(selectedAIStock.technicals.movingAvg50)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-sm text-muted-foreground">200 DMA</span>
+                                      <span className="font-medium">{formatCurrencyINR(selectedAIStock.technicals.movingAvg200)}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="p-4 border rounded-lg">
+                                  <h4 className="font-semibold mb-2">52 Week Range</h4>
+                                  <div className="space-y-2">
+                                    <div className="flex justify-between">
+                                      <span className="text-sm text-muted-foreground">High</span>
+                                      <span className="font-medium text-green-600">{formatCurrencyINR(selectedAIStock.technicals.weekHigh52)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-sm text-muted-foreground">Low</span>
+                                      <span className="font-medium text-red-600">{formatCurrencyINR(selectedAIStock.technicals.weekLow52)}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </TabsContent>
+
+                            <TabsContent value="tax" className="mt-4">
+                              <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg mb-4">
+                                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                  <Coins className="h-4 w-4" />
+                                  Tax Implications
+                                </h4>
+                                <p className="text-sm">{selectedAIStock.taxImplications.taxTip}</p>
+                              </div>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="p-4 border rounded-lg">
+                                  <h4 className="font-semibold mb-3">Short-Term Capital Gains</h4>
+                                  <div className="space-y-2">
+                                    <div className="flex justify-between">
+                                      <span className="text-sm text-muted-foreground">Holding Period</span>
+                                      <span className="font-medium">≤ 12 months</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-sm text-muted-foreground">Tax Rate</span>
+                                      <span className="font-medium text-red-600">{selectedAIStock.taxImplications.stcgRate}%</span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="p-4 border rounded-lg">
+                                  <h4 className="font-semibold mb-3">Long-Term Capital Gains</h4>
+                                  <div className="space-y-2">
+                                    <div className="flex justify-between">
+                                      <span className="text-sm text-muted-foreground">Holding Period</span>
+                                      <span className="font-medium">&gt; 12 months</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-sm text-muted-foreground">Tax Rate</span>
+                                      <span className="font-medium text-green-600">{selectedAIStock.taxImplications.ltcgRate}%</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-sm text-muted-foreground">Exemption</span>
+                                      <span className="font-medium">{formatCurrencyINR(selectedAIStock.taxImplications.ltcgExemption)}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </TabsContent>
+                          </Tabs>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {filteredTodayPicks.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-4">
+                          <TrendingUp className="h-5 w-5 text-primary" />
+                          <h3 className="font-semibold">Today's Stock Picks</h3>
+                        </div>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          {filteredTodayPicks.map((pick, index) => (
+                            <PickCard
+                              key={`today-${pick.id}-${index}`}
+                              pick={pick}
+                              isWatchlisted={watchlistPickIds.has(pick.id)}
+                              onAddToWatchlist={(id) => addToWatchlistMutation.mutate(id)}
+                              onRemoveFromWatchlist={(id) => removeFromWatchlistMutation.mutate(id)}
+                              onShareEmail={(id) => handleShare(id, 'email')}
+                              onShareWhatsApp={(id) => handleShare(id, 'whatsapp')}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {!generateAIMutation.isPending && !quickAILoading && aiRecommendations.length === 0 && filteredTodayPicks.length === 0 && (
+                      <Card>
+                        <CardContent className="py-12 text-center">
+                          <Brain className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                          <h3 className="text-lg font-semibold mb-2">No Stock Picks Yet</h3>
+                          <p className="text-muted-foreground mb-4">
+                            Configure your preferences and click "Generate Picks" to get AI-powered stock recommendations.
+                          </p>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
                 </div>
               ) : filteredTodayPicks.length === 0 ? (
                 <div className="text-center py-12">
