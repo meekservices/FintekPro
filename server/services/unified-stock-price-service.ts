@@ -12,7 +12,10 @@
 
 import { requestDedupeService } from './request-deduplication-service';
 import { NseIndia } from 'stock-nse-india';
+import yahooFinance from 'yahoo-finance2';
 import axios from 'axios';
+
+yahooFinance.suppressNotices(['yahooSurvey']);
 
 interface StockPrice {
   symbol: string;
@@ -25,7 +28,13 @@ interface StockPrice {
   open?: number;
   volume?: number;
   timestamp: number;
-  source: 'NSE' | 'BSE' | 'CACHE';
+  source: 'NSE' | 'BSE' | 'YAHOO' | 'FMP' | 'CACHE';
+}
+
+interface ProviderHealth {
+  consecutiveFailures: number;
+  lastFailure: number;
+  cooldownUntil: number;
 }
 
 interface CacheEntry {
@@ -49,6 +58,7 @@ const CACHE_TTL = {
 class UnifiedStockPriceService {
   private cache: Map<string, CacheEntry> = new Map();
   private nseClient: NseIndia;
+  private providerHealth: Map<string, ProviderHealth> = new Map();
   private cleanupIntervalId: NodeJS.Timeout | null = null;
   private metrics = {
     cacheHits: 0,
@@ -208,18 +218,113 @@ class UnifiedStockPriceService {
     return result;
   }
 
+  private isProviderCoolingDown(provider: string): boolean {
+    const health = this.providerHealth.get(provider);
+    if (!health) return false;
+    return Date.now() < health.cooldownUntil;
+  }
+
+  private recordSuccess(provider: string): void {
+    this.providerHealth.set(provider, {
+      consecutiveFailures: 0,
+      lastFailure: 0,
+      cooldownUntil: 0,
+    });
+  }
+
+  private recordFailure(provider: string): void {
+    const health = this.providerHealth.get(provider) || { consecutiveFailures: 0, lastFailure: 0, cooldownUntil: 0 };
+    health.consecutiveFailures++;
+    health.lastFailure = Date.now();
+    if (health.consecutiveFailures >= 3) {
+      health.cooldownUntil = Date.now() + 10 * 60 * 1000;
+      console.warn(`[StockPrice] Provider ${provider} put on 10-minute cooldown after ${health.consecutiveFailures} consecutive failures`);
+    }
+    this.providerHealth.set(provider, health);
+  }
+
+  private async fetchFromYahoo(symbol: string): Promise<StockPrice | null> {
+    try {
+      const yahooSymbol = `${symbol}.NS`;
+      const quote = await yahooFinance.quote(yahooSymbol);
+      if (quote?.regularMarketPrice) {
+        return {
+          symbol,
+          price: quote.regularMarketPrice,
+          previousClose: quote.regularMarketPreviousClose,
+          change: quote.regularMarketChange,
+          changePercent: quote.regularMarketChangePercent,
+          high: quote.regularMarketDayHigh,
+          low: quote.regularMarketDayLow,
+          open: quote.regularMarketOpen,
+          volume: quote.regularMarketVolume,
+          timestamp: Date.now(),
+          source: 'YAHOO' as const,
+        };
+      }
+    } catch (error: any) {
+      console.warn(`[StockPrice] Yahoo fetch failed for ${symbol}: ${error.message}`);
+    }
+    return null;
+  }
+
+  private async fetchFromFMP(symbol: string): Promise<StockPrice | null> {
+    const apiKey = process.env.FMP_API_KEY;
+    if (!apiKey) return null;
+    try {
+      const fmpSymbol = `${symbol}.NS`;
+      const response = await axios.get(`https://financialmodelingprep.com/api/v3/quote/${encodeURIComponent(fmpSymbol)}`, {
+        params: { apikey: apiKey },
+        timeout: 10000,
+      });
+      const data = response.data?.[0];
+      if (data?.price) {
+        return {
+          symbol,
+          price: data.price,
+          previousClose: data.previousClose,
+          change: data.change,
+          changePercent: data.changesPercentage,
+          high: data.dayHigh,
+          low: data.dayLow,
+          open: data.open,
+          volume: data.volume,
+          timestamp: Date.now(),
+          source: 'FMP' as const,
+        };
+      }
+    } catch (error: any) {
+      console.warn(`[StockPrice] FMP fetch failed for ${symbol}: ${error.message}`);
+    }
+    return null;
+  }
+
   /**
    * Fetch from available sources with fallback
    */
   private async fetchFromSource(symbol: string, exchange?: 'NSE' | 'BSE'): Promise<StockPrice | null> {
-    if (exchange === 'NSE' || !exchange) {
-      const nsePrice = await this.fetchFromNSE(symbol);
-      if (nsePrice) return nsePrice;
+    if (!this.isProviderCoolingDown('yahoo')) {
+      const yahooPrice = await this.fetchFromYahoo(symbol);
+      if (yahooPrice) { this.recordSuccess('yahoo'); return yahooPrice; }
+      this.recordFailure('yahoo');
     }
 
-    if (exchange === 'BSE' || !exchange) {
+    if ((exchange === 'NSE' || !exchange) && !this.isProviderCoolingDown('nse')) {
+      const nsePrice = await this.fetchFromNSE(symbol);
+      if (nsePrice) { this.recordSuccess('nse'); return nsePrice; }
+      this.recordFailure('nse');
+    }
+
+    if ((exchange === 'BSE' || !exchange) && !this.isProviderCoolingDown('bse')) {
       const bsePrice = await this.fetchFromBSE(symbol);
-      if (bsePrice) return bsePrice;
+      if (bsePrice) { this.recordSuccess('bse'); return bsePrice; }
+      this.recordFailure('bse');
+    }
+
+    if (!this.isProviderCoolingDown('fmp')) {
+      const fmpPrice = await this.fetchFromFMP(symbol);
+      if (fmpPrice) { this.recordSuccess('fmp'); return fmpPrice; }
+      this.recordFailure('fmp');
     }
 
     return null;
@@ -258,7 +363,7 @@ class UnifiedStockPriceService {
           'Accept': 'application/json',
           'Referer': 'https://www.bseindia.com/',
         },
-        timeout: 10000,
+        timeout: 15000,
       });
 
       if (response.data && response.data.CurrValue) {

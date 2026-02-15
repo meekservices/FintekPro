@@ -910,7 +910,7 @@ class MarketMoversCache {
 
   private startBackgroundRefresh(): void {
     setInterval(async () => {
-      const hasFallback = this.finnhubProvider.isEnabled() || this.nseProvider.isEnabled();
+      const hasFallback = this.finnhubProvider.isEnabled() || this.nseProvider.isEnabled() || this.bseProvider.isEnabled();
       if (this.isRateLimited() && !hasFallback) {
         const remainingMs = this.metrics.backoffUntil - Date.now();
         console.log(`⏸️ [MarketMoversCache] Skipping refresh - rate limited for ${Math.round(remainingMs / 1000)}s more`);
@@ -1028,21 +1028,21 @@ class MarketMoversCache {
       let stockQuotes: Stock[] = [];
       let successProvider: string | null = null;
 
-      // Priority 1: NSE India (primary for Indian stocks - free and reliable)
-      if (this.nseProvider.isEnabled()) {
+      // Priority 1: Yahoo Finance (most reliable from cloud servers)
+      if (!this.yahooRateLimited) {
         try {
-          console.log('🔄 [MarketMoversCache] Trying NSE India (primary)...');
-          stockQuotes = await this.fetchFromNse();
-          successProvider = 'nse';
-          console.log(`✅ [MarketMoversCache] NSE India succeeded with ${stockQuotes.length} stocks`);
-        } catch (nseError) {
-          console.warn('⚠️ [MarketMoversCache] NSE India failed:', nseError);
-          this.metrics.providers.nse.failureCount++;
-          this.metrics.providers.nse.lastFailure = Date.now();
+          console.log('🔄 [MarketMoversCache] Trying Yahoo Finance (primary)...');
+          stockQuotes = await this.fetchFromYahoo();
+          successProvider = 'yahoo';
+          console.log(`✅ [MarketMoversCache] Yahoo Finance succeeded with ${stockQuotes.length} stocks`);
+        } catch (yahooError) {
+          console.warn('⚠️ [MarketMoversCache] Yahoo Finance failed:', yahooError);
+          this.metrics.providers.yahoo.failureCount++;
+          this.metrics.providers.yahoo.lastFailure = Date.now();
         }
       }
 
-      // Priority 2: BSE India (secondary for Indian stocks - good coverage including SME)
+      // Priority 2: BSE India (secondary, works better than NSE from cloud)
       if (stockQuotes.length === 0 && this.bseProvider.isEnabled()) {
         try {
           console.log('🔄 [MarketMoversCache] Trying BSE India fallback...');
@@ -1056,8 +1056,21 @@ class MarketMoversCache {
         }
       }
 
-      // Priority 3: Finnhub (tertiary - limited Indian stock coverage on free tier)
-      // Note: Yahoo Finance is reserved for other features like global stocks and individual quotes
+      // Priority 3: NSE India (often blocked from cloud IPs with 403)
+      if (stockQuotes.length === 0 && this.nseProvider.isEnabled()) {
+        try {
+          console.log('🔄 [MarketMoversCache] Trying NSE India fallback...');
+          stockQuotes = await this.fetchFromNse();
+          successProvider = 'nse';
+          console.log(`✅ [MarketMoversCache] NSE India succeeded with ${stockQuotes.length} stocks`);
+        } catch (nseError) {
+          console.warn('⚠️ [MarketMoversCache] NSE India failed:', nseError);
+          this.metrics.providers.nse.failureCount++;
+          this.metrics.providers.nse.lastFailure = Date.now();
+        }
+      }
+
+      // Priority 4: Finnhub (limited Indian stock coverage)
       if (stockQuotes.length === 0 && this.finnhubProvider.isEnabled()) {
         try {
           console.log('🔄 [MarketMoversCache] Trying Finnhub fallback...');
@@ -1145,10 +1158,7 @@ class MarketMoversCache {
         this.metrics.hits++;
         console.log(`📦 [MarketMoversCache] Serving stale cache (age: ${Math.round(cacheAge / 1000)}s)`);
         
-        const canRefreshFinnhub = !this.refreshLock && this.finnhubProvider.isEnabled();
-        const canRefreshNse = !this.refreshLock && this.nseProvider.isEnabled();
-        
-        if (canRefreshFinnhub || canRefreshNse) {
+        if (!this.refreshLock) {
           this.refreshCache().catch(console.error);
         }
         
