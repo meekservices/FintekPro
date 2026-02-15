@@ -222,6 +222,193 @@ const festivals: FestivalTemplate[] = [
     secondaryColor: '#ffd700',
     message: 'May the divine blessings of Goddess Durga bring you strength and prosperity',
     decorEmojis: ['🙏', '💃', '🔔', '✨']
+  },
+  {
+    id: 'maha-shivaratri',
+    name: 'Maha Shivaratri',
+    emoji: '🔱',
+    category: 'major',
+    gradient: 'linear-gradient(135deg, #1a237e 0%, #283593 30%, #3949ab 60%, #5c6bc0 100%)',
+    primaryColor: '#e0e0e0',
+    secondaryColor: '#b0bec5',
+    message: 'May Lord Shiva bless you with peace, prosperity, and spiritual awakening',
+    decorEmojis: ['🔱', '🙏', '📿', '✨']
+  },
+  {
+    id: 'janmashtami',
+    name: 'Janmashtami',
+    emoji: '🦚',
+    category: 'major',
+    gradient: 'linear-gradient(135deg, #1565c0 0%, #1e88e5 30%, #42a5f5 60%, #90caf9 100%)',
+    primaryColor: '#ffd700',
+    secondaryColor: '#ffffff',
+    message: 'May Lord Krishna fill your life with love, joy, and divine blessings',
+    decorEmojis: ['🦚', '🪈', '🧈', '✨']
+  },
+  {
+    id: 'independence-day',
+    name: 'Independence Day',
+    emoji: '🇮🇳',
+    category: 'major',
+    gradient: 'linear-gradient(135deg, #ff9933 0%, #ffffff 50%, #138808 100%)',
+    primaryColor: '#1a237e',
+    secondaryColor: '#ff6f00',
+    message: 'Saluting the spirit of freedom and celebrating the pride of our great nation',
+    decorEmojis: ['🇮🇳', '🕊️', '⭐', '🎗️']
+  },
+  {
+    id: 'republic-day',
+    name: 'Republic Day',
+    emoji: '🏛️',
+    category: 'major',
+    gradient: 'linear-gradient(135deg, #e65100 0%, #ff9800 30%, #ffffff 50%, #2e7d32 70%, #1b5e20 100%)',
+    primaryColor: '#1a237e',
+    secondaryColor: '#ff6f00',
+    message: 'Celebrating the constitution that unites us and the values that define us',
+    decorEmojis: ['🏛️', '🇮🇳', '⭐', '🎖️']
+  },
+  {
+    id: 'guru-nanak-jayanti',
+    name: 'Guru Nanak Jayanti',
+    emoji: '🙏',
+    category: 'regional',
+    gradient: 'linear-gradient(135deg, #ff8f00 0%, #ffa000 30%, #ffca28 60%, #fff176 100%)',
+    primaryColor: '#1a237e',
+    secondaryColor: '#ffffff',
+    message: 'May the teachings of Guru Nanak Dev Ji guide you towards truth, compassion, and contentment',
+    decorEmojis: ['🙏', '📖', '☀️', '✨']
+  },
+  {
+    id: 'chhath-puja',
+    name: 'Chhath Puja',
+    emoji: '☀️',
+    category: 'regional',
+    gradient: 'linear-gradient(135deg, #e65100 0%, #ff6d00 30%, #ff9100 60%, #ffab40 100%)',
+    primaryColor: '#ffffff',
+    secondaryColor: '#ffd700',
+    message: 'May the Sun God bless you with health, happiness, and abundant prosperity',
+    decorEmojis: ['☀️', '🙏', '🌊', '✨']
+  },
+  {
+    id: 'karwa-chauth',
+    name: 'Karwa Chauth',
+    emoji: '🌙',
+    category: 'regional',
+    gradient: 'linear-gradient(135deg, #880e4f 0%, #ad1457 30%, #c62828 60%, #e53935 100%)',
+    primaryColor: '#ffd700',
+    secondaryColor: '#ffffff',
+    message: 'Celebrating the beautiful bond of love, devotion, and togetherness',
+    decorEmojis: ['🌙', '💑', '🪔', '✨']
+  },
+  {
+    id: 'gudi-padwa',
+    name: 'Gudi Padwa',
+    emoji: '🚩',
+    category: 'regional',
+    gradient: 'linear-gradient(135deg, #e65100 0%, #f57c00 30%, #ff9800 60%, #ffc107 100%)',
+    primaryColor: '#ffffff',
+    secondaryColor: '#ffd700',
+    message: 'May this auspicious new year bring you success, happiness, and new beginnings',
+    decorEmojis: ['🚩', '🌿', '🥭', '✨']
+  },
+  {
+    id: 'dussehra',
+    name: 'Dussehra',
+    emoji: '🏹',
+    category: 'major',
+    gradient: 'linear-gradient(135deg, #b71c1c 0%, #c62828 30%, #e53935 60%, #ff5252 100%)',
+    primaryColor: '#ffd700',
+    secondaryColor: '#ffffff',
+    message: 'May the triumph of good over evil inspire you to conquer every challenge in life',
+    decorEmojis: ['🏹', '🔥', '⚔️', '✨']
+  },
+  {
+    id: 'ram-navami',
+    name: 'Ram Navami',
+    emoji: '🙏',
+    category: 'regional',
+    gradient: 'linear-gradient(135deg, #e65100 0%, #ff6d00 30%, #ff9100 60%, #ffd54f 100%)',
+    primaryColor: '#ffffff',
+    secondaryColor: '#ffd700',
+    message: 'May Lord Ram bless you with wisdom, courage, and righteousness',
+    decorEmojis: ['🙏', '🏹', '🪷', '✨']
+  },
+  {
+    id: 'hanuman-jayanti',
+    name: 'Hanuman Jayanti',
+    emoji: '🙏',
+    category: 'regional',
+    gradient: 'linear-gradient(135deg, #ff3d00 0%, #ff6e40 30%, #ff9e80 60%, #ffccbc 100%)',
+    primaryColor: '#ffffff',
+    secondaryColor: '#ffd700',
+    message: 'May Lord Hanuman bless you with strength, devotion, and fearlessness',
+    decorEmojis: ['🙏', '💪', '🚩', '✨']
+  },
+  {
+    id: 'maharashtra-day',
+    name: 'Maharashtra Day',
+    emoji: '🏛️',
+    category: 'regional',
+    gradient: 'linear-gradient(135deg, #ff6f00 0%, #ff8f00 30%, #ffa000 60%, #ffca28 100%)',
+    primaryColor: '#1a237e',
+    secondaryColor: '#ffffff',
+    message: 'Celebrating the pride, culture, and spirit of Maharashtra',
+    decorEmojis: ['🏛️', '🚩', '⭐', '✨']
+  },
+  {
+    id: 'buddha-purnima',
+    name: 'Buddha Purnima',
+    emoji: '🧘',
+    category: 'regional',
+    gradient: 'linear-gradient(135deg, #1565c0 0%, #42a5f5 30%, #90caf9 60%, #e3f2fd 100%)',
+    primaryColor: '#ffd700',
+    secondaryColor: '#ffffff',
+    message: 'May the wisdom of Lord Buddha guide you on the path of peace and enlightenment',
+    decorEmojis: ['🧘', '🪷', '☸️', '✨']
+  },
+  {
+    id: 'ambedkar-jayanti',
+    name: 'Ambedkar Jayanti',
+    emoji: '📘',
+    category: 'regional',
+    gradient: 'linear-gradient(135deg, #1565c0 0%, #1976d2 30%, #1e88e5 60%, #42a5f5 100%)',
+    primaryColor: '#ffffff',
+    secondaryColor: '#ffd700',
+    message: 'Honoring the architect of our constitution and champion of equality and justice',
+    decorEmojis: ['📘', '⚖️', '🇮🇳', '✨']
+  },
+  {
+    id: 'gandhi-jayanti',
+    name: 'Gandhi Jayanti',
+    emoji: '🕊️',
+    category: 'major',
+    gradient: 'linear-gradient(135deg, #e8eaf6 0%, #c5cae9 30%, #9fa8da 60%, #7986cb 100%)',
+    primaryColor: '#1a237e',
+    secondaryColor: '#4a148c',
+    message: 'Be the change you wish to see in the world - honoring the Father of our Nation',
+    decorEmojis: ['🕊️', '🙏', '🇮🇳', '✨']
+  },
+  {
+    id: 'teachers-day',
+    name: "Teachers' Day",
+    emoji: '📚',
+    category: 'regional',
+    gradient: 'linear-gradient(135deg, #4a148c 0%, #6a1b9a 30%, #7b1fa2 60%, #9c27b0 100%)',
+    primaryColor: '#ffd700',
+    secondaryColor: '#ffffff',
+    message: 'Honoring the mentors who shape minds, inspire dreams, and build futures',
+    decorEmojis: ['📚', '🎓', '🍎', '✨']
+  },
+  {
+    id: 'childrens-day',
+    name: "Children's Day",
+    emoji: '🧒',
+    category: 'regional',
+    gradient: 'linear-gradient(135deg, #00bcd4 0%, #26c6da 30%, #4dd0e1 60%, #80deea 100%)',
+    primaryColor: '#ffffff',
+    secondaryColor: '#ffeb3b',
+    message: 'Celebrating the joy, innocence, and endless possibilities of every child',
+    decorEmojis: ['🧒', '🎈', '🌈', '⭐']
   }
 ];
 
