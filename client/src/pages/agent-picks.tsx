@@ -888,7 +888,7 @@ export default function AgentPicksPage() {
                           </Badge>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {aiRecommendations.map((stock) => (
+                          {aiRecommendations.map((stock: AIStockRecommendation) => (
                             <Card
                               key={stock.id}
                               className={`cursor-pointer transition-all hover:shadow-lg ${selectedAIStock?.id === stock.id ? 'ring-2 ring-primary' : ''}`}
@@ -1846,7 +1846,7 @@ function PickCard({
 
             {showDetails && pick.keyMetrics && (
               <div className="mt-3 pt-3 border-t grid grid-cols-4 gap-2 text-xs">
-                {Object.entries(pick.keyMetrics).slice(0, 4).map(([key, value]) => (
+                {Object.entries(pick.keyMetrics).filter(([, value]) => typeof value !== 'object' || value === null).slice(0, 4).map(([key, value]) => (
                   <div key={key}>
                     <span className="text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1')}: </span>
                     <span className="font-medium">{typeof value === 'number' ? (value ?? 0).toFixed(2) : (value ?? '—')}</span>
