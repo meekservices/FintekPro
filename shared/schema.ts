@@ -31778,3 +31778,105 @@ export const brokerConfigurations = pgTable("broker_configurations", {
 export const insertBrokerConfigurationSchema = createInsertSchema(brokerConfigurations).omit({ id: true, createdAt: true, updatedAt: true });
 export type BrokerConfiguration = typeof brokerConfigurations.$inferSelect;
 export type InsertBrokerConfiguration = z.infer<typeof insertBrokerConfigurationSchema>;
+
+// ============================================================================
+// AI Alpha Engine - Batch 1: Backtesting, Regime Detection, Portfolio Optimization
+// ============================================================================
+
+// 1. ai_feature_snapshots - Daily frozen feature vectors for backtesting reproducibility
+export const aiFeatureSnapshots = pgTable("ai_feature_snapshots", {
+  id: serial("id").primaryKey(),
+  assetId: varchar("asset_id", { length: 100 }).notNull(),
+  assetClass: varchar("asset_class", { length: 50 }).notNull(),
+  snapshotDate: date("snapshot_date").notNull(),
+  featureJson: jsonb("feature_json").notNull(),
+  regimeLabel: varchar("regime_label", { length: 20 }),
+  scoringWeights: jsonb("scoring_weights"),
+  compositeScore: decimal("composite_score", { precision: 8, scale: 4 }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_ai_feature_snapshots_asset_date").on(table.assetId, table.snapshotDate),
+  index("idx_ai_feature_snapshots_date").on(table.snapshotDate),
+  index("idx_ai_feature_snapshots_class").on(table.assetClass),
+]);
+
+export const insertAiFeatureSnapshotSchema = createInsertSchema(aiFeatureSnapshots).omit({ id: true, createdAt: true });
+export type AiFeatureSnapshot = typeof aiFeatureSnapshots.$inferSelect;
+export type InsertAiFeatureSnapshot = z.infer<typeof insertAiFeatureSnapshotSchema>;
+
+// 2. ai_price_history - OHLCV data across all asset classes (not just screener stocks)
+export const aiPriceHistory = pgTable("ai_price_history", {
+  id: serial("id").primaryKey(),
+  assetId: varchar("asset_id", { length: 100 }).notNull(),
+  assetClass: varchar("asset_class", { length: 50 }).notNull(),
+  priceDate: date("price_date").notNull(),
+  open: decimal("open", { precision: 18, scale: 4 }),
+  high: decimal("high", { precision: 18, scale: 4 }),
+  low: decimal("low", { precision: 18, scale: 4 }),
+  close: decimal("close", { precision: 18, scale: 4 }).notNull(),
+  adjClose: decimal("adj_close", { precision: 18, scale: 4 }),
+  volume: decimal("volume", { precision: 20, scale: 0 }),
+  changePercent: decimal("change_percent", { precision: 10, scale: 4 }),
+  source: varchar("source", { length: 50 }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_ai_price_history_asset_date_unique").on(table.assetId, table.priceDate),
+  index("idx_ai_price_history_date").on(table.priceDate),
+  index("idx_ai_price_history_class").on(table.assetClass),
+]);
+
+export const insertAiPriceHistorySchema = createInsertSchema(aiPriceHistory).omit({ id: true, createdAt: true });
+export type AiPriceHistory = typeof aiPriceHistory.$inferSelect;
+export type InsertAiPriceHistory = z.infer<typeof insertAiPriceHistorySchema>;
+
+// 3. ai_regime_history - Daily market regime classifications
+export const aiRegimeHistory = pgTable("ai_regime_history", {
+  id: serial("id").primaryKey(),
+  regimeDate: date("regime_date").notNull().unique(),
+  regimeLabel: varchar("regime_label", { length: 20 }).notNull(),
+  confidence: decimal("confidence", { precision: 5, scale: 2 }).notNull(),
+  volatilityScore: decimal("volatility_score", { precision: 8, scale: 4 }),
+  breadthScore: decimal("breadth_score", { precision: 8, scale: 4 }),
+  trendScore: decimal("trend_score", { precision: 8, scale: 4 }),
+  momentumScore: decimal("momentum_score", { precision: 8, scale: 4 }),
+  signalDetails: jsonb("signal_details"),
+  niftyClose: decimal("nifty_close", { precision: 18, scale: 4 }),
+  niftyChange: decimal("nifty_change", { precision: 10, scale: 4 }),
+  indiaVix: decimal("india_vix", { precision: 8, scale: 4 }),
+  advanceDeclineRatio: decimal("advance_decline_ratio", { precision: 8, scale: 4 }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_ai_regime_history_date").on(table.regimeDate),
+  index("idx_ai_regime_history_label").on(table.regimeLabel),
+]);
+
+export const insertAiRegimeHistorySchema = createInsertSchema(aiRegimeHistory).omit({ id: true, createdAt: true });
+export type AiRegimeHistory = typeof aiRegimeHistory.$inferSelect;
+export type InsertAiRegimeHistory = z.infer<typeof insertAiRegimeHistorySchema>;
+
+// 4. ai_model_registry - Versioning scoring models and tracking performance
+export const aiModelRegistry = pgTable("ai_model_registry", {
+  id: serial("id").primaryKey(),
+  modelName: varchar("model_name", { length: 100 }).notNull(),
+  modelVersion: varchar("model_version", { length: 20 }).notNull(),
+  assetClass: varchar("asset_class", { length: 50 }),
+  modelType: varchar("model_type", { length: 50 }).notNull(),
+  parameters: jsonb("parameters").notNull(),
+  performanceMetrics: jsonb("performance_metrics"),
+  isActive: boolean("is_active").default(false),
+  activatedAt: timestamp("activated_at"),
+  deactivatedAt: timestamp("deactivated_at"),
+  trainedOnWindow: varchar("trained_on_window", { length: 50 }),
+  notes: text("notes"),
+  createdBy: varchar("created_by", { length: 50 }).default("system"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_ai_model_registry_name_version").on(table.modelName, table.modelVersion),
+  index("idx_ai_model_registry_active").on(table.isActive),
+  index("idx_ai_model_registry_class").on(table.assetClass),
+]);
+
+export const insertAiModelRegistrySchema = createInsertSchema(aiModelRegistry).omit({ id: true, createdAt: true, updatedAt: true });
+export type AiModelRegistry = typeof aiModelRegistry.$inferSelect;
+export type InsertAiModelRegistry = z.infer<typeof insertAiModelRegistrySchema>;

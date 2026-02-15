@@ -760,6 +760,25 @@ app.use((req, res, next) => {
 
   const { pickOfTheDayService } = await import('./services/pick-of-the-day-service');
   setTimeout(() => pickOfTheDayService.startDailyScheduler(), 60000);
+
+  // Register AI Alpha Engine routes (Backtesting, Regime Detection, Portfolio Optimization)
+  const aiAlphaEngineRoutes = await import('./routes/ai-alpha-engine');
+  app.use('/api/ai', aiAlphaEngineRoutes.default);
+  console.log('✅ AI Alpha Engine routes registered');
+
+  // Start AI Regime Detection scheduler (8:30 AM IST daily, before pick generation at 9:00 AM)
+  const { aiRegimeDetectionEngine } = await import('./services/ai-regime-detection-engine');
+  const cron = await import('node-cron');
+  cron.schedule('0 3 * * *', async () => {
+    console.log('[AI Regime] Running daily regime detection (8:30 AM IST / 3:00 AM UTC)...');
+    try {
+      const result = await aiRegimeDetectionEngine.detectCurrentRegime();
+      await aiRegimeDetectionEngine.persistRegime(result);
+      console.log(`[AI Regime] Detected: ${result.regimeLabel} (confidence: ${result.confidence.toFixed(1)}%)`);
+    } catch (error) {
+      console.error('[AI Regime] Detection failed:', error);
+    }
+  }, { timezone: 'UTC' });
   
   // Register MF Order Execution routes (SEBI-compliant buy/sell order management)
   const mfOrdersRoutes = await import('./routes/mf-orders');

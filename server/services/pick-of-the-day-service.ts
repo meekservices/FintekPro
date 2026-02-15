@@ -187,6 +187,44 @@ class PickOfTheDayService {
     return filtered;
   }
 
+  private applyRegimeAdjustments(picks: DailyPickData[], regime: string): void {
+    for (const pick of picks) {
+      if (!pick.keyMetrics) pick.keyMetrics = {};
+      (pick.keyMetrics as any).regime = regime;
+
+      switch (regime) {
+        case 'bear':
+          if (['listed_stocks', 'global_stocks', 'unlisted'].includes(pick.category)) {
+            pick.confidenceScore = Math.max(30, (pick.confidenceScore || 70) - 10);
+            pick.riskLevel = pick.riskLevel === 'low' ? 'medium' : pick.riskLevel === 'medium' ? 'high' : pick.riskLevel;
+          }
+          if (['bonds', 'sgb', 'fixed_deposits'].includes(pick.category)) {
+            pick.confidenceScore = Math.min(95, (pick.confidenceScore || 70) + 5);
+          }
+          break;
+
+        case 'bull':
+          if (['listed_stocks', 'etfs', 'global_stocks'].includes(pick.category)) {
+            pick.confidenceScore = Math.min(95, (pick.confidenceScore || 70) + 5);
+          }
+          break;
+
+        case 'high_vol':
+          if (['listed_stocks', 'global_stocks', 'derivatives'].includes(pick.category)) {
+            pick.confidenceScore = Math.max(30, (pick.confidenceScore || 70) - 15);
+            pick.riskLevel = 'high';
+          }
+          if (['bonds', 'sgb', 'fixed_deposits'].includes(pick.category)) {
+            pick.confidenceScore = Math.min(95, (pick.confidenceScore || 70) + 10);
+          }
+          break;
+
+        case 'sideways':
+          break;
+      }
+    }
+  }
+
   private getDynamicTargetStoploss(
     category: PickCategory,
     volatility?: number
@@ -324,6 +362,24 @@ class PickOfTheDayService {
       return existingPicks.map(this.transformPick);
     }
 
+    let currentRegime: string | null = null;
+    try {
+      const { aiRegimeDetectionEngine } = await import('./ai-regime-detection-engine');
+      const regime = await aiRegimeDetectionEngine.getCurrentRegime();
+      if (regime) {
+        currentRegime = regime.regimeLabel;
+        console.log(`[PickOfTheDay] Current market regime: ${currentRegime} (confidence: ${regime.confidence}%)`);
+      } else {
+        const detected = await aiRegimeDetectionEngine.detectCurrentRegime();
+        await aiRegimeDetectionEngine.persistRegime(detected);
+        currentRegime = detected.regimeLabel;
+        console.log(`[PickOfTheDay] Detected regime on-demand: ${currentRegime}`);
+      }
+    } catch (err) {
+      console.warn('[PickOfTheDay] Regime detection unavailable, proceeding without regime context');
+    }
+    (this as any)._currentRegime = currentRegime;
+
     this.clearRotationCache();
 
     const picks: DailyPickData[] = [];
@@ -358,11 +414,30 @@ class PickOfTheDayService {
     const derivativesPick = await this.generateDerivativesPick();
     if (derivativesPick) picks.push(derivativesPick);
 
+    if (currentRegime) {
+      this.applyRegimeAdjustments(picks, currentRegime);
+    }
+
     for (const pick of picks) {
       await this.savePick(pick);
     }
 
-    console.log(`✅ [PickOfTheDay] Generated ${picks.length} picks for ${today}`);
+    try {
+      const { aiBacktestingEngine } = await import('./ai-backtesting-engine');
+      for (const pick of picks) {
+        await aiBacktestingEngine.snapshotFeatures(
+          pick.instrumentId || pick.symbol || pick.instrumentName,
+          pick.category,
+          pick.keyMetrics || {},
+          currentRegime || undefined,
+          pick.confidenceScore
+        );
+      }
+    } catch (err) {
+      console.warn('[PickOfTheDay] Feature snapshot failed (non-critical):', err);
+    }
+
+    console.log(`✅ [PickOfTheDay] Generated ${picks.length} picks for ${today}${currentRegime ? ` (regime: ${currentRegime})` : ''}`);
     return picks;
   }
 
