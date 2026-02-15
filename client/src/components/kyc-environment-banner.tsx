@@ -40,12 +40,16 @@ export function KycEnvironmentBanner() {
         )}
       </div>
       <div className="flex items-center gap-2">
-        {data.providers && Object.entries(data.providers).map(([service, info]) => (
-          <div key={service} className="flex items-center gap-1">
-            <Wifi className={`h-3 w-3 ${info.status === 'active' ? 'text-green-600' : 'text-yellow-600'}`} />
-            <span className="text-xs capitalize">{service}: {info.provider}</span>
-          </div>
-        ))}
+        {data.providers && Object.entries(data.providers).map(([service, info]) => {
+          const statusColor = info.status === 'mock' ? 'text-red-500' : info.status === 'sandbox' ? 'text-yellow-600' : 'text-green-600';
+          const label = info.status === 'mock' ? 'Mock' : info.status === 'sandbox' ? 'Sandbox' : info.provider;
+          return (
+            <div key={service} className="flex items-center gap-1">
+              <Wifi className={`h-3 w-3 ${statusColor}`} />
+              <span className="text-xs capitalize">{service}: {label}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

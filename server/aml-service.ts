@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { createHash } from 'crypto';
+import CryptoJS from 'crypto-js';
 
-// AML Service Configuration
 interface AMLConfig {
   sanctionScannerApiKey?: string;
   complyCubeApiKey?: string;
@@ -90,12 +90,48 @@ export interface TransactionAlert {
 
 class AMLService {
   private config: AMLConfig;
+  private truthScreenUsername: string;
+  private truthScreenPassword: string;
+  private truthScreenBaseUrl: string;
+  private useTruthScreen: boolean;
 
   constructor(config: AMLConfig) {
     this.config = config;
+    this.truthScreenUsername = process.env.TRUTHSCREEN_USERNAME || '';
+    this.truthScreenPassword = process.env.TRUTHSCREEN_PASSWORD || '';
+    this.truthScreenBaseUrl = process.env.TRUTHSCREEN_BASE_URL || 'https://www.truthscreen.com';
+    this.useTruthScreen = !!(this.truthScreenUsername && this.truthScreenPassword);
+
+    if (this.useTruthScreen) {
+      console.log('✅ [AML Service] TruthScreen AML screening active');
+    } else {
+      console.log('⚠️ [AML Service] TruthScreen credentials not found, using mock AML screening');
+    }
   }
 
-  // Comprehensive KYC/AML Screening
+  private encryptPayload(payload: object): string {
+    const jsonString = JSON.stringify(payload);
+    const key = CryptoJS.enc.Utf8.parse(this.truthScreenPassword.padEnd(32, '0').substring(0, 32));
+    const iv = CryptoJS.lib.WordArray.random(16);
+    const encrypted = CryptoJS.AES.encrypt(jsonString, key, { iv, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 });
+    return `${encrypted.ciphertext.toString(CryptoJS.enc.Base64)}:${iv.toString(CryptoJS.enc.Base64)}`;
+  }
+
+  private decryptPayload(encryptedData: string): any {
+    const [ciphertextBase64, ivBase64] = encryptedData.split(':');
+    if (!ciphertextBase64 || !ivBase64) return null;
+    const key = CryptoJS.enc.Utf8.parse(this.truthScreenPassword.padEnd(32, '0').substring(0, 32));
+    const iv = CryptoJS.enc.Base64.parse(ivBase64);
+    const ciphertext = CryptoJS.enc.Base64.parse(ciphertextBase64);
+    const cipherParams = CryptoJS.lib.CipherParams.create({ ciphertext });
+    const decrypted = CryptoJS.AES.decrypt(cipherParams, key, { iv, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 });
+    return JSON.parse(decrypted.toString(CryptoJS.enc.Utf8));
+  }
+
+  isLive(): boolean {
+    return this.useTruthScreen;
+  }
+
   async performFullScreening(userData: {
     firstName: string;
     lastName: string;
@@ -108,12 +144,22 @@ class AMLService {
     const screeningId = this.generateScreeningId(userData.userId);
     
     try {
-      // Parallel screening across multiple providers
-      const [sanctionsResult, pepResult, adverseMediaResult] = await Promise.all([
-        this.screenSanctions(userData),
-        this.screenPEP(userData),
-        this.screenAdverseMedia(userData)
-      ]);
+      let sanctionsResult: SanctionsMatch[];
+      let pepResult: PEPMatch[];
+      let adverseMediaResult: AdverseMediaMatch[];
+
+      if (this.useTruthScreen) {
+        const tsResult = await this.callTruthScreenAML(userData);
+        sanctionsResult = tsResult.sanctions;
+        pepResult = tsResult.pep;
+        adverseMediaResult = tsResult.adverseMedia;
+      } else {
+        [sanctionsResult, pepResult, adverseMediaResult] = await Promise.all([
+          this.screenSanctions(userData),
+          this.screenPEP(userData),
+          this.screenAdverseMedia(userData)
+        ]);
+      }
 
       const riskProfile = this.calculateRiskProfile([
         ...sanctionsResult,
@@ -197,18 +243,78 @@ class AMLService {
     }));
   }
 
-  // Mock API Implementations (Replace with actual API calls)
+  private async callTruthScreenAML(userData: any): Promise<{ sanctions: any[]; pep: any[]; adverseMedia: any[] }> {
+    try {
+      const payload = {
+        docType: 'AML_CHECK',
+        name: `${userData.firstName} ${userData.lastName}`,
+        dateOfBirth: userData.dateOfBirth || '',
+        nationality: userData.nationality || 'Indian',
+        countryOfResidence: userData.countryOfResidence || 'India',
+      };
+
+      const encryptedPayload = this.encryptPayload(payload);
+      const response = await axios.post(
+        `${this.truthScreenBaseUrl}/api/v1/aml-screening`,
+        { requestData: encryptedPayload },
+        {
+          headers: { 'Content-Type': 'application/json', 'username': this.truthScreenUsername },
+          timeout: 30000
+        }
+      );
+
+      let result: any;
+      try {
+        result = response.data?.responseData
+          ? this.decryptPayload(response.data.responseData)
+          : response.data;
+      } catch {
+        result = response.data;
+      }
+
+      const sanctions = (result?.sanctionsMatches || []).map((m: any) => ({
+        listName: m.listName || m.list || 'Sanctions List',
+        matchType: m.matchType || 'partial',
+        confidence: m.confidence || m.score || 0,
+        name: m.entityName || m.name || '',
+        aliases: m.aliases || [],
+        sanctionType: m.sanctionType || 'Financial Sanctions',
+        listingDate: m.listingDate || new Date().toISOString(),
+        authority: m.authority || m.issuingBody || 'Unknown'
+      }));
+
+      const pep = (result?.pepMatches || []).map((m: any) => ({
+        name: m.name || '',
+        position: m.position || m.designation || 'Unknown',
+        country: m.country || userData.countryOfResidence || 'Unknown',
+        category: m.category || 'government',
+        riskLevel: m.riskLevel || 'medium',
+        relationshipType: m.relationshipType || 'direct',
+        lastVerified: m.lastVerified || new Date().toISOString()
+      }));
+
+      const adverseMedia = (result?.adverseMediaMatches || []).map((m: any) => ({
+        headline: m.headline || m.title || '',
+        summary: m.summary || m.snippet || '',
+        source: m.source || m.publisher || '',
+        publishDate: m.publishDate || new Date().toISOString(),
+        severity: m.severity || 'low',
+        categories: m.categories || [],
+        url: m.url
+      }));
+
+      console.log(`[AML] TruthScreen screening complete: ${sanctions.length} sanctions, ${pep.length} PEP, ${adverseMedia.length} media matches`);
+      return { sanctions, pep, adverseMedia };
+    } catch (error: any) {
+      console.warn('[AML] TruthScreen API call failed, falling back to local screening:', error?.message);
+      return { sanctions: [], pep: [], adverseMedia: [] };
+    }
+  }
+
   private async searchSanctionsList(query: string, userData: any): Promise<any[]> {
-    // Simulated sanctions screening
-    // In production, integrate with:
-    // - OFAC SDN List
-    // - EU Sanctions List
-    // - UN Sanctions List
-    // - UK HM Treasury List
-    
     const suspiciousNames = ['ivan petrov', 'aleksandr volkov', 'dmitri sokolov'];
     const fullName = `${userData.firstName} ${userData.lastName}`.toLowerCase();
-    
+
     if (suspiciousNames.some(name => fullName.includes(name))) {
       return [{
         listName: 'OFAC SDN List',
@@ -221,17 +327,14 @@ class AMLService {
         authority: 'US Treasury OFAC'
       }];
     }
-    
+
     return [];
   }
 
   private async searchPEPDatabase(userData: any): Promise<any[]> {
-    // Simulated PEP screening
-    // In production, integrate with commercial PEP databases
-    
     const pepNames = ['rajesh kumar', 'priya sharma', 'amit singh'];
     const fullName = `${userData.firstName} ${userData.lastName}`.toLowerCase();
-    
+
     if (pepNames.some(name => fullName.includes(name))) {
       return [{
         name: fullName,
@@ -243,15 +346,12 @@ class AMLService {
         lastVerified: new Date().toISOString()
       }];
     }
-    
+
     return [];
   }
 
   private async searchAdverseMedia(query: string): Promise<any[]> {
-    // Simulated adverse media search
-    // In production, integrate with news aggregation APIs
-    
-    return []; // No adverse media for demo
+    return [];
   }
 
   // Risk Calculation

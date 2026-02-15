@@ -35,6 +35,8 @@ class KycEnvironmentService {
       ? (process.env.KYC_ENVIRONMENT as KycEnvironment)
       : (process.env.NODE_ENV === 'production' ? 'production' : 'sandbox');
 
+    const hasTruthScreenCreds = !!(process.env.TRUTHSCREEN_USERNAME && process.env.TRUTHSCREEN_PASSWORD);
+
     this.flags = {
       environment: env,
       fixedOtpEnabled: env === 'sandbox',
@@ -43,13 +45,13 @@ class KycEnvironmentService {
       sandboxProviders: {
         pan: 'sandbox',
         aadhaar: 'sandbox',
-        ckyc: 'mock',
-        aml: 'mock',
+        ckyc: hasTruthScreenCreds ? 'sandbox' : 'mock',
+        aml: hasTruthScreenCreds ? 'sandbox' : 'mock',
       },
       prodProviders: {
         pan: process.env.KYC_PAN_PROVIDER || 'cashfree',
         aadhaar: process.env.KYC_AADHAAR_PROVIDER || 'authbridge',
-        ckyc: process.env.KYC_CKYC_PROVIDER || 'authbridge',
+        ckyc: process.env.KYC_CKYC_PROVIDER || 'truthscreen',
         aml: process.env.KYC_AML_PROVIDER || 'truthscreen',
       },
     };
@@ -58,6 +60,7 @@ class KycEnvironmentService {
     if (this.flags.fixedOtpEnabled) {
       console.log('   ⚠️ Fixed OTP enabled (sandbox mode)');
     }
+    console.log(`   CKYC: ${this.flags.sandboxProviders.ckyc} | AML: ${this.flags.sandboxProviders.aml} (TruthScreen creds: ${hasTruthScreenCreds ? 'found' : 'missing'})`);
   }
 
   getEnvironment(): KycEnvironment {
@@ -107,11 +110,16 @@ class KycEnvironmentService {
 
   getProviderStatus(): Record<string, { provider: string; status: string; environment: string }> {
     const providers = this.isSandbox() ? this.flags.sandboxProviders : this.flags.prodProviders;
+    const getStatus = (provider: string) => {
+      if (provider === 'mock') return 'mock';
+      if (provider === 'sandbox') return 'sandbox';
+      return 'active';
+    };
     return {
-      pan: { provider: providers.pan, status: 'active', environment: this.flags.environment },
-      aadhaar: { provider: providers.aadhaar, status: 'active', environment: this.flags.environment },
-      ckyc: { provider: providers.ckyc, status: providers.ckyc === 'mock' ? 'mock' : 'active', environment: this.flags.environment },
-      aml: { provider: providers.aml, status: providers.aml === 'mock' ? 'mock' : 'active', environment: this.flags.environment },
+      pan: { provider: providers.pan, status: getStatus(providers.pan), environment: this.flags.environment },
+      aadhaar: { provider: providers.aadhaar, status: getStatus(providers.aadhaar), environment: this.flags.environment },
+      ckyc: { provider: providers.ckyc, status: getStatus(providers.ckyc), environment: this.flags.environment },
+      aml: { provider: providers.aml, status: getStatus(providers.aml), environment: this.flags.environment },
     };
   }
 }
