@@ -8,6 +8,9 @@ import { kycWebhookService } from '../../services/kyc-webhook-service';
 import { kycEnvironmentService } from '../../services/kyc-environment-service';
 import { kycRateLimiterService } from '../../services/kyc-rate-limiter-service';
 import { kycEncryptionService } from '../../services/kyc-encryption-service';
+import { db } from '../../db';
+import { kycVerificationSessions, kycStepResets, kycAuditLogs } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 
 function hasRole(user: any, requiredRoles: string[]): boolean {
   if (!user) return false;
@@ -456,5 +459,210 @@ export function registerKycV2ExtensionRoutes(app: Express) {
     }
   });
 
-  console.log('✅ KYC v2 Extension routes registered (Video KYC, Maker-Checker, Rejection, Eligibility, Audit Pack, Webhooks, Environment, Rate Limits)');
+  // ============================================================
+  // AGENT KYC STEP RESET (BE-KYC-STEP-RESET)
+  // ============================================================
+
+  const KYC_STEP_DEPENDENCIES: Record<string, string[]> = {
+    pan_verification: [],
+    kra_status_check: ['pan_verification'],
+    aadhaar_otp: ['pan_verification'],
+    aadhaar_verification: ['pan_verification', 'aadhaar_otp'],
+    ckyc_upload: ['pan_verification', 'aadhaar_verification'],
+    ckyc_status: ['ckyc_upload'],
+    ucc_creation: ['pan_verification', 'aadhaar_verification'],
+    bank_verification: ['pan_verification'],
+    emandate_registration: ['bank_verification'],
+    risk_profiling: ['pan_verification'],
+  };
+
+  const STEP_RESET_REASON_CODES: Record<string, string> = {
+    DOCUMENT_MISMATCH: 'Document details do not match',
+    INCORRECT_DATA: 'Incorrect data entered by user',
+    EXPIRED_DOCUMENT: 'Document has expired',
+    VERIFICATION_FAILED: 'Third-party verification failed',
+    USER_REQUESTED: 'User requested to redo step',
+    COMPLIANCE_REVIEW: 'Step flagged during compliance review',
+    AGENT_OVERRIDE: 'Agent override for correction',
+  };
+
+  function findDownstreamSteps(step: string): string[] {
+    const downstream: string[] = [];
+    for (const [s, deps] of Object.entries(KYC_STEP_DEPENDENCIES)) {
+      if (s !== step && deps.includes(step)) {
+        downstream.push(s);
+        downstream.push(...findDownstreamSteps(s));
+      }
+    }
+    return [...new Set(downstream)];
+  }
+
+  app.get("/api/kyc/agent/step-reset/reasons", requireAdminOrAgent, async (_req: any, res) => {
+    res.json({ success: true, reasons: STEP_RESET_REASON_CODES });
+  });
+
+  app.get("/api/kyc/agent/step-reset/history/:sessionId", requireAdminOrAgent, async (req: any, res) => {
+    try {
+      const { sessionId } = req.params;
+      const resets = await db.select().from(kycStepResets)
+        .where(eq(kycStepResets.sessionId, sessionId))
+        .orderBy(kycStepResets.resetAt);
+      res.json({ success: true, resets });
+    } catch (error) {
+      res.status(500).json({ success: false, error: 'Failed to fetch reset history' });
+    }
+  });
+
+  app.get("/api/kyc/agent/step-reset/available/:sessionId", requireAdminOrAgent, async (req: any, res) => {
+    try {
+      const { sessionId } = req.params;
+      const [session] = await db.select().from(kycVerificationSessions)
+        .where(eq(kycVerificationSessions.id, sessionId));
+
+      if (!session) {
+        return res.status(404).json({ success: false, error: 'Session not found' });
+      }
+
+      const stepStatus = (session.stepStatus || {}) as Record<string, any>;
+      const resettableSteps: Array<{step: string; currentStatus: any; downstreamSteps: string[]}> = [];
+
+      for (const step of Object.keys(KYC_STEP_DEPENDENCIES)) {
+        const isCompleted = stepStatus[step] === true || 
+          stepStatus[`${step}_verified`] === true ||
+          stepStatus[`${step}_completed`] === true;
+
+        if (isCompleted) {
+          resettableSteps.push({
+            step,
+            currentStatus: stepStatus[step] ?? stepStatus[`${step}_verified`] ?? stepStatus[`${step}_completed`],
+            downstreamSteps: findDownstreamSteps(step).filter(ds => {
+              return stepStatus[ds] === true || stepStatus[`${ds}_verified`] === true || stepStatus[`${ds}_completed`] === true;
+            }),
+          });
+        }
+      }
+
+      res.json({ success: true, resettableSteps, sessionId });
+    } catch (error) {
+      res.status(500).json({ success: false, error: 'Failed to fetch resettable steps' });
+    }
+  });
+
+  app.post("/api/kyc/agent/step-reset", requireAdminOrAgent, async (req: any, res) => {
+    try {
+      const { sessionId, step, reason, reasonCode } = req.body;
+
+      if (!sessionId || !step || !reason || !reasonCode) {
+        return res.status(400).json({ success: false, error: 'sessionId, step, reason, and reasonCode are required' });
+      }
+
+      if (!KYC_STEP_DEPENDENCIES[step]) {
+        return res.status(400).json({ success: false, error: `Invalid KYC step: ${step}. Valid steps: ${Object.keys(KYC_STEP_DEPENDENCIES).join(', ')}` });
+      }
+
+      if (!STEP_RESET_REASON_CODES[reasonCode]) {
+        return res.status(400).json({ success: false, error: `Invalid reason code: ${reasonCode}. Valid codes: ${Object.keys(STEP_RESET_REASON_CODES).join(', ')}` });
+      }
+
+      const [session] = await db.select().from(kycVerificationSessions)
+        .where(eq(kycVerificationSessions.id, sessionId));
+
+      if (!session) {
+        return res.status(404).json({ success: false, error: 'KYC session not found' });
+      }
+
+      const stepStatus = (session.stepStatus || {}) as Record<string, any>;
+      const previousStatus: Record<string, any> = {};
+
+      const isCompleted = stepStatus[step] === true || 
+        stepStatus[`${step}_verified`] === true ||
+        stepStatus[`${step}_completed`] === true;
+
+      if (!isCompleted) {
+        return res.status(400).json({ success: false, error: `Step "${step}" is not completed and cannot be reset` });
+      }
+
+      const downstreamSteps = findDownstreamSteps(step);
+      const completedDownstream = downstreamSteps.filter(ds => {
+        return stepStatus[ds] === true || stepStatus[`${ds}_verified`] === true || stepStatus[`${ds}_completed`] === true;
+      });
+
+      const stepsToReset = [step, ...completedDownstream];
+      const updatedStepStatus = { ...stepStatus };
+
+      for (const s of stepsToReset) {
+        previousStatus[s] = {
+          [s]: updatedStepStatus[s],
+          [`${s}_verified`]: updatedStepStatus[`${s}_verified`],
+          [`${s}_completed`]: updatedStepStatus[`${s}_completed`],
+        };
+        delete updatedStepStatus[s];
+        delete updatedStepStatus[`${s}_verified`];
+        delete updatedStepStatus[`${s}_completed`];
+        updatedStepStatus[`${s}_reset`] = true;
+        updatedStepStatus[`${s}_reset_at`] = new Date().toISOString();
+        updatedStepStatus[`${s}_reset_by`] = req.user.id;
+      }
+
+      let resetFields: Record<string, any> = {};
+      if (stepsToReset.includes('pan_verification')) {
+        resetFields = { ...resetFields, panVerified: false, panVerifiedAt: null };
+      }
+      if (stepsToReset.includes('aadhaar_otp')) {
+        resetFields = { ...resetFields, aadhaarOtpSent: false, aadhaarOtpSentAt: null };
+      }
+      if (stepsToReset.includes('aadhaar_verification')) {
+        resetFields = { ...resetFields, aadhaarOtpVerified: false, aadhaarVerifiedAt: null };
+      }
+
+      await db.update(kycVerificationSessions)
+        .set({
+          stepStatus: updatedStepStatus,
+          currentStep: step,
+          ...resetFields,
+          updatedAt: new Date(),
+        })
+        .where(eq(kycVerificationSessions.id, sessionId));
+
+      const [resetRecord] = await db.insert(kycStepResets).values({
+        sessionId,
+        userId: session.userId || '',
+        step,
+        previousStatus,
+        resetBy: req.user.id,
+        resetByRole: req.user.role || req.user.roles?.[0] || 'agent',
+        reason,
+        reasonCode,
+        dependentStepsReset: completedDownstream,
+      }).returning();
+
+      await db.insert(kycAuditLogs).values({
+        userId: session.userId,
+        prospectId: session.prospectId,
+        createdByAgentId: req.user.id,
+        accessedBy: req.user.id,
+        accessType: 'write',
+        dataFieldsAccessed: { step, stepsReset: stepsToReset, reasonCode },
+        purpose: `Agent reset KYC step: ${step}. Reason: ${reason}`,
+        apiEndpoint: '/api/kyc/agent/step-reset',
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        accessStatus: 'success',
+        retentionDays: 2555,
+        regulatoryTag: 'SEBI',
+      });
+
+      res.json({
+        success: true,
+        resetId: resetRecord.id,
+        stepsReset: stepsToReset,
+        message: `Step "${step}" has been reset${completedDownstream.length > 0 ? ` along with ${completedDownstream.length} dependent step(s): ${completedDownstream.join(', ')}` : ''}. User can now redo this step.`,
+      });
+    } catch (error) {
+      console.error('[KYC Step Reset] Error:', error);
+      res.status(500).json({ success: false, error: 'Failed to reset KYC step' });
+    }
+  });
+
+  console.log('✅ KYC v2 Extension routes registered (Video KYC, Maker-Checker, Rejection, Eligibility, Audit Pack, Webhooks, Environment, Rate Limits, Agent Step Reset)');
 }

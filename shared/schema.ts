@@ -31052,6 +31052,31 @@ export const insertKycRejectionEventSchema = createInsertSchema(kycRejectionEven
 export type KycRejectionEvent = typeof kycRejectionEvents.$inferSelect;
 export type InsertKycRejectionEvent = z.infer<typeof insertKycRejectionEventSchema>;
 
+export const kycStepResets = pgTable("kyc_step_resets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => kycVerificationSessions.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  step: varchar("step").notNull(),
+  previousStatus: jsonb("previous_status"),
+  resetBy: varchar("reset_by").references(() => users.id).notNull(),
+  resetByRole: varchar("reset_by_role"),
+  reason: text("reason").notNull(),
+  reasonCode: varchar("reason_code").notNull(),
+  dependentStepsReset: text("dependent_steps_reset").array().default(sql`'{}'::text[]`),
+  resetAt: timestamp("reset_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_kyc_step_reset_session").on(table.sessionId),
+  index("idx_kyc_step_reset_user").on(table.userId),
+  index("idx_kyc_step_reset_step").on(table.step),
+]);
+
+export const insertKycStepResetSchema = createInsertSchema(kycStepResets).omit({
+  id: true, createdAt: true,
+});
+export type KycStepReset = typeof kycStepResets.$inferSelect;
+export type InsertKycStepReset = z.infer<typeof insertKycStepResetSchema>;
+
 // KYC Product Eligibility Rules (BE-KYC-014)
 export const kycProductEligibilityRules = pgTable("kyc_product_eligibility_rules", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

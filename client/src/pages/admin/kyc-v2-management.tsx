@@ -27,6 +27,7 @@ import {
   ThumbsDown,
   Hash,
   Info,
+  RotateCcw,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -52,6 +53,8 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -1108,6 +1111,308 @@ function EnvironmentStatusTab() {
   );
 }
 
+function StepResetTab() {
+  const { toast } = useToast();
+  const [sessionId, setSessionId] = useState("");
+  const [searchSessionId, setSearchSessionId] = useState("");
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [selectedStep, setSelectedStep] = useState<{step: string; downstreamSteps: string[]} | null>(null);
+  const [resetReason, setResetReason] = useState("");
+  const [resetReasonCode, setResetReasonCode] = useState("");
+
+  const { data: reasonsData } = useQuery<{success: boolean; reasons: Record<string, string>}>({
+    queryKey: ["/api/kyc/agent/step-reset/reasons"],
+  });
+
+  const { data: availableData, isLoading: availableLoading } = useQuery<{
+    success: boolean;
+    resettableSteps: Array<{step: string; currentStatus: any; downstreamSteps: string[]}>;
+    sessionId: string;
+  }>({
+    queryKey: ["/api/kyc/agent/step-reset/available", searchSessionId],
+    enabled: !!searchSessionId,
+  });
+
+  const { data: historyData, isLoading: historyLoading } = useQuery<{
+    success: boolean;
+    resets: Array<{
+      id: string;
+      step: string;
+      reason: string;
+      reasonCode: string;
+      resetBy: string;
+      resetByRole: string;
+      dependentStepsReset: string[];
+      resetAt: string;
+    }>;
+  }>({
+    queryKey: ["/api/kyc/agent/step-reset/history", searchSessionId],
+    enabled: !!searchSessionId,
+  });
+
+  const resetMutation = useMutation({
+    mutationFn: async (params: {sessionId: string; step: string; reason: string; reasonCode: string}) => {
+      return await apiRequest("/api/kyc/agent/step-reset", {
+        method: "POST",
+        body: JSON.stringify(params),
+      });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/kyc/agent/step-reset/available", searchSessionId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/kyc/agent/step-reset/history", searchSessionId] });
+      toast({ title: "Step Reset Successful", description: data.message || "The KYC step has been reset." });
+      setResetDialogOpen(false);
+      setSelectedStep(null);
+      setResetReason("");
+      setResetReasonCode("");
+    },
+    onError: (error: any) => {
+      toast({ title: "Reset Failed", description: error.message || "Failed to reset step.", variant: "destructive" });
+    },
+  });
+
+  const reasons = reasonsData?.reasons || {};
+  const resettableSteps = availableData?.resettableSteps || [];
+  const resetHistory = historyData?.resets || [];
+
+  const STEP_LABELS: Record<string, string> = {
+    pan_verification: "PAN Verification",
+    kra_status_check: "KRA Status Check",
+    aadhaar_otp: "Aadhaar OTP",
+    aadhaar_verification: "Aadhaar Verification",
+    ckyc_upload: "CKYC Upload",
+    ckyc_status: "CKYC Status",
+    ucc_creation: "UCC Creation",
+    bank_verification: "Bank Verification",
+    emandate_registration: "eMandate Registration",
+    risk_profiling: "Risk Profiling",
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <RotateCcw className="h-5 w-5" />
+            Agent KYC Step Reset
+          </CardTitle>
+          <CardDescription>
+            Reset individual KYC steps to allow users to redo them. Downstream dependent steps will be automatically cascade-reset.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-2">
+            <Input
+              placeholder="Enter KYC Session ID..."
+              value={sessionId}
+              onChange={(e) => setSessionId(e.target.value)}
+              className="flex-1"
+            />
+            <Button onClick={() => setSearchSessionId(sessionId)} disabled={!sessionId.trim()}>
+              <Search className="h-4 w-4 mr-1" />
+              Search
+            </Button>
+          </div>
+
+          {availableLoading && (
+            <div className="space-y-2">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+            </div>
+          )}
+
+          {searchSessionId && !availableLoading && resettableSteps.length === 0 && (
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertTitle>No Resettable Steps</AlertTitle>
+              <AlertDescription>
+                No completed steps found for this session, or the session does not exist.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {resettableSteps.length > 0 && (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Step</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Downstream Impact</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {resettableSteps.map((item) => (
+                  <TableRow key={item.step}>
+                    <TableCell className="font-medium">{STEP_LABELS[item.step] || item.step}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300">
+                        <CheckCircle className="h-3 w-3 mr-1" /> Completed
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {item.downstreamSteps.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {item.downstreamSteps.map(ds => (
+                            <Badge key={ds} variant="secondary" className="text-xs bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                              {STEP_LABELS[ds] || ds}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">None</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-amber-600 border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950"
+                        onClick={() => {
+                          setSelectedStep(item);
+                          setResetDialogOpen(true);
+                        }}
+                      >
+                        <RotateCcw className="h-3 w-3 mr-1" />
+                        Reset
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {searchSessionId && resetHistory.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Reset History
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Step</TableHead>
+                  <TableHead>Reason</TableHead>
+                  <TableHead>Cascade</TableHead>
+                  <TableHead>Reset By</TableHead>
+                  <TableHead>Date</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {resetHistory.map((reset) => (
+                  <TableRow key={reset.id}>
+                    <TableCell className="font-medium">{STEP_LABELS[reset.step] || reset.step}</TableCell>
+                    <TableCell>
+                      <div>
+                        <Badge variant="outline" className="text-xs">{reset.reasonCode}</Badge>
+                        <p className="text-xs text-muted-foreground mt-1">{reset.reason}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {reset.dependentStepsReset && reset.dependentStepsReset.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {reset.dependentStepsReset.map(ds => (
+                            <Badge key={ds} variant="secondary" className="text-xs">{STEP_LABELS[ds] || ds}</Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs">{reset.resetByRole || "agent"}</TableCell>
+                    <TableCell className="text-xs">{format(new Date(reset.resetAt), "dd MMM yyyy HH:mm")}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Reset KYC Step
+            </DialogTitle>
+            <DialogDescription>
+              This will reset <strong>{STEP_LABELS[selectedStep?.step || ""] || selectedStep?.step}</strong> and require the user to complete it again.
+              {selectedStep?.downstreamSteps && selectedStep.downstreamSteps.length > 0 && (
+                <span className="block mt-2 text-amber-600 dark:text-amber-400">
+                  {selectedStep.downstreamSteps.length} dependent step(s) will also be reset: {selectedStep.downstreamSteps.map(ds => STEP_LABELS[ds] || ds).join(", ")}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Reason Code</Label>
+              <Select value={resetReasonCode} onValueChange={setResetReasonCode}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a reason..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(reasons).map(([code, description]) => (
+                    <SelectItem key={code} value={code}>{code}: {description}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Detailed Reason</Label>
+              <Textarea
+                placeholder="Explain why this step needs to be reset..."
+                value={resetReason}
+                onChange={(e) => setResetReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetDialogOpen(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={!resetReasonCode || !resetReason.trim() || resetMutation.isPending}
+              onClick={() => {
+                if (selectedStep && searchSessionId) {
+                  resetMutation.mutate({
+                    sessionId: searchSessionId,
+                    step: selectedStep.step,
+                    reason: resetReason,
+                    reasonCode: resetReasonCode,
+                  });
+                }
+              }}
+            >
+              {resetMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  Resetting...
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="h-4 w-4 mr-1" />
+                  Confirm Reset
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 export default function KycV2ManagementPage() {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -1122,7 +1427,7 @@ export default function KycV2ManagementPage() {
       <EnvironmentBanner />
 
       <Tabs defaultValue="video-kyc" className="space-y-4">
-        <TabsList className="grid grid-cols-3 md:grid-cols-6 w-full">
+        <TabsList className="grid grid-cols-3 md:grid-cols-7 w-full">
           <TabsTrigger value="video-kyc" className="text-xs sm:text-sm">
             <Video className="h-4 w-4 mr-1 hidden sm:inline" />
             Video KYC
@@ -1146,6 +1451,10 @@ export default function KycV2ManagementPage() {
           <TabsTrigger value="environment" className="text-xs sm:text-sm">
             <Server className="h-4 w-4 mr-1 hidden sm:inline" />
             Environment
+          </TabsTrigger>
+          <TabsTrigger value="step-resets" className="text-xs sm:text-sm">
+            <RotateCcw className="h-4 w-4 mr-1 hidden sm:inline" />
+            Step Resets
           </TabsTrigger>
         </TabsList>
 
@@ -1171,6 +1480,10 @@ export default function KycV2ManagementPage() {
 
         <TabsContent value="environment">
           <EnvironmentStatusTab />
+        </TabsContent>
+
+        <TabsContent value="step-resets">
+          <StepResetTab />
         </TabsContent>
       </Tabs>
     </div>
