@@ -418,6 +418,32 @@ class PickOfTheDayService {
       this.applyRegimeAdjustments(picks, currentRegime);
     }
 
+    try {
+      const { aiMLScoringEngine } = await import('./ai-ml-scoring-engine');
+      for (const pick of picks) {
+        const features = pick.keyMetrics || {};
+        const numericFeatures: Record<string, number> = {};
+        for (const [k, v] of Object.entries(features)) {
+          if (typeof v === 'number') numericFeatures[k] = v;
+        }
+        if (Object.keys(numericFeatures).length > 0) {
+          const mlResult = await aiMLScoringEngine.score(
+            pick.instrumentId || pick.symbol || pick.instrumentName,
+            pick.category, numericFeatures, currentRegime || undefined
+          );
+          if (mlResult) {
+            pick.confidenceScore = Math.round(mlResult.confidence);
+            if (!pick.keyMetrics) pick.keyMetrics = {};
+            (pick.keyMetrics as any).mlPredictedReturn = mlResult.predictedReturn;
+            (pick.keyMetrics as any).mlModelVersion = mlResult.modelVersion;
+            (pick.keyMetrics as any).mlFeatureContributions = mlResult.featureContributions;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[PickOfTheDay] ML scoring unavailable, using rule-based scoring');
+    }
+
     for (const pick of picks) {
       await this.savePick(pick);
     }

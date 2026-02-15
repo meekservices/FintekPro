@@ -31880,3 +31880,73 @@ export const aiModelRegistry = pgTable("ai_model_registry", {
 export const insertAiModelRegistrySchema = createInsertSchema(aiModelRegistry).omit({ id: true, createdAt: true, updatedAt: true });
 export type AiModelRegistry = typeof aiModelRegistry.$inferSelect;
 export type InsertAiModelRegistry = z.infer<typeof insertAiModelRegistrySchema>;
+
+export const aiUserInteractions = pgTable("ai_user_interactions", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  pickId: integer("pick_id").references(() => dailyPicks.id).notNull(),
+  interactionType: varchar("interaction_type", { length: 30 }).notNull(),
+  metadata: jsonb("metadata"),
+  sessionId: varchar("session_id", { length: 100 }),
+  deviceType: varchar("device_type", { length: 20 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ai_user_interactions_user_pick").on(table.userId, table.pickId),
+  index("idx_ai_user_interactions_user_created").on(table.userId, table.createdAt),
+  index("idx_ai_user_interactions_type").on(table.interactionType),
+]);
+
+export const insertAiUserInteractionSchema = createInsertSchema(aiUserInteractions).omit({ id: true, createdAt: true });
+export type AiUserInteraction = typeof aiUserInteractions.$inferSelect;
+export type InsertAiUserInteraction = z.infer<typeof insertAiUserInteractionSchema>;
+
+export const aiUserProfiles = pgTable("ai_user_profiles", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  riskToleranceScore: decimal("risk_tolerance_score", { precision: 5, scale: 2 }),
+  engagementScore: decimal("engagement_score", { precision: 5, scale: 2 }),
+  preferredCategories: jsonb("preferred_categories"),
+  avgHoldingDays: decimal("avg_holding_days", { precision: 8, scale: 2 }),
+  avgInvestmentAmount: decimal("avg_investment_amount", { precision: 18, scale: 2 }),
+  totalInteractions: integer("total_interactions").default(0),
+  investmentCount: integer("investment_count").default(0),
+  profitableTradesRatio: decimal("profitable_trades_ratio", { precision: 5, scale: 2 }),
+  preferredRiskLevel: varchar("preferred_risk_level", { length: 20 }),
+  lastActiveAt: timestamp("last_active_at"),
+  profileVersion: integer("profile_version").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_ai_user_profiles_user").on(table.userId),
+  index("idx_ai_user_profiles_risk").on(table.riskToleranceScore),
+]);
+
+export const insertAiUserProfileSchema = createInsertSchema(aiUserProfiles).omit({ id: true, createdAt: true, updatedAt: true });
+export type AiUserProfile = typeof aiUserProfiles.$inferSelect;
+export type InsertAiUserProfile = z.infer<typeof insertAiUserProfileSchema>;
+
+export const aiPredictionLogs = pgTable("ai_prediction_logs", {
+  id: serial("id").primaryKey(),
+  pickId: integer("pick_id").references(() => dailyPicks.id),
+  modelName: varchar("model_name", { length: 100 }).notNull(),
+  modelVersion: varchar("model_version", { length: 20 }).notNull(),
+  assetClass: varchar("asset_class", { length: 50 }).notNull(),
+  predictedReturn: decimal("predicted_return", { precision: 10, scale: 4 }),
+  predictedConfidence: decimal("predicted_confidence", { precision: 5, scale: 2 }),
+  actualReturn: decimal("actual_return", { precision: 10, scale: 4 }),
+  featureVector: jsonb("feature_vector").notNull(),
+  predictionDate: date("prediction_date").notNull(),
+  outcomeDate: date("outcome_date"),
+  isCorrectDirection: boolean("is_correct_direction"),
+  driftScore: decimal("drift_score", { precision: 8, scale: 4 }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_ai_prediction_logs_model_date").on(table.modelName, table.predictionDate),
+  index("idx_ai_prediction_logs_pick").on(table.pickId),
+  index("idx_ai_prediction_logs_class").on(table.assetClass),
+  index("idx_ai_prediction_logs_date").on(table.predictionDate),
+]);
+
+export const insertAiPredictionLogSchema = createInsertSchema(aiPredictionLogs).omit({ id: true, createdAt: true });
+export type AiPredictionLog = typeof aiPredictionLogs.$inferSelect;
+export type InsertAiPredictionLog = z.infer<typeof insertAiPredictionLogSchema>;

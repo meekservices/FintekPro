@@ -779,6 +779,30 @@ app.use((req, res, next) => {
       console.error('[AI Regime] Detection failed:', error);
     }
   }, { timezone: 'UTC' });
+
+  // AI Model Governance check (8:00 AM IST / 2:30 AM UTC daily, before regime detection)
+  const { aiModelGovernance } = await import('./services/ai-model-governance');
+  cron.schedule('30 2 * * *', async () => {
+    console.log('[AI Governance] Running daily governance check (8:00 AM IST)...');
+    try {
+      await aiModelGovernance.updatePredictionOutcomes();
+      const summary = await aiModelGovernance.runGovernanceCheck();
+      console.log(`[AI Governance] Models: ${summary.healthyModels} healthy, ${summary.warningModels} warning, ${summary.criticalModels} critical`);
+      if (summary.modelsNeedingRetrain.length > 0) {
+        console.log(`[AI Governance] Auto-retraining: ${summary.modelsNeedingRetrain.join(', ')}`);
+        for (const assetClass of summary.modelsNeedingRetrain) {
+          try {
+            await aiModelGovernance.triggerRetrain(assetClass);
+            console.log(`[AI Governance] Retrained model for ${assetClass}`);
+          } catch (err) {
+            console.error(`[AI Governance] Retrain failed for ${assetClass}:`, err);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[AI Governance] Check failed:', error);
+    }
+  }, { timezone: 'UTC' });
   
   // Register MF Order Execution routes (SEBI-compliant buy/sell order management)
   const mfOrdersRoutes = await import('./routes/mf-orders');
