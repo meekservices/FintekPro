@@ -32,6 +32,18 @@ A Multi-Bank Account System supports up to 5 bank accounts per user (SEBI Circul
 
 The platform is undergoing service consolidation, including: UnifiedOrderNotificationService, Unified AI Recommendation Engine, Cache Services, MF Live Returns System, Benchmark Data Infrastructure (with AMFI and BSE parsers), and KYC Orchestrators (three-layer architecture with CKYC, Onboarding, and Workflow Orchestrators, extended with KYC Wizard v2). Enhancements include Proposal Builder enhancements, a Regulator-Grade PDF System, a Proposal Audit Trail System, a Database Enrichment Infrastructure, a MF Comprehensive Enrichment Pipeline, and a Lead Leakage Prevention & Detection System.
 
+### AI Alpha Engine — Batch 1 (Feb 2026)
+A regime-aware, backtest-validated, Sharpe-optimized AI engine for the Pick of the Day system. Native TypeScript implementation (no Python/MLflow/Redis). Key components:
+
+- **Core Analytics Module** (`server/services/ai-analytics-engine.ts`) - 24 quantitative methods using `simple-statistics`: Sharpe/Sortino/Calmar ratios, CAGR, Max Drawdown, rolling stats, z-scores, EMA, covariance/correlation matrices, portfolio variance, volatility clustering, trend strength, momentum, Indian market transaction cost modeling (brokerage, STT, exchange charges, GST, SEBI charges, stamp duty, slippage)
+- **Walk-Forward Backtesting Engine** (`server/services/ai-backtesting-engine.ts`) - Rolling window backtest with configurable 3M/6M/12M windows, transaction cost simulation, equity curve generation, monthly returns, per-asset-class and per-regime breakdown. Feature snapshot persistence for reproducibility (`ai_feature_snapshots` table)
+- **Market Regime Detection Engine** (`server/services/ai-regime-detection-engine.ts`) - Statistical regime classifier (bull/bear/sideways/high_vol) using 6 weighted signals: volatility clustering (0.25), trend strength (0.25), momentum (0.20), moving average crossover (0.15), VIX proxy (0.10), market breadth (0.05). Runs daily at 8:30 AM IST via node-cron before pick generation at 9:00 AM. Persists to `ai_regime_history` table
+- **Portfolio Optimization Engine** (`server/services/ai-portfolio-optimizer.ts`) - Mean-variance optimizer using gradient-ascent Sharpe maximization (100 iterations, 0.001 convergence). Constraints: max 25% per asset, min 2%, max 40% per asset class. Includes min-variance and equal-weight alternative portfolios, diversification scoring (0-100)
+- **AI Alpha Engine API** (`server/routes/ai-alpha-engine.ts`) - 12 endpoints at `/api/ai/*`: backtest, walk-forward, history, regime current/detect/history/distribution, optimized picks, diversification, model registry, health status
+- **Integration Flow**: 8:30 AM regime detection → 9:00 AM pick generation references regime → regime-based confidence adjustments (bear: -10 equity/+5 fixed income; high_vol: -15 equity/+10 fixed income; bull: +5 equity) → feature snapshots saved for backtesting
+- **Database Tables**: `ai_feature_snapshots`, `ai_price_history` (OHLCV all asset classes), `ai_regime_history`, `ai_model_registry` (model versioning)
+- **Planned Batch 2**: ML Scoring Engine, Explainable AI (SHAP), User Feedback Learning Loop, Model Governance & Drift Monitoring
+
 ### Formalized KYC Engine (Feb 2026)
 A rule-based KYC Orchestration Engine (`server/services/kyc-orchestration-engine.ts`) provides priority-based provider selection with automatic fallback routing. Key components:
 
